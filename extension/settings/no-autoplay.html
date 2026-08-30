@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Cosmic Gemini · No Autoplay</title>
+  <script src="../localization-data.js"></script>
   <link rel="stylesheet" href="../ui.css">
   <link rel="stylesheet" href="settings.css">
 </head>
@@ -17,6 +18,7 @@
       <nav class="feature-switch" aria-label="Cosmic Gemini">
         <a class="feature-link" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
         <a class="feature-link active" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="any-copy.html" data-feature-link="anyCopy"><span aria-hidden="true"></span></a>
       </nav>
     </div>
   </header>
@@ -28,9 +30,9 @@
           <label class="switch"><input id="enabled" type="checkbox"><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
-      <section class="card rule-card" data-list-section="strongRules">
-        <h2 data-i18n="strongSitesHeading"></h2>
-        <p data-i18n="autoplayStrongSitesHelp"></p>
+      <section class="card rule-card" data-list-section="enhancedRules">
+        <h2 data-i18n="enhancedSitesHeading"></h2>
+        <p data-i18n="autoplayEnhancedSitesHelp"></p>
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
       </section>
@@ -53,11 +55,12 @@
     </div>
     <aside class="help card">
       <h2 data-i18n="helpHeading"></h2>
-      <p data-i18n="autoplayHelpStandard"></p><p data-i18n="autoplayHelpStrong"></p><p data-i18n="autoplayHelpSound"></p>
+      <p data-i18n="autoplayHelpStandard"></p><p data-i18n="autoplayHelpEnhanced"></p><p data-i18n="autoplayHelpSound"></p>
       <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="privacyText"></p>
     </aside>
   </main>
   <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
+  <script src="preload.js"></script>
   <script type="module" src="page.js"></script>
 </body>
 </html>

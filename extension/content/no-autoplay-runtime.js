@@ -6,6 +6,13 @@
   const AUDIO_BLOCKED = 'cosmic-gemini:no-autoplay:audio-blocked';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.no-autoplay.runtime');
 
+  function randomToken() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    const bytes = new Uint8Array(18);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
   if (window[RUNTIME_KEY]) {
     window[RUNTIME_KEY].announce();
     return;
@@ -13,7 +20,7 @@
 
   class NoAutoplayRuntime {
     constructor() {
-      this.token = crypto.randomUUID();
+      this.token = randomToken();
       this.active = true;
       this.configured = false;
       this.mode = 'standard';
@@ -61,8 +68,8 @@
       const wasAudioAllowed = this.audioAllowed;
       this.configured = true;
       this.active = config.active === true;
-      this.mode = config.mode === 'strong' ? 'strong' : 'standard';
-      this.audioAllowed = config.audioAllowed === true && this.mode !== 'strong';
+      this.mode = config.mode === 'enhanced' ? 'enhanced' : 'standard';
+      this.audioAllowed = config.audioAllowed === true && this.mode !== 'enhanced';
       if (!this.active) {
         this.disableObserver();
         this.reported = false;
@@ -71,8 +78,8 @@
         this.resumePendingContexts();
         return;
       }
-      if (this.mode === 'strong') {
-        this.enableStrongObserver();
+      if (this.mode === 'enhanced') {
+        this.enableEnhancedObserver();
         this.removeMedia(document);
       } else {
         this.disableObserver();
@@ -108,7 +115,7 @@
           if (!runtime.shouldBlockAudioContext()) return Reflect.apply(original, this, []);
           runtime.rememberPendingContext(this, original);
           runtime.reportIntervention();
-          if (runtime.mode !== 'strong') runtime.reportAudioBlocked();
+          if (runtime.mode !== 'enhanced') runtime.reportAudioBlocked();
           try { void this.suspend(); } catch {}
           return Promise.resolve();
         };
@@ -119,7 +126,7 @@
               if (runtime.shouldBlockAudioContext()) {
                 runtime.rememberPendingContext(context, original);
                 runtime.reportIntervention();
-                if (runtime.mode !== 'strong') runtime.reportAudioBlocked();
+                if (runtime.mode !== 'enhanced') runtime.reportAudioBlocked();
                 try { void context.suspend(); } catch {}
               }
               return context;
@@ -156,7 +163,7 @@
 
     shouldBlockMedia(media) {
       if (!this.active) return false;
-      if (this.mode === 'strong') return true;
+      if (this.mode === 'enhanced') return true;
       if (this.hasUserIntent(media)) return false;
       if (media instanceof HTMLAudioElement && this.audioAllowed) return false;
       return true;
@@ -164,7 +171,7 @@
 
     shouldBlockAudioContext() {
       if (!this.active) return false;
-      if (this.mode === 'strong') return true;
+      if (this.mode === 'enhanced') return true;
       if (navigator.userActivation?.isActive) return false;
       return !this.audioAllowed;
     }
@@ -179,7 +186,7 @@
       try { Reflect.apply(this.originalPause, media, []); } catch {}
       try { media.removeAttribute('autoplay'); } catch {}
       this.reportIntervention();
-      if (this.mode === 'strong') {
+      if (this.mode === 'enhanced') {
         media.remove();
         return;
       }
@@ -196,7 +203,7 @@
       for (const media of document.querySelectorAll('video[autoplay],audio[autoplay]')) this.blockMedia(media);
     }
 
-    enableStrongObserver() {
+    enableEnhancedObserver() {
       if (this.observer || !document.documentElement) return;
       this.observer = new MutationObserver(this.onMutations);
       this.observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -208,7 +215,7 @@
     }
 
     onMutations(records) {
-      if (!this.active || this.mode !== 'strong') return;
+      if (!this.active || this.mode !== 'enhanced') return;
       for (const record of records) {
         for (const node of record.addedNodes) this.removeMedia(node);
       }
@@ -265,7 +272,7 @@
     }
 
     reportAudioBlocked() {
-      if (this.audioPrompted || !this.active || this.audioAllowed || this.mode === 'strong') return;
+      if (this.audioPrompted || !this.active || this.audioAllowed || this.mode === 'enhanced') return;
       this.audioPrompted = true;
       window.dispatchEvent(new CustomEvent(AUDIO_BLOCKED, { detail: this.token }));
     }

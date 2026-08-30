@@ -3,28 +3,33 @@ import test from 'node:test';
 import {
   DEFAULT_SETTINGS,
   FEATURE_IDS,
+  anyCopyState,
   featureState,
   hostnameFromUrl,
   matchingRule,
   normalizeRule,
   normalizeSettings,
   ruleMatches,
+  toggleRule,
   updateFeature
 } from '../extension/core/config.js';
 
-test('both products are enabled by default with site-specific rule lists', () => {
+test('all products start with independent site rule lists', () => {
   assert.deepEqual(normalizeSettings(), DEFAULT_SETTINGS);
-  assert.deepEqual(normalizeSettings().nativeScroll.strongRules, []);
+  assert.deepEqual(normalizeSettings().nativeScroll.enhancedRules, []);
   assert.deepEqual(normalizeSettings().noAutoplay.permanentAudioAllowRules, []);
+  assert.deepEqual(normalizeSettings().anyCopy.enforcedRules, []);
 });
 
 test('rules are normalized, deduplicated, and sorted by feature', () => {
   const settings = normalizeSettings({
     nativeScroll: { whitelistRules: ['B.example.com', '*.example.com', 'b.example.com'] },
-    noAutoplay: { strongRules: ['media.example.com'] }
+    noAutoplay: { enhancedRules: ['media.example.com'] },
+    anyCopy: { enforcedRules: ['copy.example.com'] }
   });
   assert.deepEqual(settings.nativeScroll.whitelistRules, ['*.example.com', 'b.example.com']);
-  assert.deepEqual(settings.noAutoplay.strongRules, ['media.example.com']);
+  assert.deepEqual(settings.noAutoplay.enhancedRules, ['media.example.com']);
+  assert.deepEqual(settings.anyCopy.enforcedRules, ['copy.example.com']);
 });
 
 test('exact and wildcard rules match their intended hostnames', () => {
@@ -42,18 +47,44 @@ test('rule parser rejects URLs, ports, paths, and misplaced wildcards', () => {
   }
 });
 
-test('whitelist takes priority over site-specific Strong mode', () => {
+test('whitelist takes priority over site-specific Enhanced mode', () => {
   const state = featureState({
     nativeScroll: {
       enabled: true,
       whitelistRules: ['*.example.com'],
-      strongRules: ['docs.example.com']
+      enhancedRules: ['docs.example.com']
     }
   }, FEATURE_IDS.NATIVE_SCROLL, 'https://docs.example.com/a');
   assert.equal(state.active, false);
   assert.equal(state.mode, 'standard');
   assert.equal(state.matchedWhitelistRule, '*.example.com');
-  assert.equal(state.matchedStrongRule, 'docs.example.com');
+  assert.equal(state.matchedEnhancedRule, 'docs.example.com');
+});
+
+test('Any Copy Enhanced rules can enable a site without a standard rule', () => {
+  const directEnhanced = anyCopyState({
+    anyCopy: { enforcedRules: [], enhancedRules: ['docs.example.com'] }
+  }, 'https://docs.example.com/a');
+  assert.equal(directEnhanced.active, true);
+  assert.equal(directEnhanced.mode, 'enhanced');
+  assert.equal(directEnhanced.exactEnforced, false);
+  assert.equal(directEnhanced.exactEnhanced, true);
+
+  const remainingEnhancedRules = toggleRule(directEnhanced.enhancedRules, 'docs.example.com');
+  const off = anyCopyState({ anyCopy: { enforcedRules: [], enhancedRules: remainingEnhancedRules } }, 'https://docs.example.com/a');
+  assert.equal(off.active, false);
+});
+
+test('Any Copy returns to standard when its standard rule remains', () => {
+  const enhanced = anyCopyState({
+    anyCopy: { enforcedRules: ['docs.example.com'], enhancedRules: ['docs.example.com'] }
+  }, 'https://docs.example.com');
+  assert.equal(enhanced.mode, 'enhanced');
+  const standard = anyCopyState({
+    anyCopy: { enforcedRules: ['docs.example.com'], enhancedRules: [] }
+  }, 'https://docs.example.com');
+  assert.equal(standard.active, true);
+  assert.equal(standard.mode, 'standard');
 });
 
 test('No Autoplay sound permission applies without allowing the feature whitelist', () => {
@@ -61,7 +92,7 @@ test('No Autoplay sound permission applies without allowing the feature whitelis
     noAutoplay: {
       enabled: true,
       permanentAudioAllowRules: ['*.music.example'],
-      strongRules: [],
+      enhancedRules: [],
       whitelistRules: []
     }
   };
@@ -72,11 +103,12 @@ test('No Autoplay sound permission applies without allowing the feature whitelis
   assert.equal(temporary.audioAllowed, true);
 });
 
-test('feature updates do not mutate the other product', () => {
+test('feature updates do not mutate other products', () => {
   const current = normalizeSettings();
   const next = updateFeature(current, FEATURE_IDS.NATIVE_SCROLL, feature => ({ ...feature, enabled: false }));
   assert.equal(next.nativeScroll.enabled, false);
   assert.deepEqual(next.noAutoplay, current.noAutoplay);
+  assert.deepEqual(next.anyCopy, current.anyCopy);
 });
 
 test('only HTTP and HTTPS pages expose a hostname', () => {

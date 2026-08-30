@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.2 — 2026-08-30
+
+- Removed the delayed blank frame and duplicate initial rendering from Settings.
+- Applied the selected interface language before the first visible settings frame and kept product switching stable.
+
+## 1.1.1 — 2026-08-29
+
+- Prevented disallowed `unload` listener registrations from appearing as Native Scroll extension errors.
+- Safely handled tabs that close while Cosmic Gemini refreshes page settings or toolbar state.
+
+## 1.1.0 — 2026-08-29
+
+- Added Any Copy with per-site selection and clipboard restoration.
+- Added Enhanced Any Copy reading views and direct off-to-Enhanced mode transitions.
+- Renamed Strong mode and Strong sites to Enhanced mode and Enhanced sites throughout the current interface and implementation.
+- Added three-state Native Scroll and No Autoplay indicators, plus the green site-active state for Any Copy.
+- Updated the extension description to “A personal toolkit for the web.”
+
 ## 1.0.0 — 2026-08-29
 
 - Introduced Cosmic Gemini as the shared extension for Native Scroll and No Autoplay.

@@ -5,8 +5,12 @@ body { width: 230px; }
 .feature-list { display: grid; gap: 5px; }
 .feature-row { display: grid; grid-template-columns: 34px 1fr; gap: 7px; align-items: center; }
 .feature-row + .feature-row { padding-top: 5px; border-top: 1px solid var(--line); }
-.feature-status { display: grid; width: 34px; height: 34px; place-items: center; color: var(--muted); transition: color 150ms ease; }
-.feature-status[data-active="true"] { color: var(--success); }
+.feature-status { --icon-surface: var(--surface); display: grid; width: 34px; height: 34px; padding: 0; place-items: center; border: 0; border-radius: 9px; background: transparent; color: var(--muted); transition: color 150ms ease; }
+.feature-status[data-state="on"] { color: var(--blue); }
+.feature-status[data-state="active"] { color: var(--success); }
+.feature-toggle { cursor: pointer; }
+.feature-toggle:hover { --icon-surface: var(--surface-raised); background: var(--surface-raised); }
 .feature-status svg { width: 21px; height: 21px; }
 .actions { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
-[data-action="strong"][aria-pressed="true"] { color: var(--blue); }
+[data-action="enhanced"][aria-pressed="true"] { color: var(--blue); }
+.action-placeholder { width: 34px; height: 34px; }

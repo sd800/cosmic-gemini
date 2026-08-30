@@ -1,41 +1,51 @@
 import { loadLocale, saveLocale } from '../core/locale.js';
 import { localizeDocument, translator } from '../localization.js';
 import { icon, send } from '../ui.js';
+import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
 
 const root = document.documentElement;
-const featureId = document.body.dataset.feature;
-const product = featureId === 'noAutoplay' ? 'No Autoplay' : 'Native Scroll';
-const enabled = document.querySelector('#enabled');
-const language = document.querySelector('#language');
+const primary = document.querySelector('.primary');
+const helpPanel = document.querySelector('.help');
 const emptyKey = {
-  strongRules: 'emptyStrongSites',
+  enhancedRules: 'emptyEnhancedSites',
   whitelistRules: 'emptyWhitelist',
-  permanentAudioAllowRules: 'emptyAudioAllow'
+  permanentAudioAllowRules: 'emptyAudioAllow',
+  enforcedRules: 'emptyEnforcedSites'
 };
-let locale = await loadLocale();
+let featureId = featureFromPath(location.pathname);
+let locale = root.lang === 'zh-CN' ? 'zh-CN' : 'en-US';
 let t = translator(locale);
-let state;
+let states = null;
+
+function state() {
+  return states?.[featureId] || null;
+}
 
 function applyLocale() {
   root.lang = locale;
   t = translator(locale);
   localizeDocument(t);
-  document.title = 'Cosmic Gemini · ' + product;
-  language.value = locale;
+  document.title = 'Cosmic Gemini · ' + PRODUCT_META[featureId].name;
+  const language = document.querySelector('#language');
+  if (language) language.value = locale;
   document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
-  const nativeLink = document.querySelector('[data-feature-link="nativeScroll"]');
-  const autoplayLink = document.querySelector('[data-feature-link="noAutoplay"]');
-  nativeLink.title = t('switchNativeSettings');
-  nativeLink.setAttribute('aria-label', nativeLink.title);
-  autoplayLink.title = t('switchAutoplaySettings');
-  autoplayLink.setAttribute('aria-label', autoplayLink.title);
-  if (state) render();
+  const titles = {
+    nativeScroll: 'switchNativeSettings',
+    noAutoplay: 'switchAutoplaySettings',
+    anyCopy: 'switchAnyCopySettings'
+  };
+  for (const link of document.querySelectorAll('[data-feature-link]')) {
+    link.title = t(titles[link.dataset.featureLink]);
+    link.setAttribute('aria-label', link.title);
+  }
 }
 
 function renderList(section) {
+  const current = state();
+  if (!current) return;
   const listName = section.dataset.listSection;
   const list = section.querySelector('.rule-list');
-  const rules = state[listName] || [];
+  const rules = current[listName] || [];
   list.replaceChildren();
   if (!rules.length) {
     const empty = document.createElement('li');
@@ -63,59 +73,99 @@ function renderList(section) {
 }
 
 function render() {
-  enabled.checked = state.enabled;
+  const current = state();
+  if (!current) return;
+  const enabled = document.querySelector('#enabled');
+  if (enabled) enabled.checked = current.enabled;
   for (const section of document.querySelectorAll('[data-list-section]')) renderList(section);
 }
 
 async function reload() {
-  const result = await send({ type: 'UI_GET', url: '' });
-  state = result[featureId];
+  states = await send({ type: 'UI_GET', url: '' });
   render();
 }
 
 async function update(section, task) {
   const message = section?.querySelector('.form-message');
   if (message) message.textContent = '';
-  try {
-    await task();
-    await reload();
-  } catch { if (message) message.textContent = t('unavailable'); }
+  try { await task(); await reload(); }
+  catch { if (message?.isConnected) message.textContent = t('unavailable'); }
 }
 
-enabled.addEventListener('change', () => void update(null, () => send({
-  type: 'UI_SET_ENABLED', featureId, enabled: enabled.checked
-})));
+function bindView() {
+  const enabled = document.querySelector('#enabled');
+  if (enabled) enabled.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_ENABLED', featureId, enabled: enabled.checked
+  })));
 
-for (const section of document.querySelectorAll('[data-list-section]')) {
-  const form = section.querySelector('.rule-form');
-  const input = form.querySelector('input');
-  const message = section.querySelector('.form-message');
-  const listName = section.dataset.listSection;
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-    const rule = input.value.trim().toLowerCase();
-    if (!rule) { message.textContent = t('invalidRule'); return; }
-    if ((state[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
-    void (async () => {
-      message.textContent = '';
-      try {
-        await send({ type: 'UI_ADD_RULE', featureId, listName, rule });
-        input.value = '';
-        await reload();
-      } catch { message.textContent = t('invalidRule'); }
-    })();
-  });
+  for (const section of document.querySelectorAll('[data-list-section]')) {
+    const form = section.querySelector('.rule-form');
+    const input = form.querySelector('input');
+    const message = section.querySelector('.form-message');
+    const listName = section.dataset.listSection;
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const rule = input.value.trim().toLowerCase();
+      if (!rule) { message.textContent = t('invalidRule'); return; }
+      if ((state()?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
+      void (async () => {
+        message.textContent = '';
+        try {
+          await send({ type: 'UI_ADD_RULE', featureId, listName, rule });
+          input.value = '';
+          await reload();
+        } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
+      })();
+    });
+  }
+
+  document.querySelector('#language').addEventListener('change', event => void (async () => {
+    locale = await saveLocale(event.currentTarget.value);
+    applyLocale();
+    render();
+  })());
 }
 
-language.addEventListener('change', () => void (async () => {
-  locale = await saveLocale(language.value);
+function mountView(replace = true) {
+  document.body.dataset.feature = featureId;
+  document.querySelector('.wordmark strong').textContent = PRODUCT_META[featureId].name;
+  if (replace) {
+    const view = viewFor(featureId);
+    primary.innerHTML = view.primary;
+    helpPanel.innerHTML = view.help;
+  }
+  for (const link of document.querySelectorAll('[data-feature-link]')) {
+    link.classList.toggle('active', link.dataset.featureLink === featureId);
+    if (link.dataset.featureLink === featureId) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
   applyLocale();
-})());
+  bindView();
+  render();
+}
 
 for (const link of document.querySelectorAll('[data-feature-link]')) {
   link.querySelector('span').innerHTML = icon(link.dataset.featureLink);
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    const nextFeature = event.currentTarget.dataset.featureLink;
+    if (!PRODUCT_META[nextFeature] || nextFeature === featureId) return;
+    featureId = nextFeature;
+    history.pushState({ featureId }, '', PRODUCT_META[featureId].path);
+    mountView();
+  });
 }
 
-applyLocale();
-root.dataset.localePending = 'false';
+window.addEventListener('popstate', () => {
+  featureId = featureFromPath(location.pathname);
+  mountView();
+});
+
+mountView(false);
+const storedLocale = await loadLocale();
+if (storedLocale !== locale) {
+  locale = storedLocale;
+  applyLocale();
+  render();
+}
 try { await reload(); } catch {}

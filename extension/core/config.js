@@ -3,21 +3,26 @@ export const LEGACY_SETTINGS_KEY = 'settings';
 
 export const FEATURE_IDS = Object.freeze({
   NATIVE_SCROLL: 'nativeScroll',
-  NO_AUTOPLAY: 'noAutoplay'
+  NO_AUTOPLAY: 'noAutoplay',
+  ANY_COPY: 'anyCopy'
 });
 
 const DEFAULT_FEATURE = Object.freeze({
   enabled: true,
   whitelistRules: Object.freeze([]),
-  strongRules: Object.freeze([])
+  enhancedRules: Object.freeze([])
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 2,
+  version: 3,
   nativeScroll: DEFAULT_FEATURE,
   noAutoplay: Object.freeze({
     ...DEFAULT_FEATURE,
     permanentAudioAllowRules: Object.freeze([])
+  }),
+  anyCopy: Object.freeze({
+    enforcedRules: Object.freeze([]),
+    enhancedRules: Object.freeze([])
   })
 });
 
@@ -66,7 +71,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
   const normalized = {
     enabled: value.enabled !== false,
     whitelistRules: normalizeRules(value.whitelistRules ?? value.whitelist),
-    strongRules: normalizeRules(value.strongRules)
+    enhancedRules: normalizeRules(value.enhancedRules)
   };
   if (includeAudioRules) normalized.permanentAudioAllowRules = normalizeRules(value.permanentAudioAllowRules);
   return normalized;
@@ -75,12 +80,16 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 export function normalizeSettings(value = {}) {
   const legacy = value.version === 1 && ('enabled' in value || 'whitelist' in value || 'mode' in value);
   const nativeValue = legacy
-    ? { enabled: value.enabled, whitelistRules: value.whitelist, strongRules: [] }
+    ? { enabled: value.enabled, whitelistRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 2,
+    version: 3,
     nativeScroll: normalizeFeature(nativeValue || {}, false),
-    noAutoplay: normalizeFeature(value.noAutoplay || {}, true)
+    noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
+    anyCopy: {
+      enforcedRules: normalizeRules(value.anyCopy?.enforcedRules),
+      enhancedRules: normalizeRules(value.anyCopy?.enhancedRules)
+    }
   };
 }
 
@@ -98,6 +107,14 @@ export function matchingRule(hostname, rules) {
   return (Array.isArray(rules) ? rules : []).find(rule => ruleMatches(hostname, rule)) || '';
 }
 
+export function toggleRule(rules, rule) {
+  const current = normalizeRules(rules);
+  const normalized = normalizeRule(rule);
+  return current.includes(normalized)
+    ? current.filter(item => item !== normalized)
+    : normalizeRules([...current, normalized]);
+}
+
 export function hostnameFromUrl(value) {
   try {
     const url = new URL(value);
@@ -111,7 +128,7 @@ export function featureState(settings, featureId, url, temporaryAudioAllowed = f
   if (!feature) throw new Error('Unknown feature.');
   const hostname = hostnameFromUrl(url);
   const matchedWhitelistRule = hostname ? matchingRule(hostname, feature.whitelistRules) : '';
-  const matchedStrongRule = hostname ? matchingRule(hostname, feature.strongRules) : '';
+  const matchedEnhancedRule = hostname ? matchingRule(hostname, feature.enhancedRules) : '';
   const matchedAudioRule = featureId === FEATURE_IDS.NO_AUTOPLAY && hostname
     ? matchingRule(hostname, feature.permanentAudioAllowRules)
     : '';
@@ -121,11 +138,11 @@ export function featureState(settings, featureId, url, temporaryAudioAllowed = f
     hostname,
     supported: !!hostname,
     active,
-    mode: active && matchedStrongRule ? 'strong' : 'standard',
+    mode: active && matchedEnhancedRule ? 'enhanced' : 'standard',
     matchedWhitelistRule,
     exactWhitelisted: !!hostname && feature.whitelistRules.includes(hostname),
-    matchedStrongRule,
-    exactStrong: !!hostname && feature.strongRules.includes(hostname),
+    matchedEnhancedRule,
+    exactEnhanced: !!hostname && feature.enhancedRules.includes(hostname),
     audioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY
       ? active && (!!matchedAudioRule || temporaryAudioAllowed)
       : false,
@@ -133,6 +150,27 @@ export function featureState(settings, featureId, url, temporaryAudioAllowed = f
     exactAudioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY && !!hostname
       ? feature.permanentAudioAllowRules.includes(hostname)
       : false
+  };
+}
+
+export function anyCopyState(settings, url) {
+  const normalized = normalizeSettings(settings);
+  const feature = normalized.anyCopy;
+  const hostname = hostnameFromUrl(url);
+  const matchedEnforcedRule = hostname ? matchingRule(hostname, feature.enforcedRules) : '';
+  const matchedEnhancedRule = hostname ? matchingRule(hostname, feature.enhancedRules) : '';
+  const active = !!hostname && !!(matchedEnforcedRule || matchedEnhancedRule);
+  return {
+    ...feature,
+    hostname,
+    supported: !!hostname,
+    active,
+    enabled: active,
+    mode: matchedEnhancedRule ? 'enhanced' : 'standard',
+    matchedEnforcedRule,
+    exactEnforced: !!hostname && feature.enforcedRules.includes(hostname),
+    matchedEnhancedRule,
+    exactEnhanced: !!hostname && feature.enhancedRules.includes(hostname)
   };
 }
 

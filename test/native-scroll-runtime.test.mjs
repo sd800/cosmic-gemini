@@ -72,7 +72,7 @@ function makeContext() {
     window, document, EventTarget: SimpleEventTarget, Element: FakeElement,
     MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
     WeakMap, WeakRef, Map, Set, Symbol, JSON, Reflect, Number, String, Math,
-    crypto: { randomUUID: () => 'runtime-token' }, performance: { now: () => 100 },
+    crypto: { getRandomValues: values => { values.fill(7); return values; } }, performance: { now: () => 100 },
     innerWidth: 800, innerHeight: 800,
     requestAnimationFrame: callback => { callback(); return 1; }, cancelAnimationFrame: () => {},
     getComputedStyle: element => ({ scrollBehavior: 'auto', scrollSnapType: 'none', overflowY: 'visible', position: 'static', transform: 'none', ...element.computed })
@@ -96,7 +96,7 @@ test('Native Scroll stays quiet on native pages and suppresses registered takeov
   const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
-  runtime.onConfigure({ detail: JSON.stringify({ token: 'runtime-token', config: { active: true, mode: 'standard' } }) });
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
   const nativeEvent = wheelEvent(context);
   runtime.onWheel(nativeEvent);
   assert.equal(nativeEvent.stopped, false);
@@ -107,4 +107,18 @@ test('Native Scroll stays quiet on native pages and suppresses registered takeov
   runtime.onWheel(hijackedEvent);
   assert.equal(hijackedEvent.stopped, true);
   assert.equal(interventions, 1);
+});
+
+test('Native Scroll skips unload listeners when the document policy disallows them', async () => {
+  const context = makeContext();
+  context.document.permissionsPolicy = {
+    allowsFeature: feature => feature !== 'unload'
+  };
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const listener = () => {};
+  context.window.addEventListener('unload', listener);
+  assert.equal(context.window.listeners.has('unload'), false);
+  context.window.addEventListener('load', listener);
+  assert.equal(context.window.listeners.get('load').includes(listener), true);
 });

@@ -4,6 +4,7 @@ export function icon(name) {
     bolt: '<path d="m13 2-8 11h7l-1 9 8-12h-7z"/>',
     nativeScroll: '<path d="M12 3v18M7.5 7.5 12 3l4.5 4.5M7.5 16.5 12 21l4.5-4.5"/>',
     noAutoplay: '<path d="M6 5v14l10-7z"/><path d="M21 18A4 4 0 1 1 17 14a3.3 3.3 0 0 0 4 4Z" fill="currentColor" stroke="none"/>',
+    anyCopy: '<rect x="8" y="7" width="12" height="12" rx="2"/><rect x="4" y="3" width="12" height="12" rx="2" fill="var(--icon-surface, var(--surface))"/>',
     siteAdd: '<rect x="4" y="4" width="14" height="14" rx="2"/><path d="M4 8h14M7 6h.01M10 6h.01"/><circle cx="17.5" cy="17.5" r="3.5" fill="currentColor" stroke="none"/><path d="M17.5 15.5v4M15.5 17.5h4" stroke="var(--surface)"/>',
     siteRemove: '<rect x="4" y="4" width="14" height="14" rx="2"/><path d="M4 8h14M7 6h.01M10 6h.01"/><circle cx="17.5" cy="17.5" r="3.5" fill="currentColor" stroke="none"/><path d="M15.5 17.5h4" stroke="var(--surface)"/>',
     siteCovered: '<rect x="4" y="4" width="14" height="14" rx="2"/><path d="M4 8h14M7 6h.01M10 6h.01"/><circle cx="17.5" cy="17.5" r="3.5" fill="currentColor" stroke="none"/><path d="m15.6 17.5 1.3 1.3 2.5-2.8" stroke="var(--surface)"/>',

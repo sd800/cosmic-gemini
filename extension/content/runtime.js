@@ -5,6 +5,13 @@
   const SUPPRESSED = 'cosmic-gemini:native-scroll:suppressed';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.native-scroll.runtime');
 
+  function randomToken() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    const bytes = new Uint8Array(18);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
   if (window[RUNTIME_KEY]) {
     window[RUNTIME_KEY].announce();
     return;
@@ -22,7 +29,7 @@
 
   class NativeScrollRuntime {
     constructor() {
-      this.token = crypto.randomUUID();
+      this.token = randomToken();
       this.active = false;
       this.mode = 'standard';
       this.reported = false;
@@ -65,7 +72,7 @@
       if (message?.token !== this.token) return;
       const config = message.config || {};
       const shouldRun = config.active === true;
-      const mode = config.mode === 'strong' ? 'strong' : 'standard';
+      const mode = config.mode === 'enhanced' ? 'enhanced' : 'standard';
       if (!shouldRun) {
         this.disable();
         return;
@@ -161,7 +168,7 @@
         this.style.dataset.nativeScroll = 'runtime';
         (document.head || document.documentElement).append(this.style);
       }
-      const stylesheet = this.mode === 'strong'
+      const stylesheet = this.mode === 'enhanced'
         ? ':root,body,*{scroll-behavior:auto!important;scroll-snap-type:none!important}:root,body{height:auto!important;overflow-y:auto!important;overscroll-behavior:auto!important}'
         : ':root,body{scroll-behavior:auto!important;scroll-snap-type:none!important;overscroll-behavior:auto!important}';
       if (this.style.textContent !== stylesheet) this.style.textContent = stylesheet;
@@ -174,13 +181,13 @@
         this.setStyle(root, 'scroll-behavior', 'auto');
         this.setStyle(root, 'scroll-snap-type', 'none');
         this.setStyle(root, 'overscroll-behavior', 'auto');
-        if (this.mode === 'strong') {
+        if (this.mode === 'enhanced') {
           if (['hidden', 'clip'].includes(computed.overflowY)) this.reportSuppression();
           this.setStyle(root, 'height', 'auto');
           this.setStyle(root, 'overflow-y', 'auto');
         }
       }
-      if (this.mode === 'strong') this.normalizeTransformScroller();
+      if (this.mode === 'enhanced') this.normalizeTransformScroller();
     }
 
     setStyle(element, property, value) {
@@ -247,6 +254,7 @@
       const originalAdd = this.originalAddEventListener;
       const originalRemove = this.originalRemoveEventListener;
       EventTarget.prototype.addEventListener = function trackedAdd(type, listener, options) {
+        if (runtime.isDisallowedUnload(type)) return undefined;
         const result = Reflect.apply(originalAdd, this, [type, listener, options]);
         runtime.recordListener(this, type, listener, options);
         return result;
@@ -256,6 +264,14 @@
         runtime.forgetListener(this, type, listener, options);
         return result;
       };
+    }
+
+    isDisallowedUnload(type) {
+      if (String(type).toLowerCase() !== 'unload') return false;
+      const policy = document.permissionsPolicy || document.featurePolicy;
+      if (typeof policy?.allowsFeature !== 'function') return false;
+      try { return policy.allowsFeature('unload') === false; }
+      catch { return false; }
     }
 
     recordListener(target, type, listener, options) {
@@ -421,7 +437,7 @@
       if (!this.active || performance.now() > this.gestureUntil) return false;
       if (receiver === window) return true;
       if (!(receiver instanceof Element) || this.isSafeElement(receiver)) return false;
-      if (this.mode === 'strong') return true;
+      if (this.mode === 'enhanced') return true;
       if (receiver === document.documentElement || receiver === document.body) return true;
       if (name === 'scrollIntoView') return true;
       const style = getComputedStyle(receiver);

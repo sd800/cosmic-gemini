@@ -4,37 +4,43 @@ import { icon, send } from './ui.js';
 
 const root = document.documentElement;
 const live = document.querySelector('#live');
-const productKey = { nativeScroll: 'nativeScrollName', noAutoplay: 'noAutoplayName' };
+const productKey = { nativeScroll: 'nativeScrollName', noAutoplay: 'noAutoplayName', anyCopy: 'anyCopyName' };
 let state;
 let t;
 
-function label(button, value) {
-  button.title = value;
-  button.setAttribute('aria-label', value);
+function label(element, value) {
+  element.title = value;
+  element.setAttribute('aria-label', value);
 }
 
-function renderFeature(featureId) {
+function iconState(featureId, feature) {
+  if (featureId === 'anyCopy') return feature.active ? 'active' : 'off';
+  if (!feature.active) return 'off';
+  return state.activity?.[featureId] ? 'active' : 'on';
+}
+
+function renderStandardFeature(featureId) {
   const feature = state[featureId];
   const row = document.querySelector('[data-feature="' + featureId + '"]');
   const product = t(productKey[featureId]);
   const status = row.querySelector('.feature-status');
   const power = row.querySelector('[data-action="power"]');
-  const strong = row.querySelector('[data-action="strong"]');
+  const enhanced = row.querySelector('[data-action="enhanced"]');
   const whitelist = row.querySelector('[data-action="whitelist"]');
   const settings = row.querySelector('[data-action="settings"]');
 
-  status.dataset.active = String(feature.active);
+  status.dataset.state = iconState(featureId, feature);
   status.title = product;
   power.setAttribute('aria-pressed', String(feature.enabled));
   label(power, t(feature.enabled ? 'featureOnTitle' : 'featureOffTitle', { product }));
 
-  strong.disabled = !feature.enabled || !feature.supported || !!feature.matchedWhitelistRule;
-  strong.setAttribute('aria-pressed', String(!!feature.matchedStrongRule));
-  if (!feature.supported) label(strong, t('unsupportedTitle'));
-  else if (feature.matchedWhitelistRule) label(strong, t('strongUnavailableTitle'));
-  else if (feature.matchedStrongRule && !feature.exactStrong) {
-    label(strong, t('strongCoveredTitle', { rule: feature.matchedStrongRule }));
-  } else label(strong, t(feature.exactStrong ? 'strongSiteTitle' : 'standardSiteTitle'));
+  enhanced.disabled = !feature.enabled || !feature.supported || !!feature.matchedWhitelistRule;
+  enhanced.setAttribute('aria-pressed', String(!!feature.matchedEnhancedRule));
+  if (!feature.supported) label(enhanced, t('unsupportedTitle'));
+  else if (feature.matchedWhitelistRule) label(enhanced, t('enhancedUnavailableTitle'));
+  else if (feature.matchedEnhancedRule && !feature.exactEnhanced) {
+    label(enhanced, t('enhancedCoveredTitle', { rule: feature.matchedEnhancedRule }));
+  } else label(enhanced, t(feature.exactEnhanced ? 'enhancedSiteTitle' : 'standardSiteTitle'));
 
   whitelist.disabled = !feature.enabled || !feature.supported;
   if (!feature.supported) {
@@ -54,10 +60,52 @@ function renderFeature(featureId) {
   label(settings, t('settingsTitle', { product }));
 }
 
+function renderAnyCopy() {
+  const feature = state.anyCopy;
+  const row = document.querySelector('[data-feature="anyCopy"]');
+  const product = t('anyCopyName');
+  const toggle = row.querySelector('.feature-toggle');
+  const enhanced = row.querySelector('[data-action="enhanced"]');
+  const settings = row.querySelector('[data-action="settings"]');
+
+  if (!feature) {
+    toggle.disabled = true;
+    enhanced.disabled = true;
+    settings.disabled = true;
+    label(toggle, t('unavailable'));
+    label(enhanced, t('unavailable'));
+    label(settings, t('unavailable'));
+    return;
+  }
+  settings.disabled = false;
+
+  toggle.dataset.state = iconState('anyCopy', feature);
+  toggle.setAttribute('aria-pressed', String(feature.active));
+  if (!feature.supported) {
+    toggle.disabled = true;
+    label(toggle, t('unsupportedTitle'));
+  } else if (feature.active && !feature.exactEnforced && !feature.exactEnhanced) {
+    toggle.disabled = false;
+    label(toggle, t('anyCopyCoveredTitle', { rule: feature.matchedEnhancedRule || feature.matchedEnforcedRule }));
+  } else {
+    toggle.disabled = false;
+    label(toggle, t(feature.active ? 'anyCopyOnTitle' : 'anyCopyOffTitle'));
+  }
+
+  enhanced.disabled = !feature.supported;
+  enhanced.setAttribute('aria-pressed', String(!!feature.matchedEnhancedRule));
+  if (!feature.supported) label(enhanced, t('unsupportedTitle'));
+  else if (feature.matchedEnhancedRule && !feature.exactEnhanced) {
+    label(enhanced, t('enhancedCoveredTitle', { rule: feature.matchedEnhancedRule }));
+  } else label(enhanced, t(feature.exactEnhanced ? 'anyCopyEnhancedOnTitle' : 'anyCopyEnhancedOffTitle'));
+  label(settings, t('settingsTitle', { product }));
+}
+
 function render() {
   if (!state) return;
-  renderFeature('nativeScroll');
-  renderFeature('noAutoplay');
+  renderStandardFeature('nativeScroll');
+  renderStandardFeature('noAutoplay');
+  renderAnyCopy();
 }
 
 async function reload() {
@@ -67,42 +115,54 @@ async function reload() {
 }
 
 async function act(task) {
-  try {
-    await task();
-    await reload();
-  } catch { live.textContent = t('unavailable'); }
+  try { await task(); await reload(); }
+  catch { live.textContent = t('unavailable'); }
 }
 
 for (const row of document.querySelectorAll('.feature-row')) {
   const featureId = row.dataset.feature;
   row.querySelector('.feature-status').innerHTML = icon(featureId);
-  row.querySelector('[data-action="power"]').innerHTML = icon('power');
-  row.querySelector('[data-action="strong"]').innerHTML = icon('bolt');
-  row.querySelector('[data-action="whitelist"]').innerHTML = icon('siteAdd');
+  row.querySelector('[data-action="enhanced"]').innerHTML = icon('bolt');
   row.querySelector('[data-action="settings"]').innerHTML = icon('settings');
 
-  row.querySelector('[data-action="power"]').addEventListener('click', () => void act(() => send({
-    type: 'UI_SET_ENABLED',
-    featureId,
-    enabled: !state[featureId].enabled
-  })));
-  row.querySelector('[data-action="strong"]').addEventListener('click', () => void act(() => {
-    if (state[featureId].matchedStrongRule && !state[featureId].exactStrong) {
+  const power = row.querySelector('[data-action="power"]');
+  if (power) {
+    power.innerHTML = icon('power');
+    power.addEventListener('click', () => void act(() => send({
+      type: 'UI_SET_ENABLED', featureId, enabled: !state[featureId].enabled
+    })));
+  }
+  const whitelist = row.querySelector('[data-action="whitelist"]');
+  if (whitelist) {
+    whitelist.innerHTML = icon('siteAdd');
+    whitelist.addEventListener('click', () => void act(() => {
+      const feature = state[featureId];
+      if (feature.matchedWhitelistRule && !feature.exactWhitelisted) {
+        return send({ type: 'UI_OPEN_SETTINGS', featureId });
+      }
+      return send({ type: 'UI_TOGGLE_WHITELIST', featureId, hostname: feature.hostname });
+    }));
+  }
+  row.querySelector('[data-action="enhanced"]').addEventListener('click', () => void act(() => {
+    const feature = state[featureId];
+    if (feature.matchedEnhancedRule && !feature.exactEnhanced) {
       return send({ type: 'UI_OPEN_SETTINGS', featureId });
     }
-    return send({ type: 'UI_TOGGLE_STRONG', featureId, hostname: state[featureId].hostname });
+    return send({ type: 'UI_TOGGLE_ENHANCED', featureId, hostname: feature.hostname });
   }));
-  row.querySelector('[data-action="whitelist"]').addEventListener('click', () => void act(() => {
-    if (state[featureId].matchedWhitelistRule && !state[featureId].exactWhitelisted) {
-      return send({ type: 'UI_OPEN_SETTINGS', featureId });
-    }
-    return send({ type: 'UI_TOGGLE_WHITELIST', featureId, hostname: state[featureId].hostname });
+  row.querySelector('[data-action="settings"]').addEventListener('click', () => void act(async () => {
+    await send({ type: 'UI_OPEN_SETTINGS', featureId });
+    window.close();
   }));
-  row.querySelector('[data-action="settings"]').addEventListener('click', () => void send({
-    type: 'UI_OPEN_SETTINGS',
-    featureId
-  }).then(() => window.close()));
 }
+
+document.querySelector('#anyCopy-status').addEventListener('click', () => void act(() => {
+  const feature = state.anyCopy;
+  if (feature.active && !feature.exactEnforced && !feature.exactEnhanced) {
+    return send({ type: 'UI_OPEN_SETTINGS', featureId: 'anyCopy' });
+  }
+  return send({ type: 'UI_TOGGLE_ANY_COPY', hostname: feature.hostname });
+}));
 
 const locale = await loadLocale();
 root.lang = locale;

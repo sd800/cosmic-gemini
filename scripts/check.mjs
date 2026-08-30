@@ -26,7 +26,8 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '1.0.0');
+assert.equal(manifest.version, '1.1.2');
+assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'alarms', 'storage']);
 assert.deepEqual(manifest.host_permissions.sort(), ['http://*/*', 'https://*/*']);
 assert.equal(manifest.options_page, 'settings/native-scroll.html');
@@ -34,6 +35,12 @@ assert.deepEqual(manifest.content_scripts[0].js, ['content/runtime.js', 'content
 assert.equal(manifest.content_scripts[0].world, 'MAIN');
 assert.equal(manifest.content_scripts[0].run_at, 'document_start');
 assert.equal(manifest.content_scripts[1].world, 'ISOLATED');
+assert.deepEqual(manifest.content_scripts[2].js, ['content/any-copy-runtime.js']);
+assert.equal(manifest.content_scripts[2].world, 'MAIN');
+assert.equal(manifest.content_scripts[2].all_frames, true);
+assert.deepEqual(manifest.content_scripts[3].js, ['content/any-copy-bridge.js']);
+assert.equal(manifest.content_scripts[3].world, 'ISOLATED');
+assert.equal(manifest.content_scripts[3].all_frames, true);
 
 for (const size of [16, 32, 48, 128]) {
   assert.equal(manifest.icons[String(size)], 'icons/icon-' + size + '.png');
@@ -66,8 +73,15 @@ assert.doesNotMatch(joined, /fetch\s*\(|XMLHttpRequest|WebSocket\s*\(/, 'Extensi
 assert.doesNotMatch(joined, /recent activity|最近活动/i, 'Extension exposes an activity log');
 assert.equal(await stat(join(extension, 'settings', 'native-scroll.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'settings', 'no-autoplay.html')).then(() => true), true);
+assert.equal(await stat(join(extension, 'settings', 'any-copy.html')).then(() => true), true);
+for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html']) {
+  const html = await readFile(join(extension, 'settings', name), 'utf8');
+  assert.match(html, /<script src="\.\.\/localization-data\.js"><\/script>/);
+  assert.match(html, /<script src="preload\.js"><\/script>\s*<script type="module" src="page\.js"><\/script>/);
+}
 assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="nativeScroll"/);
 assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="noAutoplay"/);
+assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="anyCopy"/);
 assert.doesNotMatch(await readFile(join(extension, 'popup.js'), 'utf8'), /brandIcon\.src/, 'Popup brand icon must remain static');
 assert.match(await readFile(join(extension, 'settings', 'native-scroll.html'), 'utf8'), /© 2026 Songming\.org/);
 assert.match(await readFile(join(project, '.gitignore'), 'utf8'), /^dist\/$/m);

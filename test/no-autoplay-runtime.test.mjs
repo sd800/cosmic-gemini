@@ -31,13 +31,13 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
     AudioContext: FakeAudioContext, webkitAudioContext: undefined,
     MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
     WeakMap, Map, Set, Symbol, JSON, Reflect, Number, String, Math, Object, Promise,
-    performance: { now: () => 100 }, crypto: { randomUUID: () => 'autoplay-token' }
+    performance: { now: () => 100 }, crypto: { getRandomValues: values => { values.fill(8); return values; } }
   };
   vm.createContext(context);
   const source = await readFile(new URL('../extension/content/no-autoplay-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
-  runtime.onConfigure({ detail: JSON.stringify({ token: 'autoplay-token', config: { active: true, mode: 'standard', audioAllowed: false } }) });
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: false } }) });
 
   let audioPrompts = 0;
   context.window.addEventListener('cosmic-gemini:no-autoplay:audio-blocked', () => { audioPrompts += 1; });
@@ -56,7 +56,7 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   assert.equal(intentionalVideo.played, 1);
 
   navigator.userActivation.isActive = false;
-  runtime.onConfigure({ detail: JSON.stringify({ token: 'autoplay-token', config: { active: true, mode: 'standard', audioAllowed: true } }) });
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: true } }) });
   assert.equal(webAudio.resumed, 1);
   const allowedAudio = new FakeAudio();
   await allowedAudio.play();
@@ -65,9 +65,9 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   await blockedVideo.play();
   assert.equal(blockedVideo.played, 0);
 
-  runtime.onConfigure({ detail: JSON.stringify({ token: 'autoplay-token', config: { active: true, mode: 'strong', audioAllowed: true } }) });
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced', audioAllowed: true } }) });
   navigator.userActivation.isActive = true;
-  const strongVideo = new FakeVideo();
-  await strongVideo.play();
-  assert.equal(strongVideo.removed, true);
+  const enhancedVideo = new FakeVideo();
+  await enhancedVideo.play();
+  assert.equal(enhancedVideo.removed, true);
 });

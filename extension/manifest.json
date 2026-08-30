@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Cosmic Gemini",
-  "description": "Keep scrolling native and stop unwanted autoplay.",
-  "version": "1.0.0",
+  "description": "A personal toolkit for the web.",
+  "version": "1.1.2",
   "minimum_chrome_version": "120",
   "icons": {
     "16": "icons/icon-16.png",
@@ -46,6 +46,20 @@
       "js": ["content/bridge.js"],
       "run_at": "document_start",
       "world": "ISOLATED"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/any-copy-runtime.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/any-copy-bridge.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED",
+      "all_frames": true
     }
   ],
   "incognito": "split"

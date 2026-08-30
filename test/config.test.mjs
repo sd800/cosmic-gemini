@@ -13,12 +13,15 @@ import {
   toggleRule,
   updateFeature
 } from '../extension/core/config.js';
+import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 
 test('all products start with independent site rule lists', () => {
   assert.deepEqual(normalizeSettings(), DEFAULT_SETTINGS);
   assert.deepEqual(normalizeSettings().nativeScroll.enhancedRules, []);
   assert.deepEqual(normalizeSettings().noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(normalizeSettings().anyCopy.enforcedRules, []);
+  assert.deepEqual(normalizeSettings().videoDownload, { preferredQuality: 'best', askWhereToSave: true });
+  assert.deepEqual(normalizeSettings().satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
 });
 
 test('rules are normalized, deduplicated, and sorted by feature', () => {
@@ -109,9 +112,36 @@ test('feature updates do not mutate other products', () => {
   assert.equal(next.nativeScroll.enabled, false);
   assert.deepEqual(next.noAutoplay, current.noAutoplay);
   assert.deepEqual(next.anyCopy, current.anyCopy);
+  assert.deepEqual(next.satellites, current.satellites);
 });
 
 test('only HTTP and HTTPS pages expose a hostname', () => {
   assert.equal(hostnameFromUrl('https://example.com/path'), 'example.com');
   assert.equal(hostnameFromUrl('chrome://extensions'), '');
+});
+
+test('settings first-frame cache keeps preferences without page activity', () => {
+  const cache = settingsViewCache({
+    nativeScroll: {
+      enabled: false,
+      whitelistRules: ['example.com'],
+      enhancedRules: ['*.docs.example'],
+      hostname: 'private.example',
+      active: true
+    },
+    noAutoplay: { enabled: true },
+    anyCopy: { enforcedRules: ['copy.example'], enhancedRules: [] },
+    videoDownload: { preferredQuality: '1080', askWhereToSave: false },
+    satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
+    activity: { nativeScroll: true }
+  });
+  assert.deepEqual(cache.nativeScroll, {
+    enabled: false,
+    whitelistRules: ['example.com'],
+    enhancedRules: ['*.docs.example']
+  });
+  assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
+  assert.deepEqual(cache.videoDownload, { preferredQuality: '1080', askWhereToSave: false });
+  assert.equal('hostname' in cache.nativeScroll, false);
+  assert.equal('activity' in cache, false);
 });

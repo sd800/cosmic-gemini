@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en-US" data-locale-pending="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cosmic Gemini · Satellites</title>
+  <script src="../localization-data.js"></script>
+  <link rel="stylesheet" href="../ui.css">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body data-feature="satellites">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="product-identity">
+        <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="../icons/icon-128.png" alt=""></span>
+        <div class="wordmark"><strong>Satellites</strong><span><em>at</em> Cosmic Gemini</span></div>
+      </div>
+      <nav class="feature-switch" aria-label="Cosmic Gemini">
+        <a class="feature-link" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="any-copy.html" data-feature-link="anyCopy"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
+        <a class="feature-link active" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
+      </nav>
+    </div>
+  </header>
+  <main class="layout">
+    <div class="primary">
+      <section class="card">
+        <h1 data-i18n="satellitesName"></h1>
+        <p class="last" data-i18n="satellitesOverviewHelp"></p>
+      </section>
+      <section class="card satellite-card">
+        <div class="section-heading">
+          <div><h1 data-i18n="biliDailyLoginName"></h1><p data-i18n="biliDailyLoginDescription"></p></div>
+          <label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label>
+        </div>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="biliDailyLoginPrivacy"></p></div>
+      </section>
+    </div>
+    <div class="sidebar">
+      <aside class="help card">
+        <h2 data-i18n="satellitesHelpHeading"></h2>
+        <p data-i18n="satellitesHelpIntro"></p>
+      </aside>
+      <section class="card compact language-card">
+        <label for="language"><strong data-i18n="languageHeading"></strong></label>
+        <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
+      </section>
+    </div>
+  </main>
+  <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
+  <script src="preload.js"></script>
+  <script type="module" src="page.js"></script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { loadLocale, saveLocale } from '../core/locale.js';
+import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { localizeDocument, translator } from '../localization.js';
 import { icon, send } from '../ui.js';
 import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
@@ -32,7 +33,9 @@ function applyLocale() {
   const titles = {
     nativeScroll: 'switchNativeSettings',
     noAutoplay: 'switchAutoplaySettings',
-    anyCopy: 'switchAnyCopySettings'
+    anyCopy: 'switchAnyCopySettings',
+    videoDownload: 'switchVideoDownloadSettings',
+    satellites: 'switchSatellitesSettings'
   };
   for (const link of document.querySelectorAll('[data-feature-link]')) {
     link.title = t(titles[link.dataset.featureLink]);
@@ -77,11 +80,18 @@ function render() {
   if (!current) return;
   const enabled = document.querySelector('#enabled');
   if (enabled) enabled.checked = current.enabled;
+  const biliDailyLogin = document.querySelector('#biliDailyLogin');
+  if (biliDailyLogin) biliDailyLogin.checked = current.biliDailyLogin?.enabled === true;
+  const preferredQuality = document.querySelector('#preferredQuality');
+  if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
+  const askWhereToSave = document.querySelector('#askWhereToSave');
+  if (askWhereToSave) askWhereToSave.checked = current.askWhereToSave !== false;
   for (const section of document.querySelectorAll('[data-list-section]')) renderList(section);
 }
 
 async function reload() {
   states = await send({ type: 'UI_GET', url: '' });
+  saveSettingsViewCache(states);
   render();
 }
 
@@ -96,6 +106,18 @@ function bindView() {
   const enabled = document.querySelector('#enabled');
   if (enabled) enabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_ENABLED', featureId, enabled: enabled.checked
+  })));
+  const biliDailyLogin = document.querySelector('#biliDailyLogin');
+  if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
+  })));
+  const preferredQuality = document.querySelector('#preferredQuality');
+  if (preferredQuality) preferredQuality.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_VIDEO_SETTING', name: 'preferredQuality', value: preferredQuality.value
+  })));
+  const askWhereToSave = document.querySelector('#askWhereToSave');
+  if (askWhereToSave) askWhereToSave.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_VIDEO_SETTING', name: 'askWhereToSave', value: askWhereToSave.checked
   })));
 
   for (const section of document.querySelectorAll('[data-list-section]')) {
@@ -129,6 +151,8 @@ function bindView() {
 function mountView(replace = true) {
   document.body.dataset.feature = featureId;
   document.querySelector('.wordmark strong').textContent = PRODUCT_META[featureId].name;
+  document.querySelector('.layout').classList.remove('single-column');
+  helpPanel.hidden = false;
   if (replace) {
     const view = viewFor(featureId);
     primary.innerHTML = view.primary;
@@ -162,10 +186,14 @@ window.addEventListener('popstate', () => {
 });
 
 mountView(false);
-const storedLocale = await loadLocale();
-if (storedLocale !== locale) {
-  locale = storedLocale;
-  applyLocale();
-  render();
+try {
+  const storedLocale = await loadLocale();
+  if (storedLocale !== locale) {
+    locale = storedLocale;
+    applyLocale();
+    render();
+  }
+  await reload();
+} catch {
+  // Keep the localized defaults if stored settings are temporarily unavailable.
 }
-try { await reload(); } catch {}

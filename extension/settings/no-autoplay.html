@@ -19,6 +19,8 @@
         <a class="feature-link" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
         <a class="feature-link active" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="any-copy.html" data-feature-link="anyCopy"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
       </nav>
     </div>
   </header>
@@ -26,8 +28,8 @@
     <div class="primary">
       <section class="card">
         <div class="section-heading">
-          <div><h1 data-i18n="protectionHeading"></h1><p data-i18n="autoplayProtectionHelp"></p></div>
-          <label class="switch"><input id="enabled" type="checkbox"><span></span><b class="sr-only">No Autoplay</b></label>
+          <div><h1 data-i18n="autoplayStandardHeading"></h1><p data-i18n="autoplayProtectionHelp"></p></div>
+          <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
       <section class="card rule-card" data-list-section="enhancedRules">
@@ -48,16 +50,18 @@
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
       </section>
-      <section class="card compact">
-        <label for="language"><strong data-i18n="languageHeading"></strong><small data-i18n="autoplayLanguageHelp"></small></label>
+    </div>
+    <div class="sidebar">
+      <aside class="help card">
+        <h2 data-i18n="helpHeading"></h2>
+        <p data-i18n="autoplayHelpStandard"></p><p data-i18n="autoplayHelpEnhanced"></p><p data-i18n="autoplayHelpSound"></p>
+        <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="autoplayPrivacy"></p>
+      </aside>
+      <section class="card compact language-card">
+        <label for="language"><strong data-i18n="languageHeading"></strong></label>
         <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
       </section>
     </div>
-    <aside class="help card">
-      <h2 data-i18n="helpHeading"></h2>
-      <p data-i18n="autoplayHelpStandard"></p><p data-i18n="autoplayHelpEnhanced"></p><p data-i18n="autoplayHelpSound"></p>
-      <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="privacyText"></p>
-    </aside>
   </main>
   <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
   <script src="preload.js"></script>

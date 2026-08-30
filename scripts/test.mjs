@@ -4,3 +4,5 @@ import '../test/locale.test.mjs';
 import '../test/native-scroll-runtime.test.mjs';
 import '../test/no-autoplay-runtime.test.mjs';
 import '../test/any-copy-runtime.test.mjs';
+import '../test/bili-daily-login.test.mjs';
+import '../test/video-download.test.mjs';

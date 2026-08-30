@@ -1,0 +1,186 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  classifyVideoResource,
+  formatMediaDuration,
+  parseHlsMaster,
+  parseHlsMedia,
+  sanitizeVideoFilename,
+  selectHlsVariant,
+  stableVideoCandidateId
+} from '../extension/core/video-download.js';
+import { bilibiliDashCandidates, fetchBilibiliPlayInfo, signedBilibiliQuery } from '../extension/core/bilibili-video.js';
+import { md5 } from '../extension/core/md5.js';
+import { expandDashTemplate, parseIsoDuration } from '../extension/core/dash.js';
+import { unwrapObfuscatedHls } from '../extension/core/obfuscated-hls.js';
+import { youtubeCandidates } from '../extension/core/youtube-video.js';
+
+test('video resources are classified without treating media segments as top-level results', () => {
+  assert.equal(classifyVideoResource({ url: 'https://cdn.example/video.mp4' }).kind, 'direct');
+  assert.equal(classifyVideoResource({
+    url: 'https://cdn.example/playback?id=1',
+    responseHeaders: [{ name: 'Content-Type', value: 'application/vnd.apple.mpegurl' }]
+  }).kind, 'hls');
+  assert.equal(classifyVideoResource({ url: 'https://cdn.example/segment.m4s' }), null);
+  assert.equal(classifyVideoResource({ url: 'blob:https://example.com/id' }), null);
+});
+
+test('video size uses an existing response total without fetching media again', () => {
+  const candidate = classifyVideoResource({
+    url: 'https://cdn.example/video.mp4',
+    responseHeaders: [
+      { name: 'Content-Type', value: 'video/mp4' },
+      { name: 'Content-Length', value: '1048576' },
+      { name: 'Content-Range', value: 'bytes 0-1048575/8388608' }
+    ]
+  });
+  assert.equal(candidate.contentLength, 8388608);
+});
+
+test('media duration is normalized and formatted for compact result cards', () => {
+  const candidate = classifyVideoResource({
+    url: 'https://cdn.example/video.mp4',
+    duration: 3723.4
+  });
+  assert.equal(candidate.duration, 3723.4);
+  assert.equal(formatMediaDuration(candidate.duration), '1:02:03');
+  assert.equal(formatMediaDuration(125), '2:05');
+  assert.equal(formatMediaDuration(Number.POSITIVE_INFINITY), '');
+});
+
+test('stable candidate IDs stay deterministic without relying on randomUUID', () => {
+  const first = stableVideoCandidateId('https://cdn.example/video.mp4?token=1');
+  assert.equal(first, stableVideoCandidateId('https://cdn.example/video.mp4?token=1'));
+  assert.notEqual(first, stableVideoCandidateId('https://cdn.example/video.mp4?token=2'));
+});
+
+test('HLS master playlists resolve and rank variants', () => {
+  const variants = parseHlsMaster(`#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=1280x720,CODECS="avc1.4d401f,mp4a.40.2"
+720/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080
+https://video.example/1080.m3u8`, 'https://video.example/master.m3u8');
+  assert.equal(variants[0].height, 1080);
+  assert.equal(variants[1].url, 'https://video.example/720/index.m3u8');
+  assert.equal(selectHlsVariant(variants, '720').height, 720);
+  assert.equal(selectHlsVariant(variants, 'best').height, 1080);
+});
+
+test('HLS variants retain the preferred alternate audio track', () => {
+  const variants = parseHlsMaster(`#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="main",NAME="English",LANGUAGE="en",DEFAULT=YES,URI="audio/en.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=2400000,RESOLUTION=1920x1080,AUDIO="main"
+video/1080.m3u8`, 'https://video.example/master.m3u8');
+  assert.equal(variants[0].audioUrl, 'https://video.example/audio/en.m3u8');
+  assert.equal(variants[0].audioLanguage, 'en');
+});
+
+test('HLS media playlists retain maps, byte ranges, and AES-128 metadata', () => {
+  const playlist = parseHlsMedia(`#EXTM3U
+#EXT-X-MEDIA-SEQUENCE:7
+#EXT-X-MAP:URI="init.mp4"
+#EXT-X-KEY:METHOD=AES-128,URI="key.bin",IV=0x1
+#EXTINF:4,
+#EXT-X-BYTERANGE:100@20
+segment.m4s
+#EXT-X-ENDLIST`, 'https://video.example/path/index.m3u8');
+  assert.equal(playlist.segments.length, 1);
+  assert.equal(playlist.segments[0].map.url, 'https://video.example/path/init.mp4');
+  assert.deepEqual(playlist.segments[0].range, { start: 20, end: 119 });
+  assert.equal(playlist.segments[0].key.url, 'https://video.example/path/key.bin');
+  assert.equal(playlist.segments[0].key.ivBytes.length, 16);
+  assert.equal(playlist.segments[0].key.ivBytes[15], 1);
+  assert.equal(playlist.duration, 4);
+  assert.equal(playlist.ended, true);
+});
+
+test('video filenames are portable across supported desktop systems', () => {
+  assert.equal(sanitizeVideoFilename('A <video>: title? ', 'MP4'), 'A video title.mp4');
+  assert.equal(sanitizeVideoFilename('', 'unknown-extension'), 'Video.mp4');
+});
+
+test('MD5 and Bilibili WBI signing stay deterministic', () => {
+  assert.equal(md5(''), 'd41d8cd98f00b204e9800998ecf8427e');
+  assert.equal(md5('abc'), '900150983cd24fb0d6963f7d28e17f72');
+  const query = signedBilibiliQuery(
+    { bvid: 'BV1xx411c7mD', cid: 123, fnval: 4048 },
+    'https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png',
+    'https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png',
+    1_700_000_000_000
+  );
+  assert.match(query, /^bvid=BV1xx411c7mD&cid=123&fnval=4048&wts=1700000000&w_rid=[a-f0-9]{32}$/);
+});
+
+test('Bilibili DASH video and audio tracks become one downloadable format', () => {
+  const candidates = bilibiliDashCandidates({ data: {
+    timelength: 61_000,
+    dash: {
+      video: [{ id: 80, baseUrl: 'https://example.com/video.m4s', width: 1920, height: 1080, codecs: 'avc1.640028', bandwidth: 4_000_000 }],
+      audio: [{ baseUrl: 'https://example.com/audio.m4s', codecs: 'mp4a.40.2', bandwidth: 192_000 }]
+    }
+  } }, { title: 'Example', pageTitle: 'Part 1' });
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].kind, 'muxed');
+  assert.equal(candidates[0].qualityLabel, '1080p');
+  assert.equal(candidates[0].codecLabel, 'AVC');
+  assert.equal(candidates[0].duration, 61);
+  assert.equal(candidates[0].audioUrl, 'https://example.com/audio.m4s');
+});
+
+test('Bilibili international playback resources use the same local mux path', () => {
+  const candidates = bilibiliDashCandidates({ data: { playurl: {
+    duration: 45,
+    audio_resource: [{ url: 'https://example.com/audio.m4s', codecs: 'mp4a.40.2', bandwidth: 128000 }],
+    video: [{ video_resource: { url: 'https://example.com/video.m4s', width: 1280, height: 720, codecs: 'avc1.4d401f', bandwidth: 2000000 } }]
+  } } }, { title: 'International video' });
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].kind, 'muxed');
+  assert.equal(candidates[0].height, 720);
+  assert.equal(candidates[0].duration, 45);
+});
+
+test('Bilibili international discovery requests the public international play endpoint', async () => {
+  let requested = '';
+  await fetchBilibiliPlayInfo({ internationalEpisodeId: 987 }, async url => {
+    requested = url;
+    return { data: { playurl: {} } };
+  });
+  assert.match(requested, /^https:\/\/api\.bilibili\.tv\/intl\/gateway\/web\/playurl\?/);
+  assert.match(requested, /(?:^|&)ep_id=987(?:&|$)/);
+});
+
+test('DASH duration and segment templates cover numbered and escaped placeholders', () => {
+  assert.equal(parseIsoDuration('PT1H2M3.5S'), 3723.5);
+  assert.equal(expandDashTemplate('v/$RepresentationID$/$Number%05d$/$$.m4s', {
+    RepresentationID: '1080', Number: 7
+  }), 'v/1080/00007/$.m4s');
+});
+
+test('wrapped HLS XOR envelopes are recovered locally', () => {
+  const text = '#EXTM3U\n#EXT-X-VERSION:3\n#EXTINF:5,\nvideo.ts\n#EXT-X-ENDLIST\n';
+  const key = new TextEncoder().encode('key');
+  const input = new TextEncoder().encode(text);
+  const encrypted = input.map((value, index) => value ^ key[index % key.length]);
+  const body = Buffer.from(encrypted).toString('base64');
+  const metadata = Buffer.concat([Buffer.from('AB03'), Buffer.from(key), Buffer.from('00')]);
+  const envelope = Buffer.concat([Buffer.from(body), metadata, Buffer.from(String(metadata.length).padStart(2, '0'))]);
+  assert.equal(unwrapObfuscatedHls(envelope), text);
+});
+
+test('YouTube separated tracks are deciphered and paired without a remote rule service', async () => {
+  const format = values => ({ ...values, decipher: async () => values.testUrl });
+  const candidates = await youtubeCandidates({
+    basic_info: { id: 'abc', title: 'Example', duration: 60 },
+    cpn: 'cpn',
+    streaming_data: {
+      adaptive_formats: [
+        format({ has_video: true, has_audio: false, mime_type: 'video/webm; codecs="vp09.00.40.08"', width: 1920, height: 1080, bitrate: 3000000, testUrl: 'https://video.example/video.webm' }),
+        format({ has_video: false, has_audio: true, mime_type: 'audio/webm; codecs="opus"', bitrate: 128000, testUrl: 'https://video.example/audio.webm' })
+      ]
+    }
+  }, { session: { player: {} } });
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].kind, 'muxed');
+  assert.equal(candidates[0].outputContainer, 'mkv');
+  assert.equal(candidates[0].audioUrl, 'https://video.example/audio.webm?cpn=cpn');
+});

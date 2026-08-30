@@ -41,9 +41,32 @@
           <button class="icon-button" data-action="settings" type="button"></button>
         </nav>
       </section>
+      <section class="feature-row video-download-row" data-feature="videoDownload">
+        <button class="feature-status feature-toggle" id="videoDownload-status" type="button"></button>
+        <nav class="actions" data-i18n-aria-label="videoDownloadName">
+          <span class="action-placeholder" aria-hidden="true"></span>
+          <span class="action-placeholder" aria-hidden="true"></span>
+          <span class="action-placeholder" aria-hidden="true"></span>
+          <button class="icon-button" data-action="settings" type="button"></button>
+        </nav>
+      </section>
     </div>
     <span class="sr-only" id="live" aria-live="polite"></span>
   </main>
+  <section class="video-panel" id="video-panel" hidden>
+    <header class="video-panel-header">
+      <button class="icon-button" id="video-back" type="button"></button>
+      <strong data-i18n="videoDownloadName">Video Download</strong>
+      <button class="icon-button" id="video-stop" type="button"></button>
+    </header>
+    <div class="video-panel-body">
+      <div class="video-status-line">
+        <p id="video-status-text"></p>
+        <button class="icon-button" id="video-rescan" type="button"></button>
+      </div>
+      <div id="video-results"></div>
+    </div>
+  </section>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

@@ -4,7 +4,16 @@ export const LEGACY_SETTINGS_KEY = 'settings';
 export const FEATURE_IDS = Object.freeze({
   NATIVE_SCROLL: 'nativeScroll',
   NO_AUTOPLAY: 'noAutoplay',
-  ANY_COPY: 'anyCopy'
+  ANY_COPY: 'anyCopy',
+  VIDEO_DOWNLOAD: 'videoDownload'
+});
+
+export const FEATURE_SLOTS = Object.freeze({
+  NATIVE_SCROLL: 10,
+  NO_AUTOPLAY: 20,
+  ANY_COPY: 30,
+  IMAGE_DOWNLOAD: 40,
+  VIDEO_DOWNLOAD: 50
 });
 
 const DEFAULT_FEATURE = Object.freeze({
@@ -14,7 +23,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 3,
+  version: 6,
   nativeScroll: DEFAULT_FEATURE,
   noAutoplay: Object.freeze({
     ...DEFAULT_FEATURE,
@@ -23,6 +32,16 @@ export const DEFAULT_SETTINGS = Object.freeze({
   anyCopy: Object.freeze({
     enforcedRules: Object.freeze([]),
     enhancedRules: Object.freeze([])
+  }),
+  videoDownload: Object.freeze({
+    preferredQuality: 'best',
+    askWhereToSave: true
+  }),
+  satellites: Object.freeze({
+    biliDailyLogin: Object.freeze({
+      enabled: false,
+      lastCompletedDate: ''
+    })
   })
 });
 
@@ -83,12 +102,26 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, whitelistRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 3,
+    version: 6,
     nativeScroll: normalizeFeature(nativeValue || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
       enforcedRules: normalizeRules(value.anyCopy?.enforcedRules),
       enhancedRules: normalizeRules(value.anyCopy?.enhancedRules)
+    },
+    videoDownload: {
+      preferredQuality: ['best', '2160', '1440', '1080', '720', '480'].includes(String(value.videoDownload?.preferredQuality))
+        ? String(value.videoDownload.preferredQuality)
+        : 'best',
+      askWhereToSave: value.videoDownload?.askWhereToSave !== false
+    },
+    satellites: {
+      biliDailyLogin: {
+        enabled: value.satellites?.biliDailyLogin?.enabled === true,
+        lastCompletedDate: /^\d{4}-\d{2}-\d{2}$/.test(value.satellites?.biliDailyLogin?.lastCompletedDate || '')
+          ? value.satellites.biliDailyLogin.lastCompletedDate
+          : ''
+      }
     }
   };
 }

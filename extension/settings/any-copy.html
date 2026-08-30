@@ -19,14 +19,18 @@
         <a class="feature-link" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
         <a class="feature-link active" href="any-copy.html" data-feature-link="anyCopy"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
       </nav>
     </div>
   </header>
   <main class="layout">
     <div class="primary">
       <section class="card">
-        <h1 data-i18n="anyCopyActivationHeading"></h1>
-        <p class="last" data-i18n="anyCopyActivationHelp"></p>
+        <div class="section-heading">
+          <div><h1 data-i18n="anyCopyStandardHeading"></h1><p data-i18n="anyCopyActivationHelp"></p></div>
+          <span class="context-label" data-i18n="siteActivationLabel"></span>
+        </div>
       </section>
       <section class="card rule-card" data-list-section="enforcedRules">
         <h2 data-i18n="enforcedSitesHeading"></h2>
@@ -40,16 +44,18 @@
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
       </section>
-      <section class="card compact">
-        <label for="language"><strong data-i18n="languageHeading"></strong><small data-i18n="anyCopyLanguageHelp"></small></label>
+    </div>
+    <div class="sidebar">
+      <aside class="help card">
+        <h2 data-i18n="helpHeading"></h2>
+        <p data-i18n="anyCopyHelpStandard"></p><p data-i18n="anyCopyHelpEnhanced"></p>
+        <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="anyCopyPrivacy"></p>
+      </aside>
+      <section class="card compact language-card">
+        <label for="language"><strong data-i18n="languageHeading"></strong></label>
         <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
       </section>
     </div>
-    <aside class="help card">
-      <h2 data-i18n="helpHeading"></h2>
-      <p data-i18n="anyCopyHelpStandard"></p><p data-i18n="anyCopyHelpEnhanced"></p>
-      <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="privacyText"></p>
-    </aside>
   </main>
   <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
   <script src="preload.js"></script>

@@ -1,5 +1,9 @@
 # 更新日志
 
+## 3.1.25 — 2026-08-30
+
+- 按职责重新整理插件源码。`extension` 目录下直接存放的文件现在只有 `manifest.json`。Service Worker 位于 `background`，控制窗口位于 `popup`，共享界面与本地化模块位于 `shared`，Image Download 工作区位于 `workspaces/image-download`。同步更新 Chrome 入口、运行时网址、模块引用、检查脚本和文档。产品行为保持不变。
+
 ## 3.1.23 — 2026-08-30
 
 - 放大 All Settings 图标及其按钮，使图标仅略小于产品图标，同时保留次要操作的视觉层级。

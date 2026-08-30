@@ -1,8 +1,8 @@
-import { loadLocale } from './core/locale.js';
-import { saveSettingsViewCache } from './core/settings-view-cache.js';
-import { candidateQuality, compactVideoCandidates, formatMediaDuration } from './core/video-download.js';
-import { localizeDocument, translator } from './localization.js';
-import { icon, send } from './ui.js';
+import { loadLocale } from '../core/locale.js';
+import { saveSettingsViewCache } from '../core/settings-view-cache.js';
+import { candidateQuality, compactVideoCandidates, formatMediaDuration } from '../core/video-download.js';
+import { localizeDocument, translator } from '../shared/localization.js';
+import { icon, send } from '../shared/ui.js';
 
 const root = document.documentElement;
 const live = document.querySelector('#live');

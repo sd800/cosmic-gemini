@@ -2,6 +2,10 @@
 
 Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Any Copy and Any Copy Enhanced also own separate configuration, runtime, bridge, and activity-state paths even though they share one settings page. Shared code covers the extension shell, localization, hostname-rule parsing, service-worker lifecycle, and toolbar rendering.
 
+## Extension layout
+
+The `extension` root contains only `manifest.json`. Chrome entry points and product surfaces are grouped by responsibility: `background` contains the service worker, `popup` contains the compact control window, `shared` contains localization and common UI modules, and `workspaces/image-download` contains the Image Download workspace. Page runtimes, domain logic, settings pages, offscreen processing, icons, and bundled third-party libraries remain isolated in `content`, `core`, `settings`, `offscreen`, `icons`, and `vendor`.
+
 ## Page startup
 
 Main-world runtimes load at `document_start` on HTTP and HTTPS pages. Native Scroll patches gesture-listener registration, No Autoplay patches media playback and Web Audio resume, Any Copy installs capture-phase selection and clipboard handling, and Any Copy Enhanced prepares its separate static-reader runtime before ordinary website scripts.

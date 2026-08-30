@@ -1,7 +1,7 @@
-import { formatImageBytes, imageLayout } from './core/image-download.js';
-import { loadLocale } from './core/locale.js';
-import { localizeDocument, translator } from './localization.js';
-import { icon, send } from './ui.js';
+import { formatImageBytes, imageLayout } from '../../core/image-download.js';
+import { loadLocale } from '../../core/locale.js';
+import { localizeDocument, translator } from '../../shared/localization.js';
+import { icon, send } from '../../shared/ui.js';
 
 const root = document.documentElement;
 const workspaceUrl = new URL(location.href);

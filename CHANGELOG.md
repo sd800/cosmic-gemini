@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.25 — 2026-08-30
+
+- Reorganized the extension source by responsibility. `manifest.json` is now the only file stored directly inside `extension`. The service worker resides in `background`, the control popup in `popup`, shared UI and localization modules in `shared`, and the Image Download workspace in `workspaces/image-download`. All Chrome entry paths, runtime URLs, imports, checks, and documentation were updated without changing product behavior.
+
 ## 3.1.23 — 2026-08-30
 
 - Enlarged the All Settings icon and button so the icon is only slightly smaller than the popup product icons while retaining its secondary visual hierarchy.

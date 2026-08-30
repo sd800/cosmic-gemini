@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizeLocale, preferredLocale } from '../extension/core/locale.js';
-import { translator } from '../extension/localization.js';
+import { translator } from '../extension/shared/localization.js';
 
 test('all Chinese locales use zh-CN and every other locale uses en-US', () => {
   assert.equal(normalizeLocale('zh-HK'), 'zh-CN');

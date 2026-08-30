@@ -10,18 +10,18 @@ import {
   normalizeRule,
   normalizeSettings,
   updateFeature
-} from './core/config.js';
-import { normalizeLocale } from './core/locale.js';
+} from '../core/config.js';
+import { normalizeLocale } from '../core/locale.js';
 import {
   bilibiliDashCandidates,
   bilibiliPageContext,
   completeBilibiliPageContext,
   fetchBilibiliPlayInfo
-} from './core/bilibili-video.js';
-import { youtubePageContext } from './core/youtube-video.js';
-import { siteVideoPageDiscovery } from './core/site-video.js';
-import { unwrapObfuscatedHls } from './core/obfuscated-hls.js';
-import { imagePageDiscovery } from './core/image-page.js';
+} from '../core/bilibili-video.js';
+import { youtubePageContext } from '../core/youtube-video.js';
+import { siteVideoPageDiscovery } from '../core/site-video.js';
+import { unwrapObfuscatedHls } from '../core/obfuscated-hls.js';
+import { imagePageDiscovery } from '../core/image-page.js';
 import {
   groupImageCandidates,
   imageContentLength,
@@ -31,7 +31,7 @@ import {
   mergeImageCandidate,
   normalizeImageCandidate,
   sanitizeImageFilename
-} from './core/image-download.js';
+} from '../core/image-download.js';
 import {
   BILI_DAILY_ALARM,
   BILI_DAILY_MAX_ATTEMPTS,
@@ -40,7 +40,7 @@ import {
   bilibiliDateKey,
   browserReportsOffline,
   nextBilibiliSchedule
-} from './core/bili-daily-login.js';
+} from '../core/bili-daily-login.js';
 import {
   classifyVideoResource,
   mediaRequestDirectoryFilters,
@@ -50,7 +50,7 @@ import {
   parseHlsMedia,
   sanitizeVideoFilename,
   videoSessionKey
-} from './core/video-download.js';
+} from '../core/video-download.js';
 
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
@@ -1053,14 +1053,14 @@ async function imageDownloadState(settings, tabId, url = '') {
 }
 
 function imageWorkspaceUrl(tabId, view = 'page') {
-  const url = new URL(chrome.runtime.getURL('image-download.html'));
+  const url = new URL(chrome.runtime.getURL('workspaces/image-download/image-download.html'));
   url.searchParams.set('sourceTab', String(tabId));
   url.searchParams.set('view', view);
   return url.toString();
 }
 
 function imageSidePanelPath(tabId) {
-  return `image-download.html?sourceTab=${encodeURIComponent(tabId)}&view=side-panel`;
+  return `workspaces/image-download/image-download.html?sourceTab=${encodeURIComponent(tabId)}&view=side-panel`;
 }
 
 async function prepareImageWorkspaceSidePanel(tabId) {
@@ -1073,7 +1073,7 @@ async function prepareImageWorkspaceSidePanel(tabId) {
 }
 
 async function openImageWorkspacePage(tabId) {
-  const base = chrome.runtime.getURL('image-download.html');
+  const base = chrome.runtime.getURL('workspaces/image-download/image-download.html');
   const tabs = await chrome.tabs.query({});
   const existing = tabs.find(tab => {
     if (!tab.url?.startsWith(base)) return false;

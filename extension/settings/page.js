@@ -1,7 +1,7 @@
 import { loadLocale, saveLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { localizeDocument, translator } from '../localization.js';
-import { icon, send } from '../ui.js';
+import { localizeDocument, translator } from '../shared/localization.js';
+import { icon, send } from '../shared/ui.js';
 import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
 
 const root = document.documentElement;

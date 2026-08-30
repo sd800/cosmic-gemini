@@ -32,13 +32,7 @@ function label(element, value) {
 }
 
 function iconState(featureId, feature) {
-  if (['anyCopy', 'anyCopyEnhanced'].includes(featureId)) return feature.active ? 'active' : 'off';
-  if (['imageDownload', 'videoDownload'].includes(featureId)) {
-    if (!feature.active) return 'off';
-    return feature.status === 'found' ? 'active' : 'on';
-  }
-  if (!feature.active) return 'off';
-  return state.activity?.[featureId] ? 'active' : 'on';
+  return feature?.active ? 'active' : 'off';
 }
 
 function renderImageRow() {
@@ -46,53 +40,32 @@ function renderImageRow() {
   const toggle = document.querySelector('#imageDownload-status');
   toggle.disabled = !feature?.supported;
   toggle.dataset.state = iconState('imageDownload', feature || { active: false });
+  toggle.dataset.persistent = 'false';
   toggle.setAttribute('aria-pressed', String(!!feature?.active));
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'imageOpenTitle' : 'imageStartTitle'));
 }
 
-function renderStandardFeature(featureId) {
+function renderGuardFeature(featureId) {
   const feature = state[featureId];
-  const row = document.querySelector('[data-feature="' + featureId + '"]');
   const product = t(productKey[featureId]);
-  const status = row.querySelector('.feature-status');
-  const power = row.querySelector('[data-action="power"]');
-  const enhanced = row.querySelector('[data-action="enhanced"]');
-  const whitelist = row.querySelector('[data-action="whitelist"]');
-  const settings = row.querySelector('[data-action="settings"]');
-  const whitelisted = feature.supported && !!feature.matchedWhitelistRule;
-  const bypassed = feature.enabled && whitelisted;
+  const primary = document.querySelector('#' + featureId + '-status');
+  const enhanced = document.querySelector('#' + featureId + '-enhanced');
+  const enhancedActive = feature.active && feature.mode === 'enhanced';
 
-  row.dataset.bypassed = String(bypassed);
-  status.dataset.state = bypassed ? 'bypassed' : iconState(featureId, feature);
-  status.title = product;
-  power.setAttribute('aria-pressed', String(feature.enabled));
-  power.dataset.bypassed = String(bypassed);
-  label(power, t(feature.enabled ? 'featureOnTitle' : 'featureOffTitle', { product }));
+  primary.disabled = !feature.supported;
+  primary.dataset.state = feature.active ? 'active' : 'off';
+  primary.dataset.persistent = String(feature.active);
+  primary.setAttribute('aria-pressed', String(feature.active));
+  if (!feature.supported) label(primary, t('unsupportedTitle'));
+  else if (feature.exactActivationOverride) label(primary, t('removeSiteOverrideTitle', { product }));
+  else label(primary, t(feature.active ? 'disableProductOnSiteTitle' : 'enableProductOnSiteTitle', { product }));
 
-  enhanced.disabled = !feature.enabled || !feature.supported || !!feature.matchedWhitelistRule;
-  enhanced.setAttribute('aria-pressed', String(!!feature.matchedEnhancedRule));
+  enhanced.disabled = !feature.supported;
+  enhanced.dataset.state = enhancedActive ? 'active' : 'off';
+  enhanced.dataset.persistent = String(enhancedActive);
+  enhanced.setAttribute('aria-pressed', String(enhancedActive));
   if (!feature.supported) label(enhanced, t('unsupportedTitle'));
-  else if (feature.matchedWhitelistRule) label(enhanced, t('enhancedUnavailableTitle'));
-  else if (feature.matchedEnhancedRule) label(enhanced, t('removeEnhancedRuleTitle', { rule: feature.matchedEnhancedRule }));
-  else label(enhanced, t('standardSiteTitle'));
-
-  whitelist.disabled = !feature.enabled || !feature.supported;
-  if (!feature.supported) {
-    whitelist.innerHTML = icon('siteAdd');
-    label(whitelist, t('unsupportedTitle'));
-  } else if (feature.exactWhitelisted) {
-    whitelist.innerHTML = icon('siteRemove');
-    label(whitelist, t('removeWhitelistTitle', { product }));
-  } else if (feature.matchedWhitelistRule) {
-    whitelist.innerHTML = icon('siteCovered');
-    label(whitelist, t('removeCoveredWhitelistTitle', { rule: feature.matchedWhitelistRule }));
-  } else {
-    whitelist.innerHTML = icon('siteAdd');
-    label(whitelist, t('addWhitelistTitle', { product }));
-  }
-  whitelist.setAttribute('aria-pressed', String(!!feature.matchedWhitelistRule));
-  whitelist.dataset.whitelisted = String(whitelisted);
-  label(settings, t('settingsTitle', { product }));
+  else label(enhanced, t(enhancedActive ? 'useStandardOnSiteTitle' : 'useEnhancedOnSiteTitle', { product }));
 }
 
 function renderSiteFeature(featureId) {
@@ -105,6 +78,7 @@ function renderSiteFeature(featureId) {
     return;
   }
   toggle.dataset.state = iconState(featureId, feature);
+  toggle.dataset.persistent = String(feature.active);
   toggle.setAttribute('aria-pressed', String(feature.active));
   if (!feature.supported) {
     toggle.disabled = true;
@@ -351,6 +325,7 @@ function renderVideoRow() {
   const toggle = document.querySelector('#videoDownload-status');
   toggle.disabled = !feature?.supported;
   toggle.dataset.state = iconState('videoDownload', feature || { active: false });
+  toggle.dataset.persistent = 'false';
   toggle.setAttribute('aria-pressed', String(!!feature?.active));
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'videoOpenTitle' : 'videoStartTitle'));
   renderVideoPanel();
@@ -368,8 +343,8 @@ function showView(mode) {
 
 function render() {
   if (!state) return;
-  renderStandardFeature('nativeScroll');
-  renderStandardFeature('noAutoplay');
+  renderGuardFeature('nativeScroll');
+  renderGuardFeature('noAutoplay');
   renderSiteFeature('anyCopy');
   renderSiteFeature('anyCopyEnhanced');
   renderImageRow();
@@ -414,52 +389,21 @@ function act(task) {
   return perform(task, true);
 }
 
-for (const row of document.querySelectorAll('.standard-row')) {
-  const featureId = row.dataset.feature;
-  row.querySelector('.feature-status').innerHTML = icon(featureId);
-  const enhanced = row.querySelector('[data-action="enhanced"]');
-  if (enhanced) enhanced.innerHTML = icon('bolt');
-  row.querySelector('[data-action="settings"]').innerHTML = icon('settings');
-
-  const power = row.querySelector('[data-action="power"]');
-  if (power) {
-    power.innerHTML = icon('power');
-    power.addEventListener('click', () => void act(() => send({
-      type: 'UI_SET_ENABLED', featureId, enabled: !state[featureId].enabled
-    })));
-  }
-  const whitelist = row.querySelector('[data-action="whitelist"]');
-  if (whitelist) {
-    whitelist.innerHTML = icon('siteAdd');
-    whitelist.addEventListener('click', () => void act(() => {
-      const feature = state[featureId];
-      if (feature.matchedWhitelistRule) {
-        return send({
-          type: 'UI_DELETE_RULE',
-          featureId,
-          listName: 'whitelistRules',
-          rule: feature.matchedWhitelistRule
-        });
-      }
-      return send({ type: 'UI_TOGGLE_WHITELIST', featureId, hostname: feature.hostname });
-    }));
-  }
-  if (enhanced) enhanced.addEventListener('click', () => void act(() => {
-      const feature = state[featureId];
-      if (feature.matchedEnhancedRule) {
-        return send({
-          type: 'UI_DELETE_RULE',
-          featureId,
-          listName: 'enhancedRules',
-          rule: feature.matchedEnhancedRule
-        });
-      }
-      return send({ type: 'UI_TOGGLE_ENHANCED', featureId, hostname: feature.hostname });
-    }));
-  row.querySelector('[data-action="settings"]').addEventListener('click', () => void perform(async () => {
-    await send({ type: 'UI_OPEN_SETTINGS', featureId });
-    window.close();
-  }));
+for (const featureId of ['nativeScroll', 'noAutoplay']) {
+  const primary = document.querySelector('#' + featureId + '-status');
+  const enhanced = document.querySelector('#' + featureId + '-enhanced');
+  primary.innerHTML = icon(featureId);
+  enhanced.innerHTML = icon('bolt');
+  primary.addEventListener('click', () => void act(() => send({
+    type: 'UI_TOGGLE_PAGE_FEATURE',
+    featureId,
+    hostname: state[featureId].hostname
+  })));
+  enhanced.addEventListener('click', () => void act(() => send({
+    type: 'UI_TOGGLE_PAGE_ENHANCED',
+    featureId,
+    hostname: state[featureId].hostname
+  })));
 }
 
 for (const featureId of ['anyCopy', 'anyCopyEnhanced']) {
@@ -476,6 +420,7 @@ for (const featureId of ['anyCopy', 'anyCopyEnhanced']) {
 
 document.querySelector('#imageDownload-status').innerHTML = icon('imageDownload');
 document.querySelector('#videoDownload-status').innerHTML = icon('videoDownload');
+document.querySelector('#video-panel-product-icon').innerHTML = icon('videoDownload');
 document.querySelector('#all-settings').innerHTML = icon('menu');
 label(document.querySelector('#all-settings'), t?.('allSettingsTitle') || 'All Settings');
 document.querySelector('#all-settings').addEventListener('click', () => void perform(async () => {

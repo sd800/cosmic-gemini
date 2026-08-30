@@ -9,7 +9,6 @@ import {
   hostnameFromUrl,
   normalizeRule,
   normalizeSettings,
-  toggleRule,
   updateFeature
 } from './core/config.js';
 import { normalizeLocale } from './core/locale.js';
@@ -56,7 +55,7 @@ import {
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
-const FEATURE_LISTS = new Set(['whitelistRules', 'enhancedRules', 'permanentAudioAllowRules', 'siteRules']);
+const FEATURE_LISTS = new Set(['enabledRules', 'whitelistRules', 'enhancedRules', 'standardRules', 'permanentAudioAllowRules', 'siteRules']);
 const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
 const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
 let writeQueue = Promise.resolve();
@@ -597,11 +596,17 @@ async function startVideoSession(tabId, url, title = '') {
 
 async function stopVideoSession(tabId) {
   if (!Number.isInteger(tabId)) return;
+  const session = await readVideoSession(tabId);
   await sendTabMessage(tabId, { type: 'CG_VIDEO_STOP' });
+  const artifacts = [...new Set((session?.candidates || []).map(candidate => candidate.artifactId).filter(Boolean))];
+  await Promise.allSettled(artifacts.map(artifactId => sendVideoOffscreen({
+    type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId
+  })));
   await activeVideoTabsReady;
   activeVideoTabs.delete(tabId);
   await chrome.storage.session.remove(videoSessionKey(tabId));
   await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, false);
+  await maybeCloseVideoOffscreen();
 }
 
 async function videoDownloadState(settings, tabId, url) {
@@ -1327,6 +1332,10 @@ function validList(featureId, value) {
   if (value === 'permanentAudioAllowRules' && featureId !== FEATURE_IDS.NO_AUTOPLAY) throw new Error('That rule list is unavailable.');
   if (value === 'siteRules' && ![FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId)) throw new Error('That rule list is unavailable.');
   if ([FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId) && value !== 'siteRules') throw new Error('That rule list is unavailable.');
+  if ([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)
+    && !['enabledRules', 'whitelistRules', 'enhancedRules', 'standardRules', 'permanentAudioAllowRules'].includes(value)) {
+    throw new Error('That rule list is unavailable.');
+  }
   return value;
 }
 
@@ -1335,6 +1344,44 @@ async function updateFeatureRules(featureId, listName, update) {
     ...feature,
     [listName]: update(feature[listName] || [])
   })));
+}
+
+function withoutRule(rules, rule) {
+  return (Array.isArray(rules) ? rules : []).filter(item => item !== rule);
+}
+
+function withRule(rules, rule) {
+  const current = withoutRule(rules, rule);
+  return [...current, rule];
+}
+
+async function resetAllSettings() {
+  for (const processing of activeVideoProcessing.values()) {
+    processing.cancelled = true;
+    if (processing.requestId) {
+      void sendVideoOffscreen({ type: 'CG_VIDEO_CANCEL_REQUEST', requestId: processing.requestId }).catch(() => {});
+    }
+  }
+  await Promise.allSettled([activeVideoTabsReady, activeImageTabsReady]);
+  await Promise.allSettled([
+    ...[...activeVideoTabs].map(tabId => stopVideoSession(tabId)),
+    ...[...activeImageTabs].map(tabId => stopImageSession(tabId))
+  ]);
+  await chrome.alarms.clear(BILI_DAILY_ALARM);
+  await chrome.storage.session.clear();
+  await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
+  const settings = await saveSettings(DEFAULT_SETTINGS);
+  const tabs = await chrome.tabs.query({});
+  await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => renderToolbar(tab.id, {
+    nativeScroll: false,
+    noAutoplay: false,
+    anyCopy: false,
+    anyCopyEnhanced: false,
+    imageDownload: false,
+    videoDownload: false
+  })));
+  await refreshOpenPages();
+  return settings;
 }
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -1669,10 +1716,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ...feature,
         enabled: message.enabled === true
       })));
-      if (!settings[featureId].enabled) {
-        const tabs = await chrome.tabs.query({});
-        await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => setFeatureActivity(tab.id, featureId, false)));
-      }
       sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
@@ -1699,13 +1742,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true, result: settings.satellites.biliDailyLogin });
       return;
     }
-    if (message.type === 'UI_TOGGLE_ENHANCED' || message.type === 'UI_TOGGLE_WHITELIST') {
+    if (message.type === 'UI_TOGGLE_PAGE_FEATURE') {
       const featureId = validFeatureId(message.featureId);
-      if (![FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)) throw new Error('This product does not use these website rules.');
+      if (![FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)) throw new Error('This product does not use current-site controls.');
       const hostname = normalizeRule(message.hostname || '');
       if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
-      const listName = message.type === 'UI_TOGGLE_ENHANCED' ? 'enhancedRules' : 'whitelistRules';
-      const settings = await updateFeatureRules(featureId, listName, rules => toggleRule(rules, hostname));
+      const settings = await mutateSettings(current => {
+        const currentState = featureState(current, featureId, `https://${hostname}/`);
+        return updateFeature(current, featureId, feature => {
+          if (currentState.exactActivationOverride) return {
+            ...feature,
+            enabledRules: withoutRule(feature.enabledRules, hostname),
+            whitelistRules: withoutRule(feature.whitelistRules, hostname)
+          };
+          return currentState.active ? {
+            ...feature,
+            enabledRules: withoutRule(feature.enabledRules, hostname),
+            whitelistRules: withRule(feature.whitelistRules, hostname)
+          } : {
+            ...feature,
+            enabledRules: withRule(feature.enabledRules, hostname),
+            whitelistRules: withoutRule(feature.whitelistRules, hostname)
+          };
+        });
+      });
+      sendResponse({ ok: true, result: settings[featureId] });
+      return;
+    }
+    if (message.type === 'UI_TOGGLE_PAGE_ENHANCED') {
+      const featureId = validFeatureId(message.featureId);
+      if (![FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)) throw new Error('This product does not use current-site controls.');
+      const hostname = normalizeRule(message.hostname || '');
+      if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
+      const settings = await mutateSettings(current => {
+        const currentState = featureState(current, featureId, `https://${hostname}/`);
+        return updateFeature(current, featureId, feature => currentState.active && currentState.mode === 'enhanced' ? {
+          ...feature,
+          enhancedRules: withoutRule(feature.enhancedRules, hostname),
+          standardRules: withRule(feature.standardRules, hostname)
+        } : {
+          ...feature,
+          enabledRules: currentState.active ? feature.enabledRules : withRule(feature.enabledRules, hostname),
+          whitelistRules: withoutRule(feature.whitelistRules, hostname),
+          enhancedRules: withRule(feature.enhancedRules, hostname),
+          standardRules: withoutRule(feature.standardRules, hostname)
+        });
+      });
       sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
@@ -1732,9 +1814,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         throw new Error('That rule must be added from No Autoplay settings.');
       }
       const rule = normalizeRule(message.rule || '');
-      const settings = await updateFeatureRules(featureId, listName, rules => message.type === 'UI_ADD_RULE'
-        ? [...rules, rule]
-        : rules.filter(item => item !== rule));
+      const oppositeList = {
+        enabledRules: 'whitelistRules',
+        whitelistRules: 'enabledRules',
+        enhancedRules: 'standardRules',
+        standardRules: 'enhancedRules'
+      }[listName];
+      const settings = await mutateSettings(current => updateFeature(current, featureId, feature => ({
+        ...feature,
+        [listName]: message.type === 'UI_ADD_RULE'
+          ? withRule(feature[listName], rule)
+          : withoutRule(feature[listName], rule),
+        ...(message.type === 'UI_ADD_RULE' && oppositeList
+          ? { [oppositeList]: withoutRule(feature[oppositeList], rule) }
+          : {})
+      })));
       sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
@@ -1752,6 +1846,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'UI_OPEN_ALL_SETTINGS') {
       await chrome.tabs.create({ url: chrome.runtime.getURL('settings/all-settings.html') });
       sendResponse({ ok: true, result: { opened: true } });
+      return;
+    }
+    if (message.type === 'UI_RESET_ALL_SETTINGS') {
+      if (!senderExtensionUrl.startsWith(chrome.runtime.getURL('settings/'))) {
+        throw new Error('All settings can only be reset from the settings page.');
+      }
+      const settings = await resetAllSettings();
+      sendResponse({ ok: true, result: settings });
       return;
     }
     throw new Error('Unsupported extension message.');

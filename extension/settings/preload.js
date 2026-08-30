@@ -2,8 +2,10 @@
   const root = document.documentElement;
   const cacheKey = 'cosmicGeminiSettingsViewCache';
   const emptyKeys = {
+    enabledRules: 'emptyEnabledSites',
     enhancedRules: 'emptyEnhancedSites',
     whitelistRules: 'emptyWhitelist',
+    standardRules: 'emptyStandardSites',
     permanentAudioAllowRules: 'emptyAudioAllow',
     enforcedRules: 'emptyEnforcedSites'
   };

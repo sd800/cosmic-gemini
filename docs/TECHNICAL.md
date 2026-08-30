@@ -8,7 +8,7 @@ Main-world runtimes load at `document_start` on HTTP and HTTPS pages. Native Scr
 
 Isolated-world bridges retrieve only the current page state from the service worker and pass it to main-world runtimes through token-bound events. Stored rule collections and extension APIs are not exposed to page code. Any Copy and Any Copy Enhanced use separate all-frame bridges, event namespaces, and runtime symbols. This keeps selection restoration independent from the static reading layer and avoids coupling either lifecycle to the other products.
 
-Settings pages contain their complete first-frame structure. A synchronous locale preloader applies the cached Chrome UI locale before the page becomes visible; asynchronous storage then confirms that selection without rebuilding the initial view.
+Settings pages contain their complete first-frame structure. A synchronous locale preloader applies the cached Chrome UI locale and cached control values before the page becomes visible. Asynchronous storage then confirms that selection without rebuilding the initial view. The All Settings page also renders its reset control in the first frame.
 
 ## Native Scroll
 
@@ -34,7 +34,7 @@ Any Copy and Any Copy Enhanced have separate top-level settings objects, site-ru
 
 ## Image Download
 
-Image Download is activated for one source tab from the popup. While the popup loads, the worker prepares a tab-specific `chrome.sidePanel` path before the product control becomes available. The user action therefore opens an already-configured panel instead of racing panel configuration against `chrome.sidePanel.open()`. A transient Side Panel error remains an error and never opens or focuses another tab. A normal extension tab is used only when selected in Settings or requested from the Side Panel. The same workspace document supports both surfaces, with a synchronous view preloader selecting the narrow Side Panel layout before CSS renders.
+Image Download is activated for one source tab from the popup. Its workspace header identifies Cosmic Gemini first, then Image Download, followed by the product wordmark. While the popup loads, the worker prepares a tab-specific `chrome.sidePanel` path before the product control becomes available. The user action therefore opens an already-configured panel instead of racing panel configuration against `chrome.sidePanel.open()`. A transient Side Panel error remains an error and never opens or focuses another tab. A normal extension tab is used only when selected in Settings or requested from the Side Panel. The same workspace document supports both surfaces, with a synchronous view preloader selecting the narrow Side Panel layout before CSS renders.
 
 Its isolated scanner inspects ordinary and responsive images, lazy-load attributes, links to image files, computed CSS and pseudo-element images, open shadow roots, frames, inline SVG, canvas content, image metadata, JSON-LD, and existing Resource Timing entries. A browser-level response listener adds image resources that load while the session is active.
 
@@ -46,7 +46,7 @@ Candidate addresses and page details live only in `chrome.storage.session` for t
 
 ## Video Download
 
-Video Download is activated for one tab at a time from the popup. Main-world and isolated-world scanners are injected only after activation. Together they inspect media elements, page metadata, embedded frames, mutation changes, player state, fetch and XHR responses, inline streaming manifests, and buffered Resource Timing entries. A non-blocking `webRequest.onHeadersReceived` listener supplies the browser-level path: after a constant-time active-tab check, it recognizes video responses and HLS or DASH manifests by URL and response MIME type. This remains effective when a page hides its player markup, moves media into a frame, embeds a manifest in script state, or repeatedly replaces its DOM.
+Video Download is activated for one tab at a time from the popup. Its result header places the Cosmic Gemini mark and Video Download icon before a compact product wordmark. Main-world and isolated-world scanners are injected only after activation. Together they inspect media elements, page metadata, embedded frames, mutation changes, player state, fetch and XHR responses, inline streaming manifests, and buffered Resource Timing entries. A non-blocking `webRequest.onHeadersReceived` listener supplies the browser-level path: after a constant-time active-tab check, it recognizes video responses and HLS or DASH manifests by URL and response MIME type. This remains effective when a page hides its player markup, moves media into a frame, embeds a manifest in script state, or repeatedly replaces its DOM.
 
 Candidate URLs and transient download state live in `chrome.storage.session` under the tab ID. Same-origin navigation clears stale candidates and reinjects the scanner. A different origin, tab closure, or an explicit stop removes the session. Signed URLs are retained without rewriting while the session is active, but are never copied into persistent settings or history.
 
@@ -66,8 +66,8 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 
 `chrome.storage.local` stores one versioned settings object:
 
-- Native Scroll: enabled state, whitelist rules, and Enhanced-site rules
-- No Autoplay: enabled state, whitelist rules, Enhanced-site rules, an all-sites audio autoplay setting, and hostname-specific audio autoplay rules
+- Native Scroll: a global enabled default plus Enabled, Disabled, Enhanced, and Standard website rules
+- No Autoplay: a global enabled default plus Enabled, Disabled, Enhanced, and Standard website rules, an all-sites audio autoplay setting, and hostname-specific audio autoplay rules
 - Any Copy: its own site rules
 - Any Copy Enhanced: its own site rules
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference
@@ -75,7 +75,11 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 - Satellites: Bili Daily Login switch state and last completed date
 - Interface locale
 
-Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Matching prefers an exact rule, then the most specific wildcard. Native Scroll and No Autoplay whitelist matches take priority over Enhanced-site matches. Active Whitelist, Enhanced, Any Copy, and Any Copy Enhanced controls remove their currently matched rule directly, including a wildcard rule. The popup's All Settings control opens the shared settings hub.
+Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Matching prefers an exact rule, then the most specific wildcard. Activation and mode are resolved independently. At equal specificity, Disabled wins over Enabled and Standard wins over Enhanced. Adding a rule removes the same rule from its opposing list, while a more-specific rule can intentionally override a broader one.
+
+The popup uses two four-button rows. Native Scroll and No Autoplay primary controls toggle an exact current-site activation override without changing their global default. Their Enhanced controls activate the current site when required, and turning an active Enhanced control off writes a Standard-mode exception so a broader Enhanced rule cannot immediately restore it. Any Copy and Any Copy Enhanced retain independent exact-host activation controls. Popup product buttons expose only neutral and blue states. A blue background is reserved for products with a continuing page effect; active Image Download and Video Download sessions are blue without a background. All Settings is placed beside the fixed Cosmic Gemini wordmark.
+
+Reset All Settings is accepted only from an extension settings page. It stops current image and video sessions, cancels active media preparation, clears session state and the Bili Daily Login alarm, restores the default versioned settings object, removes the explicit locale so Chrome UI language is used again, refreshes open pages, and resets toolbar state. Existing downloaded files are outside extension storage and remain unchanged.
 
 Per-tab intervention state contains product booleans and is cleared on navigation or tab closure. Image Download and Video Download session storage additionally contains the current origin and detected candidate addresses only while that tab session is active.
 

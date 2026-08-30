@@ -2,6 +2,8 @@ body { min-width: 760px; min-height: 100vh; background: var(--surface-raised); }
 .side-panel-only { display: none; }
 .workspace-header { position: sticky; z-index: 20; top: 0; display: flex; min-height: 68px; padding: 0 28px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(16px); align-items: center; justify-content: space-between; }
 .workspace-brand { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.workspace-product-icon { display: grid; width: 27px; height: 27px; flex: 0 0 auto; color: var(--blue); place-items: center; }
+.workspace-product-icon svg { width: 23px; height: 23px; }
 .workspace-brand > div { display: grid; min-width: 0; gap: 2px; }
 .workspace-brand strong { font-size: 16px; font-weight: 720; letter-spacing: .025em; }
 .workspace-brand small { color: var(--muted); font-size: 11px; white-space: nowrap; }

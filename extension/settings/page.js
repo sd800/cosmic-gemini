@@ -8,8 +8,10 @@ const root = document.documentElement;
 const primary = document.querySelector('.primary');
 const helpPanel = document.querySelector('.help');
 const emptyKey = {
+  enabledRules: 'emptyEnabledSites',
   enhancedRules: 'emptyEnhancedSites',
   whitelistRules: 'emptyWhitelist',
+  standardRules: 'emptyStandardSites',
   permanentAudioAllowRules: 'emptyAudioAllow',
   enforcedRules: 'emptyEnforcedSites'
 };
@@ -213,7 +215,7 @@ function bindView() {
     });
   }
 
-  document.querySelector('#language').addEventListener('change', event => void (async () => {
+  document.querySelector('#language').onchange = event => void (async () => {
     const control = event.currentTarget;
     if (pendingControls.has(control)) return;
     pendingControls.add(control);
@@ -226,7 +228,61 @@ function bindView() {
       pendingControls.delete(control);
       if (control.isConnected) control.disabled = false;
     }
-  })());
+  })();
+}
+
+function syncResetControls() {
+  let card = document.querySelector('#reset-settings-card');
+  let dialog = document.querySelector('#reset-settings-dialog');
+  if (featureId !== 'allSettings') {
+    card?.remove();
+    dialog?.remove();
+    return;
+  }
+  if (!card) {
+    card = document.createElement('section');
+    card.id = 'reset-settings-card';
+    card.className = 'card reset-settings-card';
+    card.innerHTML = `
+      <div><strong data-i18n="resetAllSettingsHeading"></strong><p data-i18n="resetAllSettingsHelp"></p></div>
+      <button class="reset-settings-button" type="button" data-i18n="resetAllSettingsAction"></button>`;
+    document.querySelector('.sidebar').append(card);
+  }
+  if (!dialog) {
+    dialog = document.createElement('dialog');
+    dialog.id = 'reset-settings-dialog';
+    dialog.className = 'settings-dialog';
+    dialog.innerHTML = `
+      <form method="dialog">
+        <h2 data-i18n="resetAllSettingsConfirmHeading"></h2>
+        <p data-i18n="resetAllSettingsConfirmHelp"></p>
+        <div class="dialog-actions">
+          <button value="cancel" type="submit" data-i18n="cancel"></button>
+          <button class="danger-button" value="confirm" type="submit" data-i18n="reset"></button>
+        </div>
+      </form>`;
+    document.body.append(dialog);
+  }
+  if (card.dataset.bound === 'true') return;
+  card.dataset.bound = 'true';
+  card.querySelector('button').addEventListener('click', () => dialog.showModal());
+  dialog.addEventListener('close', () => {
+    if (dialog.returnValue !== 'confirm') return;
+    void (async () => {
+      const confirm = dialog.querySelector('.danger-button');
+      confirm.disabled = true;
+      try {
+        await send({ type: 'UI_RESET_ALL_SETTINGS' });
+        try {
+          localStorage.removeItem('cosmicGeminiSettingsViewCache');
+          localStorage.removeItem('cosmicGeminiInterfaceLocale');
+        } catch {}
+        location.reload();
+      } catch {
+        confirm.disabled = false;
+      }
+    })();
+  });
 }
 
 function mountView(replace = true) {
@@ -247,6 +303,7 @@ function mountView(replace = true) {
     if (link.dataset.featureLink === featureId) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
+  syncResetControls();
   applyLocale();
   bindView();
   render();

@@ -1,5 +1,16 @@
 # 更新日志
 
+## 3.1.1 — 2026-08-30
+
+- 将控制窗口重新设计为两行，每行四个按钮，并把全部设置移动到 Cosmic Gemini 名称右侧。第一行依次排列 Native Scroll、Native Scroll 强力模式、No Autoplay 和 No Autoplay 强力模式，第二行依次排列 Any Copy、Any Copy 强力模式、Image Download 和 Video Download。
+- 控制窗口中的功能状态统一使用中性色和蓝色。一级功能未启用时比强力模式等二级功能更加醒目。持续影响页面的功能开启后会显示蓝色背景，Image Download 与 Video Download 的当前标签页会话则只显示蓝色。
+- Native Scroll 与 No Autoplay 新增当前网站的单独设置。即使全局设置已关闭，也可以为某个网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。
+- Native Scroll 与 No Autoplay 设置页新增单独启用的网站、单独停用的网站、强力模式网站和标准模式网站。精确规则可以覆盖范围更大的通配规则，同一范围内发生冲突时会采用停用或标准模式。
+- Any Copy 与 Any Copy 强力模式的网站规则图标改为与标题文字使用相同颜色。
+- Image Download 与 Video Download 的工作区名称前新增 Cosmic Gemini 标志和对应的功能图标。
+- 全部设置页面在语言选项下方新增“重置所有设置”。确认后会恢复各项功能设置和网站规则，将界面语言恢复为 Chrome 的默认语言，并结束当前临时任务。已下载文件不受影响。
+- 停止 Video Download 会话时会一并清理临时媒体文件。
+
 ## 2.1.3 — 2026-08-30
 
 - 即使 Video Download 会话仍在运行，重新打开控制窗口时也会停留在主菜单。只有再次点击 Video Download 后才会进入媒体列表。

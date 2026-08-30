@@ -37,10 +37,10 @@ p.last { margin-bottom: 0; }
 .switch input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
 .switch input:disabled + span { cursor: default; opacity: .55; }
 .rule-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
-.rule-heading { display: flex; align-items: center; gap: 9px; }
-.rule-heading > span { --icon-surface: var(--surface); display: grid; width: 25px; height: 25px; flex: 0 0 auto; color: var(--blue); place-items: center; }
+.rule-heading { display: flex; align-items: center; gap: 9px; color: var(--text); }
+.rule-heading > span { --icon-surface: var(--surface); display: grid; width: 25px; height: 25px; flex: 0 0 auto; color: currentColor; place-items: center; }
 .rule-heading svg { width: 21px; height: 21px; }
-.rule-heading h2 { margin: 0; }
+.rule-heading h2 { margin: 0; color: currentColor; }
 input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); padding: 0 11px; }
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: white; cursor: pointer; font-weight: 650; }
 .primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
@@ -58,6 +58,19 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .language-card { min-height: 62px; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
 .language-card label { display: block; }
 .language-card select { width: 122px; height: 34px; }
+.reset-settings-card { display: grid; gap: 12px; padding: 16px; }
+.reset-settings-card strong { display: block; margin-bottom: 5px; font-size: 13px; }
+.reset-settings-card p { margin: 0; font-size: 12px; }
+.reset-settings-button, .settings-dialog button { min-height: 36px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); padding: 0 12px; cursor: pointer; font-size: 12px; font-weight: 650; }
+.reset-settings-button { justify-self: start; color: var(--danger); }
+.reset-settings-button:hover { background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.settings-dialog { width: min(390px, calc(100% - 32px)); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); padding: 0; box-shadow: 0 18px 56px #0005; }
+.settings-dialog::backdrop { background: #0007; }
+.settings-dialog form { padding: 22px; }
+.settings-dialog p { margin-bottom: 20px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.settings-dialog .danger-button { border-color: transparent; background: var(--danger); color: white; }
+.settings-dialog button:disabled { cursor: default; opacity: .55; }
 .help p:last-child { margin-bottom: 0; }
 .help hr { height: 1px; border: 0; background: var(--line); margin: 20px 0; }
 .satellite-card .section-heading p { max-width: 620px; }

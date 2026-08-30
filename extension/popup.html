@@ -12,33 +12,23 @@
     <div class="identity">
       <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="icons/icon-128.png" alt=""></span>
       <strong data-i18n="appName">Cosmic Gemini</strong>
+      <button class="feature-status utility-control" id="all-settings" type="button"></button>
     </div>
     <div class="feature-list">
-      <section class="feature-row standard-row" data-feature="nativeScroll">
-        <span class="feature-status" id="nativeScroll-status" aria-hidden="true"></span>
-        <nav class="actions" data-i18n-aria-label="nativeScrollName">
-          <button class="icon-button" data-action="power" type="button"></button>
-          <button class="icon-button dependent" data-action="enhanced" type="button"></button>
-          <button class="icon-button dependent" data-action="whitelist" type="button"></button>
-          <button class="icon-button" data-action="settings" type="button"></button>
+      <section class="feature-row">
+        <nav class="launcher-actions" data-i18n-aria-label="pageProtectionToolsLabel">
+          <button class="feature-status feature-toggle primary-product" id="nativeScroll-status" type="button"></button>
+          <button class="feature-status feature-toggle secondary-product" id="nativeScroll-enhanced" type="button"></button>
+          <button class="feature-status feature-toggle primary-product" id="noAutoplay-status" type="button"></button>
+          <button class="feature-status feature-toggle secondary-product" id="noAutoplay-enhanced" type="button"></button>
         </nav>
       </section>
-      <section class="feature-row standard-row" data-feature="noAutoplay">
-        <span class="feature-status" id="noAutoplay-status" aria-hidden="true"></span>
-        <nav class="actions" data-i18n-aria-label="noAutoplayName">
-          <button class="icon-button" data-action="power" type="button"></button>
-          <button class="icon-button dependent" data-action="enhanced" type="button"></button>
-          <button class="icon-button dependent" data-action="whitelist" type="button"></button>
-          <button class="icon-button" data-action="settings" type="button"></button>
-        </nav>
-      </section>
-      <section class="feature-row launcher-row">
+      <section class="feature-row">
         <nav class="launcher-actions" data-i18n-aria-label="quickToolsLabel">
-          <button class="feature-status feature-toggle" id="anyCopy-status" type="button"></button>
-          <button class="feature-status feature-toggle" id="anyCopyEnhanced-status" type="button"></button>
-          <button class="feature-status feature-toggle" id="imageDownload-status" type="button"></button>
-          <button class="feature-status feature-toggle" id="videoDownload-status" type="button"></button>
-          <button class="feature-status feature-toggle" id="all-settings" type="button"></button>
+          <button class="feature-status feature-toggle primary-product" id="anyCopy-status" type="button"></button>
+          <button class="feature-status feature-toggle secondary-product" id="anyCopyEnhanced-status" type="button"></button>
+          <button class="feature-status feature-toggle primary-product" id="imageDownload-status" type="button"></button>
+          <button class="feature-status feature-toggle primary-product" id="videoDownload-status" type="button"></button>
         </nav>
       </section>
     </div>
@@ -47,7 +37,11 @@
   <section class="video-panel" id="video-panel" hidden>
     <header class="video-panel-header">
       <button class="icon-button" id="video-back" type="button"></button>
-      <div class="video-panel-wordmark"><strong data-i18n="videoDownloadName">Video Download</strong><small><em>at</em> Cosmic Gemini</small></div>
+      <div class="video-panel-identity">
+        <img class="video-panel-brand" src="icons/icon-128.png" alt="">
+        <span class="video-panel-product-icon" id="video-panel-product-icon" aria-hidden="true"></span>
+        <div class="video-panel-wordmark"><strong data-i18n="videoDownloadName">Video Download</strong><small><em>at</em> Cosmic Gemini</small></div>
+      </div>
       <button class="icon-button" id="video-stop" type="button"></button>
     </header>
     <div class="video-panel-body">

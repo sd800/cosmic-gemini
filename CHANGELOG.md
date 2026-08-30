@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1.1 — 2026-08-30
+
+- Redesigned the popup as two four-button rows and moved All Settings beside the Cosmic Gemini wordmark. The first row contains Native Scroll, Native Scroll Enhanced, No Autoplay, and No Autoplay Enhanced. The second contains Any Copy, Any Copy Enhanced, Image Download, and Video Download.
+- Replaced popup product states with a neutral-and-blue system. Primary products use a stronger inactive color than secondary Enhanced controls. A blue background identifies products with a continuing page effect, while active Image Download and Video Download sessions remain blue without a background.
+- Added current-site overrides for Native Scroll and No Autoplay. Either product can now be enabled on one website while its global default is off, or disabled there while the global default is on. Turning Enhanced mode off returns the current website to Standard mode.
+- Added Enabled sites, Disabled sites, Enhanced mode sites, and Standard mode sites to Native Scroll and No Autoplay settings. Exact rules can override broader wildcard rules, while opposing rules at the same scope resolve toward Disabled or Standard mode.
+- Matched the Any Copy and Any Copy Enhanced rule icons to their heading text color.
+- Added the Cosmic Gemini mark and matching product icon before the Image Download and Video Download workspace wordmarks.
+- Added Reset all settings below Language in All Settings. The confirmed action restores product settings and website rules, returns language selection to the Chrome UI default, and stops current temporary sessions without affecting downloaded files.
+- Cleans temporary Video Download artifacts when a session is stopped.
+
 ## 2.1.3 — 2026-08-30
 
 - Keeps the popup on its main view when reopened, even while a Video Download session remains active. The media list now opens only after the user selects Video Download again.

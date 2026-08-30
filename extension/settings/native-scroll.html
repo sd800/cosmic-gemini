@@ -34,15 +34,27 @@
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
+      <section class="card rule-card" data-list-section="enabledRules">
+        <h2 data-i18n="enabledSitesHeading"></h2>
+        <p data-i18n="nativeEnabledSitesHelp"></p>
+        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      </section>
+      <section class="card rule-card" data-list-section="whitelistRules">
+        <h2 data-i18n="disabledSitesHeading"></h2>
+        <p data-i18n="nativeDisabledSitesHelp"></p>
+        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      </section>
       <section class="card rule-card" data-list-section="enhancedRules">
         <h2 data-i18n="enhancedSitesHeading"></h2>
         <p data-i18n="nativeEnhancedSitesHelp"></p>
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
       </section>
-      <section class="card rule-card" data-list-section="whitelistRules">
-        <h2 data-i18n="whitelistHeading"></h2>
-        <p data-i18n="nativeWhitelistHelp"></p>
+      <section class="card rule-card" data-list-section="standardRules">
+        <h2 data-i18n="standardSitesHeading"></h2>
+        <p data-i18n="nativeStandardSitesHelp"></p>
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
       </section>

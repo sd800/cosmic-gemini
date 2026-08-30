@@ -42,13 +42,14 @@ Background: Bilibili gives every signed-in account one coin when it visits each 
 
 ## Features
 
-- Independent controls and website rules for Native Scroll, No Autoplay, Any Copy, and Any Copy Enhanced
+- Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes
+- Independent website activation for Any Copy and Any Copy Enhanced
 - On-demand image discovery with original-source recommendations, filtering, local conversion, area capture, and batch ZIP downloads
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
 - Optional Satellites with their own concise settings and privacy details
 - Exact-host and wildcard rules such as `example.com` and `*.example.com`
-- A compact popup with current-page controls
-- Separate settings pages, an All Settings hub, direct product switching, and stable first-frame localization
+- A compact two-row popup with current-page controls and All Settings beside the Cosmic Gemini wordmark
+- Separate settings pages, an All Settings hub with a complete reset action, direct product switching, and stable first-frame localization
 - Natural en-US and zh-CN interfaces with system-aware light and dark themes
 - Event-driven runtimes without polling or a persistent background page
 - No analytics, browsing history, or activity log
@@ -64,20 +65,25 @@ Chrome requests access to HTTP and HTTPS pages so the tools can begin before ord
 
 ## Use
 
-The popup uses three compact rows.
+The popup uses two compact rows.
 
-- Native Scroll and No Autoplay each provide **Power**, **Enhanced**, **Whitelist**, and **Settings** controls in the first two rows.
-- The third row contains **Any Copy**, **Any Copy Enhanced**, **Image Download**, **Video Download**, and **All Settings**, in that order.
+- The first row contains **Native Scroll**, **Native Scroll Enhanced**, **No Autoplay**, and **No Autoplay Enhanced**. Each control changes only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
+- The second row contains **Any Copy**, **Any Copy Enhanced**, **Image Download**, and **Video Download**.
+- **All Settings** sits beside the Cosmic Gemini wordmark. It opens the product directory and the command for restoring all settings and website rules to their defaults.
 - Any Copy and Any Copy Enhanced are enabled independently for the current website. They may run together, and turning either one off does not change the other. Their website rules share one clearly divided settings page.
 - Image Download is enabled for the current tab by clicking its product icon. Its workspace opens in the Side Panel by default, while Settings can use a separate tab instead. It remains active through same-site navigation until you stop it, close the source tab, or leave the website.
 - Video Download is enabled for the current tab by clicking its product icon. Its media list opens immediately, remains available through same-site navigation, and closes when you stop it, close the tab, or leave the website.
 - All Settings opens a single navigation page for Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login is off by default. After you enable it, the task runs on its own schedule while Chrome and the computer are running. After any length of downtime, one current-day task catches up when Chrome can next run; earlier missed days are never replayed.
 
-Native Scroll and No Autoplay icons are neutral when unavailable or off, blue while enabled, green after the feature intervenes on the current page, and dimmed when the current website matches a whitelist rule. The product icon, power control, and Enhanced control share the same neutral opacity in that state. A matching whitelist control uses a green icon, and the product does not start on that website. Any Copy and Any Copy Enhanced have independent neutral and green states, with Any Copy Enhanced shown by the copy mark and a solid lightning badge. Image Download and Video Download are neutral while off, blue while scanning, and green after compatible results are found. The main Cosmic Gemini mark in the popup remains unchanged.
+Popup product controls use only neutral and blue icon states. Primary products use a stronger neutral color than their secondary Enhanced controls. Blue means that the product is available to work in the current tab. A blue control with a background is active and may continue changing or displaying page behavior. Image Download and Video Download use blue without a background while their current-tab sessions are active. The main Cosmic Gemini mark remains unchanged, and the existing green toolbar artwork remains available for the separate browser-toolbar activity indicator.
 
 ### Website rules
 
-`example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save the exact current hostname; Settings also accepts wildcard rules. If several rules match, the exact rule takes priority, followed by the most specific wildcard. Clicking an active Whitelist or Enhanced control removes the matched rule directly; only a Settings control opens Settings. A whitelist rule takes priority over an Enhanced-site rule for Native Scroll and No Autoplay. Any Copy and Any Copy Enhanced keep separate rule lists. On the No Autoplay whitelist, video, audio, and Web Audio may start automatically.
+`example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save exact current-site overrides, while Settings also accepts wildcard rules.
+
+Native Scroll and No Autoplay each have a global default plus four website-rule lists: Enabled sites, Disabled sites, Enhanced mode sites, and Standard mode sites. An exact rule takes priority over a wildcard, followed by the most specific wildcard. At equal specificity, Disabled takes priority over Enabled and Standard takes priority over Enhanced. These pairs make it possible to create a narrow exception inside a broader rule. The popup's primary control adds or removes the exact current-site activation override without changing the global default. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
+
+Any Copy and Any Copy Enhanced keep separate activation lists. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
 
 ### Audio autoplay
 

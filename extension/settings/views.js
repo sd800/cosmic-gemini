@@ -113,8 +113,10 @@ export function viewFor(featureId) {
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
+      ${ruleSection('enabledRules', 'enabledSitesHeading', 'nativeEnabledSitesHelp')}
+      ${ruleSection('whitelistRules', 'disabledSitesHeading', 'nativeDisabledSitesHelp')}
       ${ruleSection('enhancedRules', 'enhancedSitesHeading', 'nativeEnhancedSitesHelp')}
-      ${ruleSection('whitelistRules', 'whitelistHeading', 'nativeWhitelistHelp')}`,
+      ${ruleSection('standardRules', 'standardSitesHeading', 'nativeStandardSitesHelp')}`,
     help: help(['nativeHelpStandard', 'nativeHelpEnhanced', 'nativeHelpIndicator'], 'nativePrivacy')
   };
   if (featureId === 'noAutoplay') return {
@@ -125,8 +127,10 @@ export function viewFor(featureId) {
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
+      ${ruleSection('enabledRules', 'enabledSitesHeading', 'autoplayEnabledSitesHelp')}
+      ${ruleSection('whitelistRules', 'disabledSitesHeading', 'autoplayDisabledSitesHelp')}
       ${ruleSection('enhancedRules', 'enhancedSitesHeading', 'autoplayEnhancedSitesHelp')}
-      ${ruleSection('whitelistRules', 'whitelistHeading', 'autoplayWhitelistHelp')}
+      ${ruleSection('standardRules', 'standardSitesHeading', 'autoplayStandardSitesHelp')}
       ${audioAllowSection()}`,
     help: help(['autoplayHelpStandard', 'autoplayHelpEnhanced', 'autoplayHelpSound'], 'autoplayPrivacy')
   };

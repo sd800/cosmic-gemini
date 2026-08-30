@@ -47,8 +47,19 @@
         <label for="language"><strong data-i18n="languageHeading"></strong></label>
         <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
       </section>
+      <section class="card reset-settings-card" id="reset-settings-card">
+        <div><strong data-i18n="resetAllSettingsHeading"></strong><p data-i18n="resetAllSettingsHelp"></p></div>
+        <button class="reset-settings-button" type="button" data-i18n="resetAllSettingsAction"></button>
+      </section>
     </div>
   </main>
+  <dialog class="settings-dialog" id="reset-settings-dialog">
+    <form method="dialog">
+      <h2 data-i18n="resetAllSettingsConfirmHeading"></h2>
+      <p data-i18n="resetAllSettingsConfirmHelp"></p>
+      <div class="dialog-actions"><button value="cancel" type="submit" data-i18n="cancel"></button><button class="danger-button" value="confirm" type="submit" data-i18n="reset"></button></div>
+    </form>
+  </dialog>
   <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
   <script src="preload.js"></script>
   <script type="module" src="page.js"></script>

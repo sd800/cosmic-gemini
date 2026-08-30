@@ -30,8 +30,11 @@ p.last { margin-bottom: 0; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .section-heading p { margin-bottom: 0; }
 .default-card { border-color: color-mix(in srgb, var(--blue) 22%, var(--line)); }
-.default-card .section-heading { align-items: center; }
-.section-kicker { display: block; margin-bottom: 5px; color: var(--blue); font-size: 11px; font-weight: 700; }
+.default-card .section-heading { align-items: flex-start; }
+.default-card .switch { margin-top: 19px; }
+.default-card .intro-purpose { margin-bottom: 9px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.default-card .intro-setting { max-width: 580px; }
+.section-kicker { display: block; margin-bottom: 5px; color: var(--blue); font-size: 11px; font-weight: 700; line-height: 16px; }
 .group-heading { max-width: 600px; }
 .group-heading p { margin-bottom: 0; }
 .rule-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; border-top: 1px solid var(--line); }

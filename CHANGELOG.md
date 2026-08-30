@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.1.10 — 2026-08-30
+
+- Matched the Native Scroll and No Autoplay intro purpose statements to the muted color used by the supporting text below them.
+
+## 3.1.9 — 2026-08-30
+
+- Aligned the Native Scroll and No Autoplay intro-card switches with their product-name rows.
+
+## 3.1.8 — 2026-08-30
+
+- Shortened the Native Scroll and No Autoplay intro copy using the earlier direct purpose statements while retaining the current card design and settings flow.
+
+## 3.1.7 — 2026-08-30
+
+- Added the Click to enable label to the Any Copy settings intro card, matching the activation guidance used by Image Download and Video Download.
+
+## 3.1.6 — 2026-08-30
+
+- Restored direct, verb-led purpose statements to the Native Scroll and No Autoplay intro cards. Each card now separates the product’s main function from its default-behavior and website-exception guidance.
+
 ## 3.1.5 — 2026-08-30
 
 - Added the Cosmic Gemini logo above the centered project title in both the English and Simplified Chinese READMEs.

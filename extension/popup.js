@@ -10,6 +10,7 @@ const productKey = {
   nativeScroll: 'nativeScrollName',
   noAutoplay: 'noAutoplayName',
   anyCopy: 'anyCopyName',
+  anyCopyEnhanced: 'anyCopyEnhancedName',
   imageDownload: 'imageDownloadName',
   videoDownload: 'videoDownloadName'
 };
@@ -31,7 +32,7 @@ function label(element, value) {
 }
 
 function iconState(featureId, feature) {
-  if (featureId === 'anyCopy') return feature.active ? 'active' : 'off';
+  if (['anyCopy', 'anyCopyEnhanced'].includes(featureId)) return feature.active ? 'active' : 'off';
   if (['imageDownload', 'videoDownload'].includes(featureId)) {
     if (!feature.active) return 'off';
     return feature.status === 'found' ? 'active' : 'on';
@@ -43,12 +44,10 @@ function iconState(featureId, feature) {
 function renderImageRow() {
   const feature = state.imageDownload;
   const toggle = document.querySelector('#imageDownload-status');
-  const settings = document.querySelector('[data-feature="imageDownload"] [data-action="settings"]');
   toggle.disabled = !feature?.supported;
   toggle.dataset.state = iconState('imageDownload', feature || { active: false });
   toggle.setAttribute('aria-pressed', String(!!feature?.active));
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'imageOpenTitle' : 'imageStartTitle'));
-  label(settings, t('settingsTitle', { product: t('imageDownloadName') }));
 }
 
 function renderStandardFeature(featureId) {
@@ -96,44 +95,27 @@ function renderStandardFeature(featureId) {
   label(settings, t('settingsTitle', { product }));
 }
 
-function renderAnyCopy() {
-  const feature = state.anyCopy;
-  const row = document.querySelector('[data-feature="anyCopy"]');
-  const product = t('anyCopyName');
-  const toggle = row.querySelector('.feature-toggle');
-  const enhanced = row.querySelector('[data-action="enhanced"]');
-  const settings = row.querySelector('[data-action="settings"]');
-
+function renderSiteFeature(featureId) {
+  const feature = state[featureId];
+  const toggle = document.querySelector('#' + featureId + '-status');
+  const product = t(productKey[featureId]);
   if (!feature) {
     toggle.disabled = true;
-    enhanced.disabled = true;
-    settings.disabled = true;
     label(toggle, t('unavailable'));
-    label(enhanced, t('unavailable'));
-    label(settings, t('unavailable'));
     return;
   }
-  settings.disabled = false;
-
-  toggle.dataset.state = iconState('anyCopy', feature);
+  toggle.dataset.state = iconState(featureId, feature);
   toggle.setAttribute('aria-pressed', String(feature.active));
   if (!feature.supported) {
     toggle.disabled = true;
     label(toggle, t('unsupportedTitle'));
-  } else if (feature.active && !feature.exactEnforced && !feature.exactEnhanced) {
+  } else if (feature.active && !feature.exactActive) {
     toggle.disabled = false;
-    label(toggle, t('anyCopyCoveredTitle', { rule: feature.matchedEnhancedRule || feature.matchedEnforcedRule }));
+    label(toggle, t('siteFeatureCoveredTitle', { product, rule: feature.matchedRule }));
   } else {
     toggle.disabled = false;
-    label(toggle, t(feature.active ? 'anyCopyOnTitle' : 'anyCopyOffTitle'));
+    label(toggle, t(feature.active ? 'siteFeatureOnTitle' : 'siteFeatureOffTitle', { product }));
   }
-
-  enhanced.disabled = !feature.supported;
-  enhanced.setAttribute('aria-pressed', String(!!feature.matchedEnhancedRule));
-  if (!feature.supported) label(enhanced, t('unsupportedTitle'));
-  else if (feature.matchedEnhancedRule) label(enhanced, t('removeEnhancedRuleTitle', { rule: feature.matchedEnhancedRule }));
-  else label(enhanced, t('anyCopyEnhancedOffTitle'));
-  label(settings, t('settingsTitle', { product }));
 }
 
 function formatBytes(value) {
@@ -367,12 +349,10 @@ function renderVideoPanel(force = false) {
 function renderVideoRow() {
   const feature = state.videoDownload;
   const toggle = document.querySelector('#videoDownload-status');
-  const settings = document.querySelector('[data-feature="videoDownload"] [data-action="settings"]');
   toggle.disabled = !feature?.supported;
   toggle.dataset.state = iconState('videoDownload', feature || { active: false });
   toggle.setAttribute('aria-pressed', String(!!feature?.active));
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'videoOpenTitle' : 'videoStartTitle'));
-  label(settings, t('settingsTitle', { product: t('videoDownloadName') }));
   renderVideoPanel();
 }
 
@@ -390,7 +370,8 @@ function render() {
   if (!state) return;
   renderStandardFeature('nativeScroll');
   renderStandardFeature('noAutoplay');
-  renderAnyCopy();
+  renderSiteFeature('anyCopy');
+  renderSiteFeature('anyCopyEnhanced');
   renderImageRow();
   renderVideoRow();
 }
@@ -408,7 +389,7 @@ async function reload(selectInitialView = true) {
   state = await send({ type: 'UI_GET', tabId: tab?.id, url: tab?.url || '' });
   saveSettingsViewCache(state);
   render();
-  if (selectInitialView && viewMode === null) showView(state.videoDownload?.active ? 'video' : 'main');
+  if (selectInitialView && viewMode === null) showView('main');
 }
 
 async function perform(task, reloadAfter = false) {
@@ -433,7 +414,7 @@ function act(task) {
   return perform(task, true);
 }
 
-for (const row of document.querySelectorAll('.feature-row')) {
+for (const row of document.querySelectorAll('.standard-row')) {
   const featureId = row.dataset.feature;
   row.querySelector('.feature-status').innerHTML = icon(featureId);
   const enhanced = row.querySelector('[data-action="enhanced"]');
@@ -481,10 +462,25 @@ for (const row of document.querySelectorAll('.feature-row')) {
   }));
 }
 
-document.querySelector('#anyCopy-status').addEventListener('click', () => void act(() => {
-  const feature = state.anyCopy;
-  if (feature.active) return send({ type: 'UI_DISABLE_ANY_COPY_MATCHES', hostname: feature.hostname });
-  return send({ type: 'UI_TOGGLE_ANY_COPY', hostname: feature.hostname });
+for (const featureId of ['anyCopy', 'anyCopyEnhanced']) {
+  const control = document.querySelector('#' + featureId + '-status');
+  control.innerHTML = icon(featureId);
+  control.addEventListener('click', () => void act(() => {
+    const feature = state[featureId];
+    if (feature.matchedRule) return send({
+      type: 'UI_DELETE_RULE', featureId, listName: 'siteRules', rule: feature.matchedRule
+    });
+    return send({ type: 'UI_TOGGLE_SITE_FEATURE', featureId, hostname: feature.hostname });
+  }));
+}
+
+document.querySelector('#imageDownload-status').innerHTML = icon('imageDownload');
+document.querySelector('#videoDownload-status').innerHTML = icon('videoDownload');
+document.querySelector('#all-settings').innerHTML = icon('menu');
+label(document.querySelector('#all-settings'), t?.('allSettingsTitle') || 'All Settings');
+document.querySelector('#all-settings').addEventListener('click', () => void perform(async () => {
+  await send({ type: 'UI_OPEN_ALL_SETTINGS' });
+  window.close();
 }));
 
 document.querySelector('#videoDownload-status').addEventListener('click', () => void perform(async () => {
@@ -530,5 +526,6 @@ for (const nav of document.querySelectorAll('[data-i18n-aria-label]')) nav.setAt
 label(document.querySelector('#video-back'), t('back'));
 label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
+label(document.querySelector('#all-settings'), t('allSettingsTitle'));
 root.dataset.localePending = 'false';
 try { await reload(); } catch { live.textContent = t('unavailable'); }

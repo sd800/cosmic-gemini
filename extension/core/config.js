@@ -5,6 +5,7 @@ export const FEATURE_IDS = Object.freeze({
   NATIVE_SCROLL: 'nativeScroll',
   NO_AUTOPLAY: 'noAutoplay',
   ANY_COPY: 'anyCopy',
+  ANY_COPY_ENHANCED: 'anyCopyEnhanced',
   IMAGE_DOWNLOAD: 'imageDownload',
   VIDEO_DOWNLOAD: 'videoDownload'
 });
@@ -13,6 +14,7 @@ export const FEATURE_SLOTS = Object.freeze({
   NATIVE_SCROLL: 10,
   NO_AUTOPLAY: 20,
   ANY_COPY: 30,
+  ANY_COPY_ENHANCED: 31,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
 });
@@ -24,7 +26,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 9,
+  version: 10,
   nativeScroll: DEFAULT_FEATURE,
   noAutoplay: Object.freeze({
     ...DEFAULT_FEATURE,
@@ -32,8 +34,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
     permanentAudioAllowRules: Object.freeze([])
   }),
   anyCopy: Object.freeze({
-    enforcedRules: Object.freeze([]),
-    enhancedRules: Object.freeze([])
+    siteRules: Object.freeze([])
+  }),
+  anyCopyEnhanced: Object.freeze({
+    siteRules: Object.freeze([])
   }),
   imageDownload: Object.freeze({
     workspaceMode: 'sidePanel',
@@ -113,12 +117,14 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, whitelistRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 9,
+    version: 10,
     nativeScroll: normalizeFeature(nativeValue || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
-      enforcedRules: normalizeRules(value.anyCopy?.enforcedRules),
-      enhancedRules: normalizeRules(value.anyCopy?.enhancedRules)
+      siteRules: normalizeRules(value.anyCopy?.siteRules ?? value.anyCopy?.enforcedRules)
+    },
+    anyCopyEnhanced: {
+      siteRules: normalizeRules(value.anyCopyEnhanced?.siteRules ?? value.anyCopy?.enhancedRules)
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
@@ -209,25 +215,32 @@ export function featureState(settings, featureId, url) {
   };
 }
 
-export function anyCopyState(settings, url) {
+export function siteFeatureState(settings, featureId, url) {
   const normalized = normalizeSettings(settings);
-  const feature = normalized.anyCopy;
+  const feature = normalized[featureId];
+  if (![FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId) || !feature) {
+    throw new Error('Unknown site feature.');
+  }
   const hostname = hostnameFromUrl(url);
-  const matchedEnforcedRule = hostname ? matchingRule(hostname, feature.enforcedRules) : '';
-  const matchedEnhancedRule = hostname ? matchingRule(hostname, feature.enhancedRules) : '';
-  const active = !!hostname && !!(matchedEnforcedRule || matchedEnhancedRule);
+  const matchedRule = hostname ? matchingRule(hostname, feature.siteRules) : '';
+  const active = !!hostname && !!matchedRule;
   return {
     ...feature,
     hostname,
     supported: !!hostname,
     active,
     enabled: active,
-    mode: matchedEnhancedRule ? 'enhanced' : 'standard',
-    matchedEnforcedRule,
-    exactEnforced: !!hostname && feature.enforcedRules.includes(hostname),
-    matchedEnhancedRule,
-    exactEnhanced: !!hostname && feature.enhancedRules.includes(hostname)
+    matchedRule,
+    exactActive: !!hostname && feature.siteRules.includes(hostname)
   };
+}
+
+export function anyCopyState(settings, url) {
+  return siteFeatureState(settings, FEATURE_IDS.ANY_COPY, url);
+}
+
+export function anyCopyEnhancedState(settings, url) {
+  return siteFeatureState(settings, FEATURE_IDS.ANY_COPY_ENHANCED, url);
 }
 
 export function updateFeature(settings, featureId, update) {

@@ -11,9 +11,11 @@
     nativeScroll: '<path d="M12 3v18M7.5 7.5 12 3l4.5 4.5M7.5 16.5 12 21l4.5-4.5"/>',
     noAutoplay: '<path d="M6 5v14l10-7z"/><path d="M21 18A4 4 0 1 1 17 14a3.3 3.3 0 0 0 4 4Z" fill="currentColor" stroke="none"/>',
     anyCopy: '<rect x="8" y="7" width="12" height="12" rx="2"/><rect x="4" y="3" width="12" height="12" rx="2" fill="var(--icon-surface, var(--surface))"/>',
-    imageDownload: '<rect x="3.5" y="4.5" width="11.5" height="11.5" rx="2"/><path d="m5.5 13 2.7-2.8 2.1 2 2.2-3 2.5 3.2"/><path d="M16.5 13.5h3v3.75h3L18 21.75l-4.5-4.5h3z" fill="currentColor" stroke="none"/>',
+    anyCopyEnhanced: '<rect x="8" y="7" width="12" height="12" rx="2"/><rect x="4" y="3" width="12" height="12" rx="2" fill="var(--icon-surface, var(--surface))"/><path d="m17.6 10.6-5.8 7.8h4.5l-.7 4.7 6.6-8.6h-4.8z" fill="currentColor" stroke="var(--icon-surface, var(--surface))" stroke-width="1.8" paint-order="stroke fill"/>',
+    imageDownload: '<rect x="2.75" y="3.75" width="12.75" height="12.75" rx="2"/><path d="m4.8 13.3 2.9-3.1 2.2 2.1 2.4-3.3 3.1 3.8"/><path d="M16.5 13.5h3v3.75h3L18 21.75l-4.5-4.5h3z" fill="currentColor" stroke="none"/>',
     videoDownload: '<path d="M6 5v14l10-7z"/><path d="M16.5 13.5h3v3.75h3L18 21.75l-4.5-4.5h3z" fill="currentColor" stroke="none"/>',
     satellites: '<path d="M15 2C15.6 8.1 17.9 11.4 22 12c-4.1.6-6.4 3.9-7 10-.6-6.1-2.9-9.4-7-10 4.1-.6 6.4-3.9 7-10Z" fill="currentColor" stroke="none"/><path d="M5.25 2c.25 1.95 1.05 2.75 3 3-1.95.25-2.75 1.05-3 3-.25-1.95-1.05-2.75-3-3 1.95-.25 2.75-1.05 3-3Z" fill="currentColor" stroke="none"/><path d="M6.25 12.25c.35 2.8 1.45 3.9 4.25 4.25-2.8.35-3.9 1.45-4.25 4.25-.35-2.8-1.45-3.9-4.25-4.25 2.8-.35 3.9-1.45 4.25-4.25Z" fill="currentColor" stroke="none"/>',
+    allSettings: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     trash: '<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/>'
   };
   let preferred = '';
@@ -40,6 +42,9 @@
 
   for (const link of document.querySelectorAll('[data-feature-link]')) {
     link.querySelector('span').innerHTML = icon(link.dataset.featureLink);
+  }
+  for (const element of document.querySelectorAll('[data-section-icon]')) {
+    element.innerHTML = icon(element.dataset.sectionIcon);
   }
 
   const language = document.querySelector('#language');
@@ -72,13 +77,14 @@
 
   for (const section of document.querySelectorAll('[data-list-section]')) {
     const listName = section.dataset.listSection;
+    const sectionState = cached[section.dataset.featureId || feature] || {};
     const list = section.querySelector('.rule-list');
-    const rules = Array.isArray(current[listName]) ? current[listName].filter(rule => typeof rule === 'string') : [];
+    const rules = Array.isArray(sectionState[listName]) ? sectionState[listName].filter(rule => typeof rule === 'string') : [];
     list.replaceChildren();
     if (!rules.length) {
       const empty = document.createElement('li');
       empty.className = 'empty';
-      empty.textContent = translate(emptyKeys[listName]);
+      empty.textContent = translate(section.dataset.emptyKey || emptyKeys[listName]);
       list.append(empty);
       continue;
     }

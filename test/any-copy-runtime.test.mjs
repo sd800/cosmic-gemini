@@ -62,3 +62,18 @@ test('Any Copy writes the original selection and suppresses page copy handlers',
   assert.equal(stopped, true);
   assert.equal(prevented, true);
 });
+
+test('Any Copy and Any Copy Enhanced keep separate runtime and bridge boundaries', async () => {
+  const [standardRuntime, standardBridge, enhancedRuntime, enhancedBridge] = await Promise.all([
+    readFile(new URL('../extension/content/any-copy-runtime.js', import.meta.url), 'utf8'),
+    readFile(new URL('../extension/content/any-copy-bridge.js', import.meta.url), 'utf8'),
+    readFile(new URL('../extension/content/any-copy-enhanced-runtime.js', import.meta.url), 'utf8'),
+    readFile(new URL('../extension/content/any-copy-enhanced-bridge.js', import.meta.url), 'utf8')
+  ]);
+  assert.match(standardRuntime, /cosmic-gemini\.any-copy\.runtime/);
+  assert.doesNotMatch(standardRuntime, /any-copy-enhanced|readerHost|showReader/);
+  assert.doesNotMatch(standardBridge, /readerHost|showReader|copyText/);
+  assert.match(enhancedRuntime, /cosmic-gemini\.any-copy-enhanced\.runtime/);
+  assert.match(enhancedRuntime, /showReader\(\)/);
+  assert.match(enhancedBridge, /featureId: 'anyCopyEnhanced'/);
+});

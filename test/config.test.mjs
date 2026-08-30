@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   DEFAULT_SETTINGS,
   FEATURE_IDS,
+  anyCopyEnhancedState,
   anyCopyState,
   featureState,
   hostnameFromUrl,
@@ -10,7 +11,6 @@ import {
   normalizeRule,
   normalizeSettings,
   ruleMatches,
-  toggleRule,
   updateFeature
 } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
@@ -20,7 +20,8 @@ test('all products start with independent site rule lists', () => {
   assert.deepEqual(normalizeSettings().nativeScroll.enhancedRules, []);
   assert.equal(normalizeSettings().noAutoplay.audioAutoplayAllSites, false);
   assert.deepEqual(normalizeSettings().noAutoplay.permanentAudioAllowRules, []);
-  assert.deepEqual(normalizeSettings().anyCopy.enforcedRules, []);
+  assert.deepEqual(normalizeSettings().anyCopy.siteRules, []);
+  assert.deepEqual(normalizeSettings().anyCopyEnhanced.siteRules, []);
   assert.deepEqual(normalizeSettings().imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
   assert.deepEqual(normalizeSettings().videoDownload, { preferredQuality: 'best', askWhereToSave: true });
   assert.deepEqual(normalizeSettings().satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
@@ -30,11 +31,13 @@ test('rules are normalized, deduplicated, and sorted by feature', () => {
   const settings = normalizeSettings({
     nativeScroll: { whitelistRules: ['B.example.com', '*.example.com', 'b.example.com'] },
     noAutoplay: { enhancedRules: ['media.example.com'] },
-    anyCopy: { enforcedRules: ['copy.example.com'] }
+    anyCopy: { siteRules: ['copy.example.com'] },
+    anyCopyEnhanced: { siteRules: ['reader.example.com'] }
   });
   assert.deepEqual(settings.nativeScroll.whitelistRules, ['*.example.com', 'b.example.com']);
   assert.deepEqual(settings.noAutoplay.enhancedRules, ['media.example.com']);
-  assert.deepEqual(settings.anyCopy.enforcedRules, ['copy.example.com']);
+  assert.deepEqual(settings.anyCopy.siteRules, ['copy.example.com']);
+  assert.deepEqual(settings.anyCopyEnhanced.siteRules, ['reader.example.com']);
 });
 
 test('exact and wildcard rules match their intended hostnames', () => {
@@ -68,30 +71,36 @@ test('whitelist takes priority over site-specific Enhanced mode', () => {
   assert.equal(state.matchedEnhancedRule, 'docs.example.com');
 });
 
-test('Any Copy Enhanced rules can enable a site without a standard rule', () => {
-  const directEnhanced = anyCopyState({
-    anyCopy: { enforcedRules: [], enhancedRules: ['docs.example.com'] }
+test('Any Copy and Any Copy Enhanced activate independently', () => {
+  const directEnhanced = anyCopyEnhancedState({
+    anyCopy: { siteRules: [] },
+    anyCopyEnhanced: { siteRules: ['docs.example.com'] }
   }, 'https://docs.example.com/a');
   assert.equal(directEnhanced.active, true);
-  assert.equal(directEnhanced.mode, 'enhanced');
-  assert.equal(directEnhanced.exactEnforced, false);
-  assert.equal(directEnhanced.exactEnhanced, true);
+  assert.equal(directEnhanced.exactActive, true);
 
-  const remainingEnhancedRules = toggleRule(directEnhanced.enhancedRules, 'docs.example.com');
-  const off = anyCopyState({ anyCopy: { enforcedRules: [], enhancedRules: remainingEnhancedRules } }, 'https://docs.example.com/a');
-  assert.equal(off.active, false);
-});
-
-test('Any Copy returns to standard when its standard rule remains', () => {
-  const enhanced = anyCopyState({
-    anyCopy: { enforcedRules: ['docs.example.com'], enhancedRules: ['docs.example.com'] }
-  }, 'https://docs.example.com');
-  assert.equal(enhanced.mode, 'enhanced');
   const standard = anyCopyState({
-    anyCopy: { enforcedRules: ['docs.example.com'], enhancedRules: [] }
+    anyCopy: { siteRules: ['docs.example.com'] },
+    anyCopyEnhanced: { siteRules: [] }
   }, 'https://docs.example.com');
   assert.equal(standard.active, true);
-  assert.equal(standard.mode, 'standard');
+  const enhancedOff = anyCopyEnhancedState({
+    anyCopy: { siteRules: ['docs.example.com'] },
+    anyCopyEnhanced: { siteRules: [] }
+  }, 'https://docs.example.com');
+  assert.equal(enhancedOff.active, false);
+});
+
+test('legacy Any Copy rules migrate into isolated products', () => {
+  const migrated = normalizeSettings({
+    version: 9,
+    anyCopy: {
+      enforcedRules: ['copy.example.com'],
+      enhancedRules: ['reader.example.com']
+    }
+  });
+  assert.deepEqual(migrated.anyCopy.siteRules, ['copy.example.com']);
+  assert.deepEqual(migrated.anyCopyEnhanced.siteRules, ['reader.example.com']);
 });
 
 test('No Autoplay audio autoplay permission applies without allowing the feature whitelist', () => {
@@ -132,6 +141,7 @@ test('feature updates do not mutate other products', () => {
   assert.equal(next.nativeScroll.enabled, false);
   assert.deepEqual(next.noAutoplay, current.noAutoplay);
   assert.deepEqual(next.anyCopy, current.anyCopy);
+  assert.deepEqual(next.anyCopyEnhanced, current.anyCopyEnhanced);
   assert.deepEqual(next.satellites, current.satellites);
 });
 
@@ -150,7 +160,8 @@ test('settings first-frame cache keeps preferences without page activity', () =>
       active: true
     },
     noAutoplay: { enabled: true, audioAutoplayAllSites: true },
-    anyCopy: { enforcedRules: ['copy.example'], enhancedRules: [] },
+    anyCopy: { siteRules: ['copy.example'] },
+    anyCopyEnhanced: { siteRules: ['reader.example'] },
     imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
     satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
@@ -163,6 +174,8 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   });
   assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
+  assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
+  assert.deepEqual(cache.anyCopyEnhanced, { siteRules: ['reader.example'] });
   assert.deepEqual(cache.imageDownload, { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false });
   assert.deepEqual(cache.videoDownload, { preferredQuality: '1080', askWhereToSave: false });
   assert.equal('hostname' in cache.nativeScroll, false);

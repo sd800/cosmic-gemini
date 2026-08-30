@@ -26,15 +26,18 @@
   </header>
 
   <main class="workspace-main">
-    <section class="filter-bar" aria-label="Image filters">
-      <label class="search-field"><span class="sr-only" data-i18n="imageSearchLabel"></span><input id="search" type="search" autocomplete="off" data-i18n-placeholder="imageSearchPlaceholder"></label>
-      <label><span data-i18n="imageTypeLabel"></span><select id="type-filter"><option value="all" data-i18n="allTypes"></option></select></label>
-      <label><span data-i18n="imageLayoutLabel"></span><select id="layout-filter"><option value="all" data-i18n="allLayouts"></option><option value="wide" data-i18n="layoutWide"></option><option value="tall" data-i18n="layoutTall"></option><option value="square" data-i18n="layoutSquare"></option></select></label>
-      <label><span data-i18n="minimumWidth"></span><input id="min-width" type="number" inputmode="numeric" min="0" step="100" value="0"></label>
-      <label><span data-i18n="minimumHeight"></span><input id="min-height" type="number" inputmode="numeric" min="0" step="100" value="0"></label>
-      <label><span data-i18n="sortBy"></span><select id="sort"><option value="largest" data-i18n="sortLargest"></option><option value="smallest" data-i18n="sortSmallest"></option><option value="page" data-i18n="sortPageOrder"></option></select></label>
-      <button class="quiet-button" id="clear-filters" type="button" data-i18n="clearFilters"></button>
-    </section>
+    <details class="filter-card" id="image-filters">
+      <summary><span data-i18n="imageFiltersHeading"></span><span class="filter-count" id="filter-count"></span></summary>
+      <div class="filter-bar" aria-label="Image filters">
+        <label class="search-field"><span class="sr-only" data-i18n="imageSearchLabel"></span><input id="search" type="search" autocomplete="off" data-i18n-placeholder="imageSearchPlaceholder"></label>
+        <label><span data-i18n="imageTypeLabel"></span><select id="type-filter"><option value="all" data-i18n="allTypes"></option></select></label>
+        <label><span data-i18n="imageLayoutLabel"></span><select id="layout-filter"><option value="all" data-i18n="allLayouts"></option><option value="wide" data-i18n="layoutWide"></option><option value="tall" data-i18n="layoutTall"></option><option value="square" data-i18n="layoutSquare"></option></select></label>
+        <label><span data-i18n="minimumWidth"></span><input id="min-width" type="number" inputmode="numeric" min="0" step="100" value="0"></label>
+        <label><span data-i18n="minimumHeight"></span><input id="min-height" type="number" inputmode="numeric" min="0" step="100" value="0"></label>
+        <label><span data-i18n="sortBy"></span><select id="sort"><option value="largest" data-i18n="sortLargest"></option><option value="smallest" data-i18n="sortSmallest"></option><option value="page" data-i18n="sortPageOrder"></option></select></label>
+        <button class="quiet-button" id="clear-filters" type="button" data-i18n="clearFilters"></button>
+      </div>
+    </details>
 
     <section class="selection-bar">
       <div><strong id="result-count"></strong><small id="status-text" aria-live="polite"></small></div>

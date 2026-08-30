@@ -1,8 +1,8 @@
 (() => {
-  const READY = 'cosmic-gemini:any-copy:bridge-ready';
-  const MAIN_READY = 'cosmic-gemini:any-copy:main-ready';
-  const CONFIGURE = 'cosmic-gemini:any-copy:configure';
-  const INTERVENED = 'cosmic-gemini:any-copy:intervened';
+  const READY = 'cosmic-gemini:any-copy-enhanced:bridge-ready';
+  const MAIN_READY = 'cosmic-gemini:any-copy-enhanced:main-ready';
+  const CONFIGURE = 'cosmic-gemini:any-copy-enhanced:configure';
+  const INTERVENED = 'cosmic-gemini:any-copy-enhanced:intervened';
   let token = '';
 
   function dispatchConfig(config) {
@@ -15,10 +15,10 @@
     try {
       const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE' });
       if (!response?.ok) return;
-      dispatchConfig(response.result.anyCopy);
+      dispatchConfig(response.result.anyCopyEnhanced);
       if (window === top) {
         await chrome.runtime.sendMessage({
-          type: 'CG_CONFIG_APPLIED', featureId: 'anyCopy', active: response.result.anyCopy?.active === true
+          type: 'CG_CONFIG_APPLIED', featureId: 'anyCopyEnhanced', active: response.result.anyCopyEnhanced?.active === true
         });
       }
     } catch {}
@@ -31,7 +31,7 @@
   }, true);
   window.addEventListener(INTERVENED, event => {
     if (!token || event.detail !== token) return;
-    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopy' }).catch(() => {});
+    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopyEnhanced' }).catch(() => {});
   }, true);
   chrome.runtime.onMessage.addListener(message => {
     if (message?.type === 'CG_REFRESH_CONFIG') void requestConfig();

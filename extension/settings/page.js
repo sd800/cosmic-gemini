@@ -23,6 +23,10 @@ function state() {
   return states?.[featureId] || null;
 }
 
+function sectionState(section) {
+  return states?.[section.dataset.featureId || featureId] || null;
+}
+
 function applyLocale() {
   root.lang = locale;
   t = translator(locale);
@@ -37,7 +41,8 @@ function applyLocale() {
     anyCopy: 'switchAnyCopySettings',
     imageDownload: 'switchImageDownloadSettings',
     videoDownload: 'switchVideoDownloadSettings',
-    satellites: 'switchSatellitesSettings'
+    satellites: 'switchSatellitesSettings',
+    allSettings: 'switchAllSettings'
   };
   for (const link of document.querySelectorAll('[data-feature-link]')) {
     link.title = t(titles[link.dataset.featureLink]);
@@ -46,7 +51,7 @@ function applyLocale() {
 }
 
 function renderList(section) {
-  const current = state();
+  const current = sectionState(section);
   if (!current) return;
   const listName = section.dataset.listSection;
   const list = section.querySelector('.rule-list');
@@ -55,7 +60,7 @@ function renderList(section) {
   if (!rules.length) {
     const empty = document.createElement('li');
     empty.className = 'empty';
-    empty.textContent = t(emptyKey[listName]);
+    empty.textContent = t(section.dataset.emptyKey || emptyKey[listName]);
     list.append(empty);
     return;
   }
@@ -70,7 +75,7 @@ function renderList(section) {
     remove.title = t('removeRule', { rule });
     remove.setAttribute('aria-label', remove.title);
     remove.addEventListener('click', () => void update(section, () => send({
-      type: 'UI_DELETE_RULE', featureId, listName, rule
+      type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule
     }), [remove]));
     item.append(code, remove);
     list.append(item);
@@ -173,11 +178,12 @@ function bindView() {
     const submit = form.querySelector('button[type="submit"]');
     const message = section.querySelector('.form-message');
     const listName = section.dataset.listSection;
+    const sectionFeatureId = section.dataset.featureId || featureId;
     form.addEventListener('submit', event => {
       event.preventDefault();
       const rule = input.value.trim().toLowerCase();
       if (!rule) { message.textContent = t('invalidRule'); return; }
-      if ((state()?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
+      if ((sectionState(section)?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
       void (async () => {
         if (pendingControls.has(submit)) return;
         pendingControls.add(submit);
@@ -186,7 +192,7 @@ function bindView() {
         input.disabled = true;
         message.textContent = '';
         try {
-          await send({ type: 'UI_ADD_RULE', featureId, listName, rule });
+          await send({ type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
           input.value = '';
           await reload();
         } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
@@ -197,6 +203,13 @@ function bindView() {
           if (input.isConnected) input.disabled = false;
         }
       })();
+    });
+  }
+
+  for (const card of document.querySelectorAll('[data-settings-card]')) {
+    card.addEventListener('click', event => {
+      event.preventDefault();
+      navigateTo(card.dataset.settingsCard);
     });
   }
 
@@ -226,6 +239,9 @@ function mountView(replace = true) {
     primary.innerHTML = view.primary;
     helpPanel.innerHTML = view.help;
   }
+  for (const element of document.querySelectorAll('[data-section-icon]')) {
+    element.innerHTML = icon(element.dataset.sectionIcon);
+  }
   for (const link of document.querySelectorAll('[data-feature-link]')) {
     link.classList.toggle('active', link.dataset.featureLink === featureId);
     if (link.dataset.featureLink === featureId) link.setAttribute('aria-current', 'page');
@@ -236,15 +252,18 @@ function mountView(replace = true) {
   render();
 }
 
+function navigateTo(nextFeature) {
+  if (!PRODUCT_META[nextFeature] || nextFeature === featureId) return;
+  featureId = nextFeature;
+  history.pushState({ featureId }, '', PRODUCT_META[featureId].path);
+  mountView();
+}
+
 for (const link of document.querySelectorAll('[data-feature-link]')) {
   link.querySelector('span').innerHTML = icon(link.dataset.featureLink);
   link.addEventListener('click', event => {
     event.preventDefault();
-    const nextFeature = event.currentTarget.dataset.featureLink;
-    if (!PRODUCT_META[nextFeature] || nextFeature === featureId) return;
-    featureId = nextFeature;
-    history.pushState({ featureId }, '', PRODUCT_META[featureId].path);
-    mountView();
+    navigateTo(event.currentTarget.dataset.featureLink);
   });
 }
 

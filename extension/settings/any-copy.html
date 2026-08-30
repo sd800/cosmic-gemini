@@ -22,25 +22,24 @@
         <a class="feature-link" href="image-download.html" data-feature-link="imageDownload"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="all-settings.html" data-feature-link="allSettings"><span aria-hidden="true"></span></a>
       </nav>
     </div>
   </header>
   <main class="layout">
     <div class="primary">
       <section class="card">
-        <div class="section-heading">
-          <div><h1 data-i18n="anyCopyStandardHeading"></h1><p data-i18n="anyCopyActivationHelp"></p></div>
-          <span class="context-label" data-i18n="siteActivationLabel"></span>
-        </div>
+        <h1 data-i18n="anyCopyName"></h1>
+        <p class="last" data-i18n="anyCopyIntroHelp"></p>
       </section>
-      <section class="card rule-card" data-list-section="enforcedRules">
-        <h2 data-i18n="enforcedSitesHeading"></h2>
-        <p data-i18n="enforcedSitesHelp"></p>
+      <section class="card rule-card" data-feature-id="anyCopy" data-list-section="siteRules" data-empty-key="emptyAnyCopySites">
+        <div class="rule-heading"><span data-section-icon="anyCopy" aria-hidden="true"></span><h2 data-i18n="anyCopySitesHeading"></h2></div>
+        <p data-i18n="anyCopySitesHelp"></p>
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
       </section>
-      <section class="card rule-card" data-list-section="enhancedRules">
-        <h2 data-i18n="enhancedSitesHeading"></h2>
+      <section class="card rule-card" data-feature-id="anyCopyEnhanced" data-list-section="siteRules" data-empty-key="emptyAnyCopyEnhancedSites">
+        <div class="rule-heading"><span data-section-icon="anyCopyEnhanced" aria-hidden="true"></span><h2 data-i18n="anyCopyEnhancedSitesHeading"></h2></div>
         <p data-i18n="anyCopyEnhancedSitesHelp"></p>
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>

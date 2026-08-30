@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en-US" data-locale-pending="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cosmic Gemini · All Settings</title>
+  <script src="../localization-data.js"></script>
+  <link rel="stylesheet" href="../ui.css">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body data-feature="allSettings">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="product-identity">
+        <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="../icons/icon-128.png" alt=""></span>
+        <div class="wordmark"><strong>All Settings</strong><span><em>at</em> Cosmic Gemini</span></div>
+      </div>
+      <nav class="feature-switch" aria-label="Cosmic Gemini">
+        <a class="feature-link" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="any-copy.html" data-feature-link="anyCopy"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="image-download.html" data-feature-link="imageDownload"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
+        <a class="feature-link active" href="all-settings.html" data-feature-link="allSettings"><span aria-hidden="true"></span></a>
+      </nav>
+    </div>
+  </header>
+  <main class="layout">
+    <div class="primary">
+      <section class="card">
+        <h1 data-i18n="allSettingsName"></h1>
+        <p class="last" data-i18n="allSettingsIntro"></p>
+      </section>
+      <section class="settings-grid" aria-label="Cosmic Gemini">
+        <a class="settings-destination" href="native-scroll.html" data-settings-card="nativeScroll"><span class="settings-destination-icon" data-section-icon="nativeScroll" aria-hidden="true"></span><span><strong data-i18n="nativeScrollName"></strong><small data-i18n="allSettingsNativeDescription"></small></span><span class="settings-destination-arrow" aria-hidden="true">›</span></a>
+        <a class="settings-destination" href="no-autoplay.html" data-settings-card="noAutoplay"><span class="settings-destination-icon" data-section-icon="noAutoplay" aria-hidden="true"></span><span><strong data-i18n="noAutoplayName"></strong><small data-i18n="allSettingsAutoplayDescription"></small></span><span class="settings-destination-arrow" aria-hidden="true">›</span></a>
+        <a class="settings-destination" href="any-copy.html" data-settings-card="anyCopy"><span class="settings-destination-icon" data-section-icon="anyCopy" aria-hidden="true"></span><span><strong data-i18n="anyCopyName"></strong><small data-i18n="allSettingsAnyCopyDescription"></small></span><span class="settings-destination-arrow" aria-hidden="true">›</span></a>
+        <a class="settings-destination" href="image-download.html" data-settings-card="imageDownload"><span class="settings-destination-icon" data-section-icon="imageDownload" aria-hidden="true"></span><span><strong data-i18n="imageDownloadName"></strong><small data-i18n="allSettingsImageDescription"></small></span><span class="settings-destination-arrow" aria-hidden="true">›</span></a>
+        <a class="settings-destination" href="video-download.html" data-settings-card="videoDownload"><span class="settings-destination-icon" data-section-icon="videoDownload" aria-hidden="true"></span><span><strong data-i18n="videoDownloadName"></strong><small data-i18n="allSettingsVideoDescription"></small></span><span class="settings-destination-arrow" aria-hidden="true">›</span></a>
+        <a class="settings-destination" href="satellites.html" data-settings-card="satellites"><span class="settings-destination-icon" data-section-icon="satellites" aria-hidden="true"></span><span><strong data-i18n="satellitesName"></strong><small data-i18n="allSettingsSatellitesDescription"></small></span><span class="settings-destination-arrow" aria-hidden="true">›</span></a>
+      </section>
+    </div>
+    <div class="sidebar">
+      <aside class="help card"><h2 data-i18n="allSettingsHelpHeading"></h2><p data-i18n="allSettingsHelp"></p></aside>
+      <section class="card compact language-card">
+        <label for="language"><strong data-i18n="languageHeading"></strong></label>
+        <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
+      </section>
+    </div>
+  </main>
+  <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
+  <script src="preload.js"></script>
+  <script type="module" src="page.js"></script>
+</body>
+</html>

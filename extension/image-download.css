@@ -8,8 +8,15 @@ body { min-width: 760px; min-height: 100vh; background: var(--surface-raised); }
 .workspace-brand small em { margin-right: 2px; font-family: "Snell Roundhand", "Segoe Script", "Brush Script MT", cursive; font-size: 13px; font-style: normal; }
 .workspace-actions { display: flex; gap: 4px; }
 .workspace-main { display: grid; width: min(1480px, calc(100% - 40px)); margin: 20px auto 40px; gap: 14px; }
-.filter-bar, .selection-bar { display: flex; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, black 8%, transparent); align-items: end; gap: 10px; }
-.filter-bar { flex-wrap: wrap; }
+.filter-card, .selection-bar { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, black 8%, transparent); }
+.filter-card { overflow: hidden; }
+.filter-card summary { display: flex; min-height: 46px; padding: 0 14px; color: var(--text); cursor: pointer; list-style: none; font-size: 12px; font-weight: 700; align-items: center; gap: 6px; }
+.filter-card summary::-webkit-details-marker { display: none; }
+.filter-card summary::after { width: 7px; height: 7px; margin-left: auto; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ''; transform: rotate(45deg) translateY(-2px); transition: transform 150ms ease; }
+.filter-card[open] summary::after { transform: rotate(225deg) translate(-1px,-1px); }
+.filter-count { color: var(--blue); font-size: 11px; font-weight: 700; }
+.filter-bar { display: flex; padding: 12px; border-top: 1px solid var(--line); align-items: end; gap: 10px; flex-wrap: wrap; }
+.selection-bar { display: flex; padding: 12px; align-items: end; gap: 10px; }
 .filter-bar label { display: grid; color: var(--muted); font-size: 10px; font-weight: 650; gap: 5px; }
 .filter-bar input, .filter-bar select, .selection-bar select { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); font-size: 12px; }
 .filter-bar input[type="number"] { width: 88px; }

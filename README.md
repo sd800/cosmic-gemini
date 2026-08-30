@@ -20,7 +20,7 @@ Background: Pages can begin playing video or sound before you ask, interrupting 
 
 ### Any Copy
 
-Any Copy restores text selection and copy shortcuts on websites that disable them. It also prevents pages from replacing copied text or adding unwanted promotional content. Enhanced mode rebuilds a page as a clean, static reading view with selectable text and unobstructed images. The original page remains available underneath and returns immediately when Enhanced mode ends.
+Any Copy restores text selection and copy shortcuts on websites that disable them. It also prevents pages from replacing copied text or adding unwanted promotional content. Any Copy Enhanced is an independently controlled reading mode that rebuilds a page as a clean, static view with selectable text and unobstructed images. The original page remains available underneath and returns immediately when Any Copy Enhanced ends.
 
 Background: Some websites disable selection, block copy shortcuts, or rewrite clipboard content with unwanted additions. Any Copy brings ordinary selection and copying back under your control.
 
@@ -42,13 +42,13 @@ Background: Bilibili gives every signed-in account one coin when it visits each 
 
 ## Features
 
-- Independent controls and website rules for Native Scroll, No Autoplay, and Any Copy
+- Independent controls and website rules for Native Scroll, No Autoplay, Any Copy, and Any Copy Enhanced
 - On-demand image discovery with original-source recommendations, filtering, local conversion, area capture, and batch ZIP downloads
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
 - Optional Satellites with their own concise settings and privacy details
 - Exact-host and wildcard rules such as `example.com` and `*.example.com`
 - A compact popup with current-page controls
-- Separate settings pages with direct product switching and stable first-frame localization
+- Separate settings pages, an All Settings hub, direct product switching, and stable first-frame localization
 - Natural en-US and zh-CN interfaces with system-aware light and dark themes
 - Event-driven runtimes without polling or a persistent background page
 - No analytics, browsing history, or activity log
@@ -64,20 +64,20 @@ Chrome requests access to HTTP and HTTPS pages so the tools can begin before ord
 
 ## Use
 
-The popup contains one row for each product.
+The popup uses three compact rows.
 
-- Native Scroll and No Autoplay provide **Power**, **Enhanced**, **Whitelist**, and **Settings** controls.
-- Any Copy is enabled for the current website by clicking its product icon. Its **Enhanced** control may be used directly from the off state, and **Settings** manages Standard mode and Enhanced mode sites.
+- Native Scroll and No Autoplay each provide **Power**, **Enhanced**, **Whitelist**, and **Settings** controls in the first two rows.
+- The third row contains **Any Copy**, **Any Copy Enhanced**, **Image Download**, **Video Download**, and **All Settings**, in that order.
+- Any Copy and Any Copy Enhanced are enabled independently for the current website. They may run together, and turning either one off does not change the other. Their website rules share one clearly divided settings page.
 - Image Download is enabled for the current tab by clicking its product icon. Its workspace opens in the Side Panel by default, while Settings can use a separate tab instead. It remains active through same-site navigation until you stop it, close the source tab, or leave the website.
 - Video Download is enabled for the current tab by clicking its product icon. Its media list opens immediately, remains available through same-site navigation, and closes when you stop it, close the tab, or leave the website.
-- Satellites are managed only from the rightmost settings icon. Bili Daily Login is off by default. After you enable it, the task runs on its own schedule while Chrome and the computer are running. After any length of downtime, one current-day task catches up when Chrome can next run; earlier missed days are never replayed.
-- When Any Copy enters Enhanced mode directly from off, leaving Enhanced mode turns Any Copy off. If standard Any Copy was already enabled, leaving Enhanced mode returns to standard behavior.
+- All Settings opens a single navigation page for Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login is off by default. After you enable it, the task runs on its own schedule while Chrome and the computer are running. After any length of downtime, one current-day task catches up when Chrome can next run; earlier missed days are never replayed.
 
-Native Scroll and No Autoplay icons are neutral when unavailable or off, blue while enabled, green after the feature intervenes on the current page, and dimmed when the current website matches a whitelist rule. The product icon, power control, and Enhanced control share the same neutral opacity in that state. A matching whitelist control uses a green icon, and the product does not start on that website. Any Copy has no blue state: it turns green while enabled for the current website. Image Download and Video Download are neutral while off, blue while scanning, and green after compatible results are found. The main Cosmic Gemini mark in the popup remains unchanged.
+Native Scroll and No Autoplay icons are neutral when unavailable or off, blue while enabled, green after the feature intervenes on the current page, and dimmed when the current website matches a whitelist rule. The product icon, power control, and Enhanced control share the same neutral opacity in that state. A matching whitelist control uses a green icon, and the product does not start on that website. Any Copy and Any Copy Enhanced have independent neutral and green states, with Any Copy Enhanced shown by the copy mark and a solid lightning badge. Image Download and Video Download are neutral while off, blue while scanning, and green after compatible results are found. The main Cosmic Gemini mark in the popup remains unchanged.
 
 ### Website rules
 
-`example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save the exact current hostname; Settings also accepts wildcard rules. If several rules match, the exact rule takes priority, followed by the most specific wildcard. Clicking an active Whitelist or Enhanced control removes the matched rule directly; only a Settings control opens Settings. A whitelist rule takes priority over an Enhanced-site rule for Native Scroll and No Autoplay. On the No Autoplay whitelist, video, audio, and Web Audio may start automatically.
+`example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save the exact current hostname; Settings also accepts wildcard rules. If several rules match, the exact rule takes priority, followed by the most specific wildcard. Clicking an active Whitelist or Enhanced control removes the matched rule directly; only a Settings control opens Settings. A whitelist rule takes priority over an Enhanced-site rule for Native Scroll and No Autoplay. Any Copy and Any Copy Enhanced keep separate rule lists. On the No Autoplay whitelist, video, audio, and Web Audio may start automatically.
 
 ### Audio autoplay
 
@@ -85,7 +85,7 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Image Download, and Video Download run locally. Cosmic Gemini stores only product settings, website rules you choose, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab and delete them when that session ends. Cosmic Gemini does not keep browsing history or an activity log or use analytics. Bili Daily Login does not inspect whether or when you open Bilibili. When enabled, its background schedule contacts Bilibili while Chrome and the computer are running, using the account already signed in to Chrome; it never reads or stores your Bilibili password. Stored website rules contain hostnames rather than complete URLs.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, and Video Download run locally. Cosmic Gemini stores only product settings, website rules you choose, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab and delete them when that session ends. Cosmic Gemini does not keep browsing history or an activity log or use analytics. Bili Daily Login does not inspect whether or when you open Bilibili. When enabled, its background schedule contacts Bilibili while Chrome and the computer are running, using the account already signed in to Chrome; it never reads or stores your Bilibili password. Stored website rules contain hostnames rather than complete URLs.
 
 ## Compatibility
 

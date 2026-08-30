@@ -14,7 +14,7 @@
       <strong data-i18n="appName">Cosmic Gemini</strong>
     </div>
     <div class="feature-list">
-      <section class="feature-row" data-feature="nativeScroll">
+      <section class="feature-row standard-row" data-feature="nativeScroll">
         <span class="feature-status" id="nativeScroll-status" aria-hidden="true"></span>
         <nav class="actions" data-i18n-aria-label="nativeScrollName">
           <button class="icon-button" data-action="power" type="button"></button>
@@ -23,7 +23,7 @@
           <button class="icon-button" data-action="settings" type="button"></button>
         </nav>
       </section>
-      <section class="feature-row" data-feature="noAutoplay">
+      <section class="feature-row standard-row" data-feature="noAutoplay">
         <span class="feature-status" id="noAutoplay-status" aria-hidden="true"></span>
         <nav class="actions" data-i18n-aria-label="noAutoplayName">
           <button class="icon-button" data-action="power" type="button"></button>
@@ -32,31 +32,13 @@
           <button class="icon-button" data-action="settings" type="button"></button>
         </nav>
       </section>
-      <section class="feature-row any-copy-row" data-feature="anyCopy">
-        <button class="feature-status feature-toggle" id="anyCopy-status" type="button"></button>
-        <nav class="actions" data-i18n-aria-label="anyCopyName">
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <button class="icon-button" data-action="enhanced" type="button"></button>
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <button class="icon-button" data-action="settings" type="button"></button>
-        </nav>
-      </section>
-      <section class="feature-row image-download-row" data-feature="imageDownload">
-        <button class="feature-status feature-toggle" id="imageDownload-status" type="button"></button>
-        <nav class="actions" data-i18n-aria-label="imageDownloadName">
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <button class="icon-button" data-action="settings" type="button"></button>
-        </nav>
-      </section>
-      <section class="feature-row video-download-row" data-feature="videoDownload">
-        <button class="feature-status feature-toggle" id="videoDownload-status" type="button"></button>
-        <nav class="actions" data-i18n-aria-label="videoDownloadName">
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <span class="action-placeholder" aria-hidden="true"></span>
-          <button class="icon-button" data-action="settings" type="button"></button>
+      <section class="feature-row launcher-row">
+        <nav class="launcher-actions" data-i18n-aria-label="quickToolsLabel">
+          <button class="feature-status feature-toggle" id="anyCopy-status" type="button"></button>
+          <button class="feature-status feature-toggle" id="anyCopyEnhanced-status" type="button"></button>
+          <button class="feature-status feature-toggle" id="imageDownload-status" type="button"></button>
+          <button class="feature-status feature-toggle" id="videoDownload-status" type="button"></button>
+          <button class="feature-status feature-toggle" id="all-settings" type="button"></button>
         </nav>
       </section>
     </div>

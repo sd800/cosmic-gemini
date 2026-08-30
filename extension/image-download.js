@@ -77,6 +77,20 @@ function filteredGroups() {
   });
 }
 
+function updateFilterSummary() {
+  const count = [
+    document.querySelector('#search').value.trim() !== '',
+    document.querySelector('#type-filter').value !== 'all',
+    document.querySelector('#layout-filter').value !== 'all',
+    (Number(document.querySelector('#min-width').value) || 0) > 0,
+    (Number(document.querySelector('#min-height').value) || 0) > 0,
+    document.querySelector('#sort').value !== 'largest'
+  ].filter(Boolean).length;
+  const indicator = document.querySelector('#filter-count');
+  indicator.textContent = count ? `· ${count}` : '';
+  indicator.setAttribute('aria-label', count ? t('activeFilterCount', { count }) : '');
+}
+
 function updateTypeOptions() {
   const select = document.querySelector('#type-filter');
   const current = select.value || 'all';
@@ -226,6 +240,7 @@ function updateSelectionBar() {
 }
 
 function renderGallery() {
+  updateFilterSummary();
   const groups = filteredGroups();
   grid.replaceChildren();
   groups.forEach((group, index) => grid.append(createCard(group, index)));

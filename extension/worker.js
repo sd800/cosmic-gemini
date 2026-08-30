@@ -3,12 +3,12 @@ import {
   FEATURE_IDS,
   LEGACY_SETTINGS_KEY,
   SETTINGS_KEY,
+  anyCopyEnhancedState,
   anyCopyState,
   featureState,
   hostnameFromUrl,
   normalizeRule,
   normalizeSettings,
-  ruleMatches,
   toggleRule,
   updateFeature
 } from './core/config.js';
@@ -56,7 +56,7 @@ import {
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
-const FEATURE_LISTS = new Set(['whitelistRules', 'enhancedRules', 'permanentAudioAllowRules', 'enforcedRules']);
+const FEATURE_LISTS = new Set(['whitelistRules', 'enhancedRules', 'permanentAudioAllowRules', 'siteRules']);
 const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
 const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
 let writeQueue = Promise.resolve();
@@ -149,17 +149,18 @@ function activityKey(tabId) {
 }
 
 async function readActivity(tabId) {
-  if (!Number.isInteger(tabId)) return { nativeScroll: false, noAutoplay: false, anyCopy: false, imageDownload: false, videoDownload: false };
+  if (!Number.isInteger(tabId)) return { nativeScroll: false, noAutoplay: false, anyCopy: false, anyCopyEnhanced: false, imageDownload: false, videoDownload: false };
   try {
     const value = (await chrome.storage.session.get(activityKey(tabId)))[activityKey(tabId)];
     return {
       nativeScroll: value?.nativeScroll === true,
       noAutoplay: value?.noAutoplay === true,
       anyCopy: value?.anyCopy === true,
+      anyCopyEnhanced: value?.anyCopyEnhanced === true,
       imageDownload: value?.imageDownload === true,
       videoDownload: value?.videoDownload === true
     };
-  } catch { return { nativeScroll: false, noAutoplay: false, anyCopy: false, imageDownload: false, videoDownload: false }; }
+  } catch { return { nativeScroll: false, noAutoplay: false, anyCopy: false, anyCopyEnhanced: false, imageDownload: false, videoDownload: false }; }
 }
 
 async function toolbarTitle(activity) {
@@ -167,6 +168,7 @@ async function toolbarTitle(activity) {
     activity.nativeScroll && 'Native Scroll',
     activity.noAutoplay && 'No Autoplay',
     activity.anyCopy && 'Any Copy',
+    activity.anyCopyEnhanced && 'Any Copy Enhanced',
     activity.imageDownload && 'Image Download',
     activity.videoDownload && 'Video Download'
   ].filter(Boolean);
@@ -179,7 +181,7 @@ async function toolbarTitle(activity) {
 
 async function renderToolbar(tabId, activity) {
   if (!Number.isInteger(tabId)) return;
-  const active = activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.imageDownload || activity.videoDownload;
+  const active = activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.anyCopyEnhanced || activity.imageDownload || activity.videoDownload;
   await Promise.allSettled([
     updateAction('setIcon', { tabId, path: active ? ACTIVE_ICONS : DEFAULT_ICONS }),
     updateAction('setBadgeText', { tabId, text: '' }),
@@ -192,7 +194,7 @@ async function setFeatureActivity(tabId, featureId, value) {
   const activity = await readActivity(tabId);
   activity[featureId] = value === true;
   const key = activityKey(tabId);
-  if (activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.imageDownload || activity.videoDownload) await chrome.storage.session.set({ [key]: activity });
+  if (activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.anyCopyEnhanced || activity.imageDownload || activity.videoDownload) await chrome.storage.session.set({ [key]: activity });
   else await chrome.storage.session.remove(key);
   await renderToolbar(tabId, activity);
 }
@@ -200,7 +202,7 @@ async function setFeatureActivity(tabId, featureId, value) {
 async function clearTabActivity(tabId) {
   if (!Number.isInteger(tabId)) return;
   await chrome.storage.session.remove(activityKey(tabId));
-  await renderToolbar(tabId, { nativeScroll: false, noAutoplay: false, anyCopy: false, imageDownload: false, videoDownload: false });
+  await renderToolbar(tabId, { nativeScroll: false, noAutoplay: false, anyCopy: false, anyCopyEnhanced: false, imageDownload: false, videoDownload: false });
 }
 
 async function clearLegacyAudioPromptState() {
@@ -1205,20 +1207,22 @@ async function handleImageDownloadChanged(delta) {
 
 async function stateFor(settings, featureId, url) {
   if (featureId === FEATURE_IDS.ANY_COPY) return anyCopyState(settings, url);
+  if (featureId === FEATURE_IDS.ANY_COPY_ENHANCED) return anyCopyEnhancedState(settings, url);
   return featureState(settings, featureId, url);
 }
 
 async function pageStates(url, tabId) {
   const settings = await readSettings();
-  const [nativeScroll, noAutoplay, anyCopy, imageDownload, videoDownload, activity] = await Promise.all([
+  const [nativeScroll, noAutoplay, anyCopy, anyCopyEnhanced, imageDownload, videoDownload, activity] = await Promise.all([
     stateFor(settings, FEATURE_IDS.NATIVE_SCROLL, url),
     stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, url),
     stateFor(settings, FEATURE_IDS.ANY_COPY, url),
+    stateFor(settings, FEATURE_IDS.ANY_COPY_ENHANCED, url),
     imageDownloadState(settings, tabId, url),
     videoDownloadState(settings, tabId, url),
     readActivity(tabId)
   ]);
-  return { nativeScroll, noAutoplay, anyCopy, imageDownload, videoDownload, satellites: settings.satellites, activity };
+  return { nativeScroll, noAutoplay, anyCopy, anyCopyEnhanced, imageDownload, videoDownload, satellites: settings.satellites, activity };
 }
 
 async function requestBilibiliJson(url) {
@@ -1321,8 +1325,8 @@ function validList(featureId, value) {
   if (!FEATURE_LISTS.has(value)) throw new Error('Unknown rule list.');
   if ([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This product does not use website rule lists.');
   if (value === 'permanentAudioAllowRules' && featureId !== FEATURE_IDS.NO_AUTOPLAY) throw new Error('That rule list is unavailable.');
-  if (value === 'enforcedRules' && featureId !== FEATURE_IDS.ANY_COPY) throw new Error('That rule list is unavailable.');
-  if (featureId === FEATURE_IDS.ANY_COPY && !['enforcedRules', 'enhancedRules'].includes(value)) throw new Error('That rule list is unavailable.');
+  if (value === 'siteRules' && ![FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId)) throw new Error('That rule list is unavailable.');
+  if ([FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId) && value !== 'siteRules') throw new Error('That rule list is unavailable.');
   return value;
 }
 
@@ -1660,7 +1664,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (message.type === 'UI_SET_ENABLED') {
       const featureId = validFeatureId(message.featureId);
-      if ([FEATURE_IDS.ANY_COPY, FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This feature is enabled from the current tab.');
+      if ([FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This feature is enabled from the current tab.');
       const settings = await mutateSettings(current => updateFeature(current, featureId, feature => ({
         ...feature,
         enabled: message.enabled === true
@@ -1697,40 +1701,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (message.type === 'UI_TOGGLE_ENHANCED' || message.type === 'UI_TOGGLE_WHITELIST') {
       const featureId = validFeatureId(message.featureId);
-      if ([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This product does not use website rules.');
+      if (![FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)) throw new Error('This product does not use these website rules.');
       const hostname = normalizeRule(message.hostname || '');
       if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
-      if (message.type === 'UI_TOGGLE_WHITELIST' && featureId === FEATURE_IDS.ANY_COPY) throw new Error('Any Copy uses Standard mode sites.');
       const listName = message.type === 'UI_TOGGLE_ENHANCED' ? 'enhancedRules' : 'whitelistRules';
       const settings = await updateFeatureRules(featureId, listName, rules => toggleRule(rules, hostname));
       sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
-    if (message.type === 'UI_TOGGLE_ANY_COPY') {
+    if (message.type === 'UI_TOGGLE_SITE_FEATURE') {
+      const featureId = validFeatureId(message.featureId);
+      if (![FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId)) throw new Error('This product does not use site activation.');
       const hostname = normalizeRule(message.hostname || '');
       if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
-      const settings = await mutateSettings(current => updateFeature(current, FEATURE_IDS.ANY_COPY, feature => {
-        const exactActive = feature.enforcedRules.includes(hostname) || feature.enhancedRules.includes(hostname);
-        return exactActive
-          ? {
-              ...feature,
-              enforcedRules: feature.enforcedRules.filter(rule => rule !== hostname),
-              enhancedRules: feature.enhancedRules.filter(rule => rule !== hostname)
-            }
-          : { ...feature, enforcedRules: [...feature.enforcedRules, hostname] };
-      }));
-      sendResponse({ ok: true, result: settings.anyCopy });
-      return;
-    }
-    if (message.type === 'UI_DISABLE_ANY_COPY_MATCHES') {
-      const hostname = normalizeRule(message.hostname || '');
-      if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
-      const settings = await mutateSettings(current => updateFeature(current, FEATURE_IDS.ANY_COPY, feature => ({
+      const settings = await mutateSettings(current => updateFeature(current, featureId, feature => ({
         ...feature,
-        enforcedRules: feature.enforcedRules.filter(rule => !ruleMatches(hostname, rule)),
-        enhancedRules: feature.enhancedRules.filter(rule => !ruleMatches(hostname, rule))
+        siteRules: feature.siteRules.includes(hostname)
+          ? feature.siteRules.filter(rule => rule !== hostname)
+          : [...feature.siteRules, hostname]
       })));
-      sendResponse({ ok: true, result: settings.anyCopy });
+      sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
     if (message.type === 'UI_ADD_RULE' || message.type === 'UI_DELETE_RULE') {
@@ -1752,10 +1742,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const featureId = validFeatureId(message.featureId);
       const path = featureId === FEATURE_IDS.NO_AUTOPLAY
         ? 'settings/no-autoplay.html'
-        : featureId === FEATURE_IDS.ANY_COPY ? 'settings/any-copy.html'
+        : [FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId) ? 'settings/any-copy.html'
           : featureId === FEATURE_IDS.IMAGE_DOWNLOAD ? 'settings/image-download.html'
           : featureId === FEATURE_IDS.VIDEO_DOWNLOAD ? 'settings/video-download.html' : 'settings/native-scroll.html';
       await chrome.tabs.create({ url: chrome.runtime.getURL(path) });
+      sendResponse({ ok: true, result: { opened: true } });
+      return;
+    }
+    if (message.type === 'UI_OPEN_ALL_SETTINGS') {
+      await chrome.tabs.create({ url: chrome.runtime.getURL('settings/all-settings.html') });
       sendResponse({ ok: true, result: { opened: true } });
       return;
     }

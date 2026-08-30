@@ -28,6 +28,26 @@ const audioAllowSection = () => `
     <p class="caption" data-i18n="exactRuleHelp"></p>
   </section>`;
 
+const anyCopyRuleSection = (featureId, iconName, headingKey, helpKey, emptyKey) => `
+  <section class="card rule-card" data-feature-id="${featureId}" data-list-section="siteRules" data-empty-key="${emptyKey}">
+    <div class="rule-heading"><span data-section-icon="${iconName}" aria-hidden="true"></span><h2 data-i18n="${headingKey}"></h2></div>
+    <p data-i18n="${helpKey}"></p>
+    <form class="rule-form" novalidate>
+      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
+      <button class="primary-button" type="submit" data-i18n="add"></button>
+    </form>
+    <p class="form-message" aria-live="polite"></p>
+    <ul class="rule-list"></ul>
+    <p class="caption" data-i18n="exactRuleHelp"></p>
+  </section>`;
+
+const settingsCard = (featureId, nameKey, descriptionKey) => `
+  <a class="settings-destination" href="${PRODUCT_META[featureId].path}" data-settings-card="${featureId}">
+    <span class="settings-destination-icon" data-section-icon="${featureId}" aria-hidden="true"></span>
+    <span><strong data-i18n="${nameKey}"></strong><small data-i18n="${descriptionKey}"></small></span>
+    <span class="settings-destination-arrow" aria-hidden="true">›</span>
+  </a>`;
+
 const help = (keys, privacyKey) => `
   <h2 data-i18n="helpHeading"></h2>
   ${keys.map(key => `<p data-i18n="${key}"></p>`).join('')}
@@ -39,7 +59,8 @@ export const PRODUCT_META = Object.freeze({
   anyCopy: { name: 'Any Copy', path: 'any-copy.html' },
   imageDownload: { name: 'Image Download', path: 'image-download.html' },
   videoDownload: { name: 'Video Download', path: 'video-download.html' },
-  satellites: { name: 'Satellites', path: 'satellites.html' }
+  satellites: { name: 'Satellites', path: 'satellites.html' },
+  allSettings: { name: 'All Settings', path: 'all-settings.html' }
 });
 
 export function featureFromPath(pathname) {
@@ -48,10 +69,27 @@ export function featureFromPath(pathname) {
   if (pathname.endsWith('/image-download.html')) return 'imageDownload';
   if (pathname.endsWith('/video-download.html')) return 'videoDownload';
   if (pathname.endsWith('/satellites.html')) return 'satellites';
+  if (pathname.endsWith('/all-settings.html')) return 'allSettings';
   return 'nativeScroll';
 }
 
 export function viewFor(featureId) {
+  if (featureId === 'allSettings') return {
+    primary: `
+      <section class="card">
+        <h1 data-i18n="allSettingsName"></h1>
+        <p class="last" data-i18n="allSettingsIntro"></p>
+      </section>
+      <section class="settings-grid" aria-label="Cosmic Gemini">
+        ${settingsCard('nativeScroll', 'nativeScrollName', 'allSettingsNativeDescription')}
+        ${settingsCard('noAutoplay', 'noAutoplayName', 'allSettingsAutoplayDescription')}
+        ${settingsCard('anyCopy', 'anyCopyName', 'allSettingsAnyCopyDescription')}
+        ${settingsCard('imageDownload', 'imageDownloadName', 'allSettingsImageDescription')}
+        ${settingsCard('videoDownload', 'videoDownloadName', 'allSettingsVideoDescription')}
+        ${settingsCard('satellites', 'satellitesName', 'allSettingsSatellitesDescription')}
+      </section>`,
+    help: '<h2 data-i18n="allSettingsHelpHeading"></h2><p data-i18n="allSettingsHelp"></p>'
+  };
   if (featureId === 'satellites') return {
     primary: `
       <section class="card">
@@ -92,6 +130,16 @@ export function viewFor(featureId) {
       ${audioAllowSection()}`,
     help: help(['autoplayHelpStandard', 'autoplayHelpEnhanced', 'autoplayHelpSound'], 'autoplayPrivacy')
   };
+  if (featureId === 'anyCopy') return {
+    primary: `
+      <section class="card">
+        <h1 data-i18n="anyCopyName"></h1>
+        <p class="last" data-i18n="anyCopyIntroHelp"></p>
+      </section>
+      ${anyCopyRuleSection('anyCopy', 'anyCopy', 'anyCopySitesHeading', 'anyCopySitesHelp', 'emptyAnyCopySites')}
+      ${anyCopyRuleSection('anyCopyEnhanced', 'anyCopyEnhanced', 'anyCopyEnhancedSitesHeading', 'anyCopyEnhancedSitesHelp', 'emptyAnyCopyEnhancedSites')}`,
+    help: help(['anyCopyHelpStandard', 'anyCopyHelpEnhanced'], 'anyCopyPrivacy')
+  };
   if (featureId === 'imageDownload') return {
     primary: `
       <section class="card">
@@ -130,16 +178,5 @@ export function viewFor(featureId) {
       </section>`,
     help: help(['videoDownloadHelpDetection', 'videoDownloadHelpFormats', 'videoDownloadHelpSession'], 'videoDownloadPrivacy')
   };
-  return {
-    primary: `
-      <section class="card">
-        <div class="section-heading">
-          <div><h1 data-i18n="anyCopyStandardHeading"></h1><p data-i18n="anyCopyActivationHelp"></p></div>
-          <span class="context-label" data-i18n="siteActivationLabel"></span>
-        </div>
-      </section>
-      ${ruleSection('enforcedRules', 'enforcedSitesHeading', 'enforcedSitesHelp')}
-      ${ruleSection('enhancedRules', 'enhancedSitesHeading', 'anyCopyEnhancedSitesHelp')}`,
-    help: help(['anyCopyHelpStandard', 'anyCopyHelpEnhanced'], 'anyCopyPrivacy')
-  };
+  return viewFor('nativeScroll');
 }

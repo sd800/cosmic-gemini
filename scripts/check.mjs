@@ -26,7 +26,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '1.5.19');
+assert.equal(manifest.version, '2.1.3');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -43,7 +43,13 @@ assert.equal(manifest.content_scripts[2].all_frames, true);
 assert.deepEqual(manifest.content_scripts[3].js, ['content/any-copy-bridge.js']);
 assert.equal(manifest.content_scripts[3].world, 'ISOLATED');
 assert.equal(manifest.content_scripts[3].all_frames, true);
-assert.equal(manifest.content_scripts.length, 4);
+assert.deepEqual(manifest.content_scripts[4].js, ['content/any-copy-enhanced-runtime.js']);
+assert.equal(manifest.content_scripts[4].world, 'MAIN');
+assert.equal(manifest.content_scripts[4].all_frames, true);
+assert.deepEqual(manifest.content_scripts[5].js, ['content/any-copy-enhanced-bridge.js']);
+assert.equal(manifest.content_scripts[5].world, 'ISOLATED');
+assert.equal(manifest.content_scripts[5].all_frames, true);
+assert.equal(manifest.content_scripts.length, 6);
 
 for (const size of [16, 32, 48, 128]) {
   assert.equal(manifest.icons[String(size)], 'icons/icon-' + size + '.png');
@@ -95,36 +101,46 @@ assert.equal(await stat(join(extension, 'settings', 'any-copy.html')).then(() =>
 assert.equal(await stat(join(extension, 'settings', 'image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'settings', 'satellites.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'settings', 'video-download.html')).then(() => true), true);
-for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'satellites.html']) {
+assert.equal(await stat(join(extension, 'settings', 'all-settings.html')).then(() => true), true);
+for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'satellites.html', 'all-settings.html']) {
   const html = await readFile(join(extension, 'settings', name), 'utf8');
   assert.match(html, /<script src="\.\.\/localization-data\.js"><\/script>/);
   assert.match(html, /<script src="preload\.js"><\/script>\s*<script type="module" src="page\.js"><\/script>/);
 }
-for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'satellites.html']) {
+for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'satellites.html', 'all-settings.html']) {
   const html = await readFile(join(extension, 'settings', name), 'utf8');
   assert.match(html, /data-feature-link="imageDownload"/);
   assert.match(html, /data-feature-link="satellites"/);
+  assert.match(html, /data-feature-link="allSettings"/);
 }
 const popupSource = await readFile(join(extension, 'popup.js'), 'utf8');
 const imageWorkspaceSource = await readFile(join(extension, 'image-download.js'), 'utf8');
 const settingsSource = await readFile(join(extension, 'settings', 'page.js'), 'utf8');
 const bridgeSource = await readFile(join(extension, 'content', 'bridge.js'), 'utf8');
 const workerSource = await readFile(join(extension, 'worker.js'), 'utf8');
-assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="nativeScroll"/);
-assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="noAutoplay"/);
-assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="anyCopy"/);
-assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="imageDownload"/);
-assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="videoDownload"/);
+const popupHtml = await readFile(join(extension, 'popup.html'), 'utf8');
+assert.match(popupHtml, /data-feature="nativeScroll"/);
+assert.match(popupHtml, /data-feature="noAutoplay"/);
+assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 3, 'Popup must contain three feature rows');
+assert.match(popupHtml, /id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"[\s\S]*id="all-settings"/);
 assert.match(popupSource, /whitelisted = feature\.supported && !!feature\.matchedWhitelistRule/);
 assert.match(popupSource, /row\.dataset\.bypassed = String\(bypassed\)/);
 assert.match(popupSource, /type: 'UI_DELETE_RULE',[\s\S]*listName: 'whitelistRules',[\s\S]*rule: feature\.matchedWhitelistRule/);
 assert.match(popupSource, /type: 'UI_DELETE_RULE',[\s\S]*listName: 'enhancedRules',[\s\S]*rule: feature\.matchedEnhancedRule/);
-assert.match(popupSource, /UI_DISABLE_ANY_COPY_MATCHES/);
+assert.match(popupSource, /type: 'UI_TOGGLE_SITE_FEATURE'/);
+assert.match(popupSource, /listName: 'siteRules'/);
+assert.match(popupSource, /type: 'UI_OPEN_ALL_SETTINGS'/);
+assert.match(popupSource, /if \(selectInitialView && viewMode === null\) showView\('main'\)/);
+assert.doesNotMatch(popupSource, /showView\(state\.videoDownload\?\.active/);
 assert.equal([...popupSource.matchAll(/type: 'UI_OPEN_SETTINGS'/g)].length, 1, 'Only Settings controls may open Settings from the popup');
 assert.match(popupSource, /let actionPending = false/);
 assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /data-action="whitelist"\]\[data-whitelisted="true"\]/);
 assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /feature-row\[data-bypassed="true"\][\s\S]*data-action="power"[\s\S]*data-action="enhanced"/);
 assert.doesNotMatch(await readFile(join(extension, 'image-download.html'), 'utf8'), /source-title/);
+assert.match(await readFile(join(extension, 'image-download.html'), 'utf8'), /<details class="filter-card" id="image-filters">[\s\S]*id="search"[\s\S]*id="clear-filters"[\s\S]*<\/details>/);
+assert.doesNotMatch(await readFile(join(extension, 'image-download.html'), 'utf8'), /<details class="filter-card" id="image-filters" open>/);
+assert.match(imageWorkspaceSource, /function updateFilterSummary\(\)/);
+assert.match(imageWorkspaceSource, /querySelector\('#search'\)\.value\.trim\(\)/);
 assert.match(await readFile(join(extension, 'image-download.html'), 'utf8'), /<em>at<\/em> Cosmic Gemini/);
 assert.match(await readFile(join(extension, 'image-download.html'), 'utf8'), /id="open-page"/);
 assert.match(workerSource, /chrome\.sidePanel\.setOptions/);
@@ -139,7 +155,8 @@ assert.match(await readFile(join(extension, 'offscreen', 'video-download.js'), '
 assert.equal(await stat(join(extension, 'image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'offscreen', 'video-download.html')).then(() => true), true);
 assert.doesNotMatch(popupSource, /brandIcon\.src/, 'Popup brand icon must remain static');
-for (const id of ['anyCopy-status', 'imageDownload-status', 'videoDownload-status', 'video-back', 'video-stop', 'video-rescan']) {
+assert.match(popupSource, /for \(const featureId of \['anyCopy', 'anyCopyEnhanced'\]\)[\s\S]*control\.addEventListener\('click'/);
+for (const id of ['imageDownload-status', 'videoDownload-status', 'all-settings', 'video-back', 'video-stop', 'video-rescan']) {
   assert.match(popupSource, new RegExp(`#${id}['"]\\)\\.addEventListener\\('click'`), `${id} is not bound`);
 }
 for (const id of ['focus-source', 'open-page', 'capture-area', 'rescan', 'deep-scan', 'stop', 'clear-filters', 'select-visible', 'clear-selection', 'download-selected']) {
@@ -148,6 +165,8 @@ for (const id of ['focus-source', 'open-page', 'capture-area', 'rescan', 'deep-s
 assert.match(settingsSource, /remove\.addEventListener\('click'/);
 assert.match(settingsSource, /form\.addEventListener\('submit'/);
 assert.match(settingsSource, /pendingControls/);
+assert.match(settingsSource, /data-settings-card/);
+assert.match(settingsSource, /section\.dataset\.featureId/);
 assert.match(imageWorkspaceSource, /let scanPending = false/);
 assert.match(imageWorkspaceSource, /let downloadPending = false/);
 assert.doesNotMatch(bridgeSource, /AUDIO_PROMPT_COPY|CG_AUDIO|promptHost|showAudioPrompt|decideAudio/);

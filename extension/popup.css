@@ -15,6 +15,9 @@ html[lang="en-US"] .identity strong, html[lang="en-US"] .video-panel-wordmark st
 .feature-toggle:hover { --icon-surface: var(--surface-raised); background: var(--surface-raised); }
 .feature-status svg { width: 21px; height: 21px; }
 .actions { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
+.launcher-row { display: block; }
+.launcher-actions { display: flex; align-items: center; justify-content: space-between; }
+.launcher-actions .feature-status { flex: 0 0 34px; }
 [data-action="enhanced"][aria-pressed="true"] { color: var(--blue); }
 [data-action="power"][data-bypassed="true"] { color: var(--muted); }
 .feature-row[data-bypassed="true"] .feature-status,
@@ -22,7 +25,6 @@ html[lang="en-US"] .identity strong, html[lang="en-US"] .video-panel-wordmark st
 .feature-row[data-bypassed="true"] [data-action="enhanced"] { opacity: .44; }
 .feature-row[data-bypassed="true"] [data-action="power"] { background: transparent; }
 [data-action="whitelist"][data-whitelisted="true"] { background: var(--blue-soft); color: var(--success); }
-.action-placeholder { width: 34px; height: 34px; }
 .video-panel[hidden], .popup-shell[hidden] { display: none; }
 .video-panel { min-height: 190px; max-height: 570px; overflow-y: auto; background: var(--surface); }
 .video-panel-header { position: sticky; z-index: 2; top: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; gap: 8px; min-height: 52px; padding: 8px 11px; border-bottom: 1px solid var(--line); background: var(--surface); align-items: center; }

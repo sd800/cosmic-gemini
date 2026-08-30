@@ -1,12 +1,12 @@
 # Technical design
 
-Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Each product owns its configuration and runtime state. Shared code covers the extension shell, localization, hostname-rule parsing, service-worker lifecycle, and toolbar rendering.
+Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Any Copy and Any Copy Enhanced also own separate configuration, runtime, bridge, and activity-state paths even though they share one settings page. Shared code covers the extension shell, localization, hostname-rule parsing, service-worker lifecycle, and toolbar rendering.
 
 ## Page startup
 
-Main-world runtimes load at `document_start` on HTTP and HTTPS pages. Native Scroll patches gesture-listener registration, No Autoplay patches media playback and Web Audio resume, and Any Copy installs capture-phase selection and clipboard handling before ordinary website scripts.
+Main-world runtimes load at `document_start` on HTTP and HTTPS pages. Native Scroll patches gesture-listener registration, No Autoplay patches media playback and Web Audio resume, Any Copy installs capture-phase selection and clipboard handling, and Any Copy Enhanced prepares its separate static-reader runtime before ordinary website scripts.
 
-Isolated-world bridges retrieve only the current page state from the service worker and pass it to main-world runtimes through token-bound events. Stored rule collections and extension APIs are not exposed to page code. Any Copy uses a separate all-frame bridge so restrictions inside same-origin and cross-origin frames can be handled without coupling its lifecycle to the other products.
+Isolated-world bridges retrieve only the current page state from the service worker and pass it to main-world runtimes through token-bound events. Stored rule collections and extension APIs are not exposed to page code. Any Copy and Any Copy Enhanced use separate all-frame bridges, event namespaces, and runtime symbols. This keeps selection restoration independent from the static reading layer and avoids coupling either lifecycle to the other products.
 
 Settings pages contain their complete first-frame structure. A synchronous locale preloader applies the cached Chrome UI locale before the page becomes visible; asynchronous storage then confirms that selection without rebuilding the initial view.
 
@@ -28,9 +28,9 @@ No Autoplay operates only on media elements and audio contexts inside the curren
 
 Any Copy is enabled per hostname. The main-world runtime restores text selection, prevents page handlers from intercepting copy shortcuts, and writes the user's original selection to `text/plain`. When a reliable selection fragment is available, it also writes sanitized `text/html`. DOM observation starts only after a page restriction is detected.
 
-Enhanced mode creates a closed-Shadow-DOM reading layer over the original page. It builds a new tree from readable page content and never executes copied page markup. Scripts, forms, frames, media, navigation, overlays, and common advertising containers are omitted. Text structure, tables, links, code, figures, captions, and images are preserved. Removing the Enhanced rule destroys the reading layer and restores the original page without reloading.
+Any Copy Enhanced creates a closed-Shadow-DOM reading layer over the original page. It builds a new tree from readable page content and never executes copied page markup. Scripts, forms, frames, media, navigation, overlays, and common advertising containers are omitted. Text structure, tables, links, code, figures, captions, and images are preserved. Removing its site rule destroys the reading layer and restores the original page without reloading.
 
-The Standard mode and Enhanced mode rule lists remain independent. An Enhanced mode rule can enable Any Copy by itself. Removing that rule therefore turns the feature off unless a Standard mode site rule still matches.
+Any Copy and Any Copy Enhanced have separate top-level settings objects, site-rule lists, main-world runtimes, isolated-world bridges, and per-tab intervention flags. Either product can be active by itself, or both can be active together. The static reader visually takes priority while it is present, and turning it off leaves Any Copy unchanged.
 
 ## Image Download
 
@@ -40,7 +40,7 @@ Its isolated scanner inspects ordinary and responsive images, lazy-load attribut
 
 Candidates are normalized, deduplicated, and grouped into related families. Recommendation scoring favors explicit original links and attributes, high-resolution responsive sources, known deterministic original-image URL forms, larger verified dimensions, and useful response metadata. Alternate sizes and formats remain selectable in the same family. A normal rescan reads the current page state. Deep scan is available only after an explicit user action, briefly advances through the page to reveal lazy-loaded images, and restores the original scroll position.
 
-The workspace filters by search text, format, layout, and minimum dimensions. It can select visible results, download one image or a batch, capture a user-selected part of the visible page, preserve original formats, or convert compatible images locally to JPEG, PNG, or WebP. Multiple selections can be sent to Chrome separately or placed in a locally generated ZIP file. Fetching, conversion, capture cropping, and ZIP creation share the offscreen processor with Video Download. Temporary artifacts use the Origin Private File System and are removed after Chrome completes or interrupts the download.
+The workspace keeps its complete Filters card collapsed by default. Search text, format, layout, minimum dimensions, sorting, and the clear action expand together, while a compact count reports active filters. Refreshing candidates preserves both the disclosure state and current values. The workspace can select visible results, download one image or a batch, capture a user-selected part of the visible page, preserve original formats, or convert compatible images locally to JPEG, PNG, or WebP. Multiple selections can be sent to Chrome separately or placed in a locally generated ZIP file. Fetching, conversion, capture cropping, and ZIP creation share the offscreen processor with Video Download. Temporary artifacts use the Origin Private File System and are removed after Chrome completes or interrupts the download.
 
 Candidate addresses and page details live only in `chrome.storage.session` for the active source tab. The session also records its current workspace surface and optional full-page tab ID so capture actions can return to the correct view. Same-origin navigation clears old candidates and starts a new scan. Cross-origin navigation, source-tab closure, or explicit stop removes the session and captured artifacts and disables that source tab’s Side Panel configuration.
 
@@ -68,19 +68,20 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 
 - Native Scroll: enabled state, whitelist rules, and Enhanced-site rules
 - No Autoplay: enabled state, whitelist rules, Enhanced-site rules, an all-sites audio autoplay setting, and hostname-specific audio autoplay rules
-- Any Copy: Standard mode site rules and Enhanced mode site rules
+- Any Copy: its own site rules
+- Any Copy Enhanced: its own site rules
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference
 - Video Download: preferred quality and whether Chrome should ask for a save location
 - Satellites: Bili Daily Login switch state and last completed date
 - Interface locale
 
-Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Matching prefers an exact rule, then the most specific wildcard. Native Scroll and No Autoplay whitelist matches take priority over Enhanced-site matches. Active Whitelist and Enhanced popup controls remove their currently matched rule directly, including a wildcard rule. Popup navigation to Settings is exclusive to Settings controls.
+Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Matching prefers an exact rule, then the most specific wildcard. Native Scroll and No Autoplay whitelist matches take priority over Enhanced-site matches. Active Whitelist, Enhanced, Any Copy, and Any Copy Enhanced controls remove their currently matched rule directly, including a wildcard rule. The popup's All Settings control opens the shared settings hub.
 
 Per-tab intervention state contains product booleans and is cleared on navigation or tab closure. Image Download and Video Download session storage additionally contains the current origin and detected candidate addresses only while that tab session is active.
 
 ## Resource use
 
-The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, during an Any Copy reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated Video Download tab session. Image Download scanning runs only for an explicitly activated source tab, and its workspace polls only while open. The popup polls Video Download state only while its result view is open. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
+The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated Video Download tab session. Image Download scanning runs only for an explicitly activated source tab, and its workspace polls only while open. The popup polls Video Download state only while its result view is open. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
 
 ## Browser boundaries
 

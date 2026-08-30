@@ -19,8 +19,10 @@ export function settingsViewCache(states = {}) {
       permanentAudioAllowRules: rules(states.noAutoplay?.permanentAudioAllowRules)
     },
     anyCopy: {
-      enforcedRules: rules(states.anyCopy?.enforcedRules),
-      enhancedRules: rules(states.anyCopy?.enhancedRules)
+      siteRules: rules(states.anyCopy?.siteRules)
+    },
+    anyCopyEnhanced: {
+      siteRules: rules(states.anyCopyEnhanced?.siteRules)
     },
     imageDownload: {
       workspaceMode: states.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.1.3 — 2026-08-30
+
+- Keeps the popup on its main view when reopened, even while a Video Download session remains active. The media list now opens only after the user selects Video Download again.
+- Enlarged the image frame inside the Image Download icon and moved it slightly toward the upper-left while preserving the existing download badge.
+
+## 2.1.2 — 2026-08-30
+
+- Enlarged and repositioned the solid lightning badge in the Any Copy Enhanced icon, with a surface-colored separation outline for clearer recognition in every product state.
+
+## 2.1.1 — 2026-08-30
+
+- Rebuilt the popup as three compact rows. The third row now contains Any Copy, Any Copy Enhanced, Image Download, Video Download, and All Settings in that order.
+- Added the Any Copy Enhanced icon by pairing the existing copy mark with a solid lightning badge. Any Copy and Any Copy Enhanced now use independent neutral and green states.
+- Separated Any Copy and Any Copy Enhanced into their own settings objects, website rules, main-world runtimes, isolated-world bridges, event namespaces, and activity states. Either product can run alone or alongside the other.
+- Redesigned the Any Copy settings page with separate Any Copy sites and Any Copy Enhanced sites sections, each using its matching product icon.
+- Added All Settings as the rightmost settings navigation item and a hub containing direct links to all six first-level product pages.
+- Collapsed Image Download's complete Filters card by default, including search, format, layout, dimensions, sorting, and clear controls. The summary reports the number of active filters, while refreshes preserve its open state and current values.
+
 ## 1.5.19 — 2026-08-30
 
 - Removes the page-level audio autoplay question. No Autoplay now blocks audio autoplay silently by default.

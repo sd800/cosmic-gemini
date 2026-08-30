@@ -2,14 +2,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   classifyVideoResource,
+  compactVideoCandidates,
   formatMediaDuration,
+  mediaRequestDirectoryFilters,
+  mediaRequestReferrer,
   parseHlsMaster,
   parseHlsMedia,
   sanitizeVideoFilename,
   selectHlsVariant,
   stableVideoCandidateId
 } from '../extension/core/video-download.js';
-import { bilibiliDashCandidates, fetchBilibiliPlayInfo, signedBilibiliQuery } from '../extension/core/bilibili-video.js';
+import {
+  bilibiliDashCandidates,
+  bilibiliPageContext,
+  completeBilibiliPageContext,
+  fetchBilibiliPlayInfo,
+  signedBilibiliQuery
+} from '../extension/core/bilibili-video.js';
 import { md5 } from '../extension/core/md5.js';
 import { expandDashTemplate, parseIsoDuration } from '../extension/core/dash.js';
 import { unwrapObfuscatedHls } from '../extension/core/obfuscated-hls.js';
@@ -23,6 +32,17 @@ test('video resources are classified without treating media segments as top-leve
   }).kind, 'hls');
   assert.equal(classifyVideoResource({ url: 'https://cdn.example/segment.m4s' }), null);
   assert.equal(classifyVideoResource({ url: 'blob:https://example.com/id' }), null);
+});
+
+test('download choices keep one user-facing option per quality plus audio', () => {
+  const compact = compactVideoCandidates([
+    { id: '1080-av1', kind: 'muxed', qualityLabel: '1080p', height: 1080, videoCodec: 'av01', downloadable: true, hasAudio: true },
+    { id: '1080-avc', kind: 'muxed', qualityLabel: '1080p', height: 1080, videoCodec: 'avc1', downloadable: true, hasAudio: true },
+    { id: '720-avc', kind: 'muxed', qualityLabel: '720p', height: 720, videoCodec: 'avc1', downloadable: true, hasAudio: true },
+    { id: 'audio-opus', kind: 'audio', audioCodec: 'opus', bandwidth: 192000, downloadable: true },
+    { id: 'audio-aac', kind: 'audio', audioCodec: 'mp4a.40.2', bandwidth: 128000, downloadable: true }
+  ]);
+  assert.deepEqual(compact.map(candidate => candidate.id), ['1080-avc', '720-avc', 'audio-aac']);
 });
 
 test('video size uses an existing response total without fetching media again', () => {
@@ -52,6 +72,21 @@ test('stable candidate IDs stay deterministic without relying on randomUUID', ()
   const first = stableVideoCandidateId('https://cdn.example/video.mp4?token=1');
   assert.equal(first, stableVideoCandidateId('https://cdn.example/video.mp4?token=1'));
   assert.notEqual(first, stableVideoCandidateId('https://cdn.example/video.mp4?token=2'));
+});
+
+test('media downloads retain page referrers through temporary directory rules', () => {
+  assert.equal(
+    mediaRequestReferrer('https://www.bilibili.com/video/BV1example/?from=home#player'),
+    'https://www.bilibili.com/video/BV1example/'
+  );
+  assert.deepEqual(mediaRequestDirectoryFilters({
+    videoUrl: 'https://video.example/path/video.m4s?token=1',
+    videoBackupUrls: ['https://backup.example/media/video.m4s?token=2'],
+    audioUrl: 'https://video.example/path/audio.m4s?token=3'
+  }), [
+    'https://video.example/path/*',
+    'https://backup.example/media/*'
+  ]);
 });
 
 test('HLS master playlists resolve and rank variants', () => {
@@ -111,20 +146,74 @@ test('MD5 and Bilibili WBI signing stay deterministic', () => {
   assert.match(query, /^bvid=BV1xx411c7mD&cid=123&fnval=4048&wts=1700000000&w_rid=[a-f0-9]{32}$/);
 });
 
-test('Bilibili DASH video and audio tracks become one downloadable format', () => {
+test('Bilibili DASH video and audio tracks become video and audio-only downloads', () => {
   const candidates = bilibiliDashCandidates({ data: {
     timelength: 61_000,
     dash: {
-      video: [{ id: 80, baseUrl: 'https://example.com/video.m4s', width: 1920, height: 1080, codecs: 'avc1.640028', bandwidth: 4_000_000 }],
-      audio: [{ baseUrl: 'https://example.com/audio.m4s', codecs: 'mp4a.40.2', bandwidth: 192_000 }]
+      video: [{ id: 80, baseUrl: 'https://example.com/video.m4s', backupUrl: ['https://backup.example/video.m4s'], width: 1920, height: 1080, codecs: 'avc1.640028', bandwidth: 4_000_000 }],
+      audio: [{ baseUrl: 'https://example.com/audio.m4s', backupUrl: ['https://backup.example/audio.m4s'], codecs: 'mp4a.40.2', bandwidth: 192_000 }]
     }
   } }, { title: 'Example', pageTitle: 'Part 1' });
-  assert.equal(candidates.length, 1);
+  assert.equal(candidates.length, 2);
   assert.equal(candidates[0].kind, 'muxed');
   assert.equal(candidates[0].qualityLabel, '1080p');
   assert.equal(candidates[0].codecLabel, 'AVC');
   assert.equal(candidates[0].duration, 61);
   assert.equal(candidates[0].audioUrl, 'https://example.com/audio.m4s');
+  assert.deepEqual(candidates[0].videoBackupUrls, ['https://backup.example/video.m4s']);
+  assert.deepEqual(candidates[0].audioBackupUrls, ['https://backup.example/audio.m4s']);
+  assert.equal(candidates[1].kind, 'audio');
+  assert.equal(candidates[1].extension, 'm4a');
+  assert.deepEqual(candidates[1].videoBackupUrls, ['https://backup.example/audio.m4s']);
+});
+
+test('Bilibili page context recovers inline play information after the page removes its global', () => {
+  const originalDocument = globalThis.document;
+  const originalLocation = globalThis.location;
+  const playInfo = { code: 0, data: { dash: {
+    video: [{ id: 80, baseUrl: 'https://example.com/video.m4s' }],
+    audio: [{ id: 30280, baseUrl: 'https://example.com/audio.m4s' }]
+  } } };
+  const structured = { '@type': 'VideoObject', name: 'Inline example', embedUrl: 'https://player.bilibili.com/player.html?bvid=BV1yM4y1t7zB' };
+  globalThis.document = {
+    title: 'Fallback title',
+    scripts: [{ textContent: `window.__playinfo__=${JSON.stringify(playInfo)}` }],
+    querySelectorAll: selector => selector === 'script[type="application/ld+json"]'
+      ? [{ textContent: JSON.stringify(structured) }] : []
+  };
+  globalThis.location = { href: 'https://www.bilibili.com/video/BV1yM4y1t7zB/?p=2' };
+  try {
+    const context = bilibiliPageContext();
+    assert.equal(context.bvid, 'BV1yM4y1t7zB');
+    assert.equal(context.pageNumber, 2);
+    assert.equal(context.title, 'Inline example');
+    assert.equal(context.playInfo.data.dash.video.length, 1);
+    assert.equal(context.playInfo.data.dash.audio.length, 1);
+  } finally {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+    if (originalLocation === undefined) delete globalThis.location;
+    else globalThis.location = originalLocation;
+  }
+});
+
+test('Bilibili context resolves the selected page without starting the player', async () => {
+  let requested = '';
+  const context = await completeBilibiliPageContext({
+    bvid: 'BV1example', pageNumber: 2, title: '', pageTitle: '', playInfo: null
+  }, async url => {
+    requested = url;
+    return { data: {
+      aid: 123,
+      bvid: 'BV1example',
+      title: 'Example video',
+      pages: [{ cid: 11, part: 'First' }, { cid: 22, part: 'Second' }]
+    } };
+  });
+  assert.equal(requested, 'https://api.bilibili.com/x/web-interface/view?bvid=BV1example');
+  assert.equal(context.aid, 123);
+  assert.equal(context.cid, 22);
+  assert.equal(context.pageTitle, 'Second');
 });
 
 test('Bilibili international playback resources use the same local mux path', () => {
@@ -133,7 +222,7 @@ test('Bilibili international playback resources use the same local mux path', ()
     audio_resource: [{ url: 'https://example.com/audio.m4s', codecs: 'mp4a.40.2', bandwidth: 128000 }],
     video: [{ video_resource: { url: 'https://example.com/video.m4s', width: 1280, height: 720, codecs: 'avc1.4d401f', bandwidth: 2000000 } }]
   } } }, { title: 'International video' });
-  assert.equal(candidates.length, 1);
+  assert.equal(candidates.length, 2);
   assert.equal(candidates[0].kind, 'muxed');
   assert.equal(candidates[0].height, 720);
   assert.equal(candidates[0].duration, 45);
@@ -167,7 +256,7 @@ test('wrapped HLS XOR envelopes are recovered locally', () => {
   assert.equal(unwrapObfuscatedHls(envelope), text);
 });
 
-test('YouTube separated tracks are deciphered and paired without a remote rule service', async () => {
+test('YouTube separated tracks are deciphered into video and audio-only downloads', async () => {
   const format = values => ({ ...values, decipher: async () => values.testUrl });
   const candidates = await youtubeCandidates({
     basic_info: { id: 'abc', title: 'Example', duration: 60 },
@@ -179,8 +268,10 @@ test('YouTube separated tracks are deciphered and paired without a remote rule s
       ]
     }
   }, { session: { player: {} } });
-  assert.equal(candidates.length, 1);
+  assert.equal(candidates.length, 2);
   assert.equal(candidates[0].kind, 'muxed');
   assert.equal(candidates[0].outputContainer, 'mkv');
   assert.equal(candidates[0].audioUrl, 'https://video.example/audio.webm?cpn=cpn');
+  assert.equal(candidates[1].kind, 'audio');
+  assert.equal(candidates[1].url, 'https://video.example/audio.webm?cpn=cpn');
 });

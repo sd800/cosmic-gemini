@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-US" data-locale-pending="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cosmic Gemini · Image Download</title>
+  <script src="../localization-data.js"></script>
+  <link rel="stylesheet" href="../ui.css">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body data-feature="imageDownload">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="product-identity">
+        <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="../icons/icon-128.png" alt=""></span>
+        <div class="wordmark"><strong>Image Download</strong><span><em>at</em> Cosmic Gemini</span></div>
+      </div>
+      <nav class="feature-switch" aria-label="Cosmic Gemini">
+        <a class="feature-link" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="any-copy.html" data-feature-link="anyCopy"><span aria-hidden="true"></span></a>
+        <a class="feature-link active" href="image-download.html" data-feature-link="imageDownload"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
+      </nav>
+    </div>
+  </header>
+  <main class="layout">
+    <div class="primary">
+      <section class="card">
+        <div class="section-heading">
+          <div><h1 data-i18n="imageDownloadName"></h1><p data-i18n="imageDownloadActivationHelp"></p></div>
+          <span class="context-label" data-i18n="clickToEnableLabel"></span>
+        </div>
+      </section>
+      <section class="card">
+        <h2 data-i18n="imageDownloadPreferencesHeading"></h2>
+        <p data-i18n="imageDownloadPreferencesHelp"></p>
+        <div class="preference-list">
+          <label class="preference-row" for="imageWorkspaceMode"><span><strong data-i18n="imageWorkspaceModeHeading"></strong><small data-i18n="imageWorkspaceModeHelp"></small></span><select id="imageWorkspaceMode"><option value="sidePanel" data-i18n="imageWorkspaceSidePanel"></option><option value="page" data-i18n="imageWorkspacePage"></option></select></label>
+          <label class="preference-row" for="imageOutputFormat"><span><strong data-i18n="imageOutputFormatHeading"></strong><small data-i18n="imageOutputFormatHelp"></small></span><select id="imageOutputFormat"><option value="original" data-i18n="keepOriginalFormat"></option><option value="jpg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
+          <label class="preference-row" for="imageBatchMode"><span><strong data-i18n="imageBatchModeHeading"></strong><small data-i18n="imageBatchModeHelp"></small></span><select id="imageBatchMode"><option value="zip" data-i18n="downloadAsZip"></option><option value="separate" data-i18n="downloadSeparately"></option></select></label>
+          <label class="preference-row" for="imageAskWhereToSave"><span><strong data-i18n="askWhereToSaveHeading"></strong><small data-i18n="askWhereToSaveHelp"></small></span><span class="switch"><input id="imageAskWhereToSave" type="checkbox" checked><span></span></span></label>
+        </div>
+      </section>
+    </div>
+    <div class="sidebar">
+      <aside class="help card">
+        <h2 data-i18n="helpHeading"></h2>
+        <p data-i18n="imageDownloadHelpDetection"></p><p data-i18n="imageDownloadHelpOriginals"></p><p data-i18n="imageDownloadHelpBatch"></p>
+        <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="imageDownloadPrivacy"></p>
+      </aside>
+      <section class="card compact language-card">
+        <label for="language"><strong data-i18n="languageHeading"></strong></label>
+        <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
+      </section>
+    </div>
+  </main>
+  <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
+  <script src="preload.js"></script>
+  <script type="module" src="page.js"></script>
+</body>
+</html>

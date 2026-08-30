@@ -15,11 +15,18 @@ export function settingsViewCache(states = {}) {
       enabled: states.noAutoplay?.enabled !== false,
       enhancedRules: rules(states.noAutoplay?.enhancedRules),
       whitelistRules: rules(states.noAutoplay?.whitelistRules),
+      audioAutoplayAllSites: states.noAutoplay?.audioAutoplayAllSites === true,
       permanentAudioAllowRules: rules(states.noAutoplay?.permanentAudioAllowRules)
     },
     anyCopy: {
       enforcedRules: rules(states.anyCopy?.enforcedRules),
       enhancedRules: rules(states.anyCopy?.enhancedRules)
+    },
+    imageDownload: {
+      workspaceMode: states.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
+      batchMode: states.imageDownload?.batchMode === 'separate' ? 'separate' : 'zip',
+      outputFormat: states.imageDownload?.outputFormat || 'original',
+      askWhereToSave: states.imageDownload?.askWhereToSave !== false
     },
     videoDownload: {
       preferredQuality: states.videoDownload?.preferredQuality || 'best',

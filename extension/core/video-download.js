@@ -20,6 +20,11 @@ function safeUrl(value, base) {
   } catch { return ''; }
 }
 
+function safeUrlList(values, base, exclude = '') {
+  const list = Array.isArray(values) ? values : values ? [values] : [];
+  return [...new Set(list.map(value => safeUrl(value, base)).filter(value => value && value !== exclude))].slice(0, 8);
+}
+
 function extensionFromUrl(value) {
   try {
     const match = new URL(value).pathname.match(/\.([a-z0-9]{2,5})$/i);
@@ -49,6 +54,35 @@ export function stableVideoCandidateId(value) {
   return 'video_' + (hash >>> 0).toString(36) + '_' + text.length.toString(36);
 }
 
+export function mediaRequestUrls(candidate = {}) {
+  return [...new Set([
+    candidate.url,
+    candidate.videoUrl,
+    candidate.audioUrl,
+    candidate.manifestUrl,
+    candidate.manifestBaseUrl,
+    ...(Array.isArray(candidate.videoBackupUrls) ? candidate.videoBackupUrls : []),
+    ...(Array.isArray(candidate.audioBackupUrls) ? candidate.audioBackupUrls : [])
+  ].map(value => safeUrl(value)).filter(Boolean))];
+}
+
+export function mediaRequestDirectoryFilters(candidate = {}) {
+  return [...new Set(mediaRequestUrls(candidate).map(value => {
+    try { return new URL('.', value).href + '*'; }
+    catch { return ''; }
+  }).filter(Boolean))];
+}
+
+export function mediaRequestReferrer(pageUrl) {
+  try {
+    const url = new URL(pageUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    url.search = '';
+    url.hash = '';
+    return url.href;
+  } catch { return ''; }
+}
+
 export function headerValue(headers, name) {
   const target = String(name || '').toLowerCase();
   const entry = (Array.isArray(headers) ? headers : []).find(header =>
@@ -65,7 +99,7 @@ export function classifyVideoResource(input = {}) {
   const extension = String(input.extension || extensionFromUrl(url)).toLowerCase();
   let kind = '';
 
-  if (['hls', 'dash', 'direct', 'muxed', 'subtitle'].includes(input.kind)) kind = input.kind;
+  if (['hls', 'dash', 'direct', 'muxed', 'audio', 'subtitle'].includes(input.kind)) kind = input.kind;
   else if (HLS_MIME.has(mime) || extension === 'm3u8') kind = 'hls';
   else if (mime === 'application/dash+xml' || extension === 'mpd') kind = 'dash';
   else if (mime.startsWith('video/') || DIRECT_EXTENSIONS.has(extension)) kind = 'direct';
@@ -83,6 +117,8 @@ export function classifyVideoResource(input = {}) {
     url,
     videoUrl: videoUrl || url,
     audioUrl,
+    videoBackupUrls: safeUrlList(input.videoBackupUrls || input.backupUrls, undefined, videoUrl || url),
+    audioBackupUrls: safeUrlList(input.audioBackupUrls, undefined, audioUrl),
     kind,
     mime,
     extension,
@@ -99,6 +135,7 @@ export function classifyVideoResource(input = {}) {
     codecs: String(input.codecs || ''),
     videoCodec: String(input.videoCodec || ''),
     audioCodec: String(input.audioCodec || ''),
+    hasAudio: input.hasAudio === true || Boolean(audioUrl),
     audioLanguage: String(input.audioLanguage || ''),
     languageLabel: String(input.languageLabel || ''),
     codecLabel: String(input.codecLabel || ''),
@@ -128,6 +165,9 @@ export function mergeVideoCandidate(existing, incoming) {
   ]) {
     if (!preferred[key] && incoming[key]) preferred[key] = incoming[key];
   }
+  for (const key of ['videoBackupUrls', 'audioBackupUrls']) {
+    preferred[key] = [...new Set([...(preferred[key] || []), ...(incoming[key] || [])])].slice(0, 8);
+  }
   for (const key of ['width', 'height', 'duration', 'contentLength', 'bandwidth', 'qualityId']) {
     preferred[key] = Math.max(numberOrZero(preferred[key]), numberOrZero(incoming[key]));
   }
@@ -135,6 +175,7 @@ export function mergeVideoCandidate(existing, incoming) {
   if (incoming.downloadable === true) preferred.downloadable = true;
   else if (incoming.downloadable === false && preferred.downloadable !== true) preferred.downloadable = false;
   if (incoming.protected === true) preferred.protected = true;
+  if (incoming.hasAudio === true) preferred.hasAudio = true;
   return preferred;
 }
 
@@ -294,6 +335,68 @@ export function candidateQuality(candidate = {}) {
   if (candidate.kind === 'hls') return 'HLS';
   if (candidate.kind === 'dash') return 'DASH';
   return String(candidate.extension || candidate.mime || '').replace('video/', '').toUpperCase() || 'Video';
+}
+
+function candidateType(candidate) {
+  if (candidate.kind === 'subtitle') return 'subtitle';
+  if (candidate.kind === 'audio') return 'audio';
+  return 'video';
+}
+
+function compactCandidateKey(candidate) {
+  const type = candidateType(candidate);
+  if (type === 'audio') return 'audio';
+  if (type === 'subtitle') {
+    return `subtitle:${String(candidate.languageLabel || candidate.qualityLabel || candidate.audioLanguage || 'default').trim().toLowerCase()}`;
+  }
+  const label = String(candidate.qualityLabel || '').trim().toLowerCase();
+  if (label) return `video:${label}`;
+  if (numberOrZero(candidate.height)) return `video:${numberOrZero(candidate.height)}p`;
+  if (candidate.kind === 'hls') return 'video:hls';
+  if (candidate.kind === 'dash') return 'video:dash';
+  return `video:${String(candidate.extension || candidate.mime || 'default').toLowerCase()}`;
+}
+
+function compactCandidateScore(candidate) {
+  const statusRank = ['preparing', 'downloading', 'complete'].includes(candidate.status) ? 500 : candidate.status === 'failed' ? -100 : 0;
+  const kindRank = { direct: 45, muxed: 40, hls: 30, dash: 25, audio: 20, subtitle: 10 };
+  const codec = String(candidate.codecLabel || candidate.videoCodec || candidate.audioCodec || '').toLowerCase();
+  const codecRank = codec.includes('avc') || codec.includes('h264') ? 8
+    : codec.includes('mp4a') || codec.includes('aac') ? 8
+    : codec.includes('vp9') || codec.includes('vp09') ? 6
+    : codec.includes('opus') ? 6
+    : codec.includes('av1') || codec.includes('av01') ? 5
+    : codec.includes('hev') || codec.includes('hvc') ? 4 : 0;
+  return statusRank
+    + (candidate.downloadable === false ? -1000 : 100)
+    + (candidate.protected ? -500 : 0)
+    + (candidate.hasAudio ? 20 : 0)
+    + (kindRank[candidate.kind] || 0)
+    + codecRank
+    + Math.min(9, Math.round(numberOrZero(candidate.bandwidth) / 1_000_000));
+}
+
+export function compactVideoCandidates(candidates, preferredId = '') {
+  const groups = new Map();
+  for (const candidate of Array.isArray(candidates) ? candidates : []) {
+    if (!candidate || candidate.master) continue;
+    const key = compactCandidateKey(candidate);
+    const current = groups.get(key);
+    if (!current || candidate.id === preferredId
+      || (current.id !== preferredId && compactCandidateScore(candidate) > compactCandidateScore(current))) {
+      groups.set(key, candidate);
+    }
+  }
+  const typeRank = { video: 0, audio: 1, subtitle: 2 };
+  return [...groups.values()].sort((left, right) => {
+    const leftType = candidateType(left);
+    const rightType = candidateType(right);
+    return typeRank[leftType] - typeRank[rightType]
+      || numberOrZero(right.height) - numberOrZero(left.height)
+      || numberOrZero(right.qualityId) - numberOrZero(left.qualityId)
+      || numberOrZero(right.bandwidth) - numberOrZero(left.bandwidth)
+      || String(left.languageLabel || '').localeCompare(String(right.languageLabel || ''));
+  });
 }
 
 export function formatMediaDuration(value) {

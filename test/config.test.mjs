@@ -18,8 +18,10 @@ import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 test('all products start with independent site rule lists', () => {
   assert.deepEqual(normalizeSettings(), DEFAULT_SETTINGS);
   assert.deepEqual(normalizeSettings().nativeScroll.enhancedRules, []);
+  assert.equal(normalizeSettings().noAutoplay.audioAutoplayAllSites, false);
   assert.deepEqual(normalizeSettings().noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(normalizeSettings().anyCopy.enforcedRules, []);
+  assert.deepEqual(normalizeSettings().imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
   assert.deepEqual(normalizeSettings().videoDownload, { preferredQuality: 'best', askWhereToSave: true });
   assert.deepEqual(normalizeSettings().satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
 });
@@ -42,6 +44,8 @@ test('exact and wildcard rules match their intended hostnames', () => {
   assert.equal(ruleMatches('a.b.example.com', '*.example.com'), true);
   assert.equal(ruleMatches('notexample.com', '*.example.com'), false);
   assert.equal(matchingRule('news.example.com', ['other.com', '*.example.com']), '*.example.com');
+  assert.equal(matchingRule('news.example.com', ['*.example.com', 'news.example.com']), 'news.example.com');
+  assert.equal(matchingRule('news.media.example.com', ['*.example.com', '*.media.example.com']), '*.media.example.com');
 });
 
 test('rule parser rejects URLs, ports, paths, and misplaced wildcards', () => {
@@ -90,7 +94,7 @@ test('Any Copy returns to standard when its standard rule remains', () => {
   assert.equal(standard.mode, 'standard');
 });
 
-test('No Autoplay sound permission applies without allowing the feature whitelist', () => {
+test('No Autoplay audio autoplay permission applies without allowing the feature whitelist', () => {
   const settings = {
     noAutoplay: {
       enabled: true,
@@ -99,11 +103,27 @@ test('No Autoplay sound permission applies without allowing the feature whitelis
       whitelistRules: []
     }
   };
-  const permanent = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://play.music.example', false);
+  const permanent = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://play.music.example');
   assert.equal(permanent.active, true);
   assert.equal(permanent.audioAllowed, true);
-  const temporary = featureState({}, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example', true);
-  assert.equal(temporary.audioAllowed, true);
+  const blocked = featureState({}, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example');
+  assert.equal(blocked.audioAllowed, false);
+  const global = featureState({ noAutoplay: { audioAutoplayAllSites: true } }, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example');
+  assert.equal(global.audioAllowed, true);
+});
+
+test('No Autoplay whitelist disables all media blocking', () => {
+  const state = featureState({
+    noAutoplay: {
+      enabled: true,
+      whitelistRules: ['*.media.example'],
+      enhancedRules: ['play.media.example'],
+      permanentAudioAllowRules: []
+    }
+  }, FEATURE_IDS.NO_AUTOPLAY, 'https://play.media.example/watch');
+  assert.equal(state.active, false);
+  assert.equal(state.mode, 'standard');
+  assert.equal(state.matchedWhitelistRule, '*.media.example');
 });
 
 test('feature updates do not mutate other products', () => {
@@ -129,8 +149,9 @@ test('settings first-frame cache keeps preferences without page activity', () =>
       hostname: 'private.example',
       active: true
     },
-    noAutoplay: { enabled: true },
+    noAutoplay: { enabled: true, audioAutoplayAllSites: true },
     anyCopy: { enforcedRules: ['copy.example'], enhancedRules: [] },
+    imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
     satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
     activity: { nativeScroll: true }
@@ -141,6 +162,8 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     enhancedRules: ['*.docs.example']
   });
   assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
+  assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
+  assert.deepEqual(cache.imageDownload, { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false });
   assert.deepEqual(cache.videoDownload, { preferredQuality: '1080', askWhereToSave: false });
   assert.equal('hostname' in cache.nativeScroll, false);
   assert.equal('activity' in cache, false);

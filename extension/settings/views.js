@@ -11,6 +11,23 @@ const ruleSection = (listName, headingKey, helpKey) => `
     <p class="caption" data-i18n="exactRuleHelp"></p>
   </section>`;
 
+const audioAllowSection = () => `
+  <section class="card rule-card" data-list-section="permanentAudioAllowRules">
+    <h2 data-i18n="audioAllowHeading"></h2>
+    <p data-i18n="audioAllowHelp"></p>
+    <label class="preference-row" for="audioAutoplayAllSites">
+      <span><strong data-i18n="audioAllowAllSitesHeading"></strong><small data-i18n="audioAllowAllSitesHelp"></small></span>
+      <span class="switch"><input id="audioAutoplayAllSites" type="checkbox"><span></span></span>
+    </label>
+    <form class="rule-form" novalidate>
+      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
+      <button class="primary-button" type="submit" data-i18n="add"></button>
+    </form>
+    <p class="form-message" aria-live="polite"></p>
+    <ul class="rule-list"></ul>
+    <p class="caption" data-i18n="exactRuleHelp"></p>
+  </section>`;
+
 const help = (keys, privacyKey) => `
   <h2 data-i18n="helpHeading"></h2>
   ${keys.map(key => `<p data-i18n="${key}"></p>`).join('')}
@@ -20,6 +37,7 @@ export const PRODUCT_META = Object.freeze({
   nativeScroll: { name: 'Native Scroll', path: 'native-scroll.html' },
   noAutoplay: { name: 'No Autoplay', path: 'no-autoplay.html' },
   anyCopy: { name: 'Any Copy', path: 'any-copy.html' },
+  imageDownload: { name: 'Image Download', path: 'image-download.html' },
   videoDownload: { name: 'Video Download', path: 'video-download.html' },
   satellites: { name: 'Satellites', path: 'satellites.html' }
 });
@@ -27,6 +45,7 @@ export const PRODUCT_META = Object.freeze({
 export function featureFromPath(pathname) {
   if (pathname.endsWith('/no-autoplay.html')) return 'noAutoplay';
   if (pathname.endsWith('/any-copy.html')) return 'anyCopy';
+  if (pathname.endsWith('/image-download.html')) return 'imageDownload';
   if (pathname.endsWith('/video-download.html')) return 'videoDownload';
   if (pathname.endsWith('/satellites.html')) return 'satellites';
   return 'nativeScroll';
@@ -70,8 +89,28 @@ export function viewFor(featureId) {
       </section>
       ${ruleSection('enhancedRules', 'enhancedSitesHeading', 'autoplayEnhancedSitesHelp')}
       ${ruleSection('whitelistRules', 'whitelistHeading', 'autoplayWhitelistHelp')}
-      ${ruleSection('permanentAudioAllowRules', 'audioAllowHeading', 'audioAllowHelp')}`,
+      ${audioAllowSection()}`,
     help: help(['autoplayHelpStandard', 'autoplayHelpEnhanced', 'autoplayHelpSound'], 'autoplayPrivacy')
+  };
+  if (featureId === 'imageDownload') return {
+    primary: `
+      <section class="card">
+        <div class="section-heading">
+          <div><h1 data-i18n="imageDownloadName"></h1><p data-i18n="imageDownloadActivationHelp"></p></div>
+          <span class="context-label" data-i18n="clickToEnableLabel"></span>
+        </div>
+      </section>
+      <section class="card">
+        <h2 data-i18n="imageDownloadPreferencesHeading"></h2>
+        <p data-i18n="imageDownloadPreferencesHelp"></p>
+        <div class="preference-list">
+          <label class="preference-row" for="imageWorkspaceMode"><span><strong data-i18n="imageWorkspaceModeHeading"></strong><small data-i18n="imageWorkspaceModeHelp"></small></span><select id="imageWorkspaceMode"><option value="sidePanel" data-i18n="imageWorkspaceSidePanel"></option><option value="page" data-i18n="imageWorkspacePage"></option></select></label>
+          <label class="preference-row" for="imageOutputFormat"><span><strong data-i18n="imageOutputFormatHeading"></strong><small data-i18n="imageOutputFormatHelp"></small></span><select id="imageOutputFormat"><option value="original" data-i18n="keepOriginalFormat"></option><option value="jpg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
+          <label class="preference-row" for="imageBatchMode"><span><strong data-i18n="imageBatchModeHeading"></strong><small data-i18n="imageBatchModeHelp"></small></span><select id="imageBatchMode"><option value="zip" data-i18n="downloadAsZip"></option><option value="separate" data-i18n="downloadSeparately"></option></select></label>
+          <label class="preference-row" for="imageAskWhereToSave"><span><strong data-i18n="askWhereToSaveHeading"></strong><small data-i18n="askWhereToSaveHelp"></small></span><span class="switch"><input id="imageAskWhereToSave" type="checkbox" checked><span></span></span></label>
+        </div>
+      </section>`,
+    help: help(['imageDownloadHelpDetection', 'imageDownloadHelpOriginals', 'imageDownloadHelpBatch'], 'imageDownloadPrivacy')
   };
   if (featureId === 'videoDownload') return {
     primary: `

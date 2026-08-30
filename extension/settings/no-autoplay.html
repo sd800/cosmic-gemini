@@ -19,6 +19,7 @@
         <a class="feature-link" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
         <a class="feature-link active" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="any-copy.html" data-feature-link="anyCopy"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="image-download.html" data-feature-link="imageDownload"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
       </nav>
@@ -47,6 +48,10 @@
       <section class="card rule-card" data-list-section="permanentAudioAllowRules">
         <h2 data-i18n="audioAllowHeading"></h2>
         <p data-i18n="audioAllowHelp"></p>
+        <label class="preference-row" for="audioAutoplayAllSites">
+          <span><strong data-i18n="audioAllowAllSitesHeading"></strong><small data-i18n="audioAllowAllSitesHelp"></small></span>
+          <span class="switch"><input id="audioAutoplayAllSites" type="checkbox"><span></span></span>
+        </label>
         <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
         <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
       </section>

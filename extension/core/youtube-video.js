@@ -111,11 +111,30 @@ export async function youtubeCandidates(info, innertube, titleFallback = '') {
       bandwidth: Number(format.bitrate || 0) + Number(audio?.bitrate || 0),
       videoCodec: codecFromMime(format.mime_type),
       audioCodec: codecFromMime(audio?.mime_type),
+      hasAudio: format.has_audio === true || Boolean(audioUrl),
       codecLabel: videoCodecLabel(format.mime_type),
       qualityLabel: String(format.quality_label || (format.height ? `${format.height}p` : '')),
       frameRate: String(format.fps || ''),
       protected: protectedMedia,
       downloadable: Boolean(videoUrl) && (!audio || Boolean(audioUrl)) && !protectedMedia
+    });
+  }
+  for (const [container, audio] of audioByContainer) {
+    const audioUrl = await mediaUrl(audio, innertube.session.player, info.cpn).catch(() => '');
+    if (!audioUrl) continue;
+    candidates.push({
+      url: audioUrl,
+      kind: 'audio',
+      source: 'youtube',
+      title,
+      mime: String(audio.mime_type || ''),
+      extension: container === 'mp4' ? 'm4a' : (container || 'webm'),
+      duration: Number(audio.approx_duration_ms || 0) / 1000 || duration,
+      contentLength: Number(audio.content_length || 0),
+      bandwidth: Number(audio.bitrate || 0),
+      audioCodec: codecFromMime(audio.mime_type),
+      hasAudio: true,
+      downloadable: true
     });
   }
   const captionTracks = info.captions?.caption_tracks || info.page?.[0]?.captions?.caption_tracks || [];

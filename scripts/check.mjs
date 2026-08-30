@@ -26,10 +26,10 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '1.3.10');
+assert.equal(manifest.version, '1.5.19');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
-  'activeTab', 'alarms', 'downloads', 'offscreen', 'scripting', 'storage', 'unlimitedStorage', 'webRequest'
+  'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
 ]);
 assert.deepEqual(manifest.host_permissions.sort(), ['http://*/*', 'https://*/*']);
 assert.equal(manifest.options_page, 'settings/native-scroll.html');
@@ -73,6 +73,10 @@ for (const path of files.filter(path => path.endsWith('.css'))) {
 const sourceFiles = files.filter(path => /\.(?:js|html|css)$/.test(path));
 const sourceEntries = await Promise.all(sourceFiles.map(async path => [path, await readFile(path, 'utf8')]));
 const joined = sourceEntries.map(([, source]) => source).join('\n');
+const firstPartyJoined = sourceEntries
+  .filter(([path]) => !path.includes(join(extension, 'vendor')))
+  .map(([, source]) => source)
+  .join('\n');
 const networkFiles = sourceEntries.filter(([path, source]) => !path.includes(join(extension, 'vendor'))
   && /fetch\s*\(|XMLHttpRequest|WebSocket\s*\(/.test(source));
 assert.deepEqual(networkFiles.map(([path]) => path), [
@@ -82,28 +86,78 @@ assert.deepEqual(networkFiles.map(([path]) => path), [
   join(extension, 'worker.js')
 ]);
 assert.match(networkFiles[3][1], /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
+assert.match(await readFile(join(extension, 'core', 'bilibili-video.js'), 'utf8'), /https:\/\/api\.bilibili\.com\/x\/web-interface\/view/);
 assert.match(networkFiles[3][1], /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/reward/);
 assert.doesNotMatch(joined, /recent activity|最近活动/i, 'Extension exposes an activity log');
 assert.equal(await stat(join(extension, 'settings', 'native-scroll.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'settings', 'no-autoplay.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'settings', 'any-copy.html')).then(() => true), true);
+assert.equal(await stat(join(extension, 'settings', 'image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'settings', 'satellites.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'settings', 'video-download.html')).then(() => true), true);
-for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'video-download.html', 'satellites.html']) {
+for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'satellites.html']) {
   const html = await readFile(join(extension, 'settings', name), 'utf8');
   assert.match(html, /<script src="\.\.\/localization-data\.js"><\/script>/);
   assert.match(html, /<script src="preload\.js"><\/script>\s*<script type="module" src="page\.js"><\/script>/);
 }
-for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'video-download.html', 'satellites.html']) {
+for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'satellites.html']) {
   const html = await readFile(join(extension, 'settings', name), 'utf8');
+  assert.match(html, /data-feature-link="imageDownload"/);
   assert.match(html, /data-feature-link="satellites"/);
 }
+const popupSource = await readFile(join(extension, 'popup.js'), 'utf8');
+const imageWorkspaceSource = await readFile(join(extension, 'image-download.js'), 'utf8');
+const settingsSource = await readFile(join(extension, 'settings', 'page.js'), 'utf8');
+const bridgeSource = await readFile(join(extension, 'content', 'bridge.js'), 'utf8');
+const workerSource = await readFile(join(extension, 'worker.js'), 'utf8');
 assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="nativeScroll"/);
 assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="noAutoplay"/);
 assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="anyCopy"/);
+assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="imageDownload"/);
 assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /data-feature="videoDownload"/);
+assert.match(popupSource, /whitelisted = feature\.supported && !!feature\.matchedWhitelistRule/);
+assert.match(popupSource, /row\.dataset\.bypassed = String\(bypassed\)/);
+assert.match(popupSource, /type: 'UI_DELETE_RULE',[\s\S]*listName: 'whitelistRules',[\s\S]*rule: feature\.matchedWhitelistRule/);
+assert.match(popupSource, /type: 'UI_DELETE_RULE',[\s\S]*listName: 'enhancedRules',[\s\S]*rule: feature\.matchedEnhancedRule/);
+assert.match(popupSource, /UI_DISABLE_ANY_COPY_MATCHES/);
+assert.equal([...popupSource.matchAll(/type: 'UI_OPEN_SETTINGS'/g)].length, 1, 'Only Settings controls may open Settings from the popup');
+assert.match(popupSource, /let actionPending = false/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /data-action="whitelist"\]\[data-whitelisted="true"\]/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /feature-row\[data-bypassed="true"\][\s\S]*data-action="power"[\s\S]*data-action="enhanced"/);
+assert.doesNotMatch(await readFile(join(extension, 'image-download.html'), 'utf8'), /source-title/);
+assert.match(await readFile(join(extension, 'image-download.html'), 'utf8'), /<em>at<\/em> Cosmic Gemini/);
+assert.match(await readFile(join(extension, 'image-download.html'), 'utf8'), /id="open-page"/);
+assert.match(workerSource, /chrome\.sidePanel\.setOptions/);
+assert.match(workerSource, /preparedImageSidePanels/);
+assert.doesNotMatch(workerSource, /Promise\.all\(\[configured,\s*chrome\.sidePanel\.open/);
+assert.doesNotMatch(firstPartyJoined, /navigator\.mediaSession|setActionHandler\s*\(|MediaPlayPause|nativeMessaging|osascript|AppleScript/i);
+assert.match(await readFile(join(extension, 'popup.html'), 'utf8'), /video-panel-wordmark/);
+assert.match(popupSource, /UI_VIDEO_CANCEL_PROCESSING/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /\.video-processing-cancel\s*\{[^}]*var\(--danger\)/s);
+assert.match(workerSource, /CG_VIDEO_CANCEL_REQUEST/);
+assert.match(await readFile(join(extension, 'offscreen', 'video-download.js'), 'utf8'), /new AbortController\(\)/);
+assert.equal(await stat(join(extension, 'image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'offscreen', 'video-download.html')).then(() => true), true);
-assert.doesNotMatch(await readFile(join(extension, 'popup.js'), 'utf8'), /brandIcon\.src/, 'Popup brand icon must remain static');
+assert.doesNotMatch(popupSource, /brandIcon\.src/, 'Popup brand icon must remain static');
+for (const id of ['anyCopy-status', 'imageDownload-status', 'videoDownload-status', 'video-back', 'video-stop', 'video-rescan']) {
+  assert.match(popupSource, new RegExp(`#${id}['"]\\)\\.addEventListener\\('click'`), `${id} is not bound`);
+}
+for (const id of ['focus-source', 'open-page', 'capture-area', 'rescan', 'deep-scan', 'stop', 'clear-filters', 'select-visible', 'clear-selection', 'download-selected']) {
+  assert.match(imageWorkspaceSource, new RegExp(`#${id}['"]\\)\\.addEventListener\\('click'`), `${id} is not bound`);
+}
+assert.match(settingsSource, /remove\.addEventListener\('click'/);
+assert.match(settingsSource, /form\.addEventListener\('submit'/);
+assert.match(settingsSource, /pendingControls/);
+assert.match(imageWorkspaceSource, /let scanPending = false/);
+assert.match(imageWorkspaceSource, /let downloadPending = false/);
+assert.doesNotMatch(bridgeSource, /AUDIO_PROMPT_COPY|CG_AUDIO|promptHost|showAudioPrompt|decideAudio/);
+assert.doesNotMatch(workerSource, /CG_AUDIO_BLOCKED|CG_AUDIO_DECISION|temporaryAudioAllowed|claimAudioPrompt/);
+assert.doesNotMatch(await readFile(join(extension, 'content', 'no-autoplay-runtime.js'), 'utf8'), /audioPrompted|AUDIO_BLOCKED|reportAudioBlocked/);
+assert.match(settingsSource, /UI_SET_AUDIO_AUTOPLAY_ALL_SITES/);
+assert.match(workerSource, /UI_SET_AUDIO_AUTOPLAY_ALL_SITES/);
+assert.match(workerSource, /listName === 'permanentAudioAllowRules'[\s\S]*chrome\.runtime\.getURL\('settings\/'\)/);
+assert.doesNotMatch(firstPartyJoined, /sound autoplay/i);
+assert.match(workerSource, /activeVideoProcessing\.has\(processingKey\)/);
 assert.match(await readFile(join(extension, 'settings', 'native-scroll.html'), 'utf8'), /© 2026 Songming\.org/);
 assert.match(await readFile(join(project, '.gitignore'), 'utf8'), /^dist\/$/m);
 

@@ -1,5 +1,113 @@
 # Changelog
 
+## 1.5.19 — 2026-08-30
+
+- Removes the page-level audio autoplay question. No Autoplay now blocks audio autoplay silently by default.
+- Adds a default-off setting that can allow audio elements and Web Audio on all sites while retaining hostname-specific audio rules. Autoplaying video remains blocked by both permissions.
+- Recognizes trusted clicks and keyboard actions on custom playback controls so a manually started video plays on the first attempt.
+
+## 1.5.18 — 2026-08-30
+
+- Uses “audio autoplay” consistently throughout the English interface and current documentation.
+- Freezes the No Autoplay audio autoplay prompt to two code-defined choices: Continue blocking and Allow this time.
+
+## 1.5.17 — 2026-08-30
+
+- Audits every user-visible control across the popup, all settings pages, Image Download, Video Download, and the No Autoplay sound question.
+- Makes matched Enhanced-mode controls remove their exact or wildcard rule directly. Settings now opens only from a Settings control.
+- Prevents rapid repeated clicks from reversing popup changes, submitting the same settings action twice, starting duplicate image or video work, or sending multiple sound decisions.
+- Restores settings controls after a failed save, keeps the sound question available when its choice cannot be saved, and disables Image Download rescans while a scan is already running.
+
+## 1.5.16 — 2026-08-30
+
+- Uses one consistent neutral opacity for the Native Scroll and No Autoplay product, power, and Enhanced controls when a whitelist rule is active.
+- Makes the active whitelist control remove the exact or wildcard rule that currently matches the website, instead of unexpectedly opening Settings.
+- Prefers an exact rule, then the most specific wildcard, when several saved rules match the same website.
+
+## 1.5.15 — 2026-08-30
+
+- Prepares Image Download's tab-specific Side Panel before its popup control is used, removing the race between panel configuration and opening.
+- Stops transient Side Panel errors from silently opening or focusing a separate tab. The full-page workspace now appears only when selected in Settings or requested from the Side Panel.
+- Avoids reapplying an unchanged panel configuration while the popup remains open.
+
+## 1.5.13 — 2026-08-30
+
+- Adds a red cancel icon beside Video Download's Processing control.
+- Cancels active network reading and local media assembly, removes partial temporary artifacts, and returns the selected format to a downloadable state without starting a Chrome download.
+- Ignores delayed progress from a canceled request so the media card does not return to Processing.
+
+## 1.5.12 — 2026-08-30
+
+- Opens Image Download in Chrome’s Side Panel by default, keeping the source page visible while images are reviewed and selected.
+- Adds an Image Download setting for choosing between the Side Panel and a separate tab, with automatic separate-tab fallback when the Side Panel is unavailable.
+- Adds an open-in-tab action to the Side Panel and a responsive workspace layout for narrow panel widths.
+- Keeps the Image Download workspace bound to its source tab and closes the tab-specific panel when that session ends.
+
+## 1.5.11 — 2026-08-30
+
+- Prevents range-request warnings from Bilibili CDN routes that return a complete response instead of `206 Partial Content`.
+- Streams selected separate video and audio tracks into temporary local files before remuxing, so media processing no longer depends on remote random-access support or keeps the complete source in memory.
+- Validates each local track and continues through its alternate CDN addresses before starting the final merge.
+
+## 1.5.10 — 2026-08-30
+
+- Keeps the title shown in the Video Download media card as the Chrome download filename instead of exposing the temporary local artifact identifier.
+- Applies the same stable naming to video and audio downloads, while subtitle files retain their language in the filename.
+
+## 1.5.9 — 2026-08-30
+
+- Keeps the quality menu open while live download status refreshes instead of recreating its focused control.
+- Redesigns the Video Download result view as one balanced media card with a wider workspace, integrated preview, concise quality selection, format details, and download action.
+- Combines duplicate codec and internal-track entries into one preferred option for each main quality while retaining the selected format's technical details below the menu.
+- Adds a separate Audio only option when Bilibili or YouTube provides a compatible audio track.
+
+## 1.5.8 — 2026-08-30
+
+- Fixed Bilibili downloads that found formats but failed while reading separate video and audio tracks by applying the source-page referrer through temporary media-directory rules.
+- Removes each temporary media rule after local preparation and continues through Bilibili's alternate CDN addresses when required.
+- Added a thumbnail and title for confirming the current video, plus a direct quality selector for every detected resolution and compatible codec.
+- Fixed page-response capture for JSON-mode `XMLHttpRequest` objects without reading an unavailable `responseText` value.
+
+## 1.5.7 — 2026-08-30
+
+- Confirms that a No Autoplay whitelist rule permits video, audio, and Web Audio autoplay without showing the sound question.
+- Dismisses an already-visible sound question when the current website becomes whitelisted.
+
+## 1.5.6 — 2026-08-30
+
+- Fixed Bilibili discovery on pages that remove the global playback object after embedding it in the document.
+- Added public video-information fallback so Bilibili formats remain discoverable before playback and while No Autoplay is active.
+- Retains and retries Bilibili's alternate CDN addresses when reading separate video and audio tracks for local remuxing.
+
+## 1.5.5 — 2026-08-30
+
+- Replaced the shared media-list refresh symbol with a single circular arrow.
+
+## 1.5.3 — 2026-08-30
+
+- Reduced the Video Download media-list header height and aligned its wordmark to the left.
+- Rescaled the Cosmic Gemini line to follow the settings-page wordmark proportions.
+
+## 1.5.2 — 2026-08-30
+
+- Removed the detected webpage title from the Image Download workspace header.
+- Added Cosmic Gemini to the visible Image Download and Video Download result-view wordmarks.
+- Applied the settings-page English heading tracking to popup titles.
+- Turns the whitelist icon green immediately when an exact or wildcard rule matches, and keeps Native Scroll or No Autoplay inactive on that website without a separate effect check.
+
+## 1.5.1 — 2026-08-30
+
+- Added Image Download as an on-demand current-tab product with a dedicated workspace for previewing, filtering, selecting, and downloading images.
+- Added discovery for responsive and lazy-loaded images, linked originals, CSS images, open shadow roots, frames, inline SVG, canvas content, structured metadata, and image responses observed during the active session.
+- Groups related variants and recommends the strongest original candidate while keeping alternate sizes and formats available.
+- Added normal and deep rescans, visible-area capture, local JPEG, PNG, and WebP conversion, separate downloads, and locally generated ZIP batches.
+- Keeps Image Download candidates and artifacts temporary, continues across same-origin navigation, and clears the session after explicit stop, source-tab closure, or cross-origin navigation.
+- Added the fourth popup row, Image Download settings, complete en-US and zh-CN interfaces, and the corresponding technical and verification documentation.
+- Rebuilt the shared media-list refresh mark as a symmetric two-arrow loop.
+- Limits the No Autoplay sound question to once while a website remains open, including after reloads and same-site navigation.
+- Dims Native Scroll and No Autoplay product and power controls on whitelisted websites while showing an effective whitelist control with a blue selected surface and green icon.
+- Removed the README Background paragraphs from Image Download and Video Download.
+
 ## 1.3.10 — 2026-08-30
 
 - Keeps Video Download’s Other formats section open while the media list refreshes its status.

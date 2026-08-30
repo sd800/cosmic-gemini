@@ -3,7 +3,6 @@
   const MAIN_READY = 'cosmic-gemini:no-autoplay:main-ready';
   const CONFIGURE = 'cosmic-gemini:no-autoplay:configure';
   const INTERVENED = 'cosmic-gemini:no-autoplay:intervened';
-  const AUDIO_BLOCKED = 'cosmic-gemini:no-autoplay:audio-blocked';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.no-autoplay.runtime');
 
   function randomToken() {
@@ -26,7 +25,7 @@
       this.mode = 'standard';
       this.audioAllowed = false;
       this.reported = false;
-      this.audioPrompted = false;
+      this.userIntentUntil = 0;
       this.observer = null;
       this.mediaIntent = new WeakMap();
       this.pendingAudio = new Set();
@@ -57,7 +56,6 @@
     onBridgeReady() {
       this.announce();
       if (this.reported) window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
-      if (this.audioPrompted) window.dispatchEvent(new CustomEvent(AUDIO_BLOCKED, { detail: this.token }));
     }
 
     onConfigure(event) {
@@ -73,7 +71,6 @@
       if (!this.active) {
         this.disableObserver();
         this.reported = false;
-        this.audioPrompted = false;
         this.resumePendingMedia(true);
         this.resumePendingContexts();
         return;
@@ -115,7 +112,6 @@
           if (!runtime.shouldBlockAudioContext()) return Reflect.apply(original, this, []);
           runtime.rememberPendingContext(this, original);
           runtime.reportIntervention();
-          if (runtime.mode !== 'enhanced') runtime.reportAudioBlocked();
           try { void this.suspend(); } catch {}
           return Promise.resolve();
         };
@@ -126,7 +122,6 @@
               if (runtime.shouldBlockAudioContext()) {
                 runtime.rememberPendingContext(context, original);
                 runtime.reportIntervention();
-                if (runtime.mode !== 'enhanced') runtime.reportAudioBlocked();
                 try { void context.suspend(); } catch {}
               }
               return context;
@@ -147,6 +142,7 @@
     onUserIntent(event) {
       if (!event.isTrusted) return;
       if (event.type === 'keydown' && !['Enter', ' ', 'Spacebar'].includes(event.key)) return;
+      this.userIntentUntil = performance.now() + 2000;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
       for (const node of path) {
         if (node instanceof HTMLMediaElement) {
@@ -158,6 +154,7 @@
 
     hasUserIntent(media) {
       if (navigator.userActivation?.isActive) return true;
+      if (this.userIntentUntil >= performance.now()) return true;
       return (this.mediaIntent.get(media) || 0) >= performance.now();
     }
 
@@ -192,7 +189,6 @@
       }
       if (media instanceof HTMLAudioElement) {
         this.rememberPending(this.pendingAudio, media);
-        if (!media.muted && Number(media.volume) > 0) this.reportAudioBlocked();
       } else if (media instanceof HTMLVideoElement) {
         this.rememberPending(this.pendingVideo, media);
       }
@@ -242,7 +238,6 @@
     }
 
     resumePendingMedia(includeVideo) {
-      this.audioPrompted = false;
       for (const media of this.pendingAudio) {
         if (!media?.isConnected || !(media instanceof HTMLAudioElement)) continue;
         try { void Reflect.apply(this.originalPlay, media, []); } catch {}
@@ -271,11 +266,6 @@
       window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
     }
 
-    reportAudioBlocked() {
-      if (this.audioPrompted || !this.active || this.audioAllowed || this.mode === 'enhanced') return;
-      this.audioPrompted = true;
-      window.dispatchEvent(new CustomEvent(AUDIO_BLOCKED, { detail: this.token }));
-    }
   }
 
   const runtime = new NoAutoplayRuntime();

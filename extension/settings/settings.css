@@ -35,9 +35,11 @@ p.last { margin-bottom: 0; }
 .switch input:checked + span { background: var(--blue); }
 .switch input:checked + span::after { transform: translateX(16px); }
 .switch input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+.switch input:disabled + span { cursor: default; opacity: .55; }
 .rule-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
 input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); padding: 0 11px; }
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: white; cursor: pointer; font-weight: 650; }
+.primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
 .form-message { min-height: 18px; margin: 5px 0 0; color: var(--danger); font-size: 12px; }
 .rule-list { display: grid; gap: 4px; padding: 0; margin: 8px 0 12px; list-style: none; }
 .rule-list li { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 4px 10px; border-radius: 8px; background: var(--surface-raised); }

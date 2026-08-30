@@ -227,14 +227,19 @@
           if (!runtime.active) return;
           const type = String(this.getResponseHeader?.('content-type') || '').toLowerCase();
           if (!(type.includes('json') || type.includes('javascript') || type.includes('xml') || type.includes('mpegurl') || type.startsWith('text/'))) return;
-          if (typeof this.responseText !== 'string' || this.responseText.length > MAX_TEXT_LENGTH) return;
-          let candidates = urlsFromText(this.responseText, 'page-xhr');
+          let text = '';
+          try {
+            if (!this.responseType || this.responseType === 'text') text = this.responseText;
+            else if (this.responseType === 'json' && this.response !== null) text = JSON.stringify(this.response);
+          } catch {}
+          if (!text || text.length > MAX_TEXT_LENGTH) return;
+          let candidates = urlsFromText(text, 'page-xhr');
           if (type.includes('json')) {
-            try { candidates = candidates.concat(candidatesFromValue(JSON.parse(this.responseText), 'page-xhr-json')); }
+            try { candidates = candidates.concat(candidatesFromValue(JSON.parse(text), 'page-xhr-json')); }
             catch {}
           }
           runtime.publish(candidates);
-          runtime.publishManifests(manifestsFromText(this.responseText, this.responseURL || this.__cosmicGeminiVideoUrl || location.href, 'page-xhr'));
+          runtime.publishManifests(manifestsFromText(text, this.responseURL || this.__cosmicGeminiVideoUrl || location.href, 'page-xhr'));
         }, { once: true });
         return Reflect.apply(runtime.originalXhrSend, this, args);
       };

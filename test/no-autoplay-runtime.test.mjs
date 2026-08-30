@@ -21,7 +21,7 @@ class FakeMutationObserver { observe() {} disconnect() {} }
 class FakeCustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.target = null; } }
 class FakeAudioContext { constructor() { this.resumed = 0; this.suspended = 0; } resume() { this.resumed += 1; return Promise.resolve(); } suspend() { this.suspended += 1; return Promise.resolve(); } }
 
-test('No Autoplay blocks automatic media, preserves direct play, and keeps video blocked when sound is allowed', async () => {
+test('No Autoplay blocks automatic media, preserves direct play, and keeps video blocked when audio is allowed', async () => {
   const window = new SimpleEventTarget();
   const document = { documentElement: {}, querySelectorAll: () => [] };
   const navigator = { userActivation: { isActive: false } };
@@ -39,13 +39,10 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   const runtime = context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: false } }) });
 
-  let audioPrompts = 0;
-  context.window.addEventListener('cosmic-gemini:no-autoplay:audio-blocked', () => { audioPrompts += 1; });
   const audio = new FakeAudio();
   await audio.play();
   assert.equal(audio.played, 0);
   assert.equal(audio.paused, 1);
-  assert.equal(audioPrompts, 1);
 
   const webAudio = new context.AudioContext();
   assert.equal(webAudio.suspended, 1);
@@ -56,6 +53,12 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   assert.equal(intentionalVideo.played, 1);
 
   navigator.userActivation.isActive = false;
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', target: {}, composedPath: () => [{}] });
+  const customControlVideo = new FakeVideo();
+  await customControlVideo.play();
+  assert.equal(customControlVideo.played, 1);
+
+  context.performance.now = () => 2201;
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: true } }) });
   assert.equal(webAudio.resumed, 1);
   const allowedAudio = new FakeAudio();
@@ -70,4 +73,15 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   const enhancedVideo = new FakeVideo();
   await enhancedVideo.play();
   assert.equal(enhancedVideo.removed, true);
+
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false, mode: 'standard', audioAllowed: false } }) });
+  navigator.userActivation.isActive = false;
+  const whitelistedAudio = new FakeAudio();
+  const whitelistedVideo = new FakeVideo();
+  const whitelistedContext = new context.AudioContext();
+  await whitelistedAudio.play();
+  await whitelistedVideo.play();
+  assert.equal(whitelistedAudio.played, 1);
+  assert.equal(whitelistedVideo.played, 1);
+  assert.equal(whitelistedContext.suspended, 0);
 });

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en-US" data-locale-pending="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cosmic Gemini · Image Download</title>
+  <script src="image-download-preload.js"></script>
+  <script src="localization-data.js"></script>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="image-download.css">
+</head>
+<body>
+  <header class="workspace-header">
+    <div class="workspace-brand">
+      <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="icons/icon-128.png" alt=""></span>
+      <div><strong data-i18n="imageDownloadName">Image Download</strong><small><em>at</em> Cosmic Gemini</small></div>
+    </div>
+    <nav class="workspace-actions" data-i18n-aria-label="imageWorkspaceActions">
+      <button class="icon-button page-only" id="focus-source" type="button"></button>
+      <button class="icon-button side-panel-only" id="open-page" type="button"></button>
+      <button class="icon-button" id="capture-area" type="button"></button>
+      <button class="icon-button" id="rescan" type="button"></button>
+      <button class="icon-button" id="deep-scan" type="button"></button>
+      <button class="icon-button" id="stop" type="button"></button>
+    </nav>
+  </header>
+
+  <main class="workspace-main">
+    <section class="filter-bar" aria-label="Image filters">
+      <label class="search-field"><span class="sr-only" data-i18n="imageSearchLabel"></span><input id="search" type="search" autocomplete="off" data-i18n-placeholder="imageSearchPlaceholder"></label>
+      <label><span data-i18n="imageTypeLabel"></span><select id="type-filter"><option value="all" data-i18n="allTypes"></option></select></label>
+      <label><span data-i18n="imageLayoutLabel"></span><select id="layout-filter"><option value="all" data-i18n="allLayouts"></option><option value="wide" data-i18n="layoutWide"></option><option value="tall" data-i18n="layoutTall"></option><option value="square" data-i18n="layoutSquare"></option></select></label>
+      <label><span data-i18n="minimumWidth"></span><input id="min-width" type="number" inputmode="numeric" min="0" step="100" value="0"></label>
+      <label><span data-i18n="minimumHeight"></span><input id="min-height" type="number" inputmode="numeric" min="0" step="100" value="0"></label>
+      <label><span data-i18n="sortBy"></span><select id="sort"><option value="largest" data-i18n="sortLargest"></option><option value="smallest" data-i18n="sortSmallest"></option><option value="page" data-i18n="sortPageOrder"></option></select></label>
+      <button class="quiet-button" id="clear-filters" type="button" data-i18n="clearFilters"></button>
+    </section>
+
+    <section class="selection-bar">
+      <div><strong id="result-count"></strong><small id="status-text" aria-live="polite"></small></div>
+      <div class="selection-actions">
+        <button class="quiet-button" id="select-visible" type="button" data-i18n="selectVisible"></button>
+        <button class="quiet-button" id="clear-selection" type="button" data-i18n="clearSelection"></button>
+        <label><span class="sr-only" data-i18n="imageOutputFormat"></span><select id="output-format"><option value="original" data-i18n="keepOriginalFormat"></option><option value="jpg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option></select></label>
+        <label><span class="sr-only" data-i18n="imageBatchMode"></span><select id="batch-mode"><option value="zip" data-i18n="downloadAsZip"></option><option value="separate" data-i18n="downloadSeparately"></option></select></label>
+        <button class="primary-button" id="download-selected" type="button"></button>
+      </div>
+    </section>
+
+    <section class="image-grid" id="image-grid" aria-live="polite"></section>
+    <section class="workspace-empty" id="empty" hidden><strong data-i18n="imageNoResults"></strong><p data-i18n="imageNoResultsHelp"></p></section>
+  </main>
+
+  <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
+  <script type="module" src="image-download.js"></script>
+</body>
+</html>

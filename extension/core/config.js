@@ -5,6 +5,7 @@ export const FEATURE_IDS = Object.freeze({
   NATIVE_SCROLL: 'nativeScroll',
   NO_AUTOPLAY: 'noAutoplay',
   ANY_COPY: 'anyCopy',
+  IMAGE_DOWNLOAD: 'imageDownload',
   VIDEO_DOWNLOAD: 'videoDownload'
 });
 
@@ -23,15 +24,22 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 6,
+  version: 9,
   nativeScroll: DEFAULT_FEATURE,
   noAutoplay: Object.freeze({
     ...DEFAULT_FEATURE,
+    audioAutoplayAllSites: false,
     permanentAudioAllowRules: Object.freeze([])
   }),
   anyCopy: Object.freeze({
     enforcedRules: Object.freeze([]),
     enhancedRules: Object.freeze([])
+  }),
+  imageDownload: Object.freeze({
+    workspaceMode: 'sidePanel',
+    batchMode: 'zip',
+    outputFormat: 'original',
+    askWhereToSave: true
   }),
   videoDownload: Object.freeze({
     preferredQuality: 'best',
@@ -92,7 +100,10 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
     whitelistRules: normalizeRules(value.whitelistRules ?? value.whitelist),
     enhancedRules: normalizeRules(value.enhancedRules)
   };
-  if (includeAudioRules) normalized.permanentAudioAllowRules = normalizeRules(value.permanentAudioAllowRules);
+  if (includeAudioRules) {
+    normalized.audioAutoplayAllSites = value.audioAutoplayAllSites === true;
+    normalized.permanentAudioAllowRules = normalizeRules(value.permanentAudioAllowRules);
+  }
   return normalized;
 }
 
@@ -102,12 +113,20 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, whitelistRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 6,
+    version: 9,
     nativeScroll: normalizeFeature(nativeValue || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
       enforcedRules: normalizeRules(value.anyCopy?.enforcedRules),
       enhancedRules: normalizeRules(value.anyCopy?.enhancedRules)
+    },
+    imageDownload: {
+      workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
+      batchMode: value.imageDownload?.batchMode === 'separate' ? 'separate' : 'zip',
+      outputFormat: ['original', 'jpg', 'png', 'webp'].includes(String(value.imageDownload?.outputFormat))
+        ? String(value.imageDownload.outputFormat)
+        : 'original',
+      askWhereToSave: value.imageDownload?.askWhereToSave !== false
     },
     videoDownload: {
       preferredQuality: ['best', '2160', '1440', '1080', '720', '480'].includes(String(value.videoDownload?.preferredQuality))
@@ -137,7 +156,11 @@ export function ruleMatches(hostname, rule) {
 }
 
 export function matchingRule(hostname, rules) {
-  return (Array.isArray(rules) ? rules : []).find(rule => ruleMatches(hostname, rule)) || '';
+  const matches = (Array.isArray(rules) ? rules : []).filter(rule => ruleMatches(hostname, rule));
+  if (!matches.length) return '';
+  const exact = matches.find(rule => !rule.startsWith('*.'));
+  if (exact) return exact;
+  return matches.sort((a, b) => b.length - a.length)[0];
 }
 
 export function toggleRule(rules, rule) {
@@ -155,7 +178,7 @@ export function hostnameFromUrl(value) {
   } catch { return ''; }
 }
 
-export function featureState(settings, featureId, url, temporaryAudioAllowed = false) {
+export function featureState(settings, featureId, url) {
   const normalized = normalizeSettings(settings);
   const feature = normalized[featureId];
   if (!feature) throw new Error('Unknown feature.');
@@ -177,7 +200,7 @@ export function featureState(settings, featureId, url, temporaryAudioAllowed = f
     matchedEnhancedRule,
     exactEnhanced: !!hostname && feature.enhancedRules.includes(hostname),
     audioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY
-      ? active && (!!matchedAudioRule || temporaryAudioAllowed)
+      ? active && (feature.audioAutoplayAllSites === true || !!matchedAudioRule)
       : false,
     matchedAudioRule,
     exactAudioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY && !!hostname

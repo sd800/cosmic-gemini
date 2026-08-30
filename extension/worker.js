@@ -8,25 +8,31 @@ import {
   hostnameFromUrl,
   normalizeRule,
   normalizeSettings,
+  ruleMatches,
   toggleRule,
   updateFeature
 } from './core/config.js';
-import {
-  createTemporaryAudioGrant,
-  hostnameFromTemporaryAudioAlarm,
-  isTemporaryAudioGrantValid,
-  temporaryAudioAlarm,
-  temporaryAudioKey
-} from './core/audio-grants.js';
 import { normalizeLocale } from './core/locale.js';
 import {
   bilibiliDashCandidates,
   bilibiliPageContext,
+  completeBilibiliPageContext,
   fetchBilibiliPlayInfo
 } from './core/bilibili-video.js';
 import { youtubePageContext } from './core/youtube-video.js';
 import { siteVideoPageDiscovery } from './core/site-video.js';
 import { unwrapObfuscatedHls } from './core/obfuscated-hls.js';
+import { imagePageDiscovery } from './core/image-page.js';
+import {
+  groupImageCandidates,
+  imageContentLength,
+  imageExtension,
+  imageMimeFromHeaders,
+  imageSessionKey,
+  mergeImageCandidate,
+  normalizeImageCandidate,
+  sanitizeImageFilename
+} from './core/image-download.js';
 import {
   BILI_DAILY_ALARM,
   BILI_DAILY_MAX_ATTEMPTS,
@@ -38,6 +44,8 @@ import {
 } from './core/bili-daily-login.js';
 import {
   classifyVideoResource,
+  mediaRequestDirectoryFilters,
+  mediaRequestReferrer,
   mergeVideoCandidate,
   parseHlsMaster,
   parseHlsMedia,
@@ -49,15 +57,29 @@ const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'i
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
 const FEATURE_LISTS = new Set(['whitelistRules', 'enhancedRules', 'permanentAudioAllowRules', 'enforcedRules']);
+const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
+const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
 let writeQueue = Promise.resolve();
 let biliDailyRun = null;
 let activeVideoAssemblies = 0;
+const activeVideoProcessing = new Map();
+let nextMediaHeaderRuleId = 700000;
+const pendingVideoFilenames = new Map();
 const expandingVideoManifests = new Set();
 const activeVideoTabs = new Set();
+const activeImageTabs = new Set();
+const preparedImageSidePanels = new Map();
 const activeVideoTabsReady = chrome.storage.session.get(null).then(values => {
   for (const [key, value] of Object.entries(values)) {
     if (key.startsWith('videoDownloadSession:') && value?.active === true && Number.isInteger(value.tabId)) {
       activeVideoTabs.add(value.tabId);
+    }
+  }
+}).catch(() => {});
+const activeImageTabsReady = chrome.storage.session.get(null).then(values => {
+  for (const [key, value] of Object.entries(values)) {
+    if (key.startsWith('imageDownloadSession:') && value?.active === true && Number.isInteger(value.tabId)) {
+      activeImageTabs.add(value.tabId);
     }
   }
 }).catch(() => {});
@@ -127,16 +149,17 @@ function activityKey(tabId) {
 }
 
 async function readActivity(tabId) {
-  if (!Number.isInteger(tabId)) return { nativeScroll: false, noAutoplay: false, anyCopy: false, videoDownload: false };
+  if (!Number.isInteger(tabId)) return { nativeScroll: false, noAutoplay: false, anyCopy: false, imageDownload: false, videoDownload: false };
   try {
     const value = (await chrome.storage.session.get(activityKey(tabId)))[activityKey(tabId)];
     return {
       nativeScroll: value?.nativeScroll === true,
       noAutoplay: value?.noAutoplay === true,
       anyCopy: value?.anyCopy === true,
+      imageDownload: value?.imageDownload === true,
       videoDownload: value?.videoDownload === true
     };
-  } catch { return { nativeScroll: false, noAutoplay: false, anyCopy: false, videoDownload: false }; }
+  } catch { return { nativeScroll: false, noAutoplay: false, anyCopy: false, imageDownload: false, videoDownload: false }; }
 }
 
 async function toolbarTitle(activity) {
@@ -144,6 +167,7 @@ async function toolbarTitle(activity) {
     activity.nativeScroll && 'Native Scroll',
     activity.noAutoplay && 'No Autoplay',
     activity.anyCopy && 'Any Copy',
+    activity.imageDownload && 'Image Download',
     activity.videoDownload && 'Video Download'
   ].filter(Boolean);
   if (!products.length) return 'Cosmic Gemini';
@@ -155,7 +179,7 @@ async function toolbarTitle(activity) {
 
 async function renderToolbar(tabId, activity) {
   if (!Number.isInteger(tabId)) return;
-  const active = activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.videoDownload;
+  const active = activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.imageDownload || activity.videoDownload;
   await Promise.allSettled([
     updateAction('setIcon', { tabId, path: active ? ACTIVE_ICONS : DEFAULT_ICONS }),
     updateAction('setBadgeText', { tabId, text: '' }),
@@ -168,7 +192,7 @@ async function setFeatureActivity(tabId, featureId, value) {
   const activity = await readActivity(tabId);
   activity[featureId] = value === true;
   const key = activityKey(tabId);
-  if (activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.videoDownload) await chrome.storage.session.set({ [key]: activity });
+  if (activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.imageDownload || activity.videoDownload) await chrome.storage.session.set({ [key]: activity });
   else await chrome.storage.session.remove(key);
   await renderToolbar(tabId, activity);
 }
@@ -176,48 +200,17 @@ async function setFeatureActivity(tabId, featureId, value) {
 async function clearTabActivity(tabId) {
   if (!Number.isInteger(tabId)) return;
   await chrome.storage.session.remove(activityKey(tabId));
-  await renderToolbar(tabId, { nativeScroll: false, noAutoplay: false, anyCopy: false, videoDownload: false });
+  await renderToolbar(tabId, { nativeScroll: false, noAutoplay: false, anyCopy: false, imageDownload: false, videoDownload: false });
 }
 
-async function temporaryAudioAllowed(hostname) {
-  if (!hostname) return false;
-  const key = temporaryAudioKey(hostname);
-  const grant = (await chrome.storage.session.get(key))[key];
-  if (isTemporaryAudioGrantValid(grant)) return true;
-  if (grant) {
-    await chrome.storage.session.remove(key);
-    await chrome.alarms.clear(temporaryAudioAlarm(hostname));
-  }
-  return false;
-}
-
-async function setTemporaryAudioAllowed(hostname) {
-  const grant = createTemporaryAudioGrant();
-  await chrome.storage.session.set({ [temporaryAudioKey(hostname)]: grant });
-  await chrome.alarms.create(temporaryAudioAlarm(hostname), { when: grant.expiresAt });
-}
-
-async function clearTemporaryAudioAllowed(hostname) {
-  if (!hostname) return;
-  await Promise.allSettled([
-    chrome.storage.session.remove(temporaryAudioKey(hostname)),
-    chrome.alarms.clear(temporaryAudioAlarm(hostname))
-  ]);
-}
-
-async function cleanupTemporaryAudioIfUnused(hostname) {
-  if (!hostname) return;
-  const tabs = await chrome.tabs.query({});
-  const stillOpen = tabs.some(tab => hostnameFromUrl(tab.url || '') === hostname);
-  if (!stillOpen) await clearTemporaryAudioAllowed(hostname);
-}
-
-async function cleanupUnusedTemporaryAudio() {
+async function clearLegacyAudioPromptState() {
   const values = await chrome.storage.session.get(null);
-  for (const key of Object.keys(values)) {
-    if (!key.startsWith('temporaryAudioAllow:')) continue;
-    await cleanupTemporaryAudioIfUnused(key.slice('temporaryAudioAllow:'.length));
-  }
+  const keys = Object.keys(values).filter(key => LEGACY_AUDIO_SESSION_PREFIXES.some(prefix => key.startsWith(prefix)));
+  if (keys.length) await chrome.storage.session.remove(keys);
+  const alarms = await chrome.alarms.getAll();
+  await Promise.allSettled(alarms
+    .filter(alarm => alarm.name.startsWith(LEGACY_AUDIO_ALARM_PREFIX))
+    .map(alarm => chrome.alarms.clear(alarm.name)));
 }
 
 function originFromUrl(value) {
@@ -232,6 +225,62 @@ function runtimeToken() {
   const bytes = new Uint8Array(18);
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function withMediaRequestHeaders(candidate, pageUrl, task) {
+  const referrer = mediaRequestReferrer(pageUrl);
+  const filters = mediaRequestDirectoryFilters(candidate);
+  if (!referrer || !filters.length || !chrome.declarativeNetRequest?.updateSessionRules) return task();
+  const existing = new Set((await chrome.declarativeNetRequest.getSessionRules()).map(rule => rule.id));
+  const rules = filters.map(urlFilter => {
+    do {
+      nextMediaHeaderRuleId += 1;
+      if (nextMediaHeaderRuleId > 2_000_000_000) nextMediaHeaderRuleId = 700001;
+    } while (existing.has(nextMediaHeaderRuleId));
+    existing.add(nextMediaHeaderRuleId);
+    return {
+      id: nextMediaHeaderRuleId,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        requestHeaders: [{ operation: 'set', header: 'Referer', value: referrer }]
+      },
+      condition: { urlFilter, resourceTypes: ['xmlhttprequest'] }
+    };
+  });
+  const ruleIds = rules.map(rule => rule.id);
+  await chrome.declarativeNetRequest.updateSessionRules({ addRules: rules });
+  try { return await task(); }
+  finally {
+    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ruleIds }).catch(() => {});
+  }
+}
+
+async function readVideoPageMetadata(tabId) {
+  try {
+    const frames = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      injectImmediately: true,
+      func: () => {
+        const content = selector => document.querySelector(selector)?.getAttribute('content') || '';
+        const title = content('meta[property="og:title"]')
+          || content('meta[name="twitter:title"]') || document.title || '';
+        const rawThumbnail = content('meta[property="og:image"]')
+          || content('meta[property="og:image:url"]')
+          || content('meta[name="twitter:image"]')
+          || document.querySelector('link[rel="image_src"]')?.href
+          || document.querySelector('video[poster]')?.poster || '';
+        let thumbnailUrl = '';
+        try {
+          const resolved = new URL(rawThumbnail, location.href);
+          if (['http:', 'https:'].includes(resolved.protocol)) thumbnailUrl = resolved.href;
+        } catch {}
+        return { title: String(title).trim().slice(0, 240), thumbnailUrl };
+      }
+    });
+    return frames.find(frame => frame.frameId === 0)?.result || frames[0]?.result || {};
+  } catch { return {}; }
 }
 
 function bytesFromBase64(value) {
@@ -262,7 +311,7 @@ async function saveVideoSession(session) {
 }
 
 function sortVideoCandidates(candidates) {
-  const kindRank = { muxed: 0, direct: 1, hls: 2, dash: 3 };
+  const kindRank = { muxed: 0, direct: 1, hls: 2, dash: 3, audio: 4, subtitle: 5 };
   return [...candidates].sort((a, b) =>
     Number(b.downloadable) - Number(a.downloadable) ||
     (b.height || 0) - (a.height || 0) ||
@@ -294,8 +343,10 @@ async function discoverBilibiliCandidates(tabId, pageUrl) {
     injectImmediately: true,
     func: bilibiliPageContext
   });
-  const context = frames.find(frame => frame.frameId === 0)?.result || frames[0]?.result;
-  const standard = context?.cid && (context.bvid || context.aid);
+  let context = frames.find(frame => frame.frameId === 0)?.result || frames[0]?.result;
+  context = await completeBilibiliPageContext(context, requestBilibiliJson);
+  const embedded = context?.playInfo?.data?.dash || context?.playInfo?.result?.dash || context?.playInfo?.dash;
+  const standard = embedded || (context?.cid && (context.bvid || context.aid));
   const international = context?.internationalEpisodeId || context?.internationalAid;
   if (!standard && !international) return [];
   const playInfo = await fetchBilibiliPlayInfo(context, requestBilibiliJson);
@@ -366,12 +417,11 @@ async function expandHlsCandidate(tabId, candidate) {
     let manifestUrl = candidate.manifestBaseUrl || candidate.manifestUrl || candidate.url;
     let text = candidate.manifestText || '';
     if (!text) {
-      const response = await fetch(candidate.url, {
+      const response = await withMediaRequestHeaders(candidate, session.pageUrl, () => fetch(candidate.url, {
         cache: 'no-store',
         credentials: 'include',
-        redirect: 'follow',
-        referrer: session.pageUrl || undefined
-      });
+        redirect: 'follow'
+      }));
       if (!response.ok) return;
       manifestUrl = response.url || candidate.url;
       text = await response.text();
@@ -440,11 +490,11 @@ async function expandDashCandidate(tabId, candidate) {
     const session = await readVideoSession(tabId);
     if (!session) return;
     await updateVideoCandidate(tabId, candidate.id, value => ({ ...value, master: true }));
-    const variants = await sendVideoOffscreen({
+    const variants = await withMediaRequestHeaders(candidate, session.pageUrl, () => sendVideoOffscreen({
       type: 'CG_VIDEO_EXPAND_DASH',
       candidate: { ...candidate, manifestUrl: candidate.url },
       pageUrl: session.pageUrl
-    });
+    }));
     if (Array.isArray(variants) && variants.length) await addVideoCandidates(tabId, variants, false);
   } catch {}
   finally { expandingVideoManifests.delete(expansionKey); }
@@ -501,8 +551,10 @@ async function startVideoSession(tabId, url, title = '') {
   if (!origin) throw new Error('Video Download is unavailable on this page.');
   const existing = await readVideoSession(tabId);
   if (existing?.origin === origin) {
+    const metadata = await readVideoPageMetadata(tabId);
     existing.pageUrl = url;
-    existing.title = title || existing.title;
+    existing.title = metadata.title || title || existing.title;
+    existing.thumbnailUrl = metadata.thumbnailUrl || existing.thumbnailUrl || '';
     await saveVideoSession(existing);
     await Promise.allSettled([
       injectVideoScanner(tabId),
@@ -511,12 +563,14 @@ async function startVideoSession(tabId, url, title = '') {
     return readVideoSession(tabId);
   }
   if (existing) await stopVideoSession(tabId);
+  const metadata = await readVideoPageMetadata(tabId);
   const session = {
     active: true,
     tabId,
     origin,
     pageUrl: url,
-    title: String(title || 'Video').slice(0, 240),
+    title: String(metadata.title || title || 'Video').slice(0, 240),
+    thumbnailUrl: String(metadata.thumbnailUrl || ''),
     status: 'scanning',
     candidates: [],
     startedAt: Date.now(),
@@ -558,6 +612,8 @@ async function videoDownloadState(settings, tabId, url) {
     active,
     status: active ? session.status : 'off',
     candidates: active ? session.candidates : [],
+    title: active ? session.title : '',
+    thumbnailUrl: active ? session.thumbnailUrl || '' : '',
     startedAt: active ? session.startedAt : 0
   };
 }
@@ -593,7 +649,11 @@ async function ensureVideoOffscreenDocument() {
 async function sendVideoOffscreen(message) {
   await ensureVideoOffscreenDocument();
   const response = await chrome.runtime.sendMessage({ ...message, target: 'video-download-offscreen' });
-  if (!response?.ok) throw new Error(response?.error || 'Video processing failed.');
+  if (!response?.ok) {
+    const error = new Error(response?.error || 'Video processing failed.');
+    error.cancelled = response?.cancelled === true;
+    throw error;
+  }
   return response.result;
 }
 
@@ -601,16 +661,21 @@ async function maybeCloseVideoOffscreen() {
   if (activeVideoAssemblies > 0) return;
   const values = await chrome.storage.session.get(null);
   const hasArtifact = Object.entries(values).some(([key, session]) =>
-    key.startsWith('videoDownloadSession:') && session?.candidates?.some(candidate => candidate.artifactId));
+    (key.startsWith('videoDownloadSession:') && session?.candidates?.some(candidate => candidate.artifactId))
+    || (key.startsWith('imageDownloadArtifact:') && session?.artifactId)
+    || (key.startsWith('imageCaptureArtifact:') && session?.artifactId));
   if (hasArtifact) return;
   try { await chrome.offscreen.closeDocument(); } catch {}
 }
 
 async function downloadVideoCandidate(tabId, candidateId) {
+  const processingKey = `${tabId}:${candidateId}`;
+  if (activeVideoProcessing.has(processingKey)) return { alreadyProcessing: true };
   const session = await readVideoSession(tabId);
   if (!session) throw new Error('Video Download is not active in this tab.');
   let candidate = session.candidates.find(item => item.id === candidateId);
   if (!candidate || candidate.downloadable === false) throw new Error('This video format is not downloadable.');
+  if (['preparing', 'downloading', 'complete'].includes(candidate.status)) return { alreadyProcessing: true };
   if (candidate.inlineId && !candidate.manifestText) {
     const manifestSource = session.candidates.find(item => item.inlineId === candidate.inlineId && item.manifestText);
     if (manifestSource) candidate = {
@@ -620,39 +685,73 @@ async function downloadVideoCandidate(tabId, candidateId) {
     };
   }
   const settings = await readSettings();
-  await updateVideoCandidate(tabId, candidateId, value => ({ ...value, status: 'preparing', progress: 0, error: '' }));
+  if (activeVideoProcessing.has(processingKey)) return { alreadyProcessing: true };
+  const requestId = runtimeToken();
+  const processing = { requestId, cancelled: false, phase: 'processing' };
+  activeVideoProcessing.set(processingKey, processing);
+  await updateVideoCandidate(tabId, candidateId, value => ({
+    ...value,
+    status: 'preparing',
+    progress: 0,
+    error: '',
+    processingRequestId: requestId
+  }));
   let artifact = null;
   try {
     let downloadUrl = candidate.url;
     let extension = candidateExtension(candidate);
-    if (['direct', 'subtitle', 'hls', 'muxed', 'dash'].includes(candidate.kind)) {
+    if (['direct', 'audio', 'subtitle', 'hls', 'muxed', 'dash'].includes(candidate.kind)) {
       activeVideoAssemblies += 1;
       try {
-        artifact = await sendVideoOffscreen({
-          type: ['direct', 'subtitle'].includes(candidate.kind) ? 'CG_VIDEO_FETCH_DIRECT'
-            : candidate.kind === 'hls'
-            ? (candidate.audioUrl ? 'CG_VIDEO_MUX_TRACKS' : 'CG_VIDEO_ASSEMBLE_HLS')
-            : candidate.kind === 'dash' ? 'CG_VIDEO_ASSEMBLE_DASH' : 'CG_VIDEO_MUX_TRACKS',
-          requestId: runtimeToken(),
-          tabId,
-          candidate,
-          pageUrl: session.pageUrl,
-          preferredQuality: settings.videoDownload.preferredQuality
+        artifact = await withMediaRequestHeaders(candidate, session.pageUrl, () => {
+          if (processing.cancelled) {
+            const error = new Error('Video processing was canceled.');
+            error.cancelled = true;
+            throw error;
+          }
+          return sendVideoOffscreen({
+            type: ['direct', 'audio', 'subtitle'].includes(candidate.kind) ? 'CG_VIDEO_FETCH_DIRECT'
+              : candidate.kind === 'hls'
+              ? (candidate.audioUrl ? 'CG_VIDEO_MUX_TRACKS' : 'CG_VIDEO_ASSEMBLE_HLS')
+              : candidate.kind === 'dash' ? 'CG_VIDEO_ASSEMBLE_DASH' : 'CG_VIDEO_MUX_TRACKS',
+            requestId,
+            tabId,
+            candidate,
+            pageUrl: session.pageUrl,
+            preferredQuality: settings.videoDownload.preferredQuality
+          });
         });
       } finally { activeVideoAssemblies -= 1; }
       downloadUrl = artifact.url;
       extension = artifact.extension;
     }
-    const filename = sanitizeVideoFilename(candidate.title || session.title, extension);
-    const downloadId = await chrome.downloads.download({
-      url: downloadUrl,
-      filename,
-      saveAs: settings.videoDownload.askWhereToSave
-    });
+    if (processing.cancelled) {
+      const error = new Error('Video processing was canceled.');
+      error.cancelled = true;
+      throw error;
+    }
+    processing.phase = 'handoff';
+    const sourceTitle = String(session.title || candidate.title || 'Video').trim();
+    const downloadTitle = candidate.kind === 'subtitle' && candidate.languageLabel
+      ? `${sourceTitle} · ${candidate.languageLabel}` : sourceTitle;
+    const filename = sanitizeVideoFilename(downloadTitle, extension);
+    pendingVideoFilenames.set(downloadUrl, filename);
+    let downloadId;
+    try {
+      downloadId = await chrome.downloads.download({
+        url: downloadUrl,
+        filename,
+        conflictAction: 'uniquify',
+        saveAs: settings.videoDownload.askWhereToSave
+      });
+    } finally {
+      setTimeout(() => pendingVideoFilenames.delete(downloadUrl), 30_000);
+    }
     await updateVideoCandidate(tabId, candidateId, value => ({
       ...value,
       status: 'downloading',
       progress: 100,
+      processingRequestId: '',
       downloadId,
       artifactId: artifact?.artifactId || '',
       outputBytes: artifact?.bytes || value.contentLength || 0,
@@ -664,23 +763,52 @@ async function downloadVideoCandidate(tabId, candidateId) {
     if (artifact?.artifactId) {
       await sendVideoOffscreen({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
     }
-    await updateVideoCandidate(tabId, candidateId, value => ({
-      ...value,
-      status: 'failed',
-      progress: 0,
-      error: String(error?.message || 'Video download failed.').slice(0, 240)
-    }));
+    const cancelled = processing.cancelled || error?.cancelled === true || error?.name === 'AbortError';
+    await updateVideoCandidate(tabId, candidateId, value => {
+      if (value.processingRequestId && value.processingRequestId !== requestId) return value;
+      return {
+        ...value,
+        status: cancelled ? 'ready' : 'failed',
+        progress: 0,
+        processingRequestId: '',
+        error: cancelled ? '' : String(error?.message || 'Video download failed.').slice(0, 240)
+      };
+    });
     await maybeCloseVideoOffscreen();
-    throw error;
+    if (!cancelled) throw error;
+    return { cancelled: true };
+  } finally {
+    if (activeVideoProcessing.get(processingKey) === processing) activeVideoProcessing.delete(processingKey);
   }
 }
 
-async function updateVideoDownloadProgress(tabId, candidateId, progress) {
-  await updateVideoCandidate(tabId, candidateId, value => ({
-    ...value,
-    status: 'preparing',
-    progress: Math.max(0, Math.min(100, Number(progress) || 0))
-  }));
+async function cancelVideoProcessing(tabId, candidateId) {
+  const processingKey = `${tabId}:${candidateId}`;
+  const active = activeVideoProcessing.get(processingKey);
+  if (active && active.phase !== 'processing') return { cancelled: false };
+  const session = await readVideoSession(tabId);
+  const candidate = session?.candidates?.find(item => item.id === candidateId);
+  if (!candidate || candidate.status !== 'preparing') return { cancelled: false };
+  const requestId = active?.requestId || String(candidate.processingRequestId || '');
+  if (active) active.cancelled = true;
+  await updateVideoCandidate(tabId, candidateId, value => {
+    if (requestId && value.processingRequestId && value.processingRequestId !== requestId) return value;
+    return { ...value, status: 'ready', progress: 0, error: '', processingRequestId: '' };
+  });
+  if (requestId) {
+    await sendVideoOffscreen({ type: 'CG_VIDEO_CANCEL_REQUEST', requestId }).catch(() => {});
+  }
+  return { cancelled: true };
+}
+
+async function updateVideoDownloadProgress(tabId, candidateId, requestId, progress) {
+  await updateVideoCandidate(tabId, candidateId, value => {
+    if (value.status !== 'preparing' || value.processingRequestId !== requestId) return value;
+    return {
+      ...value,
+      progress: Math.max(0, Math.min(100, Number(progress) || 0))
+    };
+  });
 }
 
 async function handleVideoDownloadChanged(delta) {
@@ -703,25 +831,394 @@ async function handleVideoDownloadChanged(delta) {
   }
 }
 
+async function readImageSession(tabId) {
+  if (!Number.isInteger(tabId)) return null;
+  try {
+    const key = imageSessionKey(tabId);
+    const session = (await chrome.storage.session.get(key))[key];
+    if (session?.active === true) {
+      activeImageTabs.add(tabId);
+      return session;
+    }
+    activeImageTabs.delete(tabId);
+    return null;
+  } catch { return null; }
+}
+
+async function saveImageSession(session) {
+  if (!session?.active || !Number.isInteger(session.tabId)) return;
+  activeImageTabs.add(session.tabId);
+  await chrome.storage.session.set({ [imageSessionKey(session.tabId)]: session });
+}
+
+function sortImageCandidates(candidates) {
+  return [...candidates].sort((a, b) =>
+    (b.score || 0) - (a.score || 0)
+    || (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0)
+    || a.url.localeCompare(b.url));
+}
+
+async function addImageCandidates(tabId, rawCandidates) {
+  const session = await readImageSession(tabId);
+  if (!session || !Array.isArray(rawCandidates)) return session;
+  const byUrl = new Map((session.candidates || []).map(candidate => [candidate.url, candidate]));
+  for (const raw of rawCandidates.slice(0, 1600)) {
+    const candidate = normalizeImageCandidate(raw);
+    if (!candidate) continue;
+    byUrl.set(candidate.url, mergeImageCandidate(byUrl.get(candidate.url), candidate));
+  }
+  session.candidates = sortImageCandidates([...byUrl.values()]).slice(0, 1200);
+  session.status = session.candidates.length ? 'found' : 'scanning';
+  session.updatedAt = Date.now();
+  await saveImageSession(session);
+  await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, session.status === 'found');
+  return session;
+}
+
+async function scanImageSession(tabId, deep = false) {
+  const session = await readImageSession(tabId);
+  if (!session) throw new Error('Image Download is not active in this tab.');
+  session.status = 'scanning';
+  session.updatedAt = Date.now();
+  await saveImageSession(session);
+  try {
+    const frames = await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      world: 'ISOLATED',
+      injectImmediately: true,
+      func: imagePageDiscovery,
+      args: [{ deep }]
+    });
+    const candidates = [];
+    for (const frame of frames) {
+      const result = frame.result;
+      if (!result || !Array.isArray(result.candidates)) continue;
+      if (frame.frameId === 0) {
+        session.pageUrl = result.pageUrl || session.pageUrl;
+        session.title = String(result.pageTitle || session.title).slice(0, 240);
+      }
+      for (const candidate of result.candidates) {
+        candidates.push({
+          ...candidate,
+          familyKey: `${frame.frameId}:${candidate.familyKey || candidate.url}`,
+          frameUrl: candidate.frameUrl || result.frameUrl
+        });
+      }
+    }
+    await saveImageSession(session);
+    const updated = await addImageCandidates(tabId, candidates);
+    if (updated && !updated.candidates.length) {
+      updated.status = 'empty';
+      updated.updatedAt = Date.now();
+      await saveImageSession(updated);
+    }
+    return readImageSession(tabId);
+  } catch (error) {
+    const current = await readImageSession(tabId);
+    if (current && !current.candidates.length) {
+      current.status = 'unavailable';
+      current.updatedAt = Date.now();
+      await saveImageSession(current);
+    }
+    throw error;
+  }
+}
+
+async function startImageSession(tabId, url, title = '') {
+  if (!Number.isInteger(tabId)) throw new Error('This tab is unavailable.');
+  const origin = originFromUrl(url);
+  if (!origin) throw new Error('Image Download is unavailable on this page.');
+  const existing = await readImageSession(tabId);
+  if (existing?.origin !== origin) await stopImageSession(tabId);
+  const session = existing?.origin === origin ? {
+    ...existing,
+    pageUrl: url,
+    title: String(title || existing.title || 'Images').slice(0, 240),
+    status: existing.candidates?.length ? 'found' : 'scanning',
+    updatedAt: Date.now()
+  } : {
+    active: true,
+    tabId,
+    origin,
+    pageUrl: url,
+    title: String(title || 'Images').slice(0, 240),
+    status: 'scanning',
+    candidates: [],
+    startedAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  await saveImageSession(session);
+  await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, !!session.candidates.length);
+  void scanImageSession(tabId, false).catch(() => {});
+  return session;
+}
+
+async function cleanupImageCaptureArtifacts(session) {
+  if (!session) return;
+  const tabId = session.tabId;
+  const captureArtifacts = [...new Set((session?.candidates || []).map(candidate => candidate.artifactId).filter(Boolean))];
+  for (const artifactId of captureArtifacts) {
+    await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId }).catch(() => {});
+    await chrome.storage.session.remove(`imageCaptureArtifact:${tabId}:${artifactId}`);
+  }
+}
+
+async function stopImageSession(tabId) {
+  if (!Number.isInteger(tabId)) return;
+  const session = await readImageSession(tabId);
+  await cleanupImageCaptureArtifacts(session);
+  await activeImageTabsReady;
+  activeImageTabs.delete(tabId);
+  await chrome.storage.session.remove(imageSessionKey(tabId));
+  await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false);
+  preparedImageSidePanels.delete(tabId);
+  if (session?.workspaceMode === 'sidePanel' && chrome.sidePanel?.setOptions) {
+    await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+  }
+}
+
+async function beginImageCapture(tabId) {
+  const session = await readImageSession(tabId);
+  if (!session) throw new Error('Image Download is not active in this tab.');
+  const tab = await chrome.tabs.get(tabId);
+  await chrome.tabs.update(tabId, { active: true });
+  if (Number.isInteger(tab.windowId)) await chrome.windows.update(tab.windowId, { focused: true });
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['content/image-capture.js'],
+    world: 'ISOLATED',
+    injectImmediately: true
+  });
+  return { started: true };
+}
+
+async function completeImageCapture(tabId, rect) {
+  const session = await readImageSession(tabId);
+  if (!session) throw new Error('Image Download is not active in this tab.');
+  const tab = await chrome.tabs.get(tabId);
+  const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+  const artifact = await sendImageOffscreen({ type: 'CG_IMAGE_CROP_CAPTURE', dataUrl, rect });
+  const storedLocale = await chrome.storage.local.get('interfaceLocale');
+  const captureTitle = normalizeLocale(storedLocale.interfaceLocale || chrome.i18n.getUILanguage()) === 'zh-CN'
+    ? '截取的区域' : 'Captured area';
+  await chrome.storage.session.set({
+    [`imageCaptureArtifact:${tabId}:${artifact.artifactId}`]: { artifactId: artifact.artifactId }
+  });
+  await addImageCandidates(tabId, [{
+    url: artifact.url,
+    familyKey: `capture:${artifact.artifactId}`,
+    source: 'canvas',
+    width: artifact.width,
+    height: artifact.height,
+    contentLength: artifact.bytes,
+    mime: 'image/png',
+    originalHint: 8,
+    title: captureTitle,
+    artifactId: artifact.artifactId
+  }]);
+  const updated = await readImageSession(tabId);
+  if (Number.isInteger(updated?.workspaceTabId)) {
+    const workspace = await chrome.tabs.get(updated.workspaceTabId).catch(() => null);
+    if (workspace?.id) {
+      await chrome.tabs.update(workspace.id, { active: true });
+      if (Number.isInteger(workspace.windowId)) await chrome.windows.update(workspace.windowId, { focused: true });
+    }
+  }
+  return artifact;
+}
+
+async function imageDownloadState(settings, tabId, url = '') {
+  const session = await readImageSession(tabId);
+  const supported = !!originFromUrl(url || session?.pageUrl || '');
+  const active = !!session && (!url || session.origin === originFromUrl(url));
+  return {
+    ...settings.imageDownload,
+    supported,
+    active,
+    status: active ? session.status : 'off',
+    sourceTabId: active ? session.tabId : 0,
+    pageUrl: active ? session.pageUrl : '',
+    title: active ? session.title : '',
+    groups: active ? groupImageCandidates(session.candidates || []) : [],
+    updatedAt: active ? session.updatedAt : 0,
+    startedAt: active ? session.startedAt : 0
+  };
+}
+
+function imageWorkspaceUrl(tabId, view = 'page') {
+  const url = new URL(chrome.runtime.getURL('image-download.html'));
+  url.searchParams.set('sourceTab', String(tabId));
+  url.searchParams.set('view', view);
+  return url.toString();
+}
+
+function imageSidePanelPath(tabId) {
+  return `image-download.html?sourceTab=${encodeURIComponent(tabId)}&view=side-panel`;
+}
+
+async function prepareImageWorkspaceSidePanel(tabId) {
+  if (!Number.isInteger(tabId)) throw new Error('The source tab is unavailable.');
+  if (!chrome.sidePanel?.setOptions || !chrome.sidePanel?.open) throw new Error('Side Panel is unavailable.');
+  const path = imageSidePanelPath(tabId);
+  if (preparedImageSidePanels.get(tabId) === path) return;
+  await chrome.sidePanel.setOptions({ tabId, path, enabled: true });
+  preparedImageSidePanels.set(tabId, path);
+}
+
+async function openImageWorkspacePage(tabId) {
+  const base = chrome.runtime.getURL('image-download.html');
+  const tabs = await chrome.tabs.query({});
+  const existing = tabs.find(tab => {
+    if (!tab.url?.startsWith(base)) return false;
+    try { return Number(new URL(tab.url).searchParams.get('sourceTab')) === tabId; }
+    catch { return false; }
+  });
+  if (existing?.id) {
+    await chrome.tabs.update(existing.id, { active: true });
+    if (Number.isInteger(existing.windowId)) await chrome.windows.update(existing.windowId, { focused: true });
+    return existing.id;
+  }
+  const opened = await chrome.tabs.create({ url: imageWorkspaceUrl(tabId, 'page') });
+  return opened.id;
+}
+
+async function openImageWorkspaceSidePanel(tabId) {
+  if (!chrome.sidePanel?.setOptions || !chrome.sidePanel?.open) throw new Error('Side Panel is unavailable.');
+  const path = imageSidePanelPath(tabId);
+  if (preparedImageSidePanels.get(tabId) !== path) await prepareImageWorkspaceSidePanel(tabId);
+  await chrome.sidePanel.open({ tabId });
+}
+
+async function openImageWorkspace(tabId, preferredMode = 'sidePanel') {
+  if (preferredMode === 'page') {
+    preparedImageSidePanels.delete(tabId);
+    if (chrome.sidePanel?.setOptions) {
+      await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+    }
+    return { mode: 'page', workspaceTabId: await openImageWorkspacePage(tabId) };
+  }
+  await openImageWorkspaceSidePanel(tabId);
+  return { mode: 'sidePanel', workspaceTabId: 0 };
+}
+
+async function updateImageMetadata(tabId, candidateId, metadata = {}) {
+  const session = await readImageSession(tabId);
+  if (!session) return null;
+  const index = session.candidates.findIndex(candidate => candidate.id === candidateId);
+  if (index < 0) return null;
+  const next = normalizeImageCandidate({ ...session.candidates[index], ...metadata });
+  if (!next) return null;
+  session.candidates[index] = next;
+  session.candidates = sortImageCandidates(session.candidates);
+  session.updatedAt = Date.now();
+  await saveImageSession(session);
+  return next;
+}
+
+function imageCandidateFilename(candidate, pageTitle, index, outputFormat) {
+  let urlName = '';
+  try { urlName = decodeURIComponent(new URL(candidate.url).pathname.split('/').pop() || '').replace(/\.[a-z0-9]{2,5}$/i, ''); }
+  catch {}
+  const extension = outputFormat !== 'original' ? outputFormat : imageExtension(candidate.url, candidate.mime) || 'jpg';
+  const label = candidate.alt || candidate.title || urlName || pageTitle || `Image ${index + 1}`;
+  return sanitizeImageFilename(label, extension, index + 1);
+}
+
+async function sendImageOffscreen(message) {
+  await ensureVideoOffscreenDocument();
+  const response = await chrome.runtime.sendMessage({ ...message, target: 'image-download-offscreen' });
+  if (!response?.ok) throw new Error(response?.error || 'Image processing failed.');
+  return response.result;
+}
+
+async function rememberImageArtifact(downloadId, artifactId) {
+  if (!Number.isInteger(downloadId) || !artifactId) return;
+  await chrome.storage.session.set({ [`imageDownloadArtifact:${downloadId}`]: { artifactId } });
+}
+
+async function downloadImageSelections(tabId, selections, options = {}) {
+  const session = await readImageSession(tabId);
+  if (!session) throw new Error('Image Download is not active in this tab.');
+  const settings = await readSettings();
+  const groups = groupImageCandidates(session.candidates || []);
+  const selected = [];
+  for (const selection of Array.isArray(selections) ? selections.slice(0, 500) : []) {
+    const group = groups.find(item => item.id === selection.groupId);
+    if (!group) continue;
+    const candidate = group.candidates.find(item => item.id === selection.candidateId) || group.recommended;
+    if (!candidate || selected.some(item => item.candidate.url === candidate.url)) continue;
+    selected.push({ group, candidate });
+  }
+  if (!selected.length) throw new Error('Select at least one image.');
+  const outputFormat = ['original', 'jpg', 'png', 'webp'].includes(options.outputFormat)
+    ? options.outputFormat : settings.imageDownload.outputFormat;
+  const batchMode = options.batchMode === 'separate' ? 'separate'
+    : options.batchMode === 'zip' ? 'zip' : settings.imageDownload.batchMode;
+  const files = selected.map((item, index) => ({
+    candidate: item.candidate,
+    filename: imageCandidateFilename(item.candidate, session.title, index, outputFormat)
+  }));
+  if (files.length > 1 && batchMode === 'zip') {
+    const artifact = await sendImageOffscreen({
+      type: 'CG_IMAGE_CREATE_ZIP',
+      files,
+      pageUrl: session.pageUrl,
+      outputFormat
+    });
+    const downloadId = await chrome.downloads.download({
+      url: artifact.url,
+      filename: sanitizeImageFilename(`${session.title || 'Images'} Images`, 'zip'),
+      saveAs: settings.imageDownload.askWhereToSave
+    });
+    await rememberImageArtifact(downloadId, artifact.artifactId);
+    return { downloadIds: [downloadId], count: files.length };
+  }
+  const downloadIds = [];
+  for (let index = 0; index < files.length; index += 1) {
+    const artifact = await sendImageOffscreen({
+      type: 'CG_IMAGE_FETCH',
+      file: files[index],
+      pageUrl: session.pageUrl,
+      outputFormat
+    });
+    const downloadId = await chrome.downloads.download({
+      url: artifact.url,
+      filename: artifact.filename || files[index].filename,
+      saveAs: settings.imageDownload.askWhereToSave && files.length === 1
+    });
+    await rememberImageArtifact(downloadId, artifact.artifactId);
+    downloadIds.push(downloadId);
+  }
+  return { downloadIds, count: files.length };
+}
+
+async function handleImageDownloadChanged(delta) {
+  if (!Number.isInteger(delta?.id) || !delta.state?.current) return;
+  if (!['complete', 'interrupted'].includes(delta.state.current)) return;
+  const key = `imageDownloadArtifact:${delta.id}`;
+  const artifact = (await chrome.storage.session.get(key))[key];
+  if (!artifact?.artifactId) return;
+  await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
+  await chrome.storage.session.remove(key);
+  await maybeCloseVideoOffscreen();
+}
+
 async function stateFor(settings, featureId, url) {
   if (featureId === FEATURE_IDS.ANY_COPY) return anyCopyState(settings, url);
-  const hostname = hostnameFromUrl(url);
-  const temporary = featureId === FEATURE_IDS.NO_AUTOPLAY && hostname
-    ? await temporaryAudioAllowed(hostname)
-    : false;
-  return featureState(settings, featureId, url, temporary);
+  return featureState(settings, featureId, url);
 }
 
 async function pageStates(url, tabId) {
   const settings = await readSettings();
-  const [nativeScroll, noAutoplay, anyCopy, videoDownload, activity] = await Promise.all([
+  const [nativeScroll, noAutoplay, anyCopy, imageDownload, videoDownload, activity] = await Promise.all([
     stateFor(settings, FEATURE_IDS.NATIVE_SCROLL, url),
     stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, url),
     stateFor(settings, FEATURE_IDS.ANY_COPY, url),
+    imageDownloadState(settings, tabId, url),
     videoDownloadState(settings, tabId, url),
     readActivity(tabId)
   ]);
-  return { nativeScroll, noAutoplay, anyCopy, videoDownload, satellites: settings.satellites, activity };
+  return { nativeScroll, noAutoplay, anyCopy, imageDownload, videoDownload, satellites: settings.satellites, activity };
 }
 
 async function requestBilibiliJson(url) {
@@ -822,7 +1319,7 @@ function validFeatureId(value) {
 
 function validList(featureId, value) {
   if (!FEATURE_LISTS.has(value)) throw new Error('Unknown rule list.');
-  if (featureId === FEATURE_IDS.VIDEO_DOWNLOAD) throw new Error('Video Download does not use website rule lists.');
+  if ([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This product does not use website rule lists.');
   if (value === 'permanentAudioAllowRules' && featureId !== FEATURE_IDS.NO_AUTOPLAY) throw new Error('That rule list is unavailable.');
   if (value === 'enforcedRules' && featureId !== FEATURE_IDS.ANY_COPY) throw new Error('That rule list is unavailable.');
   if (featureId === FEATURE_IDS.ANY_COPY && !['enforcedRules', 'enhancedRules'].includes(value)) throw new Error('That rule list is unavailable.');
@@ -836,46 +1333,83 @@ async function updateFeatureRules(featureId, listName, update) {
   })));
 }
 
-chrome.runtime.onInstalled.addListener(() => { void ensureSettings().then(ensureBiliDailySchedule).catch(() => {}); });
-chrome.runtime.onStartup.addListener(() => { void ensureSettings().then(ensureBiliDailySchedule).catch(() => {}); });
+chrome.runtime.onInstalled.addListener(() => {
+  void Promise.allSettled([ensureSettings().then(ensureBiliDailySchedule), clearLegacyAudioPromptState()]);
+});
+chrome.runtime.onStartup.addListener(() => {
+  void Promise.allSettled([ensureSettings().then(ensureBiliDailySchedule), clearLegacyAudioPromptState()]);
+});
+void clearLegacyAudioPromptState().catch(() => {});
 
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   if (change.status === 'loading' || change.url) void clearTabActivity(tabId);
-  if (change.url) void cleanupUnusedTemporaryAudio();
   void (async () => {
-    const session = await readVideoSession(tabId);
-    if (!session) return;
-    if (change.url) {
-      const nextOrigin = originFromUrl(change.url);
-      if (!nextOrigin || nextOrigin !== session.origin) {
-        await stopVideoSession(tabId);
-        return;
+    const videoSession = await readVideoSession(tabId);
+    if (videoSession) {
+      if (change.url) {
+        const nextOrigin = originFromUrl(change.url);
+        if (!nextOrigin || nextOrigin !== videoSession.origin) {
+          await stopVideoSession(tabId);
+        } else {
+          videoSession.pageUrl = change.url;
+          videoSession.title = tab.title || videoSession.title;
+          videoSession.candidates = [];
+          videoSession.status = 'scanning';
+          videoSession.updatedAt = Date.now();
+          await saveVideoSession(videoSession);
+          await injectVideoScanner(tabId);
+        }
       }
-      session.pageUrl = change.url;
-      session.title = tab.title || session.title;
-      session.candidates = [];
-      session.status = 'scanning';
-      session.updatedAt = Date.now();
-      await saveVideoSession(session);
-      await injectVideoScanner(tabId);
-    }
-      if (change.status === 'complete') {
+      if (change.status === 'complete' && await readVideoSession(tabId)) {
         await Promise.allSettled([
           injectVideoScanner(tabId),
-          discoverSiteVideoCandidates(tabId, session.pageUrl)
+          discoverSiteVideoCandidates(tabId, videoSession.pageUrl)
         ]);
       }
+    }
+
+    const imageSession = await readImageSession(tabId);
+    if (imageSession) {
+      if (change.url) {
+        const nextOrigin = originFromUrl(change.url);
+        if (!nextOrigin || nextOrigin !== imageSession.origin) {
+          await stopImageSession(tabId);
+        } else {
+          imageSession.pageUrl = change.url;
+          imageSession.title = tab.title || imageSession.title;
+          await cleanupImageCaptureArtifacts(imageSession);
+          imageSession.candidates = [];
+          imageSession.status = 'scanning';
+          imageSession.updatedAt = Date.now();
+          await saveImageSession(imageSession);
+        }
+      }
+      if (change.status === 'complete' && await readImageSession(tabId)) {
+        await scanImageSession(tabId, false).catch(() => {});
+      }
+    }
   })().catch(() => {});
 });
 
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+chrome.tabs.onRemoved.addListener(tabId => {
   void chrome.storage.session.remove(activityKey(tabId));
   void chrome.storage.session.remove(videoSessionKey(tabId));
+  void stopImageSession(tabId).catch(() => {});
   void activeVideoTabsReady.then(() => activeVideoTabs.delete(tabId));
-  void cleanupUnusedTemporaryAudio();
 });
 
-chrome.downloads.onChanged.addListener(delta => { void handleVideoDownloadChanged(delta).catch(() => {}); });
+chrome.downloads.onChanged.addListener(delta => {
+  void handleVideoDownloadChanged(delta).catch(() => {});
+  void handleImageDownloadChanged(delta).catch(() => {});
+});
+
+chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+  const sourceUrl = [item.url, item.finalUrl].find(value => pendingVideoFilenames.has(value));
+  if (!sourceUrl) return;
+  const filename = pendingVideoFilenames.get(sourceUrl);
+  pendingVideoFilenames.delete(sourceUrl);
+  suggest({ filename, conflictAction: 'uniquify' });
+});
 
 chrome.webRequest.onHeadersReceived.addListener(details => {
   if (!Number.isInteger(details.tabId) || details.tabId < 0) return;
@@ -893,20 +1427,37 @@ chrome.webRequest.onHeadersReceived.addListener(details => {
   types: ['media', 'xmlhttprequest', 'other']
 }, ['responseHeaders']);
 
+chrome.webRequest.onHeadersReceived.addListener(details => {
+  if (!Number.isInteger(details.tabId) || details.tabId < 0) return;
+  void activeImageTabsReady.then(() => {
+    if (!activeImageTabs.has(details.tabId)) return;
+    const mime = imageMimeFromHeaders(details.responseHeaders);
+    if (!mime && !imageExtension(details.url)) return;
+    void addImageCandidates(details.tabId, [{
+      url: details.url,
+      mime,
+      contentLength: imageContentLength(details.responseHeaders),
+      source: 'network',
+      originalHint: 1
+    }]).catch(() => {});
+  });
+}, {
+  urls: ['http://*/*', 'https://*/*'],
+  types: ['image']
+}, ['responseHeaders']);
+
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === BILI_DAILY_ALARM) {
     void runBiliDailyLoginOnce().catch(() => {});
-    return;
   }
-  const hostname = hostnameFromTemporaryAudioAlarm(alarm.name);
-  if (hostname) void clearTemporaryAudioAllowed(hostname).then(refreshOpenPages);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.target === 'video-download-offscreen') return false;
+  if (['video-download-offscreen', 'image-download-offscreen'].includes(message?.target)) return false;
   void (async () => {
     if (!message || typeof message.type !== 'string') throw new Error('Invalid extension message.');
     const senderUrl = sender.tab?.url || message.url || '';
+    const senderExtensionUrl = String(sender.url || '');
     const senderTabId = sender.tab?.id;
 
     if (message.type === 'CG_PAGE_STATE') {
@@ -927,25 +1478,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true, result: { updated: true } });
       return;
     }
-    if (message.type === 'CG_AUDIO_BLOCKED') {
-      const settings = await readSettings();
-      const state = await stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, senderUrl);
-      if (state.active) await setFeatureActivity(senderTabId, FEATURE_IDS.NO_AUTOPLAY, true);
-      sendResponse({ ok: true, result: { showPrompt: state.active && state.mode !== 'enhanced' && !state.audioAllowed } });
-      return;
-    }
-    if (message.type === 'CG_AUDIO_DECISION') {
-      const hostname = hostnameFromUrl(senderUrl);
-      if (!hostname) throw new Error('This page is unavailable.');
-      if (message.decision === 'temporary') {
-        await setTemporaryAudioAllowed(hostname);
-        await refreshOpenPages();
-      }
-      else if (message.decision === 'permanent') {
-        await updateFeatureRules(FEATURE_IDS.NO_AUTOPLAY, 'permanentAudioAllowRules', rules => [...rules, hostname]);
-      } else if (message.decision !== 'continue') throw new Error('Unknown audio decision.');
-      const settings = await readSettings();
-      sendResponse({ ok: true, result: await stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, senderUrl) });
+    if (message.type === 'CG_IMAGE_CAPTURE_RECT') {
+      if (!Number.isInteger(senderTabId)) throw new Error('The image source tab is unavailable.');
+      const artifact = await completeImageCapture(senderTabId, message.rect || {});
+      sendResponse({ ok: true, result: { captured: true, artifactId: artifact.artifactId } });
       return;
     }
     if (message.type === 'CG_VIDEO_CANDIDATES') {
@@ -973,12 +1509,94 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
     if (message.type === 'CG_VIDEO_DOWNLOAD_PROGRESS') {
-      await updateVideoDownloadProgress(Number(message.tabId), String(message.candidateId || ''), message.progress);
+      await updateVideoDownloadProgress(
+        Number(message.tabId),
+        String(message.candidateId || ''),
+        String(message.requestId || ''),
+        message.progress
+      );
       sendResponse({ ok: true, result: { updated: true } });
       return;
     }
     if (message.type === 'UI_GET') {
-      sendResponse({ ok: true, result: await pageStates(message.url || '', message.tabId) });
+      const result = await pageStates(message.url || '', message.tabId);
+      if (Number.isInteger(message.tabId)
+        && result.imageDownload?.supported
+        && result.imageDownload.workspaceMode !== 'page') {
+        await prepareImageWorkspaceSidePanel(message.tabId).catch(() => {
+          preparedImageSidePanels.delete(message.tabId);
+        });
+      }
+      sendResponse({ ok: true, result });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_OPEN') {
+      const tabId = Number(message.tabId);
+      const workspace = await openImageWorkspace(tabId, message.workspaceMode);
+      await startImageSession(tabId, message.url || '', message.title || '');
+      const session = await readImageSession(tabId);
+      if (session) {
+        session.workspaceMode = workspace.mode;
+        session.workspaceTabId = workspace.workspaceTabId;
+        await saveImageSession(session);
+      }
+      sendResponse({ ok: true, result: { active: true, ...workspace } });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_OPEN_PAGE') {
+      const tabId = Number(message.tabId);
+      const session = await readImageSession(tabId);
+      if (!session) throw new Error('Image Download is not active in this tab.');
+      const workspaceTabId = await openImageWorkspacePage(tabId);
+      session.workspaceTabId = workspaceTabId;
+      await saveImageSession(session);
+      sendResponse({ ok: true, result: { active: true, mode: 'page', workspaceTabId } });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_STATE') {
+      const tabId = Number(message.tabId);
+      const session = await readImageSession(tabId);
+      const settings = await readSettings();
+      sendResponse({ ok: true, result: await imageDownloadState(settings, tabId, session?.pageUrl || '') });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_RESCAN') {
+      const tabId = Number(message.tabId);
+      await scanImageSession(tabId, message.deep === true);
+      const session = await readImageSession(tabId);
+      const settings = await readSettings();
+      sendResponse({ ok: true, result: await imageDownloadState(settings, tabId, session?.pageUrl || '') });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_STOP') {
+      await stopImageSession(Number(message.tabId));
+      sendResponse({ ok: true, result: { active: false } });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_CAPTURE_AREA') {
+      sendResponse({ ok: true, result: await beginImageCapture(Number(message.tabId)) });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_UPDATE_METADATA') {
+      const result = await updateImageMetadata(
+        Number(message.tabId),
+        String(message.candidateId || ''),
+        message.metadata || {}
+      );
+      sendResponse({ ok: true, result });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_DOWNLOAD') {
+      const result = await downloadImageSelections(Number(message.tabId), message.selections, message.options || {});
+      sendResponse({ ok: true, result });
+      return;
+    }
+    if (message.type === 'UI_IMAGE_FOCUS_SOURCE') {
+      const tabId = Number(message.tabId);
+      const tab = await chrome.tabs.get(tabId);
+      await chrome.tabs.update(tabId, { active: true });
+      if (Number.isInteger(tab.windowId)) await chrome.windows.update(tab.windowId, { focused: true });
+      sendResponse({ ok: true, result: { focused: true } });
       return;
     }
     if (message.type === 'UI_VIDEO_OPEN') {
@@ -1012,6 +1630,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true, result: { accepted: true } });
       return;
     }
+    if (message.type === 'UI_VIDEO_CANCEL_PROCESSING') {
+      const result = await cancelVideoProcessing(
+        Number(message.tabId),
+        String(message.candidateId || '')
+      );
+      sendResponse({ ok: true, result });
+      return;
+    }
     if (message.type === 'UI_SET_VIDEO_SETTING') {
       const name = String(message.name || '');
       if (!['preferredQuality', 'askWhereToSave'].includes(name)) throw new Error('Unknown Video Download setting.');
@@ -1022,9 +1648,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true, result: settings.videoDownload });
       return;
     }
+    if (message.type === 'UI_SET_IMAGE_SETTING') {
+      const name = String(message.name || '');
+      if (!['workspaceMode', 'batchMode', 'outputFormat', 'askWhereToSave'].includes(name)) throw new Error('Unknown Image Download setting.');
+      const settings = await mutateSettings(current => ({
+        ...current,
+        imageDownload: { ...current.imageDownload, [name]: message.value }
+      }), false);
+      sendResponse({ ok: true, result: settings.imageDownload });
+      return;
+    }
     if (message.type === 'UI_SET_ENABLED') {
       const featureId = validFeatureId(message.featureId);
-      if ([FEATURE_IDS.ANY_COPY, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This feature is enabled from the current tab.');
+      if ([FEATURE_IDS.ANY_COPY, FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This feature is enabled from the current tab.');
       const settings = await mutateSettings(current => updateFeature(current, featureId, feature => ({
         ...feature,
         enabled: message.enabled === true
@@ -1034,6 +1670,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => setFeatureActivity(tab.id, featureId, false)));
       }
       sendResponse({ ok: true, result: settings[featureId] });
+      return;
+    }
+    if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') {
+      const settings = await mutateSettings(current => updateFeature(current, FEATURE_IDS.NO_AUTOPLAY, feature => ({
+        ...feature,
+        audioAutoplayAllSites: message.enabled === true
+      })));
+      sendResponse({ ok: true, result: settings.noAutoplay });
       return;
     }
     if (message.type === 'UI_SET_BILI_DAILY_LOGIN') {
@@ -1053,7 +1697,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (message.type === 'UI_TOGGLE_ENHANCED' || message.type === 'UI_TOGGLE_WHITELIST') {
       const featureId = validFeatureId(message.featureId);
-      if (featureId === FEATURE_IDS.VIDEO_DOWNLOAD) throw new Error('Video Download does not use website rules.');
+      if ([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This product does not use website rules.');
       const hostname = normalizeRule(message.hostname || '');
       if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
       if (message.type === 'UI_TOGGLE_WHITELIST' && featureId === FEATURE_IDS.ANY_COPY) throw new Error('Any Copy uses Standard mode sites.');
@@ -1078,9 +1722,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true, result: settings.anyCopy });
       return;
     }
+    if (message.type === 'UI_DISABLE_ANY_COPY_MATCHES') {
+      const hostname = normalizeRule(message.hostname || '');
+      if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
+      const settings = await mutateSettings(current => updateFeature(current, FEATURE_IDS.ANY_COPY, feature => ({
+        ...feature,
+        enforcedRules: feature.enforcedRules.filter(rule => !ruleMatches(hostname, rule)),
+        enhancedRules: feature.enhancedRules.filter(rule => !ruleMatches(hostname, rule))
+      })));
+      sendResponse({ ok: true, result: settings.anyCopy });
+      return;
+    }
     if (message.type === 'UI_ADD_RULE' || message.type === 'UI_DELETE_RULE') {
       const featureId = validFeatureId(message.featureId);
       const listName = validList(featureId, message.listName);
+      if (message.type === 'UI_ADD_RULE'
+        && listName === 'permanentAudioAllowRules'
+        && !senderExtensionUrl.startsWith(chrome.runtime.getURL('settings/'))) {
+        throw new Error('That rule must be added from No Autoplay settings.');
+      }
       const rule = normalizeRule(message.rule || '');
       const settings = await updateFeatureRules(featureId, listName, rules => message.type === 'UI_ADD_RULE'
         ? [...rules, rule]
@@ -1093,6 +1753,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const path = featureId === FEATURE_IDS.NO_AUTOPLAY
         ? 'settings/no-autoplay.html'
         : featureId === FEATURE_IDS.ANY_COPY ? 'settings/any-copy.html'
+          : featureId === FEATURE_IDS.IMAGE_DOWNLOAD ? 'settings/image-download.html'
           : featureId === FEATURE_IDS.VIDEO_DOWNLOAD ? 'settings/video-download.html' : 'settings/native-scroll.html';
       await chrome.tabs.create({ url: chrome.runtime.getURL(path) });
       sendResponse({ ok: true, result: { opened: true } });

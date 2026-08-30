@@ -17,6 +17,7 @@ let featureId = featureFromPath(location.pathname);
 let locale = root.lang === 'zh-CN' ? 'zh-CN' : 'en-US';
 let t = translator(locale);
 let states = null;
+const pendingControls = new WeakSet();
 
 function state() {
   return states?.[featureId] || null;
@@ -34,6 +35,7 @@ function applyLocale() {
     nativeScroll: 'switchNativeSettings',
     noAutoplay: 'switchAutoplaySettings',
     anyCopy: 'switchAnyCopySettings',
+    imageDownload: 'switchImageDownloadSettings',
     videoDownload: 'switchVideoDownloadSettings',
     satellites: 'switchSatellitesSettings'
   };
@@ -69,7 +71,7 @@ function renderList(section) {
     remove.setAttribute('aria-label', remove.title);
     remove.addEventListener('click', () => void update(section, () => send({
       type: 'UI_DELETE_RULE', featureId, listName, rule
-    })));
+    }), [remove]));
     item.append(code, remove);
     list.append(item);
   }
@@ -80,12 +82,22 @@ function render() {
   if (!current) return;
   const enabled = document.querySelector('#enabled');
   if (enabled) enabled.checked = current.enabled;
+  const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
+  if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
   if (biliDailyLogin) biliDailyLogin.checked = current.biliDailyLogin?.enabled === true;
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');
   if (askWhereToSave) askWhereToSave.checked = current.askWhereToSave !== false;
+  const imageOutputFormat = document.querySelector('#imageOutputFormat');
+  if (imageOutputFormat) imageOutputFormat.value = current.outputFormat || 'original';
+  const imageWorkspaceMode = document.querySelector('#imageWorkspaceMode');
+  if (imageWorkspaceMode) imageWorkspaceMode.value = current.workspaceMode === 'page' ? 'page' : 'sidePanel';
+  const imageBatchMode = document.querySelector('#imageBatchMode');
+  if (imageBatchMode) imageBatchMode.value = current.batchMode || 'zip';
+  const imageAskWhereToSave = document.querySelector('#imageAskWhereToSave');
+  if (imageAskWhereToSave) imageAskWhereToSave.checked = current.askWhereToSave !== false;
   for (const section of document.querySelectorAll('[data-list-section]')) renderList(section);
 }
 
@@ -95,34 +107,70 @@ async function reload() {
   render();
 }
 
-async function update(section, task) {
+async function update(section, task, controls = []) {
+  const actionable = controls.filter(Boolean);
+  if (actionable.some(control => pendingControls.has(control))) return;
+  const disabled = actionable.map(control => control.disabled);
+  for (const control of actionable) {
+    pendingControls.add(control);
+    control.disabled = true;
+  }
   const message = section?.querySelector('.form-message');
   if (message) message.textContent = '';
   try { await task(); await reload(); }
-  catch { if (message?.isConnected) message.textContent = t('unavailable'); }
+  catch {
+    render();
+    if (message?.isConnected) message.textContent = t('unavailable');
+  } finally {
+    actionable.forEach((control, index) => {
+      pendingControls.delete(control);
+      if (control.isConnected) control.disabled = disabled[index];
+    });
+  }
 }
 
 function bindView() {
   const enabled = document.querySelector('#enabled');
   if (enabled) enabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_ENABLED', featureId, enabled: enabled.checked
-  })));
+  }), [enabled]));
+  const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
+  if (audioAutoplayAllSites) audioAutoplayAllSites.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES', enabled: audioAutoplayAllSites.checked
+  }), [audioAutoplayAllSites]));
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
   if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
-  })));
+  }), [biliDailyLogin]));
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_VIDEO_SETTING', name: 'preferredQuality', value: preferredQuality.value
-  })));
+  }), [preferredQuality]));
   const askWhereToSave = document.querySelector('#askWhereToSave');
   if (askWhereToSave) askWhereToSave.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_VIDEO_SETTING', name: 'askWhereToSave', value: askWhereToSave.checked
-  })));
+  }), [askWhereToSave]));
+  const imageOutputFormat = document.querySelector('#imageOutputFormat');
+  if (imageOutputFormat) imageOutputFormat.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_IMAGE_SETTING', name: 'outputFormat', value: imageOutputFormat.value
+  }), [imageOutputFormat]));
+  const imageWorkspaceMode = document.querySelector('#imageWorkspaceMode');
+  if (imageWorkspaceMode) imageWorkspaceMode.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_IMAGE_SETTING', name: 'workspaceMode', value: imageWorkspaceMode.value
+  }), [imageWorkspaceMode]));
+  const imageBatchMode = document.querySelector('#imageBatchMode');
+  if (imageBatchMode) imageBatchMode.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_IMAGE_SETTING', name: 'batchMode', value: imageBatchMode.value
+  }), [imageBatchMode]));
+  const imageAskWhereToSave = document.querySelector('#imageAskWhereToSave');
+  if (imageAskWhereToSave) imageAskWhereToSave.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_IMAGE_SETTING', name: 'askWhereToSave', value: imageAskWhereToSave.checked
+  }), [imageAskWhereToSave]));
 
   for (const section of document.querySelectorAll('[data-list-section]')) {
     const form = section.querySelector('.rule-form');
     const input = form.querySelector('input');
+    const submit = form.querySelector('button[type="submit"]');
     const message = section.querySelector('.form-message');
     const listName = section.dataset.listSection;
     form.addEventListener('submit', event => {
@@ -131,20 +179,40 @@ function bindView() {
       if (!rule) { message.textContent = t('invalidRule'); return; }
       if ((state()?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
       void (async () => {
+        if (pendingControls.has(submit)) return;
+        pendingControls.add(submit);
+        pendingControls.add(input);
+        submit.disabled = true;
+        input.disabled = true;
         message.textContent = '';
         try {
           await send({ type: 'UI_ADD_RULE', featureId, listName, rule });
           input.value = '';
           await reload();
         } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
+        finally {
+          pendingControls.delete(submit);
+          pendingControls.delete(input);
+          if (submit.isConnected) submit.disabled = false;
+          if (input.isConnected) input.disabled = false;
+        }
       })();
     });
   }
 
   document.querySelector('#language').addEventListener('change', event => void (async () => {
-    locale = await saveLocale(event.currentTarget.value);
-    applyLocale();
-    render();
+    const control = event.currentTarget;
+    if (pendingControls.has(control)) return;
+    pendingControls.add(control);
+    control.disabled = true;
+    try {
+      locale = await saveLocale(control.value);
+      applyLocale();
+      render();
+    } finally {
+      pendingControls.delete(control);
+      if (control.isConnected) control.disabled = false;
+    }
   })());
 }
 

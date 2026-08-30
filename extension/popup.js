@@ -1,6 +1,6 @@
 import { loadLocale } from './core/locale.js';
 import { saveSettingsViewCache } from './core/settings-view-cache.js';
-import { candidateQuality, formatMediaDuration } from './core/video-download.js';
+import { candidateQuality, compactVideoCandidates, formatMediaDuration } from './core/video-download.js';
 import { localizeDocument, translator } from './localization.js';
 import { icon, send } from './ui.js';
 
@@ -10,6 +10,7 @@ const productKey = {
   nativeScroll: 'nativeScrollName',
   noAutoplay: 'noAutoplayName',
   anyCopy: 'anyCopyName',
+  imageDownload: 'imageDownloadName',
   videoDownload: 'videoDownloadName'
 };
 let state;
@@ -17,6 +18,12 @@ let t;
 let currentTab = null;
 let viewMode = null;
 let pollTimer = 0;
+let selectedVideoCandidateId = '';
+let videoSelectionTabId = null;
+let videoPanelSignature = '';
+let videoPickerActive = false;
+let videoPanelRenderPending = false;
+let actionPending = false;
 
 function label(element, value) {
   element.title = value;
@@ -25,12 +32,23 @@ function label(element, value) {
 
 function iconState(featureId, feature) {
   if (featureId === 'anyCopy') return feature.active ? 'active' : 'off';
-  if (featureId === 'videoDownload') {
+  if (['imageDownload', 'videoDownload'].includes(featureId)) {
     if (!feature.active) return 'off';
     return feature.status === 'found' ? 'active' : 'on';
   }
   if (!feature.active) return 'off';
   return state.activity?.[featureId] ? 'active' : 'on';
+}
+
+function renderImageRow() {
+  const feature = state.imageDownload;
+  const toggle = document.querySelector('#imageDownload-status');
+  const settings = document.querySelector('[data-feature="imageDownload"] [data-action="settings"]');
+  toggle.disabled = !feature?.supported;
+  toggle.dataset.state = iconState('imageDownload', feature || { active: false });
+  toggle.setAttribute('aria-pressed', String(!!feature?.active));
+  label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'imageOpenTitle' : 'imageStartTitle'));
+  label(settings, t('settingsTitle', { product: t('imageDownloadName') }));
 }
 
 function renderStandardFeature(featureId) {
@@ -42,19 +60,22 @@ function renderStandardFeature(featureId) {
   const enhanced = row.querySelector('[data-action="enhanced"]');
   const whitelist = row.querySelector('[data-action="whitelist"]');
   const settings = row.querySelector('[data-action="settings"]');
+  const whitelisted = feature.supported && !!feature.matchedWhitelistRule;
+  const bypassed = feature.enabled && whitelisted;
 
-  status.dataset.state = iconState(featureId, feature);
+  row.dataset.bypassed = String(bypassed);
+  status.dataset.state = bypassed ? 'bypassed' : iconState(featureId, feature);
   status.title = product;
   power.setAttribute('aria-pressed', String(feature.enabled));
+  power.dataset.bypassed = String(bypassed);
   label(power, t(feature.enabled ? 'featureOnTitle' : 'featureOffTitle', { product }));
 
   enhanced.disabled = !feature.enabled || !feature.supported || !!feature.matchedWhitelistRule;
   enhanced.setAttribute('aria-pressed', String(!!feature.matchedEnhancedRule));
   if (!feature.supported) label(enhanced, t('unsupportedTitle'));
   else if (feature.matchedWhitelistRule) label(enhanced, t('enhancedUnavailableTitle'));
-  else if (feature.matchedEnhancedRule && !feature.exactEnhanced) {
-    label(enhanced, t('enhancedCoveredTitle', { rule: feature.matchedEnhancedRule }));
-  } else label(enhanced, t(feature.exactEnhanced ? 'enhancedSiteTitle' : 'standardSiteTitle'));
+  else if (feature.matchedEnhancedRule) label(enhanced, t('removeEnhancedRuleTitle', { rule: feature.matchedEnhancedRule }));
+  else label(enhanced, t('standardSiteTitle'));
 
   whitelist.disabled = !feature.enabled || !feature.supported;
   if (!feature.supported) {
@@ -65,12 +86,13 @@ function renderStandardFeature(featureId) {
     label(whitelist, t('removeWhitelistTitle', { product }));
   } else if (feature.matchedWhitelistRule) {
     whitelist.innerHTML = icon('siteCovered');
-    label(whitelist, t('coveredWhitelistTitle', { rule: feature.matchedWhitelistRule }));
+    label(whitelist, t('removeCoveredWhitelistTitle', { rule: feature.matchedWhitelistRule }));
   } else {
     whitelist.innerHTML = icon('siteAdd');
     label(whitelist, t('addWhitelistTitle', { product }));
   }
   whitelist.setAttribute('aria-pressed', String(!!feature.matchedWhitelistRule));
+  whitelist.dataset.whitelisted = String(whitelisted);
   label(settings, t('settingsTitle', { product }));
 }
 
@@ -109,9 +131,8 @@ function renderAnyCopy() {
   enhanced.disabled = !feature.supported;
   enhanced.setAttribute('aria-pressed', String(!!feature.matchedEnhancedRule));
   if (!feature.supported) label(enhanced, t('unsupportedTitle'));
-  else if (feature.matchedEnhancedRule && !feature.exactEnhanced) {
-    label(enhanced, t('enhancedCoveredTitle', { rule: feature.matchedEnhancedRule }));
-  } else label(enhanced, t(feature.exactEnhanced ? 'anyCopyEnhancedOnTitle' : 'anyCopyEnhancedOffTitle'));
+  else if (feature.matchedEnhancedRule) label(enhanced, t('removeEnhancedRuleTitle', { rule: feature.matchedEnhancedRule }));
+  else label(enhanced, t('anyCopyEnhancedOffTitle'));
   label(settings, t('settingsTitle', { product }));
 }
 
@@ -145,16 +166,18 @@ function createVideoCandidate(candidate) {
   const info = document.createElement('div');
   info.className = 'video-candidate-info';
   const title = document.createElement('strong');
-  title.textContent = candidateQuality(candidate);
+  title.textContent = videoDisplayLabel(candidate);
   const details = document.createElement('small');
   const pieces = [];
-  if (candidate.kind === 'hls') pieces.push(t('videoStream'));
+  if (candidate.kind === 'audio') pieces.push(t('videoAudioFile'));
+  else if (candidate.kind === 'hls') pieces.push(t('videoStream'));
   else if (candidate.kind === 'muxed') pieces.push(t('videoCombinedStream'));
   else if (candidate.kind === 'dash') pieces.push(t('videoDashStream'));
   else if (candidate.kind === 'subtitle') pieces.push(t('videoSubtitles'));
   else pieces.push(String(candidate.extension || candidate.mime?.replace('video/', '') || t('videoFile')).toUpperCase());
   if (candidate.codecLabel) pieces.push(candidate.codecLabel);
   else if (candidate.videoCodec) pieces.push(String(candidate.videoCodec).split('.')[0].toUpperCase());
+  else if (candidate.audioCodec) pieces.push(String(candidate.audioCodec).split('.')[0].toUpperCase());
   const bytes = formatBytes(candidate.outputBytes || candidate.contentLength);
   if (bytes) pieces.push(bytes);
   const duration = formatMediaDuration(candidate.duration);
@@ -173,41 +196,172 @@ function createVideoCandidate(candidate) {
   download.addEventListener('click', () => void act(async () => {
     await send({ type: 'UI_VIDEO_DOWNLOAD', tabId: currentTab?.id, candidateId: candidate.id });
   }));
-  item.append(info, download);
+  const controls = document.createElement('div');
+  controls.className = 'video-candidate-controls';
+  if (candidate.status === 'preparing') {
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'icon-button video-processing-cancel';
+    cancel.innerHTML = icon('close');
+    label(cancel, t('videoCancelProcessingTitle'));
+    cancel.addEventListener('click', () => void act(() => send({
+      type: 'UI_VIDEO_CANCEL_PROCESSING',
+      tabId: currentTab?.id,
+      candidateId: candidate.id
+    })));
+    controls.append(cancel);
+  }
+  controls.append(download);
+  item.append(info, controls);
   return item;
 }
 
-function renderVideoPanel() {
+function videoOptionLabel(candidate) {
+  return videoDisplayLabel(candidate);
+}
+
+function videoCandidateType(candidate) {
+  if (candidate.kind === 'audio') return 'audio';
+  if (candidate.kind === 'subtitle') return 'subtitle';
+  return 'video';
+}
+
+function videoDisplayLabel(candidate) {
+  if (candidate.kind === 'audio') return t('videoAudioOnly');
+  if (candidate.kind === 'subtitle') return candidate.languageLabel || candidate.qualityLabel || t('videoSubtitles');
+  return candidateQuality(candidate);
+}
+
+function createVideoIdentity(feature) {
+  if (!feature.thumbnailUrl && !feature.title) return null;
+  const identity = document.createElement('div');
+  identity.className = 'video-target';
+  if (feature.thumbnailUrl) {
+    const image = document.createElement('img');
+    image.src = feature.thumbnailUrl;
+    image.alt = '';
+    image.addEventListener('error', () => image.remove(), { once: true });
+    identity.append(image);
+  }
+  if (feature.title) {
+    const title = document.createElement('strong');
+    title.textContent = feature.title;
+    identity.append(title);
+  }
+  return identity;
+}
+
+function createVideoFormatPicker(candidates) {
+  const picker = document.createElement('label');
+  picker.className = 'video-format-picker';
+  const heading = document.createElement('span');
+  heading.textContent = t('videoQuality');
+  const select = document.createElement('select');
+  select.className = 'video-format-select';
+  const types = [...new Set(candidates.map(videoCandidateType))];
+  const groups = {
+    video: t('videoGroup'),
+    audio: t('audioGroup'),
+    subtitle: t('subtitleGroup')
+  };
+  const appendOption = (parent, candidate) => {
+    const option = document.createElement('option');
+    option.value = candidate.id;
+    option.textContent = videoOptionLabel(candidate);
+    option.disabled = candidate.downloadable === false;
+    parent.append(option);
+  };
+  if (types.length > 1) {
+    for (const type of ['video', 'audio', 'subtitle']) {
+      const matching = candidates.filter(candidate => videoCandidateType(candidate) === type);
+      if (!matching.length) continue;
+      const group = document.createElement('optgroup');
+      group.label = groups[type];
+      for (const candidate of matching) appendOption(group, candidate);
+      select.append(group);
+    }
+  } else {
+    for (const candidate of candidates) appendOption(select, candidate);
+  }
+  select.value = selectedVideoCandidateId;
+  const markActive = () => { videoPickerActive = true; };
+  select.addEventListener('pointerdown', markActive);
+  select.addEventListener('focus', markActive);
+  select.addEventListener('change', () => {
+    selectedVideoCandidateId = select.value;
+    videoPickerActive = false;
+    const selected = candidates.find(candidate => candidate.id === selectedVideoCandidateId) || candidates[0];
+    const slot = document.querySelector('.video-candidate-slot');
+    if (slot && selected) slot.replaceChildren(createVideoCandidate(selected));
+    videoPanelSignature = videoPanelStateSignature(state.videoDownload, candidates);
+  });
+  select.addEventListener('blur', () => setTimeout(() => {
+    if (document.activeElement === select) return;
+    videoPickerActive = false;
+    if (!videoPanelRenderPending) return;
+    videoPanelRenderPending = false;
+    videoPanelSignature = '';
+    renderVideoPanel(true);
+  }, 0));
+  picker.append(heading, select);
+  return picker;
+}
+
+function videoPanelStateSignature(feature, candidates) {
+  return JSON.stringify({
+    active: !!feature?.active,
+    status: feature?.status || '',
+    title: feature?.title || '',
+    thumbnailUrl: feature?.thumbnailUrl || '',
+    selectedVideoCandidateId,
+    candidates: candidates.map(candidate => [
+      candidate.id, candidate.kind, candidate.status, candidate.progress, candidate.downloadable,
+      candidate.contentLength, candidate.outputBytes, candidate.duration, candidate.qualityLabel,
+      candidate.width, candidate.height, candidate.bandwidth, candidate.codecLabel,
+      candidate.videoCodec, candidate.audioCodec, candidate.extension, candidate.protected
+    ])
+  });
+}
+
+function renderVideoPanel(force = false) {
   const feature = state.videoDownload;
   const status = document.querySelector('#video-status-text');
   const results = document.querySelector('#video-results');
-  const otherFormatsOpen = results.querySelector('.video-other-formats')?.open === true;
+  const visible = visibleVideoCandidates(feature?.candidates);
+  let candidates = compactVideoCandidates(visible, selectedVideoCandidateId);
+  if (candidates.length && !candidates.some(candidate => candidate.id === selectedVideoCandidateId && candidate.downloadable !== false)) {
+    selectedVideoCandidateId = candidates.find(candidate => candidate.downloadable !== false)?.id || candidates[0].id;
+    candidates = compactVideoCandidates(visible, selectedVideoCandidateId);
+  }
+  const signature = videoPanelStateSignature(feature, candidates);
+  if (!force && signature === videoPanelSignature) return;
+  if (!force && videoPickerActive) {
+    videoPanelRenderPending = true;
+    return;
+  }
+  videoPanelRenderPending = false;
+  videoPanelSignature = signature;
   results.replaceChildren();
   if (!feature?.active) {
     status.textContent = t('videoStopped');
     return;
   }
-  const candidates = visibleVideoCandidates(feature.candidates);
   if (!candidates.length) {
     status.textContent = feature.status === 'unavailable' ? t('videoUnavailablePage') : t('videoScanningHelp');
     return;
   }
   status.textContent = t('videoFound', { count: candidates.length });
-  const preferred = candidates.find(candidate => candidate.downloadable !== false) || candidates[0];
-  results.append(createVideoCandidate(preferred));
-  const others = candidates.filter(candidate => candidate.id !== preferred.id);
-  if (others.length) {
-    const details = document.createElement('details');
-    details.className = 'video-other-formats';
-    details.open = otherFormatsOpen;
-    const summary = document.createElement('summary');
-    summary.textContent = t('otherFormats', { count: others.length });
-    const list = document.createElement('div');
-    list.className = 'video-candidate-list';
-    for (const candidate of others) list.append(createVideoCandidate(candidate));
-    details.append(summary, list);
-    results.append(details);
-  }
+  const card = document.createElement('section');
+  card.className = 'video-media-card';
+  const identity = createVideoIdentity(feature);
+  if (identity) card.append(identity);
+  card.append(createVideoFormatPicker(candidates));
+  const selected = candidates.find(candidate => candidate.id === selectedVideoCandidateId) || candidates[0];
+  const slot = document.createElement('div');
+  slot.className = 'video-candidate-slot';
+  slot.append(createVideoCandidate(selected));
+  card.append(slot);
+  results.append(card);
 }
 
 function renderVideoRow() {
@@ -237,21 +391,46 @@ function render() {
   renderStandardFeature('nativeScroll');
   renderStandardFeature('noAutoplay');
   renderAnyCopy();
+  renderImageRow();
   renderVideoRow();
 }
 
 async function reload(selectInitialView = true) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   currentTab = tab || null;
+  if (videoSelectionTabId !== currentTab?.id) {
+    videoSelectionTabId = currentTab?.id ?? null;
+    selectedVideoCandidateId = '';
+    videoPanelSignature = '';
+    videoPickerActive = false;
+    videoPanelRenderPending = false;
+  }
   state = await send({ type: 'UI_GET', tabId: tab?.id, url: tab?.url || '' });
   saveSettingsViewCache(state);
   render();
   if (selectInitialView && viewMode === null) showView(state.videoDownload?.active ? 'video' : 'main');
 }
 
-async function act(task) {
-  try { await task(); await reload(); }
-  catch { live.textContent = t('unavailable'); }
+async function perform(task, reloadAfter = false) {
+  if (actionPending) return false;
+  actionPending = true;
+  document.body.setAttribute('aria-busy', 'true');
+  live.textContent = '';
+  try {
+    await task();
+    if (reloadAfter) await reload();
+    return true;
+  } catch {
+    live.textContent = t('unavailable');
+    return false;
+  } finally {
+    actionPending = false;
+    document.body.removeAttribute('aria-busy');
+  }
+}
+
+function act(task) {
+  return perform(task, true);
 }
 
 for (const row of document.querySelectorAll('.feature-row')) {
@@ -273,20 +452,30 @@ for (const row of document.querySelectorAll('.feature-row')) {
     whitelist.innerHTML = icon('siteAdd');
     whitelist.addEventListener('click', () => void act(() => {
       const feature = state[featureId];
-      if (feature.matchedWhitelistRule && !feature.exactWhitelisted) {
-        return send({ type: 'UI_OPEN_SETTINGS', featureId });
+      if (feature.matchedWhitelistRule) {
+        return send({
+          type: 'UI_DELETE_RULE',
+          featureId,
+          listName: 'whitelistRules',
+          rule: feature.matchedWhitelistRule
+        });
       }
       return send({ type: 'UI_TOGGLE_WHITELIST', featureId, hostname: feature.hostname });
     }));
   }
   if (enhanced) enhanced.addEventListener('click', () => void act(() => {
       const feature = state[featureId];
-      if (feature.matchedEnhancedRule && !feature.exactEnhanced) {
-        return send({ type: 'UI_OPEN_SETTINGS', featureId });
+      if (feature.matchedEnhancedRule) {
+        return send({
+          type: 'UI_DELETE_RULE',
+          featureId,
+          listName: 'enhancedRules',
+          rule: feature.matchedEnhancedRule
+        });
       }
       return send({ type: 'UI_TOGGLE_ENHANCED', featureId, hostname: feature.hostname });
     }));
-  row.querySelector('[data-action="settings"]').addEventListener('click', () => void act(async () => {
+  row.querySelector('[data-action="settings"]').addEventListener('click', () => void perform(async () => {
     await send({ type: 'UI_OPEN_SETTINGS', featureId });
     window.close();
   }));
@@ -294,14 +483,11 @@ for (const row of document.querySelectorAll('.feature-row')) {
 
 document.querySelector('#anyCopy-status').addEventListener('click', () => void act(() => {
   const feature = state.anyCopy;
-  if (feature.active && !feature.exactEnforced && !feature.exactEnhanced) {
-    return send({ type: 'UI_OPEN_SETTINGS', featureId: 'anyCopy' });
-  }
+  if (feature.active) return send({ type: 'UI_DISABLE_ANY_COPY_MATCHES', hostname: feature.hostname });
   return send({ type: 'UI_TOGGLE_ANY_COPY', hostname: feature.hostname });
 }));
 
-document.querySelector('#videoDownload-status').addEventListener('click', () => void (async () => {
-  try {
+document.querySelector('#videoDownload-status').addEventListener('click', () => void perform(async () => {
     await send({
       type: 'UI_VIDEO_OPEN',
       tabId: currentTab?.id,
@@ -310,20 +496,28 @@ document.querySelector('#videoDownload-status').addEventListener('click', () => 
     });
     showView('video');
     await reload(false);
-  } catch { live.textContent = t('unavailable'); }
-})());
+}));
+
+document.querySelector('#imageDownload-status').addEventListener('click', () => void perform(async () => {
+    await send({
+      type: 'UI_IMAGE_OPEN',
+      tabId: currentTab?.id,
+      url: currentTab?.url || '',
+      title: currentTab?.title || '',
+      workspaceMode: state.imageDownload?.workspaceMode || 'sidePanel'
+    });
+    window.close();
+}));
 
 document.querySelector('#video-back').innerHTML = icon('back');
 document.querySelector('#video-stop').innerHTML = icon('stop');
 document.querySelector('#video-rescan').innerHTML = icon('refresh');
 document.querySelector('#video-back').addEventListener('click', () => showView('main'));
-document.querySelector('#video-stop').addEventListener('click', () => void (async () => {
-  try {
+document.querySelector('#video-stop').addEventListener('click', () => void perform(async () => {
     await send({ type: 'UI_VIDEO_STOP', tabId: currentTab?.id });
     showView('main');
     await reload(false);
-  } catch { live.textContent = t('unavailable'); }
-})());
+}));
 document.querySelector('#video-rescan').addEventListener('click', () => void act(() => send({
   type: 'UI_VIDEO_RESCAN', tabId: currentTab?.id
 })));

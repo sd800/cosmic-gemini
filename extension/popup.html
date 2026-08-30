@@ -41,6 +41,15 @@
           <button class="icon-button" data-action="settings" type="button"></button>
         </nav>
       </section>
+      <section class="feature-row image-download-row" data-feature="imageDownload">
+        <button class="feature-status feature-toggle" id="imageDownload-status" type="button"></button>
+        <nav class="actions" data-i18n-aria-label="imageDownloadName">
+          <span class="action-placeholder" aria-hidden="true"></span>
+          <span class="action-placeholder" aria-hidden="true"></span>
+          <span class="action-placeholder" aria-hidden="true"></span>
+          <button class="icon-button" data-action="settings" type="button"></button>
+        </nav>
+      </section>
       <section class="feature-row video-download-row" data-feature="videoDownload">
         <button class="feature-status feature-toggle" id="videoDownload-status" type="button"></button>
         <nav class="actions" data-i18n-aria-label="videoDownloadName">
@@ -56,7 +65,7 @@
   <section class="video-panel" id="video-panel" hidden>
     <header class="video-panel-header">
       <button class="icon-button" id="video-back" type="button"></button>
-      <strong data-i18n="videoDownloadName">Video Download</strong>
+      <div class="video-panel-wordmark"><strong data-i18n="videoDownloadName">Video Download</strong><small><em>at</em> Cosmic Gemini</small></div>
       <button class="icon-button" id="video-stop" type="button"></button>
     </header>
     <div class="video-panel-body">

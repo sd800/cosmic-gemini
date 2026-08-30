@@ -1,9 +1,24 @@
-export const SETTINGS_KEY = 'settings';
-export const DEFAULT_SETTINGS = Object.freeze({
-  version: 1,
+export const SETTINGS_KEY = 'cosmicGeminiSettings';
+export const LEGACY_SETTINGS_KEY = 'settings';
+
+export const FEATURE_IDS = Object.freeze({
+  NATIVE_SCROLL: 'nativeScroll',
+  NO_AUTOPLAY: 'noAutoplay'
+});
+
+const DEFAULT_FEATURE = Object.freeze({
   enabled: true,
-  mode: 'standard',
-  whitelist: []
+  whitelistRules: Object.freeze([]),
+  strongRules: Object.freeze([])
+});
+
+export const DEFAULT_SETTINGS = Object.freeze({
+  version: 2,
+  nativeScroll: DEFAULT_FEATURE,
+  noAutoplay: Object.freeze({
+    ...DEFAULT_FEATURE,
+    permanentAudioAllowRules: Object.freeze([])
+  })
 });
 
 const HOST_LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
@@ -18,7 +33,7 @@ function canonicalHostname(value) {
     return raw;
   }
   let hostname;
-  try { hostname = new URL(`http://${raw}`).hostname.toLowerCase().replace(/\.$/, ''); }
+  try { hostname = new URL('http://' + raw).hostname.toLowerCase().replace(/\.$/, ''); }
   catch { throw new Error('Enter a valid hostname.'); }
   if (hostname !== raw || !hostname.includes('.') || hostname.split('.').some(label => !HOST_LABEL.test(label))) {
     throw new Error('Enter a valid hostname.');
@@ -33,22 +48,39 @@ export function normalizeRule(value) {
   if (raw.includes('*') && !wildcard) throw new Error('Place the wildcard only at the beginning, as in *.example.com.');
   const hostname = canonicalHostname(wildcard ? raw.slice(2) : raw);
   if (wildcard && (hostname === 'localhost' || /^\d/.test(hostname))) throw new Error('Wildcards require a domain name.');
-  return wildcard ? `*.${hostname}` : hostname;
+  return wildcard ? '*.' + hostname : hostname;
+}
+
+function normalizeRules(value) {
+  const rules = [];
+  for (const entry of Array.isArray(value) ? value : []) {
+    try {
+      const rule = normalizeRule(entry);
+      if (!rules.includes(rule)) rules.push(rule);
+    } catch {}
+  }
+  return rules.sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeFeature(value = {}, includeAudioRules = false) {
+  const normalized = {
+    enabled: value.enabled !== false,
+    whitelistRules: normalizeRules(value.whitelistRules ?? value.whitelist),
+    strongRules: normalizeRules(value.strongRules)
+  };
+  if (includeAudioRules) normalized.permanentAudioAllowRules = normalizeRules(value.permanentAudioAllowRules);
+  return normalized;
 }
 
 export function normalizeSettings(value = {}) {
-  const whitelist = [];
-  for (const entry of Array.isArray(value.whitelist) ? value.whitelist : []) {
-    try {
-      const rule = normalizeRule(entry);
-      if (!whitelist.includes(rule)) whitelist.push(rule);
-    } catch {}
-  }
+  const legacy = value.version === 1 && ('enabled' in value || 'whitelist' in value || 'mode' in value);
+  const nativeValue = legacy
+    ? { enabled: value.enabled, whitelistRules: value.whitelist, strongRules: [] }
+    : value.nativeScroll;
   return {
-    version: 1,
-    enabled: value.enabled !== false,
-    mode: value.mode === 'strong' ? 'strong' : 'standard',
-    whitelist: whitelist.sort((a, b) => a.localeCompare(b))
+    version: 2,
+    nativeScroll: normalizeFeature(nativeValue || {}, false),
+    noAutoplay: normalizeFeature(value.noAutoplay || {}, true)
   };
 }
 
@@ -59,7 +91,7 @@ export function ruleMatches(hostname, rule) {
   try { normalized = normalizeRule(rule); } catch { return false; }
   if (!normalized.startsWith('*.')) return host === normalized;
   const domain = normalized.slice(2);
-  return host === domain || host.endsWith(`.${domain}`);
+  return host === domain || host.endsWith('.' + domain);
 }
 
 export function matchingRule(hostname, rules) {
@@ -73,16 +105,40 @@ export function hostnameFromUrl(value) {
   } catch { return ''; }
 }
 
-export function pageState(settings, url) {
+export function featureState(settings, featureId, url, temporaryAudioAllowed = false) {
   const normalized = normalizeSettings(settings);
+  const feature = normalized[featureId];
+  if (!feature) throw new Error('Unknown feature.');
   const hostname = hostnameFromUrl(url);
-  const matchedRule = hostname ? matchingRule(hostname, normalized.whitelist) : '';
+  const matchedWhitelistRule = hostname ? matchingRule(hostname, feature.whitelistRules) : '';
+  const matchedStrongRule = hostname ? matchingRule(hostname, feature.strongRules) : '';
+  const matchedAudioRule = featureId === FEATURE_IDS.NO_AUTOPLAY && hostname
+    ? matchingRule(hostname, feature.permanentAudioAllowRules)
+    : '';
+  const active = feature.enabled && !!hostname && !matchedWhitelistRule;
   return {
-    ...normalized,
+    ...feature,
     hostname,
     supported: !!hostname,
-    matchedRule,
-    exactWhitelisted: !!hostname && normalized.whitelist.includes(hostname),
-    active: normalized.enabled && !!hostname && !matchedRule
+    active,
+    mode: active && matchedStrongRule ? 'strong' : 'standard',
+    matchedWhitelistRule,
+    exactWhitelisted: !!hostname && feature.whitelistRules.includes(hostname),
+    matchedStrongRule,
+    exactStrong: !!hostname && feature.strongRules.includes(hostname),
+    audioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY
+      ? active && (!!matchedAudioRule || temporaryAudioAllowed)
+      : false,
+    matchedAudioRule,
+    exactAudioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY && !!hostname
+      ? feature.permanentAudioAllowRules.includes(hostname)
+      : false
   };
+}
+
+export function updateFeature(settings, featureId, update) {
+  const normalized = normalizeSettings(settings);
+  if (!normalized[featureId]) throw new Error('Unknown feature.');
+  const nextFeature = typeof update === 'function' ? update(normalized[featureId]) : update;
+  return normalizeSettings({ ...normalized, [featureId]: nextFeature });
 }

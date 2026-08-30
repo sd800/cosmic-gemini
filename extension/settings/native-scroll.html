@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en-US" data-locale-pending="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cosmic Gemini · Native Scroll</title>
+  <link rel="stylesheet" href="../ui.css">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body data-feature="nativeScroll">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="product-identity">
+        <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="../icons/icon-128.png" alt=""></span>
+        <div class="wordmark"><strong>Native Scroll</strong><span><em>at</em> Cosmic Gemini</span></div>
+      </div>
+      <nav class="feature-switch" aria-label="Cosmic Gemini">
+        <a class="feature-link active" href="native-scroll.html" data-feature-link="nativeScroll"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="no-autoplay.html" data-feature-link="noAutoplay"><span aria-hidden="true"></span></a>
+      </nav>
+    </div>
+  </header>
+  <main class="layout">
+    <div class="primary">
+      <section class="card">
+        <div class="section-heading">
+          <div><h1 data-i18n="protectionHeading"></h1><p data-i18n="nativeProtectionHelp"></p></div>
+          <label class="switch"><input id="enabled" type="checkbox"><span></span><b class="sr-only">Native Scroll</b></label>
+        </div>
+      </section>
+      <section class="card rule-card" data-list-section="strongRules">
+        <h2 data-i18n="strongSitesHeading"></h2>
+        <p data-i18n="nativeStrongSitesHelp"></p>
+        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      </section>
+      <section class="card rule-card" data-list-section="whitelistRules">
+        <h2 data-i18n="whitelistHeading"></h2>
+        <p data-i18n="nativeWhitelistHelp"></p>
+        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      </section>
+      <section class="card compact">
+        <label for="language"><strong data-i18n="languageHeading"></strong><small data-i18n="nativeLanguageHelp"></small></label>
+        <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
+      </section>
+    </div>
+    <aside class="help card">
+      <h2 data-i18n="helpHeading"></h2>
+      <p data-i18n="nativeHelpStandard"></p><p data-i18n="nativeHelpStrong"></p><p data-i18n="nativeHelpIndicator"></p>
+      <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="privacyText"></p>
+    </aside>
+  </main>
+  <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>
+  <script type="module" src="page.js"></script>
+</body>
+</html>

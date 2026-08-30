@@ -1,9 +1,9 @@
 (() => {
-  const READY = 'native-scroll:bridge-ready';
-  const MAIN_READY = 'native-scroll:main-ready';
-  const CONFIGURE = 'native-scroll:configure';
-  const SUPPRESSED = 'native-scroll:suppressed';
-  const RUNTIME_KEY = Symbol.for('native-scroll.runtime');
+  const READY = 'cosmic-gemini:native-scroll:bridge-ready';
+  const MAIN_READY = 'cosmic-gemini:native-scroll:main-ready';
+  const CONFIGURE = 'cosmic-gemini:native-scroll:configure';
+  const SUPPRESSED = 'cosmic-gemini:native-scroll:suppressed';
+  const RUNTIME_KEY = Symbol.for('cosmic-gemini.native-scroll.runtime');
 
   if (window[RUNTIME_KEY]) {
     window[RUNTIME_KEY].announce();

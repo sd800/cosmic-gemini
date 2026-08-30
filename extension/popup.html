@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Native Scroll</title>
+  <title>Cosmic Gemini</title>
   <link rel="stylesheet" href="ui.css">
   <link rel="stylesheet" href="popup.css">
 </head>
@@ -11,14 +11,28 @@
   <main class="popup-shell">
     <div class="identity">
       <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="icons/icon-128.png" alt=""></span>
-      <strong data-i18n="appName">Native Scroll</strong>
+      <strong data-i18n="appName">Cosmic Gemini</strong>
     </div>
-    <nav class="actions" aria-label="Native Scroll">
-      <button class="icon-button" id="power" type="button"></button>
-      <button class="icon-button" id="mode" type="button"></button>
-      <button class="icon-button" id="whitelist" type="button"></button>
-      <button class="icon-button" id="settings" type="button"></button>
-    </nav>
+    <div class="feature-list">
+      <section class="feature-row" data-feature="nativeScroll">
+        <span class="feature-status" id="nativeScroll-status" aria-hidden="true"></span>
+        <nav class="actions" data-i18n-aria-label="nativeScrollName">
+          <button class="icon-button" data-action="power" type="button"></button>
+          <button class="icon-button dependent" data-action="strong" type="button"></button>
+          <button class="icon-button dependent" data-action="whitelist" type="button"></button>
+          <button class="icon-button" data-action="settings" type="button"></button>
+        </nav>
+      </section>
+      <section class="feature-row" data-feature="noAutoplay">
+        <span class="feature-status" id="noAutoplay-status" aria-hidden="true"></span>
+        <nav class="actions" data-i18n-aria-label="noAutoplayName">
+          <button class="icon-button" data-action="power" type="button"></button>
+          <button class="icon-button dependent" data-action="strong" type="button"></button>
+          <button class="icon-button dependent" data-action="whitelist" type="button"></button>
+          <button class="icon-button" data-action="settings" type="button"></button>
+        </nav>
+      </section>
+    </div>
     <span class="sr-only" id="live" aria-live="polite"></span>
   </main>
   <script type="module" src="popup.js"></script>

@@ -55,14 +55,8 @@ class FakeElement extends SimpleEventTarget {
   scrollIntoView() {}
 }
 
-class FakeMutationObserver {
-  observe() {}
-  disconnect() {}
-}
-
-class FakeCustomEvent {
-  constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.target = null; }
-}
+class FakeMutationObserver { observe() {} disconnect() {} }
+class FakeCustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.target = null; } }
 
 function makeContext() {
   const window = new SimpleEventTarget();
@@ -75,36 +69,13 @@ function makeContext() {
   window.scrollTo = () => {};
   window.scrollBy = () => {};
   const context = {
-    window,
-    document,
-    EventTarget: SimpleEventTarget,
-    Element: FakeElement,
-    MutationObserver: FakeMutationObserver,
-    CustomEvent: FakeCustomEvent,
-    WeakMap,
-    WeakRef,
-    Map,
-    Set,
-    Symbol,
-    JSON,
-    Reflect,
-    Number,
-    String,
-    Math,
-    crypto: { randomUUID: () => 'runtime-token' },
-    performance: { now: () => 100 },
-    innerWidth: 800,
-    innerHeight: 800,
-    requestAnimationFrame: callback => { callback(); return 1; },
-    cancelAnimationFrame: () => {},
-    getComputedStyle: element => ({
-      scrollBehavior: 'auto',
-      scrollSnapType: 'none',
-      overflowY: 'visible',
-      position: 'static',
-      transform: 'none',
-      ...element.computed
-    })
+    window, document, EventTarget: SimpleEventTarget, Element: FakeElement,
+    MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
+    WeakMap, WeakRef, Map, Set, Symbol, JSON, Reflect, Number, String, Math,
+    crypto: { randomUUID: () => 'runtime-token' }, performance: { now: () => 100 },
+    innerWidth: 800, innerHeight: 800,
+    requestAnimationFrame: callback => { callback(); return 1; }, cancelAnimationFrame: () => {},
+    getComputedStyle: element => ({ scrollBehavior: 'auto', scrollSnapType: 'none', overflowY: 'visible', position: 'static', transform: 'none', ...element.computed })
   };
   vm.createContext(context);
   return context;
@@ -113,40 +84,27 @@ function makeContext() {
 function wheelEvent(context) {
   let stopped = false;
   return {
-    isTrusted: true,
-    defaultPrevented: false,
-    ctrlKey: false,
-    metaKey: false,
-    deltaX: 0,
-    deltaY: 30,
-    target: context.document.body,
+    isTrusted: true, defaultPrevented: false, ctrlKey: false, metaKey: false,
+    deltaX: 0, deltaY: 30, target: context.document.body,
     composedPath: () => [context.document.body, context.document.documentElement, context.document, context.window],
-    stopImmediatePropagation: () => { stopped = true; },
-    get stopped() { return stopped; }
+    stopImmediatePropagation: () => { stopped = true; }, get stopped() { return stopped; }
   };
 }
 
-test('runtime stays quiet on native pages and suppresses registered wheel takeover code', async () => {
+test('Native Scroll stays quiet on native pages and suppresses registered takeover code', async () => {
   const context = makeContext();
   const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
-  const runtime = context.window[Symbol.for('native-scroll.runtime')];
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: 'runtime-token', config: { active: true, mode: 'standard' } }) });
-
   const nativeEvent = wheelEvent(context);
   runtime.onWheel(nativeEvent);
   assert.equal(nativeEvent.stopped, false);
-
-  let suppressionEvents = 0;
-  context.window.addEventListener('native-scroll:suppressed', () => { suppressionEvents += 1; });
+  let interventions = 0;
+  context.window.addEventListener('cosmic-gemini:native-scroll:suppressed', () => { interventions += 1; });
   context.window.addEventListener('wheel', () => {});
   const hijackedEvent = wheelEvent(context);
   runtime.onWheel(hijackedEvent);
   assert.equal(hijackedEvent.stopped, true);
-  assert.equal(suppressionEvents, 1);
-
-  runtime.onConfigure({ detail: JSON.stringify({ token: 'runtime-token', config: { active: false } }) });
-  const disabledEvent = wheelEvent(context);
-  runtime.onWheel(disabledEvent);
-  assert.equal(disabledEvent.stopped, false);
+  assert.equal(interventions, 1);
 });

@@ -1,147 +1,298 @@
-import { DEFAULT_SETTINGS, SETTINGS_KEY, normalizeRule, normalizeSettings, pageState } from './core/config.js';
+import {
+  DEFAULT_SETTINGS,
+  FEATURE_IDS,
+  LEGACY_SETTINGS_KEY,
+  SETTINGS_KEY,
+  featureState,
+  hostnameFromUrl,
+  normalizeRule,
+  normalizeSettings,
+  updateFeature
+} from './core/config.js';
+import {
+  createTemporaryAudioGrant,
+  hostnameFromTemporaryAudioAlarm,
+  isTemporaryAudioGrantValid,
+  temporaryAudioAlarm,
+  temporaryAudioKey
+} from './core/audio-grants.js';
 import { normalizeLocale } from './core/locale.js';
 
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
-const SUPPRESSING_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
-const SUPPRESSION_KEY_PREFIX = 'suppressingTab:';
+const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
+const ACTIVITY_PREFIX = 'tabActivity:';
+const FEATURE_LISTS = new Set(['whitelistRules', 'strongRules', 'permanentAudioAllowRules']);
 let writeQueue = Promise.resolve();
 
 async function readSettings() {
-  const stored = await chrome.storage.local.get(SETTINGS_KEY);
-  return normalizeSettings(stored[SETTINGS_KEY] || DEFAULT_SETTINGS);
-}
-
-async function saveSettings(update) {
-  const current = await readSettings();
-  const next = normalizeSettings(typeof update === 'function' ? update(current) : update);
-  await chrome.storage.local.set({ [SETTINGS_KEY]: next });
-  return next;
+  const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
+  return normalizeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
 }
 
 async function ensureSettings() {
-  const stored = await chrome.storage.local.get(SETTINGS_KEY);
-  if (!stored[SETTINGS_KEY]) await chrome.storage.local.set({ [SETTINGS_KEY]: DEFAULT_SETTINGS });
+  const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
+  if (stored[SETTINGS_KEY]) return;
+  const settings = normalizeSettings(stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
+  await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+  if (stored[LEGACY_SETTINGS_KEY]) await chrome.storage.local.remove(LEGACY_SETTINGS_KEY);
 }
 
-function suppressionKey(tabId) {
-  return `${SUPPRESSION_KEY_PREFIX}${tabId}`;
-}
-
-async function toolbarTitle(suppressing) {
-  if (!suppressing) return 'Native Scroll';
-  const stored = await chrome.storage.local.get('interfaceLocale');
-  const locale = stored.interfaceLocale || chrome.i18n.getUILanguage();
-  return normalizeLocale(locale) === 'zh-CN' ? 'Native Scroll · 正在保护此页面' : 'Native Scroll · Protecting this page';
-}
-
-async function setToolbarState(tabId, suppressing) {
-  if (!Number.isInteger(tabId)) return;
-  const key = suppressionKey(tabId);
-  await Promise.allSettled([
-    suppressing ? chrome.storage.session.set({ [key]: true }) : chrome.storage.session.remove(key),
-    chrome.action.setIcon({ tabId, path: suppressing ? SUPPRESSING_ICONS : DEFAULT_ICONS }),
-    chrome.action.setBadgeText({ tabId, text: '' }),
-    chrome.action.setTitle({ tabId, title: await toolbarTitle(suppressing) })
-  ]);
-}
-
-async function isToolbarSuppressing(tabId) {
-  if (!Number.isInteger(tabId)) return false;
-  try {
-    const key = suppressionKey(tabId);
-    return (await chrome.storage.session.get(key))[key] === true;
-  } catch { return false; }
+async function saveSettings(value) {
+  const settings = normalizeSettings(value);
+  await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+  return settings;
 }
 
 async function refreshOpenPages() {
   const tabs = await chrome.tabs.query({});
   await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab =>
-    chrome.tabs.sendMessage(tab.id, { type: 'NS_REFRESH_CONFIG' }).catch(() => {})));
+    chrome.tabs.sendMessage(tab.id, { type: 'CG_REFRESH_CONFIG' }).catch(() => {})));
 }
 
 async function mutateSettings(update) {
   writeQueue = writeQueue.then(async () => {
-    const result = await saveSettings(update);
+    const current = await readSettings();
+    const next = await saveSettings(typeof update === 'function' ? update(current) : update);
     await refreshOpenPages();
-    return result;
+    return next;
   });
   return writeQueue;
 }
 
+function activityKey(tabId) {
+  return ACTIVITY_PREFIX + tabId;
+}
+
+async function readActivity(tabId) {
+  if (!Number.isInteger(tabId)) return { nativeScroll: false, noAutoplay: false };
+  try {
+    const value = (await chrome.storage.session.get(activityKey(tabId)))[activityKey(tabId)];
+    return {
+      nativeScroll: value?.nativeScroll === true,
+      noAutoplay: value?.noAutoplay === true
+    };
+  } catch { return { nativeScroll: false, noAutoplay: false }; }
+}
+
+async function toolbarTitle(activity) {
+  if (!activity.nativeScroll && !activity.noAutoplay) return 'Cosmic Gemini';
+  const stored = await chrome.storage.local.get('interfaceLocale');
+  const locale = normalizeLocale(stored.interfaceLocale || chrome.i18n.getUILanguage());
+  if (locale === 'zh-CN') {
+    if (activity.nativeScroll && activity.noAutoplay) return 'Cosmic Gemini · 正在保护此页面';
+    return activity.nativeScroll ? 'Native Scroll · 正在保护此页面' : 'No Autoplay · 正在保护此页面';
+  }
+  if (activity.nativeScroll && activity.noAutoplay) return 'Cosmic Gemini · Protecting this page';
+  return activity.nativeScroll ? 'Native Scroll · Protecting this page' : 'No Autoplay · Protecting this page';
+}
+
+async function renderToolbar(tabId, activity) {
+  if (!Number.isInteger(tabId)) return;
+  const active = activity.nativeScroll || activity.noAutoplay;
+  await Promise.allSettled([
+    chrome.action.setIcon({ tabId, path: active ? ACTIVE_ICONS : DEFAULT_ICONS }),
+    chrome.action.setBadgeText({ tabId, text: '' }),
+    chrome.action.setTitle({ tabId, title: await toolbarTitle(activity) })
+  ]);
+}
+
+async function setFeatureActivity(tabId, featureId, value) {
+  if (!Number.isInteger(tabId) || !Object.values(FEATURE_IDS).includes(featureId)) return;
+  const activity = await readActivity(tabId);
+  activity[featureId] = value === true;
+  const key = activityKey(tabId);
+  if (activity.nativeScroll || activity.noAutoplay) await chrome.storage.session.set({ [key]: activity });
+  else await chrome.storage.session.remove(key);
+  await renderToolbar(tabId, activity);
+}
+
+async function clearTabActivity(tabId) {
+  if (!Number.isInteger(tabId)) return;
+  await chrome.storage.session.remove(activityKey(tabId));
+  await renderToolbar(tabId, { nativeScroll: false, noAutoplay: false });
+}
+
+async function temporaryAudioAllowed(hostname) {
+  if (!hostname) return false;
+  const key = temporaryAudioKey(hostname);
+  const grant = (await chrome.storage.session.get(key))[key];
+  if (isTemporaryAudioGrantValid(grant)) return true;
+  if (grant) {
+    await chrome.storage.session.remove(key);
+    await chrome.alarms.clear(temporaryAudioAlarm(hostname));
+  }
+  return false;
+}
+
+async function setTemporaryAudioAllowed(hostname) {
+  const grant = createTemporaryAudioGrant();
+  await chrome.storage.session.set({ [temporaryAudioKey(hostname)]: grant });
+  await chrome.alarms.create(temporaryAudioAlarm(hostname), { when: grant.expiresAt });
+}
+
+async function clearTemporaryAudioAllowed(hostname) {
+  if (!hostname) return;
+  await Promise.allSettled([
+    chrome.storage.session.remove(temporaryAudioKey(hostname)),
+    chrome.alarms.clear(temporaryAudioAlarm(hostname))
+  ]);
+}
+
+async function cleanupTemporaryAudioIfUnused(hostname) {
+  if (!hostname) return;
+  const tabs = await chrome.tabs.query({});
+  const stillOpen = tabs.some(tab => hostnameFromUrl(tab.url || '') === hostname);
+  if (!stillOpen) await clearTemporaryAudioAllowed(hostname);
+}
+
+async function cleanupUnusedTemporaryAudio() {
+  const values = await chrome.storage.session.get(null);
+  for (const key of Object.keys(values)) {
+    if (!key.startsWith('temporaryAudioAllow:')) continue;
+    await cleanupTemporaryAudioIfUnused(key.slice('temporaryAudioAllow:'.length));
+  }
+}
+
+async function stateFor(settings, featureId, url) {
+  const hostname = hostnameFromUrl(url);
+  const temporary = featureId === FEATURE_IDS.NO_AUTOPLAY && hostname
+    ? await temporaryAudioAllowed(hostname)
+    : false;
+  return featureState(settings, featureId, url, temporary);
+}
+
+async function pageStates(url, tabId) {
+  const settings = await readSettings();
+  const [nativeScroll, noAutoplay, activity] = await Promise.all([
+    stateFor(settings, FEATURE_IDS.NATIVE_SCROLL, url),
+    stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, url),
+    readActivity(tabId)
+  ]);
+  return { nativeScroll, noAutoplay, activity };
+}
+
+function validFeatureId(value) {
+  if (!Object.values(FEATURE_IDS).includes(value)) throw new Error('Unknown feature.');
+  return value;
+}
+
+function validList(featureId, value) {
+  if (!FEATURE_LISTS.has(value)) throw new Error('Unknown rule list.');
+  if (value === 'permanentAudioAllowRules' && featureId !== FEATURE_IDS.NO_AUTOPLAY) throw new Error('That rule list is unavailable.');
+  return value;
+}
+
+async function updateFeatureRules(featureId, listName, update) {
+  return mutateSettings(settings => updateFeature(settings, featureId, feature => ({
+    ...feature,
+    [listName]: update(feature[listName] || [])
+  })));
+}
+
 chrome.runtime.onInstalled.addListener(() => { void ensureSettings(); });
 chrome.runtime.onStartup.addListener(() => { void ensureSettings(); });
-chrome.tabs.onUpdated.addListener((tabId, change) => {
-  if (change.status === 'loading' || change.url) void setToolbarState(tabId, false);
+
+chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (change.status === 'loading' || change.url) void clearTabActivity(tabId);
+  if (change.url) void cleanupUnusedTemporaryAudio();
 });
-chrome.tabs.onRemoved.addListener(tabId => { void chrome.storage.session.remove(suppressionKey(tabId)); });
+
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  void chrome.storage.session.remove(activityKey(tabId));
+  void cleanupUnusedTemporaryAudio();
+});
+
+chrome.alarms.onAlarm.addListener(alarm => {
+  const hostname = hostnameFromTemporaryAudioAlarm(alarm.name);
+  if (hostname) void clearTemporaryAudioAllowed(hostname).then(refreshOpenPages);
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   void (async () => {
     if (!message || typeof message.type !== 'string') throw new Error('Invalid extension message.');
-    if (message.type === 'NS_PAGE_STATE') {
-      const settings = await readSettings();
-      const state = pageState(settings, sender.tab?.url || message.url || '');
-      sendResponse({ ok: true, result: { ...state, suppressing: await isToolbarSuppressing(sender.tab?.id) } });
+    const senderUrl = sender.tab?.url || message.url || '';
+    const senderTabId = sender.tab?.id;
+
+    if (message.type === 'CG_PAGE_STATE') {
+      sendResponse({ ok: true, result: await pageStates(senderUrl, senderTabId) });
       return;
     }
-    if (message.type === 'NS_SUPPRESSED') {
+    if (message.type === 'CG_FEATURE_INTERVENED') {
+      const featureId = validFeatureId(message.featureId);
       const settings = await readSettings();
-      const state = pageState(settings, sender.tab?.url || '');
-      if (Number.isInteger(sender.tab?.id) && state.active) await setToolbarState(sender.tab.id, true);
+      const state = await stateFor(settings, featureId, senderUrl);
+      if (state.active) await setFeatureActivity(senderTabId, featureId, true);
       sendResponse({ ok: true, result: { recorded: state.active } });
       return;
     }
-    if (message.type === 'NS_CONFIG_APPLIED') {
-      if (Number.isInteger(sender.tab?.id) && message.active !== true) await setToolbarState(sender.tab.id, false);
+    if (message.type === 'CG_CONFIG_APPLIED') {
+      const featureId = validFeatureId(message.featureId);
+      if (message.active !== true) await setFeatureActivity(senderTabId, featureId, false);
       sendResponse({ ok: true, result: { updated: true } });
       return;
     }
-    if (message.type === 'UI_GET') {
+    if (message.type === 'CG_AUDIO_BLOCKED') {
       const settings = await readSettings();
-      const state = pageState(settings, message.url || '');
-      sendResponse({ ok: true, result: { ...state, suppressing: await isToolbarSuppressing(message.tabId) } });
+      const state = await stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, senderUrl);
+      if (state.active) await setFeatureActivity(senderTabId, FEATURE_IDS.NO_AUTOPLAY, true);
+      sendResponse({ ok: true, result: { showPrompt: state.active && state.mode !== 'strong' && !state.audioAllowed } });
+      return;
+    }
+    if (message.type === 'CG_AUDIO_DECISION') {
+      const hostname = hostnameFromUrl(senderUrl);
+      if (!hostname) throw new Error('This page is unavailable.');
+      if (message.decision === 'temporary') {
+        await setTemporaryAudioAllowed(hostname);
+        await refreshOpenPages();
+      }
+      else if (message.decision === 'permanent') {
+        await updateFeatureRules(FEATURE_IDS.NO_AUTOPLAY, 'permanentAudioAllowRules', rules => [...rules, hostname]);
+      } else if (message.decision !== 'continue') throw new Error('Unknown audio decision.');
+      const settings = await readSettings();
+      sendResponse({ ok: true, result: await stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, senderUrl) });
+      return;
+    }
+    if (message.type === 'UI_GET') {
+      sendResponse({ ok: true, result: await pageStates(message.url || '', message.tabId) });
       return;
     }
     if (message.type === 'UI_SET_ENABLED') {
-      const settings = await mutateSettings(current => ({ ...current, enabled: message.enabled === true }));
-      if (!settings.enabled) {
+      const featureId = validFeatureId(message.featureId);
+      const settings = await mutateSettings(current => updateFeature(current, featureId, feature => ({
+        ...feature,
+        enabled: message.enabled === true
+      })));
+      if (!settings[featureId].enabled) {
         const tabs = await chrome.tabs.query({});
-        await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => setToolbarState(tab.id, false)));
+        await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => setFeatureActivity(tab.id, featureId, false)));
       }
-      sendResponse({ ok: true, result: settings });
+      sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
-    if (message.type === 'UI_SET_MODE') {
-      const settings = await mutateSettings(current => ({ ...current, mode: message.mode === 'strong' ? 'strong' : 'standard' }));
-      sendResponse({ ok: true, result: settings });
-      return;
-    }
-    if (message.type === 'UI_TOGGLE_HOST') {
+    if (message.type === 'UI_TOGGLE_STRONG' || message.type === 'UI_TOGGLE_WHITELIST') {
+      const featureId = validFeatureId(message.featureId);
       const hostname = normalizeRule(message.hostname || '');
       if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
-      const settings = await mutateSettings(current => {
-        const whitelist = current.whitelist.includes(hostname)
-          ? current.whitelist.filter(rule => rule !== hostname)
-          : [...current.whitelist, hostname];
-        return { ...current, whitelist };
-      });
-      sendResponse({ ok: true, result: settings });
+      const listName = message.type === 'UI_TOGGLE_STRONG' ? 'strongRules' : 'whitelistRules';
+      const settings = await updateFeatureRules(featureId, listName, rules =>
+        rules.includes(hostname) ? rules.filter(rule => rule !== hostname) : [...rules, hostname]);
+      sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
-    if (message.type === 'UI_ADD_RULE') {
+    if (message.type === 'UI_ADD_RULE' || message.type === 'UI_DELETE_RULE') {
+      const featureId = validFeatureId(message.featureId);
+      const listName = validList(featureId, message.listName);
       const rule = normalizeRule(message.rule || '');
-      const settings = await mutateSettings(current => ({ ...current, whitelist: [...current.whitelist, rule] }));
-      sendResponse({ ok: true, result: settings });
-      return;
-    }
-    if (message.type === 'UI_DELETE_RULE') {
-      const rule = normalizeRule(message.rule || '');
-      const settings = await mutateSettings(current => ({ ...current, whitelist: current.whitelist.filter(item => item !== rule) }));
-      sendResponse({ ok: true, result: settings });
+      const settings = await updateFeatureRules(featureId, listName, rules => message.type === 'UI_ADD_RULE'
+        ? [...rules, rule]
+        : rules.filter(item => item !== rule));
+      sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
     if (message.type === 'UI_OPEN_SETTINGS') {
-      await chrome.runtime.openOptionsPage();
+      const featureId = validFeatureId(message.featureId);
+      const path = featureId === FEATURE_IDS.NO_AUTOPLAY ? 'settings/no-autoplay.html' : 'settings/native-scroll.html';
+      await chrome.tabs.create({ url: chrome.runtime.getURL(path) });
       sendResponse({ ok: true, result: { opened: true } });
       return;
     }

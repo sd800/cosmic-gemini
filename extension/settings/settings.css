@@ -1,9 +1,16 @@
 body { min-height: 100vh; background: var(--surface-raised); }
 .topbar { border-bottom: 1px solid var(--line); background: var(--surface); }
-.topbar-inner { display: flex; width: min(940px, calc(100% - 40px)); margin: auto; padding: 18px 0; align-items: center; gap: 12px; }
-.topbar-inner div { display: grid; gap: 1px; }
-.topbar-inner strong { font-size: 17px; font-weight: 720; }
-.topbar-inner span:not(.brand-mark) { color: var(--muted); font-size: 13px; }
+.topbar-inner { display: flex; width: min(940px, calc(100% - 40px)); margin: auto; padding: 18px 0; align-items: center; justify-content: space-between; gap: 18px; }
+.product-identity { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.wordmark { display: grid; gap: 1px; }
+.wordmark strong { font-size: 17px; font-weight: 720; }
+.wordmark span { color: var(--muted); font-size: 13px; }
+.wordmark em { margin-right: 2px; font-family: "Snell Roundhand", "Segoe Script", "Brush Script MT", cursive; font-size: 15px; font-style: normal; }
+.feature-switch { display: flex; gap: 5px; }
+.feature-link { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 9px; color: var(--muted); text-decoration: none; }
+.feature-link:hover { background: var(--surface-raised); }
+.feature-link.active { background: var(--blue-soft); color: var(--blue); }
+.feature-link svg { width: 21px; height: 21px; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 18px; width: min(940px, calc(100% - 40px)); margin: 28px auto 18px; align-items: start; }
 .primary { display: grid; gap: 18px; }
 .card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 22px; }
@@ -14,19 +21,12 @@ p { margin-bottom: 16px; color: var(--muted); font-size: 13px; line-height: 1.55
 .section-heading p { margin-bottom: 0; }
 .switch { position: relative; flex: 0 0 auto; }
 .switch input { position: absolute; opacity: 0; }
-.switch span { display: block; width: 40px; height: 24px; border-radius: 999px; background: #adb3ba; transition: background 150ms ease; }
-.switch span::after { content: ''; display: block; width: 18px; height: 18px; margin: 3px; border-radius: 50%; background: white; box-shadow: 0 1px 2px #0004; transition: transform 150ms ease; }
+.switch span { position: relative; display: block; width: 40px; height: 24px; border-radius: 999px; background: #adb3ba; transition: background 150ms ease; }
+.switch span::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 2px #0004; content: ''; transition: transform 150ms ease; }
 .switch input:checked + span { background: var(--blue); }
 .switch input:checked + span::after { transform: translateX(16px); }
 .switch input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
-.mode-list { display: grid; gap: 8px; margin-top: 20px; }
-.mode-option { display: grid; grid-template-columns: 18px 1fr; gap: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
-.mode-option:has(input:checked) { border-color: var(--blue); background: color-mix(in srgb, var(--blue-soft) 65%, var(--surface)); }
-.mode-option input { margin: 3px 0 0; accent-color: var(--blue); }
-.mode-option span { display: grid; gap: 4px; }
-.mode-option strong { font-size: 14px; }
-.mode-option small, .compact small { color: var(--muted); font-size: 12px; line-height: 1.5; }
-#whitelist-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+.rule-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
 input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); padding: 0 11px; }
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: white; cursor: pointer; font-weight: 650; }
 .form-message { min-height: 18px; margin: 5px 0 0; color: var(--danger); font-size: 12px; }
@@ -37,6 +37,7 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .caption { margin-bottom: 0; font-size: 12px; }
 .compact { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .compact label { display: grid; gap: 4px; }
+.compact small { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .compact select { width: 150px; }
 .help { position: sticky; top: 18px; }
 .help p:last-child { margin-bottom: 0; }

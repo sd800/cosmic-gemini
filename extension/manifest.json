@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Native Scroll",
-  "description": "Keep website scrolling natural and under your control.",
-  "version": "0.1.0",
+  "name": "Cosmic Gemini",
+  "description": "Keep scrolling native and stop unwanted autoplay.",
+  "version": "1.0.0",
   "minimum_chrome_version": "120",
   "icons": {
     "16": "icons/icon-16.png",
@@ -12,7 +12,8 @@
   },
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "alarms"
   ],
   "host_permissions": [
     "http://*/*",
@@ -23,7 +24,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Native Scroll",
+    "default_title": "Cosmic Gemini",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
@@ -32,11 +33,11 @@
       "128": "icons/icon-128.png"
     }
   },
-  "options_page": "settings.html",
+  "options_page": "settings/native-scroll.html",
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content/runtime.js"],
+      "js": ["content/runtime.js", "content/no-autoplay-runtime.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },

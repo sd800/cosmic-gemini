@@ -9,16 +9,19 @@ npm test
 npm run check
 ```
 
-The tests cover whitelist matching, settings normalization, locale selection, manifest permissions, local-only assets, script syntax, and interface constraints.
+The focused tests cover configuration isolation, exact and wildcard matching, whitelist priority, temporary sound expiry, locale selection, both page runtimes, Manifest V3 permissions, local-only assets, script syntax, and interface constraints.
 
 ## Chrome checks
 
 1. Open `chrome://extensions`, enable Developer mode, and load the `extension` folder as an unpacked extension.
-2. Confirm that Standard mode is active by default and that the global, mode, whitelist, and settings controls are keyboard accessible.
-3. Visit a page that installs a page-level `wheel` handler. Scroll with a trackpad and confirm that native browser scrolling continues while the toolbar icon shows the blue suppression dot.
-4. Navigate to another page and confirm that the suppression dot clears.
-5. Add the current hostname to the whitelist from the popup. Confirm that protection becomes inactive on that page, then remove it in Settings.
-6. Add `*.example.com` in Settings and confirm that it covers both `example.com` and its subdomains.
-7. Switch to Strong mode and confirm that the setting is reflected in both the popup and Settings.
-8. Switch Chrome between light and dark appearance and verify both interfaces.
-9. Set Chrome's preferred language to Simplified Chinese, reopen the extension, and verify that the first rendered frame is localized without an English flash.
+2. Open the popup and confirm that its Cosmic Gemini mark remains static while the two product rows operate independently.
+3. Turn either product off and confirm that its Strong-site and whitelist buttons become unavailable while its Settings button remains available.
+4. Open both settings pages. Confirm the two-line product wordmarks, product switch controls, system theme, and en-US or zh-CN first-frame localization.
+5. On a page with a wheel takeover handler, confirm that Native Scroll preserves browser scrolling and changes the toolbar icon only after an intervention.
+6. Add the hostname to Native Scroll's whitelist, then confirm that protection becomes inactive. Add the same hostname to Strong sites and confirm that the whitelist still takes priority.
+7. On a page that automatically calls `video.play()`, confirm that No Autoplay stops the video while direct playback after a user action still works.
+8. On a page that automatically starts audible audio or Web Audio, confirm that the sound prompt appears at the top right.
+9. Choose **Allow this time** and confirm that audio resumes while autoplaying video remains stopped. Close every tab for that hostname and confirm that a new visit asks again.
+10. Choose **Always allow** and confirm that the exact hostname appears in No Autoplay settings and can be removed there.
+11. Add a hostname to No Autoplay Strong sites and confirm that video and audio elements already present or added later are removed.
+12. Confirm that the toolbar icon returns to its default state after navigation and changes when either product intervenes.

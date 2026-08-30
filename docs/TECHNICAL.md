@@ -1,29 +1,47 @@
 # Technical design
 
-Native Scroll is a Manifest V3 Chrome extension. It runs at `document_start` on HTTP and HTTPS pages so its capture-phase gesture listeners are registered before ordinary page scripts.
+Cosmic Gemini is a Manifest V3 Chrome extension with two isolated products: Native Scroll and No Autoplay. Each product owns its configuration, page runtime, intervention state, whitelist, and Strong-site rules. Shared code is limited to the extension shell, localization, rule parsing, message bridge, service worker, and toolbar rendering.
 
-## Runtime model
+## Page startup
 
-The extension uses two content-script worlds. A small isolated-world bridge reads extension settings through the service worker. A main-world runtime applies the selected behavior inside the page and reports when it actually suppresses a scrolling handler. The bridge exposes no extension API or stored data to the page.
+Both main-world runtimes load at `document_start` on HTTP and HTTPS pages. Native Scroll patches listener registration before ordinary page scripts can install wheel or touch handlers. No Autoplay patches media playback and Web Audio resume before ordinary page scripts can request playback.
 
-Standard mode stops page-level wheel and touch events from reaching website handlers without cancelling the browser's default action. It preserves pinch zoom, horizontal-dominant trackpad gestures, interactive controls, maps, editors, media, and ordinary nested scroll areas. It also disables root smooth scrolling and scroll snapping while active.
+An isolated-world bridge reads settings through the service worker and sends only the current page configuration into each main-world runtime. It exposes neither extension APIs nor stored rules to page code. The same bridge renders the No Autoplay sound prompt inside a closed Shadow DOM after an audible automatic playback attempt.
 
-Strong mode uses the same foundation and additionally neutralizes scripted nested movement during the active gesture, disables scroll snapping throughout the document, and normalizes a narrowly detected full-page transformed wrapper. Every inline style change is recorded and restored when protection is disabled or the page becomes whitelisted.
+## Native Scroll
 
-The runtime remains installed for the document lifetime because a site may register new handlers at any time. It is dormant when the extension is off or the hostname matches the whitelist.
+Standard protection stops matching page-level wheel and touch events from reaching website handlers without cancelling the browser's native default action. It preserves pinch zoom, horizontal gestures, interactive controls, maps, editors, media, and ordinary nested scroll areas. Root smooth scrolling and scroll snapping are neutralized while protection is active.
 
-The runtime uses no polling. DOM observation is limited to the document root, `head`, `body`, and direct structural changes; listener records use weak references. The service worker is event-driven and can sleep whenever Chrome no longer needs it.
+Strong protection additionally handles scripted nested movement and narrowly detected full-page transformed wrappers. It is selected by hostname rule rather than a global mode. Inline style changes are recorded and restored when the feature becomes inactive or the page is whitelisted.
 
-## State and permissions
+Listener records use weak references. DOM observation is limited to structural roots and is disabled with the feature.
 
-`chrome.storage.local` stores three settings: the global enabled state, the selected mode, and whitelist rules. The popup uses `activeTab` to identify the current hostname. Host access on HTTP and HTTPS pages is required because protection must start before page scripts across the web.
+## No Autoplay
 
-The service worker keeps an in-memory set of tabs where suppression has occurred. It adds a blue badge dot to the toolbar icon for those tabs and clears the state on navigation, deactivation, or whitelisting. This status is intentionally not persisted across service-worker restarts.
+Standard protection blocks `HTMLMediaElement.play()` and captured playback events unless playback follows a direct user action. Audio elements and Web Audio may also run when the hostname has a valid temporary or permanent sound rule. These sound rules never allow autoplaying video.
 
-## Whitelist matching
+An audible automatic audio attempt triggers one prompt for the document. Granting sound resumes only pending audio elements and Web Audio contexts. Video remains stopped.
 
-An exact rule such as `example.com` matches only that hostname. A wildcard rule such as `*.example.com` matches `example.com` and every subdomain below it. Rules contain hostnames only; URLs, paths, ports, and queries are rejected.
+Strong protection removes video and audio elements, including matching nodes inserted later. Its subtree observer exists only on hostnames covered by a Strong-site rule and disconnects as soon as the feature becomes inactive.
 
-## Boundaries
+## State and lifecycle
 
-Chrome does not allow content scripts on internal pages such as `chrome://`, the Chrome Web Store, or some built-in viewers. Native Scroll therefore remains inactive there. Standard mode favors compatibility; Strong mode is available for pages that require broader intervention.
+`chrome.storage.local` stores one versioned settings object:
+
+- Native Scroll: enabled state, whitelist rules, and Strong-site rules
+- No Autoplay: enabled state, whitelist rules, Strong-site rules, and permanent sound rules
+- Interface locale
+
+Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Whitelist matches take priority over Strong-site matches.
+
+Temporary sound permission is stored in `chrome.storage.session` as an exact hostname and expiry timestamp. It expires after two days or when no tab remains open for that hostname, whichever comes first. `chrome.alarms` provides expiry while the browser remains open; session storage also clears when the browser session ends.
+
+Per-tab intervention status contains only two booleans. It controls the shared toolbar icon and is cleared on navigation or tab closure. No activity log or browsing history is stored.
+
+## Resource use
+
+Both runtimes are event-driven. There is no polling, network client, analytics code, or persistent background page. Standard No Autoplay does not keep a document observer. Strong No Autoplay observes only added nodes while active, and pending media collections are bounded.
+
+## Browser boundaries
+
+Chrome does not allow content scripts on internal pages such as `chrome://`, the Chrome Web Store, or some built-in viewers. Cosmic Gemini remains inactive there.

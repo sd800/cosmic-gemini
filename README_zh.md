@@ -160,5 +160,3 @@ Cosmic Gemini 使用 Manifest V3，媒体处理所需的依赖均随插件保存
 npm test
 npm run check
 ```
-
-© 2026 Songming.org

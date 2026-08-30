@@ -160,5 +160,3 @@ Cosmic Gemini uses Manifest V3 and bundles its local media-processing dependenci
 npm test
 npm run check
 ```
-
-© 2026 Songming.org

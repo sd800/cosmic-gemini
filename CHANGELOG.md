@@ -1,5 +1,11 @@
 # Changelog
 
+[Simplified Chinese](CHANGELOG_zh.md)
+
+## 3.1.27 — 2026-08-30
+
+- Added links between the English and Simplified Chinese changelogs.
+
 ## 3.1.26 — 2026-08-30
 
 - Removed the standalone “Background:” label from the Bili Daily Login introduction so Satellite descriptions read as direct, continuous explanations.

@@ -2,6 +2,7 @@
   color-scheme: light dark;
   --blue: #0b57d0;
   --blue-soft: #e8f0fe;
+  --on-blue: #ffffff;
   --surface: #ffffff;
   --surface-raised: #f7f8fa;
   --text: #202124;
@@ -57,12 +58,14 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --blue: #98beff;
     --surface: #191a1c;
     --surface-raised: #24262a;
     --text: #f1f3f4;
     --muted: #aeb4bc;
     --line: #34373c;
     --blue-soft: #263a5e;
+    --on-blue: #172033;
     --focus: #8ab4f8;
     --success: #4faf68;
   }

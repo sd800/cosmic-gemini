@@ -66,7 +66,7 @@ Background: Bilibili gives every signed-in account one coin when it visits each 
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
 - Optional Satellites with their own concise settings and privacy details
 - Exact-host and wildcard rules such as `example.com` and `*.example.com`
-- A compact two-row popup with current-page controls and All Settings beside the Cosmic Gemini wordmark
+- A compact four-row popup with paired current-page controls and All Settings on its own bottom row
 - Separate settings pages, an All Settings hub with a complete reset action, direct product switching, and stable first-frame localization
 - Natural en-US and zh-CN interfaces with system-aware light and dark themes
 - Event-driven runtimes without polling or a persistent background page
@@ -83,12 +83,16 @@ Chrome requests access to HTTP and HTTPS pages so the tools can begin before ord
 
 ## Use
 
-The popup uses two compact rows for current-page controls.
+The popup uses four compact rows, with two related controls in each row.
 
 ### Current-site controls
 
-- The first row contains **Native Scroll**, **Native Scroll Enhanced**, **No Autoplay**, and **No Autoplay Enhanced**. Each control changes only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
-- The second row contains **Any Copy**, **Any Copy Enhanced**, **Image Download**, and **Video Download**.
+- The first row contains **Native Scroll** and **Native Scroll Enhanced**.
+- The second row contains **No Autoplay** and **No Autoplay Enhanced**.
+- The third row contains **Any Copy** and **Any Copy Enhanced**.
+- The fourth row contains **Image Download** and **Video Download**.
+
+Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 
 Any Copy and Any Copy Enhanced are enabled independently for the current website. They may run together, and turning either one off does not change the other. Their website rules share one clearly divided settings page.
 
@@ -100,7 +104,7 @@ Click Video Download to start finding video in the current tab and open its medi
 
 ### Settings and scheduled tools
 
-**All Settings** sits beside the Cosmic Gemini wordmark. It opens the product directory and the command for restoring all settings and website rules to their defaults.
+**All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
 All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login is off by default. After you enable it, the task runs on its own schedule while Chrome and the computer are running.
 
@@ -112,7 +116,9 @@ Popup product controls use only neutral and blue icon states. Primary products, 
 
 Blue means that the product is available to work in the current tab. A blue control with a background is active and may continue changing or displaying page behavior. Image Download and Video Download use blue without a background while their current-tab sessions are active.
 
-The main Cosmic Gemini mark remains unchanged. The existing green toolbar artwork remains available for the separate browser-toolbar activity indicator.
+After Native Scroll or No Autoplay intervenes on the page, a thin blue outline appears around the active Standard or Enhanced control.
+
+The Cosmic Gemini mark in the browser toolbar remains unchanged. Its existing green artwork remains available for the separate toolbar activity indicator.
 
 ### Website rules
 

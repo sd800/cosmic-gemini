@@ -9,28 +9,38 @@
 </head>
 <body>
   <main class="popup-shell">
-    <div class="identity">
+    <div class="identity" hidden>
       <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="icons/icon-128.png" alt=""></span>
       <strong data-i18n="appName">Cosmic Gemini</strong>
-      <button class="feature-status utility-control" id="all-settings" type="button"></button>
     </div>
     <div class="feature-list">
       <section class="feature-row">
-        <nav class="launcher-actions" data-i18n-aria-label="pageProtectionToolsLabel">
+        <nav class="launcher-actions" data-i18n-aria-label="nativeScrollControlsLabel">
           <button class="feature-status feature-toggle primary-product" id="nativeScroll-status" type="button"></button>
           <button class="feature-status feature-toggle secondary-product" id="nativeScroll-enhanced" type="button"></button>
+        </nav>
+      </section>
+      <section class="feature-row">
+        <nav class="launcher-actions" data-i18n-aria-label="noAutoplayControlsLabel">
           <button class="feature-status feature-toggle primary-product" id="noAutoplay-status" type="button"></button>
           <button class="feature-status feature-toggle secondary-product" id="noAutoplay-enhanced" type="button"></button>
         </nav>
       </section>
       <section class="feature-row">
-        <nav class="launcher-actions" data-i18n-aria-label="quickToolsLabel">
+        <nav class="launcher-actions" data-i18n-aria-label="anyCopyControlsLabel">
           <button class="feature-status feature-toggle primary-product" id="anyCopy-status" type="button"></button>
           <button class="feature-status feature-toggle primary-product" id="anyCopyEnhanced-status" type="button"></button>
+        </nav>
+      </section>
+      <section class="feature-row">
+        <nav class="launcher-actions" data-i18n-aria-label="downloadToolsLabel">
           <button class="feature-status feature-toggle primary-product" id="imageDownload-status" type="button"></button>
           <button class="feature-status feature-toggle primary-product" id="videoDownload-status" type="button"></button>
         </nav>
       </section>
+    </div>
+    <div class="popup-footer">
+      <button class="feature-status utility-control" id="all-settings" type="button"></button>
     </div>
     <span class="sr-only" id="live" aria-live="polite"></span>
   </main>

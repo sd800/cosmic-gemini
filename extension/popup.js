@@ -51,10 +51,12 @@ function renderGuardFeature(featureId) {
   const primary = document.querySelector('#' + featureId + '-status');
   const enhanced = document.querySelector('#' + featureId + '-enhanced');
   const enhancedActive = feature.active && feature.mode === 'enhanced';
+  const intervened = feature.active && state.activity?.[featureId] === true;
 
   primary.disabled = !feature.supported;
   primary.dataset.state = feature.active ? 'active' : 'off';
   primary.dataset.persistent = String(feature.active);
+  primary.dataset.intervened = String(intervened && !enhancedActive);
   primary.setAttribute('aria-pressed', String(feature.active));
   if (!feature.supported) label(primary, t('unsupportedTitle'));
   else if (feature.exactActivationOverride) label(primary, t('removeSiteOverrideTitle', { product }));
@@ -63,6 +65,7 @@ function renderGuardFeature(featureId) {
   enhanced.disabled = !feature.supported;
   enhanced.dataset.state = enhancedActive ? 'active' : 'off';
   enhanced.dataset.persistent = String(enhancedActive);
+  enhanced.dataset.intervened = String(intervened && enhancedActive);
   enhanced.setAttribute('aria-pressed', String(enhancedActive));
   if (!feature.supported) label(enhanced, t('unsupportedTitle'));
   else label(enhanced, t(enhancedActive ? 'useStandardOnSiteTitle' : 'useEnhancedOnSiteTitle', { product }));
@@ -473,4 +476,8 @@ label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
 label(document.querySelector('#all-settings'), t('allSettingsTitle'));
 root.dataset.localePending = 'false';
+chrome.storage.onChanged.addListener((changes, area) => {
+  const key = Number.isInteger(currentTab?.id) ? `tabActivity:${currentTab.id}` : '';
+  if (area === 'session' && key && Object.hasOwn(changes, key)) void reload(false);
+});
 try { await reload(); } catch { live.textContent = t('unavailable'); }

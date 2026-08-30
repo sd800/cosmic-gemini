@@ -1,5 +1,45 @@
 # Changelog
 
+## 3.1.23 — 2026-08-30
+
+- Enlarged the All Settings icon and button so the icon is only slightly smaller than the popup product icons while retaining its secondary visual hierarchy.
+
+## 3.1.22 — 2026-08-30
+
+- Enlarged the popup product icons and buttons again, and moderately enlarged All Settings. Column spacing was rebalanced so the compact popup keeps even margins at its existing width.
+
+## 3.1.21 — 2026-08-30
+
+- Enlarged the eight popup product icons and their button hit areas together, with rebalanced column spacing. The compact popup width and All Settings control remain unchanged.
+
+## 3.1.19 — 2026-08-30
+
+- Slightly enlarged the eight product icons in the popup while preserving their button hit areas and the existing All Settings icon size.
+
+## 3.1.18 — 2026-08-30
+
+- Applied the brighter blue throughout the extension in dark mode, including settings and download workspaces. Solid blue buttons now use a dedicated dark foreground color for clearer contrast, while light mode remains unchanged.
+
+## 3.1.17 — 2026-08-30
+
+- Increased the visibility of active popup icons, backgrounds, and activity outlines in dark mode with a brighter blue scoped to the popup. Light mode and other extension surfaces retain their existing colors.
+
+## 3.1.16 — 2026-08-30
+
+- Added a thin blue activity outline to the active Native Scroll or No Autoplay mode after it intervenes on the current page. The popup updates the indicator while open.
+
+## 3.1.15 — 2026-08-30
+
+- Further reduced the main popup width while retaining the existing icon sizes, spacing, and button hit areas.
+
+## 3.1.13 — 2026-08-30
+
+- Reduced the main popup width while preserving the existing two-column control layout and button hit areas. The Video Download media panel keeps its existing width.
+
+## 3.1.12 — 2026-08-30
+
+- Redesigned the compact popup as four paired two-button rows: Native Scroll, No Autoplay, Any Copy, and downloads. The Cosmic Gemini wordmark is temporarily hidden, while All Settings now occupies a separate bottom row aligned to the right.
+
 ## 3.1.11 — 2026-08-30
 
 - Corrected the gray icon tile in All Settings so layered artwork uses the tile’s actual surface instead of the surrounding card background in dark mode. The Any Copy artwork itself is unchanged.

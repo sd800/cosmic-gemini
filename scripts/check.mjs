@@ -26,7 +26,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '3.1.11');
+assert.equal(manifest.version, '3.1.23');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -119,12 +119,16 @@ const settingsSource = await readFile(join(extension, 'settings', 'page.js'), 'u
 const bridgeSource = await readFile(join(extension, 'content', 'bridge.js'), 'utf8');
 const workerSource = await readFile(join(extension, 'worker.js'), 'utf8');
 const popupHtml = await readFile(join(extension, 'popup.html'), 'utf8');
-assert.match(popupHtml, /id="all-settings"[\s\S]*id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"/);
-assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 2, 'Popup must contain two feature rows');
-assert.match(popupHtml, /id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"/);
+assert.match(popupHtml, /id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"[\s\S]*id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"[\s\S]*id="all-settings"/);
+assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 4, 'Popup must contain four paired feature rows');
+assert.match(popupHtml, /class="identity" hidden/);
+assert.match(popupHtml, /class="popup-footer"[\s\S]*id="all-settings"/);
 assert.match(popupHtml, /class="feature-status feature-toggle primary-product" id="anyCopyEnhanced-status"/);
 assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_FEATURE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_ENHANCED'/);
+assert.match(popupSource, /dataset\.intervened = String\(intervened && !enhancedActive\)/);
+assert.match(popupSource, /dataset\.intervened = String\(intervened && enhancedActive\)/);
+assert.match(popupSource, /tabActivity:[\s\S]*area === 'session'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_SITE_FEATURE'/);
 assert.match(popupSource, /listName: 'siteRules'/);
 assert.match(popupSource, /type: 'UI_OPEN_ALL_SETTINGS'/);
@@ -133,6 +137,13 @@ assert.doesNotMatch(popupSource, /showView\(state\.videoDownload\?\.active/);
 assert.doesNotMatch(popupSource, /type: 'UI_OPEN_SETTINGS'/);
 assert.match(popupSource, /let actionPending = false/);
 assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /feature-status\[data-state="active"\]\[data-persistent="true"\]/);
+assert.match(await readFile(join(extension, 'ui.css'), 'utf8'), /prefers-color-scheme: dark[\s\S]*--blue: #98beff/);
+assert.match(await readFile(join(extension, 'ui.css'), 'utf8'), /--on-blue: #172033/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /feature-status\[data-intervened="true"\][^\n]*var\(--blue\)/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /feature-status svg \{ width: 21px; height: 21px; \}[\s\S]*launcher-actions \.feature-status svg \{ width: 28px; height: 28px; \}/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /launcher-actions \.feature-status \{ width: 42px; height: 42px; flex: 0 0 42px; \}/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /popup-footer \.feature-status \{ width: 40px; height: 40px; \}/);
+assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /popup-footer \.feature-status svg \{ width: 26px; height: 26px; \}/);
 assert.match(await readFile(join(extension, 'popup.css'), 'utf8'), /feature-status\.secondary-product/);
 assert.doesNotMatch(await readFile(join(extension, 'image-download.html'), 'utf8'), /source-title/);
 assert.match(await readFile(join(extension, 'image-download.html'), 'utf8'), /<details class="filter-card" id="image-filters">[\s\S]*id="search"[\s\S]*id="clear-filters"[\s\S]*<\/details>/);

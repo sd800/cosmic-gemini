@@ -31,7 +31,7 @@ body { min-width: 760px; min-height: 100vh; background: var(--surface-raised); }
 .quiet-button, .primary-button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 9px; cursor: pointer; font-size: 11px; font-weight: 680; }
 .quiet-button { background: var(--surface-raised); color: var(--text); }
 .quiet-button:hover { background: var(--blue-soft); color: var(--blue); }
-.primary-button { background: var(--blue); color: white; }
+.primary-button { background: var(--blue); color: var(--on-blue); }
 .primary-button:disabled, .quiet-button:disabled { cursor: default; opacity: .45; }
 .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(226px, 1fr)); align-items: start; gap: 13px; }
 .image-card { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, black 8%, transparent); }

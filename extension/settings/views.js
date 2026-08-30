@@ -1,6 +1,6 @@
-const ruleSection = (listName, headingKey, helpKey) => `
-  <section class="card rule-card" data-list-section="${listName}">
-    <h2 data-i18n="${headingKey}"></h2>
+const rulePanel = (listName, headingKey, helpKey, emptyKey = '') => `
+  <section class="rule-panel" data-list-section="${listName}"${emptyKey ? ` data-empty-key="${emptyKey}"` : ''}>
+    <h3 data-i18n="${headingKey}"></h3>
     <p data-i18n="${helpKey}"></p>
     <form class="rule-form" novalidate>
       <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
@@ -8,24 +8,28 @@ const ruleSection = (listName, headingKey, helpKey) => `
     </form>
     <p class="form-message" aria-live="polite"></p>
     <ul class="rule-list"></ul>
-    <p class="caption" data-i18n="exactRuleHelp"></p>
+  </section>`;
+
+const pairedRuleCard = (headingKey, helpKey, left, right) => `
+  <section class="card grouped-rule-card">
+    <div class="group-heading"><h2 data-i18n="${headingKey}"></h2><p data-i18n="${helpKey}"></p></div>
+    <div class="rule-grid">
+      ${rulePanel(...left)}
+      ${rulePanel(...right)}
+    </div>
+    <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
   </section>`;
 
 const audioAllowSection = () => `
-  <section class="card rule-card" data-list-section="permanentAudioAllowRules">
+  <section class="card grouped-rule-card audio-rule-card">
     <h2 data-i18n="audioAllowHeading"></h2>
     <p data-i18n="audioAllowHelp"></p>
     <label class="preference-row" for="audioAutoplayAllSites">
       <span><strong data-i18n="audioAllowAllSitesHeading"></strong><small data-i18n="audioAllowAllSitesHelp"></small></span>
       <span class="switch"><input id="audioAutoplayAllSites" type="checkbox"><span></span></span>
     </label>
-    <form class="rule-form" novalidate>
-      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
-      <button class="primary-button" type="submit" data-i18n="add"></button>
-    </form>
-    <p class="form-message" aria-live="polite"></p>
-    <ul class="rule-list"></ul>
-    <p class="caption" data-i18n="exactRuleHelp"></p>
+    ${rulePanel('permanentAudioAllowRules', 'audioAllowedSitesHeading', 'audioAllowedSitesHelp')}
+    <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
   </section>`;
 
 const anyCopyRuleSection = (featureId, iconName, headingKey, helpKey, emptyKey) => `
@@ -48,9 +52,9 @@ const settingsCard = (featureId, nameKey, descriptionKey) => `
     <span class="settings-destination-arrow" aria-hidden="true">›</span>
   </a>`;
 
-const help = (keys, privacyKey) => `
-  <h2 data-i18n="helpHeading"></h2>
-  ${keys.map(key => `<p data-i18n="${key}"></p>`).join('')}
+const help = (keys, privacyKey, list = false) => `
+  <h2 data-i18n="${list ? 'setupGuideHeading' : 'helpHeading'}"></h2>
+  ${list ? `<ol class="flow-list">${keys.map(key => `<li data-i18n="${key}"></li>`).join('')}</ol>` : keys.map(key => `<p data-i18n="${key}"></p>`).join('')}
   <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="${privacyKey}"></p>`;
 
 export const PRODUCT_META = Object.freeze({
@@ -107,32 +111,36 @@ export function viewFor(featureId) {
   };
   if (featureId === 'nativeScroll') return {
     primary: `
-      <section class="card">
+      <section class="card default-card">
         <div class="section-heading">
-          <div><h1 data-i18n="nativeStandardHeading"></h1><p data-i18n="nativeProtectionHelp"></p></div>
+          <div><span class="section-kicker" data-i18n="defaultBehaviorHeading"></span><h1 data-i18n="nativeScrollName"></h1><p data-i18n="nativeProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
-      ${ruleSection('enabledRules', 'enabledSitesHeading', 'nativeEnabledSitesHelp')}
-      ${ruleSection('whitelistRules', 'disabledSitesHeading', 'nativeDisabledSitesHelp')}
-      ${ruleSection('enhancedRules', 'enhancedSitesHeading', 'nativeEnhancedSitesHelp')}
-      ${ruleSection('standardRules', 'standardSitesHeading', 'nativeStandardSitesHelp')}`,
-    help: help(['nativeHelpStandard', 'nativeHelpEnhanced', 'nativeHelpIndicator'], 'nativePrivacy')
+      ${pairedRuleCard('websiteExceptionsHeading', 'nativeWebsiteExceptionsHelp',
+        ['enabledRules', 'enabledSitesHeading', 'nativeEnabledSitesHelp'],
+        ['whitelistRules', 'disabledSitesHeading', 'nativeDisabledSitesHelp'])}
+      ${pairedRuleCard('modeByWebsiteHeading', 'nativeModeByWebsiteHelp',
+        ['enhancedRules', 'enhancedSitesHeading', 'nativeEnhancedSitesHelp'],
+        ['standardRules', 'standardSitesHeading', 'nativeStandardSitesHelp'])}`,
+    help: help(['nativeSetupStepDefault', 'nativeSetupStepExceptions', 'nativeSetupStepEnhanced'], 'nativePrivacy', true)
   };
   if (featureId === 'noAutoplay') return {
     primary: `
-      <section class="card">
+      <section class="card default-card">
         <div class="section-heading">
-          <div><h1 data-i18n="autoplayStandardHeading"></h1><p data-i18n="autoplayProtectionHelp"></p></div>
+          <div><span class="section-kicker" data-i18n="defaultBehaviorHeading"></span><h1 data-i18n="noAutoplayName"></h1><p data-i18n="autoplayProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
-      ${ruleSection('enabledRules', 'enabledSitesHeading', 'autoplayEnabledSitesHelp')}
-      ${ruleSection('whitelistRules', 'disabledSitesHeading', 'autoplayDisabledSitesHelp')}
-      ${ruleSection('enhancedRules', 'enhancedSitesHeading', 'autoplayEnhancedSitesHelp')}
-      ${ruleSection('standardRules', 'standardSitesHeading', 'autoplayStandardSitesHelp')}
+      ${pairedRuleCard('websiteExceptionsHeading', 'autoplayWebsiteExceptionsHelp',
+        ['enabledRules', 'enabledSitesHeading', 'autoplayEnabledSitesHelp'],
+        ['whitelistRules', 'disabledSitesHeading', 'autoplayDisabledSitesHelp'])}
+      ${pairedRuleCard('modeByWebsiteHeading', 'autoplayModeByWebsiteHelp',
+        ['enhancedRules', 'enhancedSitesHeading', 'autoplayEnhancedSitesHelp'],
+        ['standardRules', 'standardSitesHeading', 'autoplayStandardSitesHelp'])}
       ${audioAllowSection()}`,
-    help: help(['autoplayHelpStandard', 'autoplayHelpEnhanced', 'autoplayHelpSound'], 'autoplayPrivacy')
+    help: help(['autoplaySetupStepDefault', 'autoplaySetupStepExceptions', 'autoplaySetupStepEnhanced', 'autoplaySetupStepAudio'], 'autoplayPrivacy', true)
   };
   if (featureId === 'anyCopy') return {
     primary: `

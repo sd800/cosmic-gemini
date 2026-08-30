@@ -28,51 +28,63 @@
   </header>
   <main class="layout">
     <div class="primary">
-      <section class="card">
+      <section class="card default-card">
         <div class="section-heading">
-          <div><h1 data-i18n="autoplayStandardHeading"></h1><p data-i18n="autoplayProtectionHelp"></p></div>
+          <div><span class="section-kicker" data-i18n="defaultBehaviorHeading"></span><h1 data-i18n="noAutoplayName"></h1><p data-i18n="autoplayProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
-      <section class="card rule-card" data-list-section="enabledRules">
-        <h2 data-i18n="enabledSitesHeading"></h2>
-        <p data-i18n="autoplayEnabledSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      <section class="card grouped-rule-card">
+        <div class="group-heading"><h2 data-i18n="websiteExceptionsHeading"></h2><p data-i18n="autoplayWebsiteExceptionsHelp"></p></div>
+        <div class="rule-grid">
+          <section class="rule-panel" data-list-section="enabledRules">
+            <h3 data-i18n="enabledSitesHeading"></h3><p data-i18n="autoplayEnabledSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+          <section class="rule-panel" data-list-section="whitelistRules">
+            <h3 data-i18n="disabledSitesHeading"></h3><p data-i18n="autoplayDisabledSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+        </div>
+        <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
       </section>
-      <section class="card rule-card" data-list-section="whitelistRules">
-        <h2 data-i18n="disabledSitesHeading"></h2>
-        <p data-i18n="autoplayDisabledSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      <section class="card grouped-rule-card">
+        <div class="group-heading"><h2 data-i18n="modeByWebsiteHeading"></h2><p data-i18n="autoplayModeByWebsiteHelp"></p></div>
+        <div class="rule-grid">
+          <section class="rule-panel" data-list-section="enhancedRules">
+            <h3 data-i18n="enhancedSitesHeading"></h3><p data-i18n="autoplayEnhancedSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+          <section class="rule-panel" data-list-section="standardRules">
+            <h3 data-i18n="standardSitesHeading"></h3><p data-i18n="autoplayStandardSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+        </div>
+        <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
       </section>
-      <section class="card rule-card" data-list-section="enhancedRules">
-        <h2 data-i18n="enhancedSitesHeading"></h2>
-        <p data-i18n="autoplayEnhancedSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
-      </section>
-      <section class="card rule-card" data-list-section="standardRules">
-        <h2 data-i18n="standardSitesHeading"></h2>
-        <p data-i18n="autoplayStandardSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
-      </section>
-      <section class="card rule-card" data-list-section="permanentAudioAllowRules">
+      <section class="card grouped-rule-card audio-rule-card">
         <h2 data-i18n="audioAllowHeading"></h2>
         <p data-i18n="audioAllowHelp"></p>
         <label class="preference-row" for="audioAutoplayAllSites">
           <span><strong data-i18n="audioAllowAllSitesHeading"></strong><small data-i18n="audioAllowAllSitesHelp"></small></span>
           <span class="switch"><input id="audioAutoplayAllSites" type="checkbox"><span></span></span>
         </label>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+        <section class="rule-panel" data-list-section="permanentAudioAllowRules">
+          <h3 data-i18n="audioAllowedSitesHeading"></h3><p data-i18n="audioAllowedSitesHelp"></p>
+          <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+          <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+        </section>
+        <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
       </section>
     </div>
     <div class="sidebar">
       <aside class="help card">
-        <h2 data-i18n="helpHeading"></h2>
-        <p data-i18n="autoplayHelpStandard"></p><p data-i18n="autoplayHelpEnhanced"></p><p data-i18n="autoplayHelpSound"></p>
+        <h2 data-i18n="setupGuideHeading"></h2>
+        <ol class="flow-list"><li data-i18n="autoplaySetupStepDefault"></li><li data-i18n="autoplaySetupStepExceptions"></li><li data-i18n="autoplaySetupStepEnhanced"></li><li data-i18n="autoplaySetupStepAudio"></li></ol>
         <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="autoplayPrivacy"></p>
       </aside>
       <section class="card compact language-card">

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.5 — 2026-08-30
+
+- Added the Cosmic Gemini logo above the centered project title in both the English and Simplified Chinese READMEs.
+
+## 3.1.3 — 2026-08-30
+
+- Redesigned Native Scroll and No Autoplay settings around a clear sequence: choose the global default, add website activation exceptions, then apply mode exceptions only where needed. Opposing rule lists now share compact paired cards instead of appearing as a long stack of separate sections.
+- Moved No Autoplay audio autoplay permissions into their own final step and replaced the general help copy with a concise setup guide that follows the page flow.
+- Promoted Any Copy Enhanced to the primary-product color tier in the popup, giving its inactive icon the same visual weight as Any Copy, Image Download, and Video Download.
+
+## 3.1.2 — 2026-08-30
+
+- Reorganized the English and Simplified Chinese READMEs into shorter, topic-focused paragraphs so product capabilities, usage, website rules, privacy details, and compatibility information are easier to scan.
+
 ## 3.1.1 — 2026-08-30
 
 - Redesigned the popup as two four-button rows and moved All Settings beside the Cosmic Gemini wordmark. The first row contains Native Scroll, Native Scroll Enhanced, No Autoplay, and No Autoplay Enhanced. The second contains Any Copy, Any Copy Enhanced, Image Download, and Video Download.

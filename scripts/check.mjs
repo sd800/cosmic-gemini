@@ -26,7 +26,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '3.1.1');
+assert.equal(manifest.version, '3.1.5');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -122,6 +122,7 @@ const popupHtml = await readFile(join(extension, 'popup.html'), 'utf8');
 assert.match(popupHtml, /id="all-settings"[\s\S]*id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"/);
 assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 2, 'Popup must contain two feature rows');
 assert.match(popupHtml, /id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"/);
+assert.match(popupHtml, /class="feature-status feature-toggle primary-product" id="anyCopyEnhanced-status"/);
 assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_FEATURE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_ENHANCED'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_SITE_FEATURE'/);
@@ -167,6 +168,13 @@ assert.match(settingsSource, /pendingControls/);
 assert.match(settingsSource, /data-settings-card/);
 assert.match(settingsSource, /section\.dataset\.featureId/);
 assert.match(settingsSource, /type: 'UI_RESET_ALL_SETTINGS'/);
+for (const name of ['native-scroll.html', 'no-autoplay.html']) {
+  const html = await readFile(join(extension, 'settings', name), 'utf8');
+  assert.equal([...html.matchAll(/class="card grouped-rule-card/g)].length, name === 'no-autoplay.html' ? 3 : 2);
+  assert.match(html, /data-i18n="defaultBehaviorHeading"/);
+  assert.match(html, /data-i18n="websiteExceptionsHeading"[\s\S]*data-i18n="modeByWebsiteHeading"/);
+  assert.match(html, /class="flow-list"/);
+}
 assert.match(workerSource, /if \(message\.type === 'UI_RESET_ALL_SETTINGS'\)/);
 assert.match(await readFile(join(extension, 'settings', 'all-settings.html'), 'utf8'), /language-card[\s\S]*id="reset-settings-card"/);
 assert.match(imageWorkspaceSource, /let scanPending = false/);

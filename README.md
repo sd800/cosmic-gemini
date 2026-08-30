@@ -1,6 +1,10 @@
-# Cosmic Gemini
+<p align="center">
+  <img src="extension/icons/icon-128.png" width="112" height="112" alt="Cosmic Gemini logo">
+</p>
 
-[简体中文](README_zh.md)
+<h1 align="center">Cosmic Gemini</h1>
+
+<p align="center"><a href="README_zh.md">Simplified Chinese</a></p>
 
 Cosmic Gemini is a personal Chrome toolkit for a calmer, more controllable web. It combines Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and a collection of smaller tools called Satellites.
 
@@ -20,17 +24,31 @@ Background: Pages can begin playing video or sound before you ask, interrupting 
 
 ### Any Copy
 
-Any Copy restores text selection and copy shortcuts on websites that disable them. It also prevents pages from replacing copied text or adding unwanted promotional content. Any Copy Enhanced is an independently controlled reading mode that rebuilds a page as a clean, static view with selectable text and unobstructed images. The original page remains available underneath and returns immediately when Any Copy Enhanced ends.
+Any Copy restores text selection and copy shortcuts on websites that disable them. It also prevents pages from replacing copied text or adding unwanted promotional content.
+
+Any Copy Enhanced is an independently controlled reading mode that rebuilds a page as a clean, static view with selectable text and unobstructed images. The original page remains available underneath and returns immediately when Any Copy Enhanced ends.
 
 Background: Some websites disable selection, block copy shortcuts, or rewrite clipboard content with unwanted additions. Any Copy brings ordinary selection and copying back under your control.
 
 ### Image Download
 
-Image Download finds images in the current tab and opens a dedicated workspace in Chrome’s Side Panel by default, keeping the source page visible while you preview, filter, select, and download them. You can instead use a separate tab from Settings or open the full-page workspace directly from the Side Panel. It recognizes responsive and lazy-loaded sources, linked originals, CSS images, open shadow roots, frames, inline SVG, canvas captures, structured metadata, and images observed during the active session. Related variants stay together, with the strongest original candidate recommended by default. You can rescan, reveal lazy-loaded images, capture part of the visible page, preserve original formats or convert compatible images locally, and download selections separately or in one ZIP file.
+Image Download finds images in the current tab and opens a dedicated workspace in Chrome’s Side Panel by default. The source page stays visible while you preview, filter, select, and download images. You can choose a separate tab in Settings or open the full-page workspace from the Side Panel.
+
+Discovery covers responsive and lazy-loaded sources, linked originals, CSS images, open shadow roots, frames, inline SVG, canvas captures, structured metadata, and images observed during the active session. Related variants stay together, and the strongest original candidate is recommended by default.
+
+You can rescan the page, reveal lazy-loaded images, capture part of the visible page, preserve original formats, or convert compatible images locally. Selected images can be downloaded separately or combined in one ZIP file.
 
 ### Video Download
 
-Video Download finds downloadable media in the current tab and opens its format list immediately. A page thumbnail and title identify the current video, while the quality menu keeps one preferred option for each main resolution and offers Audio only when a compatible track is available. Codec, container, duration, and known file-size details remain visible for the selected option without crowding the menu or pre-downloading media for metadata. It supports direct files, HLS, DASH, separate video and audio tracks, subtitles, and live snapshots, with local stream assembly and remuxing after you select a download. While a file is being prepared, the red cancel control stops its network reading and local processing before Chrome begins the download. Dedicated discovery covers YouTube, Bilibili, Vimeo, Facebook, Instagram, OK, VK Video, Canva, iQIYI, TwitCasting, Osmosis, Kick, Chaturbate, and compatible wrapped HLS players. Bilibili formats can be found from embedded playback data or the public video API without requiring the player to start. Detection remains limited to the active tab session and follows same-site navigation until you stop it or leave the website.
+Video Download finds downloadable media in the current tab and opens its format list immediately. A page thumbnail and title identify the current video. The quality menu keeps one preferred option for each main resolution and offers Audio only when a compatible track is available.
+
+Codec, container, duration, and known file-size details remain visible for the selected option without crowding the menu or pre-downloading media for metadata. Direct files, HLS, DASH, separate video and audio tracks, subtitles, and live snapshots are supported. Stream assembly and remuxing begin locally only after you select a download.
+
+While a file is being prepared, the red cancel control stops its network reading and local processing before Chrome begins the download.
+
+Dedicated discovery covers YouTube, Bilibili, Vimeo, Facebook, Instagram, OK, VK Video, Canva, iQIYI, TwitCasting, Osmosis, Kick, Chaturbate, and compatible wrapped HLS players. Bilibili formats can be found from embedded playback data or the public video API without requiring the player to start.
+
+Detection remains limited to the active tab session. It follows same-site navigation until you stop it or leave the website.
 
 ### Satellites
 
@@ -65,23 +83,46 @@ Chrome requests access to HTTP and HTTPS pages so the tools can begin before ord
 
 ## Use
 
-The popup uses two compact rows.
+The popup uses two compact rows for current-page controls.
+
+### Current-site controls
 
 - The first row contains **Native Scroll**, **Native Scroll Enhanced**, **No Autoplay**, and **No Autoplay Enhanced**. Each control changes only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 - The second row contains **Any Copy**, **Any Copy Enhanced**, **Image Download**, and **Video Download**.
-- **All Settings** sits beside the Cosmic Gemini wordmark. It opens the product directory and the command for restoring all settings and website rules to their defaults.
-- Any Copy and Any Copy Enhanced are enabled independently for the current website. They may run together, and turning either one off does not change the other. Their website rules share one clearly divided settings page.
-- Image Download is enabled for the current tab by clicking its product icon. Its workspace opens in the Side Panel by default, while Settings can use a separate tab instead. It remains active through same-site navigation until you stop it, close the source tab, or leave the website.
-- Video Download is enabled for the current tab by clicking its product icon. Its media list opens immediately, remains available through same-site navigation, and closes when you stop it, close the tab, or leave the website.
-- All Settings opens a single navigation page for Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login is off by default. After you enable it, the task runs on its own schedule while Chrome and the computer are running. After any length of downtime, one current-day task catches up when Chrome can next run; earlier missed days are never replayed.
 
-Popup product controls use only neutral and blue icon states. Primary products use a stronger neutral color than their secondary Enhanced controls. Blue means that the product is available to work in the current tab. A blue control with a background is active and may continue changing or displaying page behavior. Image Download and Video Download use blue without a background while their current-tab sessions are active. The main Cosmic Gemini mark remains unchanged, and the existing green toolbar artwork remains available for the separate browser-toolbar activity indicator.
+Any Copy and Any Copy Enhanced are enabled independently for the current website. They may run together, and turning either one off does not change the other. Their website rules share one clearly divided settings page.
+
+### Download sessions
+
+Click Image Download to start finding images in the current tab. Its workspace opens in the Side Panel by default, although Settings can use a separate tab instead. The session remains active through same-site navigation until you stop it, close the source tab, or leave the website.
+
+Click Video Download to start finding video in the current tab and open its media list. The session remains active through same-site navigation until you stop it, close the tab, or leave the website.
+
+### Settings and scheduled tools
+
+**All Settings** sits beside the Cosmic Gemini wordmark. It opens the product directory and the command for restoring all settings and website rules to their defaults.
+
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login is off by default. After you enable it, the task runs on its own schedule while Chrome and the computer are running.
+
+After any length of downtime, one current-day task catches up when Chrome can next run. Earlier missed days are never replayed.
+
+Native Scroll and No Autoplay settings follow the same order: choose the default behavior, add website exceptions, then select a different protection mode only where needed. No Autoplay keeps audio autoplay permissions in a separate section.
+
+Popup product controls use only neutral and blue icon states. Primary products, including Any Copy Enhanced, use a stronger neutral color than the secondary mode controls for Native Scroll and No Autoplay.
+
+Blue means that the product is available to work in the current tab. A blue control with a background is active and may continue changing or displaying page behavior. Image Download and Video Download use blue without a background while their current-tab sessions are active.
+
+The main Cosmic Gemini mark remains unchanged. The existing green toolbar artwork remains available for the separate browser-toolbar activity indicator.
 
 ### Website rules
 
 `example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save exact current-site overrides, while Settings also accepts wildcard rules.
 
-Native Scroll and No Autoplay each have a global default plus four website-rule lists: Enabled sites, Disabled sites, Enhanced mode sites, and Standard mode sites. An exact rule takes priority over a wildcard, followed by the most specific wildcard. At equal specificity, Disabled takes priority over Enabled and Standard takes priority over Enhanced. These pairs make it possible to create a narrow exception inside a broader rule. The popup's primary control adds or removes the exact current-site activation override without changing the global default. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
+Native Scroll and No Autoplay each have a global default plus four website-rule lists: Keep active, Keep inactive, Use Enhanced mode, and Keep Standard mode.
+
+An exact rule takes priority over a wildcard, followed by the most specific wildcard. At equal specificity, Disabled takes priority over Enabled and Standard takes priority over Enhanced. These pairs make it possible to create a narrow exception inside a broader rule.
+
+The popup's primary control adds or removes the exact current-site activation override without changing the global default. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
 
 Any Copy and Any Copy Enhanced keep separate activation lists. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
 
@@ -91,11 +132,19 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, and Video Download run locally. Cosmic Gemini stores only product settings, website rules you choose, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab and delete them when that session ends. Cosmic Gemini does not keep browsing history or an activity log or use analytics. Bili Daily Login does not inspect whether or when you open Bilibili. When enabled, its background schedule contacts Bilibili while Chrome and the computer are running, using the account already signed in to Chrome; it never reads or stores your Bilibili password. Stored website rules contain hostnames rather than complete URLs.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, and Video Download run locally. Cosmic Gemini stores only product settings, website rules you choose, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs.
+
+Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
+
+Cosmic Gemini does not keep browsing history or an activity log or use analytics. Bili Daily Login does not inspect whether or when you open Bilibili.
+
+When Bili Daily Login is enabled, its background schedule contacts Bilibili while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 
 ## Compatibility
 
-Cosmic Gemini targets Chrome 120 or later on macOS, Windows, and Linux. Chrome prevents extensions from running on internal pages such as `chrome://`, the Chrome Web Store, and some built-in viewers. Image Download and Video Download can access compatible sources available to the current browser session. Video Download does not decrypt DRM, use private third-party rule services, or reproduce another extension’s licensing and paid-feature checks.
+Cosmic Gemini targets Chrome 120 or later on macOS, Windows, and Linux. Chrome prevents extensions from running on internal pages such as `chrome://`, the Chrome Web Store, and some built-in viewers.
+
+Image Download and Video Download can access compatible sources available to the current browser session. Video Download does not decrypt DRM, use private third-party rule services, or reproduce another extension’s licensing and paid-feature checks.
 
 ## Development
 

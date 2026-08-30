@@ -1,5 +1,19 @@
 # 更新日志
 
+## 3.1.5 — 2026-08-30
+
+- 在英文与简体中文 README 顶部加入 Cosmic Gemini 标志，并将项目标题居中显示。
+
+## 3.1.3 — 2026-08-30
+
+- 重新设计 Native Scroll 与 No Autoplay 设置页。页面会依次引导用户设置全局默认状态、网站启用例外和模式例外。方向相反的规则现在会并列收纳在同一张卡片中，不再逐项向下堆叠。
+- 将 No Autoplay 的声音自动播放权限独立为最后一步，并把右侧帮助内容改为与页面顺序一致的简明设置指南。
+- Any Copy 强力模式在控制窗口中改为一级功能配色，未启用时会与 Any Copy、Image Download 和 Video Download 保持相同的视觉层级。
+
+## 3.1.2 — 2026-08-30
+
+- 重新整理英文与简体中文 README，将功能说明、使用方法、网站规则、隐私信息和兼容性内容拆分为主题明确的短段落，方便浏览和查找。
+
 ## 3.1.1 — 2026-08-30
 
 - 将控制窗口重新设计为两行，每行四个按钮，并把全部设置移动到 Cosmic Gemini 名称右侧。第一行依次排列 Native Scroll、Native Scroll 强力模式、No Autoplay 和 No Autoplay 强力模式，第二行依次排列 Any Copy、Any Copy 强力模式、Image Download 和 Video Download。

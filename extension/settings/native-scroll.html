@@ -28,41 +28,49 @@
   </header>
   <main class="layout">
     <div class="primary">
-      <section class="card">
+      <section class="card default-card">
         <div class="section-heading">
-          <div><h1 data-i18n="nativeStandardHeading"></h1><p data-i18n="nativeProtectionHelp"></p></div>
+          <div><span class="section-kicker" data-i18n="defaultBehaviorHeading"></span><h1 data-i18n="nativeScrollName"></h1><p data-i18n="nativeProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
-      <section class="card rule-card" data-list-section="enabledRules">
-        <h2 data-i18n="enabledSitesHeading"></h2>
-        <p data-i18n="nativeEnabledSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      <section class="card grouped-rule-card">
+        <div class="group-heading"><h2 data-i18n="websiteExceptionsHeading"></h2><p data-i18n="nativeWebsiteExceptionsHelp"></p></div>
+        <div class="rule-grid">
+          <section class="rule-panel" data-list-section="enabledRules">
+            <h3 data-i18n="enabledSitesHeading"></h3><p data-i18n="nativeEnabledSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+          <section class="rule-panel" data-list-section="whitelistRules">
+            <h3 data-i18n="disabledSitesHeading"></h3><p data-i18n="nativeDisabledSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+        </div>
+        <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
       </section>
-      <section class="card rule-card" data-list-section="whitelistRules">
-        <h2 data-i18n="disabledSitesHeading"></h2>
-        <p data-i18n="nativeDisabledSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
-      </section>
-      <section class="card rule-card" data-list-section="enhancedRules">
-        <h2 data-i18n="enhancedSitesHeading"></h2>
-        <p data-i18n="nativeEnhancedSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
-      </section>
-      <section class="card rule-card" data-list-section="standardRules">
-        <h2 data-i18n="standardSitesHeading"></h2>
-        <p data-i18n="nativeStandardSitesHelp"></p>
-        <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-        <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="caption" data-i18n="exactRuleHelp"></p>
+      <section class="card grouped-rule-card">
+        <div class="group-heading"><h2 data-i18n="modeByWebsiteHeading"></h2><p data-i18n="nativeModeByWebsiteHelp"></p></div>
+        <div class="rule-grid">
+          <section class="rule-panel" data-list-section="enhancedRules">
+            <h3 data-i18n="enhancedSitesHeading"></h3><p data-i18n="nativeEnhancedSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+          <section class="rule-panel" data-list-section="standardRules">
+            <h3 data-i18n="standardSitesHeading"></h3><p data-i18n="nativeStandardSitesHelp"></p>
+            <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+            <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+          </section>
+        </div>
+        <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
       </section>
     </div>
     <div class="sidebar">
       <aside class="help card">
-        <h2 data-i18n="helpHeading"></h2>
-        <p data-i18n="nativeHelpStandard"></p><p data-i18n="nativeHelpEnhanced"></p><p data-i18n="nativeHelpIndicator"></p>
+        <h2 data-i18n="setupGuideHeading"></h2>
+        <ol class="flow-list"><li data-i18n="nativeSetupStepDefault"></li><li data-i18n="nativeSetupStepExceptions"></li><li data-i18n="nativeSetupStepEnhanced"></li></ol>
         <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="nativePrivacy"></p>
       </aside>
       <section class="card compact language-card">

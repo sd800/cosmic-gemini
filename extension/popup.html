@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-US" data-locale-pending="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Native Scroll</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="popup-shell">
+    <div class="identity">
+      <span class="brand-mark" aria-hidden="true"><img class="brand-icon" src="icons/icon-128.png" alt=""></span>
+      <strong data-i18n="appName">Native Scroll</strong>
+    </div>
+    <nav class="actions" aria-label="Native Scroll">
+      <button class="icon-button" id="power" type="button"></button>
+      <button class="icon-button" id="mode" type="button"></button>
+      <button class="icon-button" id="whitelist" type="button"></button>
+      <button class="icon-button" id="settings" type="button"></button>
+    </nav>
+    <span class="sr-only" id="live" aria-live="polite"></span>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+body { width: 224px; }
+.popup-shell {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.identity strong { font-size: 15px; font-weight: 680; white-space: nowrap; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+#mode[data-mode="strong"] { color: var(--blue); }

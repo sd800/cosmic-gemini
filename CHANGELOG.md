@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.11 — 2026-08-30
+
+- Corrected the gray icon tile in All Settings so layered artwork uses the tile’s actual surface instead of the surrounding card background in dark mode. The Any Copy artwork itself is unchanged.
+
 ## 3.1.10 — 2026-08-30
 
 - Matched the Native Scroll and No Autoplay intro purpose statements to the muted color used by the supporting text below them.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.26 — 2026-08-30
+
+- Removed the standalone “Background:” label from the Bili Daily Login introduction so Satellite descriptions read as direct, continuous explanations.
+
 ## 3.1.25 — 2026-08-30
 
 - Reorganized the extension source by responsibility. `manifest.json` is now the only file stored directly inside `extension`. The service worker resides in `background`, the control popup in `popup`, shared UI and localization modules in `shared`, and the Image Download workspace in `workspaces/image-download`. All Chrome entry paths, runtime URLs, imports, checks, and documentation were updated without changing product behavior.

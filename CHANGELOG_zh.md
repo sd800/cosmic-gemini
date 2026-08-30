@@ -1,5 +1,9 @@
 # 更新日志
 
+## 3.1.26 — 2026-08-30
+
+- 移除 Bili Daily Login 介绍中单独的“Background:”标签，使 Satellites 子功能的说明直接连贯地呈现。
+
 ## 3.1.25 — 2026-08-30
 
 - 按职责重新整理插件源码。`extension` 目录下直接存放的文件现在只有 `manifest.json`。Service Worker 位于 `background`，控制窗口位于 `popup`，共享界面与本地化模块位于 `shared`，Image Download 工作区位于 `workspaces/image-download`。同步更新 Chrome 入口、运行时网址、模块引用、检查脚本和文档。产品行为保持不变。

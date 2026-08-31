@@ -2,6 +2,7 @@
   const READY = 'cosmic-gemini:native-scroll:bridge-ready';
   const MAIN_READY = 'cosmic-gemini:native-scroll:main-ready';
   const CONFIGURE = 'cosmic-gemini:native-scroll:configure';
+  const DISPOSE = 'cosmic-gemini:native-scroll:dispose';
   const SUPPRESSED = 'cosmic-gemini:native-scroll:suppressed';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.native-scroll.runtime');
 
@@ -46,16 +47,19 @@
       this.listenerRegistry = new WeakMap();
       this.originalAddEventListener = EventTarget.prototype.addEventListener;
       this.originalRemoveEventListener = EventTarget.prototype.removeEventListener;
+      this.patchedAddEventListener = null;
+      this.patchedRemoveEventListener = null;
+      this.listenerMethodsPatched = false;
       this.onWheel = this.onWheel.bind(this);
       this.onTouchStart = this.onTouchStart.bind(this);
       this.onTouchMove = this.onTouchMove.bind(this);
       this.onMutation = this.onMutation.bind(this);
       this.onConfigure = this.onConfigure.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
+      this.onDispose = this.onDispose.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(READY, this.onBridgeReady, true);
-      this.patchListenerMethods();
-      this.patchScrollMethods();
+      window.addEventListener(DISPOSE, this.onDispose, true);
     }
 
     announce() {
@@ -64,6 +68,15 @@
 
     onBridgeReady() {
       this.announce();
+    }
+
+    onDispose(event) {
+      if (event?.detail !== this.token) return;
+      this.disable();
+      window.removeEventListener(CONFIGURE, this.onConfigure, true);
+      window.removeEventListener(READY, this.onBridgeReady, true);
+      window.removeEventListener(DISPOSE, this.onDispose, true);
+      try { delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
@@ -88,6 +101,7 @@
     enable(mode) {
       this.active = true;
       this.mode = mode;
+      if (!this.listenerMethodsPatched) this.patchListenerMethods();
       if (!this.originalMethods.length) this.patchScrollMethods();
       this.reported = false;
       this.originalAddEventListener.call(window, 'wheel', this.onWheel, { capture: true, passive: true });
@@ -99,7 +113,7 @@
     }
 
     disable() {
-      if (!this.active && !this.style && this.savedStyles.size === 0 && this.originalMethods.length === 0) return;
+      if (!this.active && !this.style && this.savedStyles.size === 0 && this.originalMethods.length === 0 && !this.listenerMethodsPatched) return;
       this.active = false;
       this.reported = false;
       this.touchY = null;
@@ -120,6 +134,7 @@
       this.restoreStyles();
       this.normalizedWrappers.clear();
       this.restoreScrollMethods();
+      this.restoreListenerMethods();
     }
 
     observeDocument() {
@@ -250,20 +265,40 @@
     }
 
     patchListenerMethods() {
+      if (this.listenerMethodsPatched) return;
       const runtime = this;
       const originalAdd = this.originalAddEventListener;
       const originalRemove = this.originalRemoveEventListener;
-      EventTarget.prototype.addEventListener = function trackedAdd(type, listener, options) {
+      this.patchedAddEventListener = function trackedAdd(type, listener, options) {
         if (runtime.isDisallowedUnload(type)) return undefined;
         const result = Reflect.apply(originalAdd, this, [type, listener, options]);
         runtime.recordListener(this, type, listener, options);
         return result;
       };
-      EventTarget.prototype.removeEventListener = function trackedRemove(type, listener, options) {
+      this.patchedRemoveEventListener = function trackedRemove(type, listener, options) {
         const result = Reflect.apply(originalRemove, this, [type, listener, options]);
         runtime.forgetListener(this, type, listener, options);
         return result;
       };
+      EventTarget.prototype.addEventListener = this.patchedAddEventListener;
+      EventTarget.prototype.removeEventListener = this.patchedRemoveEventListener;
+      this.listenerMethodsPatched = true;
+    }
+
+    restoreListenerMethods() {
+      if (!this.listenerMethodsPatched) return;
+      try {
+        if (EventTarget.prototype.addEventListener === this.patchedAddEventListener) {
+          EventTarget.prototype.addEventListener = this.originalAddEventListener;
+        }
+        if (EventTarget.prototype.removeEventListener === this.patchedRemoveEventListener) {
+          EventTarget.prototype.removeEventListener = this.originalRemoveEventListener;
+        }
+      } catch {}
+      this.patchedAddEventListener = null;
+      this.patchedRemoveEventListener = null;
+      this.listenerMethodsPatched = false;
+      this.listenerRegistry = new WeakMap();
     }
 
     isDisallowedUnload(type) {
@@ -446,6 +481,6 @@
   }
 
   const runtime = new NativeScrollRuntime();
-  Object.defineProperty(window, RUNTIME_KEY, { value: runtime, configurable: false });
+  Object.defineProperty(window, RUNTIME_KEY, { value: runtime, configurable: true });
   runtime.announce();
 })();

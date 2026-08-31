@@ -2,6 +2,7 @@
   const READY = 'cosmic-gemini:any-copy-enhanced:bridge-ready';
   const MAIN_READY = 'cosmic-gemini:any-copy-enhanced:main-ready';
   const CONFIGURE = 'cosmic-gemini:any-copy-enhanced:configure';
+  const DISPOSE = 'cosmic-gemini:any-copy-enhanced:dispose';
   const INTERVENED = 'cosmic-gemini:any-copy-enhanced:intervened';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.any-copy-enhanced.runtime');
   const ALLOWED = new Set([
@@ -39,8 +40,10 @@
       this.originalOverflow = null;
       this.onConfigure = this.onConfigure.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
+      this.onDispose = this.onDispose.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(READY, this.onBridgeReady, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
     }
 
     announce() {
@@ -50,6 +53,16 @@
     onBridgeReady() {
       this.announce();
       if (this.reported) window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
+    }
+
+    onDispose(event) {
+      if (event?.detail !== this.token) return;
+      this.active = false;
+      this.hideReader();
+      window.removeEventListener(CONFIGURE, this.onConfigure, true);
+      window.removeEventListener(READY, this.onBridgeReady, true);
+      window.removeEventListener(DISPOSE, this.onDispose, true);
+      try { delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
@@ -211,6 +224,6 @@
   }
 
   const runtime = new AnyCopyEnhancedRuntime();
-  window[RUNTIME_KEY] = runtime;
+  Object.defineProperty(window, RUNTIME_KEY, { value: runtime, configurable: true });
   runtime.announce();
 })();

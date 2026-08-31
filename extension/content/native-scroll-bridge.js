@@ -1,16 +1,17 @@
 (() => {
-  const BRIDGE_KEY = Symbol.for('cosmic-gemini.any-copy.bridge');
+  const BRIDGE_KEY = Symbol.for('cosmic-gemini.native-scroll.bridge');
   if (globalThis[BRIDGE_KEY]) return;
-  const READY = 'cosmic-gemini:any-copy:bridge-ready';
-  const MAIN_READY = 'cosmic-gemini:any-copy:main-ready';
-  const CONFIGURE = 'cosmic-gemini:any-copy:configure';
-  const DISPOSE = 'cosmic-gemini:any-copy:dispose';
-  const INTERVENED = 'cosmic-gemini:any-copy:intervened';
+  const READY = 'cosmic-gemini:native-scroll:bridge-ready';
+  const MAIN_READY = 'cosmic-gemini:native-scroll:main-ready';
+  const CONFIGURE = 'cosmic-gemini:native-scroll:configure';
+  const DISPOSE = 'cosmic-gemini:native-scroll:dispose';
+  const INTERVENED = 'cosmic-gemini:native-scroll:suppressed';
   let token = '';
   let disposed = false;
 
   const dispatchConfig = config => {
-    if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
+    if (!token) return;
+    window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
   };
   const dispose = () => {
     if (disposed) return;
@@ -25,10 +26,10 @@
   const requestConfig = async () => {
     try {
       const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE' });
-      const config = response?.result?.anyCopy;
+      const config = response?.result?.nativeScroll;
       if (!response?.ok || !config?.active) { dispose(); return; }
       dispatchConfig(config);
-      if (window === top) await chrome.runtime.sendMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'anyCopy', active: true });
+      await chrome.runtime.sendMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'nativeScroll', active: true });
     } catch { dispose(); }
   };
   function onMainReady(event) {
@@ -37,12 +38,12 @@
     void requestConfig();
   }
   function onIntervened(event) {
-    if (!token || event.detail !== token || window !== top) return;
-    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopy' }).catch(() => {});
+    if (!token || event.detail !== token) return;
+    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'nativeScroll' }).catch(() => {});
   }
   function onMessage(message) {
-    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'anyCopy') dispose();
-    else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'anyCopy') void requestConfig();
+    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'nativeScroll') dispose();
+    else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'nativeScroll') void requestConfig();
   }
 
   window.addEventListener(MAIN_READY, onMainReady, true);

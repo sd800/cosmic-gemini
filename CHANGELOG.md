@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.5.1 — 2026-08-31
+
+- Added one shared whitelist to Native Scroll and No Autoplay. It appears in both settings pages, takes priority over product-specific website rules, and preserves those rules for use after a website is removed.
+- Added `background/central.js` as the single controller for every product, popup action, settings command, All Settings command, scheduled task, download session, browser-tab lookup, stored interface preference, and page-runtime decision. `content/central-page.js` is now the only declarative page entry and contains no product behavior or independent storage observer.
+- Central now injects Native Scroll, No Autoplay, Any Copy, and Any Copy Enhanced independently only when each product is active in that page context. An inactive product does not start its bridge or runtime. Disabling an active product restores its page changes and disposes its feature code.
+- Matching shared-whitelist websites receive no Native Scroll or No Autoplay page hooks, observers, style changes, or media intervention. The popup keeps both products unavailable there while click-activated tools remain available when explicitly started.
+- Renamed “Website behavior” to “Website settings” in both settings pages.
+
 ## 3.1.38 — 2026-08-31
 
 - Added each product's neutral icon beside the title in the introduction card of every dedicated settings page, including All Settings.

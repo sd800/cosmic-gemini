@@ -78,9 +78,11 @@ const expandingVideoManifests = new Set();
 const activeVideoTabs = new Set();
 const activeImageTabs = new Set();
 const downloadViewPorts = new Map();
+const centralUiPorts = new Set();
 const pendingVideoNetworkCandidates = new Map();
 const pendingImageNetworkCandidates = new Map();
 const preparedImageSidePanels = new Map();
+const centralRuntimeSyncs = new Map();
 const activeVideoTabsReady = chrome.storage.session.get(null).then(values => {
   for (const [key, value] of Object.entries(values)) {
     if (key.startsWith('videoDownloadSession:') && value?.active === true && Number.isInteger(value.tabId) && downloadScanCollects(value)) {
@@ -96,17 +98,78 @@ const activeImageTabsReady = chrome.storage.session.get(null).then(values => {
   }
 }).catch(() => {});
 
-function sendTabMessage(tabId, message) {
+function sendTabMessage(tabId, message, options = undefined) {
   return new Promise(resolve => {
     try {
-      chrome.tabs.sendMessage(tabId, message, response => {
+      const callback = response => {
         void chrome.runtime.lastError;
         resolve(response);
-      });
+      };
+      if (options) chrome.tabs.sendMessage(tabId, message, options, callback);
+      else chrome.tabs.sendMessage(tabId, message, callback);
     } catch {
       resolve(undefined);
     }
   });
+}
+
+const CENTRAL_PAGE_RUNTIME_FILES = Object.freeze({
+  [FEATURE_IDS.NATIVE_SCROLL]: Object.freeze({
+    bridge: 'content/native-scroll-bridge.js',
+    runtime: 'content/runtime.js'
+  }),
+  [FEATURE_IDS.NO_AUTOPLAY]: Object.freeze({
+    bridge: 'content/no-autoplay-bridge.js',
+    runtime: 'content/no-autoplay-runtime.js'
+  }),
+  [FEATURE_IDS.ANY_COPY]: Object.freeze({
+    bridge: 'content/any-copy-bridge.js',
+    runtime: 'content/any-copy-runtime.js'
+  }),
+  [FEATURE_IDS.ANY_COPY_ENHANCED]: Object.freeze({
+    bridge: 'content/any-copy-enhanced-bridge.js',
+    runtime: 'content/any-copy-enhanced-runtime.js'
+  })
+});
+
+async function setCentralPageRuntime(tabId, frameId, featureId, active) {
+  const options = { frameId };
+  if (!active) {
+    await sendTabMessage(tabId, { type: 'CG_STOP_CENTRAL_FEATURE', featureId }, options);
+    if (frameId === 0) await setFeatureActivity(tabId, featureId, false);
+    return;
+  }
+  const files = CENTRAL_PAGE_RUNTIME_FILES[featureId];
+  const target = { tabId, frameIds: [frameId] };
+  await chrome.scripting.executeScript({ target, files: [files.bridge], world: 'ISOLATED', injectImmediately: true });
+  await chrome.scripting.executeScript({ target, files: [files.runtime], world: 'MAIN', injectImmediately: true });
+  await sendTabMessage(tabId, { type: 'CG_REFRESH_FEATURE_CONFIG', featureId }, options);
+}
+
+async function syncCentralPageRuntimes(tabId, frameId, frameUrl, topUrl = frameUrl) {
+  const syncKey = `${tabId}:${frameId}`;
+  const previous = centralRuntimeSyncs.get(syncKey) || Promise.resolve();
+  const current = previous.catch(() => {}).then(async () => {
+    const settings = await readSettings();
+    const [nativeScroll, noAutoplay, anyCopy, anyCopyEnhanced] = await Promise.all([
+      stateFor(settings, FEATURE_IDS.NATIVE_SCROLL, topUrl, tabId),
+      stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, topUrl, tabId),
+      stateFor(settings, FEATURE_IDS.ANY_COPY, topUrl, tabId),
+      stateFor(settings, FEATURE_IDS.ANY_COPY_ENHANCED, topUrl, tabId)
+    ]);
+    const active = {
+      nativeScroll: frameId === 0 && nativeScroll.active,
+      noAutoplay: frameId === 0 && noAutoplay.active,
+      anyCopy: anyCopy.active,
+      anyCopyEnhanced: frameId === 0 && anyCopyEnhanced.active
+    };
+    await Promise.allSettled(Object.entries(active).map(([featureId, enabled]) =>
+      setCentralPageRuntime(tabId, frameId, featureId, enabled)));
+    return active;
+  });
+  centralRuntimeSyncs.set(syncKey, current);
+  try { return await current; }
+  finally { if (centralRuntimeSyncs.get(syncKey) === current) centralRuntimeSyncs.delete(syncKey); }
 }
 
 function updateAction(method, details) {
@@ -143,7 +206,12 @@ async function saveSettings(value) {
 async function refreshOpenPages() {
   const tabs = await chrome.tabs.query({});
   await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab =>
-    sendTabMessage(tab.id, { type: 'CG_REFRESH_CONFIG' })));
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id, allFrames: true },
+      world: 'ISOLATED',
+      injectImmediately: true,
+      func: () => globalThis[Symbol.for('cosmic-gemini.central')]?.sync?.()
+    }).catch(() => {})));
 }
 
 async function mutateSettings(update, refresh = true) {
@@ -226,7 +294,14 @@ async function setFeatureActivity(tabId, featureId, value) {
   const key = activityKey(tabId);
   if (activity.nativeScroll || activity.noAutoplay || activity.anyCopy || activity.anyCopyEnhanced || activity.imageDownload || activity.videoDownload) await chrome.storage.session.set({ [key]: activity });
   else await chrome.storage.session.remove(key);
+  notifyCentralUi(tabId);
   await renderToolbar(tabId, activity);
+}
+
+function notifyCentralUi(tabId) {
+  for (const port of centralUiPorts) {
+    try { port.postMessage({ type: 'central-state-changed', tabId }); } catch {}
+  }
 }
 
 async function clearTabActivity(tabId) {
@@ -342,6 +417,8 @@ async function saveVideoSession(session) {
   if (downloadScanCollects(session)) activeVideoTabs.add(session.tabId);
   else activeVideoTabs.delete(session.tabId);
   await chrome.storage.session.set({ [videoSessionKey(session.tabId)]: session });
+  notifyDownloadViews('videoDownload', session.tabId);
+  notifyCentralUi(session.tabId);
 }
 
 function sortVideoCandidates(candidates) {
@@ -882,11 +959,11 @@ async function handleVideoDownloadChanged(delta) {
     candidate.status = delta.state.current === 'complete' ? 'complete' : 'failed';
     candidate.error = delta.error?.current || '';
     session.updatedAt = Date.now();
-    await chrome.storage.session.set({ [key]: session });
+    await saveVideoSession(session);
     if (candidate.artifactId) {
       await sendVideoOffscreen({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: candidate.artifactId }).catch(() => {});
       candidate.artifactId = '';
-      await chrome.storage.session.set({ [key]: session });
+      await saveVideoSession(session);
       await maybeCloseVideoOffscreen();
     }
   }
@@ -912,6 +989,8 @@ async function saveImageSession(session) {
   if (downloadScanCollects(session)) activeImageTabs.add(session.tabId);
   else activeImageTabs.delete(session.tabId);
   await chrome.storage.session.set({ [imageSessionKey(session.tabId)]: session });
+  notifyDownloadViews('imageDownload', session.tabId);
+  notifyCentralUi(session.tabId);
 }
 
 function clearPendingNetworkCandidates(collection, tabId) {
@@ -939,6 +1018,14 @@ function downloadViewKey(product, tabId) {
 function hasVisibleDownloadView(product, tabId) {
   const clients = downloadViewPorts.get(downloadViewKey(product, tabId));
   return !!clients && [...clients.values()].some(Boolean);
+}
+
+function notifyDownloadViews(product, tabId) {
+  const clients = downloadViewPorts.get(downloadViewKey(product, tabId));
+  if (!clients) return;
+  for (const port of clients.keys()) {
+    try { port.postMessage({ type: 'central-state-changed', tabId }); } catch {}
+  }
 }
 
 async function readDownloadSession(product, tabId) {
@@ -1391,7 +1478,7 @@ async function pageStates(url, tabId) {
     videoDownloadState(settings, tabId, url),
     readActivity(tabId)
   ]);
-  return { nativeScroll, noAutoplay, anyCopy, anyCopyEnhanced, imageDownload, videoDownload, satellites: settings.satellites, activity };
+  return { nsna: settings.nsna, nativeScroll, noAutoplay, anyCopy, anyCopyEnhanced, imageDownload, videoDownload, satellites: settings.satellites, activity };
 }
 
 async function requestBilibiliJson(url) {
@@ -1580,6 +1667,11 @@ chrome.runtime.onStartup.addListener(() => {
 void clearLegacyAudioPromptState().catch(() => {});
 
 chrome.runtime.onConnect.addListener(port => {
+  if (port.name === 'central-ui:popup') {
+    centralUiPorts.add(port);
+    port.onDisconnect.addListener(() => centralUiPorts.delete(port));
+    return;
+  }
   connectDownloadView(port);
 });
 
@@ -1721,6 +1813,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const senderExtensionUrl = String(sender.url || '');
     const senderTabId = sender.tab?.id;
 
+    if (message.type === 'CG_SYNC_CENTRAL') {
+      if (!Number.isInteger(senderTabId) || !Number.isInteger(sender.frameId) || !hostnameFromUrl(sender.url || message.url || '')) {
+        throw new Error('The central page controller is unavailable.');
+      }
+      const result = await syncCentralPageRuntimes(
+        senderTabId,
+        sender.frameId,
+        sender.url || message.url,
+        sender.tab?.url || sender.url || message.url
+      );
+      sendResponse({ ok: true, result });
+      return;
+    }
+
     if (message.type === 'CG_PAGE_STATE') {
       sendResponse({ ok: true, result: await pageStates(senderUrl, senderTabId) });
       return;
@@ -1777,6 +1883,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         message.progress
       );
       sendResponse({ ok: true, result: { updated: true } });
+      return;
+    }
+    if (message.type === 'UI_GET_ACTIVE_PAGE_STATE') {
+      if (!senderExtensionUrl.startsWith(chrome.runtime.getURL('popup/'))) {
+        throw new Error('The active page can only be read from the popup.');
+      }
+      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      const result = await pageStates(tab?.url || '', tab?.id);
+      if (Number.isInteger(tab?.id)
+        && result.imageDownload?.supported
+        && result.imageDownload.workspaceMode !== 'page') {
+        await prepareImageWorkspaceSidePanel(tab.id).catch(() => {
+          preparedImageSidePanels.delete(tab.id);
+        });
+      }
+      sendResponse({
+        ok: true,
+        result: {
+          tab: tab ? { id: tab.id, windowId: tab.windowId, url: tab.url || '', title: tab.title || '' } : null,
+          state: result
+        }
+      });
       return;
     }
     if (message.type === 'UI_GET') {
@@ -2038,6 +2166,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true, result: settings[featureId] });
       return;
     }
+    if (message.type === 'UI_ADD_NSNA_WHITELIST_RULE' || message.type === 'UI_DELETE_NSNA_WHITELIST_RULE') {
+      const allowedPage = ['settings/native-scroll.html', 'settings/no-autoplay.html']
+        .some(path => senderExtensionUrl.startsWith(chrome.runtime.getURL(path)));
+      if (!allowedPage) throw new Error('The shared whitelist can be changed only from Native Scroll or No Autoplay settings.');
+      const rule = normalizeRule(message.rule || '');
+      const settings = await mutateSettings(current => ({
+        ...current,
+        nsna: {
+          ...current.nsna,
+          whitelistRules: message.type === 'UI_ADD_NSNA_WHITELIST_RULE'
+            ? withRule(current.nsna.whitelistRules, rule)
+            : withoutRule(current.nsna.whitelistRules, rule)
+        }
+      }));
+      sendResponse({ ok: true, result: settings.nsna });
+      return;
+    }
     if (message.type === 'UI_ADD_RULE' || message.type === 'UI_DELETE_RULE') {
       const featureId = validFeatureId(message.featureId);
       const listName = validList(featureId, message.listName);
@@ -2070,6 +2215,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'UI_OPEN_ALL_SETTINGS') {
       await chrome.tabs.create({ url: chrome.runtime.getURL('settings/all-settings.html') });
       sendResponse({ ok: true, result: { opened: true } });
+      return;
+    }
+    if (message.type === 'UI_GET_LOCALE') {
+      if (!senderExtensionUrl.startsWith(chrome.runtime.getURL(''))) {
+        throw new Error('The interface language is available only to extension pages.');
+      }
+      const stored = await chrome.storage.local.get('interfaceLocale');
+      const locale = normalizeLocale(stored.interfaceLocale || chrome.i18n.getUILanguage());
+      sendResponse({ ok: true, result: { locale } });
+      return;
+    }
+    if (message.type === 'UI_SET_LOCALE') {
+      if (!senderExtensionUrl.startsWith(chrome.runtime.getURL('settings/'))) {
+        throw new Error('The interface language can only be changed from settings.');
+      }
+      const locale = normalizeLocale(message.locale);
+      await chrome.storage.local.set({ interfaceLocale: locale });
+      sendResponse({ ok: true, result: { locale } });
       return;
     }
     if (message.type === 'UI_RESET_ALL_SETTINGS') {

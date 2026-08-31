@@ -6,6 +6,7 @@
     enhancedRules: 'emptyEnhancedSites',
     standardRules: 'emptyStandardSites',
     permanentAudioAllowRules: 'emptyAudioAllow',
+    whitelistRules: 'emptySharedWhitelist',
     enforcedRules: 'emptyEnforcedSites'
   };
   const iconPaths = {

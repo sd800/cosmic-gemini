@@ -116,9 +116,30 @@ test('Native Scroll skips unload listeners when the document policy disallows th
   };
   const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
   const listener = () => {};
   context.window.addEventListener('unload', listener);
   assert.equal(context.window.listeners.has('unload'), false);
   context.window.addEventListener('load', listener);
   assert.equal(context.window.listeners.get('load').includes(listener), true);
+});
+
+test('Native Scroll leaves page APIs untouched while inactive and restores them when disabled', async () => {
+  const context = makeContext();
+  const originalAdd = context.EventTarget.prototype.addEventListener;
+  const originalScroll = context.window.scroll;
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
+  assert.equal(context.window.scroll, originalScroll);
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  assert.notEqual(context.EventTarget.prototype.addEventListener, originalAdd);
+  assert.notEqual(context.window.scroll, originalScroll);
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) });
+  assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
+  assert.equal(context.window.scroll, originalScroll);
+  runtime.onDispose({ detail: runtime.token });
+  assert.equal(context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')], undefined);
 });

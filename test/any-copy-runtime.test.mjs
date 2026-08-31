@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 class EventTarget {
   constructor() { this.listeners = new Map(); }
   addEventListener(type, listener) { this.listeners.set(type, [...(this.listeners.get(type) || []), listener]); }
+  removeEventListener(type, listener) { this.listeners.set(type, (this.listeners.get(type) || []).filter(item => item !== listener)); }
   dispatchEvent(event) { for (const listener of this.listeners.get(event.type) || []) listener.call(this, event); }
 }
 class Style {
@@ -61,6 +62,8 @@ test('Any Copy writes the original selection and suppresses page copy handlers',
   assert.equal(clipboard.get('text/plain'), 'Original text');
   assert.equal(stopped, true);
   assert.equal(prevented, true);
+  runtime.onDispose({ detail: runtime.token });
+  assert.equal(window[Symbol.for('cosmic-gemini.any-copy.runtime')], undefined);
 });
 
 test('Any Copy and Any Copy Enhanced keep separate runtime and bridge boundaries', async () => {
@@ -75,5 +78,7 @@ test('Any Copy and Any Copy Enhanced keep separate runtime and bridge boundaries
   assert.doesNotMatch(standardBridge, /readerHost|showReader|copyText/);
   assert.match(enhancedRuntime, /cosmic-gemini\.any-copy-enhanced\.runtime/);
   assert.match(enhancedRuntime, /showReader\(\)/);
+  assert.match(standardRuntime, /cosmic-gemini:any-copy:dispose/);
+  assert.match(enhancedRuntime, /cosmic-gemini:any-copy-enhanced:dispose/);
   assert.match(enhancedBridge, /featureId: 'anyCopyEnhanced'/);
 });

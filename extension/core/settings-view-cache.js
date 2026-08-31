@@ -6,6 +6,9 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
+    nsna: {
+      whitelistRules: rules(states.nsna?.whitelistRules)
+    },
     nativeScroll: {
       enabled: states.nativeScroll?.enabled !== false,
       inactiveRules: rules(states.nativeScroll?.inactiveRules),

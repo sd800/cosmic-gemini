@@ -1,4 +1,4 @@
-import { loadLocale, saveLocale } from '../core/locale.js';
+import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, send } from '../shared/ui.js';
@@ -12,6 +12,7 @@ const emptyKey = {
   enhancedRules: 'emptyEnhancedSites',
   standardRules: 'emptyStandardSites',
   permanentAudioAllowRules: 'emptyAudioAllow',
+  whitelistRules: 'emptySharedWhitelist',
   enforcedRules: 'emptyEnforcedSites'
 };
 const behaviorByList = Object.freeze({
@@ -85,9 +86,11 @@ function renderList(section) {
     remove.innerHTML = icon('trash');
     remove.title = t('removeRule', { rule });
     remove.setAttribute('aria-label', remove.title);
-    remove.addEventListener('click', () => void update(section, () => send({
-      type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule
-    }), [remove]));
+    remove.addEventListener('click', () => void update(section, () => send(
+      section.dataset.featureId === 'nsna'
+        ? { type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule }
+        : { type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule }
+    ), [remove]));
     item.append(code, remove);
     list.append(item);
   }
@@ -291,7 +294,9 @@ function bindView() {
         input.disabled = true;
         message.textContent = '';
         try {
-          await send({ type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
+          await send(sectionFeatureId === 'nsna'
+            ? { type: 'UI_ADD_NSNA_WHITELIST_RULE', rule }
+            : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
           input.value = '';
           await reload();
         } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
@@ -318,7 +323,9 @@ function bindView() {
     pendingControls.add(control);
     control.disabled = true;
     try {
-      locale = await saveLocale(control.value);
+      const result = await send({ type: 'UI_SET_LOCALE', locale: control.value });
+      locale = result.locale;
+      try { localStorage.setItem('cosmicGeminiInterfaceLocale', locale); } catch {}
       applyLocale();
       render();
     } finally {

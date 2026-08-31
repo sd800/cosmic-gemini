@@ -112,7 +112,11 @@ All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Vide
 
 After any length of downtime, one current-day task catches up when Chrome can next run. Earlier missed days are never replayed.
 
-Native Scroll and No Autoplay settings begin with a global default. One Website behavior section then assigns each saved rule to Always inactive, Always use Standard mode, or Always use Enhanced mode. No Autoplay keeps audio autoplay permissions in a separate section.
+Cosmic Gemini uses one central controller for every product and settings command. The page entry contains no product behavior; each page runtime starts only after the controller determines that its product is active. All Settings has no webpage runtime of its own, and its commands still pass through the same controller.
+
+Native Scroll and No Autoplay settings begin with a global default. Website settings then assign each product-specific rule to Always inactive, Always use Standard mode, or Always use Enhanced mode.
+
+Both pages also show the same shared whitelist. On a matching website, neither product intercepts, observes, styles, pauses, or removes page content unless you explicitly start another click-activated tool. No Autoplay keeps audio autoplay permissions in a separate section.
 
 Popup product controls use only neutral and blue icon states. Primary products, including Any Copy Enhanced, use a stronger neutral color than the secondary mode controls for Native Scroll and No Autoplay.
 
@@ -127,6 +131,8 @@ The Cosmic Gemini mark in the browser toolbar remains unchanged. Its existing gr
 `example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save exact current-site overrides, while Settings also accepts wildcard rules.
 
 Native Scroll and No Autoplay each have a global default plus three website behaviors: Always inactive, Always use Standard mode, and Always use Enhanced mode. A website without a matching rule follows the global default. Standard and Enhanced rules keep their matching websites active even when that default is off.
+
+The shared whitelist takes priority over those product-specific rules and keeps both products inactive. Removing a website from the shared whitelist restores its previously saved Native Scroll and No Autoplay behavior.
 
 An exact rule takes priority over a wildcard, followed by the most specific wildcard. Each saved rule belongs to one behavior, and its behavior can be changed directly in Settings. This makes it possible to place a narrow exception inside a broader rule without maintaining overlapping lists.
 

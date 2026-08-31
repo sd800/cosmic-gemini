@@ -2,6 +2,7 @@
   const READY = 'cosmic-gemini:any-copy:bridge-ready';
   const MAIN_READY = 'cosmic-gemini:any-copy:main-ready';
   const CONFIGURE = 'cosmic-gemini:any-copy:configure';
+  const DISPOSE = 'cosmic-gemini:any-copy:dispose';
   const INTERVENED = 'cosmic-gemini:any-copy:intervened';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.any-copy.runtime');
 
@@ -32,6 +33,7 @@
       this.savedStyles = new Map();
       this.onConfigure = this.onConfigure.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
+      this.onDispose = this.onDispose.bind(this);
       this.onCopy = this.onCopy.bind(this);
       this.onKeyDown = this.onKeyDown.bind(this);
       this.onSelectionEvent = this.onSelectionEvent.bind(this);
@@ -39,6 +41,7 @@
       this.onMutations = this.onMutations.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(READY, this.onBridgeReady, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
       window.addEventListener('copy', this.onCopy, true);
       window.addEventListener('keydown', this.onKeyDown, true);
       window.addEventListener('selectstart', this.onSelectionEvent, true);
@@ -54,6 +57,22 @@
     onBridgeReady() {
       this.announce();
       if (this.reported) window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
+    }
+
+    onDispose(event) {
+      if (event?.detail !== this.token) return;
+      this.active = false;
+      this.disable();
+      window.removeEventListener(CONFIGURE, this.onConfigure, true);
+      window.removeEventListener(READY, this.onBridgeReady, true);
+      window.removeEventListener(DISPOSE, this.onDispose, true);
+      window.removeEventListener('copy', this.onCopy, true);
+      window.removeEventListener('keydown', this.onKeyDown, true);
+      window.removeEventListener('selectstart', this.onSelectionEvent, true);
+      window.removeEventListener('contextmenu', this.onSelectionEvent, true);
+      window.removeEventListener('pointerdown', this.onPointerDown, true);
+      window.removeEventListener('mousedown', this.onPointerDown, true);
+      try { delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
@@ -228,6 +247,6 @@
   }
 
   const runtime = new AnyCopyRuntime();
-  window[RUNTIME_KEY] = runtime;
+  Object.defineProperty(window, RUNTIME_KEY, { value: runtime, configurable: true });
   runtime.announce();
 })();

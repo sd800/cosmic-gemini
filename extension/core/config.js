@@ -27,7 +27,10 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 13,
+  version: 15,
+  nsna: Object.freeze({
+    whitelistRules: Object.freeze([])
+  }),
   nativeScroll: DEFAULT_FEATURE,
   noAutoplay: Object.freeze({
     ...DEFAULT_FEATURE,
@@ -123,7 +126,10 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 13,
+    version: 15,
+    nsna: {
+      whitelistRules: normalizeRules(value.nsna?.whitelistRules ?? value.nsnaWhitelistRules)
+    },
     nativeScroll: normalizeFeature(nativeValue || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
@@ -200,6 +206,9 @@ export function featureState(settings, featureId, url) {
   const feature = normalized[featureId];
   if (!feature) throw new Error('Unknown feature.');
   const hostname = hostnameFromUrl(url);
+  const sharedWhitelistRule = [FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId) && hostname
+    ? matchingRule(hostname, normalized.nsna.whitelistRules)
+    : '';
   const matchedInactiveRule = hostname ? matchingRule(hostname, feature.inactiveRules) : '';
   const matchedEnhancedRule = hostname ? matchingRule(hostname, feature.enhancedRules) : '';
   const matchedStandardRule = hostname ? matchingRule(hostname, feature.standardRules) : '';
@@ -209,22 +218,26 @@ export function featureState(settings, featureId, url) {
   const selection = hostname
     ? resolveBehavior(hostname, feature)
     : { behavior: 'inactive', rule: '' };
-  const active = !!hostname && selection.behavior !== 'inactive';
+  const active = !!hostname && !sharedWhitelistRule && selection.behavior !== 'inactive';
+  const behavior = sharedWhitelistRule ? 'inactive' : selection.behavior;
   return {
     ...feature,
     hostname,
     supported: !!hostname,
     active,
-    mode: active && selection.behavior === 'enhanced' ? 'enhanced' : 'standard',
-    behavior: selection.behavior,
+    mode: active && behavior === 'enhanced' ? 'enhanced' : 'standard',
+    behavior,
+    sharedWhitelisted: !!sharedWhitelistRule,
+    sharedWhitelistRule,
+    exactSharedWhitelisted: !!hostname && normalized.nsna.whitelistRules.includes(hostname),
     matchedInactiveRule,
     exactInactive: !!hostname && feature.inactiveRules.includes(hostname),
     matchedEnhancedRule,
     exactEnhanced: !!hostname && feature.enhancedRules.includes(hostname),
     matchedStandardRule,
     exactStandard: !!hostname && feature.standardRules.includes(hostname),
-    behaviorRule: selection.rule,
-    behaviorOverride: selection.rule ? selection.behavior : '',
+    behaviorRule: sharedWhitelistRule || selection.rule,
+    behaviorOverride: sharedWhitelistRule ? 'sharedWhitelist' : selection.rule ? selection.behavior : '',
     exactBehaviorOverride: !!hostname && (
       feature.inactiveRules.includes(hostname)
       || feature.standardRules.includes(hostname)

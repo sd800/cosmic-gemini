@@ -46,6 +46,19 @@ const websiteBehaviorCard = helpKey => `
     <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
   </section>`;
 
+const sharedWhitelistSection = () => `
+  <section class="card rule-card nsna-whitelist-card" data-feature-id="nsna" data-list-section="whitelistRules" data-empty-key="emptySharedWhitelist">
+    <h2 data-i18n="sharedWhitelistHeading"></h2>
+    <p data-i18n="sharedWhitelistHelp"></p>
+    <form class="rule-form" novalidate>
+      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
+      <button class="primary-button" type="submit" data-i18n="add"></button>
+    </form>
+    <p class="form-message" aria-live="polite"></p>
+    <ul class="rule-list"></ul>
+    <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
+  </section>`;
+
 const audioAllowSection = () => `
   <section class="card grouped-rule-card audio-rule-card">
     <h2 data-i18n="audioAllowHeading"></h2>
@@ -143,7 +156,8 @@ export function viewFor(featureId) {
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
-      ${websiteBehaviorCard('nativeWebsiteBehaviorHelp')}`,
+      ${websiteBehaviorCard('nativeWebsiteBehaviorHelp')}
+      ${sharedWhitelistSection()}`,
     help: help(['nativeSetupStepDefault', 'nativeSetupStepExceptions', 'nativeSetupStepEnhanced'], 'nativePrivacy', true)
   };
   if (featureId === 'noAutoplay') return {
@@ -155,6 +169,7 @@ export function viewFor(featureId) {
         </div>
       </section>
       ${websiteBehaviorCard('autoplayWebsiteBehaviorHelp')}
+      ${sharedWhitelistSection()}
       ${audioAllowSection()}`,
     help: help(['autoplaySetupStepDefault', 'autoplaySetupStepExceptions', 'autoplaySetupStepEnhanced', 'autoplaySetupStepAudio'], 'autoplayPrivacy', true)
   };

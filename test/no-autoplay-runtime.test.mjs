@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 class SimpleEventTarget {
   constructor() { this.listeners = new Map(); }
   addEventListener(type, listener) { this.listeners.set(type, [...(this.listeners.get(type) || []), listener]); }
+  removeEventListener(type, listener) { this.listeners.set(type, (this.listeners.get(type) || []).filter(item => item !== listener)); }
   dispatchEvent(event) { event.target ||= this; for (const listener of this.listeners.get(event.type) || []) listener.call(this, event); }
 }
 class FakeMedia extends SimpleEventTarget {
@@ -37,6 +38,8 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   const source = await readFile(new URL('../extension/content/no-autoplay-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
+  assert.equal(context.HTMLMediaElement.prototype.play, runtime.originalPlay);
+  assert.equal(context.AudioContext, FakeAudioContext);
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: false } }) });
 
   const audio = new FakeAudio();
@@ -84,4 +87,8 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   assert.equal(whitelistedAudio.played, 1);
   assert.equal(whitelistedVideo.played, 1);
   assert.equal(whitelistedContext.suspended, 0);
+  assert.equal(context.HTMLMediaElement.prototype.play, runtime.originalPlay);
+  assert.equal(context.AudioContext, FakeAudioContext);
+  runtime.onDispose({ detail: runtime.token });
+  assert.equal(context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')], undefined);
 });

@@ -11,15 +11,11 @@ export function preferredLocale(languages = globalThis.navigator?.languages || [
 }
 
 export async function loadLocale() {
-  const stored = await chrome.storage.local.get(LOCALE_KEY);
-  const locale = stored[LOCALE_KEY] ? normalizeLocale(stored[LOCALE_KEY]) : preferredLocale();
+  let locale = preferredLocale();
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'UI_GET_LOCALE' });
+    if (response?.ok && response.result?.locale) locale = normalizeLocale(response.result.locale);
+  } catch {}
   try { globalThis.localStorage?.setItem(LOCALE_CACHE_KEY, locale); } catch {}
   return locale;
-}
-
-export async function saveLocale(locale) {
-  const normalized = normalizeLocale(locale);
-  await chrome.storage.local.set({ [LOCALE_KEY]: normalized });
-  try { globalThis.localStorage?.setItem(LOCALE_CACHE_KEY, normalized); } catch {}
-  return normalized;
 }

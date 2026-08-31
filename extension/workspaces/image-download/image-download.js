@@ -32,6 +32,9 @@ function setWorkspaceVisible(visible) {
   if (!viewPort) {
     const port = chrome.runtime.connect({ name: `download-view:imageDownload:${sourceTabId}` });
     viewPort = port;
+    port.onMessage.addListener(message => {
+      if (message?.type === 'central-state-changed' && message.tabId === sourceTabId) scheduleReload(false);
+    });
     setTimeout(() => {
       if (viewPort === port) viewReconnectAttempts = 0;
     }, 1_000);
@@ -402,10 +405,6 @@ try {
 } catch {
   document.querySelector('#status-text').textContent = t('imageUnavailablePage');
 }
-chrome.storage.onChanged.addListener((changes, area) => {
-  const key = `imageDownloadSession:${sourceTabId}`;
-  if (area === 'session' && Object.hasOwn(changes, key)) scheduleReload(false);
-});
 document.addEventListener('visibilitychange', () => {
   setWorkspaceVisible(!document.hidden);
   if (!document.hidden) scheduleReload(true);

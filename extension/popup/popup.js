@@ -56,21 +56,23 @@ function renderGuardFeature(featureId) {
   const enhancedActive = feature.active && feature.mode === 'enhanced';
   const intervened = feature.active && state.activity?.[featureId] === true;
 
-  primary.disabled = !feature.supported;
+  primary.disabled = !feature.supported || feature.sharedWhitelisted;
   primary.dataset.state = feature.active ? 'active' : 'off';
   primary.dataset.persistent = String(feature.active);
   primary.dataset.intervened = String(intervened && !enhancedActive);
   primary.setAttribute('aria-pressed', String(feature.active));
   if (!feature.supported) label(primary, t('unsupportedTitle'));
+  else if (feature.sharedWhitelisted) label(primary, t('nsnaWhitelistActiveTitle'));
   else if (feature.exactBehaviorOverride) label(primary, t('removeSiteOverrideTitle', { product }));
   else label(primary, t(feature.active ? 'disableProductOnSiteTitle' : 'enableProductOnSiteTitle', { product }));
 
-  enhanced.disabled = !feature.supported;
+  enhanced.disabled = !feature.supported || feature.sharedWhitelisted;
   enhanced.dataset.state = enhancedActive ? 'active' : 'off';
   enhanced.dataset.persistent = String(enhancedActive);
   enhanced.dataset.intervened = String(intervened && enhancedActive);
   enhanced.setAttribute('aria-pressed', String(enhancedActive));
   if (!feature.supported) label(enhanced, t('unsupportedTitle'));
+  else if (feature.sharedWhitelisted) label(enhanced, t('nsnaWhitelistActiveTitle'));
   else label(enhanced, t(enhancedActive ? 'useStandardOnSiteTitle' : 'useEnhancedOnSiteTitle', { product }));
 }
 
@@ -392,8 +394,8 @@ function render() {
 }
 
 async function reload(selectInitialView = true) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  currentTab = tab || null;
+  const snapshot = await send({ type: 'UI_GET_ACTIVE_PAGE_STATE' });
+  currentTab = snapshot.tab || null;
   if (videoSelectionTabId !== currentTab?.id) {
     videoSelectionTabId = currentTab?.id ?? null;
     selectedVideoCandidateId = '';
@@ -401,7 +403,7 @@ async function reload(selectInitialView = true) {
     videoPickerActive = false;
     videoPanelRenderPending = false;
   }
-  state = await send({ type: 'UI_GET', tabId: tab?.id, url: tab?.url || '' });
+  state = snapshot.state;
   saveSettingsViewCache(state);
   render();
   if (selectInitialView && viewMode === null) showView('main');
@@ -518,11 +520,8 @@ label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
 label(document.querySelector('#all-settings'), t('allSettingsTitle'));
 root.dataset.localePending = 'false';
-chrome.storage.onChanged.addListener((changes, area) => {
-  const keys = Number.isInteger(currentTab?.id)
-    ? [`tabActivity:${currentTab.id}`, `anyCopyEnhancedTab:${currentTab.id}`, `videoDownloadSession:${currentTab.id}`]
-    : [];
-  if (!(area === 'session') || !keys.length) return;
-  if (keys.some(key => Object.hasOwn(changes, key))) scheduleReload();
+const centralUiPort = chrome.runtime.connect({ name: 'central-ui:popup' });
+centralUiPort.onMessage.addListener(message => {
+  if (message?.type === 'central-state-changed' && message.tabId === currentTab?.id) scheduleReload();
 });
 try { await reload(); } catch { live.textContent = t('unavailable'); }

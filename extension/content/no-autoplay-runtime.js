@@ -2,6 +2,7 @@
   const READY = 'cosmic-gemini:no-autoplay:bridge-ready';
   const MAIN_READY = 'cosmic-gemini:no-autoplay:main-ready';
   const CONFIGURE = 'cosmic-gemini:no-autoplay:configure';
+  const DISPOSE = 'cosmic-gemini:no-autoplay:dispose';
   const INTERVENED = 'cosmic-gemini:no-autoplay:intervened';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.no-autoplay.runtime');
 
@@ -20,7 +21,7 @@
   class NoAutoplayRuntime {
     constructor() {
       this.token = randomToken();
-      this.active = true;
+      this.active = false;
       this.configured = false;
       this.mode = 'standard';
       this.audioAllowed = false;
@@ -33,20 +34,18 @@
       this.pendingContexts = new Set();
       this.originalPlay = HTMLMediaElement.prototype.play;
       this.originalPause = HTMLMediaElement.prototype.pause;
-      this.originalResume = globalThis.AudioContext?.prototype?.resume;
-      this.originalWebkitResume = globalThis.webkitAudioContext?.prototype?.resume;
+      this.patchedPlay = null;
+      this.audioContextPatches = [];
+      this.behaviorHooksInstalled = false;
       this.onConfigure = this.onConfigure.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
+      this.onDispose = this.onDispose.bind(this);
       this.onUserIntent = this.onUserIntent.bind(this);
       this.onPlay = this.onPlay.bind(this);
       this.onMutations = this.onMutations.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(READY, this.onBridgeReady, true);
-      window.addEventListener('pointerdown', this.onUserIntent, true);
-      window.addEventListener('keydown', this.onUserIntent, true);
-      window.addEventListener('play', this.onPlay, true);
-      this.patchMediaPlay();
-      this.patchAudioContexts();
+      window.addEventListener(DISPOSE, this.onDispose, true);
     }
 
     announce() {
@@ -56,6 +55,19 @@
     onBridgeReady() {
       this.announce();
       if (this.reported) window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
+    }
+
+    onDispose(event) {
+      if (event?.detail !== this.token) return;
+      this.active = false;
+      this.disableObserver();
+      this.resumePendingMedia(true);
+      this.resumePendingContexts();
+      this.removeBehaviorHooks();
+      window.removeEventListener(CONFIGURE, this.onConfigure, true);
+      window.removeEventListener(READY, this.onBridgeReady, true);
+      window.removeEventListener(DISPOSE, this.onDispose, true);
+      try { delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
@@ -73,8 +85,10 @@
         this.reported = false;
         this.resumePendingMedia(true);
         this.resumePendingContexts();
+        this.removeBehaviorHooks();
         return;
       }
+      this.installBehaviorHooks();
       if (this.mode === 'enhanced') {
         this.enableEnhancedObserver();
         this.removeMedia(document);
@@ -89,8 +103,9 @@
     }
 
     patchMediaPlay() {
+      if (this.patchedPlay) return;
       const runtime = this;
-      HTMLMediaElement.prototype.play = function cosmicGeminiPlay() {
+      this.patchedPlay = function cosmicGeminiPlay() {
         if (!runtime.shouldBlockMedia(this)) {
           runtime.pendingAudio.delete(this);
           runtime.pendingVideo.delete(this);
@@ -99,22 +114,27 @@
         runtime.blockMedia(this);
         return Promise.resolve();
       };
+      HTMLMediaElement.prototype.play = this.patchedPlay;
     }
 
     patchAudioContexts() {
       const runtime = this;
+      if (this.audioContextPatches.length) return;
       const patched = new Set();
-      const patch = (property, constructor, original) => {
+      const patch = (property, constructor) => {
+        const original = constructor?.prototype?.resume;
         if (!constructor?.prototype || typeof original !== 'function') return;
         if (patched.has(constructor)) return;
         patched.add(constructor);
-        constructor.prototype.resume = function cosmicGeminiResume() {
+        const wrappedResume = function cosmicGeminiResume() {
           if (!runtime.shouldBlockAudioContext()) return Reflect.apply(original, this, []);
           runtime.rememberPendingContext(this, original);
           runtime.reportIntervention();
           try { void this.suspend(); } catch {}
           return Promise.resolve();
         };
+        constructor.prototype.resume = wrappedResume;
+        let wrappedConstructor = null;
         try {
           const wrapped = new Proxy(constructor, {
             construct(target, args, newTarget) {
@@ -127,6 +147,7 @@
               return context;
             }
           });
+          wrappedConstructor = wrapped;
           Object.defineProperty(globalThis, property, {
             configurable: true,
             enumerable: true,
@@ -134,9 +155,41 @@
             value: wrapped
           });
         } catch {}
+        this.audioContextPatches.push({ property, constructor, original, wrappedResume, wrappedConstructor });
       };
-      patch('AudioContext', globalThis.AudioContext, this.originalResume);
-      patch('webkitAudioContext', globalThis.webkitAudioContext, this.originalWebkitResume);
+      patch('AudioContext', globalThis.AudioContext);
+      patch('webkitAudioContext', globalThis.webkitAudioContext);
+    }
+
+    installBehaviorHooks() {
+      if (this.behaviorHooksInstalled) return;
+      window.addEventListener('pointerdown', this.onUserIntent, true);
+      window.addEventListener('keydown', this.onUserIntent, true);
+      window.addEventListener('play', this.onPlay, true);
+      this.patchMediaPlay();
+      this.patchAudioContexts();
+      this.behaviorHooksInstalled = true;
+    }
+
+    removeBehaviorHooks() {
+      if (!this.behaviorHooksInstalled) return;
+      window.removeEventListener('pointerdown', this.onUserIntent, true);
+      window.removeEventListener('keydown', this.onUserIntent, true);
+      window.removeEventListener('play', this.onPlay, true);
+      try {
+        if (HTMLMediaElement.prototype.play === this.patchedPlay) HTMLMediaElement.prototype.play = this.originalPlay;
+      } catch {}
+      this.patchedPlay = null;
+      for (const entry of this.audioContextPatches) {
+        try {
+          if (entry.constructor.prototype.resume === entry.wrappedResume) entry.constructor.prototype.resume = entry.original;
+          if (entry.wrappedConstructor && globalThis[entry.property] === entry.wrappedConstructor) globalThis[entry.property] = entry.constructor;
+        } catch {}
+      }
+      this.audioContextPatches = [];
+      this.behaviorHooksInstalled = false;
+      this.userIntentUntil = 0;
+      this.mediaIntent = new WeakMap();
     }
 
     onUserIntent(event) {

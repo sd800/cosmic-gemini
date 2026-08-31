@@ -21,6 +21,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.nativeScroll.inactiveRules, []);
   assert.deepEqual(settings.nativeScroll.standardRules, []);
   assert.deepEqual(settings.nativeScroll.enhancedRules, []);
+  assert.deepEqual(settings.nsna.whitelistRules, []);
   assert.equal(settings.noAutoplay.audioAutoplayAllSites, false);
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
@@ -33,10 +34,12 @@ test('persistent products start with independent settings while Any Copy Enhance
 test('website behavior rules are normalized, deduplicated, and sorted', () => {
   const settings = normalizeSettings({
     nativeScroll: { inactiveRules: ['B.example.com', '*.example.com', 'b.example.com'] },
+    nsna: { whitelistRules: ['Private.example.com', '*.shared.example', 'private.example.com'] },
     noAutoplay: { enhancedRules: ['media.example.com'] },
     anyCopy: { siteRules: ['copy.example.com'] }
   });
   assert.deepEqual(settings.nativeScroll.inactiveRules, ['*.example.com', 'b.example.com']);
+  assert.deepEqual(settings.nsna.whitelistRules, ['*.shared.example', 'private.example.com']);
   assert.deepEqual(settings.noAutoplay.enhancedRules, ['media.example.com']);
   assert.deepEqual(settings.anyCopy.siteRules, ['copy.example.com']);
 });
@@ -125,6 +128,22 @@ test('unlisted sites follow the global default', () => {
   assert.equal(inactive.exactBehaviorOverride, false);
 });
 
+test('shared NSNA whitelist takes priority over both product behavior rules', () => {
+  const settings = {
+    nsna: { whitelistRules: ['*.private.example'] },
+    nativeScroll: { enabled: true, enhancedRules: ['app.private.example'] },
+    noAutoplay: { enabled: true, standardRules: ['app.private.example'], audioAutoplayAllSites: true }
+  };
+  for (const featureId of [FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY]) {
+    const state = featureState(settings, featureId, 'https://app.private.example');
+    assert.equal(state.active, false);
+    assert.equal(state.sharedWhitelisted, true);
+    assert.equal(state.sharedWhitelistRule, '*.private.example');
+    assert.equal(state.behaviorOverride, 'sharedWhitelist');
+  }
+  assert.equal(featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://app.private.example').audioAllowed, false);
+});
+
 test('Any Copy and current-tab Any Copy Enhanced activate independently', () => {
   const directEnhanced = anyCopyEnhancedState('https://docs.example.com/a', true);
   assert.equal(directEnhanced.active, true);
@@ -177,6 +196,7 @@ test('only HTTP and HTTPS pages expose a hostname', () => {
 
 test('settings first-frame cache keeps preferences without page activity', () => {
   const cache = settingsViewCache({
+    nsna: { whitelistRules: ['*.private.example'] },
     nativeScroll: {
       enabled: false,
       inactiveRules: ['example.com'],
@@ -198,6 +218,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     enhancedRules: ['*.docs.example'],
     standardRules: ['read.example']
   });
+  assert.deepEqual(cache.nsna, { whitelistRules: ['*.private.example'] });
   assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });

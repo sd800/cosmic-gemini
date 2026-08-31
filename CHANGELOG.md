@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.1.31 — 2026-08-31
+
+- Removed the “Default behavior” kicker from the Native Scroll and No Autoplay introduction cards.
+
+## 3.1.29 — 2026-08-31
+
+- Reworded the Website exceptions guidance in Native Scroll and No Autoplay settings to describe adding websites that should follow the user’s preferences.
+
 ## 3.1.28 — 2026-08-31
 
 - Keeps Image Download and Video Download discovery active while their workspace is visible and for two minutes after it closes. Discovery then pauses without discarding results and resumes with an immediate scan when the workspace reopens.

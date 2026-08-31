@@ -113,7 +113,7 @@ export function viewFor(featureId) {
     primary: `
       <section class="card default-card">
         <div class="section-heading">
-          <div><span class="section-kicker" data-i18n="defaultBehaviorHeading"></span><h1 data-i18n="nativeScrollName"></h1><p class="intro-purpose" data-i18n="nativeIntroPurpose"></p><p class="intro-setting" data-i18n="nativeProtectionHelp"></p></div>
+          <div><h1 data-i18n="nativeScrollName"></h1><p class="intro-purpose" data-i18n="nativeIntroPurpose"></p><p class="intro-setting" data-i18n="nativeProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
@@ -129,7 +129,7 @@ export function viewFor(featureId) {
     primary: `
       <section class="card default-card">
         <div class="section-heading">
-          <div><span class="section-kicker" data-i18n="defaultBehaviorHeading"></span><h1 data-i18n="noAutoplayName"></h1><p class="intro-purpose" data-i18n="autoplayIntroPurpose"></p><p class="intro-setting" data-i18n="autoplayProtectionHelp"></p></div>
+          <div><h1 data-i18n="noAutoplayName"></h1><p class="intro-purpose" data-i18n="autoplayIntroPurpose"></p><p class="intro-setting" data-i18n="autoplayProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>

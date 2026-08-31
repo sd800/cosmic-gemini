@@ -26,7 +26,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '3.1.28');
+assert.equal(manifest.version, '3.1.31');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -199,7 +199,7 @@ assert.match(settingsSource, /type: 'UI_RESET_ALL_SETTINGS'/);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await readFile(join(extension, 'settings', name), 'utf8');
   assert.equal([...html.matchAll(/class="card grouped-rule-card/g)].length, name === 'no-autoplay.html' ? 3 : 2);
-  assert.match(html, /data-i18n="defaultBehaviorHeading"/);
+  assert.doesNotMatch(html, /data-i18n="defaultBehaviorHeading"/);
   assert.match(html, /data-i18n="websiteExceptionsHeading"[\s\S]*data-i18n="modeByWebsiteHeading"/);
   assert.match(html, /class="flow-list"/);
 }

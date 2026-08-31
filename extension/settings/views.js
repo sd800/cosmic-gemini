@@ -54,7 +54,7 @@ const audioAllowSection = () => `
 
 const anyCopyRuleSection = (featureId, iconName, headingKey, helpKey, emptyKey) => `
   <section class="card rule-card" data-feature-id="${featureId}" data-list-section="siteRules" data-empty-key="${emptyKey}">
-    <div class="rule-heading"><span data-section-icon="${iconName}" aria-hidden="true"></span><h2 data-i18n="${headingKey}"></h2></div>
+    <div class="rule-heading any-copy-section-heading"><span data-section-icon="${iconName}" aria-hidden="true"></span><h2 data-i18n="${headingKey}"></h2></div>
     <p data-i18n="${helpKey}"></p>
     <form class="rule-form" novalidate>
       <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
@@ -162,7 +162,7 @@ export function viewFor(featureId) {
       </section>
       ${anyCopyRuleSection('anyCopy', 'anyCopy', 'anyCopySitesHeading', 'anyCopySitesHelp', 'emptyAnyCopySites')}
       <section class="card">
-        <div class="section-heading">
+        <div class="section-heading any-copy-section-heading">
           <div class="rule-heading"><span data-section-icon="anyCopyEnhanced" aria-hidden="true"></span><h2 data-i18n="anyCopyEnhancedName"></h2></div>
           <span class="context-label" data-i18n="currentTabOnlyLabel"></span>
         </div>

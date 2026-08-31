@@ -79,6 +79,7 @@ p.last { margin-bottom: 0; }
 .rule-heading > span { --icon-surface: var(--surface); display: grid; width: 25px; height: 25px; flex: 0 0 auto; color: currentColor; place-items: center; }
 .rule-heading svg { width: 21px; height: 21px; }
 .rule-heading h2 { margin: 0; color: currentColor; }
+.any-copy-section-heading { margin-bottom: 7px; }
 input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); padding: 0 11px; }
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: var(--on-blue); cursor: pointer; font-weight: 650; }
 .primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.1.35 — 2026-08-31
+
+- Matched the spacing between headings and supporting copy in the Any Copy sites and Any Copy Enhanced settings cards with the rest of the settings interface.
+
 ## 3.1.33 — 2026-08-31
 
 - Replaced Native Scroll and No Autoplay's overlapping activation and mode lists with one Website behavior editor. Each rule now belongs to Always inactive, Always use Standard mode, or Always use Enhanced mode, and can move directly between them.

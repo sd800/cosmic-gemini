@@ -32,11 +32,40 @@ const EVENT_PROVINCES = Object.freeze({
   headersReceived: Object.freeze(['customs'])
 });
 
+const CUSTOMS_RESPONSE_FILTER = Object.freeze({
+  urls: Object.freeze(['http://*/*', 'https://*/*']),
+  types: Object.freeze(['media', 'xmlhttprequest', 'other', 'image'])
+});
+let customsResponseIngressRegistered = false;
+
+function handleCustomsHeadersReceived(details) {
+  void dispatchEvent('headersReceived', details);
+}
+
+function setCustomsResponseIngressEnabled(enabled) {
+  const next = enabled === true;
+  if (next === customsResponseIngressRegistered) return customsResponseIngressRegistered;
+  if (next) {
+    chrome.webRequest.onHeadersReceived.addListener(
+      handleCustomsHeadersReceived,
+      CUSTOMS_RESPONSE_FILTER,
+      ['responseHeaders']
+    );
+  } else {
+    chrome.webRequest.onHeadersReceived.removeListener(handleCustomsHeadersReceived);
+  }
+  customsResponseIngressRegistered = next;
+  return customsResponseIngressRegistered;
+}
+
+const customsResponseIngress = Object.freeze({ setEnabled: setCustomsResponseIngressEnabled });
+setCustomsResponseIngressEnabled(true);
+
 const platform = createPlatform();
 const provinces = Object.freeze({
   standing: createStandingProvince(platform),
   operations: createOperationsProvince(platform),
-  customs: createCustomsProvince(platform)
+  customs: createCustomsProvince(platform, customsResponseIngress)
 });
 const productProvince = new Map(Object.entries(PROVINCE_PRODUCTS)
   .flatMap(([provinceId, productIds]) => productIds.map(productId => [productId, provinceId])));
@@ -163,12 +192,6 @@ chrome.downloads.onChanged.addListener(delta => {
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   provinces.customs.handleDeterminingFilename(item, suggest);
 });
-chrome.webRequest.onHeadersReceived.addListener(details => {
-  void dispatchEvent('headersReceived', details);
-}, {
-  urls: ['http://*/*', 'https://*/*'],
-  types: ['media', 'xmlhttprequest', 'other', 'image']
-}, ['responseHeaders']);
 chrome.alarms.onAlarm.addListener(alarm => {
   const province = alarm.name === BILI_DAILY_ALARM ? provinces.operations
     : alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) ? provinces.customs

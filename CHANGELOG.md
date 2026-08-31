@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.2.1 — 2026-09-01
+
+- Image Download and Video Download now share a lifecycle-managed browser-response listener. It remains registered only while at least one download session is active or within its two-minute discovery grace period, and is released after the final session pauses or ends.
+- Reopening either download workspace restores response observation before scanning resumes. Multiple products and tabs coordinate through Customs Province without controlling one another.
+- Service Worker startup restores existing download sessions before deciding whether observation can stop. If restoration is uncertain, the listener remains available so valid sessions do not miss resources.
+
 ## 5.1.1 — 2026-08-31
 
 - Rebuilt the extension background around a four-level `central → province → product → feature` structure. Central now decides jurisdiction and routes work, while three provincial modules coordinate their assigned products and independent product modules perform the work.

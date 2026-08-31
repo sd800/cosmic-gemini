@@ -1,12 +1,14 @@
 import { createImageDownloadProduct } from '../products/customs/image-download.js';
 import { createVideoDownloadProduct } from '../products/customs/video-download.js';
 import { createCustomsOffscreenCoordinator } from './customs-offscreen.js';
+import { createCustomsObservationRegistry } from './customs-observation.js';
 import { defineProvince } from './interface.js';
 
-export function createCustomsProvince(platform) {
+export function createCustomsProvince(platform, responseIngress) {
   const offscreen = createCustomsOffscreenCoordinator();
-  const imageDownload = createImageDownloadProduct(platform, offscreen);
-  const videoDownload = createVideoDownloadProduct(platform, offscreen);
+  const observation = createCustomsObservationRegistry(responseIngress);
+  const imageDownload = createImageDownloadProduct(platform, offscreen, observation);
+  const videoDownload = createVideoDownloadProduct(platform, offscreen, observation);
   const products = {
     [imageDownload.id]: imageDownload,
     [videoDownload.id]: videoDownload
@@ -18,9 +20,15 @@ export function createCustomsProvince(platform) {
     return value;
   }
 
+  async function restoreObservation() {
+    const results = await Promise.all([imageDownload.initialize(), videoDownload.initialize()]);
+    return observation.completeInitialization(results);
+  }
+
   return defineProvince({
     id: 'customs',
     products,
+    initialize: restoreObservation,
     async getProductState(productId, context) {
       const governed = product(productId);
       const state = await governed.state(context.settings, context.tabId, context.url);
@@ -58,6 +66,7 @@ export function createCustomsProvince(platform) {
       return videoDownload.handleDeterminingFilename(item, suggest);
     },
     async handleHeadersReceived(details) {
+      if (observation.needsRestoration()) await restoreObservation();
       if (details.type === 'image') await imageDownload.handleHeadersReceived(details);
       else await videoDownload.handleHeadersReceived(details);
     },

@@ -27,7 +27,7 @@ import {
   videoSessionKey
 } from '../../../core/video-download.js';
 
-export function createVideoDownloadProduct(platform, offscreen) {
+export function createVideoDownloadProduct(platform, offscreen, observation) {
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi } = platform;
   const activeVideoProcessing = new Map();
   let nextMediaHeaderRuleId = 700000;
@@ -36,11 +36,33 @@ export function createVideoDownloadProduct(platform, offscreen) {
   const activeTabs = new Set();
   const pendingNetworkCandidates = new Map();
   const viewPorts = new Map();
-  const activeTabsReady = chrome.storage.session.get(null).then(values => {
-    for (const [key, value] of Object.entries(values)) {
-      if (key.startsWith('videoDownloadSession:') && value?.active === true && Number.isInteger(value.tabId) && downloadScanCollects(value)) activeTabs.add(value.tabId);
-    }
-  }).catch(() => {});
+  async function restoreCollectingTabs() {
+    try {
+      const values = await chrome.storage.session.get(null);
+      for (const [key, value] of Object.entries(values)) {
+        if (key.startsWith('videoDownloadSession:') && value?.active === true && Number.isInteger(value.tabId) && downloadScanCollects(value)) {
+          await setCollecting(value.tabId, true);
+        }
+      }
+      return true;
+    } catch { return false; }
+  }
+  let activeTabsReady = restoreCollectingTabs();
+
+  async function initialize() {
+    const current = activeTabsReady;
+    if (await current) return true;
+    if (activeTabsReady === current) activeTabsReady = restoreCollectingTabs();
+    return activeTabsReady;
+  }
+
+  async function setCollecting(tabId, active) {
+    const changed = active === true ? !activeTabs.has(tabId) : activeTabs.has(tabId);
+    if (!changed) return;
+    if (active === true) activeTabs.add(tabId);
+    else activeTabs.delete(tabId);
+    observation.setCollecting(FEATURE_IDS.VIDEO_DOWNLOAD, tabId, active);
+  }
 
   function clearPending(tabId) {
     const pending = pendingNetworkCandidates.get(tabId);
@@ -165,19 +187,17 @@ export function createVideoDownloadProduct(platform, offscreen) {
       const key = videoSessionKey(tabId);
       const session = (await chrome.storage.session.get(key))[key];
       if (session?.active === true) {
-        if (downloadScanCollects(session)) activeTabs.add(tabId);
-        else activeTabs.delete(tabId);
+        await setCollecting(tabId, downloadScanCollects(session));
         return session;
       }
-      activeTabs.delete(tabId);
+      await setCollecting(tabId, false);
       return null;
     } catch { return null; }
   }
   
   async function saveVideoSession(session) {
     if (!session?.active || !Number.isInteger(session.tabId)) return;
-    if (downloadScanCollects(session)) activeTabs.add(session.tabId);
-    else activeTabs.delete(session.tabId);
+    await setCollecting(session.tabId, downloadScanCollects(session));
     await chrome.storage.session.set({ [videoSessionKey(session.tabId)]: session });
     notifyViews(session.tabId);
     notifyCentralUi(session.tabId);
@@ -493,8 +513,8 @@ export function createVideoDownloadProduct(platform, offscreen) {
     await Promise.allSettled(artifacts.map(artifactId => offscreen.sendVideo({
       type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId
     })));
-    await activeTabsReady;
-    activeTabs.delete(tabId);
+    await initialize();
+    await setCollecting(tabId, false);
     clearPending(tabId);
     await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
     await chrome.storage.session.remove(videoSessionKey(tabId));
@@ -832,7 +852,7 @@ export function createVideoDownloadProduct(platform, offscreen) {
       processing.cancelled = true;
       if (processing.requestId) void offscreen.sendVideo({ type: 'CG_VIDEO_CANCEL_REQUEST', requestId: processing.requestId }).catch(() => {});
     }
-    await activeTabsReady;
+    await initialize();
     const values = await chrome.storage.session.get(null);
     const tabIds = Object.entries(values).filter(([key, value]) => key.startsWith('videoDownloadSession:') && Number.isInteger(value?.tabId)).map(([, value]) => value.tabId);
     await Promise.allSettled([...new Set(tabIds)].map(stopVideoSession));
@@ -840,6 +860,7 @@ export function createVideoDownloadProduct(platform, offscreen) {
 
   return Object.freeze({
     id: FEATURE_IDS.VIDEO_DOWNLOAD,
+    initialize,
     state: videoDownloadState,
     handleMessage,
     connect,
@@ -860,7 +881,7 @@ export function createVideoDownloadProduct(platform, offscreen) {
     },
     async handleHeadersReceived(details) {
       if (!Number.isInteger(details.tabId) || details.tabId < 0 || details.type === 'image') return;
-      await activeTabsReady;
+      await initialize();
       if (!activeTabs.has(details.tabId)) return;
       const candidate = classifyVideoResource({ url: details.url, responseHeaders: details.responseHeaders, source: 'network' });
       if (candidate) queueCandidate(details.tabId, candidate);

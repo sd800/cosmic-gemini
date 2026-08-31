@@ -20,18 +20,40 @@ import {
   sanitizeImageFilename
 } from '../../../core/image-download.js';
 
-export function createImageDownloadProduct(platform, offscreen) {
+export function createImageDownloadProduct(platform, offscreen, observation) {
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi, runtimeToken } = platform;
   const activeTabs = new Set();
   const pendingNetworkCandidates = new Map();
   const preparedImageSidePanels = new Map();
   const viewPorts = new Map();
   const sendImageOffscreen = message => offscreen.sendImage(message);
-  const activeTabsReady = chrome.storage.session.get(null).then(values => {
-    for (const [key, value] of Object.entries(values)) {
-      if (key.startsWith('imageDownloadSession:') && value?.active === true && Number.isInteger(value.tabId) && downloadScanCollects(value)) activeTabs.add(value.tabId);
-    }
-  }).catch(() => {});
+  async function restoreCollectingTabs() {
+    try {
+      const values = await chrome.storage.session.get(null);
+      for (const [key, value] of Object.entries(values)) {
+        if (key.startsWith('imageDownloadSession:') && value?.active === true && Number.isInteger(value.tabId) && downloadScanCollects(value)) {
+          await setCollecting(value.tabId, true);
+        }
+      }
+      return true;
+    } catch { return false; }
+  }
+  let activeTabsReady = restoreCollectingTabs();
+
+  async function initialize() {
+    const current = activeTabsReady;
+    if (await current) return true;
+    if (activeTabsReady === current) activeTabsReady = restoreCollectingTabs();
+    return activeTabsReady;
+  }
+
+  async function setCollecting(tabId, active) {
+    const changed = active === true ? !activeTabs.has(tabId) : activeTabs.has(tabId);
+    if (!changed) return;
+    if (active === true) activeTabs.add(tabId);
+    else activeTabs.delete(tabId);
+    observation.setCollecting(FEATURE_IDS.IMAGE_DOWNLOAD, tabId, active);
+  }
 
   function originFromUrl(value) {
     try {
@@ -76,19 +98,17 @@ export function createImageDownloadProduct(platform, offscreen) {
       const key = imageSessionKey(tabId);
       const session = (await chrome.storage.session.get(key))[key];
       if (session?.active === true) {
-        if (downloadScanCollects(session)) activeTabs.add(tabId);
-        else activeTabs.delete(tabId);
+        await setCollecting(tabId, downloadScanCollects(session));
         return session;
       }
-      activeTabs.delete(tabId);
+      await setCollecting(tabId, false);
       return null;
     } catch { return null; }
   }
   
   async function saveImageSession(session) {
     if (!session?.active || !Number.isInteger(session.tabId)) return;
-    if (downloadScanCollects(session)) activeTabs.add(session.tabId);
-    else activeTabs.delete(session.tabId);
+    await setCollecting(session.tabId, downloadScanCollects(session));
     await chrome.storage.session.set({ [imageSessionKey(session.tabId)]: session });
     notifyViews(session.tabId);
     notifyCentralUi(session.tabId);
@@ -212,8 +232,8 @@ export function createImageDownloadProduct(platform, offscreen) {
     if (!Number.isInteger(tabId)) return;
     const session = await readImageSession(tabId);
     await cleanupImageCaptureArtifacts(session);
-    await activeTabsReady;
-    activeTabs.delete(tabId);
+    await initialize();
+    await setCollecting(tabId, false);
     clearPending(tabId);
     await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
     await chrome.storage.session.remove(imageSessionKey(tabId));
@@ -586,7 +606,7 @@ export function createImageDownloadProduct(platform, offscreen) {
   }
 
   async function reset() {
-    await activeTabsReady;
+    await initialize();
     const values = await chrome.storage.session.get(null);
     const tabIds = Object.entries(values).filter(([key, value]) => key.startsWith('imageDownloadSession:') && Number.isInteger(value?.tabId)).map(([, value]) => value.tabId);
     await Promise.allSettled([...new Set(tabIds)].map(stopImageSession));
@@ -594,6 +614,7 @@ export function createImageDownloadProduct(platform, offscreen) {
 
   return Object.freeze({
     id: FEATURE_IDS.IMAGE_DOWNLOAD,
+    initialize,
     state: imageDownloadState,
     prepareWorkspace: prepareImageWorkspaceSidePanel,
     handleMessage,
@@ -607,7 +628,7 @@ export function createImageDownloadProduct(platform, offscreen) {
     handleDownloadChanged: handleImageDownloadChanged,
     async handleHeadersReceived(details) {
       if (!Number.isInteger(details.tabId) || details.tabId < 0 || details.type !== 'image') return;
-      await activeTabsReady;
+      await initialize();
       if (!activeTabs.has(details.tabId)) return;
       const mime = imageMimeFromHeaders(details.responseHeaders);
       if (!mime && !imageExtension(details.url)) return;

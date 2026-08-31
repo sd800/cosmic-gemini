@@ -102,7 +102,7 @@ Click Image Download to start finding images in the current tab. Its workspace o
 
 Click Video Download to start finding video in the current tab and open its media list. The session remains active through same-site navigation until you stop it, close the tab, or leave the website.
 
-Discovery stays active while a download workspace is visible and for two minutes after it closes. It then pauses without discarding the results. Reopening the workspace resumes discovery and immediately checks the current page again.
+Discovery stays active while a download workspace is visible and for two minutes after it closes. It then pauses without discarding the results. When every download session has paused, Cosmic Gemini also releases its shared browser-response listener. Reopening either workspace restores observation before discovery resumes and immediately checks the current page again.
 
 ### Settings and scheduled tools
 

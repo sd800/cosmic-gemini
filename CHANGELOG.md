@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.1.28 — 2026-08-31
+
+- Keeps Image Download and Video Download discovery active while their workspace is visible and for two minutes after it closes. Discovery then pauses without discarding results and resumes with an immediate scan when the workspace reopens.
+- Replaces download-workspace polling with event-driven updates, batches nearby network discoveries, and limits Video Download DOM rescans to changed page regions.
+- Gives the first introduction card on every product settings page and All Settings the same blue-tinted border used by Native Scroll and No Autoplay.
+
 ## 3.1.27 — 2026-08-30
 
 - Added links between the English and Simplified Chinese changelogs.

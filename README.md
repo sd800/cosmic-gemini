@@ -102,6 +102,8 @@ Click Image Download to start finding images in the current tab. Its workspace o
 
 Click Video Download to start finding video in the current tab and open its media list. The session remains active through same-site navigation until you stop it, close the tab, or leave the website.
 
+Discovery stays active while a download workspace is visible and for two minutes after it closes. It then pauses without discarding the results. Reopening the workspace resumes discovery and immediately checks the current page again.
+
 ### Settings and scheduled tools
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.

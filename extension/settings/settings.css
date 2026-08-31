@@ -29,6 +29,7 @@ p { margin-bottom: 16px; color: var(--muted); font-size: 13px; line-height: 1.55
 p.last { margin-bottom: 0; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .section-heading p { margin-bottom: 0; }
+.primary > .card:first-child,
 .default-card { border-color: color-mix(in srgb, var(--blue) 22%, var(--line)); }
 .default-card .section-heading { align-items: flex-start; }
 .default-card .switch { margin-top: 19px; }

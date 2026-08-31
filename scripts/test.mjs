@@ -6,3 +6,4 @@ import '../test/any-copy-runtime.test.mjs';
 import '../test/bili-daily-login.test.mjs';
 import '../test/video-download.test.mjs';
 import '../test/image-download.test.mjs';
+import '../test/download-session.test.mjs';

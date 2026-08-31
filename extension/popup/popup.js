@@ -18,7 +18,10 @@ let state;
 let t;
 let currentTab = null;
 let viewMode = null;
-let pollTimer = 0;
+let videoViewPort = null;
+let videoViewPortTabId = null;
+let videoViewReconnectAttempts = 0;
+let reloadTimer = 0;
 let selectedVideoCandidateId = '';
 let videoSelectionTabId = null;
 let videoPanelSignature = '';
@@ -339,9 +342,40 @@ function showView(mode) {
   document.body.dataset.view = mode;
   document.querySelector('.popup-shell').hidden = mode === 'video';
   document.querySelector('#video-panel').hidden = mode !== 'video';
-  clearInterval(pollTimer);
-  pollTimer = 0;
-  if (mode === 'video') pollTimer = setInterval(() => void reload(false), 800);
+  setVideoViewVisible(mode === 'video');
+}
+
+function setVideoViewVisible(visible) {
+  const tabId = currentTab?.id;
+  if (!Number.isInteger(tabId)) return;
+  if (!visible && !videoViewPort) return;
+  if (!videoViewPort || videoViewPortTabId !== tabId) {
+    try { videoViewPort?.disconnect(); } catch {}
+    const port = chrome.runtime.connect({ name: `download-view:videoDownload:${tabId}` });
+    videoViewPort = port;
+    videoViewPortTabId = tabId;
+    setTimeout(() => {
+      if (videoViewPort === port) videoViewReconnectAttempts = 0;
+    }, 1_000);
+    port.onDisconnect.addListener(() => {
+      if (videoViewPort !== port) return;
+      videoViewPort = null;
+      videoViewPortTabId = null;
+      if (viewMode === 'video' && Number.isInteger(currentTab?.id) && videoViewReconnectAttempts < 5) {
+        videoViewReconnectAttempts += 1;
+        setTimeout(() => setVideoViewVisible(true), Math.min(250 * (2 ** videoViewReconnectAttempts), 4_000));
+      }
+    });
+  }
+  try { videoViewPort.postMessage({ visible }); } catch {}
+}
+
+function scheduleReload() {
+  if (reloadTimer) return;
+  reloadTimer = setTimeout(() => {
+    reloadTimer = 0;
+    void reload(false).catch(() => {});
+  }, 80);
 }
 
 function render() {
@@ -432,7 +466,8 @@ document.querySelector('#all-settings').addEventListener('click', () => void per
 }));
 
 document.querySelector('#videoDownload-status').addEventListener('click', () => void perform(async () => {
-    await send({
+  setVideoViewVisible(true);
+  await send({
       type: 'UI_VIDEO_OPEN',
       tabId: currentTab?.id,
       url: currentTab?.url || '',
@@ -477,7 +512,10 @@ label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
 label(document.querySelector('#all-settings'), t('allSettingsTitle'));
 root.dataset.localePending = 'false';
 chrome.storage.onChanged.addListener((changes, area) => {
-  const key = Number.isInteger(currentTab?.id) ? `tabActivity:${currentTab.id}` : '';
-  if (area === 'session' && key && Object.hasOwn(changes, key)) void reload(false);
+  const keys = Number.isInteger(currentTab?.id)
+    ? [`tabActivity:${currentTab.id}`, `videoDownloadSession:${currentTab.id}`]
+    : [];
+  if (!(area === 'session') || !keys.length) return;
+  if (keys.some(key => Object.hasOwn(changes, key))) scheduleReload();
 });
 try { await reload(); } catch { live.textContent = t('unavailable'); }

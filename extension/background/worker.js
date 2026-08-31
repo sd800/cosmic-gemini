@@ -23,6 +23,14 @@ import { siteVideoPageDiscovery } from '../core/site-video.js';
 import { unwrapObfuscatedHls } from '../core/obfuscated-hls.js';
 import { imagePageDiscovery } from '../core/image-page.js';
 import {
+  activateDownloadScan,
+  deferDownloadScan,
+  downloadScanAlarmName,
+  downloadScanCollects,
+  parseDownloadScanAlarm,
+  pauseDownloadScan
+} from '../core/download-session.js';
+import {
   groupImageCandidates,
   imageContentLength,
   imageExtension,
@@ -67,17 +75,20 @@ const pendingVideoFilenames = new Map();
 const expandingVideoManifests = new Set();
 const activeVideoTabs = new Set();
 const activeImageTabs = new Set();
+const downloadViewPorts = new Map();
+const pendingVideoNetworkCandidates = new Map();
+const pendingImageNetworkCandidates = new Map();
 const preparedImageSidePanels = new Map();
 const activeVideoTabsReady = chrome.storage.session.get(null).then(values => {
   for (const [key, value] of Object.entries(values)) {
-    if (key.startsWith('videoDownloadSession:') && value?.active === true && Number.isInteger(value.tabId)) {
+    if (key.startsWith('videoDownloadSession:') && value?.active === true && Number.isInteger(value.tabId) && downloadScanCollects(value)) {
       activeVideoTabs.add(value.tabId);
     }
   }
 }).catch(() => {});
 const activeImageTabsReady = chrome.storage.session.get(null).then(values => {
   for (const [key, value] of Object.entries(values)) {
-    if (key.startsWith('imageDownloadSession:') && value?.active === true && Number.isInteger(value.tabId)) {
+    if (key.startsWith('imageDownloadSession:') && value?.active === true && Number.isInteger(value.tabId) && downloadScanCollects(value)) {
       activeImageTabs.add(value.tabId);
     }
   }
@@ -297,7 +308,8 @@ async function readVideoSession(tabId) {
     const key = videoSessionKey(tabId);
     const session = (await chrome.storage.session.get(key))[key];
     if (session?.active === true) {
-      activeVideoTabs.add(tabId);
+      if (downloadScanCollects(session)) activeVideoTabs.add(tabId);
+      else activeVideoTabs.delete(tabId);
       return session;
     }
     activeVideoTabs.delete(tabId);
@@ -307,7 +319,8 @@ async function readVideoSession(tabId) {
 
 async function saveVideoSession(session) {
   if (!session?.active || !Number.isInteger(session.tabId)) return;
-  activeVideoTabs.add(session.tabId);
+  if (downloadScanCollects(session)) activeVideoTabs.add(session.tabId);
+  else activeVideoTabs.delete(session.tabId);
   await chrome.storage.session.set({ [videoSessionKey(session.tabId)]: session });
 }
 
@@ -546,12 +559,27 @@ async function injectVideoScanner(tabId) {
   } catch { return false; }
 }
 
+async function stopVideoScanner(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      world: 'ISOLATED',
+      injectImmediately: true,
+      func: () => globalThis[Symbol.for('cosmic-gemini.video-download.scanner')]?.stop()
+    });
+  } catch {
+    await sendTabMessage(tabId, { type: 'CG_VIDEO_STOP' });
+  }
+}
+
 async function startVideoSession(tabId, url, title = '') {
   if (!Number.isInteger(tabId)) throw new Error('This tab is unavailable.');
   const origin = originFromUrl(url);
   if (!origin) throw new Error('Video Download is unavailable on this page.');
   const existing = await readVideoSession(tabId);
   if (existing?.origin === origin) {
+    Object.assign(existing, activateDownloadScan(existing));
+    await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
     const metadata = await readVideoPageMetadata(tabId);
     existing.pageUrl = url;
     existing.title = metadata.title || title || existing.title;
@@ -561,6 +589,7 @@ async function startVideoSession(tabId, url, title = '') {
       injectVideoScanner(tabId),
       discoverSiteVideoCandidates(tabId, url)
     ]);
+    await scheduleDownloadDiscoveryPause('videoDownload', tabId);
     return readVideoSession(tabId);
   }
   if (existing) await stopVideoSession(tabId);
@@ -575,7 +604,9 @@ async function startVideoSession(tabId, url, title = '') {
     status: 'scanning',
     candidates: [],
     startedAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    scanState: 'active',
+    scanDeadline: 0
   };
   await saveVideoSession(session);
   await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, false);
@@ -591,19 +622,22 @@ async function startVideoSession(tabId, url, title = '') {
       await saveVideoSession(current);
     }
   }
+  await scheduleDownloadDiscoveryPause('videoDownload', tabId);
   return readVideoSession(tabId);
 }
 
 async function stopVideoSession(tabId) {
   if (!Number.isInteger(tabId)) return;
   const session = await readVideoSession(tabId);
-  await sendTabMessage(tabId, { type: 'CG_VIDEO_STOP' });
+  await stopVideoScanner(tabId);
   const artifacts = [...new Set((session?.candidates || []).map(candidate => candidate.artifactId).filter(Boolean))];
   await Promise.allSettled(artifacts.map(artifactId => sendVideoOffscreen({
     type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId
   })));
   await activeVideoTabsReady;
   activeVideoTabs.delete(tabId);
+  clearPendingNetworkCandidates(pendingVideoNetworkCandidates, tabId);
+  await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
   await chrome.storage.session.remove(videoSessionKey(tabId));
   await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, false);
   await maybeCloseVideoOffscreen();
@@ -844,7 +878,8 @@ async function readImageSession(tabId) {
     const key = imageSessionKey(tabId);
     const session = (await chrome.storage.session.get(key))[key];
     if (session?.active === true) {
-      activeImageTabs.add(tabId);
+      if (downloadScanCollects(session)) activeImageTabs.add(tabId);
+      else activeImageTabs.delete(tabId);
       return session;
     }
     activeImageTabs.delete(tabId);
@@ -854,8 +889,111 @@ async function readImageSession(tabId) {
 
 async function saveImageSession(session) {
   if (!session?.active || !Number.isInteger(session.tabId)) return;
-  activeImageTabs.add(session.tabId);
+  if (downloadScanCollects(session)) activeImageTabs.add(session.tabId);
+  else activeImageTabs.delete(session.tabId);
   await chrome.storage.session.set({ [imageSessionKey(session.tabId)]: session });
+}
+
+function clearPendingNetworkCandidates(collection, tabId) {
+  const pending = collection.get(tabId);
+  if (pending?.timer) clearTimeout(pending.timer);
+  collection.delete(tabId);
+}
+
+function queueNetworkCandidate(collection, tabId, candidate, flush) {
+  const pending = collection.get(tabId) || { candidates: [], timer: 0 };
+  if (pending.candidates.length < 160) pending.candidates.push(candidate);
+  if (!pending.timer) {
+    pending.timer = setTimeout(() => {
+      collection.delete(tabId);
+      void flush(tabId, pending.candidates).catch(() => {});
+    }, 140);
+  }
+  collection.set(tabId, pending);
+}
+
+function downloadViewKey(product, tabId) {
+  return `${product}:${tabId}`;
+}
+
+function hasVisibleDownloadView(product, tabId) {
+  const clients = downloadViewPorts.get(downloadViewKey(product, tabId));
+  return !!clients && [...clients.values()].some(Boolean);
+}
+
+async function readDownloadSession(product, tabId) {
+  return product === 'videoDownload' ? readVideoSession(tabId) : readImageSession(tabId);
+}
+
+async function saveDownloadSession(product, session) {
+  return product === 'videoDownload' ? saveVideoSession(session) : saveImageSession(session);
+}
+
+async function pauseDownloadDiscovery(product, tabId) {
+  if (hasVisibleDownloadView(product, tabId)) return;
+  const session = await readDownloadSession(product, tabId);
+  if (!session) return;
+  await saveDownloadSession(product, pauseDownloadScan(session));
+  if (product === 'videoDownload') {
+    clearPendingNetworkCandidates(pendingVideoNetworkCandidates, tabId);
+    await stopVideoScanner(tabId);
+  } else {
+    clearPendingNetworkCandidates(pendingImageNetworkCandidates, tabId);
+  }
+}
+
+async function scheduleDownloadDiscoveryPause(product, tabId) {
+  if (hasVisibleDownloadView(product, tabId)) return;
+  const session = await readDownloadSession(product, tabId);
+  if (!session || !downloadScanCollects(session)) return;
+  const deferred = deferDownloadScan(session);
+  await saveDownloadSession(product, deferred);
+  await chrome.alarms.create(downloadScanAlarmName(product, tabId), { when: deferred.scanDeadline });
+}
+
+async function resumeDownloadDiscovery(product, tabId) {
+  const session = await readDownloadSession(product, tabId);
+  if (!session) return;
+  const active = activateDownloadScan(session);
+  await chrome.alarms.clear(downloadScanAlarmName(product, tabId));
+  await saveDownloadSession(product, active);
+  if (product === 'videoDownload') {
+    await Promise.allSettled([
+      injectVideoScanner(tabId),
+      discoverSiteVideoCandidates(tabId, active.pageUrl)
+    ]);
+  } else {
+    await scanImageSession(tabId, false).catch(() => {});
+  }
+}
+
+function connectDownloadView(port) {
+  const match = String(port.name || '').match(/^download-view:(videoDownload|imageDownload):(\d+)$/);
+  if (!match) return false;
+  const product = match[1];
+  const tabId = Number(match[2]);
+  const key = downloadViewKey(product, tabId);
+  const clients = downloadViewPorts.get(key) || new Map();
+  clients.set(port, false);
+  downloadViewPorts.set(key, clients);
+
+  port.onMessage.addListener(message => {
+    if (typeof message?.visible !== 'boolean') return;
+    const wasVisible = hasVisibleDownloadView(product, tabId);
+    clients.set(port, message.visible);
+    const isVisible = hasVisibleDownloadView(product, tabId);
+    if (!wasVisible && isVisible) void resumeDownloadDiscovery(product, tabId).catch(() => {});
+    if (wasVisible && !isVisible) void scheduleDownloadDiscoveryPause(product, tabId).catch(() => {});
+  });
+  port.onDisconnect.addListener(() => {
+    const wasVisible = hasVisibleDownloadView(product, tabId);
+    clients.delete(port);
+    if (!clients.size) downloadViewPorts.delete(key);
+    if (wasVisible && !hasVisibleDownloadView(product, tabId)) {
+      void scheduleDownloadDiscoveryPause(product, tabId).catch(() => {});
+    }
+  });
+  return true;
 }
 
 function sortImageCandidates(candidates) {
@@ -937,7 +1075,7 @@ async function startImageSession(tabId, url, title = '') {
   if (!origin) throw new Error('Image Download is unavailable on this page.');
   const existing = await readImageSession(tabId);
   if (existing?.origin !== origin) await stopImageSession(tabId);
-  const session = existing?.origin === origin ? {
+  const session = activateDownloadScan(existing?.origin === origin ? {
     ...existing,
     pageUrl: url,
     title: String(title || existing.title || 'Images').slice(0, 240),
@@ -953,10 +1091,12 @@ async function startImageSession(tabId, url, title = '') {
     candidates: [],
     startedAt: Date.now(),
     updatedAt: Date.now()
-  };
+  });
+  await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
   await saveImageSession(session);
   await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, !!session.candidates.length);
   void scanImageSession(tabId, false).catch(() => {});
+  await scheduleDownloadDiscoveryPause('imageDownload', tabId);
   return session;
 }
 
@@ -976,6 +1116,8 @@ async function stopImageSession(tabId) {
   await cleanupImageCaptureArtifacts(session);
   await activeImageTabsReady;
   activeImageTabs.delete(tabId);
+  clearPendingNetworkCandidates(pendingImageNetworkCandidates, tabId);
+  await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
   await chrome.storage.session.remove(imageSessionKey(tabId));
   await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false);
   preparedImageSidePanels.delete(tabId);
@@ -1363,9 +1505,16 @@ async function resetAllSettings() {
     }
   }
   await Promise.allSettled([activeVideoTabsReady, activeImageTabsReady]);
+  const sessionValues = await chrome.storage.session.get(null);
+  const videoTabIds = Object.entries(sessionValues)
+    .filter(([key, value]) => key.startsWith('videoDownloadSession:') && Number.isInteger(value?.tabId))
+    .map(([, value]) => value.tabId);
+  const imageTabIds = Object.entries(sessionValues)
+    .filter(([key, value]) => key.startsWith('imageDownloadSession:') && Number.isInteger(value?.tabId))
+    .map(([, value]) => value.tabId);
   await Promise.allSettled([
-    ...[...activeVideoTabs].map(tabId => stopVideoSession(tabId)),
-    ...[...activeImageTabs].map(tabId => stopImageSession(tabId))
+    ...[...new Set(videoTabIds)].map(tabId => stopVideoSession(tabId)),
+    ...[...new Set(imageTabIds)].map(tabId => stopImageSession(tabId))
   ]);
   await chrome.alarms.clear(BILI_DAILY_ALARM);
   await chrome.storage.session.clear();
@@ -1392,8 +1541,16 @@ chrome.runtime.onStartup.addListener(() => {
 });
 void clearLegacyAudioPromptState().catch(() => {});
 
+chrome.runtime.onConnect.addListener(port => {
+  connectDownloadView(port);
+});
+
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
-  if (change.status === 'loading' || change.url) void clearTabActivity(tabId);
+  if (change.status === 'loading' || change.url) {
+    void clearTabActivity(tabId);
+    clearPendingNetworkCandidates(pendingVideoNetworkCandidates, tabId);
+    clearPendingNetworkCandidates(pendingImageNetworkCandidates, tabId);
+  }
   void (async () => {
     const videoSession = await readVideoSession(tabId);
     if (videoSession) {
@@ -1408,13 +1565,14 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
           videoSession.status = 'scanning';
           videoSession.updatedAt = Date.now();
           await saveVideoSession(videoSession);
-          await injectVideoScanner(tabId);
+          if (downloadScanCollects(videoSession)) await injectVideoScanner(tabId);
         }
       }
-      if (change.status === 'complete' && await readVideoSession(tabId)) {
+      const currentVideoSession = change.status === 'complete' ? await readVideoSession(tabId) : null;
+      if (currentVideoSession && downloadScanCollects(currentVideoSession)) {
         await Promise.allSettled([
           injectVideoScanner(tabId),
-          discoverSiteVideoCandidates(tabId, videoSession.pageUrl)
+          discoverSiteVideoCandidates(tabId, currentVideoSession.pageUrl)
         ]);
       }
     }
@@ -1435,7 +1593,8 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
           await saveImageSession(imageSession);
         }
       }
-      if (change.status === 'complete' && await readImageSession(tabId)) {
+      const currentImageSession = change.status === 'complete' ? await readImageSession(tabId) : null;
+      if (currentImageSession && downloadScanCollects(currentImageSession)) {
         await scanImageSession(tabId, false).catch(() => {});
       }
     }
@@ -1444,9 +1603,12 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 
 chrome.tabs.onRemoved.addListener(tabId => {
   void chrome.storage.session.remove(activityKey(tabId));
-  void chrome.storage.session.remove(videoSessionKey(tabId));
+  void stopVideoSession(tabId).catch(() => {});
   void stopImageSession(tabId).catch(() => {});
-  void activeVideoTabsReady.then(() => activeVideoTabs.delete(tabId));
+  clearPendingNetworkCandidates(pendingVideoNetworkCandidates, tabId);
+  clearPendingNetworkCandidates(pendingImageNetworkCandidates, tabId);
+  void chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
+  void chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
 });
 
 chrome.downloads.onChanged.addListener(delta => {
@@ -1471,7 +1633,12 @@ chrome.webRequest.onHeadersReceived.addListener(details => {
       responseHeaders: details.responseHeaders,
       source: 'network'
     });
-    if (candidate) void addVideoCandidates(details.tabId, [candidate]).catch(() => {});
+    if (candidate) queueNetworkCandidate(
+      pendingVideoNetworkCandidates,
+      details.tabId,
+      candidate,
+      addVideoCandidates
+    );
   });
 }, {
   urls: ['http://*/*', 'https://*/*'],
@@ -1484,13 +1651,13 @@ chrome.webRequest.onHeadersReceived.addListener(details => {
     if (!activeImageTabs.has(details.tabId)) return;
     const mime = imageMimeFromHeaders(details.responseHeaders);
     if (!mime && !imageExtension(details.url)) return;
-    void addImageCandidates(details.tabId, [{
+    queueNetworkCandidate(pendingImageNetworkCandidates, details.tabId, {
       url: details.url,
       mime,
       contentLength: imageContentLength(details.responseHeaders),
       source: 'network',
       originalHint: 1
-    }]).catch(() => {});
+    }, addImageCandidates);
   });
 }, {
   urls: ['http://*/*', 'https://*/*'],
@@ -1498,6 +1665,11 @@ chrome.webRequest.onHeadersReceived.addListener(details => {
 }, ['responseHeaders']);
 
 chrome.alarms.onAlarm.addListener(alarm => {
+  const discovery = parseDownloadScanAlarm(alarm.name);
+  if (discovery) {
+    void pauseDownloadDiscovery(discovery.product, discovery.tabId).catch(() => {});
+    return;
+  }
   if (alarm.name === BILI_DAILY_ALARM) {
     void runBiliDailyLoginOnce().catch(() => {});
   }
@@ -1613,7 +1785,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (message.type === 'UI_IMAGE_RESCAN') {
       const tabId = Number(message.tabId);
+      const current = await readImageSession(tabId);
+      if (!current) throw new Error('Image Download is not active in this tab.');
+      await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
+      await saveImageSession(activateDownloadScan(current));
       await scanImageSession(tabId, message.deep === true);
+      if (!hasVisibleDownloadView('imageDownload', tabId)) {
+        await scheduleDownloadDiscoveryPause('imageDownload', tabId);
+      }
       const session = await readImageSession(tabId);
       const settings = await readSettings();
       sendResponse({ ok: true, result: await imageDownloadState(settings, tabId, session?.pageUrl || '') });
@@ -1661,10 +1840,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const tabId = Number(message.tabId);
       const session = await readVideoSession(tabId);
       if (!session) throw new Error('Video Download is not active in this tab.');
+      await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
+      await saveVideoSession(activateDownloadScan(session));
       await Promise.allSettled([
         injectVideoScanner(tabId),
         discoverSiteVideoCandidates(tabId, session.pageUrl)
       ]);
+      if (!hasVisibleDownloadView('videoDownload', tabId)) {
+        await scheduleDownloadDiscoveryPause('videoDownload', tabId);
+      }
       const settings = await readSettings();
       sendResponse({ ok: true, result: await videoDownloadState(settings, tabId, session.pageUrl) });
       return;

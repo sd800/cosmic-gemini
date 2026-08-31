@@ -16,12 +16,44 @@ const metadataSent = new Set();
 const failedCandidates = new Set();
 let state = null;
 let t = key => key;
-let pollTimer = 0;
+let viewPort = null;
+let viewReconnectAttempts = 0;
+let reloadTimer = 0;
 let renderedAt = -1;
 let preferencesInitialized = false;
 let scanPending = false;
 let downloadPending = false;
+let workspaceClosing = false;
 const pendingControls = new WeakSet();
+
+function setWorkspaceVisible(visible) {
+  if (!Number.isInteger(sourceTabId)) return;
+  if (!visible && !viewPort) return;
+  if (!viewPort) {
+    const port = chrome.runtime.connect({ name: `download-view:imageDownload:${sourceTabId}` });
+    viewPort = port;
+    setTimeout(() => {
+      if (viewPort === port) viewReconnectAttempts = 0;
+    }, 1_000);
+    port.onDisconnect.addListener(() => {
+      if (viewPort !== port) return;
+      viewPort = null;
+      if (!workspaceClosing && !document.hidden && viewReconnectAttempts < 5) {
+        viewReconnectAttempts += 1;
+        setTimeout(() => setWorkspaceVisible(true), Math.min(250 * (2 ** viewReconnectAttempts), 4_000));
+      }
+    });
+  }
+  try { viewPort.postMessage({ visible }); } catch {}
+}
+
+function scheduleReload(force = false) {
+  if (document.hidden || reloadTimer) return;
+  reloadTimer = setTimeout(() => {
+    reloadTimer = 0;
+    void reload(force).catch(() => {});
+  }, 100);
+}
 
 function label(element, value) {
   element.title = value;
@@ -365,14 +397,24 @@ label(document.querySelector('#stop'), t('imageStopTitle'));
 document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
 root.dataset.localePending = 'false';
 try {
+  setWorkspaceVisible(!document.hidden);
   await reload(true);
-  pollTimer = setInterval(() => {
-    if (!document.hidden) void reload(false).catch(() => {});
-  }, 1200);
 } catch {
   document.querySelector('#status-text').textContent = t('imageUnavailablePage');
 }
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) void reload(true).catch(() => {});
+chrome.storage.onChanged.addListener((changes, area) => {
+  const key = `imageDownloadSession:${sourceTabId}`;
+  if (area === 'session' && Object.hasOwn(changes, key)) scheduleReload(false);
 });
-window.addEventListener('pagehide', () => clearInterval(pollTimer), { once: true });
+document.addEventListener('visibilitychange', () => {
+  setWorkspaceVisible(!document.hidden);
+  if (!document.hidden) scheduleReload(true);
+});
+window.addEventListener('pagehide', () => {
+  workspaceClosing = true;
+  try { viewPort?.postMessage({ visible: false }); } catch {}
+  try { viewPort?.disconnect(); } catch {}
+  viewPort = null;
+  if (reloadTimer) clearTimeout(reloadTimer);
+  reloadTimer = 0;
+}, { once: true });

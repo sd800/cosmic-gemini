@@ -22,7 +22,8 @@
       this.seen = new Set();
       this.observer = null;
       this.performanceObserver = null;
-      this.frame = 0;
+      this.scanTimer = 0;
+      this.pendingRoots = new Set();
       this.metadataListening = false;
       this.onMessage = this.onMessage.bind(this);
       this.onMutation = this.onMutation.bind(this);
@@ -89,17 +90,34 @@
       globalThis.postMessage({ marker: PAGE_MARKER, type: 'scan' }, location.origin);
     }
 
-    onMutation() {
-      if (this.frame || !this.active) return;
-      this.frame = requestAnimationFrame(() => {
-        this.frame = 0;
-        void this.scan();
-      });
+    onMutation(records) {
+      if (!this.active) return;
+      for (const record of records) {
+        if (record.type === 'attributes') this.pendingRoots.add(record.target);
+        for (const node of record.addedNodes || []) {
+          if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+            this.pendingRoots.add(node);
+          }
+        }
+        if (this.pendingRoots.size > 32) {
+          this.pendingRoots.clear();
+          this.pendingRoots.add(document.documentElement);
+          break;
+        }
+      }
+      if (this.scanTimer) return;
+      this.scanTimer = setTimeout(() => {
+        this.scanTimer = 0;
+        const roots = [...this.pendingRoots];
+        this.pendingRoots.clear();
+        const candidates = roots.flatMap(root => this.collect(root, false));
+        void this.publish(candidates);
+      }, 160);
     }
 
     onLoadedMetadata(event) {
       if (!this.active || !(event.target instanceof HTMLMediaElement)) return;
-      void this.scan();
+      void this.publish(this.collect(event.target, false));
     }
 
     fromUrl(value, source, details = {}) {
@@ -117,9 +135,16 @@
       };
     }
 
-    collect() {
+    elementsWithin(root, selector) {
+      const elements = [];
+      if (root instanceof Element && root.matches(selector)) elements.push(root);
+      if (typeof root?.querySelectorAll === 'function') elements.push(...root.querySelectorAll(selector));
+      return elements;
+    }
+
+    collect(root = document, includePerformance = root === document) {
       const candidates = [];
-      for (const media of document.querySelectorAll('video,audio')) {
+      for (const media of this.elementsWithin(root, 'video,audio')) {
         const details = {
           width: media instanceof HTMLVideoElement ? media.videoWidth || media.clientWidth : 0,
           height: media instanceof HTMLVideoElement ? media.videoHeight || media.clientHeight : 0,
@@ -130,13 +155,13 @@
           if (candidate) candidates.push(candidate);
         }
       }
-      for (const source of document.querySelectorAll('source[src],[data-video-src],[data-stream-url]')) {
+      for (const source of this.elementsWithin(root, 'source[src],[data-video-src],[data-stream-url]')) {
         for (const value of [source.getAttribute('src'), source.getAttribute('data-video-src'), source.getAttribute('data-stream-url')]) {
           const candidate = this.fromUrl(value, 'source-element');
           if (candidate) candidates.push(candidate);
         }
       }
-      for (const meta of document.querySelectorAll([
+      for (const meta of this.elementsWithin(root, [
         'meta[property="og:video"]',
         'meta[property="og:video:url"]',
         'meta[property="og:video:secure_url"]',
@@ -145,14 +170,16 @@
         const candidate = this.fromUrl(meta.content, 'page-metadata');
         if (candidate) candidates.push(candidate);
       }
-      try {
-        for (const entry of performance.getEntriesByType('resource')) {
-          const candidate = this.fromUrl(entry.name, 'performance', {
-            contentLength: Number(entry.encodedBodySize || entry.decodedBodySize || entry.transferSize || 0)
-          });
-          if (candidate) candidates.push(candidate);
-        }
-      } catch {}
+      if (includePerformance) {
+        try {
+          for (const entry of performance.getEntriesByType('resource')) {
+            const candidate = this.fromUrl(entry.name, 'performance', {
+              contentLength: Number(entry.encodedBodySize || entry.decodedBodySize || entry.transferSize || 0)
+            });
+            if (candidate) candidates.push(candidate);
+          }
+        } catch {}
+      }
       return candidates;
     }
 
@@ -184,8 +211,9 @@
       this.observer = null;
       this.performanceObserver = null;
       this.metadataListening = false;
-      if (this.frame) cancelAnimationFrame(this.frame);
-      this.frame = 0;
+      if (this.scanTimer) clearTimeout(this.scanTimer);
+      this.scanTimer = 0;
+      this.pendingRoots.clear();
       this.seen.clear();
       globalThis.postMessage({ marker: PAGE_MARKER, type: 'stop' }, location.origin);
     }

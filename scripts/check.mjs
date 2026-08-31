@@ -26,7 +26,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '3.1.31');
+assert.equal(manifest.version, '3.1.32');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -143,6 +143,7 @@ assert.match(popupSource, /dataset\.intervened = String\(intervened && !enhanced
 assert.match(popupSource, /dataset\.intervened = String\(intervened && enhancedActive\)/);
 assert.match(popupSource, /tabActivity:[\s\S]*area === 'session'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_SITE_FEATURE'/);
+assert.match(popupSource, /type: 'UI_TOGGLE_TAB_FEATURE'/);
 assert.match(popupSource, /listName: 'siteRules'/);
 assert.match(popupSource, /type: 'UI_OPEN_ALL_SETTINGS'/);
 assert.match(popupSource, /if \(selectInitialView && viewMode === null\) showView\('main'\)/);
@@ -183,7 +184,11 @@ assert.match(await readFile(join(extension, 'offscreen', 'video-download.js'), '
 assert.equal(await stat(join(extension, 'workspaces', 'image-download', 'image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'offscreen', 'video-download.html')).then(() => true), true);
 assert.doesNotMatch(popupSource, /brandIcon\.src/, 'Popup brand icon must remain static');
-assert.match(popupSource, /for \(const featureId of \['anyCopy', 'anyCopyEnhanced'\]\)[\s\S]*control\.addEventListener\('click'/);
+assert.match(popupSource, /#anyCopy-status[\s\S]*type: 'UI_TOGGLE_SITE_FEATURE'/);
+assert.match(popupSource, /#anyCopyEnhanced-status[\s\S]*type: 'UI_TOGGLE_TAB_FEATURE'/);
+assert.match(workerSource, /ANY_COPY_ENHANCED_TAB_PREFIX = 'anyCopyEnhancedTab:'/);
+assert.match(workerSource, /message\.type === 'UI_TOGGLE_TAB_FEATURE'/);
+assert.doesNotMatch(await readFile(join(extension, 'settings', 'any-copy.html'), 'utf8'), /data-feature-id="anyCopyEnhanced"/);
 for (const id of ['imageDownload-status', 'videoDownload-status', 'all-settings', 'video-back', 'video-stop', 'video-rescan']) {
   assert.match(popupSource, new RegExp(`#${id}['"]\\)\\.addEventListener\\('click'`), `${id} is not bound`);
 }

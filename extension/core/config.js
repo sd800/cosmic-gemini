@@ -28,7 +28,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 11,
+  version: 12,
   nativeScroll: DEFAULT_FEATURE,
   noAutoplay: Object.freeze({
     ...DEFAULT_FEATURE,
@@ -36,9 +36,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
     permanentAudioAllowRules: Object.freeze([])
   }),
   anyCopy: Object.freeze({
-    siteRules: Object.freeze([])
-  }),
-  anyCopyEnhanced: Object.freeze({
     siteRules: Object.freeze([])
   }),
   imageDownload: Object.freeze({
@@ -121,14 +118,11 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, whitelistRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 11,
+    version: 12,
     nativeScroll: normalizeFeature(nativeValue || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
       siteRules: normalizeRules(value.anyCopy?.siteRules ?? value.anyCopy?.enforcedRules)
-    },
-    anyCopyEnhanced: {
-      siteRules: normalizeRules(value.anyCopyEnhanced?.siteRules ?? value.anyCopy?.enhancedRules)
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
@@ -254,7 +248,7 @@ export function featureState(settings, featureId, url) {
 export function siteFeatureState(settings, featureId, url) {
   const normalized = normalizeSettings(settings);
   const feature = normalized[featureId];
-  if (![FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId) || !feature) {
+  if (featureId !== FEATURE_IDS.ANY_COPY || !feature) {
     throw new Error('Unknown site feature.');
   }
   const hostname = hostnameFromUrl(url);
@@ -275,8 +269,18 @@ export function anyCopyState(settings, url) {
   return siteFeatureState(settings, FEATURE_IDS.ANY_COPY, url);
 }
 
-export function anyCopyEnhancedState(settings, url) {
-  return siteFeatureState(settings, FEATURE_IDS.ANY_COPY_ENHANCED, url);
+export function anyCopyEnhancedState(url, tabActive = false) {
+  const hostname = hostnameFromUrl(url);
+  const active = !!hostname && tabActive === true;
+  return {
+    hostname,
+    supported: !!hostname,
+    active,
+    enabled: active,
+    scope: 'tab',
+    exactActive: active,
+    matchedRule: ''
+  };
 }
 
 export function updateFeature(settings, featureId, update) {

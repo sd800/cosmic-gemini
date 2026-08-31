@@ -63,6 +63,7 @@ import {
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
+const ANY_COPY_ENHANCED_TAB_PREFIX = 'anyCopyEnhancedTab:';
 const FEATURE_LISTS = new Set(['enabledRules', 'whitelistRules', 'enhancedRules', 'standardRules', 'permanentAudioAllowRules', 'siteRules']);
 const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
 const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
@@ -156,6 +157,24 @@ async function mutateSettings(update, refresh = true) {
 
 function activityKey(tabId) {
   return ACTIVITY_PREFIX + tabId;
+}
+
+function anyCopyEnhancedTabKey(tabId) {
+  return ANY_COPY_ENHANCED_TAB_PREFIX + tabId;
+}
+
+async function readAnyCopyEnhancedTab(tabId) {
+  if (!Number.isInteger(tabId)) return false;
+  const key = anyCopyEnhancedTabKey(tabId);
+  try { return (await chrome.storage.session.get(key))[key]?.active === true; }
+  catch { return false; }
+}
+
+async function setAnyCopyEnhancedTab(tabId, active) {
+  if (!Number.isInteger(tabId)) throw new Error('The current tab is unavailable.');
+  const key = anyCopyEnhancedTabKey(tabId);
+  if (active) await chrome.storage.session.set({ [key]: { active: true } });
+  else await chrome.storage.session.remove(key);
 }
 
 async function readActivity(tabId) {
@@ -1352,19 +1371,21 @@ async function handleImageDownloadChanged(delta) {
   await maybeCloseVideoOffscreen();
 }
 
-async function stateFor(settings, featureId, url) {
+async function stateFor(settings, featureId, url, tabId) {
   if (featureId === FEATURE_IDS.ANY_COPY) return anyCopyState(settings, url);
-  if (featureId === FEATURE_IDS.ANY_COPY_ENHANCED) return anyCopyEnhancedState(settings, url);
+  if (featureId === FEATURE_IDS.ANY_COPY_ENHANCED) {
+    return anyCopyEnhancedState(url, await readAnyCopyEnhancedTab(tabId));
+  }
   return featureState(settings, featureId, url);
 }
 
 async function pageStates(url, tabId) {
   const settings = await readSettings();
   const [nativeScroll, noAutoplay, anyCopy, anyCopyEnhanced, imageDownload, videoDownload, activity] = await Promise.all([
-    stateFor(settings, FEATURE_IDS.NATIVE_SCROLL, url),
-    stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, url),
-    stateFor(settings, FEATURE_IDS.ANY_COPY, url),
-    stateFor(settings, FEATURE_IDS.ANY_COPY_ENHANCED, url),
+    stateFor(settings, FEATURE_IDS.NATIVE_SCROLL, url, tabId),
+    stateFor(settings, FEATURE_IDS.NO_AUTOPLAY, url, tabId),
+    stateFor(settings, FEATURE_IDS.ANY_COPY, url, tabId),
+    stateFor(settings, FEATURE_IDS.ANY_COPY_ENHANCED, url, tabId),
     imageDownloadState(settings, tabId, url),
     videoDownloadState(settings, tabId, url),
     readActivity(tabId)
@@ -1472,8 +1493,9 @@ function validList(featureId, value) {
   if (!FEATURE_LISTS.has(value)) throw new Error('Unknown rule list.');
   if ([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD].includes(featureId)) throw new Error('This product does not use website rule lists.');
   if (value === 'permanentAudioAllowRules' && featureId !== FEATURE_IDS.NO_AUTOPLAY) throw new Error('That rule list is unavailable.');
-  if (value === 'siteRules' && ![FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId)) throw new Error('That rule list is unavailable.');
-  if ([FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId) && value !== 'siteRules') throw new Error('That rule list is unavailable.');
+  if (value === 'siteRules' && featureId !== FEATURE_IDS.ANY_COPY) throw new Error('That rule list is unavailable.');
+  if (featureId === FEATURE_IDS.ANY_COPY && value !== 'siteRules') throw new Error('That rule list is unavailable.');
+  if (featureId === FEATURE_IDS.ANY_COPY_ENHANCED) throw new Error('Any Copy Enhanced does not store website rules.');
   if ([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)
     && !['enabledRules', 'whitelistRules', 'enhancedRules', 'standardRules', 'permanentAudioAllowRules'].includes(value)) {
     throw new Error('That rule list is unavailable.');
@@ -1602,7 +1624,7 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 
 chrome.tabs.onRemoved.addListener(tabId => {
-  void chrome.storage.session.remove(activityKey(tabId));
+  void chrome.storage.session.remove([activityKey(tabId), anyCopyEnhancedTabKey(tabId)]);
   void stopVideoSession(tabId).catch(() => {});
   void stopImageSession(tabId).catch(() => {});
   clearPendingNetworkCandidates(pendingVideoNetworkCandidates, tabId);
@@ -1690,7 +1712,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'CG_FEATURE_INTERVENED') {
       const featureId = validFeatureId(message.featureId);
       const settings = await readSettings();
-      const state = await stateFor(settings, featureId, senderUrl);
+      const state = await stateFor(settings, featureId, senderUrl, senderTabId);
       if (state.active) await setFeatureActivity(senderTabId, featureId, true);
       sendResponse({ ok: true, result: { recorded: state.active } });
       return;
@@ -1977,7 +1999,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (message.type === 'UI_TOGGLE_SITE_FEATURE') {
       const featureId = validFeatureId(message.featureId);
-      if (![FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED].includes(featureId)) throw new Error('This product does not use site activation.');
+      if (featureId !== FEATURE_IDS.ANY_COPY) throw new Error('This product does not use site activation.');
       const hostname = normalizeRule(message.hostname || '');
       if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
       const settings = await mutateSettings(current => updateFeature(current, featureId, feature => ({
@@ -1987,6 +2009,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           : [...feature.siteRules, hostname]
       })));
       sendResponse({ ok: true, result: settings[featureId] });
+      return;
+    }
+    if (message.type === 'UI_TOGGLE_TAB_FEATURE') {
+      const featureId = validFeatureId(message.featureId);
+      if (featureId !== FEATURE_IDS.ANY_COPY_ENHANCED) throw new Error('This product does not use tab activation.');
+      const tabId = Number(message.tabId);
+      if (!Number.isInteger(tabId)) throw new Error('The current tab is unavailable.');
+      const tab = await chrome.tabs.get(tabId);
+      if (!hostnameFromUrl(tab.url || '')) throw new Error('This page is unavailable.');
+      const active = !(await readAnyCopyEnhancedTab(tabId));
+      await setAnyCopyEnhancedTab(tabId, active);
+      if (!active) await setFeatureActivity(tabId, featureId, false);
+      await sendTabMessage(tabId, { type: 'CG_REFRESH_CONFIG' });
+      sendResponse({ ok: true, result: anyCopyEnhancedState(tab.url || '', active) });
       return;
     }
     if (message.type === 'UI_ADD_RULE' || message.type === 'UI_DELETE_RULE') {

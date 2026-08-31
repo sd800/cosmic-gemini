@@ -25,9 +25,6 @@ export function settingsViewCache(states = {}) {
     anyCopy: {
       siteRules: rules(states.anyCopy?.siteRules)
     },
-    anyCopyEnhanced: {
-      siteRules: rules(states.anyCopyEnhanced?.siteRules)
-    },
     imageDownload: {
       workspaceMode: states.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
       batchMode: states.imageDownload?.batchMode === 'separate' ? 'separate' : 'zip',

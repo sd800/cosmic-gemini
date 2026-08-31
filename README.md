@@ -26,7 +26,7 @@ Background: Pages can begin playing video or sound before you ask, interrupting 
 
 Any Copy restores text selection and copy shortcuts on websites that disable them. It also prevents pages from replacing copied text or adding unwanted promotional content.
 
-Any Copy Enhanced is an independently controlled reading mode that rebuilds a page as a clean, static view with selectable text and unobstructed images. The original page remains available underneath and returns immediately when Any Copy Enhanced ends.
+Any Copy Enhanced is an independently controlled reading mode for the current tab. It rebuilds the page as a clean, static view with selectable text and unobstructed images. The original page remains available underneath and returns immediately when Any Copy Enhanced ends.
 
 Background: Some websites disable selection, block copy shortcuts, or rewrite clipboard content with unwanted additions. Any Copy brings ordinary selection and copying back under your control.
 
@@ -61,7 +61,7 @@ Bilibili gives every signed-in account one coin when it visits each day. Receivi
 ## Features
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes
-- Independent website activation for Any Copy and Any Copy Enhanced
+- Website activation for Any Copy and a current-tab session for Any Copy Enhanced
 - On-demand image discovery with original-source recommendations, filtering, local conversion, area capture, and batch ZIP downloads
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
 - Optional Satellites with their own concise settings and privacy details
@@ -85,7 +85,7 @@ Chrome requests access to HTTP and HTTPS pages so the tools can begin before ord
 
 The popup uses four compact rows, with two related controls in each row.
 
-### Current-site controls
+### Popup controls
 
 - The first row contains **Native Scroll** and **Native Scroll Enhanced**.
 - The second row contains **No Autoplay** and **No Autoplay Enhanced**.
@@ -94,7 +94,7 @@ The popup uses four compact rows, with two related controls in each row.
 
 Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 
-Any Copy and Any Copy Enhanced are enabled independently for the current website. They may run together, and turning either one off does not change the other. Their website rules share one clearly divided settings page.
+Any Copy is enabled for the current website and stores the corresponding hostname rule. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
 
 ### Download sessions
 
@@ -132,7 +132,7 @@ An exact rule takes priority over a wildcard, followed by the most specific wild
 
 The popup's primary control adds or removes the exact current-site activation override without changing the global default. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
 
-Any Copy and Any Copy Enhanced keep separate activation lists. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
+Any Copy keeps its own website activation list. Any Copy Enhanced uses no website rules and keeps only a current-tab session state. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
 
 ### Audio autoplay
 
@@ -140,7 +140,7 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, and Video Download run locally. Cosmic Gemini stores only product settings, website rules you choose, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, and Video Download run locally. Cosmic Gemini stores only product settings, website rules you choose, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 

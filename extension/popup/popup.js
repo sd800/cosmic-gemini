@@ -89,6 +89,9 @@ function renderSiteFeature(featureId) {
   if (!feature.supported) {
     toggle.disabled = true;
     label(toggle, t('unsupportedTitle'));
+  } else if (featureId === 'anyCopyEnhanced') {
+    toggle.disabled = false;
+    label(toggle, t(feature.active ? 'anyCopyEnhancedOnTitle' : 'anyCopyEnhancedOffTitle'));
   } else if (feature.active && !feature.exactActive) {
     toggle.disabled = false;
     label(toggle, t('siteFeatureCoveredTitle', { product, rule: feature.matchedRule }));
@@ -443,17 +446,21 @@ for (const featureId of ['nativeScroll', 'noAutoplay']) {
   })));
 }
 
-for (const featureId of ['anyCopy', 'anyCopyEnhanced']) {
-  const control = document.querySelector('#' + featureId + '-status');
-  control.innerHTML = icon(featureId);
-  control.addEventListener('click', () => void act(() => {
-    const feature = state[featureId];
-    if (feature.matchedRule) return send({
-      type: 'UI_DELETE_RULE', featureId, listName: 'siteRules', rule: feature.matchedRule
-    });
-    return send({ type: 'UI_TOGGLE_SITE_FEATURE', featureId, hostname: feature.hostname });
-  }));
-}
+const anyCopyControl = document.querySelector('#anyCopy-status');
+anyCopyControl.innerHTML = icon('anyCopy');
+anyCopyControl.addEventListener('click', () => void act(() => {
+  const feature = state.anyCopy;
+  if (feature.matchedRule) return send({
+    type: 'UI_DELETE_RULE', featureId: 'anyCopy', listName: 'siteRules', rule: feature.matchedRule
+  });
+  return send({ type: 'UI_TOGGLE_SITE_FEATURE', featureId: 'anyCopy', hostname: feature.hostname });
+}));
+
+const anyCopyEnhancedControl = document.querySelector('#anyCopyEnhanced-status');
+anyCopyEnhancedControl.innerHTML = icon('anyCopyEnhanced');
+anyCopyEnhancedControl.addEventListener('click', () => void act(() => send({
+  type: 'UI_TOGGLE_TAB_FEATURE', featureId: 'anyCopyEnhanced', tabId: currentTab?.id
+})));
 
 document.querySelector('#imageDownload-status').innerHTML = icon('imageDownload');
 document.querySelector('#videoDownload-status').innerHTML = icon('videoDownload');
@@ -513,7 +520,7 @@ label(document.querySelector('#all-settings'), t('allSettingsTitle'));
 root.dataset.localePending = 'false';
 chrome.storage.onChanged.addListener((changes, area) => {
   const keys = Number.isInteger(currentTab?.id)
-    ? [`tabActivity:${currentTab.id}`, `videoDownloadSession:${currentTab.id}`]
+    ? [`tabActivity:${currentTab.id}`, `anyCopyEnhancedTab:${currentTab.id}`, `videoDownloadSession:${currentTab.id}`]
     : [];
   if (!(area === 'session') || !keys.length) return;
   if (keys.some(key => Object.hasOwn(changes, key))) scheduleReload();

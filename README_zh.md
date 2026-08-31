@@ -26,7 +26,7 @@ No Autoplay 会阻止未经您操作便开始播放的视频和声音，您主�
 
 Any Copy 会恢复被网页禁用的文字选择与复制快捷键，并阻止网页替换复制内容或在其中加入推广文字。
 
-Any Copy 强力模式是一项单独控制的阅读功能，可将网页整理为简洁的静态页面，让文字能够自由选择，图片也不会被遮挡。原网页会保留在下方，退出 Any Copy 强力模式后即可立即恢复。
+Any Copy 强力模式是一项仅作用于当前标签页的独立阅读功能。它会将网页整理为简洁的静态页面，让文字能够自由选择，图片也不会被遮挡。原网页会保留在下方，退出 Any Copy 强力模式后即可立即恢复。
 
 背景：有些网站会禁止选择文字、拦截复制快捷键，或擅自向复制内容中加入无关文字。Any Copy 恢复网页原本应有的选择与复制操作。
 
@@ -61,7 +61,7 @@ Satellites 收纳无需在控制窗口中直接操作、适合在后台完成的
 ## 主要特性
 
 - Native Scroll 与 No Autoplay 分别提供全局默认状态和当前网站的单独设置，并支持标准模式与强力模式
-- Any Copy 与 Any Copy 强力模式分别管理各自的网站启用规则
+- Any Copy 按网站启用，Any Copy 强力模式仅在当前标签页中运行
 - 按需查找图片，支持原图推荐、筛选、本地格式转换、区域截取和批量 ZIP 下载
 - 按需查找视频，支持视频文件、HLS、DASH、本地音视频合并、字幕和专用网站识别
 - Satellites 中的可选功能各自提供简明设置和隐私说明
@@ -85,7 +85,7 @@ Chrome 会要求扩展访问 HTTP 与 HTTPS 页面，以便各项功能在普通
 
 控制窗口采用紧凑的四行布局，每行放置两个相关的控制按钮。
 
-### 当前网站
+### 控制窗口
 
 - 第一行排列 **Native Scroll** 和 **Native Scroll 强力模式**。
 - 第二行排列 **No Autoplay** 和 **No Autoplay 强力模式**。
@@ -94,7 +94,7 @@ Chrome 会要求扩展访问 HTTP 与 HTTPS 页面，以便各项功能在普通
 
 Native Scroll 与 No Autoplay 的控制按钮只调整当前网站，不会改变全局默认状态。即使全局设置已关闭，也可以为当前网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。
 
-Any Copy 与 Any Copy 强力模式可以分别为当前网站开启，也可以同时运行。关闭其中一项不会改变另一项，两组网站规则在同一个设置页面中分区管理。
+Any Copy 会为当前网站启用并保存对应的主机名规则。Any Copy 强力模式只作用于当前标签页，手动关闭或关闭标签页后即会结束。两项功能可以同时运行，关闭其中一项不会改变另一项。
 
 ### 下载会话
 
@@ -132,7 +132,7 @@ Native Scroll 与 No Autoplay 各自拥有一个全局默认状态，以及四�
 
 控制窗口中的一级功能按钮只会添加或移除当前网站的启用状态，不会改变全局默认设置。强力模式按钮会在需要时为当前网站启用功能，并在强力模式与标准模式之间切换。
 
-Any Copy 与 Any Copy 强力模式分别保存各自的网站启用规则。No Autoplay 在某个网站被停用后，该网站可以自动播放视频、音频和 Web Audio。
+Any Copy 单独保存网站启用规则。Any Copy 强力模式不使用网站规则，只在浏览器会话中保留当前标签页状态。No Autoplay 在某个网站被停用后，该网站可以自动播放视频、音频和 Web Audio。
 
 ### 声音自动播放
 
@@ -140,7 +140,7 @@ No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问�
 
 ## 隐私
 
-Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download 和 Video Download 完全在本地运行。Cosmic Gemini 仅保存各项功能的设置、您选择的网站规则、No Autoplay 的声音自动播放设置，以及 Bili Daily Login 最近一次完成日期。保存的网站规则仅包含主机名，不包含完整网址。
+Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download 和 Video Download 完全在本地运行。Cosmic Gemini 仅保存各项功能的设置、您选择的网站规则、No Autoplay 的声音自动播放设置，以及 Bili Daily Login 最近一次完成日期。保存的网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中。
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 

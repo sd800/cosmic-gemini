@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.1.32 — 2026-08-31
+
+- Changed Any Copy Enhanced from website-based activation to a current-tab session. It now remains limited to the tab where it was opened, survives navigation within that tab, and ends when it is turned off or the tab closes.
+- Replaced the Any Copy Enhanced website-rule editor with a concise current-tab explanation and removed legacy Enhanced website rules from active settings.
+
 ## 3.1.31 — 2026-08-31
 
 - Removed the “Default behavior” kicker from the Native Scroll and No Autoplay introduction cards.

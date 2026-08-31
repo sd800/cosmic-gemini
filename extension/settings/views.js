@@ -151,7 +151,13 @@ export function viewFor(featureId) {
         </div>
       </section>
       ${anyCopyRuleSection('anyCopy', 'anyCopy', 'anyCopySitesHeading', 'anyCopySitesHelp', 'emptyAnyCopySites')}
-      ${anyCopyRuleSection('anyCopyEnhanced', 'anyCopyEnhanced', 'anyCopyEnhancedSitesHeading', 'anyCopyEnhancedSitesHelp', 'emptyAnyCopyEnhancedSites')}`,
+      <section class="card">
+        <div class="section-heading">
+          <div class="rule-heading"><span data-section-icon="anyCopyEnhanced" aria-hidden="true"></span><h2 data-i18n="anyCopyEnhancedName"></h2></div>
+          <span class="context-label" data-i18n="currentTabOnlyLabel"></span>
+        </div>
+        <p class="last" data-i18n="anyCopyEnhancedTabHelp"></p>
+      </section>`,
     help: help(['anyCopyHelpStandard', 'anyCopyHelpEnhanced'], 'anyCopyPrivacy')
   };
   if (featureId === 'imageDownload') return {

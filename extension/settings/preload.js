@@ -2,9 +2,8 @@
   const root = document.documentElement;
   const cacheKey = 'cosmicGeminiSettingsViewCache';
   const emptyKeys = {
-    enabledRules: 'emptyEnabledSites',
+    inactiveRules: 'emptyInactiveSites',
     enhancedRules: 'emptyEnhancedSites',
-    whitelistRules: 'emptyWhitelist',
     standardRules: 'emptyStandardSites',
     permanentAudioAllowRules: 'emptyAudioAllow',
     enforcedRules: 'emptyEnforcedSites'
@@ -58,6 +57,22 @@
   try { cached = JSON.parse(localStorage.getItem(cacheKey) || '{}') || {}; } catch {}
   const feature = document.body.dataset.feature;
   const current = cached[feature] || {};
+  const cachedRules = name => Array.isArray(current[name])
+    ? current[name].filter(rule => typeof rule === 'string')
+    : [];
+  const inactiveRules = cachedRules('inactiveRules').length
+    ? cachedRules('inactiveRules')
+    : cachedRules('whitelistRules');
+  const explicitStandardRules = cachedRules('standardRules').filter(rule => !inactiveRules.includes(rule));
+  const enhancedRules = cachedRules('enhancedRules')
+    .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule));
+  const migratedEnabledRules = cachedRules('enabledRules')
+    .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule) && !enhancedRules.includes(rule));
+  const behaviorRules = {
+    inactiveRules,
+    standardRules: [...new Set([...explicitStandardRules, ...migratedEnabledRules])],
+    enhancedRules
+  };
   const enabled = document.querySelector('#enabled');
   if (enabled && typeof current.enabled === 'boolean') enabled.checked = current.enabled;
   const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
@@ -76,6 +91,48 @@
   if (imageBatchMode) imageBatchMode.value = current.batchMode || 'zip';
   const imageAskWhereToSave = document.querySelector('#imageAskWhereToSave');
   if (imageAskWhereToSave) imageAskWhereToSave.checked = current.askWhereToSave !== false;
+
+  const behaviorByList = { inactiveRules: 'inactive', standardRules: 'standard', enhancedRules: 'enhanced' };
+  const behaviorLabel = { inactive: 'inactiveSitesHeading', standard: 'standardSitesHeading', enhanced: 'enhancedSitesHeading' };
+  for (const section of document.querySelectorAll('[data-behavior-list]')) {
+    const listName = section.dataset.behaviorList;
+    const list = section.querySelector('.rule-list');
+    const rules = behaviorRules[listName] || [];
+    list.replaceChildren();
+    if (!rules.length) {
+      const empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.textContent = translate(section.dataset.emptyKey || emptyKeys[listName]);
+      list.append(empty);
+      continue;
+    }
+    for (const rule of rules) {
+      const item = document.createElement('li');
+      const code = document.createElement('code');
+      code.textContent = rule;
+      const select = document.createElement('select');
+      select.className = 'behavior-rule-select';
+      select.setAttribute('aria-label', translate('changeBehaviorForRule', { rule }));
+      for (const behavior of ['inactive', 'standard', 'enhanced']) {
+        const option = document.createElement('option');
+        option.value = behavior;
+        option.textContent = translate(behaviorLabel[behavior]);
+        select.append(option);
+      }
+      select.value = behaviorByList[listName];
+      const remove = document.createElement('button');
+      remove.className = 'icon-button';
+      remove.type = 'button';
+      remove.innerHTML = icon('trash');
+      remove.title = translate('removeRule', { rule });
+      remove.setAttribute('aria-label', remove.title);
+      const controls = document.createElement('span');
+      controls.className = 'behavior-rule-controls';
+      controls.append(select, remove);
+      item.append(code, controls);
+      list.append(item);
+    }
+  }
 
   for (const section of document.querySelectorAll('[data-list-section]')) {
     const listName = section.dataset.listSection;

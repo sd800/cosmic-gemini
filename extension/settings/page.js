@@ -8,13 +8,22 @@ const root = document.documentElement;
 const primary = document.querySelector('.primary');
 const helpPanel = document.querySelector('.help');
 const emptyKey = {
-  enabledRules: 'emptyEnabledSites',
+  inactiveRules: 'emptyInactiveSites',
   enhancedRules: 'emptyEnhancedSites',
-  whitelistRules: 'emptyWhitelist',
   standardRules: 'emptyStandardSites',
   permanentAudioAllowRules: 'emptyAudioAllow',
   enforcedRules: 'emptyEnforcedSites'
 };
+const behaviorByList = Object.freeze({
+  inactiveRules: 'inactive',
+  standardRules: 'standard',
+  enhancedRules: 'enhanced'
+});
+const behaviorLabel = Object.freeze({
+  inactive: 'inactiveSitesHeading',
+  standard: 'standardSitesHeading',
+  enhanced: 'enhancedSitesHeading'
+});
 let featureId = featureFromPath(location.pathname);
 let locale = root.lang === 'zh-CN' ? 'zh-CN' : 'en-US';
 let t = translator(locale);
@@ -84,6 +93,60 @@ function renderList(section) {
   }
 }
 
+function createBehaviorSelect(rule, selected) {
+  const select = document.createElement('select');
+  select.className = 'behavior-rule-select';
+  select.setAttribute('aria-label', t('changeBehaviorForRule', { rule }));
+  for (const behavior of ['inactive', 'standard', 'enhanced']) {
+    const option = document.createElement('option');
+    option.value = behavior;
+    option.textContent = t(behaviorLabel[behavior]);
+    select.append(option);
+  }
+  select.value = selected;
+  return select;
+}
+
+function renderBehaviorList(section) {
+  const current = state();
+  if (!current) return;
+  const listName = section.dataset.behaviorList;
+  const selected = behaviorByList[listName];
+  const rules = current[listName] || [];
+  const list = section.querySelector('.rule-list');
+  list.replaceChildren();
+  if (!rules.length) {
+    const empty = document.createElement('li');
+    empty.className = 'empty';
+    empty.textContent = t(section.dataset.emptyKey || emptyKey[listName]);
+    list.append(empty);
+    return;
+  }
+  for (const rule of rules) {
+    const item = document.createElement('li');
+    const code = document.createElement('code');
+    code.textContent = rule;
+    const select = createBehaviorSelect(rule, selected);
+    select.addEventListener('change', () => void update(section.closest('[data-behavior-card]'), () => send({
+      type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value
+    }), [select]));
+    const remove = document.createElement('button');
+    remove.className = 'icon-button';
+    remove.type = 'button';
+    remove.innerHTML = icon('trash');
+    remove.title = t('removeRule', { rule });
+    remove.setAttribute('aria-label', remove.title);
+    remove.addEventListener('click', () => void update(section.closest('[data-behavior-card]'), () => send({
+      type: 'UI_DELETE_BEHAVIOR_RULE', featureId, rule
+    }), [remove]));
+    const controls = document.createElement('span');
+    controls.className = 'behavior-rule-controls';
+    controls.append(select, remove);
+    item.append(code, controls);
+    list.append(item);
+  }
+}
+
 function render() {
   const current = state();
   if (!current) return;
@@ -106,6 +169,7 @@ function render() {
   const imageAskWhereToSave = document.querySelector('#imageAskWhereToSave');
   if (imageAskWhereToSave) imageAskWhereToSave.checked = current.askWhereToSave !== false;
   for (const section of document.querySelectorAll('[data-list-section]')) renderList(section);
+  for (const section of document.querySelectorAll('[data-behavior-list]')) renderBehaviorList(section);
 }
 
 async function reload() {
@@ -173,6 +237,39 @@ function bindView() {
   if (imageAskWhereToSave) imageAskWhereToSave.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_IMAGE_SETTING', name: 'askWhereToSave', value: imageAskWhereToSave.checked
   }), [imageAskWhereToSave]));
+
+  const behaviorCard = document.querySelector('[data-behavior-card]');
+  if (behaviorCard) {
+    const form = behaviorCard.querySelector('.behavior-rule-form');
+    const input = form.querySelector('input');
+    const select = form.querySelector('select');
+    const submit = form.querySelector('button[type="submit"]');
+    const message = behaviorCard.querySelector('.form-message');
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const rule = input.value.trim().toLowerCase();
+      if (!rule) { message.textContent = t('invalidRule'); return; }
+      void (async () => {
+        if ([input, select, submit].some(control => pendingControls.has(control))) return;
+        for (const control of [input, select, submit]) {
+          pendingControls.add(control);
+          control.disabled = true;
+        }
+        message.textContent = '';
+        try {
+          await send({ type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value });
+          input.value = '';
+          await reload();
+        } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
+        finally {
+          for (const control of [input, select, submit]) {
+            pendingControls.delete(control);
+            if (control.isConnected) control.disabled = false;
+          }
+        }
+      })();
+    });
+  }
 
   for (const section of document.querySelectorAll('[data-list-section]')) {
     const form = section.querySelector('.rule-form');

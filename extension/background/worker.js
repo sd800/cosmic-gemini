@@ -64,7 +64,8 @@ const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'i
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
 const ANY_COPY_ENHANCED_TAB_PREFIX = 'anyCopyEnhancedTab:';
-const FEATURE_LISTS = new Set(['enabledRules', 'whitelistRules', 'enhancedRules', 'standardRules', 'permanentAudioAllowRules', 'siteRules']);
+const FEATURE_LISTS = new Set(['permanentAudioAllowRules', 'siteRules']);
+const WEBSITE_BEHAVIORS = new Set(['inactive', 'standard', 'enhanced']);
 const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
 const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
 let writeQueue = Promise.resolve();
@@ -1497,17 +1498,15 @@ function validList(featureId, value) {
   if (featureId === FEATURE_IDS.ANY_COPY && value !== 'siteRules') throw new Error('That rule list is unavailable.');
   if (featureId === FEATURE_IDS.ANY_COPY_ENHANCED) throw new Error('Any Copy Enhanced does not store website rules.');
   if ([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)
-    && !['enabledRules', 'whitelistRules', 'enhancedRules', 'standardRules', 'permanentAudioAllowRules'].includes(value)) {
+    && value !== 'permanentAudioAllowRules') {
     throw new Error('That rule list is unavailable.');
   }
   return value;
 }
 
-async function updateFeatureRules(featureId, listName, update) {
-  return mutateSettings(settings => updateFeature(settings, featureId, feature => ({
-    ...feature,
-    [listName]: update(feature[listName] || [])
-  })));
+function validWebsiteBehavior(value) {
+  if (!WEBSITE_BEHAVIORS.has(value)) throw new Error('Choose a website behavior.');
+  return value;
 }
 
 function withoutRule(rules, rule) {
@@ -1517,6 +1516,23 @@ function withoutRule(rules, rule) {
 function withRule(rules, rule) {
   const current = withoutRule(rules, rule);
   return [...current, rule];
+}
+
+function withoutBehaviorRule(feature, rule) {
+  return {
+    ...feature,
+    inactiveRules: withoutRule(feature.inactiveRules, rule),
+    standardRules: withoutRule(feature.standardRules, rule),
+    enhancedRules: withoutRule(feature.enhancedRules, rule)
+  };
+}
+
+function withBehaviorRule(feature, rule, behavior) {
+  const next = withoutBehaviorRule(feature, rule);
+  return {
+    ...next,
+    [`${behavior}Rules`]: withRule(next[`${behavior}Rules`], rule)
+  };
 }
 
 async function resetAllSettings() {
@@ -1956,20 +1972,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const settings = await mutateSettings(current => {
         const currentState = featureState(current, featureId, `https://${hostname}/`);
         return updateFeature(current, featureId, feature => {
-          if (currentState.exactActivationOverride) return {
-            ...feature,
-            enabledRules: withoutRule(feature.enabledRules, hostname),
-            whitelistRules: withoutRule(feature.whitelistRules, hostname)
-          };
-          return currentState.active ? {
-            ...feature,
-            enabledRules: withoutRule(feature.enabledRules, hostname),
-            whitelistRules: withRule(feature.whitelistRules, hostname)
-          } : {
-            ...feature,
-            enabledRules: withRule(feature.enabledRules, hostname),
-            whitelistRules: withoutRule(feature.whitelistRules, hostname)
-          };
+          if (currentState.exactBehaviorOverride) return withoutBehaviorRule(feature, hostname);
+          return withBehaviorRule(feature, hostname, currentState.active ? 'inactive' : 'standard');
         });
       });
       sendResponse({ ok: true, result: settings[featureId] });
@@ -1982,17 +1986,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
       const settings = await mutateSettings(current => {
         const currentState = featureState(current, featureId, `https://${hostname}/`);
-        return updateFeature(current, featureId, feature => currentState.active && currentState.mode === 'enhanced' ? {
-          ...feature,
-          enhancedRules: withoutRule(feature.enhancedRules, hostname),
-          standardRules: withRule(feature.standardRules, hostname)
-        } : {
-          ...feature,
-          enabledRules: currentState.active ? feature.enabledRules : withRule(feature.enabledRules, hostname),
-          whitelistRules: withoutRule(feature.whitelistRules, hostname),
-          enhancedRules: withRule(feature.enhancedRules, hostname),
-          standardRules: withoutRule(feature.standardRules, hostname)
-        });
+        return updateFeature(current, featureId, feature => withBehaviorRule(
+          feature,
+          hostname,
+          currentState.active && currentState.mode === 'enhanced' ? 'standard' : 'enhanced'
+        ));
       });
       sendResponse({ ok: true, result: settings[featureId] });
       return;
@@ -2025,6 +2023,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true, result: anyCopyEnhancedState(tab.url || '', active) });
       return;
     }
+    if (message.type === 'UI_SET_BEHAVIOR_RULE' || message.type === 'UI_DELETE_BEHAVIOR_RULE') {
+      const featureId = validFeatureId(message.featureId);
+      if (![FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId)) {
+        throw new Error('This product does not use website behaviors.');
+      }
+      const rule = normalizeRule(message.rule || '');
+      const behavior = message.type === 'UI_SET_BEHAVIOR_RULE'
+        ? validWebsiteBehavior(message.behavior)
+        : '';
+      const settings = await mutateSettings(current => updateFeature(current, featureId, feature => (
+        behavior ? withBehaviorRule(feature, rule, behavior) : withoutBehaviorRule(feature, rule)
+      )));
+      sendResponse({ ok: true, result: settings[featureId] });
+      return;
+    }
     if (message.type === 'UI_ADD_RULE' || message.type === 'UI_DELETE_RULE') {
       const featureId = validFeatureId(message.featureId);
       const listName = validList(featureId, message.listName);
@@ -2034,20 +2047,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         throw new Error('That rule must be added from No Autoplay settings.');
       }
       const rule = normalizeRule(message.rule || '');
-      const oppositeList = {
-        enabledRules: 'whitelistRules',
-        whitelistRules: 'enabledRules',
-        enhancedRules: 'standardRules',
-        standardRules: 'enhancedRules'
-      }[listName];
       const settings = await mutateSettings(current => updateFeature(current, featureId, feature => ({
         ...feature,
         [listName]: message.type === 'UI_ADD_RULE'
           ? withRule(feature[listName], rule)
-          : withoutRule(feature[listName], rule),
-        ...(message.type === 'UI_ADD_RULE' && oppositeList
-          ? { [oppositeList]: withoutRule(feature[oppositeList], rule) }
-          : {})
+          : withoutRule(feature[listName], rule)
       })));
       sendResponse({ ok: true, result: settings[featureId] });
       return;

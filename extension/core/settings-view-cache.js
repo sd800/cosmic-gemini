@@ -8,16 +8,14 @@ export function settingsViewCache(states = {}) {
   return {
     nativeScroll: {
       enabled: states.nativeScroll?.enabled !== false,
-      enabledRules: rules(states.nativeScroll?.enabledRules),
+      inactiveRules: rules(states.nativeScroll?.inactiveRules),
       enhancedRules: rules(states.nativeScroll?.enhancedRules),
-      whitelistRules: rules(states.nativeScroll?.whitelistRules),
       standardRules: rules(states.nativeScroll?.standardRules)
     },
     noAutoplay: {
       enabled: states.noAutoplay?.enabled !== false,
-      enabledRules: rules(states.noAutoplay?.enabledRules),
+      inactiveRules: rules(states.noAutoplay?.inactiveRules),
       enhancedRules: rules(states.noAutoplay?.enhancedRules),
-      whitelistRules: rules(states.noAutoplay?.whitelistRules),
       standardRules: rules(states.noAutoplay?.standardRules),
       audioAutoplayAllSites: states.noAutoplay?.audioAutoplayAllSites === true,
       permanentAudioAllowRules: rules(states.noAutoplay?.permanentAudioAllowRules)

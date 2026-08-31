@@ -45,6 +45,20 @@ p.last { margin-bottom: 0; }
 .rule-panel .rule-form { grid-template-columns: minmax(0, 1fr) 62px; }
 .rule-panel .primary-button { padding: 0 10px; }
 .group-caption { padding-top: 13px; margin-top: 14px; border-top: 1px solid var(--line); }
+.behavior-rule-form { display: grid; grid-template-columns: minmax(0, 1fr) 210px auto; gap: 9px; margin-top: 18px; }
+.website-behavior-card > .form-message { margin-bottom: 0; }
+.behavior-rule-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.behavior-rule-panel { min-width: 0; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-raised); padding: 14px; }
+.behavior-rule-panel h3 { min-height: 32px; margin-bottom: 6px; line-height: 1.35; }
+.behavior-rule-panel > p { min-height: 54px; margin-bottom: 10px; font-size: 12px; }
+.behavior-rule-panel .rule-list { margin-bottom: 0; }
+.behavior-rule-list li:not(.empty) { align-items: stretch; flex-direction: column; gap: 8px; background: var(--surface); padding: 9px; }
+.behavior-rule-list code { width: 100%; }
+.behavior-rule-controls { display: flex; align-items: center; gap: 5px; }
+.behavior-rule-select { width: min(100%, 162px); height: 31px; flex: 1 1 auto; padding: 0 7px; font-size: 11px; }
+.behavior-rule-help { padding-top: 13px; margin-top: 14px; border-top: 1px solid var(--line); }
+.behavior-rule-help span { display: block; }
+.behavior-rule-help span + span { margin-top: 3px; }
 .audio-rule-card > .preference-row { margin-top: 14px; }
 .audio-rule-card > .rule-panel { padding: 18px 0 0; margin-top: 4px; border-top: 1px solid var(--line); }
 .audio-rule-card > .rule-panel > p:first-of-type { min-height: 0; }
@@ -136,4 +150,9 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
   .language-card { align-items: center; flex-direction: row; padding: 14px 16px; }
   .language-card select { width: 122px; }
   .settings-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .behavior-rule-form, .behavior-rule-grid { grid-template-columns: 1fr; }
+  .behavior-rule-panel h3, .behavior-rule-panel > p { min-height: 0; }
+  .behavior-rule-select { width: 100%; }
 }

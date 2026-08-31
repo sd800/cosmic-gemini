@@ -112,7 +112,7 @@ All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Vide
 
 After any length of downtime, one current-day task catches up when Chrome can next run. Earlier missed days are never replayed.
 
-Native Scroll and No Autoplay settings follow the same order: choose the default behavior, add website exceptions, then select a different protection mode only where needed. No Autoplay keeps audio autoplay permissions in a separate section.
+Native Scroll and No Autoplay settings begin with a global default. One Website behavior section then assigns each saved rule to Always inactive, Always use Standard mode, or Always use Enhanced mode. No Autoplay keeps audio autoplay permissions in a separate section.
 
 Popup product controls use only neutral and blue icon states. Primary products, including Any Copy Enhanced, use a stronger neutral color than the secondary mode controls for Native Scroll and No Autoplay.
 
@@ -126,11 +126,11 @@ The Cosmic Gemini mark in the browser toolbar remains unchanged. Its existing gr
 
 `example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save exact current-site overrides, while Settings also accepts wildcard rules.
 
-Native Scroll and No Autoplay each have a global default plus four website-rule lists: Keep active, Keep inactive, Use Enhanced mode, and Keep Standard mode.
+Native Scroll and No Autoplay each have a global default plus three website behaviors: Always inactive, Always use Standard mode, and Always use Enhanced mode. A website without a matching rule follows the global default. Standard and Enhanced rules keep their matching websites active even when that default is off.
 
-An exact rule takes priority over a wildcard, followed by the most specific wildcard. At equal specificity, Disabled takes priority over Enabled and Standard takes priority over Enhanced. These pairs make it possible to create a narrow exception inside a broader rule.
+An exact rule takes priority over a wildcard, followed by the most specific wildcard. Each saved rule belongs to one behavior, and its behavior can be changed directly in Settings. This makes it possible to place a narrow exception inside a broader rule without maintaining overlapping lists.
 
-The popup's primary control adds or removes the exact current-site activation override without changing the global default. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
+The popup's primary control creates an exact current-site behavior or returns an existing exact rule to the broader setting. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
 
 Any Copy keeps its own website activation list. Any Copy Enhanced uses no website rules and keeps only a current-tab session state. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
 

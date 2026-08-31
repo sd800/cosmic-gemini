@@ -18,13 +18,13 @@ Settings pages contain their complete first-frame structure. A synchronous local
 
 Standard protection prevents matching page-level wheel and touch events from reaching website handlers without cancelling the browser's native default action. It preserves pinch zoom, horizontal gestures, interactive controls, maps, editors, media controls, and ordinary nested scroll areas.
 
-Enhanced protection also handles scripted nested movement and narrowly detected full-page transformed wrappers. Inline style changes are recorded and restored when protection becomes inactive or the page is whitelisted. Listener records use weak references, and DOM observation is limited to structural roots.
+Enhanced protection also handles scripted nested movement and narrowly detected full-page transformed wrappers. Inline style changes are recorded and restored when protection becomes inactive. Listener records use weak references, and DOM observation is limited to structural roots.
 
 ## No Autoplay
 
 Standard protection blocks `HTMLMediaElement.play()` and captured playback events unless playback follows direct user activation. A short trusted-input window also recognizes custom page controls that call `play()` after their own pointer or keyboard handler. Audio elements and Web Audio may run when the all-sites audio setting is enabled or the hostname matches a saved audio autoplay rule. Audio autoplay permission does not allow autoplaying video.
 
-Audio autoplay is denied silently by default. A matching No Autoplay whitelist rule deactivates all media interception and permits video, audio, and Web Audio autoplay. Enhanced protection removes video and audio elements, including matching nodes inserted later. Its subtree observer exists only while Enhanced mode is active.
+Audio autoplay is denied silently by default. An Always inactive website rule deactivates all media interception and permits video, audio, and Web Audio autoplay. Enhanced protection removes video and audio elements, including matching nodes inserted later. Its subtree observer exists only while Enhanced mode is active.
 
 No Autoplay operates only on media elements and audio contexts inside the current webpage. The extension declares no `commands` or `nativeMessaging` permission and does not use Media Session action handlers, operating-system media keys, AppleScript, or system audio APIs. Releasing blocked webpage media can call that page element's original `play()` or audio context `resume()` method, but it cannot issue a play or pause command to a separate desktop music application.
 
@@ -70,8 +70,8 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 
 `chrome.storage.local` stores one versioned settings object:
 
-- Native Scroll: a global enabled default plus Enabled, Disabled, Enhanced, and Standard website rules
-- No Autoplay: a global enabled default plus Enabled, Disabled, Enhanced, and Standard website rules, an all-sites audio autoplay setting, and hostname-specific audio autoplay rules
+- Native Scroll: a global enabled default plus Always inactive, Always Standard, and Always Enhanced website rules
+- No Autoplay: a global enabled default plus Always inactive, Always Standard, and Always Enhanced website rules, an all-sites audio autoplay setting, and hostname-specific audio autoplay rules
 - Any Copy: its own site rules
 - Any Copy Enhanced: current-tab activation for the browser session
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference
@@ -79,9 +79,9 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 - Satellites: Bili Daily Login switch state and last completed date
 - Interface locale
 
-Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Matching prefers an exact rule, then the most specific wildcard. Activation and mode are resolved independently. At equal specificity, Disabled wins over Enabled and Standard wins over Enhanced. Adding a rule removes the same rule from its opposing list, while a more-specific rule can intentionally override a broader one.
+Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Matching prefers an exact rule, then the most specific wildcard. Each Native Scroll or No Autoplay rule belongs to exactly one behavior: inactive, Standard, or Enhanced. Standard and Enhanced rules activate matching websites even when the global default is off. Saving or changing a rule removes that exact rule from the other behavior lists, while a more-specific rule can intentionally override a broader one.
 
-The popup uses four paired rows: Native Scroll with its Enhanced control, No Autoplay with its Enhanced control, Any Copy with Any Copy Enhanced, and Image Download with Video Download. Native Scroll and No Autoplay primary controls toggle an exact current-site activation override without changing their global default. Their Enhanced controls activate the current site when required, and turning an active Enhanced control off writes a Standard-mode exception so a broader Enhanced rule cannot immediately restore it. Any Copy retains exact-host activation, while Any Copy Enhanced toggles only the active tab. Product icons expose only neutral and blue states. The shared theme uses its existing blue in light mode and a brighter blue across every extension surface in dark mode. Solid blue controls use a separate foreground token to preserve text contrast. A blue background is reserved for products with a continuing page effect; active Image Download and Video Download sessions are blue without a background. Per-tab intervention state adds a thin blue outline to the currently active Native Scroll or No Autoplay mode after that runtime acts on the page. Session-storage changes refresh this indicator while the popup is open. The compact main view hides the Cosmic Gemini wordmark, while All Settings occupies a separate bottom row aligned to the right.
+The popup uses four paired rows: Native Scroll with its Enhanced control, No Autoplay with its Enhanced control, Any Copy with Any Copy Enhanced, and Image Download with Video Download. Native Scroll and No Autoplay primary controls create an exact current-site behavior when none exists, or remove the exact behavior so the broader rule or global default applies again. Their Enhanced controls activate the current site when required, and turning an active Enhanced control off writes a Standard behavior so a broader Enhanced rule cannot immediately restore it. Any Copy retains exact-host activation, while Any Copy Enhanced toggles only the active tab. Product icons expose only neutral and blue states. The shared theme uses its existing blue in light mode and a brighter blue across every extension surface in dark mode. Solid blue controls use a separate foreground token to preserve text contrast. A blue background is reserved for products with a continuing page effect; active Image Download and Video Download sessions are blue without a background. Per-tab intervention state adds a thin blue outline to the currently active Native Scroll or No Autoplay mode after that runtime acts on the page. Session-storage changes refresh this indicator while the popup is open. The compact main view hides the Cosmic Gemini wordmark, while All Settings occupies a separate bottom row aligned to the right.
 
 Reset All Settings is accepted only from an extension settings page. It stops current image and video sessions, cancels active media preparation, clears session state and the Bili Daily Login alarm, restores the default versioned settings object, removes the explicit locale so Chrome UI language is used again, refreshes open pages, and resets toolbar state. Existing downloaded files are outside extension storage and remain unchanged.
 
@@ -89,7 +89,7 @@ Per-tab intervention state contains product booleans and is cleared on navigatio
 
 ## Resource use
 
-The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated Video Download tab session. Image Download scanning runs only for an explicitly activated source tab, and its workspace polls only while open. The popup polls Video Download state only while its result view is open. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
+The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated download session. Image Download and Video Download views react to session-storage changes instead of polling. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
 
 ## Browser boundaries
 

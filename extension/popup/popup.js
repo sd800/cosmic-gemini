@@ -62,7 +62,7 @@ function renderGuardFeature(featureId) {
   primary.dataset.intervened = String(intervened && !enhancedActive);
   primary.setAttribute('aria-pressed', String(feature.active));
   if (!feature.supported) label(primary, t('unsupportedTitle'));
-  else if (feature.exactActivationOverride) label(primary, t('removeSiteOverrideTitle', { product }));
+  else if (feature.exactBehaviorOverride) label(primary, t('removeSiteOverrideTitle', { product }));
   else label(primary, t(feature.active ? 'disableProductOnSiteTitle' : 'enableProductOnSiteTitle', { product }));
 
   enhanced.disabled = !feature.supported;

@@ -10,14 +10,34 @@ const rulePanel = (listName, headingKey, helpKey, emptyKey = '') => `
     <ul class="rule-list"></ul>
   </section>`;
 
-const pairedRuleCard = (headingKey, helpKey, left, right) => `
-  <section class="card grouped-rule-card">
-    <div class="group-heading"><h2 data-i18n="${headingKey}"></h2><p data-i18n="${helpKey}"></p></div>
-    <div class="rule-grid">
-      ${rulePanel(...left)}
-      ${rulePanel(...right)}
+const behaviorPanel = (listName, headingKey, helpKey, emptyKey) => `
+  <section class="behavior-rule-panel" data-behavior-list="${listName}" data-empty-key="${emptyKey}">
+    <h3 data-i18n="${headingKey}"></h3>
+    <p data-i18n="${helpKey}"></p>
+    <ul class="rule-list behavior-rule-list"></ul>
+  </section>`;
+
+const websiteBehaviorCard = helpKey => `
+  <section class="card website-behavior-card" data-behavior-card>
+    <div class="group-heading"><h2 data-i18n="websiteBehaviorHeading"></h2><p data-i18n="${helpKey}"></p></div>
+    <form class="behavior-rule-form" novalidate>
+      <label class="sr-only" for="website-rule" data-i18n="websiteRuleLabel"></label>
+      <input id="website-rule" type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
+      <label class="sr-only" for="website-behavior" data-i18n="websiteBehaviorLabel"></label>
+      <select id="website-behavior">
+        <option value="inactive" data-i18n="inactiveSitesHeading"></option>
+        <option value="standard" data-i18n="standardSitesHeading"></option>
+        <option value="enhanced" data-i18n="enhancedSitesHeading"></option>
+      </select>
+      <button class="primary-button" type="submit" data-i18n="add"></button>
+    </form>
+    <p class="form-message" aria-live="polite"></p>
+    <div class="behavior-rule-grid">
+      ${behaviorPanel('inactiveRules', 'inactiveSitesHeading', 'inactiveSitesHelp', 'emptyInactiveSites')}
+      ${behaviorPanel('standardRules', 'standardSitesHeading', 'standardSitesHelp', 'emptyStandardSites')}
+      ${behaviorPanel('enhancedRules', 'enhancedSitesHeading', 'enhancedSitesHelp', 'emptyEnhancedSites')}
     </div>
-    <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
+    <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
   </section>`;
 
 const audioAllowSection = () => `
@@ -117,12 +137,7 @@ export function viewFor(featureId) {
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
-      ${pairedRuleCard('websiteExceptionsHeading', 'nativeWebsiteExceptionsHelp',
-        ['enabledRules', 'enabledSitesHeading', 'nativeEnabledSitesHelp'],
-        ['whitelistRules', 'disabledSitesHeading', 'nativeDisabledSitesHelp'])}
-      ${pairedRuleCard('modeByWebsiteHeading', 'nativeModeByWebsiteHelp',
-        ['enhancedRules', 'enhancedSitesHeading', 'nativeEnhancedSitesHelp'],
-        ['standardRules', 'standardSitesHeading', 'nativeStandardSitesHelp'])}`,
+      ${websiteBehaviorCard('nativeWebsiteBehaviorHelp')}`,
     help: help(['nativeSetupStepDefault', 'nativeSetupStepExceptions', 'nativeSetupStepEnhanced'], 'nativePrivacy', true)
   };
   if (featureId === 'noAutoplay') return {
@@ -133,12 +148,7 @@ export function viewFor(featureId) {
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
-      ${pairedRuleCard('websiteExceptionsHeading', 'autoplayWebsiteExceptionsHelp',
-        ['enabledRules', 'enabledSitesHeading', 'autoplayEnabledSitesHelp'],
-        ['whitelistRules', 'disabledSitesHeading', 'autoplayDisabledSitesHelp'])}
-      ${pairedRuleCard('modeByWebsiteHeading', 'autoplayModeByWebsiteHelp',
-        ['enhancedRules', 'enhancedSitesHeading', 'autoplayEnhancedSitesHelp'],
-        ['standardRules', 'standardSitesHeading', 'autoplayStandardSitesHelp'])}
+      ${websiteBehaviorCard('autoplayWebsiteBehaviorHelp')}
       ${audioAllowSection()}`,
     help: help(['autoplaySetupStepDefault', 'autoplaySetupStepExceptions', 'autoplaySetupStepEnhanced', 'autoplaySetupStepAudio'], 'autoplayPrivacy', true)
   };

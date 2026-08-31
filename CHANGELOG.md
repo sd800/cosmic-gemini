@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.1.33 — 2026-08-31
+
+- Replaced Native Scroll and No Autoplay's overlapping activation and mode lists with one Website behavior editor. Each rule now belongs to Always inactive, Always use Standard mode, or Always use Enhanced mode, and can move directly between them.
+- Existing website settings migrate to the new three-behavior model. Exact and wildcard precedence is preserved, while Standard and Enhanced rules can continue to activate a website when its global default is off.
+- Added one shared rule form, categorized saved rules, and separate guidance for exact hostnames and wildcard domains to both settings pages.
+
 ## 3.1.32 — 2026-08-31
 
 - Changed Any Copy Enhanced from website-based activation to a current-tab session. It now remains limited to the tab where it was opened, survives navigation within that tab, and ends when it is turned off or the tab closes.

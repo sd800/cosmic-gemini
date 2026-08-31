@@ -26,7 +26,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '3.1.32');
+assert.equal(manifest.version, '3.1.33');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -203,11 +203,18 @@ assert.match(settingsSource, /section\.dataset\.featureId/);
 assert.match(settingsSource, /type: 'UI_RESET_ALL_SETTINGS'/);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await readFile(join(extension, 'settings', name), 'utf8');
-  assert.equal([...html.matchAll(/class="card grouped-rule-card/g)].length, name === 'no-autoplay.html' ? 3 : 2);
+  assert.equal([...html.matchAll(/data-behavior-card/g)].length, 1);
+  assert.equal([...html.matchAll(/data-behavior-list=/g)].length, 3);
+  assert.equal([...html.matchAll(/class="card grouped-rule-card/g)].length, name === 'no-autoplay.html' ? 1 : 0);
   assert.doesNotMatch(html, /data-i18n="defaultBehaviorHeading"/);
-  assert.match(html, /data-i18n="websiteExceptionsHeading"[\s\S]*data-i18n="modeByWebsiteHeading"/);
-  assert.match(html, /class="flow-list"/);
+  assert.match(html, /data-behavior-list="inactiveRules"[\s\S]*data-behavior-list="standardRules"[\s\S]*data-behavior-list="enhancedRules"/);
+  assert.match(html, /data-i18n="exactHostnameHelp"[\s\S]*data-i18n="wildcardHostnameHelp"/);
+  assert.doesNotMatch(html, /data-list-section="(?:enabledRules|whitelistRules|standardRules|enhancedRules)"/);
 }
+assert.match(settingsSource, /type: 'UI_SET_BEHAVIOR_RULE'/);
+assert.match(settingsSource, /type: 'UI_DELETE_BEHAVIOR_RULE'/);
+assert.match(workerSource, /message\.type === 'UI_SET_BEHAVIOR_RULE'/);
+assert.match(workerSource, /message\.type === 'UI_DELETE_BEHAVIOR_RULE'/);
 assert.match(workerSource, /if \(message\.type === 'UI_RESET_ALL_SETTINGS'\)/);
 assert.match(await readFile(join(extension, 'settings', 'all-settings.html'), 'utf8'), /language-card[\s\S]*id="reset-settings-card"/);
 assert.match(imageWorkspaceSource, /let scanPending = false/);

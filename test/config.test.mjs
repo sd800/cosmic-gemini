@@ -16,28 +16,43 @@ import {
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 
 test('persistent products start with independent settings while Any Copy Enhanced has no site rules', () => {
-  assert.deepEqual(normalizeSettings(), DEFAULT_SETTINGS);
-  assert.deepEqual(normalizeSettings().nativeScroll.enabledRules, []);
-  assert.deepEqual(normalizeSettings().nativeScroll.enhancedRules, []);
-  assert.deepEqual(normalizeSettings().nativeScroll.standardRules, []);
-  assert.equal(normalizeSettings().noAutoplay.audioAutoplayAllSites, false);
-  assert.deepEqual(normalizeSettings().noAutoplay.permanentAudioAllowRules, []);
-  assert.deepEqual(normalizeSettings().anyCopy.siteRules, []);
-  assert.equal('anyCopyEnhanced' in normalizeSettings(), false);
-  assert.deepEqual(normalizeSettings().imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
-  assert.deepEqual(normalizeSettings().videoDownload, { preferredQuality: 'best', askWhereToSave: true });
-  assert.deepEqual(normalizeSettings().satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
+  const settings = normalizeSettings();
+  assert.deepEqual(settings, DEFAULT_SETTINGS);
+  assert.deepEqual(settings.nativeScroll.inactiveRules, []);
+  assert.deepEqual(settings.nativeScroll.standardRules, []);
+  assert.deepEqual(settings.nativeScroll.enhancedRules, []);
+  assert.equal(settings.noAutoplay.audioAutoplayAllSites, false);
+  assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
+  assert.deepEqual(settings.anyCopy.siteRules, []);
+  assert.equal('anyCopyEnhanced' in settings, false);
+  assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
+  assert.deepEqual(settings.videoDownload, { preferredQuality: 'best', askWhereToSave: true });
+  assert.deepEqual(settings.satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
 });
 
-test('rules are normalized, deduplicated, and sorted by feature', () => {
+test('website behavior rules are normalized, deduplicated, and sorted', () => {
   const settings = normalizeSettings({
-    nativeScroll: { whitelistRules: ['B.example.com', '*.example.com', 'b.example.com'] },
+    nativeScroll: { inactiveRules: ['B.example.com', '*.example.com', 'b.example.com'] },
     noAutoplay: { enhancedRules: ['media.example.com'] },
     anyCopy: { siteRules: ['copy.example.com'] }
   });
-  assert.deepEqual(settings.nativeScroll.whitelistRules, ['*.example.com', 'b.example.com']);
+  assert.deepEqual(settings.nativeScroll.inactiveRules, ['*.example.com', 'b.example.com']);
   assert.deepEqual(settings.noAutoplay.enhancedRules, ['media.example.com']);
   assert.deepEqual(settings.anyCopy.siteRules, ['copy.example.com']);
+});
+
+test('legacy activation and mode lists migrate into one behavior per rule', () => {
+  const settings = normalizeSettings({
+    nativeScroll: {
+      enabledRules: ['enabled.example.com', 'enhanced.example.com'],
+      whitelistRules: ['inactive.example.com', 'conflict.example.com'],
+      standardRules: ['standard.example.com', 'conflict.example.com'],
+      enhancedRules: ['enhanced.example.com', 'standard.example.com', 'conflict.example.com']
+    }
+  });
+  assert.deepEqual(settings.nativeScroll.inactiveRules, ['conflict.example.com', 'inactive.example.com']);
+  assert.deepEqual(settings.nativeScroll.standardRules, ['enabled.example.com', 'standard.example.com']);
+  assert.deepEqual(settings.nativeScroll.enhancedRules, ['enhanced.example.com']);
 });
 
 test('exact and wildcard rules match their intended hostnames', () => {
@@ -57,40 +72,20 @@ test('rule parser rejects URLs, ports, paths, and misplaced wildcards', () => {
   }
 });
 
-test('whitelist takes priority over site-specific Enhanced mode', () => {
+test('inactive behavior overrides broader Enhanced behavior when it is more specific', () => {
   const state = featureState({
     nativeScroll: {
       enabled: true,
-      whitelistRules: ['*.example.com'],
-      enhancedRules: ['docs.example.com']
+      inactiveRules: ['docs.example.com'],
+      enhancedRules: ['*.example.com']
     }
   }, FEATURE_IDS.NATIVE_SCROLL, 'https://docs.example.com/a');
   assert.equal(state.active, false);
-  assert.equal(state.mode, 'standard');
-  assert.equal(state.matchedWhitelistRule, '*.example.com');
-  assert.equal(state.matchedEnhancedRule, 'docs.example.com');
+  assert.equal(state.behavior, 'inactive');
+  assert.equal(state.behaviorRule, 'docs.example.com');
 });
 
-test('current-site activation overrides the global default and broader rules', () => {
-  const enabled = featureState({
-    nativeScroll: {
-      enabled: false,
-      enabledRules: ['docs.example.com'],
-      whitelistRules: ['*.example.com']
-    }
-  }, FEATURE_IDS.NATIVE_SCROLL, 'https://docs.example.com/a');
-  assert.equal(enabled.active, true);
-  assert.equal(enabled.activationOverride, 'enabled');
-  assert.equal(enabled.exactActivationOverride, true);
-
-  const disabled = featureState({
-    nativeScroll: { enabled: true, whitelistRules: ['docs.example.com'] }
-  }, FEATURE_IDS.NATIVE_SCROLL, 'https://docs.example.com/a');
-  assert.equal(disabled.active, false);
-  assert.equal(disabled.activationOverride, 'disabled');
-});
-
-test('current-site Standard mode overrides broader Enhanced mode', () => {
+test('Standard behavior overrides broader Enhanced behavior', () => {
   const state = featureState({
     nativeScroll: {
       enabled: true,
@@ -100,23 +95,34 @@ test('current-site Standard mode overrides broader Enhanced mode', () => {
   }, FEATURE_IDS.NATIVE_SCROLL, 'https://docs.example.com/a');
   assert.equal(state.active, true);
   assert.equal(state.mode, 'standard');
-  assert.equal(state.modeOverride, 'standard');
-  assert.equal(state.exactModeOverride, true);
+  assert.equal(state.behaviorOverride, 'standard');
+  assert.equal(state.exactBehaviorOverride, true);
 });
 
-test('safer opposing rule wins when both lists contain the same scope', () => {
-  const state = featureState({
-    nativeScroll: {
-      enabled: true,
-      enabledRules: ['docs.example.com'],
-      whitelistRules: ['docs.example.com'],
-      enhancedRules: ['docs.example.com'],
-      standardRules: ['docs.example.com']
-    }
-  }, FEATURE_IDS.NATIVE_SCROLL, 'https://docs.example.com/a');
-  assert.equal(state.active, false);
-  assert.equal(state.activationOverride, 'disabled');
-  assert.equal(state.modeOverride, 'standard');
+test('Standard and Enhanced rules activate a site even when the global default is off', () => {
+  const standard = featureState({
+    nativeScroll: { enabled: false, standardRules: ['standard.example.com'] }
+  }, FEATURE_IDS.NATIVE_SCROLL, 'https://standard.example.com');
+  assert.equal(standard.active, true);
+  assert.equal(standard.mode, 'standard');
+
+  const enhanced = featureState({
+    nativeScroll: { enabled: false, enhancedRules: ['enhanced.example.com'] }
+  }, FEATURE_IDS.NATIVE_SCROLL, 'https://enhanced.example.com');
+  assert.equal(enhanced.active, true);
+  assert.equal(enhanced.mode, 'enhanced');
+});
+
+test('unlisted sites follow the global default', () => {
+  const active = featureState({ nativeScroll: { enabled: true } }, FEATURE_IDS.NATIVE_SCROLL, 'https://example.com');
+  assert.equal(active.active, true);
+  assert.equal(active.mode, 'standard');
+  assert.equal(active.behaviorOverride, '');
+
+  const inactive = featureState({ nativeScroll: { enabled: false } }, FEATURE_IDS.NATIVE_SCROLL, 'https://example.com');
+  assert.equal(inactive.active, false);
+  assert.equal(inactive.behavior, 'inactive');
+  assert.equal(inactive.exactBehaviorOverride, false);
 });
 
 test('Any Copy and current-tab Any Copy Enhanced activate independently', () => {
@@ -124,57 +130,35 @@ test('Any Copy and current-tab Any Copy Enhanced activate independently', () => 
   assert.equal(directEnhanced.active, true);
   assert.equal(directEnhanced.exactActive, true);
   assert.equal(directEnhanced.scope, 'tab');
-
-  const standard = anyCopyState({
-    anyCopy: { siteRules: ['docs.example.com'] }
-  }, 'https://docs.example.com');
-  assert.equal(standard.active, true);
-  const enhancedOff = anyCopyEnhancedState('https://docs.example.com', false);
-  assert.equal(enhancedOff.active, false);
+  assert.equal(anyCopyState({ anyCopy: { siteRules: ['docs.example.com'] } }, 'https://docs.example.com').active, true);
+  assert.equal(anyCopyEnhancedState('https://docs.example.com', false).active, false);
 });
 
 test('legacy Any Copy rules keep standard activation and discard Enhanced website scope', () => {
   const migrated = normalizeSettings({
     version: 9,
-    anyCopy: {
-      enforcedRules: ['copy.example.com'],
-      enhancedRules: ['reader.example.com']
-    }
+    anyCopy: { enforcedRules: ['copy.example.com'], enhancedRules: ['reader.example.com'] }
   });
   assert.deepEqual(migrated.anyCopy.siteRules, ['copy.example.com']);
   assert.equal('anyCopyEnhanced' in migrated, false);
 });
 
-test('No Autoplay audio autoplay permission applies without allowing the feature whitelist', () => {
+test('No Autoplay audio permission applies only while No Autoplay is active', () => {
   const settings = {
     noAutoplay: {
       enabled: true,
       permanentAudioAllowRules: ['*.music.example'],
-      enhancedRules: [],
-      whitelistRules: []
+      inactiveRules: ['quiet.music.example']
     }
   };
-  const permanent = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://play.music.example');
-  assert.equal(permanent.active, true);
-  assert.equal(permanent.audioAllowed, true);
-  const blocked = featureState({}, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example');
-  assert.equal(blocked.audioAllowed, false);
-  const global = featureState({ noAutoplay: { audioAutoplayAllSites: true } }, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example');
-  assert.equal(global.audioAllowed, true);
-});
-
-test('No Autoplay whitelist disables all media blocking', () => {
-  const state = featureState({
-    noAutoplay: {
-      enabled: true,
-      whitelistRules: ['*.media.example'],
-      enhancedRules: ['play.media.example'],
-      permanentAudioAllowRules: []
-    }
-  }, FEATURE_IDS.NO_AUTOPLAY, 'https://play.media.example/watch');
-  assert.equal(state.active, false);
-  assert.equal(state.mode, 'standard');
-  assert.equal(state.matchedWhitelistRule, '*.media.example');
+  const allowed = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://play.music.example');
+  assert.equal(allowed.active, true);
+  assert.equal(allowed.audioAllowed, true);
+  const inactive = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://quiet.music.example');
+  assert.equal(inactive.active, false);
+  assert.equal(inactive.audioAllowed, false);
+  assert.equal(featureState({}, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example').audioAllowed, false);
+  assert.equal(featureState({ noAutoplay: { audioAutoplayAllSites: true } }, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example').audioAllowed, true);
 });
 
 test('feature updates do not mutate other products', () => {
@@ -195,8 +179,9 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   const cache = settingsViewCache({
     nativeScroll: {
       enabled: false,
-      whitelistRules: ['example.com'],
+      inactiveRules: ['example.com'],
       enhancedRules: ['*.docs.example'],
+      standardRules: ['read.example'],
       hostname: 'private.example',
       active: true
     },
@@ -209,10 +194,9 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   });
   assert.deepEqual(cache.nativeScroll, {
     enabled: false,
-    enabledRules: [],
-    whitelistRules: ['example.com'],
+    inactiveRules: ['example.com'],
     enhancedRules: ['*.docs.example'],
-    standardRules: []
+    standardRules: ['read.example']
   });
   assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);

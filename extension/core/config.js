@@ -21,14 +21,13 @@ export const FEATURE_SLOTS = Object.freeze({
 
 const DEFAULT_FEATURE = Object.freeze({
   enabled: true,
-  enabledRules: Object.freeze([]),
-  whitelistRules: Object.freeze([]),
+  inactiveRules: Object.freeze([]),
   enhancedRules: Object.freeze([]),
   standardRules: Object.freeze([])
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 12,
+  version: 13,
   nativeScroll: DEFAULT_FEATURE,
   noAutoplay: Object.freeze({
     ...DEFAULT_FEATURE,
@@ -98,12 +97,18 @@ function normalizeRules(value) {
 }
 
 function normalizeFeature(value = {}, includeAudioRules = false) {
+  const inactiveRules = normalizeRules(value.inactiveRules ?? value.whitelistRules ?? value.whitelist);
+  const explicitStandardRules = normalizeRules(value.standardRules)
+    .filter(rule => !inactiveRules.includes(rule));
+  const enhancedRules = normalizeRules(value.enhancedRules)
+    .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule));
+  const migratedEnabledRules = normalizeRules(value.enabledRules)
+    .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule) && !enhancedRules.includes(rule));
   const normalized = {
     enabled: value.enabled !== false,
-    enabledRules: normalizeRules(value.enabledRules),
-    whitelistRules: normalizeRules(value.whitelistRules ?? value.whitelist),
-    enhancedRules: normalizeRules(value.enhancedRules),
-    standardRules: normalizeRules(value.standardRules)
+    inactiveRules,
+    standardRules: normalizeRules([...explicitStandardRules, ...migratedEnabledRules]),
+    enhancedRules
   };
   if (includeAudioRules) {
     normalized.audioAutoplayAllSites = value.audioAutoplayAllSites === true;
@@ -115,10 +120,10 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 export function normalizeSettings(value = {}) {
   const legacy = value.version === 1 && ('enabled' in value || 'whitelist' in value || 'mode' in value);
   const nativeValue = legacy
-    ? { enabled: value.enabled, whitelistRules: value.whitelist, enhancedRules: [] }
+    ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 12,
+    version: 13,
     nativeScroll: normalizeFeature(nativeValue || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
@@ -171,22 +176,16 @@ function rulePriority(rule) {
   return rule && !rule.startsWith('*.') ? Number.MAX_SAFE_INTEGER : String(rule || '').length;
 }
 
-export function resolveRuleChoice(hostname, positiveRules, negativeRules, defaultValue = false) {
-  const positiveRule = matchingRule(hostname, positiveRules);
-  const negativeRule = matchingRule(hostname, negativeRules);
-  const positivePriority = rulePriority(positiveRule);
-  const negativePriority = rulePriority(negativeRule);
-  if (!positiveRule && !negativeRule) return { value: defaultValue === true, rule: '', choice: '' };
-  if (positivePriority > negativePriority) return { value: true, rule: positiveRule, choice: 'positive' };
-  return { value: false, rule: negativeRule, choice: 'negative' };
-}
-
-export function toggleRule(rules, rule) {
-  const current = normalizeRules(rules);
-  const normalized = normalizeRule(rule);
-  return current.includes(normalized)
-    ? current.filter(item => item !== normalized)
-    : normalizeRules([...current, normalized]);
+function resolveBehavior(hostname, feature) {
+  const candidates = [
+    { behavior: 'inactive', rule: matchingRule(hostname, feature.inactiveRules) },
+    { behavior: 'standard', rule: matchingRule(hostname, feature.standardRules) },
+    { behavior: 'enhanced', rule: matchingRule(hostname, feature.enhancedRules) }
+  ].filter(candidate => candidate.rule);
+  if (!candidates.length) return { behavior: feature.enabled ? 'standard' : 'inactive', rule: '' };
+  return candidates.reduce((selected, candidate) => (
+    rulePriority(candidate.rule) > rulePriority(selected.rule) ? candidate : selected
+  ));
 }
 
 export function hostnameFromUrl(value) {
@@ -201,40 +200,36 @@ export function featureState(settings, featureId, url) {
   const feature = normalized[featureId];
   if (!feature) throw new Error('Unknown feature.');
   const hostname = hostnameFromUrl(url);
-  const matchedEnabledRule = hostname ? matchingRule(hostname, feature.enabledRules) : '';
-  const matchedWhitelistRule = hostname ? matchingRule(hostname, feature.whitelistRules) : '';
+  const matchedInactiveRule = hostname ? matchingRule(hostname, feature.inactiveRules) : '';
   const matchedEnhancedRule = hostname ? matchingRule(hostname, feature.enhancedRules) : '';
   const matchedStandardRule = hostname ? matchingRule(hostname, feature.standardRules) : '';
   const matchedAudioRule = featureId === FEATURE_IDS.NO_AUTOPLAY && hostname
     ? matchingRule(hostname, feature.permanentAudioAllowRules)
     : '';
-  const activation = hostname
-    ? resolveRuleChoice(hostname, feature.enabledRules, feature.whitelistRules, feature.enabled)
-    : { value: false, rule: '', choice: '' };
-  const modeChoice = hostname
-    ? resolveRuleChoice(hostname, feature.enhancedRules, feature.standardRules, false)
-    : { value: false, rule: '', choice: '' };
-  const active = !!hostname && activation.value;
+  const selection = hostname
+    ? resolveBehavior(hostname, feature)
+    : { behavior: 'inactive', rule: '' };
+  const active = !!hostname && selection.behavior !== 'inactive';
   return {
     ...feature,
     hostname,
     supported: !!hostname,
     active,
-    mode: active && modeChoice.value ? 'enhanced' : 'standard',
-    matchedEnabledRule,
-    exactEnabled: !!hostname && feature.enabledRules.includes(hostname),
-    matchedWhitelistRule,
-    exactWhitelisted: !!hostname && feature.whitelistRules.includes(hostname),
+    mode: active && selection.behavior === 'enhanced' ? 'enhanced' : 'standard',
+    behavior: selection.behavior,
+    matchedInactiveRule,
+    exactInactive: !!hostname && feature.inactiveRules.includes(hostname),
     matchedEnhancedRule,
     exactEnhanced: !!hostname && feature.enhancedRules.includes(hostname),
     matchedStandardRule,
     exactStandard: !!hostname && feature.standardRules.includes(hostname),
-    activationRule: activation.rule,
-    activationOverride: activation.choice === 'positive' ? 'enabled' : activation.choice === 'negative' ? 'disabled' : '',
-    exactActivationOverride: !!hostname && (feature.enabledRules.includes(hostname) || feature.whitelistRules.includes(hostname)),
-    modeRule: modeChoice.rule,
-    modeOverride: modeChoice.choice === 'positive' ? 'enhanced' : modeChoice.choice === 'negative' ? 'standard' : '',
-    exactModeOverride: !!hostname && (feature.enhancedRules.includes(hostname) || feature.standardRules.includes(hostname)),
+    behaviorRule: selection.rule,
+    behaviorOverride: selection.rule ? selection.behavior : '',
+    exactBehaviorOverride: !!hostname && (
+      feature.inactiveRules.includes(hostname)
+      || feature.standardRules.includes(hostname)
+      || feature.enhancedRules.includes(hostname)
+    ),
     audioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY
       ? active && (feature.audioAutoplayAllSites === true || !!matchedAudioRule)
       : false,

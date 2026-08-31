@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md)
 
+## 5.1.1 — 2026-08-31
+
+- 将插件后台重构为 `central → province → product → feature` 四级架构。中央层只负责判断归属并路由任务，三个省级模块负责协调各自管辖的产品，各产品则独立完成具体工作。
+- Standing Province 管理 Native Scroll 与 No Autoplay。Operations Province 管理 Any Copy、Any Copy 强力模式、Satellites 和插件管理操作。Customs Province 管理 Image Download 与 Video Download。各省使用稳定的统一接口，后续调整管辖范围时无需再把职责集中回中央层。
+- Image Download 与 Video Download 已拆分为相互独立的执行模块，同时由 Customs Province 协调共用的离屏文档。产品之间不能直接引用或控制彼此。
+- 页面桥接、运行时、扫描器、网站适配器和离屏处理器归入功能实现层，并可根据技术需要继续拆分子功能。
+- 更新架构检查、技术文档和内部维护说明，以持续约束各层的决策、协调与执行边界。
+
 ## 3.5.1 — 2026-08-31
 
 - Native Scroll 与 No Autoplay 新增同一份共用白名单。两个设置页面均可查看和修改，白名单优先于各项功能的网站规则，移出白名单后会继续采用原先保存的设置。

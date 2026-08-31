@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.1.1 — 2026-08-31
+
+- Rebuilt the extension background around a four-level `central → province → product → feature` structure. Central now decides jurisdiction and routes work, while three provincial modules coordinate their assigned products and independent product modules perform the work.
+- Assigned Native Scroll and No Autoplay to Standing Province; Any Copy, Any Copy Enhanced, Satellites, and extension administration to Operations Province; and Image Download and Video Download to Customs Province. Each province keeps a stable interface so its jurisdiction can change without collapsing the architecture back into central.
+- Separated Image Download and Video Download into independent execution modules while retaining one Customs Province coordinator for their shared offscreen document. Products cannot import or control sibling products.
+- Kept page bridges, runtimes, scanners, adapters, and offscreen processors at the feature level, with room for further technical subfeatures where required.
+- Updated architecture checks, technical documentation, and maintenance notes to enforce the routing and execution boundaries.
+
 ## 3.5.1 — 2026-08-31
 
 - Added one shared whitelist to Native Scroll and No Autoplay. It appears in both settings pages, takes priority over product-specific website rules, and preserves those rules for use after a website is removed.

@@ -1,0 +1,216 @@
+import {
+  DEFAULT_SETTINGS,
+  FEATURE_IDS,
+  LEGACY_SETTINGS_KEY,
+  SETTINGS_KEY,
+  normalizeSettings
+} from '../core/config.js';
+import { normalizeLocale } from '../core/locale.js';
+
+const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
+const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
+const ACTIVITY_PREFIX = 'tabActivity:';
+const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
+const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
+
+export function createPlatform() {
+  let writeQueue = Promise.resolve();
+  const centralUiPorts = new Set();
+
+  function sendTabMessage(tabId, message, options = undefined) {
+    return new Promise(resolve => {
+      try {
+        const callback = response => {
+          void chrome.runtime.lastError;
+          resolve(response);
+        };
+        if (options) chrome.tabs.sendMessage(tabId, message, options, callback);
+        else chrome.tabs.sendMessage(tabId, message, callback);
+      } catch { resolve(undefined); }
+    });
+  }
+
+  async function readSettings() {
+    const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
+    return normalizeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
+  }
+
+  async function saveSettings(value) {
+    const settings = normalizeSettings(value);
+    await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+    return settings;
+  }
+
+  async function ensureSettings() {
+    const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
+    const settings = normalizeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
+    await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+    if (stored[LEGACY_SETTINGS_KEY]) await chrome.storage.local.remove(LEGACY_SETTINGS_KEY);
+    return settings;
+  }
+
+  async function refreshOpenPages() {
+    const tabs = await chrome.tabs.query({});
+    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab =>
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        world: 'ISOLATED',
+        injectImmediately: true,
+        func: () => globalThis[Symbol.for('cosmic-gemini.central')]?.sync?.()
+      }).catch(() => {})));
+  }
+
+  async function mutateSettings(update, refresh = true) {
+    writeQueue = writeQueue.then(async () => {
+      const current = await readSettings();
+      const next = await saveSettings(typeof update === 'function' ? update(current) : update);
+      if (refresh) await refreshOpenPages();
+      return next;
+    });
+    return writeQueue;
+  }
+
+  function activityKey(tabId) { return ACTIVITY_PREFIX + tabId; }
+
+  async function readActivity(tabId) {
+    if (!Number.isInteger(tabId)) return emptyActivity();
+    try {
+      const value = (await chrome.storage.session.get(activityKey(tabId)))[activityKey(tabId)];
+      return {
+        nativeScroll: value?.nativeScroll === true,
+        noAutoplay: value?.noAutoplay === true,
+        anyCopy: value?.anyCopy === true,
+        anyCopyEnhanced: value?.anyCopyEnhanced === true,
+        imageDownload: value?.imageDownload === true,
+        videoDownload: value?.videoDownload === true
+      };
+    } catch { return emptyActivity(); }
+  }
+
+  function emptyActivity() {
+    return { nativeScroll: false, noAutoplay: false, anyCopy: false, anyCopyEnhanced: false, imageDownload: false, videoDownload: false };
+  }
+
+  function updateAction(method, details) {
+    return new Promise(resolve => {
+      try {
+        chrome.action[method](details, () => {
+          void chrome.runtime.lastError;
+          resolve();
+        });
+      } catch { resolve(); }
+    });
+  }
+
+  async function toolbarTitle(activity) {
+    const products = [
+      activity.nativeScroll && 'Native Scroll',
+      activity.noAutoplay && 'No Autoplay',
+      activity.anyCopy && 'Any Copy',
+      activity.anyCopyEnhanced && 'Any Copy Enhanced',
+      activity.imageDownload && 'Image Download',
+      activity.videoDownload && 'Video Download'
+    ].filter(Boolean);
+    if (!products.length) return 'Cosmic Gemini';
+    const locale = await getLocale();
+    const name = products.length === 1 ? products[0] : 'Cosmic Gemini';
+    return locale === 'zh-CN' ? name + ' · 正在处理此页面' : name + ' · Working on this page';
+  }
+
+  async function renderToolbar(tabId, activity) {
+    if (!Number.isInteger(tabId)) return;
+    const active = Object.values(activity).some(Boolean);
+    await Promise.allSettled([
+      updateAction('setIcon', { tabId, path: active ? ACTIVE_ICONS : DEFAULT_ICONS }),
+      updateAction('setBadgeText', { tabId, text: '' }),
+      updateAction('setTitle', { tabId, title: await toolbarTitle(activity) })
+    ]);
+  }
+
+  function notifyCentralUi(tabId) {
+    for (const port of centralUiPorts) {
+      try { port.postMessage({ type: 'central-state-changed', tabId }); } catch {}
+    }
+  }
+
+  async function setFeatureActivity(tabId, featureId, value) {
+    if (!Number.isInteger(tabId) || !Object.values(FEATURE_IDS).includes(featureId)) return;
+    const activity = await readActivity(tabId);
+    activity[featureId] = value === true;
+    const key = activityKey(tabId);
+    if (Object.values(activity).some(Boolean)) await chrome.storage.session.set({ [key]: activity });
+    else await chrome.storage.session.remove(key);
+    notifyCentralUi(tabId);
+    await renderToolbar(tabId, activity);
+  }
+
+  async function clearTabActivity(tabId) {
+    if (!Number.isInteger(tabId)) return;
+    await chrome.storage.session.remove(activityKey(tabId));
+    notifyCentralUi(tabId);
+    await renderToolbar(tabId, emptyActivity());
+  }
+
+  function connectCentralUi(port) {
+    if (port.name !== 'central-ui:popup') return false;
+    centralUiPorts.add(port);
+    port.onDisconnect.addListener(() => centralUiPorts.delete(port));
+    return true;
+  }
+
+  async function clearLegacyAudioPromptState() {
+    const values = await chrome.storage.session.get(null);
+    const keys = Object.keys(values).filter(key => LEGACY_AUDIO_SESSION_PREFIXES.some(prefix => key.startsWith(prefix)));
+    if (keys.length) await chrome.storage.session.remove(keys);
+    const alarms = await chrome.alarms.getAll();
+    await Promise.allSettled(alarms.filter(alarm => alarm.name.startsWith(LEGACY_AUDIO_ALARM_PREFIX))
+      .map(alarm => chrome.alarms.clear(alarm.name)));
+  }
+
+  async function getLocale() {
+    const stored = await chrome.storage.local.get('interfaceLocale');
+    return normalizeLocale(stored.interfaceLocale || chrome.i18n.getUILanguage());
+  }
+
+  async function setLocale(value) {
+    const locale = normalizeLocale(value);
+    await chrome.storage.local.set({ interfaceLocale: locale });
+    return locale;
+  }
+
+  function runtimeToken() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    const bytes = new Uint8Array(18);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function resetStorage() {
+    await chrome.storage.session.clear();
+    await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
+    const settings = await saveSettings(DEFAULT_SETTINGS);
+    const tabs = await chrome.tabs.query({});
+    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => renderToolbar(tab.id, emptyActivity())));
+    await refreshOpenPages();
+    return settings;
+  }
+
+  return Object.freeze({
+    sendTabMessage,
+    readSettings,
+    saveSettings,
+    ensureSettings,
+    mutateSettings,
+    refreshOpenPages,
+    readActivity,
+    setFeatureActivity,
+    clearTabActivity,
+    connectCentralUi,
+    notifyCentralUi,
+    clearLegacyAudioPromptState,
+    getLocale,
+    setLocale,
+    runtimeToken,
+    resetStorage
+  });
+}

@@ -24,7 +24,7 @@
   };
   const requestConfig = async () => {
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE' });
+      const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE', featureId: 'anyCopy' });
       const config = response?.result?.anyCopy;
       if (!response?.ok || !config?.active) { dispose(); return; }
       dispatchConfig(config);

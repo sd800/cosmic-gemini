@@ -112,7 +112,7 @@ All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Vide
 
 After any length of downtime, one current-day task catches up when Chrome can next run. Earlier missed days are never replayed.
 
-Cosmic Gemini uses one central controller for every product and settings command. The page entry contains no product behavior; each page runtime starts only after the controller determines that its product is active. All Settings has no webpage runtime of its own, and its commands still pass through the same controller.
+Cosmic Gemini routes every product and settings command through one central entry, then delegates it through the responsible product group to an independent product implementation. The page entry contains no product behavior; each page runtime starts only after its product is active. All Settings has no webpage runtime of its own and uses the same command path.
 
 Native Scroll and No Autoplay settings begin with a global default. Website settings then assign each product-specific rule to Always inactive, Always use Standard mode, or Always use Enhanced mode.
 

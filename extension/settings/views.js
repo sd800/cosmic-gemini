@@ -17,6 +17,12 @@ const behaviorPanel = (listName, headingKey, helpKey, emptyKey) => `
     <ul class="rule-list behavior-rule-list"></ul>
   </section>`;
 
+const introTitle = (iconName, headingKey) => `
+  <div class="intro-title">
+    <span data-section-icon="${iconName}" aria-hidden="true"></span>
+    <h1 data-i18n="${headingKey}"></h1>
+  </div>`;
+
 const websiteBehaviorCard = helpKey => `
   <section class="card website-behavior-card" data-behavior-card>
     <div class="group-heading"><h2 data-i18n="websiteBehaviorHeading"></h2><p data-i18n="${helpKey}"></p></div>
@@ -52,9 +58,9 @@ const audioAllowSection = () => `
     <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
   </section>`;
 
-const anyCopyRuleSection = (featureId, iconName, headingKey, helpKey, emptyKey) => `
+const anyCopyRuleSection = (featureId, headingKey, helpKey, emptyKey) => `
   <section class="card rule-card" data-feature-id="${featureId}" data-list-section="siteRules" data-empty-key="${emptyKey}">
-    <div class="rule-heading any-copy-section-heading"><span data-section-icon="${iconName}" aria-hidden="true"></span><h2 data-i18n="${headingKey}"></h2></div>
+    <h2 data-i18n="${headingKey}"></h2>
     <p data-i18n="${helpKey}"></p>
     <form class="rule-form" novalidate>
       <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
@@ -101,7 +107,7 @@ export function viewFor(featureId) {
   if (featureId === 'allSettings') return {
     primary: `
       <section class="card">
-        <h1 data-i18n="allSettingsName"></h1>
+        ${introTitle('allSettings', 'allSettingsName')}
         <p class="last" data-i18n="allSettingsIntro"></p>
       </section>
       <section class="settings-grid" aria-label="Cosmic Gemini">
@@ -117,7 +123,7 @@ export function viewFor(featureId) {
   if (featureId === 'satellites') return {
     primary: `
       <section class="card">
-        <h1 data-i18n="satellitesName"></h1>
+        ${introTitle('satellites', 'satellitesName')}
         <p class="last" data-i18n="satellitesOverviewHelp"></p>
       </section>
       <section class="card satellite-card">
@@ -133,7 +139,7 @@ export function viewFor(featureId) {
     primary: `
       <section class="card default-card">
         <div class="section-heading">
-          <div><h1 data-i18n="nativeScrollName"></h1><p class="intro-purpose" data-i18n="nativeIntroPurpose"></p><p class="intro-setting" data-i18n="nativeProtectionHelp"></p></div>
+          <div>${introTitle('nativeScroll', 'nativeScrollName')}<p class="intro-purpose" data-i18n="nativeIntroPurpose"></p><p class="intro-setting" data-i18n="nativeProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
@@ -144,7 +150,7 @@ export function viewFor(featureId) {
     primary: `
       <section class="card default-card">
         <div class="section-heading">
-          <div><h1 data-i18n="noAutoplayName"></h1><p class="intro-purpose" data-i18n="autoplayIntroPurpose"></p><p class="intro-setting" data-i18n="autoplayProtectionHelp"></p></div>
+          <div>${introTitle('noAutoplay', 'noAutoplayName')}<p class="intro-purpose" data-i18n="autoplayIntroPurpose"></p><p class="intro-setting" data-i18n="autoplayProtectionHelp"></p></div>
           <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
@@ -156,11 +162,11 @@ export function viewFor(featureId) {
     primary: `
       <section class="card">
         <div class="section-heading">
-          <div><h1 data-i18n="anyCopyName"></h1><p class="last" data-i18n="anyCopyIntroHelp"></p></div>
+          <div>${introTitle('anyCopy', 'anyCopyName')}<p class="last" data-i18n="anyCopyIntroHelp"></p></div>
           <span class="context-label" data-i18n="clickToEnableLabel"></span>
         </div>
       </section>
-      ${anyCopyRuleSection('anyCopy', 'anyCopy', 'anyCopySitesHeading', 'anyCopySitesHelp', 'emptyAnyCopySites')}
+      ${anyCopyRuleSection('anyCopy', 'anyCopySitesHeading', 'anyCopySitesHelp', 'emptyAnyCopySites')}
       <section class="card">
         <div class="section-heading any-copy-section-heading">
           <div class="rule-heading"><span data-section-icon="anyCopyEnhanced" aria-hidden="true"></span><h2 data-i18n="anyCopyEnhancedName"></h2></div>
@@ -174,7 +180,7 @@ export function viewFor(featureId) {
     primary: `
       <section class="card">
         <div class="section-heading">
-          <div><h1 data-i18n="imageDownloadName"></h1><p data-i18n="imageDownloadActivationHelp"></p></div>
+          <div>${introTitle('imageDownload', 'imageDownloadName')}<p data-i18n="imageDownloadActivationHelp"></p></div>
           <span class="context-label" data-i18n="clickToEnableLabel"></span>
         </div>
       </section>
@@ -194,7 +200,7 @@ export function viewFor(featureId) {
     primary: `
       <section class="card">
         <div class="section-heading">
-          <div><h1 data-i18n="videoDownloadName"></h1><p data-i18n="videoDownloadActivationHelp"></p></div>
+          <div>${introTitle('videoDownload', 'videoDownloadName')}<p data-i18n="videoDownloadActivationHelp"></p></div>
           <span class="context-label" data-i18n="clickToEnableLabel"></span>
         </div>
       </section>

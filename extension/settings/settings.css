@@ -29,6 +29,10 @@ p { margin-bottom: 16px; color: var(--muted); font-size: 13px; line-height: 1.55
 p.last { margin-bottom: 0; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .section-heading p { margin-bottom: 0; }
+.intro-title { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; color: var(--text); }
+.intro-title > span { --icon-surface: var(--surface); display: grid; width: 25px; height: 25px; flex: 0 0 auto; color: currentColor; place-items: center; }
+.intro-title svg { width: 21px; height: 21px; }
+.intro-title h1 { margin: 0; color: currentColor; }
 .primary > .card:first-child,
 .default-card { border-color: color-mix(in srgb, var(--blue) 22%, var(--line)); }
 .default-card .section-heading { align-items: flex-start; }

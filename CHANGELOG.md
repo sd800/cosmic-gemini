@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.1.38 — 2026-08-31
+
+- Added each product's neutral icon beside the title in the introduction card of every dedicated settings page, including All Settings.
+- Moved the Any Copy icon from the Any Copy sites section to the main Any Copy introduction title.
+
 ## 3.1.37 — 2026-08-31
 
 - Standardized click-activated settings labels to “On click,” matching Chrome's site-access terminology.

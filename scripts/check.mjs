@@ -26,7 +26,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '3.1.37');
+assert.equal(manifest.version, '3.1.38');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -126,6 +126,19 @@ for (const name of ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', '
   assert.match(html, /data-feature-link="satellites"/);
   assert.match(html, /data-feature-link="allSettings"/);
 }
+for (const [name, featureId] of Object.entries({
+  'native-scroll.html': 'nativeScroll',
+  'no-autoplay.html': 'noAutoplay',
+  'any-copy.html': 'anyCopy',
+  'image-download.html': 'imageDownload',
+  'video-download.html': 'videoDownload',
+  'satellites.html': 'satellites',
+  'all-settings.html': 'allSettings'
+})) {
+  const html = await readFile(join(extension, 'settings', name), 'utf8');
+  assert.match(html, new RegExp('<section class="card(?: default-card)?">[\\s\\S]*?class="intro-title"[\\s\\S]*?data-section-icon="' + featureId + '"'));
+}
+assert.equal([...((await readFile(join(extension, 'settings', 'any-copy.html'), 'utf8')).matchAll(/data-section-icon="anyCopy"/g))].length, 1);
 const popupSource = await readFile(join(extension, 'popup', 'popup.js'), 'utf8');
 const imageWorkspaceSource = await readFile(join(extension, 'workspaces', 'image-download', 'image-download.js'), 'utf8');
 const settingsSource = await readFile(join(extension, 'settings', 'page.js'), 'utf8');

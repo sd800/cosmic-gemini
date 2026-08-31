@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 3.1.37 — 2026-08-31
+
+- Standardized click-activated settings labels to “On click,” matching Chrome's site-access terminology.
+
+## 3.1.36 — 2026-08-31
+
+- Clarified in Any Copy settings that Any Copy Enhanced applies only to current tabs where the user enables it by clicking the control.
+
 ## 3.1.35 — 2026-08-31
 
 - Matched the spacing between headings and supporting copy in the Any Copy sites and Any Copy Enhanced settings cards with the rest of the settings interface.

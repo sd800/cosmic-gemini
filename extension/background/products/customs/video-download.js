@@ -337,6 +337,13 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       (kindRank[a.kind] ?? 9) - (kindRank[b.kind] ?? 9) ||
       a.id.localeCompare(b.id));
   }
+
+  function scopeFrameCandidates(candidates, frameId = 0) {
+    return (Array.isArray(candidates) ? candidates : []).map(candidate => ({
+      ...candidate,
+      mediaKey: candidate?.mediaKey ? `frame-${frameId}:${candidate.mediaKey}` : candidate?.mediaKey
+    }));
+  }
   
   function isBilibiliVideoUrl(value) {
     try {
@@ -383,9 +390,15 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     });
     const context = frames.find(frame => frame.frameId === 0)?.result || frames[0]?.result;
     if (!context?.videoId) return [];
-    const candidates = await offscreen.sendVideo({ type: 'CG_VIDEO_DISCOVER_YOUTUBE', context, pageUrl });
-    if (Array.isArray(candidates) && candidates.length) await addVideoCandidates(tabId, candidates, true, pageUrl);
-    return Array.isArray(candidates) ? candidates : [];
+    const discovered = await offscreen.sendVideo({ type: 'CG_VIDEO_DISCOVER_YOUTUBE', context, pageUrl });
+    const candidates = (Array.isArray(discovered) ? discovered : []).map(candidate => ({
+      ...candidate,
+      mediaKey: candidate.mediaKey || `youtube:${context.videoId}`,
+      mediaTitle: candidate.mediaTitle || context.title,
+      thumbnailUrl: candidate.thumbnailUrl || context.thumbnailUrl
+    }));
+    if (candidates.length) await addVideoCandidates(tabId, candidates, true, pageUrl);
+    return candidates;
   }
   
   async function discoverAdapterCandidates(tabId, pageUrl) {
@@ -396,13 +409,19 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       func: siteVideoPageDiscovery
     });
     const result = frames.find(frame => frame.frameId === 0)?.result || frames[0]?.result || {};
-    if (Array.isArray(result.candidates) && result.candidates.length) {
-      await addVideoCandidates(tabId, result.candidates, true, pageUrl);
+    const candidates = (Array.isArray(result.candidates) ? result.candidates : []).map(candidate => ({
+      ...candidate,
+      mediaKey: candidate.mediaKey || `adapter:${pageUrl}`,
+      mediaTitle: candidate.mediaTitle || candidate.title || '',
+      thumbnailUrl: candidate.thumbnailUrl || ''
+    }));
+    if (candidates.length) {
+      await addVideoCandidates(tabId, candidates, true, pageUrl);
     }
     if (Array.isArray(result.manifests) && result.manifests.length) {
       await addInlineVideoManifests(tabId, result.manifests, pageUrl);
     }
-    return [...(result.candidates || []), ...(result.manifests || [])];
+    return [...candidates, ...(result.manifests || [])];
   }
   
   async function discoverSiteVideoCandidates(tabId, pageUrl) {
@@ -466,7 +485,10 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         ...variant,
         kind: 'hls',
         source: 'hls-variant',
-        title: session.title
+        title: session.title,
+        mediaKey: candidate.mediaKey || `hls:${candidate.inlineId || candidate.url}`,
+        mediaTitle: candidate.mediaTitle,
+        thumbnailUrl: candidate.thumbnailUrl
       })), false, expectedPageUrl);
       if (!expandedSession) return;
       for (const variant of variants) {
@@ -474,7 +496,10 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
           ...variant,
           kind: 'hls',
           source: 'hls-variant',
-          title: session.title
+          title: session.title,
+          mediaKey: candidate.mediaKey || `hls:${candidate.inlineId || candidate.url}`,
+          mediaTitle: candidate.mediaTitle,
+          thumbnailUrl: candidate.thumbnailUrl
         });
         if (normalized) void expandHlsCandidate(tabId, normalized);
       }
@@ -490,6 +515,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       const kind = item?.kind === 'dash' ? 'dash' : item?.kind === 'hls' ? 'hls' : '';
       const manifestText = String(item?.manifestText || '').slice(0, 2 * 1024 * 1024);
       const manifestBaseUrl = originFromUrl(item?.baseUrl) ? String(item.baseUrl) : session.pageUrl;
+      const inlineId = String(item.inlineId || runtimeToken());
       if (!kind || !manifestText) continue;
       candidates.push({
         url: manifestBaseUrl,
@@ -498,7 +524,10 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         title: session.title,
         manifestText,
         manifestBaseUrl,
-        inlineId: String(item.inlineId || runtimeToken()),
+        inlineId,
+        mediaKey: String(item.mediaKey || `inline:${inlineId}`),
+        mediaTitle: String(item.mediaTitle || ''),
+        thumbnailUrl: String(item.thumbnailUrl || ''),
         downloadable: kind === 'hls'
       });
     }
@@ -519,7 +548,14 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         candidate: { ...candidate, manifestUrl: candidate.url },
         pageUrl: session.pageUrl
       }));
-      if (Array.isArray(variants) && variants.length) await addVideoCandidates(tabId, variants, false, expectedPageUrl);
+      if (Array.isArray(variants) && variants.length) {
+        await addVideoCandidates(tabId, variants.map(variant => ({
+          ...variant,
+          mediaKey: candidate.mediaKey || `dash:${candidate.inlineId || candidate.manifestUrl || candidate.url}`,
+          mediaTitle: candidate.mediaTitle,
+          thumbnailUrl: candidate.thumbnailUrl
+        })), false, expectedPageUrl);
+      }
     } catch {}
     finally { expandingVideoManifests.delete(expansionKey); }
   }
@@ -576,7 +612,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         world: 'ISOLATED',
         injectImmediately: true
       });
-      const candidates = frames.flatMap(frame => Array.isArray(frame.result) ? frame.result : []);
+      const candidates = frames.flatMap(frame => scopeFrameCandidates(frame.result, frame.frameId));
       if (candidates.length) await addVideoCandidates(tabId, candidates, true, expectedPageUrl);
       return true;
     } catch {
@@ -817,7 +853,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         throw error;
       }
       processing.phase = 'handoff';
-      const sourceTitle = String(session.title || candidate.title || 'Video').trim();
+      const sourceTitle = String(candidate.mediaTitle || candidate.title || session.title || 'Video').trim();
       const downloadTitle = candidate.kind === 'subtitle' && candidate.languageLabel
         ? `${sourceTitle} · ${candidate.languageLabel}` : sourceTitle;
       const filename = sanitizeVideoFilename(downloadTitle, extension);
@@ -1070,7 +1106,12 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       : String(context.sender.tab?.url || '');
     if (message.type === 'CG_VIDEO_CANDIDATES') {
       if (!Number.isInteger(senderTabId)) throw new Error('The video source tab is unavailable.');
-      const session = await addVideoCandidates(senderTabId, message.candidates, true, expectedSenderPageUrl);
+      const session = await addVideoCandidates(
+        senderTabId,
+        scopeFrameCandidates(message.candidates, context.sender.frameId),
+        true,
+        expectedSenderPageUrl
+      );
       return { accepted: session?.candidates?.length || 0 };
     }
     if (message.type === 'CG_VIDEO_INLINE_MANIFESTS') {

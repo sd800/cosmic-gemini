@@ -1,6 +1,6 @@
 import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { candidateQuality, compactVideoCandidates, formatMediaDuration } from '../core/video-download.js';
+import { candidateQuality, formatMediaDuration, groupVideoCandidates } from '../core/video-download.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 
@@ -22,7 +22,7 @@ let videoViewPort = null;
 let videoViewPortTabId = null;
 let videoViewReconnectAttempts = 0;
 let reloadTimer = 0;
-let selectedVideoCandidateId = '';
+const selectedVideoCandidateIds = new Map();
 let videoSelectionTabId = null;
 let videoPanelSignature = '';
 let videoPickerActive = false;
@@ -209,26 +209,29 @@ function videoDisplayLabel(candidate) {
   return candidateQuality(candidate);
 }
 
-function createVideoIdentity(feature) {
-  if (!feature.thumbnailUrl && !feature.title) return null;
+function createVideoIdentity(feature, group, index, total) {
+  const thumbnailUrl = group.thumbnailUrl || (total === 1 ? feature.thumbnailUrl : '');
+  const titleText = group.title || (total === 1 ? feature.title : t('videoItem', { index: index + 1 }));
+  if (!thumbnailUrl && !titleText) return null;
   const identity = document.createElement('div');
   identity.className = 'video-target';
-  if (feature.thumbnailUrl) {
+  if (thumbnailUrl) {
     const image = document.createElement('img');
-    image.src = feature.thumbnailUrl;
+    image.src = thumbnailUrl;
     image.alt = '';
     image.addEventListener('error', () => image.remove(), { once: true });
     identity.append(image);
   }
-  if (feature.title) {
+  if (titleText) {
     const title = document.createElement('strong');
-    title.textContent = feature.title;
+    title.textContent = titleText;
     identity.append(title);
   }
   return identity;
 }
 
-function createVideoFormatPicker(candidates) {
+function createVideoFormatPicker(group, slot) {
+  const candidates = group.candidates;
   const picker = document.createElement('label');
   picker.className = 'video-format-picker';
   const heading = document.createElement('span');
@@ -260,17 +263,16 @@ function createVideoFormatPicker(candidates) {
   } else {
     for (const candidate of candidates) appendOption(select, candidate);
   }
-  select.value = selectedVideoCandidateId;
+  select.value = selectedVideoCandidateIds.get(group.id) || candidates[0]?.id || '';
   const markActive = () => { videoPickerActive = true; };
   select.addEventListener('pointerdown', markActive);
   select.addEventListener('focus', markActive);
   select.addEventListener('change', () => {
-    selectedVideoCandidateId = select.value;
+    selectedVideoCandidateIds.set(group.id, select.value);
     videoPickerActive = false;
-    const selected = candidates.find(candidate => candidate.id === selectedVideoCandidateId) || candidates[0];
-    const slot = document.querySelector('.video-candidate-slot');
+    const selected = candidates.find(candidate => candidate.id === select.value) || candidates[0];
     if (slot && selected) slot.replaceChildren(createVideoCandidate(selected));
-    videoPanelSignature = videoPanelStateSignature(state.videoDownload, candidates);
+    videoPanelSignature = '';
   });
   select.addEventListener('blur', () => setTimeout(() => {
     if (document.activeElement === select) return;
@@ -284,20 +286,38 @@ function createVideoFormatPicker(candidates) {
   return picker;
 }
 
-function videoPanelStateSignature(feature, candidates) {
+function videoPanelStateSignature(feature, groups) {
   return JSON.stringify({
     active: !!feature?.active,
     status: feature?.status || '',
     title: feature?.title || '',
     thumbnailUrl: feature?.thumbnailUrl || '',
-    selectedVideoCandidateId,
-    candidates: candidates.map(candidate => [
-      candidate.id, candidate.kind, candidate.status, candidate.progress, candidate.downloadable,
-      candidate.contentLength, candidate.outputBytes, candidate.duration, candidate.qualityLabel,
-      candidate.width, candidate.height, candidate.bandwidth, candidate.codecLabel,
-      candidate.videoCodec, candidate.audioCodec, candidate.extension, candidate.protected
+    selections: [...selectedVideoCandidateIds],
+    groups: groups.map(group => [
+      group.id, group.title, group.thumbnailUrl,
+      group.candidates.map(candidate => [
+        candidate.id, candidate.kind, candidate.status, candidate.progress, candidate.downloadable,
+        candidate.contentLength, candidate.outputBytes, candidate.duration, candidate.qualityLabel,
+        candidate.width, candidate.height, candidate.bandwidth, candidate.codecLabel,
+        candidate.videoCodec, candidate.audioCodec, candidate.extension, candidate.protected
+      ])
     ])
   });
+}
+
+function createVideoMediaCard(feature, group, index, total) {
+  const card = document.createElement('section');
+  card.className = 'video-media-card';
+  const identity = createVideoIdentity(feature, group, index, total);
+  if (identity) card.append(identity);
+  const slot = document.createElement('div');
+  slot.className = 'video-candidate-slot';
+  card.append(createVideoFormatPicker(group, slot));
+  const selectedId = selectedVideoCandidateIds.get(group.id);
+  const selected = group.candidates.find(candidate => candidate.id === selectedId) || group.candidates[0];
+  if (selected) slot.append(createVideoCandidate(selected));
+  card.append(slot);
+  return card;
 }
 
 function renderVideoPanel(force = false) {
@@ -305,12 +325,22 @@ function renderVideoPanel(force = false) {
   const status = document.querySelector('#video-status-text');
   const results = document.querySelector('#video-results');
   const visible = visibleVideoCandidates(feature?.candidates);
-  let candidates = compactVideoCandidates(visible, selectedVideoCandidateId);
-  if (candidates.length && !candidates.some(candidate => candidate.id === selectedVideoCandidateId && candidate.downloadable !== false)) {
-    selectedVideoCandidateId = candidates.find(candidate => candidate.downloadable !== false)?.id || candidates[0].id;
-    candidates = compactVideoCandidates(visible, selectedVideoCandidateId);
+  let groups = groupVideoCandidates(visible, selectedVideoCandidateIds);
+  for (const group of groups) {
+    const selectedId = selectedVideoCandidateIds.get(group.id);
+    if (!group.candidates.some(candidate => candidate.id === selectedId && candidate.downloadable !== false)) {
+      selectedVideoCandidateIds.set(
+        group.id,
+        group.candidates.find(candidate => candidate.downloadable !== false)?.id || group.candidates[0].id
+      );
+    }
   }
-  const signature = videoPanelStateSignature(feature, candidates);
+  groups = groupVideoCandidates(visible, selectedVideoCandidateIds);
+  const validGroupIds = new Set(groups.map(group => group.id));
+  for (const groupId of selectedVideoCandidateIds.keys()) {
+    if (!validGroupIds.has(groupId)) selectedVideoCandidateIds.delete(groupId);
+  }
+  const signature = videoPanelStateSignature(feature, groups);
   if (!force && signature === videoPanelSignature) return;
   if (!force && videoPickerActive) {
     videoPanelRenderPending = true;
@@ -323,22 +353,15 @@ function renderVideoPanel(force = false) {
     status.textContent = t('videoStopped');
     return;
   }
-  if (!candidates.length) {
+  if (!groups.length) {
     status.textContent = feature.status === 'unavailable' ? t('videoUnavailablePage') : t('videoScanningHelp');
     return;
   }
-  status.textContent = t('videoFound', { count: candidates.length });
-  const card = document.createElement('section');
-  card.className = 'video-media-card';
-  const identity = createVideoIdentity(feature);
-  if (identity) card.append(identity);
-  card.append(createVideoFormatPicker(candidates));
-  const selected = candidates.find(candidate => candidate.id === selectedVideoCandidateId) || candidates[0];
-  const slot = document.createElement('div');
-  slot.className = 'video-candidate-slot';
-  slot.append(createVideoCandidate(selected));
-  card.append(slot);
-  results.append(card);
+  const formatCount = groups.reduce((count, group) => count + group.candidates.length, 0);
+  status.textContent = groups.length > 1
+    ? t('videoMediaFound', { count: groups.length })
+    : t('videoFound', { count: formatCount });
+  groups.forEach((group, index) => results.append(createVideoMediaCard(feature, group, index, groups.length)));
 }
 
 function renderVideoRow() {
@@ -428,7 +451,7 @@ async function reload(selectInitialView = true) {
   currentTab = snapshot.tab || null;
   if (videoSelectionTabId !== currentTab?.id) {
     videoSelectionTabId = currentTab?.id ?? null;
-    selectedVideoCandidateId = '';
+    selectedVideoCandidateIds.clear();
     videoPanelSignature = '';
     videoPickerActive = false;
     videoPanelRenderPending = false;

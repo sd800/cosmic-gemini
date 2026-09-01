@@ -4,6 +4,7 @@ import {
   classifyVideoResource,
   compactVideoCandidates,
   formatMediaDuration,
+  groupVideoCandidates,
   limitVideoCandidatesForSession,
   mediaRequestDirectoryFilters,
   mediaRequestReferrer,
@@ -84,6 +85,33 @@ test('download choices keep one user-facing option per quality plus audio', () =
     { id: 'audio-aac', kind: 'audio', audioCodec: 'mp4a.40.2', bandwidth: 128000, downloadable: true }
   ]);
   assert.deepEqual(compact.map(candidate => candidate.id), ['1080-avc', '720-avc', 'audio-aac']);
+});
+
+test('download choices remain separated when one page contains multiple videos', () => {
+  const groups = groupVideoCandidates([
+    { id: 'first-1080', mediaKey: 'element-1', mediaTitle: 'First', kind: 'direct', height: 1080, downloadable: true },
+    { id: 'first-720', mediaKey: 'element-1', mediaTitle: 'First', kind: 'direct', height: 720, downloadable: true },
+    { id: 'second-1080', mediaKey: 'element-2', mediaTitle: 'Second', kind: 'direct', height: 1080, downloadable: true },
+    { id: 'second-720', mediaKey: 'element-2', mediaTitle: 'Second', kind: 'direct', height: 720, downloadable: true }
+  ]);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.map(group => group.title), ['First', 'Second']);
+  assert.deepEqual(groups.map(group => group.candidates.map(candidate => candidate.id)), [
+    ['first-1080', 'first-720'],
+    ['second-1080', 'second-720']
+  ]);
+});
+
+test('video identity metadata survives candidate normalization', () => {
+  const candidate = classifyVideoResource({
+    url: 'https://cdn.example/video.mp4',
+    mediaKey: 'frame-0:element-2',
+    mediaTitle: 'Second video',
+    thumbnailUrl: 'https://cdn.example/poster.jpg'
+  });
+  assert.equal(candidate.mediaKey, 'frame-0:element-2');
+  assert.equal(candidate.mediaTitle, 'Second video');
+  assert.equal(candidate.thumbnailUrl, 'https://cdn.example/poster.jpg');
 });
 
 test('video size uses an existing response total without fetching media again', () => {

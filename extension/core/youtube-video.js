@@ -14,7 +14,8 @@ export function youtubePageContext() {
   return {
     videoId: extractVideoId(location.href),
     visitorData: String(config.VISITOR_DATA || player.responseContext?.visitorData || ''),
-    title: String(player.videoDetails?.title || document.title || '').trim()
+    title: String(player.videoDetails?.title || document.title || '').trim(),
+    thumbnailUrl: String(player.videoDetails?.thumbnail?.thumbnails?.at?.(-1)?.url || '')
   };
 }
 

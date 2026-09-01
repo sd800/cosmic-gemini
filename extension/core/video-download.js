@@ -156,6 +156,9 @@ export function classifyVideoResource(input = {}) {
     contentLength,
     bandwidth: numberOrZero(input.bandwidth),
     title,
+    mediaKey: String(input.mediaKey || '').trim().slice(0, 320),
+    mediaTitle: String(input.mediaTitle || '').trim().slice(0, 240),
+    thumbnailUrl: safeUrl(input.thumbnailUrl),
     source: String(input.source || 'network').slice(0, 80),
     downloadable: typeof input.downloadable === 'boolean' ? input.downloadable : kind !== 'dash',
     status: String(input.status || 'ready').slice(0, 30),
@@ -216,7 +219,7 @@ export function mergeVideoCandidate(existing, incoming) {
     'mime', 'extension', 'title', 'source', 'videoUrl', 'audioUrl', 'codecs',
     'videoCodec', 'audioCodec', 'audioLanguage', 'languageLabel', 'codecLabel', 'qualityLabel', 'frameRate',
     'representationId', 'audioRepresentationId', 'manifestUrl', 'outputContainer',
-    'inlineId', 'manifestText', 'manifestBaseUrl'
+    'inlineId', 'manifestText', 'manifestBaseUrl', 'mediaKey', 'mediaTitle', 'thumbnailUrl'
   ]) {
     if (!preferred[key] && incoming[key]) preferred[key] = incoming[key];
   }
@@ -451,6 +454,44 @@ export function compactVideoCandidates(candidates, preferredId = '') {
       || numberOrZero(right.qualityId) - numberOrZero(left.qualityId)
       || numberOrZero(right.bandwidth) - numberOrZero(left.bandwidth)
       || String(left.languageLabel || '').localeCompare(String(right.languageLabel || ''));
+  });
+}
+
+function fallbackMediaKey(candidate) {
+  if (candidate.mediaKey) return `media:${candidate.mediaKey}`;
+  if (candidate.inlineId) return `inline:${candidate.inlineId}`;
+  if (candidate.kind === 'dash' && candidate.manifestUrl) return `dash:${candidate.manifestUrl}`;
+  if (numberOrZero(candidate.duration)) {
+    return `duration:${Math.round(numberOrZero(candidate.duration))}:${String(candidate.mediaTitle || candidate.title || '').toLowerCase()}`;
+  }
+  return `source:${candidate.videoUrl || candidate.url || candidate.id}`;
+}
+
+export function groupVideoCandidates(candidates, preferredIds = new Map()) {
+  const groups = new Map();
+  for (const candidate of Array.isArray(candidates) ? candidates : []) {
+    if (!candidate || candidate.master) continue;
+    const key = fallbackMediaKey(candidate);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(candidate);
+  }
+  return [...groups.entries()].map(([id, values]) => {
+    const preferredId = preferredIds instanceof Map ? preferredIds.get(id) || '' : '';
+    const compact = compactVideoCandidates(values, preferredId);
+    const identity = values.find(candidate => candidate.mediaTitle || candidate.thumbnailUrl) || values[0] || {};
+    return {
+      id,
+      title: identity.mediaTitle || '',
+      thumbnailUrl: identity.thumbnailUrl || '',
+      candidates: compact
+    };
+  }).filter(group => group.candidates.length).sort((left, right) => {
+    const leftCandidate = left.candidates[0] || {};
+    const rightCandidate = right.candidates[0] || {};
+    return Number(rightCandidate.status === 'preparing' || rightCandidate.status === 'downloading')
+      - Number(leftCandidate.status === 'preparing' || leftCandidate.status === 'downloading')
+      || String(left.title).localeCompare(String(right.title))
+      || String(left.id).localeCompare(String(right.id));
   });
 }
 

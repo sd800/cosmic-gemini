@@ -24,6 +24,8 @@
       this.performanceObserver = null;
       this.scanTimer = 0;
       this.pendingRoots = new Set();
+      this.mediaIds = new WeakMap();
+      this.nextMediaId = 0;
       this.metadataListening = false;
       this.onMessage = this.onMessage.bind(this);
       this.onMutation = this.onMutation.bind(this);
@@ -112,7 +114,10 @@
         duration: Number(item.duration || 0),
         contentLength: Number(item.contentLength || 0),
         bandwidth: Number(item.bandwidth || 0),
-        codecs: String(item.codecs || '').slice(0, 300)
+        codecs: String(item.codecs || '').slice(0, 300),
+        mediaKey: String(item.mediaKey || '').slice(0, 320),
+        mediaTitle: String(item.mediaTitle || '').slice(0, 240),
+        thumbnailUrl: absoluteUrl(item.thumbnailUrl)
       };
     }
 
@@ -188,7 +193,24 @@
         width: Number(details.width || 0),
         height: Number(details.height || 0),
         duration: Number(details.duration || 0),
-        contentLength: Number(details.contentLength || 0)
+        contentLength: Number(details.contentLength || 0),
+        mediaKey: String(details.mediaKey || '').slice(0, 320),
+        mediaTitle: String(details.mediaTitle || '').slice(0, 240),
+        thumbnailUrl: absoluteUrl(details.thumbnailUrl)
+      };
+    }
+
+    mediaIdentity(media) {
+      let mediaKey = this.mediaIds.get(media);
+      if (!mediaKey) {
+        mediaKey = `element-${++this.nextMediaId}`;
+        this.mediaIds.set(media, mediaKey);
+      }
+      const caption = media.closest?.('figure')?.querySelector?.('figcaption')?.textContent || '';
+      return {
+        mediaKey,
+        mediaTitle: String(media.getAttribute?.('aria-label') || media.title || caption || '').trim().slice(0, 240),
+        thumbnailUrl: media instanceof HTMLVideoElement ? media.poster : ''
       };
     }
 
@@ -203,6 +225,7 @@
       const candidates = [];
       for (const media of this.elementsWithin(root, 'video,audio')) {
         const details = {
+          ...this.mediaIdentity(media),
           width: media instanceof HTMLVideoElement ? media.videoWidth || media.clientWidth : 0,
           height: media instanceof HTMLVideoElement ? media.videoHeight || media.clientHeight : 0,
           duration: Number.isFinite(media.duration) && media.duration > 0 ? media.duration : 0
@@ -213,8 +236,10 @@
         }
       }
       for (const source of this.elementsWithin(root, 'source[src],[data-video-src],[data-stream-url]')) {
+        const parentMedia = source.parentElement instanceof HTMLMediaElement ? source.parentElement : null;
+        const identity = parentMedia ? this.mediaIdentity(parentMedia) : {};
         for (const value of [source.getAttribute('src'), source.getAttribute('data-video-src'), source.getAttribute('data-stream-url')]) {
-          const candidate = this.fromUrl(value, 'source-element');
+          const candidate = this.fromUrl(value, 'source-element', identity);
           if (candidate) candidates.push(candidate);
         }
       }

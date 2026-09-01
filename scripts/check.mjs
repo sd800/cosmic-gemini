@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.16.1');
+assert.equal(manifest.version, '5.17.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -189,10 +189,19 @@ const satellites = await source('background', 'products', 'operations', 'satelli
 const administration = await source('background', 'products', 'operations', 'administration.js');
 const imageDownload = await source('background', 'products', 'customs', 'image-download.js');
 const videoDownload = await source('background', 'products', 'customs', 'video-download.js');
+const videoScanner = await source('content', 'video-download-scanner.js');
 const imageWorkspace = await source('workspaces', 'image-download', 'image-download.js');
 
 assert.match(imageDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
 assert.match(videoDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
+assert.match(popupSource, /groupVideoCandidates\(visible, selectedVideoCandidateIds\)/,
+  'Video Download must group formats under distinct media items before rendering.');
+assert.match(videoScanner, /mediaIdentity\(media\)[\s\S]*?mediaKey[\s\S]*?thumbnailUrl/,
+  'Video Download must preserve DOM player identity and poster metadata.');
+assert.match(videoDownload, /mediaKey: candidate\.mediaKey \|\| `hls:/,
+  'Expanded HLS formats must retain their parent media identity.');
+assert.match(videoDownload, /mediaKey: candidate\.mediaKey \|\| `dash:/,
+  'Expanded DASH formats must retain their parent media identity.');
 assert.match(imageDownload, /const workspacePromise = openImageWorkspace\([\s\S]*?const sourceTabPromise = chrome\.tabs\.get\([\s\S]*?Promise\.all\(\[workspacePromise, sourceTabPromise\]\)/,
   'Image Download must request its Side Panel before awaiting current-tab validation.');
 assert.match(imageWorkspace, /retryReadUntil\([\s\S]*?value => value\?\.active === true/,
@@ -356,7 +365,6 @@ assert.equal(await stat(join(extension, 'workspaces/image-download/image-downloa
 assert.equal(await stat(join(extension, 'offscreen/video-download.html')).then(() => true), true);
 const videoOffscreen = await source('offscreen', 'video-download.js');
 const videoPageRuntime = await source('content', 'video-download-page.js');
-const videoScanner = await source('content', 'video-download-scanner.js');
 const imageDownloadProduct = await source('background', 'products/customs/image-download.js');
 const videoDownloadProduct = await source('background', 'products/customs/video-download.js');
 assert.match(videoOffscreen, /new AbortController\(\)/);

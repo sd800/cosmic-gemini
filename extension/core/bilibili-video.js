@@ -99,6 +99,7 @@ export function bilibiliPageContext() {
   try { pageNumber = Math.max(1, Number(new URL(href).searchParams.get('p') || 1) || 1); }
   catch {}
   const structuredTitle = jsonLd.find(value => String(value?.['@type'] || '').toLowerCase() === 'videoobject')?.name || '';
+  const structuredThumbnail = jsonLd.find(value => String(value?.['@type'] || '').toLowerCase() === 'videoobject')?.thumbnailUrl;
   return {
     bvid: String(videoData.bvid || state.bvid || epInfo.bvid
       || (/^BV/i.test(urlVideoId) ? urlVideoId : '') || embeddedVideoId || ''),
@@ -110,6 +111,7 @@ export function bilibiliPageContext() {
     internationalAid: Number(internationalState?.ugc?.aid?._value || 0),
     title: String(videoData.title || epInfo.long_title || epInfo.title || structuredTitle || document.title || '').trim(),
     pageTitle: String(currentPage.part || '').trim(),
+    thumbnailUrl: String(videoData.pic || epInfo.cover || (Array.isArray(structuredThumbnail) ? structuredThumbnail[0] : structuredThumbnail) || ''),
     playInfo: playInfo && typeof playInfo === 'object' ? playInfo : null
   };
 }
@@ -172,6 +174,7 @@ export function bilibiliDashCandidates(payload, context = {}) {
   const duration = Number(body?.timelength || international?.duration || context.timelength || 0)
     / (body?.timelength ? 1000 : 1);
   const title = [context.title, context.pageTitle].filter(Boolean).join(' · ');
+  const mediaKey = `bilibili:${context.bvid || context.aid || context.internationalAid || 'video'}:${context.cid || context.internationalEpisodeId || 0}`;
   const candidates = dash.video.filter(video => fileUrl(video)).map(video => {
     const videoUrls = fileUrls(video);
     const audioUrls = fileUrls(audio);
@@ -191,6 +194,9 @@ export function bilibiliDashCandidates(payload, context = {}) {
       kind: audioUrl ? 'muxed' : 'direct',
       source: 'bilibili',
       title,
+      mediaKey,
+      mediaTitle: title,
+      thumbnailUrl: context.thumbnailUrl,
       width,
       height,
       duration,
@@ -218,6 +224,9 @@ export function bilibiliDashCandidates(payload, context = {}) {
       kind: 'audio',
       source: 'bilibili',
       title,
+      mediaKey,
+      mediaTitle: title,
+      thumbnailUrl: context.thumbnailUrl,
       duration,
       bandwidth: Number(audio?.bandwidth || 0),
       contentLength: Number(audio?.size || 0),

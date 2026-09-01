@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.17.1 — 2026-09-01
+
+- Video Download now keeps separate media identities when one page contains multiple videos. Each video receives its own card, thumbnail or title when available, and compact quality, audio, and subtitle choices.
+- DOM players, embedded frames, compatible site adapters, and expanded HLS or DASH streams now carry their media identity through discovery and format expansion. Unassigned streams remain visible as separate results instead of being silently merged by quality.
+
 ## 5.16.1 — 2026-09-01
 
 - Image Download now publishes a fast first pass from direct page and resource sources before completing bounded source enrichment. Standard scans focus on the main page, while Full-page scan continues into frames, lazy-loaded content, CSS backgrounds, SVG, Canvas, and Shadow DOM.

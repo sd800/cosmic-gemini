@@ -778,6 +778,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       processingRequestId: requestId
     }));
     let artifact = null;
+    let artifactRetained = false;
     let handedOffToChrome = false;
     try {
       let downloadUrl = candidate.url;
@@ -791,7 +792,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
               error.cancelled = true;
               throw error;
             }
-            return offscreen.sendVideo({
+            return offscreen.sendVideoArtifact({
               type: ['direct', 'audio', 'subtitle'].includes(candidate.kind) ? 'CG_VIDEO_FETCH_DIRECT'
                 : candidate.kind === 'hls'
                 ? (candidate.audioUrl ? 'CG_VIDEO_MUX_TRACKS' : 'CG_VIDEO_ASSEMBLE_HLS')
@@ -804,6 +805,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
             });
           });
         } finally { offscreen.endAssembly(); }
+        if (artifact?.artifactId) artifactRetained = true;
         downloadUrl = artifact.url;
         extension = artifact.extension;
       }
@@ -832,7 +834,6 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       handedOffToChrome = true;
       if (artifact?.artifactId) {
         untrackedDownloadArtifacts.set(downloadId, artifact.artifactId);
-        offscreen.retainArtifact(artifact.artifactId);
       }
       const artifactRemembered = artifact?.artifactId
         ? await rememberVideoArtifact(downloadId, artifact.artifactId)
@@ -840,6 +841,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       if (artifact?.artifactId && artifactRemembered) {
         untrackedDownloadArtifacts.delete(downloadId);
         offscreen.releaseArtifact(artifact.artifactId);
+        artifactRetained = false;
       }
       await updateVideoCandidate(tabId, candidateId, value => ({
         ...value,
@@ -870,6 +872,10 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     } catch (error) {
       if (artifact?.artifactId && !handedOffToChrome) {
         await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
+        if (artifactRetained) {
+          offscreen.releaseArtifact(artifact.artifactId);
+          artifactRetained = false;
+        }
       }
       const cancelled = processing.cancelled || error?.cancelled === true || error?.name === 'AbortError';
       await updateVideoCandidate(tabId, candidateId, value => {

@@ -75,6 +75,10 @@ export function createOperationsProvince(platform) {
       await platform.clearTabActivity(tabId);
     },
     handleAlarm(alarm) { return satellites.handleAlarm(alarm); },
+    async handleStorageChanged(changes, areaName) {
+      platform.handleStorageChanged(changes, areaName);
+      return satellites.handleStorageChanged(changes, areaName);
+    },
     reset() { return satellites.reset(); }
   });
 }

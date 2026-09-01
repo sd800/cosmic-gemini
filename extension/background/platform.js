@@ -19,6 +19,8 @@ const RETAINED_DOWNLOAD_PREFIXES = ['videoDownloadArtifact:', 'imageDownloadArti
 export function createPlatform() {
   let writeQueue = Promise.resolve();
   let resettingStorage = false;
+  let pageRefreshTimer = 0;
+  let toolbarRefreshTimer = 0;
   const activityQueue = createKeyedTaskQueue();
   const centralUiPorts = new Set();
 
@@ -73,6 +75,14 @@ export function createPlatform() {
       .map(tab => refreshTabPage(tab.id)));
   }
 
+  function scheduleOpenPageRefresh() {
+    if (pageRefreshTimer) return;
+    pageRefreshTimer = setTimeout(() => {
+      pageRefreshTimer = 0;
+      void refreshOpenPages().catch(() => {});
+    }, 20);
+  }
+
   async function refreshTabPage(tabId) {
     if (!Number.isInteger(tabId)) return false;
     for (const delay of [0, 80, 240]) {
@@ -99,7 +109,7 @@ export function createPlatform() {
     return queueWrite(async () => {
       const current = await readSettings();
       const next = await writeSettings(typeof update === 'function' ? update(current) : update);
-      if (refresh) await refreshOpenPages();
+      if (refresh) scheduleOpenPageRefresh();
       return next;
     });
   }
@@ -167,7 +177,11 @@ export function createPlatform() {
 
   function notifyCentralUi(tabId) {
     for (const port of centralUiPorts) {
-      try { port.postMessage({ type: 'central-state-changed', tabId }); } catch {}
+      try {
+        port.postMessage(Number.isInteger(tabId)
+          ? { type: 'central-state-changed', tabId }
+          : { type: 'central-state-changed', global: true });
+      } catch {}
     }
   }
 
@@ -194,7 +208,7 @@ export function createPlatform() {
   }
 
   function connectCentralUi(port) {
-    if (port.name !== 'central-ui:popup') return false;
+    if (!['central-ui:popup', 'central-ui:settings'].includes(port.name)) return false;
     centralUiPorts.add(port);
     port.onDisconnect.addListener(() => centralUiPorts.delete(port));
     return true;
@@ -225,17 +239,50 @@ export function createPlatform() {
     return normalizeLocale(stored.interfaceLocale || chrome.i18n.getUILanguage());
   }
 
+  async function refreshToolbarTitles() {
+    try {
+      const tabs = await chrome.tabs.query({});
+      await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(async tab => {
+        const activity = await readActivity(tab.id);
+        await renderToolbar(tab.id, activity);
+      }));
+    } catch {}
+  }
+
+  function scheduleToolbarRefresh() {
+    if (toolbarRefreshTimer) return;
+    toolbarRefreshTimer = setTimeout(() => {
+      toolbarRefreshTimer = 0;
+      void refreshToolbarTitles();
+    }, 20);
+  }
+
+  function pageSettingsSignature(value) {
+    const settings = normalizeSettings(value || DEFAULT_SETTINGS);
+    return JSON.stringify({
+      nsna: settings.nsna,
+      nativeScroll: settings.nativeScroll,
+      noAutoplay: settings.noAutoplay,
+      anyCopy: settings.anyCopy
+    });
+  }
+
+  function handleStorageChanged(changes, areaName) {
+    if (areaName !== 'local' || !changes || typeof changes !== 'object') return false;
+    const settingsChange = changes[SETTINGS_KEY] || changes[LEGACY_SETTINGS_KEY];
+    if (settingsChange && pageSettingsSignature(settingsChange.oldValue) !== pageSettingsSignature(settingsChange.newValue)) {
+      scheduleOpenPageRefresh();
+    }
+    if (changes.interfaceLocale) scheduleToolbarRefresh();
+    if (settingsChange || changes.interfaceLocale) notifyCentralUi();
+    return !!(settingsChange || changes.interfaceLocale);
+  }
+
   function setLocale(value) {
     const locale = normalizeLocale(value);
     return queueWrite(async () => {
       await chrome.storage.local.set({ interfaceLocale: locale });
-      try {
-        const tabs = await chrome.tabs.query({});
-        await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(async tab => {
-          const activity = await readActivity(tab.id);
-          await renderToolbar(tab.id, activity);
-        }));
-      } catch {}
+      scheduleToolbarRefresh();
       return locale;
     });
   }
@@ -275,6 +322,7 @@ export function createPlatform() {
     mutateSettings,
     refreshOpenPages,
     refreshTabPage,
+    handleStorageChanged,
     readActivity,
     setFeatureActivity,
     clearTabActivity,

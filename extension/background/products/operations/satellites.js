@@ -7,8 +7,10 @@ import {
   browserReportsOffline,
   nextBilibiliSchedule
 } from '../../../core/bili-daily-login.js';
+import { SETTINGS_KEY } from '../../../core/config.js';
 
 export function createSatellitesProduct(platform) {
+  const ownsDailySchedule = chrome.extension?.inIncognitoContext !== true;
   let running = null;
   let runController = null;
   let scheduleRepair = null;
@@ -30,6 +32,10 @@ export function createSatellitesProduct(platform) {
   }
 
   async function syncSchedule() {
+    if (!ownsDailySchedule) {
+      await clearDisabledState();
+      return;
+    }
     const settings = await platform.readSettings();
     const feature = settings.satellites.biliDailyLogin;
     if (!feature.enabled) {
@@ -71,9 +77,25 @@ export function createSatellitesProduct(platform) {
     scheduleRepairAttempts = 0;
   }
 
+  function dailySettingsSignature(value) {
+    const feature = value?.satellites?.biliDailyLogin;
+    return JSON.stringify({
+      enabled: feature?.enabled === true,
+      lastCompletedDate: String(feature?.lastCompletedDate || '')
+    });
+  }
+
   async function clearDisabledState() {
     await chrome.alarms.clear(BILI_DAILY_ALARM);
     await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+  }
+
+  async function hasRegularBrowserWindow() {
+    if (typeof chrome.windows?.getAll !== 'function') return true;
+    try {
+      const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+      return windows.some(window => window.incognito !== true);
+    } catch { return false; }
   }
 
   async function run(signal) {
@@ -90,6 +112,10 @@ export function createSatellitesProduct(platform) {
       return;
     }
     if (browserReportsOffline()) {
+      await schedule(Math.min(Date.now() + BILI_DAILY_RETRY_MS, nextBilibiliSchedule()));
+      return;
+    }
+    if (!await hasRegularBrowserWindow()) {
       await schedule(Math.min(Date.now() + BILI_DAILY_RETRY_MS, nextBilibiliSchedule()));
       return;
     }
@@ -167,6 +193,11 @@ export function createSatellitesProduct(platform) {
         }
       }), false);
       try {
+        if (!ownsDailySchedule) {
+          await clearDisabledState();
+          cancelScheduleRepair();
+          return settings.satellites.biliDailyLogin;
+        }
         if (!enabled) await stopRun();
         await clearDisabledState();
         if (enabled) await ensureSchedule();
@@ -176,11 +207,22 @@ export function createSatellitesProduct(platform) {
     },
     async handleAlarm(alarm) {
       if (alarm.name !== BILI_DAILY_ALARM) return false;
+      if (!ownsDailySchedule) {
+        await clearDisabledState();
+        return true;
+      }
       try { await runOnce(); }
       catch (error) {
         repairSchedule();
         throw error;
       }
+      return true;
+    },
+    async handleStorageChanged(changes, areaName) {
+      const change = areaName === 'local' ? changes?.[SETTINGS_KEY] : null;
+      if (!change || dailySettingsSignature(change.oldValue) === dailySettingsSignature(change.newValue)) return false;
+      try { await ensureSchedule(); }
+      catch { repairSchedule(); }
       return true;
     },
     async reset() {

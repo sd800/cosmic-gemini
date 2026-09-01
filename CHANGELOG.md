@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.11.1 — 2026-09-01
+
+- Expanded reliability checks across shared settings, regular and incognito background contexts, scheduled work, initial interface loading, and media handoff.
+- Settings changed in one Chrome context now refresh affected page products, open settings pages, and the popup in the other context. Download-only preferences do not trigger unrelated webpage synchronization.
+- Bili Daily Login is now owned exclusively by the regular browsing context. It removes any earlier incognito schedule and waits for a regular Chrome window before making a request.
+- The popup and Image Download workspace remain hidden until their first state read completes. If the Service Worker is temporarily unavailable, product controls stay disabled instead of becoming clickable without current state.
+- Image Download and Video Download retain newly created local artifacts before the offscreen request releases its keepalive. Closing a source tab or stopping a session during Chrome download handoff can no longer revoke the file being transferred.
+
 ## 5.10.1 — 2026-09-01
 
 - Expanded reliability checks across settings reset, interface teardown, media handoff, offscreen processing, Service Worker lifetime, and split-incognito operation.

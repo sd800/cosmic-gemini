@@ -30,7 +30,8 @@ const EVENT_PROVINCES = Object.freeze({
   tabUpdated: Object.freeze(['operations', 'customs']),
   tabRemoved: Object.freeze(['operations', 'customs']),
   downloadChanged: Object.freeze(['customs']),
-  headersReceived: Object.freeze(['customs'])
+  headersReceived: Object.freeze(['customs']),
+  storageChanged: Object.freeze(['operations'])
 });
 
 const CUSTOMS_RESPONSE_FILTER = Object.freeze({
@@ -190,7 +191,8 @@ async function dispatchEvent(eventName, ...args) {
       : eventName === 'tabUpdated' ? 'handleTabUpdated'
         : eventName === 'tabRemoved' ? 'handleTabRemoved'
           : eventName === 'downloadChanged' ? 'handleDownloadChanged'
-            : 'handleHeadersReceived';
+            : eventName === 'headersReceived' ? 'handleHeadersReceived'
+              : 'handleStorageChanged';
     return provinces[provinceId][handlerName](...args);
   }));
 }
@@ -204,7 +206,7 @@ chrome.runtime.onConnect.addListener(port => {
     port.disconnect();
     return;
   }
-  const province = port.name === 'central-ui:popup' ? provinces.operations
+  const province = port.name.startsWith('central-ui:') ? provinces.operations
     : port.name.startsWith('download-view:') ? provinces.customs
       : provinces.operations;
   province.handleConnect(port);
@@ -227,6 +229,9 @@ chrome.alarms.onAlarm.addListener(alarm => {
     : alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) ? provinces.customs
       : provinces.operations;
   void province.handleAlarm(alarm).catch(() => {});
+});
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  void dispatchEvent('storageChanged', changes, areaName);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

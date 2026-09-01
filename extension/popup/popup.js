@@ -393,7 +393,8 @@ function connectCentralUi() {
   const port = chrome.runtime.connect({ name: 'central-ui:popup' });
   centralUiPort = port;
   port.onMessage.addListener(message => {
-    if (message?.type === 'central-state-changed' && message.tabId === currentTab?.id) scheduleReload();
+    if (message?.type === 'central-state-changed'
+      && (message.global === true || message.tabId === currentTab?.id)) scheduleReload();
   });
   setTimeout(() => {
     if (centralUiPort === port) centralUiReconnectAttempts = 0;
@@ -554,9 +555,12 @@ label(document.querySelector('#video-back'), t('back'));
 label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
 label(document.querySelector('#all-settings'), t('allSettingsTitle'));
-root.dataset.localePending = 'false';
 connectCentralUi();
-try { await retryRead(() => reload()); } catch { live.textContent = t('unavailable'); }
+try { await retryRead(() => reload()); }
+catch {
+  for (const control of document.querySelectorAll('.feature-toggle')) control.disabled = true;
+  live.textContent = t('unavailable');
+} finally { root.dataset.localePending = 'false'; }
 window.addEventListener('pagehide', () => {
   popupClosing = true;
   if (reloadTimer) clearTimeout(reloadTimer);

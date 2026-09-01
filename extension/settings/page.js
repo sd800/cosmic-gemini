@@ -30,6 +30,10 @@ let locale = root.lang === 'zh-CN' ? 'zh-CN' : 'en-US';
 let t = translator(locale);
 let states = null;
 const pendingControls = new WeakSet();
+let storageSyncTimer = 0;
+let settingsUiPort = null;
+let settingsUiReconnectAttempts = 0;
+let pageClosing = false;
 
 function state() {
   return states?.[featureId] || null;
@@ -176,9 +180,45 @@ function render() {
 }
 
 async function reload() {
+  if (storageSyncTimer) clearTimeout(storageSyncTimer);
+  storageSyncTimer = 0;
   states = await send({ type: 'UI_GET', url: '' });
   saveSettingsViewCache(states);
   render();
+}
+
+function scheduleStoredStateSync() {
+  if (storageSyncTimer) clearTimeout(storageSyncTimer);
+  storageSyncTimer = setTimeout(() => {
+    storageSyncTimer = 0;
+    void (async () => {
+      const storedLocale = await loadLocale();
+      if (storedLocale !== locale) {
+        locale = storedLocale;
+        applyLocale();
+      }
+      await reloadAfterUpdate();
+    })();
+  }, 120);
+}
+
+function connectSettingsUi() {
+  if (pageClosing || document.hidden || settingsUiPort) return;
+  const port = chrome.runtime.connect({ name: 'central-ui:settings' });
+  settingsUiPort = port;
+  port.onMessage.addListener(message => {
+    if (message?.type === 'central-state-changed' && message.global === true) scheduleStoredStateSync();
+  });
+  setTimeout(() => {
+    if (settingsUiPort === port) settingsUiReconnectAttempts = 0;
+  }, 1_000);
+  port.onDisconnect.addListener(() => {
+    if (settingsUiPort !== port) return;
+    settingsUiPort = null;
+    if (pageClosing || document.hidden || settingsUiReconnectAttempts >= 5) return;
+    settingsUiReconnectAttempts += 1;
+    setTimeout(connectSettingsUi, Math.min(250 * (2 ** settingsUiReconnectAttempts), 4_000));
+  });
 }
 
 async function reloadAfterUpdate() {
@@ -441,6 +481,7 @@ window.addEventListener('popstate', () => {
 });
 
 mountView(false);
+connectSettingsUi();
 try {
   const storedLocale = await loadLocale();
   if (storedLocale !== locale) {
@@ -452,3 +493,14 @@ try {
 } catch {
   // Keep the localized defaults if stored settings are temporarily unavailable.
 }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) connectSettingsUi();
+});
+window.addEventListener('pagehide', () => {
+  pageClosing = true;
+  if (storageSyncTimer) clearTimeout(storageSyncTimer);
+  storageSyncTimer = 0;
+  const port = settingsUiPort;
+  settingsUiPort = null;
+  try { port?.disconnect(); } catch {}
+}, { once: true });

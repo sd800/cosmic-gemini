@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.10.1');
+assert.equal(manifest.version, '5.11.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -196,10 +196,10 @@ assert.match(central, /Promise\.allSettled\(PAGE_PRODUCTS/);
 assert.match(central, /results\.some\(result => result\.status === 'rejected'\)/);
 assert.match(central, /unavailableProductState/);
 assert.match(central, /onHeadersReceived\.removeListener\(handleCustomsHeadersReceived\)/);
-assert.doesNotMatch(central, /chrome\.storage|chrome\.scripting\.executeScript|chrome\.tabs\.(?:query|create|update)|chrome\.downloads\.download\s*\(|chrome\.sidePanel|chrome\.offscreen|chrome\.declarativeNetRequest|fetch\s*\(/,
+assert.doesNotMatch(central, /chrome\.storage\.(?!onChanged\.addListener)|chrome\.scripting\.executeScript|chrome\.tabs\.(?:query|create|update)|chrome\.downloads\.download\s*\(|chrome\.sidePanel|chrome\.offscreen|chrome\.declarativeNetRequest|fetch\s*\(/,
   'Central may decide and route, but must not execute product work.');
 
-for (const method of ['initialize', 'getProductState', 'syncProduct', 'handleMessage', 'handleConnect', 'handleTabUpdated', 'handleTabRemoved', 'handleDownloadChanged', 'handleDeterminingFilename', 'handleHeadersReceived', 'handleAlarm', 'reset']) {
+for (const method of ['initialize', 'getProductState', 'syncProduct', 'handleMessage', 'handleConnect', 'handleTabUpdated', 'handleTabRemoved', 'handleDownloadChanged', 'handleDeterminingFilename', 'handleHeadersReceived', 'handleAlarm', 'handleStorageChanged', 'reset']) {
   assert.match(provinceInterface, new RegExp(method));
 }
 for (const [id, province] of [['standing', standing], ['operations', operations], ['customs', customs]]) {
@@ -215,7 +215,7 @@ assert.match(customs, /imageDownload\.initialize\(\)[\s\S]*videoDownload\.initia
 assert.match(customsObservation, /collecting\.size > 0/);
 assert.match(customsObservation, /restorationReliable/);
 assert.match(customsObservation, /needsRestoration/);
-assert.match(offscreenCoordinator, /activeAssemblies[\s\S]*activeRequests[\s\S]*queueDocumentLifecycle[\s\S]*sendVideo[\s\S]*sendImage[\s\S]*maybeClose/);
+assert.match(offscreenCoordinator, /activeAssemblies[\s\S]*activeRequests[\s\S]*queueDocumentLifecycle[\s\S]*sendVideoArtifact[\s\S]*sendImageArtifact[\s\S]*maybeClose/);
 
 assert.match(runtimeHost, /chrome\.scripting\.executeScript/);
 assert.match(runtimeHost, /CG_STOP_CENTRAL_FEATURE/);
@@ -244,7 +244,8 @@ assert.match(platform, /queueWrite/);
 assert.match(platform, /resettingStorage/);
 assert.match(platform, /clearOrphanedActivity/);
 assert.match(platform, /RETAINED_DOWNLOAD_PREFIXES/);
-assert.match(platform, /setLocale[\s\S]*readActivity\(tab\.id\)[\s\S]*renderToolbar/);
+assert.match(platform, /refreshToolbarTitles[\s\S]*readActivity\(tab\.id\)[\s\S]*renderToolbar[\s\S]*setLocale/);
+assert.match(satellites, /inIncognitoContext[\s\S]*ownsDailySchedule/);
 
 assert.match(imageDownload, /chrome\.sidePanel\.setOptions/);
 assert.match(imageDownload, /workspaces\/image-download\/image-download\.html/);

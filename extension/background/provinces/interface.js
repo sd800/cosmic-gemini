@@ -16,6 +16,7 @@ export function defineProvince({ id, products, ...implementation }) {
     handleDeterminingFilename: implementation.handleDeterminingFilename || (() => false),
     handleHeadersReceived: implementation.handleHeadersReceived || NOOP,
     handleAlarm: implementation.handleAlarm || NOOP,
+    handleStorageChanged: implementation.handleStorageChanged || NOOP,
     reset: implementation.reset || NOOP
   });
 }

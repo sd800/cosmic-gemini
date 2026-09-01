@@ -176,7 +176,31 @@ test('changing the interface language refreshes active toolbar titles', async ()
   mock.session['tabActivity:17'] = { nativeScroll: true };
   const platform = createPlatform();
   assert.equal(await platform.setLocale('zh-CN'), 'zh-CN');
+  await new Promise(resolve => setTimeout(resolve, 40));
   assert.equal(mock.actionTitles.at(-1).title, 'Native Scroll · 正在处理此页面');
+});
+
+test('shared page settings changes refresh this browser context without refreshing for download-only preferences', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  mock.setTabs([{ id: 17, url: 'https://example.com/' }]);
+  const platform = createPlatform();
+  platform.handleStorageChanged({
+    [SETTINGS_KEY]: {
+      oldValue: { nativeScroll: { enabled: true } },
+      newValue: { nativeScroll: { enabled: false } }
+    }
+  }, 'local');
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(mock.scriptCalls(), 1);
+  platform.handleStorageChanged({
+    [SETTINGS_KEY]: {
+      oldValue: { videoDownload: { preferredQuality: 'best' } },
+      newValue: { videoDownload: { preferredQuality: '720' } }
+    }
+  }, 'local');
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(mock.scriptCalls(), 1);
 });
 
 test('page synchronization retries transient script injection failures', async () => {

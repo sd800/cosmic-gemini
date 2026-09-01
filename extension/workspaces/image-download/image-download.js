@@ -405,7 +405,6 @@ label(document.querySelector('#rescan'), t('imageRescanTitle'));
 label(document.querySelector('#deep-scan'), t('imageDeepScanTitle'));
 label(document.querySelector('#stop'), t('imageStopTitle'));
 document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
-root.dataset.localePending = 'false';
 try {
   if (!Number.isInteger(sourceTabId)) throw new Error('The image source tab is unavailable.');
   setWorkspaceVisible(!document.hidden);
@@ -413,7 +412,7 @@ try {
 } catch {
   document.querySelector('#status-text').textContent = t('imageUnavailablePage');
   updateWorkspaceControls();
-}
+} finally { root.dataset.localePending = 'false'; }
 document.addEventListener('visibilitychange', () => {
   setWorkspaceVisible(!document.hidden);
   if (!document.hidden) scheduleReload(true);

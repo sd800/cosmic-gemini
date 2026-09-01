@@ -51,7 +51,7 @@ export function createCustomsOffscreenCoordinator() {
     });
   }
 
-  async function send(target, message) {
+  async function send(target, message, retainResultArtifact = false) {
     activeRequests += 1;
     syncRequestKeepAlive();
     try {
@@ -62,7 +62,9 @@ export function createCustomsOffscreenCoordinator() {
         error.cancelled = response?.cancelled === true;
         throw error;
       }
-      return response.result;
+      const result = response.result;
+      if (retainResultArtifact && result?.artifactId) retainedArtifacts.add(result.artifactId);
+      return result;
     } finally {
       activeRequests = Math.max(0, activeRequests - 1);
       syncRequestKeepAlive();
@@ -92,7 +94,9 @@ export function createCustomsOffscreenCoordinator() {
     retainArtifact(artifactId) { if (artifactId) retainedArtifacts.add(artifactId); },
     releaseArtifact(artifactId) { if (artifactId) retainedArtifacts.delete(artifactId); },
     sendVideo(message) { return send('video-download-offscreen', message); },
+    sendVideoArtifact(message) { return send('video-download-offscreen', message, true); },
     sendImage(message) { return send('image-download-offscreen', message); },
+    sendImageArtifact(message) { return send('image-download-offscreen', message, true); },
     maybeClose
   });
 }

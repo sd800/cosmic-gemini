@@ -71,3 +71,64 @@ test('disabling Bili Daily Login aborts an in-flight request without reschedulin
     globalThis.fetch = originalFetch;
   }
 });
+
+test('Bili Daily Login never schedules from the split incognito background context', async () => {
+  let settings = { satellites: { biliDailyLogin: { enabled: false, lastCompletedDate: '' } } };
+  const createdAlarms = [];
+  globalThis.chrome = {
+    extension: { inIncognitoContext: true },
+    storage: {
+      session: {
+        async get() { return {}; },
+        async set() {},
+        async remove() {}
+      }
+    },
+    alarms: {
+      async create(name, options) { createdAlarms.push({ name, options }); },
+      async clear() { return true; },
+      async get() { return null; }
+    }
+  };
+  const product = createSatellitesProduct({
+    async readSettings() { return structuredClone(settings); },
+    async mutateSettings(update) {
+      settings = update(settings);
+      return structuredClone(settings);
+    }
+  });
+  await product.handleMessage({ type: 'UI_SET_BILI_DAILY_LOGIN', enabled: true });
+  await product.handleStorageChanged({ cosmicGeminiSettings: { newValue: settings } }, 'local');
+  assert.equal(settings.satellites.biliDailyLogin.enabled, true);
+  assert.deepEqual(createdAlarms, []);
+});
+
+test('Bili Daily Login waits when no regular Chrome window is open', async () => {
+  const createdAlarms = [];
+  let requests = 0;
+  const settings = { satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '' } } };
+  globalThis.chrome = {
+    extension: { inIncognitoContext: false },
+    windows: { async getAll() { return []; } },
+    storage: {
+      session: {
+        async get() { return {}; },
+        async set() {},
+        async remove() {}
+      }
+    },
+    alarms: {
+      async create(name, options) { createdAlarms.push({ name, options }); },
+      async clear() { return true; },
+      async get() { return null; }
+    }
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { requests += 1; throw new Error('unexpected request'); };
+  try {
+    const product = createSatellitesProduct({ async readSettings() { return structuredClone(settings); } });
+    await product.handleAlarm({ name: 'satellites:biliDailyLogin' });
+    assert.equal(requests, 0);
+    assert.equal(createdAlarms.length, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});

@@ -32,6 +32,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   const viewPorts = new Map();
   const sessionUpdates = createKeyedTaskQueue();
   const sendImageOffscreen = message => offscreen.sendImage(message);
+  const sendImageArtifact = message => offscreen.sendImageArtifact(message);
   async function restoreCollectingTabs() {
     try {
       const priorCollecting = new Set(activeTabs);
@@ -387,7 +388,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
     const [visibleTab] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
     if (visibleTab?.id !== tabId) throw new Error('The source tab changed before the capture completed.');
-    const artifact = await sendImageOffscreen({ type: 'CG_IMAGE_CROP_CAPTURE', dataUrl, rect });
+    const artifact = await sendImageArtifact({ type: 'CG_IMAGE_CROP_CAPTURE', dataUrl, rect });
     const storedLocale = await chrome.storage.local.get('interfaceLocale');
     const captureTitle = normalizeLocale(storedLocale.interfaceLocale || chrome.i18n.getUILanguage()) === 'zh-CN'
       ? '截取的区域' : 'Captured area';
@@ -409,9 +410,11 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         artifactId: artifact.artifactId
       }]);
       if (!updatedSession) throw new Error('The Image Download session ended before the capture was saved.');
+      offscreen.releaseArtifact(artifact.artifactId);
     } catch (error) {
       await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
       await chrome.storage.session.remove(artifactKey).catch(() => {});
+      offscreen.releaseArtifact(artifact.artifactId);
       throw error;
     }
     const updated = await readImageSession(tabId);
@@ -578,7 +581,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       filename: imageCandidateFilename(item.candidate, session.title, index, outputFormat)
     }));
     if (files.length > 1 && batchMode === 'zip') {
-      const artifact = await sendImageOffscreen({
+      const artifact = await sendImageArtifact({
         type: 'CG_IMAGE_CREATE_ZIP',
         files,
         pageUrl: session.pageUrl,
@@ -593,6 +596,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         });
       } catch (error) {
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
+        offscreen.releaseArtifact(artifact.artifactId);
         throw error;
       }
       await trackImageArtifact(downloadId, artifact.artifactId);
@@ -600,7 +604,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     }
     const downloadIds = [];
     for (let index = 0; index < files.length; index += 1) {
-      const artifact = await sendImageOffscreen({
+      const artifact = await sendImageArtifact({
         type: 'CG_IMAGE_FETCH',
         file: files[index],
         pageUrl: session.pageUrl,
@@ -615,6 +619,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         });
       } catch (error) {
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
+        offscreen.releaseArtifact(artifact.artifactId);
         throw error;
       }
       await trackImageArtifact(downloadId, artifact.artifactId);

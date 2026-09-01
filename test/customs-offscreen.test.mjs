@@ -58,6 +58,33 @@ test('Customs retains a local artifact when session storage cannot track its Chr
   } finally { globalThis.chrome = previousChrome; }
 });
 
+test('Customs retains a newly created artifact before an offscreen request releases its keepalive', async () => {
+  const previousChrome = globalThis.chrome;
+  let closeCalls = 0;
+  globalThis.chrome = {
+    runtime: {
+      getURL: path => `chrome-extension://test/${path}`,
+      getContexts: async () => [],
+      sendMessage: async () => ({ ok: true, result: { artifactId: 'artifact-handoff', url: 'blob:test' } })
+    },
+    storage: { session: { get: async () => ({}) } },
+    offscreen: {
+      createDocument: async () => {},
+      closeDocument: async () => { closeCalls += 1; }
+    }
+  };
+  try {
+    const coordinator = createCustomsOffscreenCoordinator();
+    const artifact = await coordinator.sendImageArtifact({ type: 'CG_IMAGE_FETCH' });
+    await coordinator.maybeClose();
+    assert.equal(artifact.artifactId, 'artifact-handoff');
+    assert.equal(closeCalls, 0);
+    coordinator.releaseArtifact(artifact.artifactId);
+    await coordinator.maybeClose();
+    assert.equal(closeCalls, 1);
+  } finally { globalThis.chrome = previousChrome; }
+});
+
 test('optional offscreen cleanup does not fail a completed product action', async () => {
   const previousChrome = globalThis.chrome;
   let closeCalls = 0;

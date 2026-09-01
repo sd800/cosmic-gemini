@@ -33,3 +33,16 @@ export async function send(message) {
   if (!response?.ok) throw new Error(response?.error || 'Cosmic Gemini could not complete that action.');
   return response.result;
 }
+
+export async function retryRead(task, delays = [0, 80, 240]) {
+  let lastError;
+  for (const delay of delays) {
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}

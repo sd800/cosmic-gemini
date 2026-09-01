@@ -28,7 +28,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.3.2');
+assert.equal(manifest.version, '5.3.3');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -125,6 +125,8 @@ assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_ENHANCED'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_SITE_FEATURE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_TAB_FEATURE'/);
 assert.match(popupSource, /type: 'UI_OPEN_ALL_SETTINGS'/);
+assert.match(popupSource, /retryRead\(\(\) => reload/);
+assert.doesNotMatch(popupSource, /if \(reloadAfter\) await reload\(/);
 assert.doesNotMatch(popupSource, /chrome\.storage|chrome\.tabs\./);
 assert.doesNotMatch(popupSource, /showView\(state\.videoDownload\?\.active/);
 
@@ -133,6 +135,7 @@ assert.match(settingsSource, /UI_SET_BEHAVIOR_RULE/);
 assert.match(settingsSource, /UI_ADD_NSNA_WHITELIST_RULE/);
 assert.match(settingsSource, /UI_SET_AUDIO_AUTOPLAY_ALL_SITES/);
 assert.match(settingsSource, /UI_RESET_ALL_SETTINGS/);
+assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await source('settings', name);
@@ -159,6 +162,7 @@ const satellites = await source('background', 'products', 'operations', 'satelli
 const administration = await source('background', 'products', 'operations', 'administration.js');
 const imageDownload = await source('background', 'products', 'customs', 'image-download.js');
 const videoDownload = await source('background', 'products', 'customs', 'video-download.js');
+const imageWorkspace = await source('workspaces', 'image-download', 'image-download.js');
 
 assert.ok(central.split('\n').length < 260, 'Central must remain a compact decision and routing layer.');
 assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]*customs:/);
@@ -208,6 +212,8 @@ assert.match(videoDownload, /CG_VIDEO_CANCEL_REQUEST/);
 assert.match(videoDownload, /observation\.setCollecting\(FEATURE_IDS\.VIDEO_DOWNLOAD/);
 assert.match(videoDownload, /activeVideoProcessing\.has\(processingKey\)/);
 assert.match(videoDownload, /requestBilibiliJson/);
+assert.match(imageWorkspace, /retryRead\(\(\) => reload/);
+assert.doesNotMatch(imageWorkspace, /await send\(\{ type: 'UI_IMAGE_STOP'[\s\S]{0,160}await reload\(/);
 assert.doesNotMatch(imageDownload, /scheduleDownloadDiscoveryPause|videoDownloadSession:/);
 assert.doesNotMatch(videoDownload, /scheduleDownloadDiscoveryPause|imageDownloadSession:/);
 assert.doesNotMatch(imageDownload, /createVideoDownloadProduct/);

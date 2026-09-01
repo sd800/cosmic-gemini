@@ -2,7 +2,7 @@ import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { candidateQuality, compactVideoCandidates, formatMediaDuration } from '../core/video-download.js';
 import { localizeDocument, translator } from '../shared/localization.js';
-import { icon, send } from '../shared/ui.js';
+import { icon, retryRead, send } from '../shared/ui.js';
 
 const root = document.documentElement;
 const live = document.querySelector('#live');
@@ -379,7 +379,7 @@ function scheduleReload() {
   if (reloadTimer) return;
   reloadTimer = setTimeout(() => {
     reloadTimer = 0;
-    void reload(false).catch(() => {});
+    void retryRead(() => reload(false)).catch(() => {});
   }, 80);
 }
 
@@ -409,6 +409,11 @@ async function reload(selectInitialView = true) {
   if (selectInitialView && viewMode === null) showView('main');
 }
 
+async function reloadAfterAction(selectInitialView = true) {
+  try { await retryRead(() => reload(selectInitialView)); }
+  catch { scheduleReload(); }
+}
+
 async function perform(task, reloadAfter = false) {
   if (actionPending) return false;
   actionPending = true;
@@ -416,7 +421,7 @@ async function perform(task, reloadAfter = false) {
   live.textContent = '';
   try {
     await task();
-    if (reloadAfter) await reload();
+    if (reloadAfter) await reloadAfterAction();
     return true;
   } catch {
     live.textContent = t('unavailable');
@@ -483,7 +488,7 @@ document.querySelector('#videoDownload-status').addEventListener('click', () => 
       title: currentTab?.title || ''
     });
     showView('video');
-    await reload(false);
+    await reloadAfterAction(false);
 }));
 
 document.querySelector('#imageDownload-status').addEventListener('click', () => void perform(async () => {
@@ -504,7 +509,7 @@ document.querySelector('#video-back').addEventListener('click', () => showView('
 document.querySelector('#video-stop').addEventListener('click', () => void perform(async () => {
     await send({ type: 'UI_VIDEO_STOP', tabId: currentTab?.id });
     showView('main');
-    await reload(false);
+    await reloadAfterAction(false);
 }));
 document.querySelector('#video-rescan').addEventListener('click', () => void act(() => send({
   type: 'UI_VIDEO_RESCAN', tabId: currentTab?.id
@@ -524,4 +529,4 @@ const centralUiPort = chrome.runtime.connect({ name: 'central-ui:popup' });
 centralUiPort.onMessage.addListener(message => {
   if (message?.type === 'central-state-changed' && message.tabId === currentTab?.id) scheduleReload();
 });
-try { await reload(); } catch { live.textContent = t('unavailable'); }
+try { await retryRead(() => reload()); } catch { live.textContent = t('unavailable'); }

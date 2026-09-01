@@ -1,7 +1,7 @@
 import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { localizeDocument, translator } from '../shared/localization.js';
-import { icon, send } from '../shared/ui.js';
+import { icon, retryRead, send } from '../shared/ui.js';
 import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
 
 const root = document.documentElement;
@@ -182,14 +182,8 @@ async function reload() {
 }
 
 async function reloadAfterUpdate() {
-  for (const delay of [0, 80, 240]) {
-    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
-    try {
-      await reload();
-      return;
-    } catch {}
-  }
-  setTimeout(() => { void reload().catch(() => {}); }, 800);
+  try { await retryRead(() => reload()); }
+  catch { setTimeout(() => { void retryRead(() => reload()).catch(() => {}); }, 800); }
 }
 
 async function update(section, task, controls = []) {
@@ -452,7 +446,7 @@ try {
     applyLocale();
     render();
   }
-  await reload();
+  await retryRead(() => reload());
 } catch {
   // Keep the localized defaults if stored settings are temporarily unavailable.
 }

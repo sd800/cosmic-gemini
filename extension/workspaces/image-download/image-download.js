@@ -1,7 +1,7 @@
 import { formatImageBytes, imageLayout } from '../../core/image-download.js';
 import { loadLocale } from '../../core/locale.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
-import { icon, send } from '../../shared/ui.js';
+import { icon, retryRead, send } from '../../shared/ui.js';
 
 const root = document.documentElement;
 const workspaceUrl = new URL(location.href);
@@ -54,7 +54,7 @@ function scheduleReload(force = false) {
   if (document.hidden || reloadTimer) return;
   reloadTimer = setTimeout(() => {
     reloadTimer = 0;
-    void reload(force).catch(() => {});
+    void retryRead(() => reload(force)).catch(() => {});
   }, 100);
 }
 
@@ -310,6 +310,11 @@ async function reload(force = false) {
   renderState(force);
 }
 
+async function reloadAfterAction(force = false) {
+  try { await retryRead(() => reload(force)); }
+  catch { scheduleReload(force); }
+}
+
 async function rescan(deep) {
   if (scanPending) return;
   scanPending = true;
@@ -381,7 +386,7 @@ document.querySelector('#rescan').addEventListener('click', () => void rescan(fa
 document.querySelector('#deep-scan').addEventListener('click', () => void rescan(true));
 document.querySelector('#stop').addEventListener('click', event => void runWorkspaceAction(event.currentTarget, async () => {
   await send({ type: 'UI_IMAGE_STOP', tabId: sourceTabId });
-  await reload(true);
+  await reloadAfterAction(true);
 }));
 
 const locale = await loadLocale();
@@ -401,7 +406,7 @@ document.querySelector('#version').textContent = t('version', { version: chrome.
 root.dataset.localePending = 'false';
 try {
   setWorkspaceVisible(!document.hidden);
-  await reload(true);
+  await retryRead(() => reload(true));
 } catch {
   document.querySelector('#status-text').textContent = t('imageUnavailablePage');
 }

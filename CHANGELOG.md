@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.3.3 — 2026-09-01
+
+- Separated completed popup and Image Download actions from subsequent state refreshes, so a transient readback failure no longer presents a successful action as failed.
+- Added bounded retries to read-only state refreshes in Settings, the popup, and the Image Download workspace. Settings writes and user actions are never submitted again automatically.
+
 ## 5.3.2 — 2026-09-01
 
 - Fixed transient Shared whitelist update errors by separating the saved settings result from best-effort open-page and settings-view refresh work.

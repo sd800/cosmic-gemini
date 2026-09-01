@@ -13,7 +13,9 @@
     'snowflake.qq.com',
     'oth.str.beacon.qq.com',
     'htrace.wetvinfo.com',
-    'svibeacon.onezapp.com'
+    'svibeacon.onezapp.com',
+    'news.ssp.qq.com',
+    'op.ssp.qq.com'
   ]);
   const SCRIPT_PATHS = [
     'universal-report.min.js',
@@ -34,6 +36,7 @@
     '[id*="qqchannel-ad"]'
   ].join(',');
   const AD_STYLE = `${AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`;
+  const TRANSPARENT_IMAGE_URL = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22/%3E';
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -53,10 +56,11 @@
     if (!raw) return false;
     const normalized = raw.toLowerCase();
     if (SCRIPT_PATHS.some(fragment => normalized.includes(fragment))) return true;
-    if (!normalized.includes('qq.com')
-      && !normalized.includes('wetvinfo.com')
-      && !normalized.includes('onezapp.com')) return false;
-    try { return TRACKING_HOSTS.has(new URL(normalized, location.href).hostname.toLowerCase()); }
+    try {
+      const url = new URL(normalized, location.href);
+      if (url.hostname === '127.0.0.1' && url.port === '11601' && url.pathname === '/check') return true;
+      return TRACKING_HOSTS.has(url.hostname.toLowerCase());
+    }
     catch { return false; }
   }
 
@@ -72,10 +76,17 @@
       this.originalFetch = globalThis.fetch;
       this.originalXhrOpen = XMLHttpRequest.prototype.open;
       this.originalSendBeacon = Navigator.prototype.sendBeacon;
+      this.imageSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+      this.imageSetAttributeDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'setAttribute');
+      this.originalImageSetAttribute = HTMLImageElement.prototype.setAttribute;
+      this.imageSources = new WeakMap();
       this.emptyResponseUrl = '';
       this.fetchWrapper = null;
       this.xhrOpenWrapper = null;
       this.sendBeaconWrapper = null;
+      this.imageSrcGetter = null;
+      this.imageSrcSetter = null;
+      this.imageSetAttributeWrapper = null;
       this.styleElement = null;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
@@ -128,9 +139,35 @@
         if (runtime.active && shouldNeutralize(url)) return true;
         return Reflect.apply(runtime.originalSendBeacon, this, [url, data]);
       };
+      this.imageSrcGetter = function adMarshalImageSrcGet() {
+        return runtime.imageSources.get(this) || Reflect.apply(runtime.imageSrcDescriptor.get, this, []);
+      };
+      this.imageSrcSetter = function adMarshalImageSrcSet(value) {
+        if (runtime.active && shouldNeutralize(value)) {
+          runtime.imageSources.set(this, String(value));
+          Reflect.apply(runtime.imageSrcDescriptor.set, this, [TRANSPARENT_IMAGE_URL]);
+          return;
+        }
+        Reflect.apply(runtime.imageSrcDescriptor.set, this, [value]);
+      };
+      this.imageSetAttributeWrapper = function adMarshalImageSetAttribute(name, value) {
+        if (runtime.active && String(name).toLowerCase() === 'src' && shouldNeutralize(value)) {
+          runtime.imageSources.set(this, String(value));
+          return Reflect.apply(runtime.originalImageSetAttribute, this, [name, TRANSPARENT_IMAGE_URL]);
+        }
+        return Reflect.apply(runtime.originalImageSetAttribute, this, [name, value]);
+      };
       globalThis.fetch = this.fetchWrapper;
       XMLHttpRequest.prototype.open = this.xhrOpenWrapper;
       Navigator.prototype.sendBeacon = this.sendBeaconWrapper;
+      if (this.imageSrcDescriptor?.configurable && this.imageSrcDescriptor.get && this.imageSrcDescriptor.set) {
+        Object.defineProperty(HTMLImageElement.prototype, 'src', {
+          ...this.imageSrcDescriptor,
+          get: this.imageSrcGetter,
+          set: this.imageSrcSetter
+        });
+      }
+      HTMLImageElement.prototype.setAttribute = this.imageSetAttributeWrapper;
       this.ensureStyle();
     }
 
@@ -152,6 +189,17 @@
       if (globalThis.fetch === this.fetchWrapper) globalThis.fetch = this.originalFetch;
       if (XMLHttpRequest.prototype.open === this.xhrOpenWrapper) XMLHttpRequest.prototype.open = this.originalXhrOpen;
       if (Navigator.prototype.sendBeacon === this.sendBeaconWrapper) Navigator.prototype.sendBeacon = this.originalSendBeacon;
+      const currentImageDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+      if (currentImageDescriptor?.get === this.imageSrcGetter && currentImageDescriptor?.set === this.imageSrcSetter) {
+        Object.defineProperty(HTMLImageElement.prototype, 'src', this.imageSrcDescriptor);
+      }
+      if (HTMLImageElement.prototype.setAttribute === this.imageSetAttributeWrapper) {
+        if (this.imageSetAttributeDescriptor) {
+          Object.defineProperty(HTMLImageElement.prototype, 'setAttribute', this.imageSetAttributeDescriptor);
+        } else {
+          delete HTMLImageElement.prototype.setAttribute;
+        }
+      }
       if (this.emptyResponseUrl) URL.revokeObjectURL(this.emptyResponseUrl);
       this.emptyResponseUrl = '';
       document.removeEventListener('readystatechange', this.ensureStyle);

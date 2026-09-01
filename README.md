@@ -60,7 +60,7 @@ Bilibili gives every signed-in account one coin when it visits each day. Receivi
 
 #### Ad Marshal
 
-Tencent News can repeatedly recreate advertising, reporting, and tracking work after a blocker rejects the original requests. These retry loops consume browser resources and fill diagnostics without restoring useful page content. Ad Marshal neutralizes the known loaders before they run, returns local success responses to matching telemetry calls, and hides known advertising containers on the sites you enable.
+Some websites can repeatedly recreate advertising, reporting, and tracking work after an ad blocker rejects the original requests. These retry loops consume browser resources and fill diagnostics without restoring useful page content. Ad Marshal neutralizes the known loaders before they run, returns local success responses to matching telemetry calls, and hides known advertising containers on sites enabled by the user.
 
 ## Features
 

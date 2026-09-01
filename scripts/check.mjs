@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.2.1');
+assert.equal(manifest.version, '6.3.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -46,6 +46,7 @@ assert.equal(manifest.content_scripts[0].all_frames, true);
 assert.equal(manifest.incognito, 'split');
 assert.deepEqual(manifest.web_accessible_resources, [{
   resources: [
+    'assets/ad-marshal-empty.js',
     'assets/ad-marshal-empty.json',
     'assets/ad-marshal-empty.html',
     'assets/ad-marshal-transparent.svg'
@@ -284,10 +285,13 @@ assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRe
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.match(adMarshal, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2021\/advertisement\//);
-assert.match(adMarshal, /action: \{ type: 'block' \}[\s\S]*ad-marshal-empty\.json[\s\S]*ad-marshal-empty\.html[\s\S]*ad-marshal-transparent\.svg/);
+assert.match(adMarshal, /ad-marshal-empty\.js[\s\S]*ad-marshal-empty\.json[\s\S]*ad-marshal-empty\.html[\s\S]*ad-marshal-transparent\.svg/);
+assert.match(adMarshal, /news\.ssp\.qq\.com[\s\S]*op\.ssp\.qq\.com[\s\S]*127\.0\.0\.1:11601\/check/);
 assert.match(adMarshal, /activeTabs\.has\(tabId\)[\s\S]*Promise\.resolve/,
   'Ad Marshal must avoid native rule reads on unrelated or already synchronized tabs.');
 assert.match(adMarshalRuntime, /globalThis\.fetch = this\.fetchWrapper[\s\S]*XMLHttpRequest\.prototype\.open = this\.xhrOpenWrapper[\s\S]*Navigator\.prototype\.sendBeacon = this\.sendBeaconWrapper/);
+assert.match(adMarshalRuntime, /TRANSPARENT_IMAGE_URL[\s\S]*HTMLImageElement\.prototype/);
+assert.match(adMarshalRuntime, /127\.0\.0\.1[\s\S]*adMarshalImageSrcSet/);
 assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*AD_STYLE[\s\S]*this\.ensureStyle\(\)/);
 assert.doesNotMatch(adMarshalRuntime, /MutationObserver|data-beacon|removeChild/,
   'Ad Marshal must not remove framework-owned DOM nodes or alter Beacon metadata.');

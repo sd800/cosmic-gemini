@@ -2,15 +2,21 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.3.1 — 2026-09-01
+
+- Ad Marshal now resolves Tencent News advertising endpoints and its `127.0.0.1:11601/check` local-client probe inside the extension, preventing the page from contacting a loopback server or reporting the resulting connection failure.
+- Known advertising and reporting loaders now receive a local empty script instead of a blocked response. Tracking images are replaced before they reach the network, reducing the follow-up reports created after an expected resource fails to load.
+- Added the Tencent advertising and reporting endpoints observed on article pages while retaining the observer-free runtime and the default-off managed-site switches.
+
 ## 6.2.1 — 2026-09-01
 
+- Ad Marshal is disabled by default in ordinary and incognito windows. It runs on a managed website only after the user enables that site's switch.
 - Fixed Tencent News rendering as a black page when Ad Marshal removed nodes that React still managed. Ad Marshal no longer deletes page nodes or changes Beacon metadata, so the application can complete its own rendering and updates.
-- Every Ad Marshal managed site now starts disabled in ordinary and incognito settings. Existing settings from the previous release are migrated to the disabled state, and each site runs only after the user enables its switch again.
 - Confirmed advertising and reporting loaders are blocked before execution, matching telemetry requests receive local type-compatible responses, and known advertising containers are hidden with a narrow local style. The runtime no longer needs a DOM observer or polling loop.
 
 ## 6.1.1 — 2026-09-01
 
-- Added Ad Marshal to Satellites with an independent switch for each managed website. Tencent News is enabled by default in ordinary windows, while every managed site starts disabled in incognito.
+- Added Ad Marshal to Satellites and gave each managed website its own switch.
 - Ad Marshal prevents confirmed Tencent News advertising and reporting loaders from executing even when an external Tencent CDN serves them. Matching telemetry calls receive local success responses, known advertising elements are removed, and Beacon reporting markers are stripped from otherwise functional content so the page cannot sustain a failure-and-retry loop.
 - Standing Province coordinates Ad Marshal through Central while the product owns its lightweight, tab-scoped network rules, filtered page runtime, and complete cleanup when a tab leaves the site or the switch is disabled.
 

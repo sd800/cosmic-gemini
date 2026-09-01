@@ -9,7 +9,7 @@ const NEWS_QQ_SITE_ID = 'newsQqCom';
 const NEWS_QQ_HOST = 'news.qq.com';
 const RULE_ID_START = 1_600_000_000;
 const RULE_ID_GROUPS = 20_000_000;
-const RULES_PER_TAB = 7;
+const RULES_PER_TAB = 8;
 const TRACKING_DOMAINS = Object.freeze([
   'h.trace.qq.com',
   'btrace.qq.com',
@@ -19,7 +19,9 @@ const TRACKING_DOMAINS = Object.freeze([
   'snowflake.qq.com',
   'oth.str.beacon.qq.com',
   'htrace.wetvinfo.com',
-  'svibeacon.onezapp.com'
+  'svibeacon.onezapp.com',
+  'news.ssp.qq.com',
+  'op.ssp.qq.com'
 ]);
 
 function isOwnedRule(rule) {
@@ -38,24 +40,24 @@ function ruleGroupForTab(tabId, occupied) {
   throw new Error('Ad Marshal could not allocate its temporary network rules.');
 }
 
-function blockRule(id, tabId, urlFilter, resourceTypes) {
+function scriptRedirectRule(id, tabId, urlFilter) {
   return {
     id,
     priority: 100,
-    action: { type: 'block' },
-    condition: { tabIds: [tabId], urlFilter, resourceTypes }
+    action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.js' } },
+    condition: { tabIds: [tabId], urlFilter, resourceTypes: ['script'] }
   };
 }
 
 function rulesForTab(tabId, base) {
   return [
-    blockRule(base, tabId, 'universal-report.min.js', ['script']),
-    blockRule(base + 1, tabId, '/news-plugin/sdk/emonitor_', ['script']),
-    blockRule(base + 2, tabId, '/qqindex2021/advertisement/', ['script']),
+    scriptRedirectRule(base, tabId, 'universal-report.min.js'),
+    scriptRedirectRule(base + 1, tabId, '/news-plugin/sdk/emonitor_'),
+    scriptRedirectRule(base + 2, tabId, '/qqindex2021/advertisement/'),
     {
       id: base + 3,
       priority: 100,
-      action: { type: 'block' },
+      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.js' } },
       condition: {
         tabIds: [tabId],
         requestDomains: TRACKING_DOMAINS,
@@ -90,6 +92,16 @@ function rulesForTab(tabId, base) {
         tabIds: [tabId],
         requestDomains: TRACKING_DOMAINS,
         resourceTypes: ['image']
+      }
+    },
+    {
+      id: base + 7,
+      priority: 100,
+      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.json' } },
+      condition: {
+        tabIds: [tabId],
+        urlFilter: '|http://127.0.0.1:11601/check|',
+        resourceTypes: ['xmlhttprequest', 'other']
       }
     }
   ];

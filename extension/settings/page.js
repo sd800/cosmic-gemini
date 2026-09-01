@@ -181,6 +181,17 @@ async function reload() {
   render();
 }
 
+async function reloadAfterUpdate() {
+  for (const delay of [0, 80, 240]) {
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    try {
+      await reload();
+      return;
+    } catch {}
+  }
+  setTimeout(() => { void reload().catch(() => {}); }, 800);
+}
+
 async function update(section, task, controls = []) {
   const actionable = controls.filter(Boolean);
   if (actionable.some(control => pendingControls.has(control))) return;
@@ -191,7 +202,7 @@ async function update(section, task, controls = []) {
   }
   const message = section?.querySelector('.form-message');
   if (message) message.textContent = '';
-  try { await task(); await reload(); }
+  try { await task(); await reloadAfterUpdate(); }
   catch {
     render();
     if (message?.isConnected) message.textContent = t('unavailable');
@@ -262,7 +273,7 @@ function bindView() {
         try {
           await send({ type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value });
           input.value = '';
-          await reload();
+          await reloadAfterUpdate();
         } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
         finally {
           for (const control of [input, select, submit]) {
@@ -298,7 +309,7 @@ function bindView() {
             ? { type: 'UI_ADD_NSNA_WHITELIST_RULE', rule }
             : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
           input.value = '';
-          await reload();
+          await reloadAfterUpdate();
         } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
         finally {
           pendingControls.delete(submit);

@@ -8,3 +8,4 @@ import '../test/video-download.test.mjs';
 import '../test/image-download.test.mjs';
 import '../test/download-session.test.mjs';
 import '../test/customs-observation.test.mjs';
+import '../test/platform-settings.test.mjs';

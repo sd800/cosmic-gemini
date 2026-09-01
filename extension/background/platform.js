@@ -50,7 +50,9 @@ export function createPlatform() {
   }
 
   async function refreshOpenPages() {
-    const tabs = await chrome.tabs.query({});
+    let tabs;
+    try { tabs = await chrome.tabs.query({}); }
+    catch { return; }
     await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab =>
       chrome.scripting.executeScript({
         target: { tabId: tab.id, allFrames: true },
@@ -61,13 +63,14 @@ export function createPlatform() {
   }
 
   async function mutateSettings(update, refresh = true) {
-    writeQueue = writeQueue.then(async () => {
+    const operation = writeQueue.then(async () => {
       const current = await readSettings();
       const next = await saveSettings(typeof update === 'function' ? update(current) : update);
       if (refresh) await refreshOpenPages();
       return next;
     });
-    return writeQueue;
+    writeQueue = operation.catch(() => undefined);
+    return operation;
   }
 
   function activityKey(tabId) { return ACTIVITY_PREFIX + tabId; }

@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.3.2 — 2026-09-01
+
+- Fixed transient Shared whitelist update errors by separating the saved settings result from best-effort open-page and settings-view refresh work.
+- A failed settings write no longer leaves the serialized write queue rejected, so later updates can proceed without waiting for the Service Worker to restart.
+
 ## 5.3.1 — 2026-09-01
 
 - Native Scroll now preserves wheel-based image switching inside enlarged Xiaohongshu post cards while continuing to protect the rest of the page.

@@ -5,6 +5,7 @@
   const DISPOSE = 'cosmic-gemini:native-scroll:dispose';
   const SUPPRESSED = 'cosmic-gemini:native-scroll:suppressed';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.native-scroll.runtime');
+  const RETAINED_LISTENERS_KEY = Symbol.for('cosmic-gemini.native-scroll.retained-listeners');
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -45,7 +46,9 @@
       this.savedStyles = new Map();
       this.normalizedWrappers = new Set();
       this.originalMethods = [];
-      this.listenerRegistry = new WeakMap();
+      const retainedListeners = window[RETAINED_LISTENERS_KEY];
+      this.listenerRegistry = retainedListeners instanceof WeakMap ? retainedListeners : new WeakMap();
+      try { delete window[RETAINED_LISTENERS_KEY]; } catch {}
       this.originalAddEventListener = EventTarget.prototype.addEventListener;
       this.originalRemoveEventListener = EventTarget.prototype.removeEventListener;
       this.patchedAddEventListener = null;
@@ -136,7 +139,18 @@
       this.restoreStyles();
       this.normalizedWrappers.clear();
       this.restoreScrollMethods();
+      this.retainListenerRegistry();
       this.restoreListenerMethods();
+    }
+
+    retainListenerRegistry() {
+      if (!this.listenerMethodsPatched) return;
+      try {
+        Object.defineProperty(window, RETAINED_LISTENERS_KEY, {
+          value: this.listenerRegistry,
+          configurable: true
+        });
+      } catch {}
     }
 
     observeDocument() {

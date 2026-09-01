@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.15.1 — 2026-09-01
+
+- Native Scroll now preserves inert weak listener metadata when it is disabled in an open page. Re-enabling Standard mode or Enhanced mode can recognize scrolling takeover listeners that the website registered earlier, while the disabled product keeps no active hooks, observers, or interceptors.
+
 ## 5.13.1 — 2026-09-01
 
 - Native Scroll now preserves Xiaohongshu's native page APIs and layout from the start of page initialization, allowing feed post cards to open and their image navigation to work while protection remains unchanged on other websites.

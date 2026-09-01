@@ -168,6 +168,32 @@ test('Native Scroll becomes inert when a later page wrapper keeps its listener w
   runtime.onDispose({ detail: runtime.token });
 });
 
+test('Native Scroll recognizes existing hijack listeners after it is disabled and re-enabled', async () => {
+  const context = makeContext();
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const originalAdd = context.EventTarget.prototype.addEventListener;
+  vm.runInContext(source, context);
+  const firstRuntime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  firstRuntime.onConfigure({ detail: JSON.stringify({ token: firstRuntime.token, config: { active: true, mode: 'standard' } }) });
+  context.document.addEventListener('wheel', () => {});
+  firstRuntime.onDispose({ detail: firstRuntime.token });
+  assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
+  assert.equal(context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')], undefined);
+
+  vm.runInContext(source, context);
+  const secondRuntime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  secondRuntime.onConfigure({ detail: JSON.stringify({ token: secondRuntime.token, config: { active: true, mode: 'standard' } }) });
+  const standardEvent = wheelEvent(context);
+  secondRuntime.onWheel(standardEvent);
+  assert.equal(standardEvent.stopped, true);
+
+  secondRuntime.onConfigure({ detail: JSON.stringify({ token: secondRuntime.token, config: { active: true, mode: 'enhanced' } }) });
+  const enhancedEvent = wheelEvent(context);
+  secondRuntime.onWheel(enhancedEvent);
+  assert.equal(enhancedEvent.stopped, true);
+  secondRuntime.onDispose({ detail: secondRuntime.token });
+});
+
 test('Native Scroll preserves Xiaohongshu wheel interactions', async () => {
   const context = makeContext('www.xiaohongshu.com');
   const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');

@@ -41,13 +41,20 @@ function iconState(featureId, feature) {
   return feature?.active ? 'active' : 'off';
 }
 
+function renderDownloadControlState(toggle, feature) {
+  const scanState = ['active', 'grace'].includes(feature?.scanState)
+    ? feature.scanState
+    : feature?.active ? 'active' : 'paused';
+  toggle.dataset.state = scanState === 'paused' ? 'off' : 'active';
+  toggle.dataset.persistent = String(scanState === 'active');
+  toggle.setAttribute('aria-pressed', String(scanState !== 'paused'));
+}
+
 function renderImageRow() {
   const feature = state.imageDownload;
   const toggle = document.querySelector('#imageDownload-status');
   toggle.disabled = !feature?.supported;
-  toggle.dataset.state = iconState('imageDownload', feature || { active: false });
-  toggle.dataset.persistent = 'false';
-  toggle.setAttribute('aria-pressed', String(!!feature?.active));
+  renderDownloadControlState(toggle, feature);
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'imageOpenTitle' : 'imageStartTitle'));
 }
 
@@ -338,9 +345,7 @@ function renderVideoRow() {
   const feature = state.videoDownload;
   const toggle = document.querySelector('#videoDownload-status');
   toggle.disabled = !feature?.supported;
-  toggle.dataset.state = iconState('videoDownload', feature || { active: false });
-  toggle.dataset.persistent = 'false';
-  toggle.setAttribute('aria-pressed', String(!!feature?.active));
+  renderDownloadControlState(toggle, feature);
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'videoOpenTitle' : 'videoStartTitle'));
   renderVideoPanel();
 }

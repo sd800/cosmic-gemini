@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.15.2 — 2026-09-01
+
+- Image Download and Video Download now show their discovery lifecycle in the popup. Active scanning uses a blue icon with a background, the two-minute discovery period uses a blue icon without a background, and a paused scan returns to the neutral icon.
+
 ## 5.15.1 — 2026-09-01
 
 - Native Scroll now preserves inert weak listener metadata when it is disabled in an open page. Re-enabling Standard mode or Enhanced mode can recognize scrolling takeover listeners that the website registered earlier, while the disabled product keeps no active hooks, observers, or interceptors.

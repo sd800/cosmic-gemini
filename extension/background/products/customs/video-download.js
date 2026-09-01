@@ -14,6 +14,7 @@ import {
   deferDownloadScan,
   downloadScanAlarmName,
   downloadScanCollects,
+  downloadScanState,
   parseDownloadScanAlarm,
   pauseDownloadScan
 } from '../../../core/download-session.js';
@@ -713,6 +714,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       ...settings.videoDownload,
       supported,
       active,
+      scanState: active ? downloadScanState(session) : 'paused',
       status: active ? session.status : 'off',
       candidates: active ? session.candidates : [],
       title: active ? session.title : '',

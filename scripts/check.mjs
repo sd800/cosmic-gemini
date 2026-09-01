@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.15.1');
+assert.equal(manifest.version, '5.15.2');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -147,6 +147,8 @@ assert.match(popupSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(popupSource, /if \(reloadAfter\) await reload\(/);
 assert.doesNotMatch(popupSource, /chrome\.storage|chrome\.tabs\./);
 assert.doesNotMatch(popupSource, /showView\(state\.videoDownload\?\.active/);
+assert.match(popupSource, /scanState === 'paused' \? 'off' : 'active'/);
+assert.match(popupSource, /dataset\.persistent = String\(scanState === 'active'\)/);
 
 const settingsSource = await source('settings', 'page.js');
 const settingsPreload = await source('settings', 'preload.js');
@@ -188,6 +190,9 @@ const administration = await source('background', 'products', 'operations', 'adm
 const imageDownload = await source('background', 'products', 'customs', 'image-download.js');
 const videoDownload = await source('background', 'products', 'customs', 'video-download.js');
 const imageWorkspace = await source('workspaces', 'image-download', 'image-download.js');
+
+assert.match(imageDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
+assert.match(videoDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
 
 assert.ok(central.split('\n').length < 260, 'Central must remain a compact decision and routing layer.');
 assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]*customs:/);

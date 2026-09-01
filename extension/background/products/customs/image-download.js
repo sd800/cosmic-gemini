@@ -7,6 +7,7 @@ import {
   deferDownloadScan,
   downloadScanAlarmName,
   downloadScanCollects,
+  downloadScanState,
   parseDownloadScanAlarm,
   pauseDownloadScan
 } from '../../../core/download-session.js';
@@ -436,6 +437,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       ...settings.imageDownload,
       supported,
       active,
+      scanState: active ? downloadScanState(session) : 'paused',
       status: active ? session.status : 'off',
       sourceTabId: active ? session.tabId : 0,
       pageUrl: active ? session.pageUrl : '',

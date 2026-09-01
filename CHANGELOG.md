@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.3.1 — 2026-09-01
+
+- Native Scroll now preserves wheel-based image switching inside enlarged Xiaohongshu post cards while continuing to protect the rest of the page.
+- Native Scroll Enhanced also leaves the enlarged post shell intact instead of normalizing the structure required by the viewer.
+
 ## 5.2.1 — 2026-09-01
 
 - Image Download and Video Download now share a lifecycle-managed browser-response listener. It remains registered only while at least one download session is active or within its two-minute discovery grace period, and is released after the final session pauses or ends.

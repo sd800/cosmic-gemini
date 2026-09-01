@@ -58,7 +58,7 @@ class FakeElement extends SimpleEventTarget {
 class FakeMutationObserver { observe() {} disconnect() {} }
 class FakeCustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.target = null; } }
 
-function makeContext() {
+function makeContext(hostname = 'example.com') {
   const window = new SimpleEventTarget();
   const document = new SimpleEventTarget();
   document.documentElement = new FakeElement('html');
@@ -73,6 +73,7 @@ function makeContext() {
     MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
     WeakMap, WeakRef, Map, Set, Symbol, JSON, Reflect, Number, String, Math,
     crypto: { getRandomValues: values => { values.fill(7); return values; } }, performance: { now: () => 100 },
+    location: { hostname },
     innerWidth: 800, innerHeight: 800,
     requestAnimationFrame: callback => { callback(); return 1; }, cancelAnimationFrame: () => {},
     getComputedStyle: element => ({ scrollBehavior: 'auto', scrollSnapType: 'none', overflowY: 'visible', position: 'static', transform: 'none', ...element.computed })
@@ -81,12 +82,12 @@ function makeContext() {
   return context;
 }
 
-function wheelEvent(context) {
+function wheelEvent(context, target = context.document.body, path = null) {
   let stopped = false;
   return {
     isTrusted: true, defaultPrevented: false, ctrlKey: false, metaKey: false,
-    deltaX: 0, deltaY: 30, target: context.document.body,
-    composedPath: () => [context.document.body, context.document.documentElement, context.document, context.window],
+    deltaX: 0, deltaY: 30, target,
+    composedPath: () => path || [target, context.document.body, context.document.documentElement, context.document, context.window],
     stopImmediatePropagation: () => { stopped = true; }, get stopped() { return stopped; }
   };
 }
@@ -142,4 +143,53 @@ test('Native Scroll leaves page APIs untouched while inactive and restores them 
   assert.equal(context.window.scroll, originalScroll);
   runtime.onDispose({ detail: runtime.token });
   assert.equal(context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')], undefined);
+});
+
+test('Native Scroll preserves wheel-based image switching inside an enlarged Xiaohongshu post', async () => {
+  const context = makeContext('www.xiaohongshu.com');
+  const media = new context.Element('media');
+  media.matches = selector => selector === '#noteContainer.note-container .media-container';
+  media.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
+  const image = new context.Element('img');
+  image.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  context.window.addEventListener('wheel', () => {});
+  const event = wheelEvent(context, image, [image, media, context.document.body, context.document.documentElement, context.document, context.window]);
+  runtime.onWheel(event);
+  assert.equal(event.stopped, false);
+});
+
+test('Xiaohongshu post-card allowance does not apply to other websites', async () => {
+  const context = makeContext('example.com');
+  const media = new context.Element('media');
+  media.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
+  const image = new context.Element('img');
+  image.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  context.window.addEventListener('wheel', () => {});
+  const event = wheelEvent(context, image, [image, media, context.document.body, context.document.documentElement, context.document, context.window]);
+  runtime.onWheel(event);
+  assert.equal(event.stopped, true);
+});
+
+test('Native Scroll Enhanced preserves the enlarged Xiaohongshu post shell', async () => {
+  const context = makeContext('www.xiaohongshu.com');
+  const post = new context.Element('noteContainer');
+  post.matches = selector => selector === '#noteContainer.note-container';
+  post.computed = { position: 'fixed', transform: 'matrix(1, 0, 0, 1, 224, 24)' };
+  context.document.body.children = [post];
+  context.document.querySelector = selector => selector === '#noteContainer.note-container' ? post : null;
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced' } }) });
+  assert.equal(post.style.getPropertyValue('transform'), '');
+  assert.equal(context.document.documentElement.style.getPropertyValue('height'), '');
+  assert.equal(context.document.body.style.getPropertyValue('overflow-y'), '');
 });

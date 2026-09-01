@@ -27,10 +27,13 @@
   ].join(',');
   const ROOTS = () => [document.documentElement, document.body].filter(Boolean);
   const PATCH_FLAG = Symbol('native-scroll-patched');
+  const XHS_POST_ROOT_SELECTOR = '#noteContainer.note-container';
+  const XHS_POST_MEDIA_SELECTOR = `${XHS_POST_ROOT_SELECTOR} .media-container`;
 
   class NativeScrollRuntime {
     constructor() {
       this.token = randomToken();
+      this.hostname = String(globalThis.location?.hostname || '').toLowerCase();
       this.active = false;
       this.mode = 'standard';
       this.reported = false;
@@ -178,12 +181,14 @@
       if (!this.active || !document.documentElement) return;
       this.syncRootObservers();
       this.restoreDetachedStyles();
+      const preserveXhsPost = this.hasXhsPostShell();
+      const applyEnhancedPageStyles = this.mode === 'enhanced' && !preserveXhsPost;
       if (!this.style?.isConnected) {
         this.style = document.createElement('style');
         this.style.dataset.nativeScroll = 'runtime';
         (document.head || document.documentElement).append(this.style);
       }
-      const stylesheet = this.mode === 'enhanced'
+      const stylesheet = applyEnhancedPageStyles
         ? ':root,body,*{scroll-behavior:auto!important;scroll-snap-type:none!important}:root,body{height:auto!important;overflow-y:auto!important;overscroll-behavior:auto!important}'
         : ':root,body{scroll-behavior:auto!important;scroll-snap-type:none!important;overscroll-behavior:auto!important}';
       if (this.style.textContent !== stylesheet) this.style.textContent = stylesheet;
@@ -196,13 +201,17 @@
         this.setStyle(root, 'scroll-behavior', 'auto');
         this.setStyle(root, 'scroll-snap-type', 'none');
         this.setStyle(root, 'overscroll-behavior', 'auto');
-        if (this.mode === 'enhanced') {
+        if (applyEnhancedPageStyles) {
           if (['hidden', 'clip'].includes(computed.overflowY)) this.reportSuppression();
           this.setStyle(root, 'height', 'auto');
           this.setStyle(root, 'overflow-y', 'auto');
+        } else {
+          this.restoreStyle(root, 'height');
+          this.restoreStyle(root, 'overflow-y');
         }
       }
-      if (this.mode === 'enhanced') this.normalizeTransformScroller();
+      if (applyEnhancedPageStyles) this.normalizeTransformScroller();
+      else if (preserveXhsPost) this.restoreNormalizedWrappers();
     }
 
     setStyle(element, property, value) {
@@ -220,6 +229,16 @@
       if (element.style.getPropertyValue(property) !== value || element.style.getPropertyPriority(property) !== 'important') {
         element.style.setProperty(property, value, 'important');
       }
+    }
+
+    restoreStyle(element, property) {
+      const saved = this.savedStyles.get(element);
+      const original = saved?.get(property);
+      if (!original) return;
+      if (original.value) element.style.setProperty(property, original.value, original.priority);
+      else element.style.removeProperty(property);
+      saved.delete(property);
+      if (!saved.size) this.savedStyles.delete(element);
     }
 
     restoreElementStyles(element, properties) {
@@ -245,12 +264,23 @@
       this.savedStyles.clear();
     }
 
+    restoreNormalizedWrappers() {
+      for (const element of this.normalizedWrappers) {
+        const properties = this.savedStyles.get(element);
+        if (properties) {
+          this.restoreElementStyles(element, properties);
+          this.savedStyles.delete(element);
+        }
+      }
+      this.normalizedWrappers.clear();
+    }
+
     normalizeTransformScroller() {
       const body = document.body;
       if (!body || body.children.length > 30) return;
       const viewportArea = Math.max(1, innerWidth * innerHeight);
       for (const element of body.children) {
-        if (this.isSafeElement(element)) continue;
+        if (this.isSafeElement(element) || this.containsXhsPostShell(element)) continue;
         const style = getComputedStyle(element);
         if (!['fixed', 'absolute'].includes(style.position) || style.transform === 'none') continue;
         const rect = element.getBoundingClientRect();
@@ -406,8 +436,36 @@
     }
 
     isSafeElement(element) {
-      try { return element.matches(SAFE_SELECTOR) || !!element.closest(SAFE_SELECTOR); }
+      try {
+        return this.isXhsPostMedia(element)
+          || element.matches(SAFE_SELECTOR)
+          || !!element.closest(SAFE_SELECTOR);
+      }
       catch { return false; }
+    }
+
+    isXhsHost() {
+      return this.hostname === 'xiaohongshu.com' || this.hostname.endsWith('.xiaohongshu.com');
+    }
+
+    isXhsPostMedia(element) {
+      if (!this.isXhsHost()) return false;
+      try { return element.matches(XHS_POST_MEDIA_SELECTOR) || !!element.closest(XHS_POST_MEDIA_SELECTOR); }
+      catch { return false; }
+    }
+
+    hasXhsPostShell() {
+      if (!this.isXhsHost() || typeof document.querySelector !== 'function') return false;
+      try { return !!document.querySelector(XHS_POST_ROOT_SELECTOR); }
+      catch { return false; }
+    }
+
+    containsXhsPostShell(element) {
+      if (!this.isXhsHost()) return false;
+      try {
+        return element.matches(XHS_POST_ROOT_SELECTOR)
+          || (typeof element.querySelector === 'function' && !!element.querySelector(XHS_POST_ROOT_SELECTOR));
+      } catch { return false; }
     }
 
     hasScrollableAncestor(event, deltaY) {

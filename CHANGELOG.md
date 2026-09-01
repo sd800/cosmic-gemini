@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.12.1 — 2026-09-01
+
+- Incognito windows now use an independent, memory-only settings environment. Every new incognito session starts with all products inactive and does not inherit ordinary saved settings, website rules, or interface language.
+- Choices explicitly made in incognito remain available only for that incognito session. Closing the last incognito window discards them, and resetting settings from an incognito page leaves ordinary browsing settings unchanged.
+- Native Scroll and No Autoplay settings identify their incognito default as disabled. Bili Daily Login replaces its switch with “Disabled in Incognito” and cannot be scheduled from an incognito background.
+
 ## 5.11.1 — 2026-09-01
 
 - Expanded reliability checks across shared settings, regular and incognito background contexts, scheduled work, initial interface loading, and media handoff.

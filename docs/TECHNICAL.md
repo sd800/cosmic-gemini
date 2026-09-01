@@ -82,7 +82,7 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 
 ## State and lifecycle
 
-`chrome.storage.local` stores one versioned settings object:
+For ordinary windows, `chrome.storage.local` stores one versioned settings object:
 
 - NSNA: one shared whitelist that deactivates both Native Scroll and No Autoplay
 - Native Scroll: a global enabled default plus Always inactive, Always Standard, and Always Enhanced website rules
@@ -93,6 +93,10 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 - Video Download: preferred quality and whether Chrome should ask for a save location
 - Satellites: Bili Daily Login switch state and last completed date
 - Interface locale
+
+The split incognito background ignores that persistent object. It keeps a separate `chrome.storage.session` object with Native Scroll, No Autoplay, and every other automatic product inactive by default. Explicit incognito choices remain in that temporary object only while the current set of incognito windows exists.
+
+A window-identity marker removes stale settings when a new incognito session begins and deletes the temporary object when the final incognito window closes. Incognito locale changes follow the same boundary, Reset All Settings in incognito does not change ordinary settings, and Bili Daily Login is unavailable in the incognito process.
 
 Exact and wildcard rules contain hostnames only. Paths, ports, queries, and complete URLs are rejected. Matching prefers an exact rule, then the most specific wildcard. The shared NSNA whitelist has highest priority and deactivates both products without deleting their product-specific rules. Each Native Scroll or No Autoplay rule belongs to exactly one behavior: inactive, Standard, or Enhanced. Standard and Enhanced rules activate matching websites even when the global default is off. Saving or changing a rule removes that exact rule from the other behavior lists, while a more-specific rule can intentionally override a broader one.
 

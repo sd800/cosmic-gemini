@@ -29,6 +29,8 @@ const EVENT_PROVINCES = Object.freeze({
   initialize: Object.freeze(['standing', 'operations', 'customs']),
   tabUpdated: Object.freeze(['operations', 'customs']),
   tabRemoved: Object.freeze(['operations', 'customs']),
+  windowCreated: Object.freeze(['operations']),
+  windowRemoved: Object.freeze(['operations']),
   downloadChanged: Object.freeze(['customs']),
   headersReceived: Object.freeze(['customs']),
   storageChanged: Object.freeze(['operations'])
@@ -122,6 +124,7 @@ async function collectPageState(url, tabId, options = {}) {
       : unavailableProductState(productId, settings)
   ]);
   return {
+    incognito: platform.isIncognitoContext(),
     nsna: settings.nsna,
     ...Object.fromEntries(entries),
     activity: await platform.readActivity(tabId)
@@ -190,9 +193,11 @@ async function dispatchEvent(eventName, ...args) {
     const handlerName = eventName === 'initialize' ? 'initialize'
       : eventName === 'tabUpdated' ? 'handleTabUpdated'
         : eventName === 'tabRemoved' ? 'handleTabRemoved'
-          : eventName === 'downloadChanged' ? 'handleDownloadChanged'
-            : eventName === 'headersReceived' ? 'handleHeadersReceived'
-              : 'handleStorageChanged';
+          : eventName === 'windowCreated' ? 'handleWindowCreated'
+            : eventName === 'windowRemoved' ? 'handleWindowRemoved'
+              : eventName === 'downloadChanged' ? 'handleDownloadChanged'
+                : eventName === 'headersReceived' ? 'handleHeadersReceived'
+                  : 'handleStorageChanged';
     return provinces[provinceId][handlerName](...args);
   }));
 }
@@ -217,6 +222,12 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 chrome.tabs.onRemoved.addListener(tabId => {
   void dispatchEvent('tabRemoved', tabId);
+});
+chrome.windows.onCreated.addListener(window => {
+  void dispatchEvent('windowCreated', window);
+});
+chrome.windows.onRemoved.addListener(windowId => {
+  void dispatchEvent('windowRemoved', windowId);
 });
 chrome.downloads.onChanged.addListener(delta => {
   void dispatchEvent('downloadChanged', delta);

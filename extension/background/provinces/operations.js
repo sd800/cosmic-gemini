@@ -74,6 +74,8 @@ export function createOperationsProvince(platform) {
       await anyCopyEnhanced.removeTab(tabId);
       await platform.clearTabActivity(tabId);
     },
+    handleWindowCreated() { return platform.handleIncognitoWindowChange(); },
+    handleWindowRemoved() { return platform.handleIncognitoWindowChange(); },
     handleAlarm(alarm) { return satellites.handleAlarm(alarm); },
     async handleStorageChanged(changes, areaName) {
       platform.handleStorageChanged(changes, areaName);

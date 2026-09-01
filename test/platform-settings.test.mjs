@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SETTINGS_KEY } from '../extension/core/config.js';
+import {
+  INCOGNITO_LOCALE_KEY,
+  INCOGNITO_SETTINGS_KEY,
+  INCOGNITO_WINDOWS_KEY,
+  SETTINGS_KEY
+} from '../extension/core/config.js';
 import { createPlatform } from '../extension/background/platform.js';
 
-function chromeMock() {
+function chromeMock(incognito = false) {
   const local = {};
   const session = {};
   let failNextWrite = false;
@@ -11,6 +16,7 @@ function chromeMock() {
   let scriptFailures = 0;
   let scriptCalls = 0;
   let tabs = [];
+  let windows = incognito ? [{ id: 91, incognito: true }] : [{ id: 1, incognito: false }];
   const actionTitles = [];
   return {
     local,
@@ -20,8 +26,10 @@ function chromeMock() {
     failScripts(count) { scriptFailures = count; },
     scriptCalls() { return scriptCalls; },
     setTabs(value) { tabs = value; },
+    setWindows(value) { windows = value; },
     actionTitles,
     api: {
+      extension: { inIncognitoContext: incognito },
       storage: {
         local: {
           async get(keys) {
@@ -66,6 +74,9 @@ function chromeMock() {
           }
           return tabs;
         }
+      },
+      windows: {
+        async getAll() { return windows; }
       },
       scripting: {
         async executeScript() {
@@ -210,4 +221,102 @@ test('page synchronization retries transient script injection failures', async (
   mock.failScripts(2);
   assert.equal(await platform.refreshTabPage(17), true);
   assert.equal(mock.scriptCalls(), 3);
+});
+
+test('incognito settings start disabled and never inherit regular saved settings', async () => {
+  const mock = chromeMock(true);
+  mock.local[SETTINGS_KEY] = {
+    nativeScroll: { enabled: true },
+    noAutoplay: { enabled: true },
+    anyCopy: { siteRules: ['example.com'] }
+  };
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  const settings = await platform.ensureSettings();
+  assert.equal(settings.nativeScroll.enabled, false);
+  assert.equal(settings.noAutoplay.enabled, false);
+  assert.deepEqual(settings.anyCopy.siteRules, []);
+  assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
+  assert.equal(mock.session[INCOGNITO_SETTINGS_KEY].nativeScroll.enabled, false);
+});
+
+test('explicit incognito changes remain in session storage and do not alter regular settings', async () => {
+  const mock = chromeMock(true);
+  mock.local[SETTINGS_KEY] = { nativeScroll: { enabled: true } };
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  await platform.mutateSettings(current => ({
+    ...current,
+    nativeScroll: { ...current.nativeScroll, enabled: true, standardRules: ['example.com'] }
+  }), false);
+  await platform.setLocale('zh-CN');
+  assert.deepEqual(mock.session[INCOGNITO_SETTINGS_KEY].nativeScroll.standardRules, ['example.com']);
+  assert.equal(mock.session[INCOGNITO_LOCALE_KEY], 'zh-CN');
+  assert.deepEqual(mock.local[SETTINGS_KEY], { nativeScroll: { enabled: true } });
+});
+
+test('resetting incognito settings leaves regular saved settings untouched', async () => {
+  const mock = chromeMock(true);
+  mock.local[SETTINGS_KEY] = { nativeScroll: { enabled: true, enhancedRules: ['example.com'] } };
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  await platform.mutateSettings(current => ({
+    ...current,
+    nativeScroll: { ...current.nativeScroll, enabled: true }
+  }), false);
+  const reset = await platform.resetStorage();
+  assert.equal(reset.nativeScroll.enabled, false);
+  assert.deepEqual(mock.local[SETTINGS_KEY], { nativeScroll: { enabled: true, enhancedRules: ['example.com'] } });
+  assert.equal(mock.session[INCOGNITO_SETTINGS_KEY].nativeScroll.enabled, false);
+});
+
+test('incognito context refreshes only for its session settings changes', async () => {
+  const mock = chromeMock(true);
+  mock.setTabs([{ id: 17, url: 'https://example.com/' }]);
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  assert.equal(platform.handleStorageChanged({
+    [SETTINGS_KEY]: { oldValue: { nativeScroll: { enabled: false } }, newValue: { nativeScroll: { enabled: true } } }
+  }, 'local'), false);
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(mock.scriptCalls(), 0);
+  assert.equal(platform.handleStorageChanged({
+    [INCOGNITO_SETTINGS_KEY]: { oldValue: { nativeScroll: { enabled: false } }, newValue: { nativeScroll: { enabled: true } } }
+  }, 'session'), true);
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(mock.scriptCalls(), 1);
+});
+
+test('a new incognito window set discards settings from the previous incognito session', async () => {
+  const mock = chromeMock(true);
+  mock.setWindows([{ id: 202, incognito: true }]);
+  mock.session[INCOGNITO_WINDOWS_KEY] = [101];
+  mock.session[INCOGNITO_SETTINGS_KEY] = {
+    nativeScroll: { enabled: true, standardRules: ['example.com'] },
+    noAutoplay: { enabled: true }
+  };
+  mock.session[INCOGNITO_LOCALE_KEY] = 'zh-CN';
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  const settings = await platform.ensureSettings();
+  assert.equal(settings.nativeScroll.enabled, false);
+  assert.equal(settings.noAutoplay.enabled, false);
+  assert.equal(mock.session[INCOGNITO_LOCALE_KEY], undefined);
+  assert.deepEqual(mock.session[INCOGNITO_WINDOWS_KEY], [202]);
+});
+
+test('closing the last incognito window removes its temporary settings', async () => {
+  const mock = chromeMock(true);
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  await platform.ensureSettings();
+  await platform.mutateSettings(current => ({
+    ...current,
+    nativeScroll: { ...current.nativeScroll, enabled: true }
+  }), false);
+  mock.setWindows([]);
+  await platform.handleIncognitoWindowChange();
+  assert.equal(mock.session[INCOGNITO_SETTINGS_KEY], undefined);
+  assert.equal(mock.session[INCOGNITO_LOCALE_KEY], undefined);
+  assert.equal(mock.session[INCOGNITO_WINDOWS_KEY], undefined);
 });

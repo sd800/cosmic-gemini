@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.11.1');
+assert.equal(manifest.version, '5.12.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -43,6 +43,7 @@ assert.deepEqual(manifest.content_scripts[0].js, ['content/central-page.js']);
 assert.equal(manifest.content_scripts[0].world, 'ISOLATED');
 assert.equal(manifest.content_scripts[0].run_at, 'document_start');
 assert.equal(manifest.content_scripts[0].all_frames, true);
+assert.equal(manifest.incognito, 'split');
 
 const extensionRootEntries = await readdir(extension, { withFileTypes: true });
 assert.deepEqual(extensionRootEntries.filter(entry => entry.isFile()).map(entry => entry.name).sort(), ['manifest.json']);
@@ -148,12 +149,16 @@ assert.doesNotMatch(popupSource, /chrome\.storage|chrome\.tabs\./);
 assert.doesNotMatch(popupSource, /showView\(state\.videoDownload\?\.active/);
 
 const settingsSource = await source('settings', 'page.js');
+const settingsPreload = await source('settings', 'preload.js');
+const satellitesSettings = await source('settings', 'satellites.html');
 assert.match(settingsSource, /UI_SET_BEHAVIOR_RULE/);
 assert.match(settingsSource, /UI_ADD_NSNA_WHITELIST_RULE/);
 assert.match(settingsSource, /UI_SET_AUDIO_AUTOPLAY_ALL_SITES/);
 assert.match(settingsSource, /UI_RESET_ALL_SETTINGS/);
 assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
+assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
+assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await source('settings', name);
   assert.equal([...html.matchAll(/data-behavior-card/g)].length, 1);
@@ -163,6 +168,7 @@ for (const name of ['native-scroll.html', 'no-autoplay.html']) {
 }
 
 const central = await source('background', 'central.js');
+const config = await source('core', 'config.js');
 const messageSource = await source('background', 'message-source.js');
 const platform = await source('background', 'platform.js');
 const provinceInterface = await source('background', 'provinces', 'interface.js');
@@ -196,10 +202,11 @@ assert.match(central, /Promise\.allSettled\(PAGE_PRODUCTS/);
 assert.match(central, /results\.some\(result => result\.status === 'rejected'\)/);
 assert.match(central, /unavailableProductState/);
 assert.match(central, /onHeadersReceived\.removeListener\(handleCustomsHeadersReceived\)/);
+assert.match(central, /windowCreated[\s\S]*handleWindowCreated[\s\S]*chrome\.windows\.onCreated/);
 assert.doesNotMatch(central, /chrome\.storage\.(?!onChanged\.addListener)|chrome\.scripting\.executeScript|chrome\.tabs\.(?:query|create|update)|chrome\.downloads\.download\s*\(|chrome\.sidePanel|chrome\.offscreen|chrome\.declarativeNetRequest|fetch\s*\(/,
   'Central may decide and route, but must not execute product work.');
 
-for (const method of ['initialize', 'getProductState', 'syncProduct', 'handleMessage', 'handleConnect', 'handleTabUpdated', 'handleTabRemoved', 'handleDownloadChanged', 'handleDeterminingFilename', 'handleHeadersReceived', 'handleAlarm', 'handleStorageChanged', 'reset']) {
+for (const method of ['initialize', 'getProductState', 'syncProduct', 'handleMessage', 'handleConnect', 'handleTabUpdated', 'handleTabRemoved', 'handleWindowCreated', 'handleWindowRemoved', 'handleDownloadChanged', 'handleDeterminingFilename', 'handleHeadersReceived', 'handleAlarm', 'handleStorageChanged', 'reset']) {
   assert.match(provinceInterface, new RegExp(method));
 }
 for (const [id, province] of [['standing', standing], ['operations', operations], ['customs', customs]]) {
@@ -244,8 +251,15 @@ assert.match(platform, /queueWrite/);
 assert.match(platform, /resettingStorage/);
 assert.match(platform, /clearOrphanedActivity/);
 assert.match(platform, /RETAINED_DOWNLOAD_PREFIXES/);
+assert.match(config, /DEFAULT_INCOGNITO_SETTINGS[\s\S]*nativeScroll:[\s\S]*enabled: false[\s\S]*noAutoplay:[\s\S]*enabled: false/);
+assert.match(platform, /INCOGNITO_SETTINGS_KEY[\s\S]*chrome\.storage\.session[\s\S]*INCOGNITO_WINDOWS_KEY/);
+assert.match(platform, /handleIncognitoWindowChange/);
 assert.match(platform, /refreshToolbarTitles[\s\S]*readActivity\(tab\.id\)[\s\S]*renderToolbar[\s\S]*setLocale/);
 assert.match(satellites, /inIncognitoContext[\s\S]*ownsDailySchedule/);
+assert.match(satellites, /available: false/);
+assert.match(settingsSource, /disabledByDefaultInIncognito/);
+assert.match(settingsSource, /helpPanel\.hidden = false/);
+assert.doesNotMatch(settingsSource, /helpPanel\.hidden = incognitoContext/);
 
 assert.match(imageDownload, /chrome\.sidePanel\.setOptions/);
 assert.match(imageDownload, /workspaces\/image-download\/image-download\.html/);

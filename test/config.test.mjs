@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  DEFAULT_INCOGNITO_SETTINGS,
   DEFAULT_SETTINGS,
   FEATURE_IDS,
   anyCopyEnhancedState,
@@ -13,6 +14,13 @@ import {
   ruleMatches,
   updateFeature
 } from '../extension/core/config.js';
+
+test('incognito defaults keep every automatic product inactive', () => {
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.nativeScroll.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
+  assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
+});
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 
 test('persistent products start with independent settings while Any Copy Enhanced has no site rules', () => {

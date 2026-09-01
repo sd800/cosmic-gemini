@@ -1,5 +1,6 @@
 (() => {
   const root = document.documentElement;
+  const incognitoContext = chrome.extension?.inIncognitoContext === true;
   const cacheKey = 'cosmicGeminiSettingsViewCache';
   const emptyKeys = {
     inactiveRules: 'emptyInactiveSites',
@@ -21,7 +22,9 @@
     trash: '<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/>'
   };
   let preferred = '';
-  try { preferred = localStorage.getItem('cosmicGeminiInterfaceLocale') || ''; } catch {}
+  if (!incognitoContext) {
+    try { preferred = localStorage.getItem('cosmicGeminiInterfaceLocale') || ''; } catch {}
+  }
   if (!preferred) preferred = (navigator.languages || [navigator.language]).find(Boolean) || 'en-US';
   const locale = String(preferred).toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
   const catalog = globalThis.COSMIC_GEMINI_CATALOG?.[locale]
@@ -55,7 +58,9 @@
   if (version) version.textContent = translate('version', { version: chrome.runtime.getManifest().version });
 
   let cached = {};
-  try { cached = JSON.parse(localStorage.getItem(cacheKey) || '{}') || {}; } catch {}
+  if (!incognitoContext) {
+    try { cached = JSON.parse(localStorage.getItem(cacheKey) || '{}') || {}; } catch {}
+  }
   const feature = document.body.dataset.feature;
   const current = cached[feature] || {};
   const cachedRules = name => Array.isArray(current[name])
@@ -75,11 +80,22 @@
     enhancedRules
   };
   const enabled = document.querySelector('#enabled');
-  if (enabled && typeof current.enabled === 'boolean') enabled.checked = current.enabled;
+  if (enabled) enabled.checked = incognitoContext ? false : typeof current.enabled === 'boolean' ? current.enabled : enabled.checked;
+  const introSetting = document.querySelector('.intro-setting');
+  if (introSetting && ['nativeScroll', 'noAutoplay'].includes(feature) && incognitoContext) {
+    introSetting.textContent = translate('disabledByDefaultInIncognito');
+  }
   const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
   if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
-  if (biliDailyLogin) biliDailyLogin.checked = current.biliDailyLogin?.enabled === true;
+  if (biliDailyLogin) {
+    biliDailyLogin.checked = !incognitoContext && current.biliDailyLogin?.enabled === true;
+    if (incognitoContext) {
+      biliDailyLogin.closest('.switch').hidden = true;
+      const status = biliDailyLogin.closest('.satellite-control')?.querySelector('.incognito-status');
+      if (status) status.hidden = false;
+    }
+  }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');

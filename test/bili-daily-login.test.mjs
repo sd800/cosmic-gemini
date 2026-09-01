@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bilibiliDateKey, browserReportsOffline, nextBilibiliSchedule } from '../extension/core/bili-daily-login.js';
+import {
+  BILI_DAILY_RETRY_KEY,
+  bilibiliDateKey,
+  browserReportsOffline,
+  nextBilibiliSchedule
+} from '../extension/core/bili-daily-login.js';
 import { createSatellitesProduct } from '../extension/background/products/operations/satellites.js';
 
 test('Bili Daily Login uses Bilibili calendar days in China Standard Time', () => {
@@ -75,13 +80,14 @@ test('disabling Bili Daily Login aborts an in-flight request without reschedulin
 test('Bili Daily Login never schedules from the split incognito background context', async () => {
   let settings = { satellites: { biliDailyLogin: { enabled: false, lastCompletedDate: '' } } };
   const createdAlarms = [];
+  const session = { [BILI_DAILY_RETRY_KEY]: { date: '2026-08-30', attempts: 1 } };
   globalThis.chrome = {
     extension: { inIncognitoContext: true },
     storage: {
       session: {
-        async get() { return {}; },
-        async set() {},
-        async remove() {}
+        async get(key) { return key in session ? { [key]: session[key] } : {}; },
+        async set(values) { Object.assign(session, values); },
+        async remove(key) { delete session[key]; }
       }
     },
     alarms: {
@@ -97,9 +103,14 @@ test('Bili Daily Login never schedules from the split incognito background conte
       return structuredClone(settings);
     }
   });
-  await product.handleMessage({ type: 'UI_SET_BILI_DAILY_LOGIN', enabled: true });
+  const result = await product.handleMessage({ type: 'UI_SET_BILI_DAILY_LOGIN', enabled: true });
   await product.handleStorageChanged({ cosmicGeminiSettings: { newValue: settings } }, 'local');
-  assert.equal(settings.satellites.biliDailyLogin.enabled, true);
+  assert.deepEqual(result, { enabled: false, lastCompletedDate: '', available: false });
+  assert.equal(settings.satellites.biliDailyLogin.enabled, false);
+  assert.deepEqual(await product.state(settings), {
+    biliDailyLogin: { enabled: false, lastCompletedDate: '', available: false }
+  });
+  assert.deepEqual(session[BILI_DAILY_RETRY_KEY], { date: '2026-08-30', attempts: 1 });
   assert.deepEqual(createdAlarms, []);
 });
 

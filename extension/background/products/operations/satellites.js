@@ -33,7 +33,7 @@ export function createSatellitesProduct(platform) {
 
   async function syncSchedule() {
     if (!ownsDailySchedule) {
-      await clearDisabledState();
+      await clearUnavailableState();
       return;
     }
     const settings = await platform.readSettings();
@@ -88,6 +88,10 @@ export function createSatellitesProduct(platform) {
   async function clearDisabledState() {
     await chrome.alarms.clear(BILI_DAILY_ALARM);
     await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+  }
+
+  async function clearUnavailableState() {
+    await chrome.alarms.clear(BILI_DAILY_ALARM);
   }
 
   async function hasRegularBrowserWindow() {
@@ -180,10 +184,25 @@ export function createSatellitesProduct(platform) {
 
   return Object.freeze({
     id: 'satellites',
-    async state(settings) { return settings.satellites; },
+    async state(settings) {
+      if (ownsDailySchedule) return settings.satellites;
+      return {
+        ...settings.satellites,
+        biliDailyLogin: {
+          ...settings.satellites.biliDailyLogin,
+          enabled: false,
+          available: false
+        }
+      };
+    },
     ensureSchedule,
     async handleMessage(message) {
       if (message.type !== 'UI_SET_BILI_DAILY_LOGIN') throw new Error('Satellites does not support this command.');
+      if (!ownsDailySchedule) {
+        await clearUnavailableState();
+        cancelScheduleRepair();
+        return { enabled: false, lastCompletedDate: '', available: false };
+      }
       const enabled = message.enabled === true;
       const settings = await platform.mutateSettings(current => ({
         ...current,
@@ -193,11 +212,6 @@ export function createSatellitesProduct(platform) {
         }
       }), false);
       try {
-        if (!ownsDailySchedule) {
-          await clearDisabledState();
-          cancelScheduleRepair();
-          return settings.satellites.biliDailyLogin;
-        }
         if (!enabled) await stopRun();
         await clearDisabledState();
         if (enabled) await ensureSchedule();
@@ -208,7 +222,7 @@ export function createSatellitesProduct(platform) {
     async handleAlarm(alarm) {
       if (alarm.name !== BILI_DAILY_ALARM) return false;
       if (!ownsDailySchedule) {
-        await clearDisabledState();
+        await clearUnavailableState();
         return true;
       }
       try { await runOnce(); }
@@ -219,6 +233,7 @@ export function createSatellitesProduct(platform) {
       return true;
     },
     async handleStorageChanged(changes, areaName) {
+      if (!ownsDailySchedule) return false;
       const change = areaName === 'local' ? changes?.[SETTINGS_KEY] : null;
       if (!change || dailySettingsSignature(change.oldValue) === dailySettingsSignature(change.newValue)) return false;
       try { await ensureSchedule(); }
@@ -228,7 +243,8 @@ export function createSatellitesProduct(platform) {
     async reset() {
       cancelScheduleRepair();
       await stopRun();
-      await clearDisabledState();
+      if (ownsDailySchedule) await clearDisabledState();
+      else await clearUnavailableState();
     }
   });
 }

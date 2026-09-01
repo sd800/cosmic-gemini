@@ -1,7 +1,11 @@
 import {
+  DEFAULT_INCOGNITO_SETTINGS,
   DEFAULT_SETTINGS,
   FEATURE_IDS,
   hostnameFromUrl,
+  INCOGNITO_LOCALE_KEY,
+  INCOGNITO_SETTINGS_KEY,
+  INCOGNITO_WINDOWS_KEY,
   LEGACY_SETTINGS_KEY,
   SETTINGS_KEY,
   normalizeSettings
@@ -17,10 +21,17 @@ const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
 const RETAINED_DOWNLOAD_PREFIXES = ['videoDownloadArtifact:', 'imageDownloadArtifact:', 'imageCaptureArtifact:'];
 
 export function createPlatform() {
+  const incognitoContext = chrome.extension?.inIncognitoContext === true;
+  const settingsStorage = incognitoContext ? chrome.storage.session : chrome.storage.local;
+  const settingsKey = incognitoContext ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
+  const localeKey = incognitoContext ? INCOGNITO_LOCALE_KEY : 'interfaceLocale';
+  const settingsAreaName = incognitoContext ? 'session' : 'local';
+  const defaultSettings = incognitoContext ? DEFAULT_INCOGNITO_SETTINGS : DEFAULT_SETTINGS;
   let writeQueue = Promise.resolve();
   let resettingStorage = false;
   let pageRefreshTimer = 0;
   let toolbarRefreshTimer = 0;
+  let incognitoSessionPreparation = null;
   const activityQueue = createKeyedTaskQueue();
   const centralUiPorts = new Set();
 
@@ -44,13 +55,15 @@ export function createPlatform() {
   }
 
   async function readSettings() {
-    const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
-    return normalizeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
+    await prepareIncognitoSession();
+    const keys = incognitoContext ? [settingsKey] : [settingsKey, LEGACY_SETTINGS_KEY];
+    const stored = await settingsStorage.get(keys);
+    return normalizeSettings(stored[settingsKey] || (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) || defaultSettings);
   }
 
   async function writeSettings(value) {
     const settings = normalizeSettings(value);
-    await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+    await settingsStorage.set({ [settingsKey]: settings });
     return settings;
   }
 
@@ -58,11 +71,50 @@ export function createPlatform() {
     return queueWrite(() => writeSettings(value));
   }
 
+  async function reconcileIncognitoSession() {
+    if (!incognitoContext || typeof chrome.windows?.getAll !== 'function') return false;
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    const currentIds = windows
+      .filter(window => window.incognito === true && Number.isInteger(window.id))
+      .map(window => window.id)
+      .sort((a, b) => a - b);
+    const stored = await chrome.storage.session.get([
+      INCOGNITO_WINDOWS_KEY,
+      INCOGNITO_SETTINGS_KEY,
+      INCOGNITO_LOCALE_KEY
+    ]);
+    const previousIds = Array.isArray(stored[INCOGNITO_WINDOWS_KEY])
+      ? stored[INCOGNITO_WINDOWS_KEY].filter(Number.isInteger)
+      : [];
+    const continuingSession = currentIds.some(id => previousIds.includes(id));
+    const staleSettings = !continuingSession
+      && (stored[INCOGNITO_SETTINGS_KEY] !== undefined || stored[INCOGNITO_LOCALE_KEY] !== undefined);
+    if (!currentIds.length || staleSettings) {
+      await chrome.storage.session.remove([INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY]);
+    }
+    if (currentIds.length) await chrome.storage.session.set({ [INCOGNITO_WINDOWS_KEY]: currentIds });
+    else await chrome.storage.session.remove(INCOGNITO_WINDOWS_KEY);
+    return true;
+  }
+
+  function prepareIncognitoSession() {
+    if (!incognitoContext) return Promise.resolve(false);
+    if (!incognitoSessionPreparation) {
+      incognitoSessionPreparation = reconcileIncognitoSession().catch(error => {
+        incognitoSessionPreparation = null;
+        throw error;
+      });
+    }
+    return incognitoSessionPreparation;
+  }
+
   function ensureSettings() {
     return queueWrite(async () => {
-      const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
-      const settings = await writeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
-      if (stored[LEGACY_SETTINGS_KEY]) await chrome.storage.local.remove(LEGACY_SETTINGS_KEY);
+      await prepareIncognitoSession();
+      const keys = incognitoContext ? [settingsKey] : [settingsKey, LEGACY_SETTINGS_KEY];
+      const stored = await settingsStorage.get(keys);
+      const settings = await writeSettings(stored[settingsKey] || (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) || defaultSettings);
+      if (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) await chrome.storage.local.remove(LEGACY_SETTINGS_KEY);
       return settings;
     });
   }
@@ -235,8 +287,9 @@ export function createPlatform() {
   }
 
   async function getLocale() {
-    const stored = await chrome.storage.local.get('interfaceLocale');
-    return normalizeLocale(stored.interfaceLocale || chrome.i18n.getUILanguage());
+    await prepareIncognitoSession();
+    const stored = await settingsStorage.get(localeKey);
+    return normalizeLocale(stored[localeKey] || chrome.i18n.getUILanguage());
   }
 
   async function refreshToolbarTitles() {
@@ -258,7 +311,7 @@ export function createPlatform() {
   }
 
   function pageSettingsSignature(value) {
-    const settings = normalizeSettings(value || DEFAULT_SETTINGS);
+    const settings = normalizeSettings(value || defaultSettings);
     return JSON.stringify({
       nsna: settings.nsna,
       nativeScroll: settings.nativeScroll,
@@ -268,20 +321,21 @@ export function createPlatform() {
   }
 
   function handleStorageChanged(changes, areaName) {
-    if (areaName !== 'local' || !changes || typeof changes !== 'object') return false;
-    const settingsChange = changes[SETTINGS_KEY] || changes[LEGACY_SETTINGS_KEY];
+    if (areaName !== settingsAreaName || !changes || typeof changes !== 'object') return false;
+    const settingsChange = changes[settingsKey] || (!incognitoContext && changes[LEGACY_SETTINGS_KEY]);
     if (settingsChange && pageSettingsSignature(settingsChange.oldValue) !== pageSettingsSignature(settingsChange.newValue)) {
       scheduleOpenPageRefresh();
     }
-    if (changes.interfaceLocale) scheduleToolbarRefresh();
-    if (settingsChange || changes.interfaceLocale) notifyCentralUi();
-    return !!(settingsChange || changes.interfaceLocale);
+    if (changes[localeKey]) scheduleToolbarRefresh();
+    if (settingsChange || changes[localeKey]) notifyCentralUi();
+    return !!(settingsChange || changes[localeKey]);
   }
 
   function setLocale(value) {
     const locale = normalizeLocale(value);
     return queueWrite(async () => {
-      await chrome.storage.local.set({ interfaceLocale: locale });
+      await prepareIncognitoSession();
+      await settingsStorage.set({ [localeKey]: locale });
       scheduleToolbarRefresh();
       return locale;
     });
@@ -301,10 +355,16 @@ export function createPlatform() {
         await activityQueue.drain();
         const sessionValues = await chrome.storage.session.get(null);
         const disposableSessionKeys = Object.keys(sessionValues)
-          .filter(key => !RETAINED_DOWNLOAD_PREFIXES.some(prefix => key.startsWith(prefix)));
+          .filter(key => !RETAINED_DOWNLOAD_PREFIXES.some(prefix => key.startsWith(prefix)))
+          .filter(key => key !== INCOGNITO_WINDOWS_KEY)
+          .filter(key => incognitoContext || ![INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY].includes(key));
         if (disposableSessionKeys.length) await chrome.storage.session.remove(disposableSessionKeys);
-        await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
-        const settings = await writeSettings(DEFAULT_SETTINGS);
+        if (incognitoContext) {
+          await chrome.storage.session.remove([INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY]);
+        } else {
+          await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
+        }
+        const settings = await writeSettings(defaultSettings);
         let tabs = [];
         try { tabs = await chrome.tabs.query({}); } catch {}
         await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => renderToolbar(tab.id, emptyActivity())));
@@ -333,6 +393,8 @@ export function createPlatform() {
     getLocale,
     setLocale,
     runtimeToken,
+    isIncognitoContext: () => incognitoContext,
+    handleIncognitoWindowChange: () => queueWrite(reconcileIncognitoSession),
     resetStorage
   });
 }

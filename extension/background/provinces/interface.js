@@ -12,6 +12,8 @@ export function defineProvince({ id, products, ...implementation }) {
     handleConnect: implementation.handleConnect || (() => false),
     handleTabUpdated: implementation.handleTabUpdated || NOOP,
     handleTabRemoved: implementation.handleTabRemoved || NOOP,
+    handleWindowCreated: implementation.handleWindowCreated || NOOP,
+    handleWindowRemoved: implementation.handleWindowRemoved || NOOP,
     handleDownloadChanged: implementation.handleDownloadChanged || NOOP,
     handleDeterminingFilename: implementation.handleDeterminingFilename || (() => false),
     handleHeadersReceived: implementation.handleHeadersReceived || NOOP,

@@ -1,5 +1,8 @@
 export const SETTINGS_KEY = 'cosmicGeminiSettings';
 export const LEGACY_SETTINGS_KEY = 'settings';
+export const INCOGNITO_SETTINGS_KEY = 'cosmicGeminiIncognitoSettings';
+export const INCOGNITO_LOCALE_KEY = 'cosmicGeminiIncognitoLocale';
+export const INCOGNITO_WINDOWS_KEY = 'cosmicGeminiIncognitoWindowIds';
 
 export const FEATURE_IDS = Object.freeze({
   NATIVE_SCROLL: 'nativeScroll',
@@ -49,6 +52,24 @@ export const DEFAULT_SETTINGS = Object.freeze({
   videoDownload: Object.freeze({
     preferredQuality: 'best',
     askWhereToSave: true
+  }),
+  satellites: Object.freeze({
+    biliDailyLogin: Object.freeze({
+      enabled: false,
+      lastCompletedDate: ''
+    })
+  })
+});
+
+export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
+  ...DEFAULT_SETTINGS,
+  nativeScroll: Object.freeze({
+    ...DEFAULT_SETTINGS.nativeScroll,
+    enabled: false
+  }),
+  noAutoplay: Object.freeze({
+    ...DEFAULT_SETTINGS.noAutoplay,
+    enabled: false
   }),
   satellites: Object.freeze({
     biliDailyLogin: Object.freeze({

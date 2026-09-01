@@ -5,6 +5,7 @@ import { icon, retryRead, send } from '../shared/ui.js';
 import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
 
 const root = document.documentElement;
+const incognitoContext = chrome.extension?.inIncognitoContext === true;
 const primary = document.querySelector('.primary');
 const helpPanel = document.querySelector('.help');
 const emptyKey = {
@@ -157,12 +158,23 @@ function renderBehaviorList(section) {
 function render() {
   const current = state();
   if (!current) return;
+  const incognito = states?.incognito === true;
   const enabled = document.querySelector('#enabled');
   if (enabled) enabled.checked = current.enabled;
+  const introSetting = document.querySelector('.intro-setting');
+  if (introSetting && ['nativeScroll', 'noAutoplay'].includes(featureId) && incognito) {
+    introSetting.textContent = t('disabledByDefaultInIncognito');
+  }
   const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
   if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
-  if (biliDailyLogin) biliDailyLogin.checked = current.biliDailyLogin?.enabled === true;
+  if (biliDailyLogin) {
+    const available = current.biliDailyLogin?.available !== false && !incognito;
+    biliDailyLogin.checked = available && current.biliDailyLogin?.enabled === true;
+    biliDailyLogin.closest('.switch').hidden = !available;
+    const status = biliDailyLogin.closest('.satellite-control')?.querySelector('.incognito-status');
+    if (status) status.hidden = available;
+  }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');
@@ -183,7 +195,7 @@ async function reload() {
   if (storageSyncTimer) clearTimeout(storageSyncTimer);
   storageSyncTimer = 0;
   states = await send({ type: 'UI_GET', url: '' });
-  saveSettingsViewCache(states);
+  if (!incognitoContext) saveSettingsViewCache(states);
   render();
 }
 
@@ -370,7 +382,9 @@ function bindView() {
     try {
       const result = await send({ type: 'UI_SET_LOCALE', locale: control.value });
       locale = result.locale;
-      try { localStorage.setItem('cosmicGeminiInterfaceLocale', locale); } catch {}
+      if (!incognitoContext) {
+        try { localStorage.setItem('cosmicGeminiInterfaceLocale', locale); } catch {}
+      }
       applyLocale();
       render();
     } catch {

@@ -33,3 +33,28 @@ test('a saved locale cache survives a transient Service Worker read failure', as
     else delete globalThis.localStorage;
   }
 });
+
+test('incognito locale does not inherit the ordinary-window cache', async () => {
+  const previousChrome = globalThis.chrome;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  let writes = 0;
+  globalThis.chrome = {
+    extension: { inIncognitoContext: true },
+    runtime: { sendMessage: async () => { throw new Error('worker unavailable'); } }
+  };
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem() { return 'zh-CN'; },
+      setItem() { writes += 1; }
+    }
+  });
+  try {
+    assert.equal(await loadLocale(), preferredLocale());
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.chrome = previousChrome;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
+});

@@ -25,6 +25,7 @@ import {
   mergeVideoCandidate,
   parseHlsMaster,
   parseHlsMedia,
+  recoverInterruptedVideoCandidates,
   sanitizeVideoFilename,
   videoSessionKey
 } from '../../../core/video-download.js';
@@ -34,13 +35,14 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   const activeVideoProcessing = new Map();
   let nextMediaHeaderRuleId = 700000;
   const pendingVideoFilenames = new Map();
+  const untrackedDownloadArtifacts = new Map();
   const expandingVideoManifests = new Set();
   const activeTabs = new Set();
   const pendingNetworkCandidates = new Map();
   const viewPorts = new Map();
   const sessionUpdates = createKeyedTaskQueue();
   const MEDIA_HEADER_RULE_MIN = 700001;
-  const MEDIA_HEADER_RULE_MAX = 2_000_000_000;
+  const MEDIA_HEADER_RULE_MAX = 799999;
 
   async function cleanupOrphanedMediaHeaderRules() {
     if (!chrome.declarativeNetRequest?.getSessionRules || !chrome.declarativeNetRequest?.updateSessionRules) return true;
@@ -68,11 +70,21 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   }
   async function restoreCollectingTabs() {
     try {
+      const priorCollecting = new Set(activeTabs);
+      const restoredCollecting = new Set();
       const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       for (const [key, value] of Object.entries(values)) {
         if (!key.startsWith('videoDownloadSession:') || value?.active !== true || !Number.isInteger(value.tabId)) continue;
         let updated = false;
+        const recovered = recoverInterruptedVideoCandidates(value.candidates);
+        if (recovered.changed) {
+          value.candidates = recovered.candidates;
+          updated = true;
+          await Promise.allSettled(recovered.requestIds.map(requestId => offscreen.sendVideo({
+            type: 'CG_VIDEO_CANCEL_REQUEST', requestId
+          })));
+        }
         for (const candidate of value.candidates || []) {
           if (!candidate.artifactId || !Number.isInteger(candidate.downloadId)) continue;
           let download;
@@ -87,7 +99,10 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         }
         if (updated) await chrome.storage.session.set({ [key]: value });
         if (liveTabIds.has(value.tabId)) {
-          if (downloadScanCollects(value)) await setCollecting(value.tabId, true);
+          if (downloadScanCollects(value)) {
+            restoredCollecting.add(value.tabId);
+            await setCollecting(value.tabId, true);
+          }
           continue;
         }
         const artifacts = [...new Set((value.candidates || []).map(candidate => candidate.artifactId).filter(Boolean))];
@@ -110,6 +125,12 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
           await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: value.artifactId });
           await chrome.storage.session.remove(key);
         } catch {}
+      }
+      for (const tabId of priorCollecting) {
+        if (restoredCollecting.has(tabId)) continue;
+        const key = videoSessionKey(tabId);
+        const latest = (await chrome.storage.session.get(key))[key];
+        if (!liveTabIds.has(tabId) || !downloadScanCollects(latest)) await setCollecting(tabId, false);
       }
       await offscreen.maybeClose();
       return true;
@@ -218,7 +239,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     const rules = filters.map(urlFilter => {
       do {
         nextMediaHeaderRuleId += 1;
-        if (nextMediaHeaderRuleId > 2_000_000_000) nextMediaHeaderRuleId = 700001;
+        if (nextMediaHeaderRuleId > MEDIA_HEADER_RULE_MAX) nextMediaHeaderRuleId = MEDIA_HEADER_RULE_MIN;
       } while (existing.has(nextMediaHeaderRuleId));
       existing.add(nextMediaHeaderRuleId);
       return {
@@ -636,8 +657,16 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     const artifacts = [];
     for (const candidate of current?.candidates || []) {
       if (!candidate.artifactId) continue;
-      if (candidate.status === 'downloading' && Number.isInteger(candidate.downloadId)
-        && await rememberVideoArtifact(candidate.downloadId, candidate.artifactId)) continue;
+      if (candidate.status === 'downloading' && Number.isInteger(candidate.downloadId)) {
+        if (await rememberVideoArtifact(candidate.downloadId, candidate.artifactId)) {
+          untrackedDownloadArtifacts.delete(candidate.downloadId);
+          offscreen.releaseArtifact(candidate.artifactId);
+        } else {
+          untrackedDownloadArtifacts.set(candidate.downloadId, candidate.artifactId);
+          offscreen.retainArtifact(candidate.artifactId);
+        }
+        continue;
+      }
       artifacts.push(candidate.artifactId);
     }
     await Promise.allSettled([...new Set(artifacts)].map(artifactId => offscreen.sendVideo({
@@ -652,8 +681,21 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     await offscreen.maybeClose();
   }
 
+  async function cancelTabVideoProcessing(tabId) {
+    const cancellations = [];
+    for (const [key, processing] of activeVideoProcessing) {
+      if (!key.startsWith(`${tabId}:`) || processing.phase !== 'processing') continue;
+      processing.cancelled = true;
+      if (processing.requestId) cancellations.push(
+        offscreen.sendVideo({ type: 'CG_VIDEO_CANCEL_REQUEST', requestId: processing.requestId })
+      );
+    }
+    await Promise.allSettled(cancellations);
+  }
+
   async function stopVideoSession(tabId, expectedOrigin = '') {
     if (!Number.isInteger(tabId)) return;
+    await cancelTabVideoProcessing(tabId);
     return sessionUpdates.run(tabId, async () => {
       const session = await readVideoSession(tabId);
       if (expectedOrigin && session?.origin !== expectedOrigin) return false;
@@ -688,7 +730,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
 
   async function rememberVideoArtifact(downloadId, artifactId) {
     if (!Number.isInteger(downloadId) || !artifactId) return false;
-    for (const delay of [0, 100, 500]) {
+    for (const delay of [0, 100, 500, 1_500, 3_000]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
         await chrome.storage.session.set({ [`videoDownloadArtifact:${downloadId}`]: { artifactId } });
@@ -781,6 +823,10 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       const artifactRemembered = artifact?.artifactId
         ? await rememberVideoArtifact(downloadId, artifact.artifactId)
         : false;
+      if (artifact?.artifactId && !artifactRemembered) {
+        untrackedDownloadArtifacts.set(downloadId, artifact.artifactId);
+        offscreen.retainArtifact(artifact.artifactId);
+      }
       handedOffToChrome = true;
       await updateVideoCandidate(tabId, candidateId, value => ({
         ...value,
@@ -848,17 +894,30 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   
   async function handleVideoDownloadChanged(delta) {
     if (!Number.isInteger(delta?.id) || !delta.state?.current) return;
+    const cleanedArtifacts = new Set();
     if (['complete', 'interrupted'].includes(delta.state.current)) {
       const artifactKey = `videoDownloadArtifact:${delta.id}`;
-      for (const delay of [0, 100, 500]) {
+      for (const delay of [0, 100, 500, 1_500]) {
         if (delay) await new Promise(resolve => setTimeout(resolve, delay));
         try {
           const artifact = (await chrome.storage.session.get(artifactKey))[artifactKey];
           if (!artifact?.artifactId) break;
           await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: artifact.artifactId });
+          cleanedArtifacts.add(artifact.artifactId);
           await chrome.storage.session.remove(artifactKey);
           await offscreen.maybeClose();
           break;
+        } catch {}
+      }
+      const untrackedArtifactId = untrackedDownloadArtifacts.get(delta.id) || '';
+      if (untrackedArtifactId) {
+        try {
+          if (!cleanedArtifacts.has(untrackedArtifactId)) {
+            await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: untrackedArtifactId });
+            cleanedArtifacts.add(untrackedArtifactId);
+          }
+          untrackedDownloadArtifacts.delete(delta.id);
+          offscreen.releaseArtifact(untrackedArtifactId);
         } catch {}
       }
     }
@@ -880,6 +939,12 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         error: delta.error?.current || ''
       }));
       if (artifactId) {
+        if (cleanedArtifacts.has(artifactId)) {
+          await updateVideoCandidate(session.tabId, candidate.id, value => (
+            value.artifactId === artifactId ? { ...value, artifactId: '' } : value
+          ));
+          continue;
+        }
         for (const delay of [0, 100, 500]) {
           if (delay) await new Promise(resolve => setTimeout(resolve, delay));
           try {
@@ -1064,10 +1129,6 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
 
   async function reset() {
     const tabIds = new Set(activeTabs);
-    for (const processing of activeVideoProcessing.values()) {
-      processing.cancelled = true;
-      if (processing.requestId) void offscreen.sendVideo({ type: 'CG_VIDEO_CANCEL_REQUEST', requestId: processing.requestId }).catch(() => {});
-    }
     try { await initialize(); } catch {}
     try {
       const values = await chrome.storage.session.get(null);

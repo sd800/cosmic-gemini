@@ -136,6 +136,8 @@
       this.originalFetch = globalThis.fetch;
       this.originalXhrOpen = XMLHttpRequest.prototype.open;
       this.originalXhrSend = XMLHttpRequest.prototype.send;
+      this.trackedXhrOpen = null;
+      this.trackedXhrSend = null;
       this.active = true;
       this.messageListening = false;
       this.onMessage = this.onMessage.bind(this);
@@ -156,7 +158,7 @@
       const length = Number(response.headers?.get?.('content-length') || 0);
       if (!/\.m3u8(?:$|[?#])/i.test(response.url || '') || length > 2 * 1024 * 1024) return;
       void response.clone().arrayBuffer().then(buffer => {
-        if (buffer.byteLength > 2 * 1024 * 1024) return;
+        if (!this.active || buffer.byteLength > 2 * 1024 * 1024) return;
         globalThis.postMessage({
           marker: MARKER,
           type: 'wrapped-manifest',
@@ -217,17 +219,18 @@
       }
       function trackedFetch(...args) {
         const promise = Reflect.apply(runtime.originalFetch, this, args);
-        void promise.then(response => runtime.inspectResponse(response)).catch(() => {});
+        if (runtime.active) void promise.then(response => runtime.inspectResponse(response)).catch(() => {});
         return promise;
       }
       this.trackedFetch = trackedFetch;
       globalThis.fetch = trackedFetch;
 
-      XMLHttpRequest.prototype.open = function trackedOpen(method, url, ...rest) {
-        this.__cosmicGeminiVideoUrl = normalizeUrl(url);
+      this.trackedXhrOpen = function trackedOpen(method, url, ...rest) {
+        if (runtime.active) this.__cosmicGeminiVideoUrl = normalizeUrl(url);
         return Reflect.apply(runtime.originalXhrOpen, this, [method, url, ...rest]);
       };
-      XMLHttpRequest.prototype.send = function trackedSend(...args) {
+      this.trackedXhrSend = function trackedSend(...args) {
+        if (!runtime.active) return Reflect.apply(runtime.originalXhrSend, this, args);
         this.addEventListener('load', () => {
           if (!runtime.active) return;
           const type = String(this.getResponseHeader?.('content-type') || '').toLowerCase();
@@ -248,6 +251,8 @@
         }, { once: true });
         return Reflect.apply(runtime.originalXhrSend, this, args);
       };
+      XMLHttpRequest.prototype.open = this.trackedXhrOpen;
+      XMLHttpRequest.prototype.send = this.trackedXhrSend;
     }
 
     onMessage(event) {
@@ -261,10 +266,11 @@
     stop() {
       this.active = false;
       if (globalThis.fetch === this.trackedFetch) globalThis.fetch = this.originalFetch;
-      if (XMLHttpRequest.prototype.open.name === 'trackedOpen') XMLHttpRequest.prototype.open = this.originalXhrOpen;
-      if (XMLHttpRequest.prototype.send.name === 'trackedSend') XMLHttpRequest.prototype.send = this.originalXhrSend;
+      if (XMLHttpRequest.prototype.open === this.trackedXhrOpen) XMLHttpRequest.prototype.open = this.originalXhrOpen;
+      if (XMLHttpRequest.prototype.send === this.trackedXhrSend) XMLHttpRequest.prototype.send = this.originalXhrSend;
       if (this.messageListening) globalThis.removeEventListener('message', this.onMessage);
       this.messageListening = false;
+      if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY];
     }
   }
 

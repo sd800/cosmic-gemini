@@ -108,6 +108,7 @@ test('Native Scroll stays quiet on native pages and suppresses registered takeov
   runtime.onWheel(hijackedEvent);
   assert.equal(hijackedEvent.stopped, true);
   assert.equal(interventions, 1);
+  runtime.onDispose({ detail: runtime.token });
 });
 
 test('Native Scroll skips unload listeners when the document policy disallows them', async () => {
@@ -120,10 +121,11 @@ test('Native Scroll skips unload listeners when the document policy disallows th
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
   const listener = () => {};
-  context.window.addEventListener('unload', listener);
+  context.EventTarget.prototype.addEventListener.call(context.window, 'unload', listener);
   assert.equal(context.window.listeners.has('unload'), false);
   context.window.addEventListener('load', listener);
   assert.equal(context.window.listeners.get('load').includes(listener), true);
+  runtime.onDispose({ detail: runtime.token });
 });
 
 test('Native Scroll leaves page APIs untouched while inactive and restores them when disabled', async () => {
@@ -145,6 +147,27 @@ test('Native Scroll leaves page APIs untouched while inactive and restores them 
   assert.equal(context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')], undefined);
 });
 
+test('Native Scroll becomes inert when a later page wrapper keeps its listener wrapper reachable', async () => {
+  const context = makeContext();
+  context.document.permissionsPolicy = { allowsFeature: feature => feature !== 'unload' };
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  const nativeScrollWrapper = context.EventTarget.prototype.addEventListener;
+  context.EventTarget.prototype.addEventListener = function laterPageWrapper(...args) {
+    return Reflect.apply(nativeScrollWrapper, this, args);
+  };
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) });
+  assert.equal(runtime.active, false);
+  const listener = () => {};
+  Reflect.apply(nativeScrollWrapper, context.window, ['custom', listener]);
+  assert.equal(context.window.listeners.get('custom')?.includes(listener), true);
+  Reflect.apply(nativeScrollWrapper, context.window, ['unload', listener]);
+  assert.equal(context.window.listeners.get('unload').includes(listener), true);
+  runtime.onDispose({ detail: runtime.token });
+});
+
 test('Native Scroll preserves wheel-based image switching inside an enlarged Xiaohongshu post', async () => {
   const context = makeContext('www.xiaohongshu.com');
   const media = new context.Element('media');
@@ -160,6 +183,7 @@ test('Native Scroll preserves wheel-based image switching inside an enlarged Xia
   const event = wheelEvent(context, image, [image, media, context.document.body, context.document.documentElement, context.document, context.window]);
   runtime.onWheel(event);
   assert.equal(event.stopped, false);
+  runtime.onDispose({ detail: runtime.token });
 });
 
 test('Xiaohongshu post-card allowance does not apply to other websites', async () => {
@@ -176,6 +200,7 @@ test('Xiaohongshu post-card allowance does not apply to other websites', async (
   const event = wheelEvent(context, image, [image, media, context.document.body, context.document.documentElement, context.document, context.window]);
   runtime.onWheel(event);
   assert.equal(event.stopped, true);
+  runtime.onDispose({ detail: runtime.token });
 });
 
 test('Native Scroll Enhanced preserves the enlarged Xiaohongshu post shell', async () => {
@@ -192,4 +217,5 @@ test('Native Scroll Enhanced preserves the enlarged Xiaohongshu post shell', asy
   assert.equal(post.style.getPropertyValue('transform'), '');
   assert.equal(context.document.documentElement.style.getPropertyValue('height'), '');
   assert.equal(context.document.body.style.getPropertyValue('overflow-y'), '');
+  runtime.onDispose({ detail: runtime.token });
 });

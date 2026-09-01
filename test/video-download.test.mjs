@@ -9,10 +9,12 @@ import {
   mediaRequestReferrer,
   parseHlsMaster,
   parseHlsMedia,
+  recoverInterruptedVideoCandidates,
   sanitizeVideoFilename,
   selectHlsVariant,
   stableVideoCandidateId
 } from '../extension/core/video-download.js';
+
 import {
   bilibiliDashCandidates,
   bilibiliPageContext,
@@ -24,6 +26,20 @@ import { md5 } from '../extension/core/md5.js';
 import { expandDashTemplate, parseIsoDuration } from '../extension/core/dash.js';
 import { unwrapObfuscatedHls } from '../extension/core/obfuscated-hls.js';
 import { youtubeCandidates } from '../extension/core/youtube-video.js';
+
+test('interrupted video processing recovers after a Service Worker restart', () => {
+  const ready = { id: 'ready', status: 'ready' };
+  const result = recoverInterruptedVideoCandidates([
+    ready,
+    { id: 'working', status: 'preparing', progress: 63, processingRequestId: 'request-1', error: 'old' }
+  ]);
+  assert.equal(result.changed, true);
+  assert.deepEqual(result.requestIds, ['request-1']);
+  assert.equal(result.candidates[0], ready);
+  assert.deepEqual(result.candidates[1], {
+    id: 'working', status: 'ready', progress: 0, processingRequestId: '', error: ''
+  });
+});
 
 test('video resources are classified without treating media segments as top-level results', () => {
   assert.equal(classifyVideoResource({ url: 'https://cdn.example/video.mp4' }).kind, 'direct');

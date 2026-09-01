@@ -1,6 +1,7 @@
 export function createCustomsOffscreenCoordinator() {
   let activeAssemblies = 0;
   let activeRequests = 0;
+  const retainedArtifacts = new Set();
   let documentLifecycle = Promise.resolve();
 
   function queueDocumentLifecycle(task) {
@@ -49,9 +50,9 @@ export function createCustomsOffscreenCoordinator() {
 
   function maybeClose() {
     return queueDocumentLifecycle(async () => {
-      if (activeAssemblies > 0 || activeRequests > 0) return;
+      if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
       const values = await chrome.storage.session.get(null);
-      if (activeAssemblies > 0 || activeRequests > 0) return;
+      if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
       const hasArtifact = Object.entries(values).some(([key, session]) =>
         (key.startsWith('videoDownloadSession:') && session?.candidates?.some(candidate => candidate.artifactId))
         || (key.startsWith('videoDownloadArtifact:') && session?.artifactId)
@@ -65,6 +66,8 @@ export function createCustomsOffscreenCoordinator() {
   return Object.freeze({
     beginAssembly() { activeAssemblies += 1; },
     endAssembly() { activeAssemblies = Math.max(0, activeAssemblies - 1); },
+    retainArtifact(artifactId) { if (artifactId) retainedArtifacts.add(artifactId); },
+    releaseArtifact(artifactId) { if (artifactId) retainedArtifacts.delete(artifactId); },
     sendVideo(message) { return send('video-download-offscreen', message); },
     sendImage(message) { return send('image-download-offscreen', message); },
     maybeClose

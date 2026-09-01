@@ -1,6 +1,6 @@
 (() => {
-  const existing = document.querySelector('[data-cosmic-gemini-image-capture]');
-  if (existing) existing.remove();
+  const CAPTURE_KEY = Symbol.for('cosmic-gemini.image-capture');
+  globalThis[CAPTURE_KEY]?.dispose?.();
   const zh = (navigator.languages || [navigator.language]).some(value => String(value).toLowerCase().startsWith('zh'));
   const overlay = document.createElement('div');
   overlay.dataset.cosmicGeminiImageCapture = 'true';
@@ -13,6 +13,7 @@
   overlay.append(hint, box);
   document.documentElement.append(overlay);
   let start = null;
+  let disposed = false;
   const point = event => ({ x: Math.max(0, Math.min(innerWidth, event.clientX)), y: Math.max(0, Math.min(innerHeight, event.clientY)) });
   const draw = current => {
     if (!start) return;
@@ -26,9 +27,14 @@
   };
   const stop = event => { event.preventDefault(); event.stopImmediatePropagation(); };
   const removeOverlay = () => {
+    if (disposed) return;
+    disposed = true;
     overlay.remove();
     removeEventListener('keydown', cancel, true);
+    if (globalThis[CAPTURE_KEY] === captureRuntime) delete globalThis[CAPTURE_KEY];
   };
+  const captureRuntime = Object.freeze({ dispose: removeOverlay });
+  globalThis[CAPTURE_KEY] = captureRuntime;
   overlay.addEventListener('pointerdown', event => {
     stop(event);
     start = point(event);

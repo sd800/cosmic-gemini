@@ -274,6 +274,7 @@
       this.seen.clear();
       globalThis.postMessage({ marker: PAGE_MARKER, type: 'stop' }, location.origin);
       this.unlisten();
+      if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY];
     }
   }
 

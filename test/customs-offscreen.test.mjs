@@ -32,3 +32,25 @@ test('Customs does not close its offscreen document while a new request is start
     assert.equal(closeCalls, 0);
   } finally { globalThis.chrome = previousChrome; }
 });
+
+test('Customs retains a local artifact when session storage cannot track its Chrome download', async () => {
+  const previousChrome = globalThis.chrome;
+  let closeCalls = 0;
+  globalThis.chrome = {
+    runtime: { getURL: path => `chrome-extension://test/${path}`, getContexts: async () => [] },
+    storage: { session: { get: async () => ({}) } },
+    offscreen: {
+      createDocument: async () => {},
+      closeDocument: async () => { closeCalls += 1; }
+    }
+  };
+  try {
+    const coordinator = createCustomsOffscreenCoordinator();
+    coordinator.retainArtifact('artifact-1');
+    await coordinator.maybeClose();
+    assert.equal(closeCalls, 0);
+    coordinator.releaseArtifact('artifact-1');
+    await coordinator.maybeClose();
+    assert.equal(closeCalls, 1);
+  } finally { globalThis.chrome = previousChrome; }
+});

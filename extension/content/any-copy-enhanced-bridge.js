@@ -26,8 +26,10 @@
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
   const requestConfig = async () => {
+    if (disposed) return;
     try {
       const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE', featureId: 'anyCopyEnhanced' });
+      if (disposed) return;
       const config = response?.result?.anyCopyEnhanced;
       if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
       if (!config?.active) { dispose(); return; }
@@ -37,6 +39,7 @@
       dispatchConfig(config);
       if (window === top) void chrome.runtime.sendMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'anyCopyEnhanced', active: true }).catch(() => {});
     } catch {
+      if (disposed) return;
       configFailures += 1;
       if (configFailures >= 4) { dispose(); return; }
       if (!configRetry) configRetry = setTimeout(() => {

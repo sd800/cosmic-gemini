@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.8.1');
+assert.equal(manifest.version, '5.9.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -294,6 +294,8 @@ for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'any-c
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);
   assert.match(value, /configFailures/);
+  assert.match(value, /const requestConfig = async \(\) => \{\s*if \(disposed\) return;/);
+  assert.match(value, /sendMessage[\s\S]*if \(disposed\) return;/);
   assert.match(value, /sendResponse\(\{ disposed: true \}\)/);
   assert.match(value, /Configuration is temporarily unavailable/);
 }
@@ -303,14 +305,25 @@ assert.equal(await stat(join(extension, 'offscreen/video-download.html')).then((
 const videoOffscreen = await source('offscreen', 'video-download.js');
 const videoPageRuntime = await source('content', 'video-download-page.js');
 const videoScanner = await source('content', 'video-download-scanner.js');
+const imageDownloadProduct = await source('background', 'products/customs/image-download.js');
+const videoDownloadProduct = await source('background', 'products/customs/video-download.js');
 assert.match(videoOffscreen, /new AbortController\(\)/);
 assert.match(videoOffscreen, /artifactId = artifact\.name/);
 assert.match(videoOffscreen, /STALE_ARTIFACT_AGE_MS/);
 assert.match(videoOffscreen, /collectRetainedArtifactIds/);
 assert.doesNotMatch(videoOffscreen, /setTimeout\(\(\) => void cleanupArtifact\(artifactId\)/);
 assert.match(videoPageRuntime, /removeEventListener\('message', this\.onMessage\)/);
+assert.match(videoPageRuntime, /XMLHttpRequest\.prototype\.open === this\.trackedXhrOpen/);
+assert.match(videoPageRuntime, /delete globalThis\[RUNTIME_KEY\]/);
+const imageCapture = await source('content', 'image-capture.js');
+assert.match(imageCapture, /cosmic-gemini\.image-capture/);
+assert.match(imageCapture, /globalThis\[CAPTURE_KEY\]\?\.dispose\?\.\(\)/);
 assert.match(videoScanner, /chrome\.runtime\.onMessage\.removeListener\(this\.onMessage\)/);
 assert.match(videoScanner, /globalThis\.removeEventListener\('message', this\.onWindowMessage\)/);
+assert.match(videoScanner, /delete globalThis\[RUNTIME_KEY\]/);
+assert.match(imageDownloadProduct, /priorCollecting[\s\S]*restoredCollecting/);
+assert.match(imageDownloadProduct, /cosmic-gemini\.image-capture[\s\S]*dispose/);
+assert.match(videoDownloadProduct, /priorCollecting[\s\S]*restoredCollecting/);
 assert.match(videoScanner, /transportCandidate\(item\)/);
 assert.match(videoScanner, /event\.data\.candidates\.slice\(0, 500\)/);
 assert.match(offscreenCoordinator, /videoDownloadArtifact:/);

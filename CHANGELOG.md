@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.9.1 — 2026-09-01
+
+- Expanded lifecycle checks across Service Worker recovery, page-script composition, media cancellation, download handoff, image capture, and response-observation restoration.
+- Video Download now recovers formats left in processing after a Service Worker restart. Stopping the product, closing its source tab, or resetting the extension cancels active local assembly, while completed Chrome handoff remains intact.
+- Video scanners and page hooks now remove their document-scoped state when discovery ends. Retained wrappers become inert if a webpage installs another wrapper above them, and temporary request-header rules use a dedicated bounded identifier range.
+- Image Download now keeps one capture overlay per page and dismisses it when the session ends. Reopening capture no longer leaves an older keyboard listener behind.
+- Page bridges ignore configuration replies that arrive after the product has been disposed. Customs Province also reconciles stale response-observation state after recovery instead of retaining a listener for a session that no longer collects resources.
+- Local media artifacts remain available until Chrome finishes an accepted download even when temporary session storage cannot record the handoff immediately. Added regression checks for interrupted processing, retained artifacts, composed page wrappers, and complete runtime cleanup.
+
 ## 5.8.1 — 2026-09-01
 
 - Expanded lifecycle and recovery checks across central routing, page runtimes, popup actions, current-tab tools, scheduled work, image capture, and extension UI connections.

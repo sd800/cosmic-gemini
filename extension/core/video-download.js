@@ -1,5 +1,24 @@
 export const VIDEO_SESSION_PREFIX = 'videoDownloadSession:';
 
+export function recoverInterruptedVideoCandidates(candidates = []) {
+  const requestIds = [];
+  let changed = false;
+  const recovered = candidates.map(candidate => {
+    if (candidate?.status !== 'preparing') return candidate;
+    const requestId = String(candidate.processingRequestId || '');
+    if (requestId) requestIds.push(requestId);
+    changed = true;
+    return {
+      ...candidate,
+      status: 'ready',
+      progress: 0,
+      processingRequestId: '',
+      error: ''
+    };
+  });
+  return { candidates: recovered, requestIds, changed };
+}
+
 const DIRECT_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'mkv', 'm4v', 'ogv']);
 const SEGMENT_EXTENSIONS = new Set(['m4s', 'cmfv', 'cmfa', 'ts', 'aac']);
 const HLS_MIME = new Set([

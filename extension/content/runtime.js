@@ -300,14 +300,14 @@
       const originalAdd = this.originalAddEventListener;
       const originalRemove = this.originalRemoveEventListener;
       this.patchedAddEventListener = function trackedAdd(type, listener, options) {
-        if (runtime.isDisallowedUnload(type)) return undefined;
+        if (runtime.active && runtime.isDisallowedUnload(type)) return undefined;
         const result = Reflect.apply(originalAdd, this, [type, listener, options]);
-        runtime.recordListener(this, type, listener, options);
+        if (runtime.active) runtime.recordListener(this, type, listener, options);
         return result;
       };
       this.patchedRemoveEventListener = function trackedRemove(type, listener, options) {
         const result = Reflect.apply(originalRemove, this, [type, listener, options]);
-        runtime.forgetListener(this, type, listener, options);
+        if (runtime.active) runtime.forgetListener(this, type, listener, options);
         return result;
       };
       EventTarget.prototype.addEventListener = this.patchedAddEventListener;

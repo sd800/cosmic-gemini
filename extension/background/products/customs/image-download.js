@@ -28,11 +28,14 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   const pendingNetworkCandidates = new Map();
   const pendingPageScans = new Map();
   const preparedImageSidePanels = new Map();
+  const untrackedDownloadArtifacts = new Map();
   const viewPorts = new Map();
   const sessionUpdates = createKeyedTaskQueue();
   const sendImageOffscreen = message => offscreen.sendImage(message);
   async function restoreCollectingTabs() {
     try {
+      const priorCollecting = new Set(activeTabs);
+      const restoredCollecting = new Set();
       const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       const liveCaptureArtifacts = new Set();
@@ -42,7 +45,10 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
           for (const artifactId of (value.candidates || []).map(candidate => candidate.artifactId).filter(Boolean)) {
             liveCaptureArtifacts.add(artifactId);
           }
-          if (downloadScanCollects(value)) await setCollecting(value.tabId, true);
+          if (downloadScanCollects(value)) {
+            restoredCollecting.add(value.tabId);
+            await setCollecting(value.tabId, true);
+          }
           continue;
         }
         await cleanupImageCaptureArtifacts(value);
@@ -68,6 +74,12 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
           await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: value.artifactId });
           await chrome.storage.session.remove(key);
         } catch {}
+      }
+      for (const tabId of priorCollecting) {
+        if (restoredCollecting.has(tabId)) continue;
+        const key = imageSessionKey(tabId);
+        const latest = (await chrome.storage.session.get(key))[key];
+        if (!liveTabIds.has(tabId) || !downloadScanCollects(latest)) await setCollecting(tabId, false);
       }
       await offscreen.maybeClose();
       return true;
@@ -315,9 +327,21 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       } catch {}
     }
   }
+
+  async function stopImageCapture(tabId) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'ISOLATED',
+        injectImmediately: true,
+        func: () => globalThis[Symbol.for('cosmic-gemini.image-capture')]?.dispose?.()
+      });
+    } catch {}
+  }
   
   async function stopImageSession(tabId, expectedOrigin = '') {
     if (!Number.isInteger(tabId)) return;
+    await stopImageCapture(tabId);
     return sessionUpdates.run(tabId, async () => {
       const current = await readImageSession(tabId);
       if (expectedOrigin && current?.origin !== expectedOrigin) return false;
@@ -501,7 +525,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   
   async function rememberImageArtifact(downloadId, artifactId) {
     if (!Number.isInteger(downloadId) || !artifactId) return false;
-    for (const delay of [0, 100, 500]) {
+    for (const delay of [0, 100, 500, 1_500, 3_000]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
         await chrome.storage.session.set({ [`imageDownloadArtifact:${downloadId}`]: { artifactId } });
@@ -551,7 +575,10 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
         throw error;
       }
-      await rememberImageArtifact(downloadId, artifact.artifactId);
+      if (!await rememberImageArtifact(downloadId, artifact.artifactId)) {
+        untrackedDownloadArtifacts.set(downloadId, artifact.artifactId);
+        offscreen.retainArtifact(artifact.artifactId);
+      }
       return { downloadIds: [downloadId], count: files.length };
     }
     const downloadIds = [];
@@ -573,7 +600,10 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
         throw error;
       }
-      await rememberImageArtifact(downloadId, artifact.artifactId);
+      if (!await rememberImageArtifact(downloadId, artifact.artifactId)) {
+        untrackedDownloadArtifacts.set(downloadId, artifact.artifactId);
+        offscreen.retainArtifact(artifact.artifactId);
+      }
       downloadIds.push(downloadId);
     }
     return { downloadIds, count: files.length };
@@ -583,13 +613,16 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     if (!Number.isInteger(delta?.id) || !delta.state?.current) return;
     if (!['complete', 'interrupted'].includes(delta.state.current)) return;
     const key = `imageDownloadArtifact:${delta.id}`;
-    for (const delay of [0, 100, 500]) {
+    for (const delay of [0, 100, 500, 1_500]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
-        const artifact = (await chrome.storage.session.get(key))[key];
-        if (!artifact?.artifactId) return;
-        await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId });
-        await chrome.storage.session.remove(key);
+        const storedArtifactId = (await chrome.storage.session.get(key))[key]?.artifactId || '';
+        const artifactId = storedArtifactId || untrackedDownloadArtifacts.get(delta.id) || '';
+        if (!artifactId) return;
+        await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId });
+        if (storedArtifactId) await chrome.storage.session.remove(key);
+        untrackedDownloadArtifacts.delete(delta.id);
+        offscreen.releaseArtifact(artifactId);
         await offscreen.maybeClose();
         return;
       } catch {}

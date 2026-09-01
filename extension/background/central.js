@@ -1,6 +1,7 @@
 import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
 import { BILI_DAILY_ALARM } from '../core/bili-daily-login.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
+import { validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';
 import { createCustomsProvince } from './provinces/customs.js';
 import { createOperationsProvince } from './provinces/operations.js';
@@ -129,6 +130,7 @@ async function collectPageState(url, tabId, options = {}) {
 async function syncPageProducts(sender, message) {
   const tabId = sender.tab?.id;
   const frameId = sender.frameId;
+  const documentId = String(sender.documentId || '');
   const frameUrl = sender.url || message.url || '';
   const topUrl = sender.tab?.url || frameUrl;
   if (!Number.isInteger(tabId) || !Number.isInteger(frameId) || !hostnameFromUrl(frameUrl)) {
@@ -140,6 +142,7 @@ async function syncPageProducts(sender, message) {
       settings,
       tabId,
       frameId,
+      documentId,
       frameUrl,
       topUrl
     })));
@@ -173,6 +176,7 @@ function messageContext(sender) {
 }
 
 async function dispatchMessage(message, sender) {
+  validateMessageSource(message, sender, chrome.runtime.getURL(''));
   if (message.type === 'CG_SYNC_CENTRAL') return syncPageProducts(sender, message);
   if (message.type === 'CG_PAGE_STATE') return collectProductPageState(sender, message);
   const productId = productForMessage(message);
@@ -196,6 +200,10 @@ chrome.runtime.onInstalled.addListener(() => { void dispatchEvent('initialize');
 chrome.runtime.onStartup.addListener(() => { void dispatchEvent('initialize'); });
 
 chrome.runtime.onConnect.addListener(port => {
+  if (!validatePortSource(port, chrome.runtime.getURL(''))) {
+    port.disconnect();
+    return;
+  }
   const province = port.name === 'central-ui:popup' ? provinces.operations
     : port.name.startsWith('download-view:') ? provinces.customs
       : provinces.operations;

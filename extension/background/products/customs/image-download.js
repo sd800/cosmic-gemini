@@ -26,6 +26,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi, runtimeToken } = platform;
   const activeTabs = new Set();
   const pendingNetworkCandidates = new Map();
+  const pendingPageScans = new Map();
   const preparedImageSidePanels = new Map();
   const viewPorts = new Map();
   const sessionUpdates = createKeyedTaskQueue();
@@ -102,9 +103,27 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     pendingNetworkCandidates.delete(tabId);
   }
 
+  function clearPageScan(tabId) {
+    const timer = pendingPageScans.get(tabId);
+    if (timer) clearTimeout(timer);
+    pendingPageScans.delete(tabId);
+  }
+
+  function schedulePageScan(tabId, expectedPageUrl) {
+    clearPageScan(tabId);
+    const timer = setTimeout(() => {
+      pendingPageScans.delete(tabId);
+      void readImageSession(tabId).then(session => {
+        if (session?.pageUrl !== expectedPageUrl || !downloadScanCollects(session)) return;
+        return scanImageSession(tabId, false);
+      }).catch(() => {});
+    }, 180);
+    pendingPageScans.set(tabId, timer);
+  }
+
   function queueCandidate(tabId, candidate) {
     const pending = pendingNetworkCandidates.get(tabId) || { candidates: [], timer: 0 };
-    pending.candidates.push(candidate);
+    if (pending.candidates.length < 2000) pending.candidates.push(candidate);
     if (!pending.timer) {
       pending.timer = setTimeout(() => {
         pendingNetworkCandidates.delete(tabId);
@@ -306,6 +325,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       await initialize();
       await setCollecting(tabId, false);
       clearPending(tabId);
+      clearPageScan(tabId);
       await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
       await chrome.storage.session.remove(imageSessionKey(tabId));
       await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false);
@@ -332,35 +352,43 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     return { started: true };
   }
   
-  async function completeImageCapture(tabId, rect) {
+  async function completeImageCapture(tabId, rect, expectedPageUrl = '') {
     const session = await readImageSession(tabId);
     if (!session) throw new Error('Image Download is not active in this tab.');
+    if (expectedPageUrl && session.pageUrl !== expectedPageUrl) throw new Error('The source page changed before the capture completed.');
     const tab = await chrome.tabs.get(tabId);
+    if (expectedPageUrl && tab.url !== expectedPageUrl) throw new Error('The source page changed before the capture completed.');
+    if (!tab.active || !Number.isInteger(tab.windowId)) throw new Error('Keep the source tab visible while capturing an area.');
     const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+    const [visibleTab] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+    if (visibleTab?.id !== tabId) throw new Error('The source tab changed before the capture completed.');
     const artifact = await sendImageOffscreen({ type: 'CG_IMAGE_CROP_CAPTURE', dataUrl, rect });
     const storedLocale = await chrome.storage.local.get('interfaceLocale');
     const captureTitle = normalizeLocale(storedLocale.interfaceLocale || chrome.i18n.getUILanguage()) === 'zh-CN'
       ? '截取的区域' : 'Captured area';
+    const artifactKey = `imageCaptureArtifact:${tabId}:${artifact.artifactId}`;
     try {
       await chrome.storage.session.set({
-        [`imageCaptureArtifact:${tabId}:${artifact.artifactId}`]: { artifactId: artifact.artifactId }
+        [artifactKey]: { artifactId: artifact.artifactId }
       });
+      const updatedSession = await addImageCandidates(tabId, [{
+        url: artifact.url,
+        familyKey: `capture:${artifact.artifactId}`,
+        source: 'canvas',
+        width: artifact.width,
+        height: artifact.height,
+        contentLength: artifact.bytes,
+        mime: 'image/png',
+        originalHint: 8,
+        title: captureTitle,
+        artifactId: artifact.artifactId
+      }]);
+      if (!updatedSession) throw new Error('The Image Download session ended before the capture was saved.');
     } catch (error) {
       await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
+      await chrome.storage.session.remove(artifactKey).catch(() => {});
       throw error;
     }
-    await addImageCandidates(tabId, [{
-      url: artifact.url,
-      familyKey: `capture:${artifact.artifactId}`,
-      source: 'canvas',
-      width: artifact.width,
-      height: artifact.height,
-      contentLength: artifact.bytes,
-      mime: 'image/png',
-      originalHint: 8,
-      title: captureTitle,
-      artifactId: artifact.artifactId
-    }]);
     const updated = await readImageSession(tabId);
     if (Number.isInteger(updated?.workspaceTabId)) {
       const workspace = await chrome.tabs.get(updated.workspaceTabId).catch(() => null);
@@ -638,14 +666,16 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     const senderTabId = context.sender.tab?.id;
     if (message.type === 'CG_IMAGE_CAPTURE_RECT') {
       if (!Number.isInteger(senderTabId)) throw new Error('The image source tab is unavailable.');
-      const artifact = await completeImageCapture(senderTabId, message.rect || {});
+      const artifact = await completeImageCapture(senderTabId, message.rect || {}, String(context.sender.url || ''));
       return { captured: true, artifactId: artifact.artifactId };
     }
     if (message.type === 'UI_IMAGE_OPEN') {
       const tabId = Number(message.tabId);
+      const sourceTab = await chrome.tabs.get(tabId);
+      const sourceUrl = String(sourceTab.url || '');
       const workspace = await openImageWorkspace(tabId, message.workspaceMode);
       try {
-        await startImageSession(tabId, message.url || '', message.title || '');
+        await startImageSession(tabId, sourceUrl, sourceTab.title || '');
         await sessionUpdates.run(tabId, async () => {
           const current = await readImageSession(tabId);
           if (!current) throw new Error('Image Download could not start in this tab.');
@@ -719,7 +749,10 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   }
 
   async function handleTabUpdated(tabId, change, tab) {
-    if (change.status === 'loading' || change.url) clearPending(tabId);
+    if (change.status === 'loading' || change.url) {
+      clearPending(tabId);
+      clearPageScan(tabId);
+    }
     const session = await readImageSession(tabId);
     if (!session) return;
     if (change.url) {
@@ -739,7 +772,9 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         current.updatedAt = Date.now();
         await saveImageSession(current);
       });
+      schedulePageScan(tabId, change.url);
     }
+    if (change.status === 'complete') clearPageScan(tabId);
     const current = change.status === 'complete' ? await readImageSession(tabId) : null;
     if (current && downloadScanCollects(current)) await scanImageSession(tabId, false).catch(() => {});
   }
@@ -757,6 +792,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     await Promise.allSettled([...tabIds].map(async tabId => {
       await setCollecting(tabId, false);
       clearPending(tabId);
+      clearPageScan(tabId);
       await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId)).catch(() => {});
       await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false).catch(() => {});
       if (chrome.sidePanel?.setOptions) await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
@@ -775,6 +811,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     async handleTabRemoved(tabId) {
       await stopImageSession(tabId);
       clearPending(tabId);
+      clearPageScan(tabId);
       await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
     },
     handleDownloadChanged: handleImageDownloadChanged,

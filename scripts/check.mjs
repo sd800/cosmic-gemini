@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.7.1');
+assert.equal(manifest.version, '5.8.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -163,6 +163,7 @@ for (const name of ['native-scroll.html', 'no-autoplay.html']) {
 }
 
 const central = await source('background', 'central.js');
+const messageSource = await source('background', 'message-source.js');
 const platform = await source('background', 'platform.js');
 const provinceInterface = await source('background', 'provinces', 'interface.js');
 const standing = await source('background', 'provinces', 'standing.js');
@@ -187,6 +188,9 @@ assert.match(central, /createStandingProvince[\s\S]*createOperationsProvince[\s\
 assert.match(central, /provinceForProduct/);
 assert.match(central, /productForMessage/);
 assert.match(central, /setCustomsResponseIngressEnabled/);
+assert.match(central, /validateMessageSource\(message, sender/);
+assert.match(central, /validatePortSource\(port/);
+assert.match(central, /documentId/);
 assert.match(central, /Promise\.allSettled\(STATE_PRODUCTS/);
 assert.match(central, /Promise\.allSettled\(PAGE_PRODUCTS/);
 assert.match(central, /results\.some\(result => result\.status === 'rejected'\)/);
@@ -216,14 +220,21 @@ assert.match(offscreenCoordinator, /activeAssemblies[\s\S]*activeRequests[\s\S]*
 assert.match(runtimeHost, /chrome\.scripting\.executeScript/);
 assert.match(runtimeHost, /CG_STOP_CENTRAL_FEATURE/);
 assert.match(runtimeHost, /disposeMainRuntime/);
+assert.match(runtimeHost, /documentIds/);
+assert.match(runtimeHost, /response\?\.disposed === true/);
+assert.match(runtimeHost, /catch \(error\)[\s\S]*CG_STOP_CENTRAL_FEATURE[\s\S]*disposeMainRuntime[\s\S]*throw error/);
+assert.match(messageSource, /PAGE_MESSAGE_TYPES[\s\S]*OFFSCREEN_MESSAGE_TYPES[\s\S]*validatePortSource/);
 assert.match(nativeScroll, /content\/native-scroll-bridge\.js[\s\S]*content\/runtime\.js/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.match(anyCopy, /content\/any-copy-bridge\.js[\s\S]*content\/any-copy-runtime\.js/);
 assert.match(anyCopy, /message\.rule \|\| message\.hostname/);
 assert.match(anyCopyEnhanced, /content\/any-copy-enhanced-bridge\.js[\s\S]*content\/any-copy-enhanced-runtime\.js/);
 assert.match(anyCopyEnhanced, /anyCopyEnhancedTab:/);
+assert.match(anyCopyEnhanced, /createKeyedTaskQueue/);
 assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
 assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/reward/);
+assert.match(satellites, /AbortController[\s\S]*signal[\s\S]*stopRun/);
+assert.match(satellites, /mutateSettings\([\s\S]*\), false\)/);
 assert.match(administration, /UI_GET_ACTIVE_PAGE_STATE[\s\S]*UI_OPEN_ALL_SETTINGS[\s\S]*UI_RESET_ALL_SETTINGS/);
 assert.match(platform, /chrome\.storage[\s\S]*refreshOpenPages[\s\S]*renderToolbar/);
 assert.match(platform, /refreshTabPage[\s\S]*\[0, 80, 240\]/);
@@ -252,6 +263,12 @@ assert.match(videoDownload, /limitVideoCandidatesForSession/);
 assert.match(videoDownload, /await stopVideoScanner\(tabId\);\s*return false;/);
 assert.match(videoDownload, /world: 'MAIN'[\s\S]*cosmic-gemini\.video-download\.page-runtime/);
 assert.match(imageDownload, /limitImageCandidatesForSession/);
+assert.match(imageDownload, /pending\.candidates\.length < 2000/);
+assert.match(imageDownload, /schedulePageScan/);
+assert.match(imageDownload, /tab\.active[\s\S]*captureVisibleTab[\s\S]*visibleTab\?\.id !== tabId/);
+assert.match(imageDownload, /sourceTab = await chrome\.tabs\.get\(tabId\)/);
+assert.match(videoDownload, /pending\.candidates\.length < 800/);
+assert.match(videoDownload, /sourceTab = await chrome\.tabs\.get\(tabId\)/);
 assert.match(imageWorkspace, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(imageWorkspace, /await send\(\{ type: 'UI_IMAGE_STOP'[\s\S]{0,160}await reload\(/);
 assert.doesNotMatch(imageDownload, /scheduleDownloadDiscoveryPause|videoDownloadSession:/);
@@ -277,6 +294,7 @@ for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'any-c
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);
   assert.match(value, /configFailures/);
+  assert.match(value, /sendResponse\(\{ disposed: true \}\)/);
   assert.match(value, /Configuration is temporarily unavailable/);
 }
 

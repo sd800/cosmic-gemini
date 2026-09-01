@@ -10,13 +10,15 @@ import {
 
 export function createSatellitesProduct(platform) {
   let running = null;
+  let runController = null;
   let scheduleRepair = null;
   let scheduleRepairAttempts = 0;
 
-  async function requestJson(url) {
+  async function requestJson(url, signal) {
     const response = await fetch(url, {
       cache: 'no-store',
       credentials: 'include',
+      signal,
       headers: { Accept: 'application/json' }
     });
     if (!response.ok) throw new Error('Bilibili request failed.');
@@ -38,6 +40,8 @@ export function createSatellitesProduct(platform) {
     const existing = await chrome.alarms.get(BILI_DAILY_ALARM);
     if (existing?.scheduledTime > Date.now()) return;
     await schedule(feature.lastCompletedDate === bilibiliDateKey() ? nextBilibiliSchedule() : Date.now() + 1_000);
+    const latest = await platform.readSettings();
+    if (!latest.satellites.biliDailyLogin.enabled) await clearDisabledState();
   }
 
   function repairSchedule() {
@@ -67,13 +71,17 @@ export function createSatellitesProduct(platform) {
     scheduleRepairAttempts = 0;
   }
 
-  async function run() {
+  async function clearDisabledState() {
+    await chrome.alarms.clear(BILI_DAILY_ALARM);
+    await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+  }
+
+  async function run(signal) {
     const settings = await platform.readSettings();
     const feature = settings.satellites.biliDailyLogin;
     const today = bilibiliDateKey();
     if (!feature.enabled) {
-      await chrome.alarms.clear(BILI_DAILY_ALARM);
-      await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+      await clearDisabledState();
       return;
     }
     if (feature.lastCompletedDate === today) {
@@ -95,20 +103,29 @@ export function createSatellitesProduct(platform) {
     await chrome.storage.session.set({ [BILI_DAILY_RETRY_KEY]: { date: today, attempts: nextAttempts } });
     let completed = false;
     try {
-      const account = await requestJson('https://api.bilibili.com/x/web-interface/nav');
+      const account = await requestJson('https://api.bilibili.com/x/web-interface/nav', signal);
       if (account?.code === 0 && account?.data?.isLogin === true) {
-        const reward = await requestJson('https://api.bilibili.com/x/member/web/exp/reward');
+        const reward = await requestJson('https://api.bilibili.com/x/member/web/exp/reward', signal);
         completed = reward?.code === 0 && reward?.data?.login === true;
       }
     } catch {}
+    const latest = await platform.readSettings();
+    if (signal.aborted || !latest.satellites.biliDailyLogin.enabled) {
+      await clearDisabledState();
+      return;
+    }
     if (completed) {
-      await platform.mutateSettings(current => ({
+      const saved = await platform.mutateSettings(current => ({
         ...current,
         satellites: {
           ...current.satellites,
           biliDailyLogin: { ...current.satellites.biliDailyLogin, lastCompletedDate: today }
         }
       }), false);
+      if (!saved.satellites.biliDailyLogin.enabled) {
+        await clearDisabledState();
+        return;
+      }
       await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
       await schedule(nextBilibiliSchedule());
       return;
@@ -120,8 +137,19 @@ export function createSatellitesProduct(platform) {
 
   function runOnce() {
     if (running) return running;
-    running = run().finally(() => { running = null; });
+    const controller = new AbortController();
+    runController = controller;
+    const current = run(controller.signal).finally(() => {
+      if (running === current) running = null;
+      if (runController === controller) runController = null;
+    });
+    running = current;
     return running;
+  }
+
+  async function stopRun() {
+    runController?.abort();
+    if (running) await running.catch(() => {});
   }
 
   return Object.freeze({
@@ -137,10 +165,10 @@ export function createSatellitesProduct(platform) {
           ...current.satellites,
           biliDailyLogin: { ...current.satellites.biliDailyLogin, enabled }
         }
-      }));
+      }), false);
       try {
-        await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
-        await chrome.alarms.clear(BILI_DAILY_ALARM);
+        if (!enabled) await stopRun();
+        await clearDisabledState();
         if (enabled) await ensureSchedule();
         else cancelScheduleRepair();
       } catch { repairSchedule(); }
@@ -157,8 +185,8 @@ export function createSatellitesProduct(platform) {
     },
     async reset() {
       cancelScheduleRepair();
-      await chrome.alarms.clear(BILI_DAILY_ALARM);
-      await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+      await stopRun();
+      await clearDisabledState();
     }
   });
 }

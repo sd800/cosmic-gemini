@@ -1,4 +1,4 @@
-import { FEATURE_IDS, anyCopyState, normalizeRule, updateFeature } from '../../../core/config.js';
+import { FEATURE_IDS, anyCopyState, hostnameFromUrl, normalizeRule, updateFeature } from '../../../core/config.js';
 
 export function createAnyCopyProduct(pageRuntimeHost, platform) {
   const product = Object.freeze({
@@ -12,7 +12,17 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
       return state.active;
     },
     async handleMessage(message) {
-      const hostname = normalizeRule(message.rule || message.hostname || '');
+      let hostname = normalizeRule(message.rule || message.hostname || '');
+      if (message.type === 'UI_TOGGLE_SITE_FEATURE' || message.expectedHostname) {
+        const tabId = Number(message.tabId);
+        if (!Number.isInteger(tabId)) throw new Error('The current tab is unavailable.');
+        const tab = await chrome.tabs.get(tabId);
+        const currentHostname = hostnameFromUrl(tab.url || '');
+        if (!currentHostname || currentHostname !== normalizeRule(message.expectedHostname || message.hostname || '')) {
+          throw new Error('The page changed before the action completed.');
+        }
+        if (message.type === 'UI_TOGGLE_SITE_FEATURE') hostname = currentHostname;
+      }
       if (message.type === 'UI_TOGGLE_SITE_FEATURE' && hostname.startsWith('*.')) {
         throw new Error('The current-site action requires an exact hostname.');
       }

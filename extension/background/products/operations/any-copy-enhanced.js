@@ -1,8 +1,10 @@
 import { FEATURE_IDS, anyCopyEnhancedState, hostnameFromUrl } from '../../../core/config.js';
+import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 
 const SESSION_PREFIX = 'anyCopyEnhancedTab:';
 
 export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
+  const tabUpdates = createKeyedTaskQueue();
   const key = tabId => SESSION_PREFIX + tabId;
   const product = Object.freeze({
     id: FEATURE_IDS.ANY_COPY_ENHANCED,
@@ -29,15 +31,19 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
       if (message.type !== 'UI_TOGGLE_TAB_FEATURE') throw new Error('Any Copy Enhanced does not support this command.');
       const tabId = Number(message.tabId);
       if (!Number.isInteger(tabId)) throw new Error('The current tab is unavailable.');
-      const tab = await chrome.tabs.get(tabId);
-      if (!hostnameFromUrl(tab.url || '')) throw new Error('This page is unavailable.');
-      const active = !(await product.isActive(tabId));
-      await product.setActive(tabId, active);
-      if (!active) await platform.setFeatureActivity(tabId, product.id, false);
-      void platform.refreshTabPage(tabId);
-      return anyCopyEnhancedState(tab.url || '', active);
+      return tabUpdates.run(tabId, async () => {
+        const tab = await chrome.tabs.get(tabId);
+        if (!hostnameFromUrl(tab.url || '')) throw new Error('This page is unavailable.');
+        const active = !(await product.isActive(tabId));
+        await product.setActive(tabId, active);
+        if (!active) await platform.setFeatureActivity(tabId, product.id, false);
+        void platform.refreshTabPage(tabId);
+        return anyCopyEnhancedState(tab.url || '', active);
+      });
     },
-    async removeTab(tabId) { await chrome.storage.session.remove(key(tabId)); },
+    async removeTab(tabId) {
+      await tabUpdates.run(tabId, () => chrome.storage.session.remove(key(tabId)));
+    },
     async cleanupOrphans() {
       const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));

@@ -163,7 +163,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
 
   function queueCandidate(tabId, candidate) {
     const pending = pendingNetworkCandidates.get(tabId) || { candidates: [], timer: 0 };
-    pending.candidates.push(candidate);
+    if (pending.candidates.length < 800) pending.candidates.push(candidate);
     if (!pending.timer) {
       pending.timer = setTimeout(() => {
         pendingNetworkCandidates.delete(tabId);
@@ -994,8 +994,10 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     }
     if (message.type === 'UI_VIDEO_OPEN') {
       const tabId = Number(message.tabId);
-      await startVideoSession(tabId, message.url || '', message.title || '');
-      return videoDownloadState(await readSettings(), tabId, message.url || '');
+      const sourceTab = await chrome.tabs.get(tabId);
+      const sourceUrl = String(sourceTab.url || '');
+      await startVideoSession(tabId, sourceUrl, sourceTab.title || '');
+      return videoDownloadState(await readSettings(), tabId, sourceUrl);
     }
     if (message.type === 'UI_VIDEO_RESCAN') {
       const tabId = Number(message.tabId);

@@ -55,8 +55,11 @@
     if (!token || event.detail !== token) return;
     void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'nativeScroll', pageUrl: location.href }).catch(() => {});
   }
-  function onMessage(message) {
-    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'nativeScroll') dispose();
+  function onMessage(message, _sender, sendResponse) {
+    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'nativeScroll') {
+      dispose();
+      sendResponse({ disposed: true });
+    }
     else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'nativeScroll') void requestConfig();
   }
 

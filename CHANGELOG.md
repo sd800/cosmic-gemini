@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.8.1 — 2026-09-01
+
+- Expanded lifecycle and recovery checks across central routing, page runtimes, popup actions, current-tab tools, scheduled work, image capture, and extension UI connections.
+- Central now verifies the source of webpage events, extension commands, processing updates, and long-lived UI connections. Page-runtime work is bound to the exact Chrome document that requested it, and a partial injection is rolled back before the failure is returned. Inactive products no longer inject cleanup code into pages where they never started.
+- Current-website actions confirm that the source tab has not navigated before changing a rule. Image Download and Video Download read the current source tab when they start instead of relying on an older popup snapshot.
+- Any Copy Enhanced serializes rapid tab controls. Disabling Bili Daily Login aborts an in-progress request and cannot recreate its schedule, while changing its preference no longer refreshes unrelated webpages.
+- Image Download rejects a capture if the visible source tab changes, removes incomplete capture artifacts, and rescans same-origin single-page navigation. Short-lived image and video response queues are bounded on resource-dense pages.
+- Added regression coverage for message and connection sources, document-scoped runtime rollback, concurrent tab controls, stale popup actions, and scheduled-task cancellation.
+
 ## 5.7.1 — 2026-09-01
 
 - Expanded recovery and lifecycle checks across Image Download and Video Download, including inputs received from webpages, temporary session storage, scanner injection, offscreen processing, and Chrome download handoff.

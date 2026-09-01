@@ -54,8 +54,11 @@
     if (!token || event.detail !== token || window !== top) return;
     void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopyEnhanced', pageUrl: location.href }).catch(() => {});
   }
-  function onMessage(message) {
-    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'anyCopyEnhanced') dispose();
+  function onMessage(message, _sender, sendResponse) {
+    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'anyCopyEnhanced') {
+      dispose();
+      sendResponse({ disposed: true });
+    }
     else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'anyCopyEnhanced') void requestConfig();
   }
 

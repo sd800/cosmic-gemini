@@ -42,6 +42,17 @@ export function createStandingProvince(platform) {
     return value;
   }
 
+  async function currentPageHostname(message) {
+    const tabId = Number(message.tabId);
+    if (!Number.isInteger(tabId)) throw new Error('The current tab is unavailable.');
+    const tab = await chrome.tabs.get(tabId);
+    const hostname = hostnameFromUrl(tab.url || '');
+    if (!hostname || hostname !== normalizeRule(message.hostname || '')) {
+      throw new Error('The page changed before the action completed.');
+    }
+    return hostname;
+  }
+
   async function handleMessage(productId, message, context) {
     const governed = productId && products[productId] ? product(productId) : null;
     const senderUrl = context.sender.tab?.url || message.url || '';
@@ -75,8 +86,7 @@ export function createStandingProvince(platform) {
       return settings.noAutoplay;
     }
     if (message.type === 'UI_TOGGLE_PAGE_FEATURE') {
-      const hostname = normalizeRule(message.hostname || '');
-      if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
+      const hostname = await currentPageHostname(message);
       const settings = await platform.mutateSettings(current => {
         const state = featureState(current, governed.id, `https://${hostname}/`);
         return updateFeature(current, governed.id, feature => {
@@ -87,8 +97,7 @@ export function createStandingProvince(platform) {
       return settings[governed.id];
     }
     if (message.type === 'UI_TOGGLE_PAGE_ENHANCED') {
-      const hostname = normalizeRule(message.hostname || '');
-      if (hostname.startsWith('*.')) throw new Error('The current-site action requires an exact hostname.');
+      const hostname = await currentPageHostname(message);
       const settings = await platform.mutateSettings(current => {
         const state = featureState(current, governed.id, `https://${hostname}/`);
         return updateFeature(current, governed.id, feature => withBehaviorRule(

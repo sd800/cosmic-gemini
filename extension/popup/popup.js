@@ -466,11 +466,13 @@ for (const featureId of ['nativeScroll', 'noAutoplay']) {
   primary.addEventListener('click', () => void act(() => send({
     type: 'UI_TOGGLE_PAGE_FEATURE',
     featureId,
+    tabId: currentTab?.id,
     hostname: state[featureId].hostname
   })));
   enhanced.addEventListener('click', () => void act(() => send({
     type: 'UI_TOGGLE_PAGE_ENHANCED',
     featureId,
+    tabId: currentTab?.id,
     hostname: state[featureId].hostname
   })));
 }
@@ -480,9 +482,13 @@ anyCopyControl.innerHTML = icon('anyCopy');
 anyCopyControl.addEventListener('click', () => void act(() => {
   const feature = state.anyCopy;
   if (feature.matchedRule) return send({
-    type: 'UI_DELETE_RULE', featureId: 'anyCopy', listName: 'siteRules', rule: feature.matchedRule
+    type: 'UI_DELETE_RULE', featureId: 'anyCopy', listName: 'siteRules', rule: feature.matchedRule,
+    tabId: currentTab?.id, expectedHostname: feature.hostname
   });
-  return send({ type: 'UI_TOGGLE_SITE_FEATURE', featureId: 'anyCopy', hostname: feature.hostname });
+  return send({
+    type: 'UI_TOGGLE_SITE_FEATURE', featureId: 'anyCopy', hostname: feature.hostname,
+    tabId: currentTab?.id, expectedHostname: feature.hostname
+  });
 }));
 
 const anyCopyEnhancedControl = document.querySelector('#anyCopyEnhanced-status');

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.17.1');
+assert.equal(manifest.version, '6.1.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -44,6 +44,15 @@ assert.equal(manifest.content_scripts[0].world, 'ISOLATED');
 assert.equal(manifest.content_scripts[0].run_at, 'document_start');
 assert.equal(manifest.content_scripts[0].all_frames, true);
 assert.equal(manifest.incognito, 'split');
+assert.deepEqual(manifest.web_accessible_resources, [{
+  resources: [
+    'assets/ad-marshal-empty.js',
+    'assets/ad-marshal-empty.json',
+    'assets/ad-marshal-empty.html',
+    'assets/ad-marshal-transparent.svg'
+  ],
+  matches: ['http://news.qq.com/*', 'https://news.qq.com/*']
+}]);
 
 const extensionRootEntries = await readdir(extension, { withFileTypes: true });
 assert.deepEqual(extensionRootEntries.filter(entry => entry.isFile()).map(entry => entry.name).sort(), ['manifest.json']);
@@ -104,6 +113,7 @@ const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join
 assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'background/products/customs/video-download.js'),
   join(extension, 'background/products/operations/satellites.js'),
+  join(extension, 'content/ad-marshal-runtime.js'),
   join(extension, 'content/video-download-page.js'),
   join(extension, 'core/site-video.js'),
   join(extension, 'offscreen/video-download.js')
@@ -183,6 +193,8 @@ const runtimeHost = await source('background', 'features', 'page-runtime-host.js
 const nativeScroll = await source('background', 'products', 'standing', 'native-scroll.js');
 const nativeScrollRuntime = await source('content', 'runtime.js');
 const noAutoplay = await source('background', 'products', 'standing', 'no-autoplay.js');
+const adMarshal = await source('background', 'products', 'standing', 'ad-marshal.js');
+const adMarshalRuntime = await source('content', 'ad-marshal-runtime.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
 const anyCopyEnhanced = await source('background', 'products', 'operations', 'any-copy-enhanced.js');
 const satellites = await source('background', 'products', 'operations', 'satellites.js');
@@ -249,7 +261,7 @@ for (const [id, province] of [['standing', standing], ['operations', operations]
   assert.match(province, new RegExp(`id: '${id}'`));
   assert.match(province, /products/);
 }
-assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct/);
+assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct[\s\S]*createAdMarshalProduct|createAdMarshalProduct[\s\S]*createNativeScrollProduct[\s\S]*createNoAutoplayProduct/);
 assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /createCustomsObservationRegistry/);
@@ -271,6 +283,15 @@ assert.match(nativeScrollRuntime, /usesNativeInteractionCompatibility\(\)[\s\S]*
 assert.match(nativeScrollRuntime, /if \(this\.usesNativeInteractionCompatibility\(\)\) return;/);
 assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRegistry/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
+assert.match(adMarshal, /getSessionRules[\s\S]*updateSessionRules/);
+assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2021\/advertisement\//);
+assert.match(adMarshal, /ad-marshal-empty\.js[\s\S]*ad-marshal-empty\.json[\s\S]*ad-marshal-empty\.html[\s\S]*ad-marshal-transparent\.svg/);
+assert.match(adMarshal, /activeTabs\.has\(tabId\)[\s\S]*Promise\.resolve/,
+  'Ad Marshal must avoid native rule reads on unrelated or already synchronized tabs.');
+assert.match(adMarshalRuntime, /globalThis\.fetch = this\.fetchWrapper[\s\S]*XMLHttpRequest\.prototype\.open = this\.xhrOpenWrapper[\s\S]*Navigator\.prototype\.sendBeacon = this\.sendBeaconWrapper/);
+assert.match(adMarshalRuntime, /tonglan-ad-channel[\s\S]*rectangle-ad-channel[\s\S]*data-beacon-expo[\s\S]*MutationObserver/);
+assert.doesNotMatch(adMarshalRuntime, /Node\.prototype\.(?:appendChild|insertBefore|replaceChild)\s*=/,
+  'Ad Marshal must not wrap generic DOM insertion methods.');
 assert.match(anyCopy, /content\/any-copy-bridge\.js[\s\S]*content\/any-copy-runtime\.js/);
 assert.match(anyCopy, /message\.rule \|\| message\.hostname/);
 assert.match(anyCopyEnhanced, /content\/any-copy-enhanced-bridge\.js[\s\S]*content\/any-copy-enhanced-runtime\.js/);
@@ -349,8 +370,8 @@ const centralPage = await source('content', 'central-page.js');
 assert.match(centralPage, /cosmic-gemini\.central/);
 assert.match(centralPage, /CG_SYNC_CENTRAL/);
 assert.match(centralPage, /syncFailures/);
-assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|anyCopy|imageDownload|videoDownload|chrome\.storage/);
-for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js']) {
+assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|adMarshal|anyCopy|imageDownload|videoDownload|chrome\.storage/);
+for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'ad-marshal-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js']) {
   const value = await source('content', bridge);
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);

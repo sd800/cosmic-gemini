@@ -41,6 +41,14 @@ export function createPlatform() {
     return operation;
   }
 
+  function normalizeProfileSettings(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    return normalizeSettings({
+      ...source,
+      adMarshal: source.adMarshal || defaultSettings.adMarshal
+    });
+  }
+
   function sendTabMessage(tabId, message, options = undefined) {
     return new Promise(resolve => {
       try {
@@ -58,11 +66,11 @@ export function createPlatform() {
     await prepareIncognitoSession();
     const keys = incognitoContext ? [settingsKey] : [settingsKey, LEGACY_SETTINGS_KEY];
     const stored = await settingsStorage.get(keys);
-    return normalizeSettings(stored[settingsKey] || (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) || defaultSettings);
+    return normalizeProfileSettings(stored[settingsKey] || (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) || defaultSettings);
   }
 
   async function writeSettings(value) {
-    const settings = normalizeSettings(value);
+    const settings = normalizeProfileSettings(value);
     await settingsStorage.set({ [settingsKey]: settings });
     return settings;
   }
@@ -316,7 +324,8 @@ export function createPlatform() {
       nsna: settings.nsna,
       nativeScroll: settings.nativeScroll,
       noAutoplay: settings.noAutoplay,
-      anyCopy: settings.anyCopy
+      anyCopy: settings.anyCopy,
+      adMarshal: settings.adMarshal
     });
   }
 

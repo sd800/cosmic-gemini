@@ -6,6 +6,7 @@ import {
   updateFeature
 } from '../../core/config.js';
 import { createPageRuntimeHost } from '../features/page-runtime-host.js';
+import { createAdMarshalProduct } from '../products/standing/ad-marshal.js';
 import { createNativeScrollProduct } from '../products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../products/standing/no-autoplay.js';
 import { defineProvince } from './interface.js';
@@ -34,7 +35,12 @@ export function createStandingProvince(platform) {
   const host = createPageRuntimeHost(platform);
   const nativeScroll = createNativeScrollProduct(host);
   const noAutoplay = createNoAutoplayProduct(host);
-  const products = { [nativeScroll.id]: nativeScroll, [noAutoplay.id]: noAutoplay };
+  const adMarshal = createAdMarshalProduct(host, platform);
+  const products = {
+    [nativeScroll.id]: nativeScroll,
+    [noAutoplay.id]: noAutoplay,
+    [adMarshal.id]: adMarshal
+  };
 
   function product(productId) {
     const value = products[productId];
@@ -85,6 +91,7 @@ export function createStandingProvince(platform) {
       })));
       return settings.noAutoplay;
     }
+    if (message.type === 'UI_SET_AD_MARSHAL_SITE') return governed.handleMessage(message, context);
     if (message.type === 'UI_TOGGLE_PAGE_FEATURE') {
       const hostname = await currentPageHostname(message);
       const settings = await platform.mutateSettings(current => {
@@ -156,12 +163,20 @@ export function createStandingProvince(platform) {
   return defineProvince({
     id: 'standing',
     products,
+    async initialize() {
+      await platform.ensureSettings();
+      await adMarshal.reconcile();
+    },
     async getProductState(productId, context) {
       return product(productId).state(context.settings, context.url);
     },
     async syncProduct(productId, context) {
       return product(productId).sync(context, context.settings);
     },
-    handleMessage
+    handleMessage,
+    handleTabUpdated(tabId, change, tab) { return adMarshal.handleTabUpdated(tabId, change, tab); },
+    handleTabRemoved(tabId) { return adMarshal.handleTabRemoved(tabId); },
+    handleStorageChanged(changes, areaName) { return adMarshal.handleStorageChanged(changes, areaName); },
+    reset() { return adMarshal.reset(); }
   });
 }

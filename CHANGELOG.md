@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.1.1 — 2026-09-01
+
+- Added Ad Marshal to Satellites with an independent switch for each managed website. Tencent News is enabled by default in ordinary windows, while every managed site starts disabled in incognito.
+- Ad Marshal prevents confirmed Tencent News advertising and reporting loaders from executing even when an external Tencent CDN serves them. Matching telemetry calls receive local success responses, known advertising elements are removed, and Beacon reporting markers are stripped from otherwise functional content so the page cannot sustain a failure-and-retry loop.
+- Standing Province coordinates Ad Marshal through Central while the product owns its lightweight, tab-scoped network rules, filtered page runtime, and complete cleanup when a tab leaves the site or the switch is disabled.
+
 ## 5.17.1 — 2026-09-01
 
 - Video Download now keeps separate media identities when one page contains multiple videos. Each video receives its own card, thumbnail or title when available, and compact quality, audio, and subtitle choices.

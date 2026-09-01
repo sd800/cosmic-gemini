@@ -145,6 +145,19 @@ export function viewFor(featureId) {
           <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="biliDailyLoginPrivacy"></p></div>
+      </section>
+      <section class="card satellite-card">
+        <div class="section-heading">
+          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p></div>
+        </div>
+        <div class="satellite-site-list">
+          <h2 data-i18n="adMarshalSitesHeading"></h2>
+          <label class="preference-row satellite-site-row" for="adMarshalNewsQqCom">
+            <span><strong>news.qq.com</strong><small data-i18n="adMarshalNewsQqDescription"></small></span>
+            <span class="switch"><input id="adMarshalNewsQqCom" type="checkbox" checked><span></span></span>
+          </label>
+        </div>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
   };

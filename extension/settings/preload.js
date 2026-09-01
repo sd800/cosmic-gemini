@@ -96,6 +96,10 @@
       if (status) status.hidden = false;
     }
   }
+  const adMarshalNewsQqCom = document.querySelector('#adMarshalNewsQqCom');
+  if (adMarshalNewsQqCom) {
+    adMarshalNewsQqCom.checked = !incognitoContext && cached.adMarshal?.sites?.newsQqCom !== false;
+  }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');

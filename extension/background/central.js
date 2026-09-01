@@ -8,7 +8,7 @@ import { createOperationsProvince } from './provinces/operations.js';
 import { createStandingProvince } from './provinces/standing.js';
 
 export const PROVINCE_PRODUCTS = Object.freeze({
-  standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY]),
+  standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.AD_MARSHAL]),
   operations: Object.freeze([FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, 'satellites', 'administration']),
   customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD])
 });
@@ -16,6 +16,7 @@ export const PROVINCE_PRODUCTS = Object.freeze({
 const PAGE_PRODUCTS = Object.freeze([
   FEATURE_IDS.NATIVE_SCROLL,
   FEATURE_IDS.NO_AUTOPLAY,
+  FEATURE_IDS.AD_MARSHAL,
   FEATURE_IDS.ANY_COPY,
   FEATURE_IDS.ANY_COPY_ENHANCED
 ]);
@@ -27,13 +28,13 @@ const STATE_PRODUCTS = Object.freeze([
 ]);
 const EVENT_PROVINCES = Object.freeze({
   initialize: Object.freeze(['standing', 'operations', 'customs']),
-  tabUpdated: Object.freeze(['operations', 'customs']),
-  tabRemoved: Object.freeze(['operations', 'customs']),
+  tabUpdated: Object.freeze(['standing', 'operations', 'customs']),
+  tabRemoved: Object.freeze(['standing', 'operations', 'customs']),
   windowCreated: Object.freeze(['operations']),
   windowRemoved: Object.freeze(['operations']),
   downloadChanged: Object.freeze(['customs']),
   headersReceived: Object.freeze(['customs']),
-  storageChanged: Object.freeze(['operations'])
+  storageChanged: Object.freeze(['standing', 'operations'])
 });
 
 const CUSTOMS_RESPONSE_FILTER = Object.freeze({
@@ -99,6 +100,7 @@ function productForMessage(message) {
     return FEATURE_IDS.NATIVE_SCROLL;
   }
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
+  if (message.type === 'UI_SET_AD_MARSHAL_SITE') return FEATURE_IDS.AD_MARSHAL;
   if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
   if (/^(?:CG|UI)_IMAGE_|^UI_SET_IMAGE_SETTING$/.test(message.type)) return FEATURE_IDS.IMAGE_DOWNLOAD;
   if (/^(?:CG|UI)_VIDEO_|^UI_SET_VIDEO_SETTING$/.test(message.type)) return FEATURE_IDS.VIDEO_DOWNLOAD;

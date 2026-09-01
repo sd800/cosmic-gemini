@@ -38,6 +38,9 @@ export function settingsViewCache(states = {}) {
     },
     satellites: {
       biliDailyLogin: { enabled: states.satellites?.biliDailyLogin?.enabled === true }
+    },
+    adMarshal: {
+      sites: { newsQqCom: states.adMarshal?.sites?.newsQqCom === true }
     }
   };
 }

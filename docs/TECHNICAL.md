@@ -1,6 +1,6 @@
 # Technical design
 
-Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Its authority chain is `central → province → product → feature`. Central decides jurisdiction and routes work, provinces coordinate their assigned products, products execute independently, and features or nested subfeatures implement the technical operations. Any Copy and Any Copy Enhanced own separate activation, runtime, bridge, and activity-state paths even though they share one settings page.
+Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Ad Marshal, Any Copy, Image Download, Video Download, and Satellites. Its authority chain is `central → province → product → feature`. Central decides jurisdiction and routes work, provinces coordinate their assigned products, products execute independently, and features or nested subfeatures implement the technical operations. Any Copy and Any Copy Enhanced own separate activation, runtime, bridge, and activity-state paths even though they share one settings page.
 
 ## Extension layout
 
@@ -10,7 +10,7 @@ The `extension` root contains only `manifest.json`. Chrome entry points and prod
 
 Central records the jurisdiction map and accepts browser events and typed messages. It does not contain product rules, storage mutations, page injection, scanners, scheduling, network fetches, workspace operations, media assembly, or download execution.
 
-Standing Province governs Native Scroll and No Autoplay. Operations Province governs Any Copy, Any Copy Enhanced, Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download and Video Download. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
+Standing Province governs Native Scroll, No Autoplay, and Ad Marshal. Operations Province governs Any Copy, Any Copy Enhanced, Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download and Video Download. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
 
 Products retain separate state and execution paths. A product may use province-coordinated infrastructure, but it cannot import or control a sibling product. Features such as bridges, runtimes, scanners, adapters, and offscreen processors may contain further subfeatures as required without changing the authority chain. Shared browser and storage primitives live in `background/platform.js`; they provide infrastructure without deciding product policy.
 
@@ -39,6 +39,14 @@ Audio autoplay is denied silently by default. An Always inactive website rule de
 No Autoplay restores media playback and Web Audio methods and removes its event hooks whenever it becomes inactive, then disposes its runtime and bridge.
 
 No Autoplay operates only on media elements and audio contexts inside the current webpage. The extension declares no `commands` or `nativeMessaging` permission and does not use Media Session action handlers, operating-system media keys, AppleScript, or system audio APIs. Releasing blocked webpage media can call that page element's original `play()` or audio context `resume()` method, but it cannot issue a play or pause command to a separate desktop music application.
+
+## Ad Marshal
+
+Ad Marshal is a managed-site product under Standing Province. Central evaluates it at the fixed page entry, Standing Province coordinates the tab lifecycle, and the product runs only when the current hostname exactly matches an enabled managed site. It has no popup control or activity icon. Ordinary settings enable the listed Tencent News rule by default, while the separate incognito profile starts with every Ad Marshal site disabled.
+
+For an active `news.qq.com` tab, the product installs tab-scoped session DNR rules before coordinating its isolated bridge and main-world runtime. Known advertising and reporting loaders are redirected to local empty scripts instead of producing blocked-request errors. Matching telemetry scripts, requests, frames, and images receive local type-compatible success resources so their retry code has no failure signal to follow. The rules cover confirmed Tencent News loader paths even when an external Tencent CDN serves the script.
+
+The main-world runtime also neutralizes matching `fetch`, XHR, Beacon, and script-source paths. A narrowly filtered MutationObserver removes matching scripts and known advertising containers from initial or later DOM content, and strips confirmed Beacon reporting attributes without deleting functional content that carries them. It batches added roots, never polls the page, and restores every patched API, observer, and removed Beacon attribute when the product is disabled.
 
 ## Any Copy
 
@@ -92,6 +100,7 @@ For ordinary windows, `chrome.storage.local` stores one versioned settings objec
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference
 - Video Download: preferred quality and whether Chrome should ask for a save location
 - Satellites: Bili Daily Login switch state and last completed date
+- Ad Marshal: one independent switch for each managed website
 - Interface locale
 
 The split incognito background ignores that persistent object. It keeps a separate `chrome.storage.session` object with Native Scroll, No Autoplay, and every other automatic product inactive by default. Explicit incognito choices remain in that temporary object only while the current set of incognito windows exists.
@@ -108,7 +117,7 @@ Per-tab intervention state contains product booleans and is cleared on navigatio
 
 ## Resource use
 
-The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated download session. Image Download and Video Download views react to session-storage changes instead of polling. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
+The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, on an enabled Ad Marshal managed site, or during an explicitly activated download session. Image Download and Video Download views react to session-storage changes instead of polling. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Ad Marshal's native network rules are limited to active managed-site tabs, and its one filtered observer batches DOM additions without polling. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
 
 ## Browser boundaries
 

@@ -9,6 +9,7 @@ export const FEATURE_IDS = Object.freeze({
   NO_AUTOPLAY: 'noAutoplay',
   ANY_COPY: 'anyCopy',
   ANY_COPY_ENHANCED: 'anyCopyEnhanced',
+  AD_MARSHAL: 'adMarshal',
   IMAGE_DOWNLOAD: 'imageDownload',
   VIDEO_DOWNLOAD: 'videoDownload'
 });
@@ -18,6 +19,7 @@ export const FEATURE_SLOTS = Object.freeze({
   NO_AUTOPLAY: 20,
   ANY_COPY: 30,
   ANY_COPY_ENHANCED: 31,
+  AD_MARSHAL: 35,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
 });
@@ -30,7 +32,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 15,
+  version: 16,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -42,6 +44,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   anyCopy: Object.freeze({
     siteRules: Object.freeze([])
+  }),
+  adMarshal: Object.freeze({
+    sites: Object.freeze({
+      newsQqCom: true
+    })
   }),
   imageDownload: Object.freeze({
     workspaceMode: 'sidePanel',
@@ -70,6 +77,11 @@ export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
   noAutoplay: Object.freeze({
     ...DEFAULT_SETTINGS.noAutoplay,
     enabled: false
+  }),
+  adMarshal: Object.freeze({
+    sites: Object.freeze({
+      newsQqCom: false
+    })
   }),
   satellites: Object.freeze({
     biliDailyLogin: Object.freeze({
@@ -147,7 +159,7 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 15,
+    version: 16,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules ?? value.nsnaWhitelistRules)
     },
@@ -155,6 +167,11 @@ export function normalizeSettings(value = {}) {
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
       siteRules: normalizeRules(value.anyCopy?.siteRules ?? value.anyCopy?.enforcedRules)
+    },
+    adMarshal: {
+      sites: {
+        newsQqCom: value.adMarshal?.sites?.newsQqCom !== false
+      }
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
@@ -309,6 +326,20 @@ export function anyCopyEnhancedState(url, tabActive = false) {
     scope: 'tab',
     exactActive: active,
     matchedRule: ''
+  };
+}
+
+export function adMarshalState(settings, url) {
+  const normalized = normalizeSettings(settings);
+  const hostname = hostnameFromUrl(url);
+  const enabled = normalized.adMarshal.sites.newsQqCom === true;
+  const supported = hostname === 'news.qq.com';
+  return {
+    ...normalized.adMarshal,
+    hostname,
+    supported,
+    active: supported && enabled,
+    enabled
   };
 }
 

@@ -58,6 +58,10 @@ Satellites contains optional tools that perform small background tasks without n
 
 Bilibili gives every signed-in account one coin when it visits each day. Receiving that coin otherwise depends on remembering to return every day. Bili Daily Login handles the recurring visit at 00:05 China Standard Time while Chrome is available, allowing the daily coin to be credited automatically.
 
+#### Ad Marshal
+
+Tencent News can repeatedly recreate advertising, reporting, and tracking work after a blocker rejects the original requests. These retry loops consume browser resources and fill diagnostics without restoring useful page content. Ad Marshal neutralizes the known loaders before they run, returns local success responses to matching telemetry calls, and removes their advertising elements on the sites you enable.
+
 ## Features
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes
@@ -108,7 +112,9 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
-All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login is off by default. After you enable it, the task runs on its own schedule while Chrome and the computer are running.
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login is off by default. Ad Marshal is on for its listed managed sites in ordinary windows, and each site has its own switch. It runs only while one of those sites is open.
+
+After you enable Bili Daily Login, the task runs on its own schedule while Chrome and the computer are running.
 
 After any length of downtime, one current-day task catches up when Chrome can next run. Earlier missed days are never replayed.
 
@@ -148,7 +154,7 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, and Video Download run locally. Cosmic Gemini stores only product settings, website rules you choose, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, and Ad Marshal run locally. Cosmic Gemini stores only product settings, website rules you choose, Ad Marshal's managed-site switches, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 

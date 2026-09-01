@@ -1,4 +1,4 @@
-import { FEATURE_IDS } from '../../core/config.js';
+import { FEATURE_IDS, hostnameFromUrl } from '../../core/config.js';
 import { createPageRuntimeHost } from '../features/page-runtime-host.js';
 import { createAdministrationProduct } from '../products/operations/administration.js';
 import { createAnyCopyProduct } from '../products/operations/any-copy.js';
@@ -30,6 +30,9 @@ export function createOperationsProvince(platform) {
     const senderUrl = context.sender.tab?.url || message.url || '';
     const senderTabId = context.sender.tab?.id;
     if (message.type === 'CG_FEATURE_INTERVENED') {
+      const eventHostname = hostnameFromUrl(message.pageUrl || context.sender.url || '');
+      const currentHostname = hostnameFromUrl(context.sender.tab?.url || '');
+      if (eventHostname && currentHostname && eventHostname !== currentHostname) return { recorded: false };
       const settings = await platform.readSettings();
       const state = await governed.state(settings, senderUrl, senderTabId);
       if (state.active) await platform.setFeatureActivity(senderTabId, governed.id, true);

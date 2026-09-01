@@ -52,7 +52,7 @@
   }
   function onIntervened(event) {
     if (!token || event.detail !== token || window !== top) return;
-    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopyEnhanced' }).catch(() => {});
+    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopyEnhanced', pageUrl: location.href }).catch(() => {});
   }
   function onMessage(message) {
     if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'anyCopyEnhanced') dispose();

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizeLocale, preferredLocale } from '../extension/core/locale.js';
+import { loadLocale, normalizeLocale, preferredLocale } from '../extension/core/locale.js';
 import { translator } from '../extension/shared/localization.js';
 
 test('all Chinese locales use zh-CN and every other locale uses en-US', () => {
@@ -13,4 +13,23 @@ test('all Chinese locales use zh-CN and every other locale uses en-US', () => {
 test('localized copy interpolates product names naturally', () => {
   assert.equal(translator('en-US')('version', { version: '1.0.0' }), 'Version 1.0.0');
   assert.equal(translator('zh-CN')('featureOnTitle', { product: 'No Autoplay' }), 'No Autoplay 已开启 · 点击关闭');
+});
+
+test('a saved locale cache survives a transient Service Worker read failure', async () => {
+  const previousChrome = globalThis.chrome;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  globalThis.chrome = { runtime: { sendMessage: async () => { throw new Error('worker unavailable'); } } };
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem(key) { return key === 'cosmicGeminiInterfaceLocale' ? 'en-US' : null; },
+      setItem() {}
+    }
+  });
+  try { assert.equal(await loadLocale(), 'en-US'); }
+  finally {
+    globalThis.chrome = previousChrome;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
 });

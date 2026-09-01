@@ -148,10 +148,16 @@ async function createArtifact(extension) {
 
 async function cleanupArtifact(artifactId) {
   const artifact = artifacts.get(artifactId);
-  if (!artifact) return;
-  artifacts.delete(artifactId);
-  URL.revokeObjectURL(artifact.url);
-  try { await artifact.root.removeEntry(artifact.name); } catch {}
+  if (artifact) {
+    artifacts.delete(artifactId);
+    URL.revokeObjectURL(artifact.url);
+    try { await artifact.root.removeEntry(artifact.name); } catch {}
+    return;
+  }
+  try {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry(String(artifactId || ''));
+  } catch {}
 }
 
 async function publishProgress(requestId, tabId, candidateId, completed, total) {
@@ -170,7 +176,7 @@ async function publishProgress(requestId, tabId, candidateId, completed, total) 
 async function publishArtifact(artifact, extension, details = {}) {
   const file = await artifact.handle.getFile();
   const url = URL.createObjectURL(file);
-  const artifactId = token();
+  const artifactId = artifact.name;
   artifacts.set(artifactId, { root: artifact.root, name: artifact.name, url });
   setTimeout(() => void cleanupArtifact(artifactId), 60 * 60 * 1000);
   return { artifactId, url, extension, bytes: file.size, ...details };

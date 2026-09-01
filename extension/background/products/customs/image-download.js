@@ -57,8 +57,10 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       for (const [key, value] of Object.entries(values)) {
         if (!key.startsWith('imageDownloadArtifact:') || !value?.artifactId) continue;
         const downloadId = Number(key.slice('imageDownloadArtifact:'.length));
-        const [download] = Number.isInteger(downloadId)
-          ? await chrome.downloads.search({ id: downloadId }).catch(() => []) : [];
+        let download;
+        try {
+          [download] = Number.isInteger(downloadId) ? await chrome.downloads.search({ id: downloadId }) : [];
+        } catch { continue; }
         if (download?.state === 'in_progress') continue;
         try {
           await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: value.artifactId });
@@ -328,9 +330,14 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     const storedLocale = await chrome.storage.local.get('interfaceLocale');
     const captureTitle = normalizeLocale(storedLocale.interfaceLocale || chrome.i18n.getUILanguage()) === 'zh-CN'
       ? '截取的区域' : 'Captured area';
-    await chrome.storage.session.set({
-      [`imageCaptureArtifact:${tabId}:${artifact.artifactId}`]: { artifactId: artifact.artifactId }
-    });
+    try {
+      await chrome.storage.session.set({
+        [`imageCaptureArtifact:${tabId}:${artifact.artifactId}`]: { artifactId: artifact.artifactId }
+      });
+    } catch (error) {
+      await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
+      throw error;
+    }
     await addImageCandidates(tabId, [{
       url: artifact.url,
       familyKey: `capture:${artifact.artifactId}`,
@@ -537,13 +544,17 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     if (!Number.isInteger(delta?.id) || !delta.state?.current) return;
     if (!['complete', 'interrupted'].includes(delta.state.current)) return;
     const key = `imageDownloadArtifact:${delta.id}`;
-    const artifact = (await chrome.storage.session.get(key))[key];
-    if (!artifact?.artifactId) return;
-    try {
-      await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId });
-      await chrome.storage.session.remove(key);
-      await offscreen.maybeClose();
-    } catch {}
+    for (const delay of [0, 100, 500]) {
+      if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+      try {
+        const artifact = (await chrome.storage.session.get(key))[key];
+        if (!artifact?.artifactId) return;
+        await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId });
+        await chrome.storage.session.remove(key);
+        await offscreen.maybeClose();
+        return;
+      } catch {}
+    }
   }
 
   async function pauseDiscovery(tabId) {
@@ -565,7 +576,14 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       return next;
     });
     if (!deferred) return;
-    await chrome.alarms.create(downloadScanAlarmName('imageDownload', tabId), { when: deferred.scanDeadline });
+    for (const delay of [0, 100, 500]) {
+      if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+      try {
+        await chrome.alarms.create(downloadScanAlarmName('imageDownload', tabId), { when: deferred.scanDeadline });
+        return;
+      } catch {}
+    }
+    await pauseDiscovery(tabId);
   }
 
   async function resumeDiscovery(tabId) {
@@ -716,10 +734,23 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   }
 
   async function reset() {
-    await initialize();
-    const values = await chrome.storage.session.get(null);
-    const tabIds = Object.entries(values).filter(([key, value]) => key.startsWith('imageDownloadSession:') && Number.isInteger(value?.tabId)).map(([, value]) => value.tabId);
-    await Promise.allSettled([...new Set(tabIds)].map(stopImageSession));
+    const tabIds = new Set(activeTabs);
+    try { await initialize(); } catch {}
+    try {
+      const values = await chrome.storage.session.get(null);
+      for (const [key, value] of Object.entries(values)) {
+        if (key.startsWith('imageDownloadSession:') && Number.isInteger(value?.tabId)) tabIds.add(value.tabId);
+      }
+    } catch {}
+    await Promise.allSettled([...tabIds].map(stopImageSession));
+    await Promise.allSettled([...tabIds].map(async tabId => {
+      await setCollecting(tabId, false);
+      clearPending(tabId);
+      await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId)).catch(() => {});
+      await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false).catch(() => {});
+      if (chrome.sidePanel?.setOptions) await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+    }));
+    preparedImageSidePanels.clear();
   }
 
   return Object.freeze({

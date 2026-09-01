@@ -34,7 +34,7 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
       const active = !(await product.isActive(tabId));
       await product.setActive(tabId, active);
       if (!active) await platform.setFeatureActivity(tabId, product.id, false);
-      await platform.sendTabMessage(tabId, { type: 'CG_REFRESH_CONFIG' });
+      void platform.refreshTabPage(tabId);
       return anyCopyEnhancedState(tab.url || '', active);
     },
     async removeTab(tabId) { await chrome.storage.session.remove(key(tabId)); },

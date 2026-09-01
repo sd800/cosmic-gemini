@@ -148,7 +148,11 @@ export function createSatellitesProduct(platform) {
     },
     async handleAlarm(alarm) {
       if (alarm.name !== BILI_DAILY_ALARM) return false;
-      await runOnce();
+      try { await runOnce(); }
+      catch (error) {
+        repairSchedule();
+        throw error;
+      }
       return true;
     },
     async reset() {

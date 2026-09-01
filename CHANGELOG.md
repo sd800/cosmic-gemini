@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.6.1 — 2026-09-01
+
+- Corrected Any Copy website-rule removal and kept the selected interface language available through temporary Service Worker read failures.
+- Page products now retry together when one synchronization step fails. Events left by a previous website are ignored after navigation, and tab refreshes use bounded recovery attempts.
+- Media sessions now distinguish an unavailable Chrome download-status lookup from a completed download. Completed-download cleanup is retried, while restart-safe artifact identifiers keep temporary files recoverable across offscreen document restarts.
+- Serialized offscreen document creation and closure so active media work cannot lose its processor. Failed scan timers stop discovery safely, reset cleanup disables any surviving scanner, and Bili Daily Login repairs a missed schedule within bounded attempts.
+- Fixed Image Download capture cancellation, retryable image metadata reporting, and Video Download scanner replies. Automated checks now verify bilingual localization parity and the new recovery boundaries.
+
 ## 5.5.1 — 2026-09-01
 
 - Serialized activity and download-session updates by tab, preventing simultaneous product events from overwriting one another or dropping newly discovered media.

@@ -38,7 +38,7 @@
       if (message?.type === 'CG_VIDEO_SCAN') {
         this.active = true;
         this.observe();
-        void this.scan(true).then(candidates => respond({ candidates }));
+        void this.scan(true).then(candidates => respond({ candidates })).catch(() => respond({ candidates: [] }));
         return true;
       }
       if (message?.type === 'CG_VIDEO_STOP') this.stop();
@@ -49,13 +49,18 @@
       if (!this.active || event.source !== globalThis || event.data?.marker !== PAGE_MARKER) return;
       if (event.data.type === 'candidates' && Array.isArray(event.data.candidates)) void this.publish(event.data.candidates);
       if (event.data.type === 'manifests' && Array.isArray(event.data.manifests)) {
-        void chrome.runtime.sendMessage({ type: 'CG_VIDEO_INLINE_MANIFESTS', manifests: event.data.manifests }).catch(() => {});
+        void chrome.runtime.sendMessage({
+          type: 'CG_VIDEO_INLINE_MANIFESTS',
+          manifests: event.data.manifests,
+          pageUrl: location.href
+        }).catch(() => {});
       }
       if (event.data.type === 'wrapped-manifest' && typeof event.data.data === 'string') {
         void chrome.runtime.sendMessage({
           type: 'CG_VIDEO_WRAPPED_MANIFEST',
           data: event.data.data,
-          baseUrl: event.data.baseUrl
+          baseUrl: event.data.baseUrl,
+          pageUrl: location.href
         }).catch(() => {});
       }
     }
@@ -194,7 +199,7 @@
       }
       if (!unique.length) return [];
       try {
-        await chrome.runtime.sendMessage({ type: 'CG_VIDEO_CANDIDATES', candidates: unique });
+        await chrome.runtime.sendMessage({ type: 'CG_VIDEO_CANDIDATES', candidates: unique, pageUrl: location.href });
       } catch {}
       return unique;
     }

@@ -25,6 +25,10 @@
     box.style.height = `${Math.abs(current.y - start.y)}px`;
   };
   const stop = event => { event.preventDefault(); event.stopImmediatePropagation(); };
+  const removeOverlay = () => {
+    overlay.remove();
+    removeEventListener('keydown', cancel, true);
+  };
   overlay.addEventListener('pointerdown', event => {
     stop(event);
     start = point(event);
@@ -44,15 +48,17 @@
       viewportWidth: innerWidth,
       viewportHeight: innerHeight
     };
-    overlay.remove();
+    removeOverlay();
     if (rect.width < 8 || rect.height < 8) return;
-    setTimeout(() => void chrome.runtime.sendMessage({ type: 'CG_IMAGE_CAPTURE_RECT', rect }), 80);
+    setTimeout(() => {
+      void chrome.runtime.sendMessage({ type: 'CG_IMAGE_CAPTURE_RECT', rect }).catch(() => {});
+    }, 80);
   }, true);
-  const cancel = event => {
+  function cancel(event) {
     if (event.key !== 'Escape') return;
     stop(event);
-    overlay.remove();
-  };
-  addEventListener('keydown', cancel, { capture: true, once: true });
+    removeOverlay();
+  }
+  addEventListener('keydown', cancel, true);
   return true;
 })();

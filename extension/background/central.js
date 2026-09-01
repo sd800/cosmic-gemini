@@ -143,9 +143,12 @@ async function syncPageProducts(sender, message) {
       frameUrl,
       topUrl
     })));
+  if (results.some(result => result.status === 'rejected')) {
+    throw new Error('One or more page products are temporarily unavailable.');
+  }
   const entries = PAGE_PRODUCTS.map((productId, index) => [
     productId,
-    results[index].status === 'fulfilled' && results[index].value === true
+    results[index].value === true
   ]);
   return Object.fromEntries(entries);
 }

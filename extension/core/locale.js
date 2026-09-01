@@ -13,6 +13,10 @@ export function preferredLocale(languages = globalThis.navigator?.languages || [
 export async function loadLocale() {
   let locale = preferredLocale();
   try {
+    const cached = globalThis.localStorage?.getItem(LOCALE_CACHE_KEY);
+    if (cached) locale = normalizeLocale(cached);
+  } catch {}
+  try {
     const response = await chrome.runtime.sendMessage({ type: 'UI_GET_LOCALE' });
     if (response?.ok && response.result?.locale) locale = normalizeLocale(response.result.locale);
   } catch {}

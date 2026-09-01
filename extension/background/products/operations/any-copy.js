@@ -12,7 +12,7 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
       return state.active;
     },
     async handleMessage(message) {
-      const hostname = normalizeRule(message.hostname || '');
+      const hostname = normalizeRule(message.rule || message.hostname || '');
       if (message.type === 'UI_TOGGLE_SITE_FEATURE' && hostname.startsWith('*.')) {
         throw new Error('The current-site action requires an exact hostname.');
       }

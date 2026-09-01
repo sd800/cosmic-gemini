@@ -1,6 +1,7 @@
 import {
   DEFAULT_SETTINGS,
   FEATURE_IDS,
+  hostnameFromUrl,
   LEGACY_SETTINGS_KEY,
   SETTINGS_KEY,
   normalizeSettings
@@ -67,13 +68,30 @@ export function createPlatform() {
     let tabs;
     try { tabs = await chrome.tabs.query({}); }
     catch { return; }
-    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab =>
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id, allFrames: true },
-        world: 'ISOLATED',
-        injectImmediately: true,
-        func: () => globalThis[Symbol.for('cosmic-gemini.central')]?.sync?.()
-      }).catch(() => {})));
+    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id) && hostnameFromUrl(tab.url || ''))
+      .map(tab => refreshTabPage(tab.id)));
+  }
+
+  async function refreshTabPage(tabId) {
+    if (!Number.isInteger(tabId)) return false;
+    for (const delay of [0, 80, 240]) {
+      if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+      try {
+        const frames = await chrome.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          world: 'ISOLATED',
+          injectImmediately: true,
+          func: async () => {
+            const controller = globalThis[Symbol.for('cosmic-gemini.central')];
+            if (typeof controller?.sync !== 'function') return false;
+            await controller.sync();
+            return true;
+          }
+        });
+        if (frames.some(frame => frame.result === true)) return true;
+      } catch {}
+    }
+    return false;
   }
 
   async function mutateSettings(update, refresh = true) {
@@ -244,6 +262,7 @@ export function createPlatform() {
     ensureSettings,
     mutateSettings,
     refreshOpenPages,
+    refreshTabPage,
     readActivity,
     setFeatureActivity,
     clearTabActivity,

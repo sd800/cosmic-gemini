@@ -53,7 +53,7 @@
   }
   function onIntervened(event) {
     if (!token || event.detail !== token) return;
-    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'noAutoplay' }).catch(() => {});
+    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'noAutoplay', pageUrl: location.href }).catch(() => {});
   }
   function onMessage(message) {
     if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'noAutoplay') dispose();

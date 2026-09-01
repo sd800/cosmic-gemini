@@ -8,11 +8,15 @@ function chromeMock() {
   const session = {};
   let failNextWrite = false;
   let failTabQuery = false;
+  let scriptFailures = 0;
+  let scriptCalls = 0;
   return {
     local,
     session,
     failWrite() { failNextWrite = true; },
     failQuery() { failTabQuery = true; },
+    failScripts(count) { scriptFailures = count; },
+    scriptCalls() { return scriptCalls; },
     api: {
       storage: {
         local: {
@@ -59,7 +63,16 @@ function chromeMock() {
           return [];
         }
       },
-      scripting: { executeScript: async () => [] },
+      scripting: {
+        async executeScript() {
+          scriptCalls += 1;
+          if (scriptFailures > 0) {
+            scriptFailures -= 1;
+            throw new Error('temporary script failure');
+          }
+          return [{ frameId: 0, result: true }];
+        }
+      },
       action: {
         setIcon(_details, callback) { callback(); },
         setBadgeText(_details, callback) { callback(); },
@@ -126,4 +139,13 @@ test('reset is serialized behind settings writes and leaves defaults in storage'
   const reset = platform.resetStorage();
   await Promise.all([update, reset]);
   assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
+});
+
+test('page synchronization retries transient script injection failures', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  mock.failScripts(2);
+  assert.equal(await platform.refreshTabPage(17), true);
+  assert.equal(mock.scriptCalls(), 3);
 });

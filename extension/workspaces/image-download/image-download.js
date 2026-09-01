@@ -213,7 +213,7 @@ function createCard(group, index) {
       tabId: sourceTabId,
       candidateId: candidate.id,
       metadata: { width: image.naturalWidth, height: image.naturalHeight }
-    }).catch(() => {});
+    }).catch(() => { metadataSent.delete(candidate.id); });
   });
   const badge = document.createElement('span');
   badge.className = 'recommended-badge';

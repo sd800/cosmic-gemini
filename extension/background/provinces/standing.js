@@ -1,6 +1,7 @@
 import {
   FEATURE_IDS,
   featureState,
+  hostnameFromUrl,
   normalizeRule,
   updateFeature
 } from '../../core/config.js';
@@ -47,6 +48,9 @@ export function createStandingProvince(platform) {
     const senderTabId = context.sender.tab?.id;
 
     if (message.type === 'CG_FEATURE_INTERVENED') {
+      const eventHostname = hostnameFromUrl(message.pageUrl || context.sender.url || '');
+      const currentHostname = hostnameFromUrl(context.sender.tab?.url || '');
+      if (eventHostname && currentHostname && eventHostname !== currentHostname) return { recorded: false };
       const settings = await platform.readSettings();
       const state = governed.state(settings, senderUrl);
       if (state.active) await platform.setFeatureActivity(senderTabId, governed.id, true);

@@ -3,6 +3,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const extension = join(project, 'extension');
@@ -28,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.5.1');
+assert.equal(manifest.version, '5.6.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -79,6 +80,22 @@ for (const cssPath of files.filter(path => path.endsWith('.css'))) {
 
 const sourceEntries = await Promise.all(files.filter(path => /\.(?:js|html|css)$/.test(path))
   .map(async path => [path, await readFile(path, 'utf8')]));
+const localizationContext = { globalThis: {} };
+runInNewContext(await source('shared', 'localization-data.js'), localizationContext);
+const localizationCatalog = localizationContext.globalThis.COSMIC_GEMINI_CATALOG;
+assert.ok(localizationCatalog?.['en-US'] && localizationCatalog?.['zh-CN'], 'Both interface locales must be present.');
+assert.deepEqual(Object.keys(localizationCatalog['en-US']).sort(), Object.keys(localizationCatalog['zh-CN']).sort(),
+  'English and Chinese localization keys must stay synchronized.');
+const localizedKeys = new Set();
+for (const [path, value] of sourceEntries.filter(([path]) => !path.includes(join(extension, 'vendor')))) {
+  if (!/\.(?:js|html)$/.test(path)) continue;
+  for (const match of value.matchAll(/\b(?:t|translate)\(\s*['"]([A-Za-z0-9]+)['"]/g)) localizedKeys.add(match[1]);
+  for (const match of value.matchAll(/data-i18n(?:-placeholder|-aria-label)?=['"]([A-Za-z0-9]+)['"]/g)) localizedKeys.add(match[1]);
+}
+for (const key of localizedKeys) {
+  assert.ok(key in localizationCatalog['en-US'], `Missing English localization key: ${key}`);
+  assert.ok(key in localizationCatalog['zh-CN'], `Missing Chinese localization key: ${key}`);
+}
 const firstPartyJoined = sourceEntries.filter(([path]) => !path.includes(join(extension, 'vendor')))
   .map(([, value]) => value).join('\n');
 const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join(extension, 'vendor'))
@@ -172,6 +189,7 @@ assert.match(central, /productForMessage/);
 assert.match(central, /setCustomsResponseIngressEnabled/);
 assert.match(central, /Promise\.allSettled\(STATE_PRODUCTS/);
 assert.match(central, /Promise\.allSettled\(PAGE_PRODUCTS/);
+assert.match(central, /results\.some\(result => result\.status === 'rejected'\)/);
 assert.match(central, /unavailableProductState/);
 assert.match(central, /onHeadersReceived\.removeListener\(handleCustomsHeadersReceived\)/);
 assert.doesNotMatch(central, /chrome\.storage|chrome\.scripting\.executeScript|chrome\.tabs\.(?:query|create|update)|chrome\.downloads\.download\s*\(|chrome\.sidePanel|chrome\.offscreen|chrome\.declarativeNetRequest|fetch\s*\(/,
@@ -193,7 +211,7 @@ assert.match(customs, /imageDownload\.initialize\(\)[\s\S]*videoDownload\.initia
 assert.match(customsObservation, /collecting\.size > 0/);
 assert.match(customsObservation, /restorationReliable/);
 assert.match(customsObservation, /needsRestoration/);
-assert.match(offscreenCoordinator, /activeAssemblies[\s\S]*sendVideo[\s\S]*sendImage[\s\S]*maybeClose/);
+assert.match(offscreenCoordinator, /activeAssemblies[\s\S]*activeRequests[\s\S]*queueDocumentLifecycle[\s\S]*sendVideo[\s\S]*sendImage[\s\S]*maybeClose/);
 
 assert.match(runtimeHost, /chrome\.scripting\.executeScript/);
 assert.match(runtimeHost, /CG_STOP_CENTRAL_FEATURE/);
@@ -201,12 +219,14 @@ assert.match(runtimeHost, /disposeMainRuntime/);
 assert.match(nativeScroll, /content\/native-scroll-bridge\.js[\s\S]*content\/runtime\.js/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.match(anyCopy, /content\/any-copy-bridge\.js[\s\S]*content\/any-copy-runtime\.js/);
+assert.match(anyCopy, /message\.rule \|\| message\.hostname/);
 assert.match(anyCopyEnhanced, /content\/any-copy-enhanced-bridge\.js[\s\S]*content\/any-copy-enhanced-runtime\.js/);
 assert.match(anyCopyEnhanced, /anyCopyEnhancedTab:/);
 assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
 assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/reward/);
 assert.match(administration, /UI_GET_ACTIVE_PAGE_STATE[\s\S]*UI_OPEN_ALL_SETTINGS[\s\S]*UI_RESET_ALL_SETTINGS/);
 assert.match(platform, /chrome\.storage[\s\S]*refreshOpenPages[\s\S]*renderToolbar/);
+assert.match(platform, /refreshTabPage[\s\S]*\[0, 80, 240\]/);
 assert.match(platform, /createKeyedTaskQueue/);
 assert.match(platform, /activityQueue\.run/);
 assert.match(platform, /queueWrite/);
@@ -226,6 +246,8 @@ assert.match(videoDownload, /cleanupOrphanedMediaHeaderRules/);
 assert.match(videoDownload, /videoDownloadArtifact:/);
 assert.match(videoDownload, /activeVideoProcessing\.has\(processingKey\)/);
 assert.match(videoDownload, /requestBilibiliJson/);
+assert.match(videoDownload, /expectedSenderPageUrl/);
+assert.match(videoDownload, /expandingVideoManifests\.clear\(\)/);
 assert.match(imageWorkspace, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(imageWorkspace, /await send\(\{ type: 'UI_IMAGE_STOP'[\s\S]{0,160}await reload\(/);
 assert.doesNotMatch(imageDownload, /scheduleDownloadDiscoveryPause|videoDownloadSession:/);
@@ -257,6 +279,7 @@ for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'any-c
 assert.equal(await stat(join(extension, 'workspaces/image-download/image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'offscreen/video-download.html')).then(() => true), true);
 assert.match(await source('offscreen', 'video-download.js'), /new AbortController\(\)/);
+assert.match(await source('offscreen', 'video-download.js'), /artifactId = artifact\.name/);
 assert.match(offscreenCoordinator, /videoDownloadArtifact:/);
 assert.match(await source('settings', 'all-settings.html'), /language-card[\s\S]*id="reset-settings-card"/);
 assert.match(await source('settings', 'native-scroll.html'), /© 2026 Songming\.org/);

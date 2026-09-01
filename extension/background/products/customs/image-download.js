@@ -725,9 +725,10 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     }
     if (message.type === 'UI_IMAGE_OPEN') {
       const tabId = Number(message.tabId);
-      const sourceTab = await chrome.tabs.get(tabId);
+      const workspacePromise = openImageWorkspace(tabId, message.workspaceMode);
+      const sourceTabPromise = chrome.tabs.get(tabId);
+      const [workspace, sourceTab] = await Promise.all([workspacePromise, sourceTabPromise]);
       const sourceUrl = String(sourceTab.url || '');
-      const workspace = await openImageWorkspace(tabId, message.workspaceMode);
       try {
         await startImageSession(tabId, sourceUrl, sourceTab.title || '');
         await sessionUpdates.run(tabId, async () => {

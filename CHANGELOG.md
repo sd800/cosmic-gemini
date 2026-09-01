@@ -2,13 +2,17 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.15.3 — 2026-09-01
+
+- Fixed the Image Download button failing to open its Side Panel because current-tab validation consumed Chrome's user-gesture window. The Side Panel request now begins directly from the click while current-tab validation continues alongside it.
+
 ## 5.15.2 — 2026-09-01
 
 - Image Download and Video Download now show their discovery lifecycle in the popup. Active scanning uses a blue icon with a background, the two-minute discovery period uses a blue icon without a background, and a paused scan returns to the neutral icon.
 
 ## 5.15.1 — 2026-09-01
 
-- Native Scroll now preserves inert weak listener metadata when it is disabled in an open page. Re-enabling Standard mode or Enhanced mode can recognize scrolling takeover listeners that the website registered earlier, while the disabled product keeps no active hooks, observers, or interceptors.
+- Fixed Native Scroll sometimes failing to resume protection after being disabled and re-enabled on the same page. While disabled, it retains only inert weak-reference metadata for previously observed scrolling takeover listeners, and runs no hooks, observers, or interceptors. A new runtime may read this metadata only after the user re-enables Native Scroll and Central authorizes it to start again.
 
 ## 5.13.1 — 2026-09-01
 

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.15.2');
+assert.equal(manifest.version, '5.15.3');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -193,6 +193,8 @@ const imageWorkspace = await source('workspaces', 'image-download', 'image-downl
 
 assert.match(imageDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
 assert.match(videoDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
+assert.match(imageDownload, /const workspacePromise = openImageWorkspace\([\s\S]*?const sourceTabPromise = chrome\.tabs\.get\([\s\S]*?Promise\.all\(\[workspacePromise, sourceTabPromise\]\)/,
+  'Image Download must request its Side Panel before awaiting current-tab validation.');
 
 assert.ok(central.split('\n').length < 260, 'Central must remain a compact decision and routing layer.');
 assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]*customs:/);
@@ -298,7 +300,7 @@ assert.match(imageDownload, /limitImageCandidatesForSession/);
 assert.match(imageDownload, /pending\.candidates\.length < 2000/);
 assert.match(imageDownload, /schedulePageScan/);
 assert.match(imageDownload, /tab\.active[\s\S]*captureVisibleTab[\s\S]*visibleTab\?\.id !== tabId/);
-assert.match(imageDownload, /sourceTab = await chrome\.tabs\.get\(tabId\)/);
+assert.match(imageDownload, /sourceTabPromise = chrome\.tabs\.get\(tabId\)/);
 assert.match(videoDownload, /pending\.candidates\.length < 800/);
 assert.match(videoDownload, /sourceTab = await chrome\.tabs\.get\(tabId\)/);
 assert.match(imageWorkspace, /retryRead\(\(\) => reload/);

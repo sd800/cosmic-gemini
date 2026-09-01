@@ -98,7 +98,9 @@
   }
   const adMarshalNewsQqCom = document.querySelector('#adMarshalNewsQqCom');
   if (adMarshalNewsQqCom) {
-    adMarshalNewsQqCom.checked = !incognitoContext && cached.adMarshal?.sites?.newsQqCom !== false;
+    adMarshalNewsQqCom.checked = !incognitoContext
+      && Number(cached.version) >= 17
+      && cached.adMarshal?.sites?.newsQqCom === true;
   }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';

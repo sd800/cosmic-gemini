@@ -38,24 +38,24 @@ function ruleGroupForTab(tabId, occupied) {
   throw new Error('Ad Marshal could not allocate its temporary network rules.');
 }
 
-function redirectRule(id, tabId, urlFilter, resourceTypes) {
+function blockRule(id, tabId, urlFilter, resourceTypes) {
   return {
     id,
     priority: 100,
-    action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.js' } },
+    action: { type: 'block' },
     condition: { tabIds: [tabId], urlFilter, resourceTypes }
   };
 }
 
 function rulesForTab(tabId, base) {
   return [
-    redirectRule(base, tabId, 'universal-report.min.js', ['script']),
-    redirectRule(base + 1, tabId, '/news-plugin/sdk/emonitor_', ['script']),
-    redirectRule(base + 2, tabId, '/qqindex2021/advertisement/', ['script']),
+    blockRule(base, tabId, 'universal-report.min.js', ['script']),
+    blockRule(base + 1, tabId, '/news-plugin/sdk/emonitor_', ['script']),
+    blockRule(base + 2, tabId, '/qqindex2021/advertisement/', ['script']),
     {
       id: base + 3,
       priority: 100,
-      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.js' } },
+      action: { type: 'block' },
       condition: {
         tabIds: [tabId],
         requestDomains: TRACKING_DOMAINS,

@@ -35,7 +35,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.equal(settings.noAutoplay.audioAutoplayAllSites, false);
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
-  assert.deepEqual(settings.adMarshal, { sites: { newsQqCom: true } });
+  assert.deepEqual(settings.adMarshal, { sites: { newsQqCom: false } });
   assert.equal('anyCopyEnhanced' in settings, false);
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
   assert.deepEqual(settings.videoDownload, { preferredQuality: 'best', askWhereToSave: true });
@@ -206,9 +206,10 @@ test('only HTTP and HTTPS pages expose a hostname', () => {
 });
 
 test('Ad Marshal is limited to each enabled managed website', () => {
-  assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, true);
+  assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.qq.com/').active, false);
-  assert.equal(adMarshalState({ adMarshal: { sites: { newsQqCom: false } } }, 'https://news.qq.com/').active, false);
+  assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://news.qq.com/').active, true);
+  assert.equal(normalizeSettings({ version: 16, adMarshal: { sites: { newsQqCom: true } } }).adMarshal.sites.newsQqCom, false);
 });
 
 test('settings first-frame cache keeps preferences without page activity', () => {

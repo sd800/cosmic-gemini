@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.2.1 — 2026-09-01
+
+- Fixed Tencent News rendering as a black page when Ad Marshal removed nodes that React still managed. Ad Marshal no longer deletes page nodes or changes Beacon metadata, so the application can complete its own rendering and updates.
+- Every Ad Marshal managed site now starts disabled in ordinary and incognito settings. Existing settings from the previous release are migrated to the disabled state, and each site runs only after the user enables its switch again.
+- Confirmed advertising and reporting loaders are blocked before execution, matching telemetry requests receive local type-compatible responses, and known advertising containers are hidden with a narrow local style. The runtime no longer needs a DOM observer or polling loop.
+
 ## 6.1.1 — 2026-09-01
 
 - Added Ad Marshal to Satellites with an independent switch for each managed website. Tencent News is enabled by default in ordinary windows, while every managed site starts disabled in incognito.

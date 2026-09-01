@@ -42,11 +42,11 @@ No Autoplay operates only on media elements and audio contexts inside the curren
 
 ## Ad Marshal
 
-Ad Marshal is a managed-site product under Standing Province. Central evaluates it at the fixed page entry, Standing Province coordinates the tab lifecycle, and the product runs only when the current hostname exactly matches an enabled managed site. It has no popup control or activity icon. Ordinary settings enable the listed Tencent News rule by default, while the separate incognito profile starts with every Ad Marshal site disabled.
+Ad Marshal is a managed-site product under Standing Province. Central evaluates it at the fixed page entry, Standing Province coordinates the tab lifecycle, and the product runs only when the current hostname exactly matches an enabled managed site. It has no popup control or activity icon. Every managed-site switch starts disabled in both ordinary and incognito settings.
 
-For an active `news.qq.com` tab, the product installs tab-scoped session DNR rules before coordinating its isolated bridge and main-world runtime. Known advertising and reporting loaders are redirected to local empty scripts instead of producing blocked-request errors. Matching telemetry scripts, requests, frames, and images receive local type-compatible success resources so their retry code has no failure signal to follow. The rules cover confirmed Tencent News loader paths even when an external Tencent CDN serves the script.
+For an active `news.qq.com` tab, the product installs tab-scoped session DNR rules before coordinating its isolated bridge and main-world runtime. Confirmed advertising and reporting loaders are blocked before execution, including paths served by external Tencent CDNs. Matching telemetry requests, frames, and images receive local type-compatible success resources so their retry code has no failure signal to follow, while telemetry scripts are blocked.
 
-The main-world runtime also neutralizes matching `fetch`, XHR, Beacon, and script-source paths. A narrowly filtered MutationObserver removes matching scripts and known advertising containers from initial or later DOM content, and strips confirmed Beacon reporting attributes without deleting functional content that carries them. It batches added roots, never polls the page, and restores every patched API, observer, and removed Beacon attribute when the product is disabled.
+The main-world runtime neutralizes matching `fetch`, XHR, and Beacon calls, while Chrome's session DNR rules handle scripts, frames, and images. It hides a narrow set of confirmed advertising containers with one local style and never removes framework-managed nodes or changes Beacon metadata. The runtime uses no observer or polling loop and restores every patched API, style, blob URL, bridge, runtime, and temporary network rule when the product is disabled.
 
 ## Any Copy
 

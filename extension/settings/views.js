@@ -154,7 +154,7 @@ export function viewFor(featureId) {
           <h2 data-i18n="adMarshalSitesHeading"></h2>
           <label class="preference-row satellite-site-row" for="adMarshalNewsQqCom">
             <span><strong>news.qq.com</strong><small data-i18n="adMarshalNewsQqDescription"></small></span>
-            <span class="switch"><input id="adMarshalNewsQqCom" type="checkbox" checked><span></span></span>
+            <span class="switch"><input id="adMarshalNewsQqCom" type="checkbox"><span></span></span>
           </label>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>

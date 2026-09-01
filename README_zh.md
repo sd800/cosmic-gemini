@@ -60,7 +60,7 @@ Satellites 收纳无需在控制窗口中直接操作、适合在后台完成的
 
 #### Ad Marshal
 
-腾讯新闻会在广告、上报或跟踪请求被拦截后，反复重新创建同类任务。这些重试不会恢复有用的页面内容，却会持续占用浏览器资源并堆积错误信息。Ad Marshal 会在您开启的网站中阻止已知加载器运行，为对应的上报调用返回本地成功结果，并移除相关广告元素。
+腾讯新闻会在广告、上报或跟踪请求被拦截后，反复重新创建同类任务。这些重试不会恢复有用的页面内容，却会持续占用浏览器资源并堆积错误信息。Ad Marshal 会在您开启的网站中阻止已知加载器运行，为对应的上报调用返回本地成功结果，并隐藏相关广告区域。
 
 ## 主要特性
 
@@ -112,7 +112,7 @@ Any Copy 会为当前网站启用并保存对应的主机名规则。Any Copy �
 
 **全部设置**位于底部的独立一行并靠右显示。紧凑的主控制窗口会暂时隐藏 Cosmic Gemini 名称。全部设置可进入各项功能的设置页面，也可以将全部设置和网站规则恢复为默认状态。
 
-全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download 与 Satellites 的入口。Bili Daily Login 默认关闭。普通窗口中的 Ad Marshal 默认对已列出的管制网站开启，每个网站均可单独控制。只有打开这些网站时，Ad Marshal 才会运行。
+全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download 与 Satellites 的入口。Bili Daily Login 与 Ad Marshal 中的所有管制网站默认关闭。您可以单独开启每个管制网站，Ad Marshal 只会在对应网站打开时运行。
 
 开启 Bili Daily Login 后，它会在电脑已唤醒且 Chrome 正在运行时按日程执行。
 

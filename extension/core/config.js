@@ -32,7 +32,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 16,
+  version: 17,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -47,7 +47,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   adMarshal: Object.freeze({
     sites: Object.freeze({
-      newsQqCom: true
+      newsQqCom: false
     })
   }),
   imageDownload: Object.freeze({
@@ -154,12 +154,13 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 }
 
 export function normalizeSettings(value = {}) {
+  const storedVersion = Number(value.version) || 0;
   const legacy = value.version === 1 && ('enabled' in value || 'whitelist' in value || 'mode' in value);
   const nativeValue = legacy
     ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 16,
+    version: 17,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules ?? value.nsnaWhitelistRules)
     },
@@ -170,7 +171,7 @@ export function normalizeSettings(value = {}) {
     },
     adMarshal: {
       sites: {
-        newsQqCom: value.adMarshal?.sites?.newsQqCom !== false
+        newsQqCom: storedVersion >= 17 && value.adMarshal?.sites?.newsQqCom === true
       }
     },
     imageDownload: {

@@ -156,6 +156,10 @@ export function viewFor(featureId) {
             <span><strong>news.qq.com</strong><small data-i18n="adMarshalNewsQqDescription"></small></span>
             <span class="switch"><input id="adMarshalNewsQqCom" type="checkbox"><span></span></span>
           </label>
+          <label class="preference-row satellite-site-row" for="adMarshalDouyinCom">
+            <span><strong>douyin.com</strong><small data-i18n="adMarshalDouyinDescription"></small></span>
+            <span class="switch"><input id="adMarshalDouyinCom" type="checkbox"><span></span></span>
+          </label>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
       </section>`,

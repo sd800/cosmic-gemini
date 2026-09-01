@@ -5,12 +5,23 @@ import {
   adMarshalState
 } from '../../../core/config.js';
 
-const NEWS_QQ_SITE_ID = 'newsQqCom';
-const NEWS_QQ_HOST = 'news.qq.com';
 const RULE_ID_START = 1_600_000_000;
 const RULE_ID_GROUPS = 20_000_000;
-const RULES_PER_TAB = 8;
-const TRACKING_DOMAINS = Object.freeze([
+const RULES_PER_TAB = 12;
+const SITE_POLICIES = Object.freeze({
+  newsQqCom: Object.freeze({
+    matches: Object.freeze(['http://news.qq.com/*', 'https://news.qq.com/*'])
+  }),
+  douyinCom: Object.freeze({
+    matches: Object.freeze([
+      'http://douyin.com/*',
+      'https://douyin.com/*',
+      'http://www.douyin.com/*',
+      'https://www.douyin.com/*'
+    ])
+  })
+});
+const NEWS_QQ_TRACKING_DOMAINS = Object.freeze([
   'h.trace.qq.com',
   'btrace.qq.com',
   'otheve.beacon.qq.com',
@@ -22,6 +33,17 @@ const TRACKING_DOMAINS = Object.freeze([
   'svibeacon.onezapp.com',
   'news.ssp.qq.com',
   'op.ssp.qq.com'
+]);
+const DOUYIN_TELEMETRY_DOMAINS = Object.freeze([
+  'mon.zijieapi.com',
+  'mcs.zijieapi.com',
+  'log.zijieapi.com',
+  'applog.zijieapi.com',
+  'log.snssdk.com',
+  'log.byteoversea.com',
+  'mon.byteoversea.com',
+  'monsetting.toutiao.com',
+  'monsetting.toutiaocloud.com'
 ]);
 
 function isOwnedRule(rule) {
@@ -49,51 +71,24 @@ function scriptRedirectRule(id, tabId, urlFilter) {
   };
 }
 
-function rulesForTab(tabId, base) {
+function domainRedirectRule(id, tabId, requestDomains, resourceTypes, extensionPath) {
+  return {
+    id,
+    priority: 100,
+    action: { type: 'redirect', redirect: { extensionPath } },
+    condition: { tabIds: [tabId], requestDomains, resourceTypes }
+  };
+}
+
+function newsQqRules(tabId, base) {
   return [
     scriptRedirectRule(base, tabId, 'universal-report.min.js'),
     scriptRedirectRule(base + 1, tabId, '/news-plugin/sdk/emonitor_'),
     scriptRedirectRule(base + 2, tabId, '/qqindex2021/advertisement/'),
-    {
-      id: base + 3,
-      priority: 100,
-      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.js' } },
-      condition: {
-        tabIds: [tabId],
-        requestDomains: TRACKING_DOMAINS,
-        resourceTypes: ['script']
-      }
-    },
-    {
-      id: base + 4,
-      priority: 100,
-      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.json' } },
-      condition: {
-        tabIds: [tabId],
-        requestDomains: TRACKING_DOMAINS,
-        resourceTypes: ['xmlhttprequest', 'ping', 'other']
-      }
-    },
-    {
-      id: base + 5,
-      priority: 100,
-      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.html' } },
-      condition: {
-        tabIds: [tabId],
-        requestDomains: TRACKING_DOMAINS,
-        resourceTypes: ['sub_frame']
-      }
-    },
-    {
-      id: base + 6,
-      priority: 100,
-      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-transparent.svg' } },
-      condition: {
-        tabIds: [tabId],
-        requestDomains: TRACKING_DOMAINS,
-        resourceTypes: ['image']
-      }
-    },
+    domainRedirectRule(base + 3, tabId, NEWS_QQ_TRACKING_DOMAINS, ['script'], '/assets/ad-marshal-empty.js'),
+    domainRedirectRule(base + 4, tabId, NEWS_QQ_TRACKING_DOMAINS, ['xmlhttprequest', 'ping', 'other'], '/assets/ad-marshal-empty.json'),
+    domainRedirectRule(base + 5, tabId, NEWS_QQ_TRACKING_DOMAINS, ['sub_frame'], '/assets/ad-marshal-empty.html'),
+    domainRedirectRule(base + 6, tabId, NEWS_QQ_TRACKING_DOMAINS, ['image'], '/assets/ad-marshal-transparent.svg'),
     {
       id: base + 7,
       priority: 100,
@@ -107,9 +102,26 @@ function rulesForTab(tabId, base) {
   ];
 }
 
+function douyinRules(tabId, base) {
+  return [
+    scriptRedirectRule(base, tabId, '/obj/applog-sdk-static/log-sdk/collect/'),
+    scriptRedirectRule(base + 1, tabId, '/slardar/fe/sdk-web/browser.cn.js'),
+    domainRedirectRule(base + 2, tabId, DOUYIN_TELEMETRY_DOMAINS, ['script'], '/assets/ad-marshal-empty.js'),
+    domainRedirectRule(base + 3, tabId, DOUYIN_TELEMETRY_DOMAINS, ['xmlhttprequest', 'ping', 'other'], '/assets/ad-marshal-empty.json'),
+    domainRedirectRule(base + 4, tabId, DOUYIN_TELEMETRY_DOMAINS, ['sub_frame'], '/assets/ad-marshal-empty.html'),
+    domainRedirectRule(base + 5, tabId, DOUYIN_TELEMETRY_DOMAINS, ['image'], '/assets/ad-marshal-transparent.svg')
+  ];
+}
+
+function rulesForTab(tabId, base, siteId) {
+  if (siteId === 'newsQqCom') return newsQqRules(tabId, base);
+  if (siteId === 'douyinCom') return douyinRules(tabId, base);
+  return [];
+}
+
 export function createAdMarshalProduct(pageRuntimeHost, platform) {
   let networkQueue = Promise.resolve();
-  const activeTabs = new Set();
+  const activeTabs = new Map();
   function queueNetwork(task) {
     const operation = networkQueue.then(task);
     networkQueue = operation.catch(() => undefined);
@@ -124,12 +136,12 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);
       const active = context.frameId === 0 && state.active;
-      if (context.frameId === 0) await syncTabRules(context.tabId, active);
+      if (context.frameId === 0) await syncTabRules(context.tabId, active ? state.siteId : '');
       await pageRuntimeHost.sync(product, context, active);
       return active;
     },
     async handleMessage(message) {
-      if (message.type !== 'UI_SET_AD_MARSHAL_SITE' || message.siteId !== NEWS_QQ_SITE_ID) {
+      if (message.type !== 'UI_SET_AD_MARSHAL_SITE' || !SITE_POLICIES[message.siteId]) {
         throw new Error('Ad Marshal does not support this command.');
       }
       const settings = await platform.mutateSettings(current => ({
@@ -138,7 +150,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
           ...current.adMarshal,
           sites: {
             ...current.adMarshal.sites,
-            [NEWS_QQ_SITE_ID]: message.enabled === true
+            [message.siteId]: message.enabled === true
           }
         }
       }));
@@ -148,9 +160,10 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     async handleTabUpdated(tabId, change, tab) {
       if (!change.url && change.status !== 'loading') return;
       const settings = await platform.readSettings();
-      await syncTabRules(tabId, product.state(settings, tab?.url || change.url || '').active);
+      const state = product.state(settings, tab?.url || change.url || '');
+      await syncTabRules(tabId, state.active ? state.siteId : '');
     },
-    handleTabRemoved(tabId) { return syncTabRules(tabId, false); },
+    handleTabRemoved(tabId) { return syncTabRules(tabId, ''); },
     handleStorageChanged(changes, areaName) {
       const incognito = platform.isIncognitoContext();
       const expectedArea = incognito ? 'session' : 'local';
@@ -167,26 +180,27 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     return (await chrome.declarativeNetRequest.getSessionRules()).filter(isOwnedRule);
   }
 
-  function syncTabRules(tabId, active) {
-    if (active === true && activeTabs.has(tabId)) return Promise.resolve(true);
-    if (active !== true && !activeTabs.has(tabId)) return Promise.resolve(false);
-    return queueNetwork(() => writeTabRules(tabId, active));
+  function syncTabRules(tabId, siteId) {
+    const nextSiteId = SITE_POLICIES[siteId] ? siteId : '';
+    if (activeTabs.get(tabId) === nextSiteId) return Promise.resolve(!!nextSiteId);
+    if (!nextSiteId && !activeTabs.has(tabId)) return Promise.resolve(false);
+    return queueNetwork(() => writeTabRules(tabId, nextSiteId));
   }
 
-  async function writeTabRules(tabId, active) {
+  async function writeTabRules(tabId, siteId) {
     if (!Number.isInteger(tabId) || !chrome.declarativeNetRequest?.updateSessionRules) return false;
     const existing = await ownedRules();
     const removeRuleIds = existing
       .filter(rule => rule.condition?.tabIds?.includes(tabId))
       .map(rule => rule.id);
     const remainingIds = new Set(existing.filter(rule => !removeRuleIds.includes(rule.id)).map(rule => rule.id));
-    const addRules = active ? rulesForTab(tabId, ruleGroupForTab(tabId, remainingIds)) : [];
+    const addRules = siteId ? rulesForTab(tabId, ruleGroupForTab(tabId, remainingIds), siteId) : [];
     if (removeRuleIds.length || addRules.length) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds, addRules });
     }
-    if (active) activeTabs.add(tabId);
+    if (siteId) activeTabs.set(tabId, siteId);
     else activeTabs.delete(tabId);
-    return active;
+    return !!siteId;
   }
 
   function reconcile(providedSettings) {
@@ -198,15 +212,23 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     const settings = providedSettings || await platform.readSettings();
     const existing = await ownedRules();
     const removeRuleIds = existing.map(rule => rule.id);
-    const tabs = settings.adMarshal.sites.newsQqCom
-      ? await chrome.tabs.query({ url: ['http://news.qq.com/*', 'https://news.qq.com/*'] })
-      : [];
+    const enabledPolicies = Object.entries(SITE_POLICIES)
+      .filter(([siteId]) => settings.adMarshal.sites[siteId] === true);
+    const queryResults = await Promise.all(enabledPolicies.map(async ([siteId, policy]) => ({
+      siteId,
+      tabs: await chrome.tabs.query({ url: [...policy.matches] })
+    })));
+    const tabs = new Map();
+    for (const result of queryResults) {
+      for (const tab of result.tabs) {
+        if (Number.isInteger(tab.id)) tabs.set(tab.id, result.siteId);
+      }
+    }
     const occupied = new Set();
     const addRules = [];
-    for (const tab of tabs) {
-      if (!Number.isInteger(tab.id)) continue;
-      const base = ruleGroupForTab(tab.id, occupied);
-      const rules = rulesForTab(tab.id, base);
+    for (const [tabId, siteId] of tabs) {
+      const base = ruleGroupForTab(tabId, occupied);
+      const rules = rulesForTab(tabId, base, siteId);
       rules.forEach(rule => occupied.add(rule.id));
       addRules.push(...rules);
     }
@@ -214,9 +236,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds, addRules });
     }
     activeTabs.clear();
-    for (const tab of tabs) {
-      if (Number.isInteger(tab.id)) activeTabs.add(tab.id);
-    }
+    for (const [tabId, siteId] of tabs) activeTabs.set(tabId, siteId);
     return addRules.length > 0;
   }
 

@@ -177,6 +177,8 @@ function render() {
   }
   const adMarshalNewsQqCom = document.querySelector('#adMarshalNewsQqCom');
   if (adMarshalNewsQqCom) adMarshalNewsQqCom.checked = states?.adMarshal?.sites?.newsQqCom === true;
+  const adMarshalDouyinCom = document.querySelector('#adMarshalDouyinCom');
+  if (adMarshalDouyinCom) adMarshalDouyinCom.checked = states?.adMarshal?.sites?.douyinCom === true;
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');
@@ -279,6 +281,10 @@ function bindView() {
   if (adMarshalNewsQqCom) adMarshalNewsQqCom.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'newsQqCom', enabled: adMarshalNewsQqCom.checked
   }), [adMarshalNewsQqCom]));
+  const adMarshalDouyinCom = document.querySelector('#adMarshalDouyinCom');
+  if (adMarshalDouyinCom) adMarshalDouyinCom.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'douyinCom', enabled: adMarshalDouyinCom.checked
+  }), [adMarshalDouyinCom]));
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_VIDEO_SETTING', name: 'preferredQuality', value: preferredQuality.value

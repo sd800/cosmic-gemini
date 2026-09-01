@@ -4,25 +4,7 @@
   const CONFIGURE = 'cosmic-gemini:ad-marshal:configure';
   const DISPOSE = 'cosmic-gemini:ad-marshal:dispose';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.ad-marshal.runtime');
-  const TRACKING_HOSTS = new Set([
-    'h.trace.qq.com',
-    'btrace.qq.com',
-    'otheve.beacon.qq.com',
-    'beacon.cdn.qq.com',
-    'beaconcdn.qq.com',
-    'snowflake.qq.com',
-    'oth.str.beacon.qq.com',
-    'htrace.wetvinfo.com',
-    'svibeacon.onezapp.com',
-    'news.ssp.qq.com',
-    'op.ssp.qq.com'
-  ]);
-  const SCRIPT_PATHS = [
-    'universal-report.min.js',
-    '/news-plugin/sdk/emonitor_',
-    '/qqindex2021/advertisement/'
-  ];
-  const AD_CONTAINER_SELECTOR = [
+  const NEWS_QQ_AD_CONTAINER_SELECTOR = [
     '.tonglan-ad-channel.ad-news',
     '.rectangle-ad-channel.ad-news',
     '.adbox',
@@ -35,7 +17,51 @@
     '[class*="qqchannel-ad"]',
     '[id*="qqchannel-ad"]'
   ].join(',');
-  const AD_STYLE = `${AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`;
+  const SITE_CONFIGS = Object.freeze({
+    newsQqCom: Object.freeze({
+      hosts: new Set(['news.qq.com']),
+      trackingHosts: new Set([
+        'h.trace.qq.com',
+        'btrace.qq.com',
+        'otheve.beacon.qq.com',
+        'beacon.cdn.qq.com',
+        'beaconcdn.qq.com',
+        'snowflake.qq.com',
+        'oth.str.beacon.qq.com',
+        'htrace.wetvinfo.com',
+        'svibeacon.onezapp.com',
+        'news.ssp.qq.com',
+        'op.ssp.qq.com'
+      ]),
+      scriptPaths: Object.freeze([
+        'universal-report.min.js',
+        '/news-plugin/sdk/emonitor_',
+        '/qqindex2021/advertisement/'
+      ]),
+      style: `${NEWS_QQ_AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
+      localProbe: true
+    }),
+    douyinCom: Object.freeze({
+      hosts: new Set(['douyin.com', 'www.douyin.com']),
+      trackingHosts: new Set([
+        'mon.zijieapi.com',
+        'mcs.zijieapi.com',
+        'log.zijieapi.com',
+        'applog.zijieapi.com',
+        'log.snssdk.com',
+        'log.byteoversea.com',
+        'mon.byteoversea.com',
+        'monsetting.toutiao.com',
+        'monsetting.toutiaocloud.com'
+      ]),
+      scriptPaths: Object.freeze([
+        '/obj/applog-sdk-static/log-sdk/collect/',
+        '/slardar/fe/sdk-web/browser.cn.js'
+      ]),
+      style: '',
+      localProbe: false
+    })
+  });
   const TRANSPARENT_IMAGE_URL = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22/%3E';
 
   function randomToken() {
@@ -51,15 +77,21 @@
     return String(value || '');
   }
 
-  function shouldNeutralize(value) {
+  function siteIdForLocation() {
+    const hostname = location.hostname.toLowerCase();
+    return Object.keys(SITE_CONFIGS).find(siteId => SITE_CONFIGS[siteId].hosts.has(hostname)) || '';
+  }
+
+  function shouldNeutralize(value, siteId) {
+    const config = SITE_CONFIGS[siteId];
     const raw = urlString(value);
-    if (!raw) return false;
+    if (!config || !raw) return false;
     const normalized = raw.toLowerCase();
-    if (SCRIPT_PATHS.some(fragment => normalized.includes(fragment))) return true;
+    if (config.scriptPaths.some(fragment => normalized.includes(fragment))) return true;
     try {
       const url = new URL(normalized, location.href);
-      if (url.hostname === '127.0.0.1' && url.port === '11601' && url.pathname === '/check') return true;
-      return TRACKING_HOSTS.has(url.hostname.toLowerCase());
+      if (config.localProbe && url.hostname === '127.0.0.1' && url.port === '11601' && url.pathname === '/check') return true;
+      return config.trackingHosts.has(url.hostname.toLowerCase());
     }
     catch { return false; }
   }
@@ -73,6 +105,7 @@
     constructor() {
       this.token = randomToken();
       this.active = false;
+      this.siteId = '';
       this.originalFetch = globalThis.fetch;
       this.originalXhrOpen = XMLHttpRequest.prototype.open;
       this.originalSendBeacon = Navigator.prototype.sendBeacon;
@@ -103,7 +136,7 @@
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
       if (message?.token !== this.token) return;
-      if (message.config?.active === true) this.enable();
+      if (message.config?.active === true) this.enable(message.config.siteId || siteIdForLocation());
       else this.disable();
     }
     onDispose(event) {
@@ -115,13 +148,17 @@
       try { delete globalThis[RUNTIME_KEY]; } catch {}
     }
 
-    enable() {
-      if (this.active || location.hostname.toLowerCase() !== 'news.qq.com') return;
+    enable(siteId) {
+      const config = SITE_CONFIGS[siteId];
+      if (!config?.hosts.has(location.hostname.toLowerCase())) return;
+      if (this.active && this.siteId === siteId) return;
+      if (this.active) this.disable();
       this.active = true;
+      this.siteId = siteId;
       this.emptyResponseUrl = URL.createObjectURL(new Blob(['{}'], { type: 'application/json' }));
       const runtime = this;
       this.fetchWrapper = function adMarshalFetch(resource, options) {
-        if (runtime.active && shouldNeutralize(resource)) {
+        if (runtime.active && shouldNeutralize(resource, runtime.siteId)) {
           return Promise.resolve(new Response('{}', {
             status: 200,
             headers: { 'content-type': 'application/json; charset=utf-8' }
@@ -130,20 +167,20 @@
         return Reflect.apply(runtime.originalFetch, this, [resource, options]);
       };
       this.xhrOpenWrapper = function adMarshalXhrOpen(method, url, async = true, ...rest) {
-        if (runtime.active && shouldNeutralize(url)) {
+        if (runtime.active && shouldNeutralize(url, runtime.siteId)) {
           return Reflect.apply(runtime.originalXhrOpen, this, ['GET', runtime.emptyResponseUrl, async !== false]);
         }
         return Reflect.apply(runtime.originalXhrOpen, this, [method, url, async, ...rest]);
       };
       this.sendBeaconWrapper = function adMarshalSendBeacon(url, data) {
-        if (runtime.active && shouldNeutralize(url)) return true;
+        if (runtime.active && shouldNeutralize(url, runtime.siteId)) return true;
         return Reflect.apply(runtime.originalSendBeacon, this, [url, data]);
       };
       this.imageSrcGetter = function adMarshalImageSrcGet() {
         return runtime.imageSources.get(this) || Reflect.apply(runtime.imageSrcDescriptor.get, this, []);
       };
       this.imageSrcSetter = function adMarshalImageSrcSet(value) {
-        if (runtime.active && shouldNeutralize(value)) {
+        if (runtime.active && shouldNeutralize(value, runtime.siteId)) {
           runtime.imageSources.set(this, String(value));
           Reflect.apply(runtime.imageSrcDescriptor.set, this, [TRANSPARENT_IMAGE_URL]);
           return;
@@ -151,7 +188,7 @@
         Reflect.apply(runtime.imageSrcDescriptor.set, this, [value]);
       };
       this.imageSetAttributeWrapper = function adMarshalImageSetAttribute(name, value) {
-        if (runtime.active && String(name).toLowerCase() === 'src' && shouldNeutralize(value)) {
+        if (runtime.active && String(name).toLowerCase() === 'src' && shouldNeutralize(value, runtime.siteId)) {
           runtime.imageSources.set(this, String(value));
           return Reflect.apply(runtime.originalImageSetAttribute, this, [name, TRANSPARENT_IMAGE_URL]);
         }
@@ -172,14 +209,15 @@
     }
 
     ensureStyle() {
-      if (!this.active || this.styleElement?.isConnected) return;
+      const style = SITE_CONFIGS[this.siteId]?.style || '';
+      if (!this.active || !style || this.styleElement?.isConnected) return;
       const parent = document.head || document.documentElement;
       if (!parent) {
         document.addEventListener('readystatechange', this.ensureStyle, { once: true });
         return;
       }
       this.styleElement = document.createElement('style');
-      this.styleElement.textContent = AD_STYLE;
+      this.styleElement.textContent = style;
       parent.appendChild(this.styleElement);
     }
 
@@ -202,6 +240,7 @@
       }
       if (this.emptyResponseUrl) URL.revokeObjectURL(this.emptyResponseUrl);
       this.emptyResponseUrl = '';
+      this.siteId = '';
       document.removeEventListener('readystatechange', this.ensureStyle);
       this.styleElement?.remove();
       this.styleElement = null;

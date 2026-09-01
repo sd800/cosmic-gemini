@@ -47,7 +47,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   adMarshal: Object.freeze({
     sites: Object.freeze({
-      newsQqCom: false
+      newsQqCom: false,
+      douyinCom: false
     })
   }),
   imageDownload: Object.freeze({
@@ -80,7 +81,8 @@ export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
   }),
   adMarshal: Object.freeze({
     sites: Object.freeze({
-      newsQqCom: false
+      newsQqCom: false,
+      douyinCom: false
     })
   }),
   satellites: Object.freeze({
@@ -154,7 +156,6 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 }
 
 export function normalizeSettings(value = {}) {
-  const storedVersion = Number(value.version) || 0;
   const legacy = value.version === 1 && ('enabled' in value || 'whitelist' in value || 'mode' in value);
   const nativeValue = legacy
     ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
@@ -171,7 +172,8 @@ export function normalizeSettings(value = {}) {
     },
     adMarshal: {
       sites: {
-        newsQqCom: storedVersion >= 17 && value.adMarshal?.sites?.newsQqCom === true
+        newsQqCom: value.adMarshal?.sites?.newsQqCom === true,
+        douyinCom: value.adMarshal?.sites?.douyinCom === true
       }
     },
     imageDownload: {
@@ -333,11 +335,17 @@ export function anyCopyEnhancedState(url, tabActive = false) {
 export function adMarshalState(settings, url) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
-  const enabled = normalized.adMarshal.sites.newsQqCom === true;
-  const supported = hostname === 'news.qq.com';
+  const siteId = hostname === 'news.qq.com'
+    ? 'newsQqCom'
+    : ['douyin.com', 'www.douyin.com'].includes(hostname)
+      ? 'douyinCom'
+      : '';
+  const enabled = !!siteId && normalized.adMarshal.sites[siteId] === true;
+  const supported = !!siteId;
   return {
     ...normalized.adMarshal,
     hostname,
+    siteId,
     supported,
     active: supported && enabled,
     enabled

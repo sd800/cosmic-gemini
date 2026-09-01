@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.3.1');
+assert.equal(manifest.version, '6.5.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -51,7 +51,14 @@ assert.deepEqual(manifest.web_accessible_resources, [{
     'assets/ad-marshal-empty.html',
     'assets/ad-marshal-transparent.svg'
   ],
-  matches: ['http://news.qq.com/*', 'https://news.qq.com/*']
+  matches: [
+    'http://news.qq.com/*',
+    'https://news.qq.com/*',
+    'http://douyin.com/*',
+    'https://douyin.com/*',
+    'http://www.douyin.com/*',
+    'https://www.douyin.com/*'
+  ]
 }]);
 
 const extensionRootEntries = await readdir(extension, { withFileTypes: true });
@@ -171,6 +178,7 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
+assert.match(satellitesSettings, /id="adMarshalNewsQqCom"[\s\S]*id="adMarshalDouyinCom"/);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await source('settings', name);
   assert.equal([...html.matchAll(/data-behavior-card/g)].length, 1);
@@ -285,14 +293,17 @@ assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRe
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.match(adMarshal, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2021\/advertisement\//);
+assert.match(adMarshal, /douyinCom[\s\S]*collect\/[\s\S]*slardar\/fe\/sdk-web\/browser\.cn\.js/);
+assert.match(adMarshal, /DOUYIN_TELEMETRY_DOMAINS[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com/);
 assert.match(adMarshal, /ad-marshal-empty\.js[\s\S]*ad-marshal-empty\.json[\s\S]*ad-marshal-empty\.html[\s\S]*ad-marshal-transparent\.svg/);
 assert.match(adMarshal, /news\.ssp\.qq\.com[\s\S]*op\.ssp\.qq\.com[\s\S]*127\.0\.0\.1:11601\/check/);
-assert.match(adMarshal, /activeTabs\.has\(tabId\)[\s\S]*Promise\.resolve/,
+assert.match(adMarshal, /activeTabs\.get\(tabId\) === nextSiteId[\s\S]*Promise\.resolve/,
   'Ad Marshal must avoid native rule reads on unrelated or already synchronized tabs.');
 assert.match(adMarshalRuntime, /globalThis\.fetch = this\.fetchWrapper[\s\S]*XMLHttpRequest\.prototype\.open = this\.xhrOpenWrapper[\s\S]*Navigator\.prototype\.sendBeacon = this\.sendBeaconWrapper/);
 assert.match(adMarshalRuntime, /TRANSPARENT_IMAGE_URL[\s\S]*HTMLImageElement\.prototype/);
 assert.match(adMarshalRuntime, /127\.0\.0\.1[\s\S]*adMarshalImageSrcSet/);
-assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*AD_STYLE[\s\S]*this\.ensureStyle\(\)/);
+assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*NEWS_QQ_AD_CONTAINER_SELECTOR[\s\S]*this\.ensureStyle\(\)/);
+assert.match(adMarshalRuntime, /douyinCom[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com[\s\S]*collect\/[\s\S]*browser\.cn\.js/);
 assert.doesNotMatch(adMarshalRuntime, /MutationObserver|data-beacon|removeChild/,
   'Ad Marshal must not remove framework-owned DOM nodes or alter Beacon metadata.');
 assert.doesNotMatch(adMarshalRuntime, /Node\.prototype\.(?:appendChild|insertBefore|replaceChild)\s*=/,

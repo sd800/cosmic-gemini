@@ -62,6 +62,8 @@ Bilibili gives every signed-in account one coin when it visits each day. Receivi
 
 Some websites can repeatedly recreate advertising, reporting, and tracking work after an ad blocker rejects the original requests. These retry loops consume browser resources and fill diagnostics without restoring useful page content. Ad Marshal neutralizes the known loaders before they run, returns local success responses to matching telemetry calls, and hides known advertising containers on sites enabled by the user.
 
+Dedicated policies are included for Tencent News and Douyin. The Douyin policy neutralizes confirmed AppLog and Slardar monitoring loaders and their telemetry endpoints without touching video playback, content feeds, sign-in, or account security.
+
 ## Features
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes

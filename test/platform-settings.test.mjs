@@ -236,10 +236,12 @@ test('incognito settings start disabled and never inherit regular saved settings
   assert.equal(settings.nativeScroll.enabled, false);
   assert.equal(settings.noAutoplay.enabled, false);
   assert.equal(settings.adMarshal.sites.newsQqCom, false);
+  assert.equal(settings.adMarshal.sites.douyinCom, false);
   assert.deepEqual(settings.anyCopy.siteRules, []);
   assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
   assert.equal(mock.session[INCOGNITO_SETTINGS_KEY].nativeScroll.enabled, false);
   assert.equal(mock.session[INCOGNITO_SETTINGS_KEY].adMarshal.sites.newsQqCom, false);
+  assert.equal(mock.session[INCOGNITO_SETTINGS_KEY].adMarshal.sites.douyinCom, false);
 });
 
 test('explicit incognito changes remain in session storage and do not alter regular settings', async () => {

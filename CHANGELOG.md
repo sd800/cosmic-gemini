@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.5.1 — 2026-09-02
+
+- Ad Marshal now includes an independent, default-off `douyin.com` policy. It neutralizes the confirmed AppLog collection loader, Slardar browser-monitoring loader, and narrowly identified ByteDance telemetry hosts without matching video playback, content feeds, sign-in, or account security.
+- Managed tabs now retain their exact site policy so navigating between supported sites replaces the complete tab-scoped DNR rule set. The Douyin policy uses no DOM scan, observer, timer, or polling loop, and all temporary rules and page API patches are released when it is inactive.
+- Existing Ad Marshal site choices now remain intact across extension updates and reloads. Satellites lists Tencent News and Douyin separately and stores only those switch settings.
+
 ## 6.3.1 — 2026-09-01
 
 - Ad Marshal now resolves Tencent News advertising endpoints and its `127.0.0.1:11601/check` local-client probe inside the extension, preventing the page from contacting a loopback server or reporting the resulting connection failure.

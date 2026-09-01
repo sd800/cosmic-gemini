@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.5.2 — 2026-09-02
+
+- Chrome's extension options command now opens All Settings instead of the Native Scroll settings page.
+
 ## 6.5.1 — 2026-09-02
 
 - Ad Marshal now includes an independent, default-off `douyin.com` policy. It neutralizes the confirmed AppLog collection loader, Slardar browser-monitoring loader, and narrowly identified ByteDance telemetry hosts without matching video playback, content feeds, sign-in, or account security.

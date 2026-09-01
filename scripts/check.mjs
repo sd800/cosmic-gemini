@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.5.1');
+assert.equal(manifest.version, '6.5.2');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -37,7 +37,7 @@ assert.deepEqual(manifest.permissions.sort(), [
 assert.deepEqual(manifest.host_permissions.sort(), ['http://*/*', 'https://*/*']);
 assert.equal(manifest.background.service_worker, 'background/central.js');
 assert.equal(manifest.action.default_popup, 'popup/index.html');
-assert.equal(manifest.options_page, 'settings/native-scroll.html');
+assert.equal(manifest.options_page, 'settings/all-settings.html');
 assert.equal(manifest.content_scripts.length, 1);
 assert.deepEqual(manifest.content_scripts[0].js, ['content/central-page.js']);
 assert.equal(manifest.content_scripts[0].world, 'ISOLATED');

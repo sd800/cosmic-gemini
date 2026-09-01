@@ -27,6 +27,13 @@ body { min-width: 760px; min-height: 100vh; background: var(--surface-raised); }
 .selection-bar > div:first-child { display: grid; gap: 2px; }
 .selection-bar strong { font-size: 13px; }
 .selection-bar small { color: var(--muted); font-size: 10px; }
+#status-text[data-busy="true"] { display: inline-flex; align-items: center; gap: 6px; }
+#status-text[data-busy="true"]::before { width: 8px; height: 8px; border: 1.5px solid color-mix(in srgb, var(--blue) 28%, transparent); border-top-color: var(--blue); border-radius: 50%; content: ''; animation: image-status-spin 750ms linear infinite; }
+.scan-progress { position: relative; display: block; width: min(190px, 100%); height: 3px; margin-top: 4px; overflow: hidden; border-radius: 99px; background: color-mix(in srgb, var(--blue) 14%, transparent); }
+.scan-progress[hidden] { display: none; }
+.scan-progress > span { position: absolute; width: 38%; height: 100%; border-radius: inherit; background: var(--blue); animation: image-progress-slide 1.1s ease-in-out infinite; }
+@keyframes image-status-spin { to { transform: rotate(360deg); } }
+@keyframes image-progress-slide { from { transform: translateX(-110%); } to { transform: translateX(365%); } }
 .selection-actions { display: flex; align-items: center; gap: 7px; }
 .quiet-button, .primary-button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 9px; cursor: pointer; font-size: 11px; font-weight: 680; }
 .quiet-button { background: var(--surface-raised); color: var(--text); }

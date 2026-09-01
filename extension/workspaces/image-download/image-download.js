@@ -14,6 +14,7 @@ const empty = document.querySelector('#empty');
 const selected = new Map();
 const choices = new Map();
 const metadataSent = new Set();
+const pendingMetadata = new Map();
 const failedCandidates = new Set();
 let state = null;
 let t = key => key;
@@ -22,6 +23,9 @@ let viewReconnectAttempts = 0;
 let reloadTimer = 0;
 let reloadPending = false;
 let reloadPendingForce = false;
+let metadataFlushTimer = 0;
+let galleryRenderFrame = 0;
+let galleryRenderGeneration = 0;
 let renderedAt = -1;
 let preferencesInitialized = false;
 let scanPending = false;
@@ -77,11 +81,36 @@ function label(element, value) {
   element.setAttribute('aria-label', value);
 }
 
+function setStatus(value, busy = false) {
+  const status = document.querySelector('#status-text');
+  status.textContent = value;
+  status.dataset.busy = String(busy);
+  status.setAttribute('aria-busy', String(busy));
+  document.querySelector('#scan-progress').hidden = !busy;
+}
+
 function candidateFor(group) {
   const id = choices.get(group.id) || group.selectedCandidateId || group.recommended.id;
   return group.candidates.find(candidate => candidate.id === id && !failedCandidates.has(candidate.id))
     || group.candidates.find(candidate => !failedCandidates.has(candidate.id))
     || group.recommended;
+}
+
+function scheduleMetadataFlush() {
+  if (workspaceClosing || metadataFlushTimer || !pendingMetadata.size) return;
+  metadataFlushTimer = setTimeout(async () => {
+    metadataFlushTimer = 0;
+    if (workspaceClosing) return;
+    const updates = [...pendingMetadata.entries()].slice(0, 500)
+      .map(([candidateId, metadata]) => ({ candidateId, metadata }));
+    for (const update of updates) pendingMetadata.delete(update.candidateId);
+    try {
+      await send({ type: 'UI_IMAGE_UPDATE_METADATA_BATCH', tabId: sourceTabId, updates });
+    } catch {
+      for (const update of updates) metadataSent.delete(update.candidateId);
+    }
+    if (pendingMetadata.size) scheduleMetadataFlush();
+  }, 140);
 }
 
 function candidateLabel(candidate) {
@@ -174,9 +203,9 @@ async function download(selections) {
         batchMode: document.querySelector('#batch-mode').value
       }
     });
-    document.querySelector('#status-text').textContent = t('imageDownloadStarted', { count: selections.length });
+    setStatus(t('imageDownloadStarted', { count: selections.length }));
   } catch {
-    document.querySelector('#status-text').textContent = t('imageDownloadFailed');
+    setStatus(t('imageDownloadFailed'));
   } finally {
     downloadPending = false;
     for (const control of document.querySelectorAll('.image-card-actions button')) control.disabled = false;
@@ -222,12 +251,8 @@ function createCard(group, index) {
     if (!image.naturalWidth || metadataSent.has(candidate.id)) return;
     if (image.naturalWidth === candidate.width && image.naturalHeight === candidate.height) return;
     metadataSent.add(candidate.id);
-    void send({
-      type: 'UI_IMAGE_UPDATE_METADATA',
-      tabId: sourceTabId,
-      candidateId: candidate.id,
-      metadata: { width: image.naturalWidth, height: image.naturalHeight }
-    }).catch(() => { metadataSent.delete(candidate.id); });
+    pendingMetadata.set(candidate.id, { width: image.naturalWidth, height: image.naturalHeight });
+    scheduleMetadataFlush();
   });
   const badge = document.createElement('span');
   badge.className = 'recommended-badge';
@@ -289,14 +314,26 @@ function updateSelectionBar() {
 }
 
 function renderGallery() {
+  const generation = ++galleryRenderGeneration;
+  if (galleryRenderFrame) cancelAnimationFrame(galleryRenderFrame);
+  galleryRenderFrame = 0;
   updateFilterSummary();
   const groups = filteredGroups();
   grid.replaceChildren();
-  groups.forEach((group, index) => grid.append(createCard(group, index)));
   empty.hidden = groups.length > 0 || state?.status === 'scanning';
   grid.hidden = groups.length === 0;
   document.querySelector('#result-count').textContent = t('imageResults', { count: groups.length });
   updateSelectionBar();
+  const appendBatch = start => {
+    if (generation !== galleryRenderGeneration || workspaceClosing) return;
+    const fragment = document.createDocumentFragment();
+    const end = Math.min(groups.length, start + 30);
+    for (let index = start; index < end; index += 1) fragment.append(createCard(groups[index], index));
+    grid.append(fragment);
+    if (end < groups.length) galleryRenderFrame = requestAnimationFrame(() => appendBatch(end));
+    else galleryRenderFrame = 0;
+  };
+  appendBatch(0);
 }
 
 function renderState(force = false) {
@@ -306,11 +343,15 @@ function renderState(force = false) {
     document.querySelector('#batch-mode').value = state.batchMode || 'zip';
     preferencesInitialized = true;
   }
-  const status = document.querySelector('#status-text');
-  if (!state.active) status.textContent = t('imageSessionStopped');
-  else if (state.status === 'scanning') status.textContent = t('imageScanning');
-  else if (state.status === 'unavailable') status.textContent = t('imageUnavailablePage');
-  else status.textContent = t('imageOriginalPreferred');
+  if (!state.active) setStatus(t('imageSessionStopped'));
+  else if (state.status === 'scanning' && state.scanPhase === 'checking' && state.groups?.length) {
+    setStatus(t('imageCheckingSources', { count: state.groups.length }), true);
+  }
+  else if (state.status === 'scanning' && state.scanMode === 'full') setStatus(t('imageDeepScanning'), true);
+  else if (state.status === 'scanning') setStatus(t('imageFindingImages'), true);
+  else if (state.status === 'timeout') setStatus(t('imageScanTimedOut'));
+  else if (state.status === 'unavailable') setStatus(t('imageUnavailablePage'));
+  else setStatus(t('imageOriginalPreferred'));
   updateWorkspaceControls();
   if (force || renderedAt !== state.updatedAt) {
     renderedAt = state.updatedAt;
@@ -342,11 +383,11 @@ async function rescan(deep) {
   if (scanPending) return;
   scanPending = true;
   updateWorkspaceControls();
-  document.querySelector('#status-text').textContent = deep ? t('imageDeepScanning') : t('imageScanning');
+  setStatus(deep ? t('imageDeepScanning') : t('imageFindingImages'), true);
   try {
     state = await send({ type: 'UI_IMAGE_RESCAN', tabId: sourceTabId, deep });
     renderState(true);
-  } catch { document.querySelector('#status-text').textContent = t('imageUnavailablePage'); }
+  } catch { setStatus(t('imageUnavailablePage')); }
   finally {
     scanPending = false;
     updateWorkspaceControls();
@@ -369,7 +410,7 @@ async function runWorkspaceAction(button, task) {
   pendingControls.add(button);
   updateWorkspaceControls();
   try { await task(); }
-  catch { document.querySelector('#status-text').textContent = t('imageUnavailablePage'); }
+  catch { setStatus(t('imageUnavailablePage')); }
   finally {
     pendingControls.delete(button);
     updateWorkspaceControls();
@@ -427,7 +468,7 @@ label(document.querySelector('#deep-scan'), t('imageDeepScanTitle'));
 label(document.querySelector('#stop'), t('imageStopTitle'));
 document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
 document.querySelector('#result-count').textContent = t('imageResults', { count: 0 });
-document.querySelector('#status-text').textContent = t('imageSessionStarting');
+setStatus(t('imageSessionStarting'), true);
 updateWorkspaceControls();
 updateSelectionBar();
 root.dataset.localePending = 'false';
@@ -436,7 +477,7 @@ try {
   setWorkspaceVisible(!document.hidden);
   await loadInitialSession();
 } catch {
-  document.querySelector('#status-text').textContent = t('imageUnavailablePage');
+  setStatus(t('imageUnavailablePage'));
   updateWorkspaceControls();
 } finally { root.dataset.localePending = 'false'; }
 document.addEventListener('visibilitychange', () => {
@@ -450,6 +491,12 @@ window.addEventListener('pagehide', () => {
   viewPort = null;
   if (reloadTimer) clearTimeout(reloadTimer);
   reloadTimer = 0;
+  if (metadataFlushTimer) clearTimeout(metadataFlushTimer);
+  metadataFlushTimer = 0;
+  pendingMetadata.clear();
+  if (galleryRenderFrame) cancelAnimationFrame(galleryRenderFrame);
+  galleryRenderFrame = 0;
+  galleryRenderGeneration += 1;
   reloadPending = false;
   reloadPendingForce = false;
 }, { once: true });

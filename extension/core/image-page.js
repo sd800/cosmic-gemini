@@ -1,7 +1,126 @@
+export function imagePageQuickDiscovery() {
+  const MAX_RESULTS = 1000;
+  const MAX_INLINE_LENGTH = 1_500_000;
+  const records = new Map();
+  const frameUrl = location.href;
+  const absolute = value => {
+    const raw = String(value || '').trim().replace(/^['"]|['"]$/g, '');
+    if (!raw || raw === 'none') return '';
+    if (/^data:image\//i.test(raw)) return raw.length <= MAX_INLINE_LENGTH ? raw : '';
+    if (/^blob:https?:/i.test(raw)) return raw;
+    try {
+      const url = new URL(raw, document.baseURI);
+      if (!['http:', 'https:'].includes(url.protocol)) return '';
+      url.hash = '';
+      return url.href;
+    } catch { return ''; }
+  };
+  const add = (value, meta = {}) => {
+    if (records.size >= MAX_RESULTS) return;
+    const url = absolute(value);
+    if (!url) return;
+    const current = records.get(url) || {};
+    records.set(url, {
+      ...current,
+      ...meta,
+      url,
+      width: Math.max(Number(current.width) || 0, Number(meta.width) || 0),
+      height: Math.max(Number(current.height) || 0, Number(meta.height) || 0),
+      displayWidth: Math.max(Number(current.displayWidth) || 0, Number(meta.displayWidth) || 0),
+      displayHeight: Math.max(Number(current.displayHeight) || 0, Number(meta.displayHeight) || 0),
+      descriptorWidth: Math.max(Number(current.descriptorWidth) || 0, Number(meta.descriptorWidth) || 0),
+      originalHint: Math.max(Number(current.originalHint) || 0, Number(meta.originalHint) || 0),
+      familyKey: meta.familyKey || current.familyKey,
+      alt: meta.alt || current.alt || '',
+      title: meta.title || current.title || '',
+      frameUrl,
+      discoveredAt: Date.now()
+    });
+  };
+  const parseSrcset = (value, meta) => {
+    for (const item of String(value || '').split(',')) {
+      const match = item.trim().match(/^(\S+)(?:\s+(\d+(?:\.\d+)?)(w|x))?$/);
+      if (!match) continue;
+      const descriptor = Number(match[2]) || 0;
+      add(match[1], {
+        ...meta,
+        source: 'srcset',
+        descriptorWidth: match[3] === 'w' ? descriptor : 0,
+        originalHint: match[3] === 'w' && descriptor >= 1600 ? 3 : 1
+      });
+    }
+  };
+  const originalAttributes = [
+    'data-original', 'data-original-src', 'data-full', 'data-full-src', 'data-fullsize',
+    'data-hi-res', 'data-high-res', 'data-large', 'data-large-image', 'data-zoom-image',
+    'data-download', 'data-image-url'
+  ];
+  const lazyAttributes = ['data-src', 'data-lazy-src', 'data-url', 'data-image', 'data-thumb'];
+  let index = 0;
+  for (const img of document.images) {
+    if (records.size >= MAX_RESULTS) break;
+    const meta = {
+      familyKey: `${location.origin}${location.pathname}|quick-img|${index++}`.slice(0, 400),
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      displayWidth: img.clientWidth,
+      displayHeight: img.clientHeight,
+      alt: img.alt,
+      title: img.title
+    };
+    add(img.currentSrc, { ...meta, source: 'current-src', originalHint: 2 });
+    add(img.src, { ...meta, source: 'image', originalHint: 1 });
+    parseSrcset(img.srcset || img.getAttribute('data-srcset'), meta);
+    for (const attr of originalAttributes) add(img.getAttribute(attr), { ...meta, source: 'original-attribute', originalHint: 8 });
+    for (const attr of lazyAttributes) add(img.getAttribute(attr), { ...meta, source: 'image', originalHint: 2 });
+  }
+  for (const source of document.querySelectorAll('source[srcset], source[data-srcset]')) {
+    if (records.size >= MAX_RESULTS) break;
+    parseSrcset(source.srcset || source.getAttribute('data-srcset'), {
+      familyKey: `${location.origin}${location.pathname}|quick-source|${index++}`.slice(0, 400),
+      originalHint: 3
+    });
+  }
+  for (const meta of document.querySelectorAll('meta[property="og:image"], meta[property="og:image:url"], meta[name="twitter:image"], meta[itemprop="image"]')) {
+    if (records.size >= MAX_RESULTS) break;
+    add(meta.content, { familyKey: `quick-meta|${index++}`, source: 'structured-data', originalHint: 7 });
+  }
+  for (const link of document.querySelectorAll('link[rel="image_src"], link[rel="preload"][as="image"]')) {
+    if (records.size >= MAX_RESULTS) break;
+    add(link.href, { familyKey: `quick-link|${index++}`, source: 'structured-data', originalHint: 6 });
+    parseSrcset(link.getAttribute('imagesrcset'), { familyKey: `quick-srcset|${index++}`, originalHint: 5 });
+  }
+  let anchorCount = 0;
+  for (const anchor of document.querySelectorAll('a[href]')) {
+    if (records.size >= MAX_RESULTS || anchorCount++ >= 5_000) break;
+    if (/\.(?:avif|bmp|gif|heic|heif|ico|jpe?g|png|svg|tiff?|webp)(?:$|[?#])/i.test(anchor.href)) {
+      add(anchor.href, { familyKey: `quick-anchor|${index++}`, source: 'linked-image', originalHint: 5, title: anchor.textContent });
+    }
+  }
+  try {
+    let resourceCount = 0;
+    for (const entry of performance.getEntriesByType('resource')) {
+      if (records.size >= MAX_RESULTS || resourceCount++ >= 5_000) break;
+      if (['img', 'css'].includes(entry.initiatorType) || /\.(?:avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(entry.name)) {
+        add(entry.name, { familyKey: `quick-resource|${index++}`, source: 'page-resource' });
+      }
+    }
+  } catch {}
+  return {
+    pageUrl: location.href,
+    pageTitle: document.title,
+    frameUrl,
+    candidates: [...records.values()]
+  };
+}
+
 export async function imagePageDiscovery(options = {}) {
   const deep = options?.deep === true && window === window.top;
   const MAX_RESULTS = 1200;
   const MAX_INLINE_LENGTH = 1_500_000;
+  const scanStartedAt = performance.now();
+  const expensiveWorkDeadline = scanStartedAt + (deep ? 4_000 : 1_500);
+  const withinExpensiveWorkBudget = () => performance.now() < expensiveWorkDeadline;
   const originalScroll = { x: window.scrollX, y: window.scrollY };
 
   if (deep) {
@@ -126,9 +245,9 @@ export async function imagePageDiscovery(options = {}) {
     for (const element of elements) {
       allElements.push(element);
       if (element.shadowRoot && roots.length < 80) roots.push(element.shadowRoot);
-      if (allElements.length >= 18000) break;
+      if (allElements.length >= (deep ? 18000 : 12000)) break;
     }
-    if (allElements.length >= 18000) break;
+    if (allElements.length >= (deep ? 18000 : 12000)) break;
   }
 
   const originalAttributes = [
@@ -177,15 +296,19 @@ export async function imagePageDiscovery(options = {}) {
     for (const attr of originalAttributes) add(element.getAttribute?.(attr), { familyKey: key, source: 'original-attribute', originalHint: 7 });
     for (const attr of lazyAttributes) add(element.getAttribute?.(attr), { familyKey: key, source: 'image', originalHint: 2 });
     parseSrcset(element.getAttribute?.('srcset') || element.getAttribute?.('data-srcset'), { familyKey: key, source: 'srcset' });
+    if (!withinExpensiveWorkBudget()) continue;
     try {
       const style = getComputedStyle(element);
       for (const value of [style.backgroundImage, style.borderImageSource, style.listStyleImage, style.content]) {
         for (const url of cssUrls(value)) add(url, { familyKey: key, source: 'css', width: element.clientWidth, height: element.clientHeight });
       }
-      for (const pseudo of ['::before', '::after']) {
-        const pseudoStyle = getComputedStyle(element, pseudo);
-        for (const value of [pseudoStyle.backgroundImage, pseudoStyle.content]) {
-          for (const url of cssUrls(value)) add(url, { familyKey: key, source: 'css', width: element.clientWidth, height: element.clientHeight });
+      if (deep) {
+        for (const pseudo of ['::before', '::after']) {
+          if (!withinExpensiveWorkBudget()) break;
+          const pseudoStyle = getComputedStyle(element, pseudo);
+          for (const value of [pseudoStyle.backgroundImage, pseudoStyle.content]) {
+            for (const url of cssUrls(value)) add(url, { familyKey: key, source: 'css', width: element.clientWidth, height: element.clientHeight });
+          }
         }
       }
     } catch {}
@@ -193,6 +316,7 @@ export async function imagePageDiscovery(options = {}) {
 
   let svgIndex = 0;
   for (const svg of allElements.filter(element => element instanceof SVGSVGElement).slice(0, 250)) {
+    if (!withinExpensiveWorkBudget()) break;
     try {
       const clone = svg.cloneNode(true);
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -206,6 +330,8 @@ export async function imagePageDiscovery(options = {}) {
   }
   let canvasIndex = 0;
   for (const canvas of allElements.filter(element => element instanceof HTMLCanvasElement).slice(0, 80)) {
+    if (!withinExpensiveWorkBudget()) break;
+    if ((Number(canvas.width) || 0) * (Number(canvas.height) || 0) > 16_000_000) continue;
     try {
       const url = canvas.toDataURL('image/png');
       if (url.length <= MAX_INLINE_LENGTH) add(url, { familyKey: family('canvas', canvasIndex++), source: 'canvas', width: canvas.width, height: canvas.height, originalHint: 3 });

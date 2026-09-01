@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.16.1 — 2026-09-01
+
+- Image Download now publishes a fast first pass from direct page and resource sources before completing bounded source enrichment. Standard scans focus on the main page, while Full-page scan continues into frames, lazy-loaded content, CSS backgrounds, SVG, Canvas, and Shadow DOM.
+- The workspace now shows distinct startup, discovery, and source-checking stages with a spinner, progress bar, and live result count. A scan that exceeds its time limit ends in a recoverable state instead of leaving refresh unavailable indefinitely.
+- Duplicate scans in the same tab are combined. Large galleries render in batches, and preview dimensions are written back together, reducing repeated storage updates and full-gallery redraws.
+
 ## 5.15.5 — 2026-09-01
 
 - Fixed a first-open race between the Image Download Side Panel and its source-tab session. The workspace now waits briefly for the session, retains updates received while hidden, and shows a localized startup message instead of an empty view with disabled controls.

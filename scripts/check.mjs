@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.15.5');
+assert.equal(manifest.version, '5.16.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -199,6 +199,20 @@ assert.match(imageWorkspace, /retryReadUntil\([\s\S]*?value => value\?\.active =
   'Image Download must wait through the Side Panel and session-start handoff.');
 assert.match(imageWorkspace, /reloadPending = true[\s\S]*?document\.hidden/,
   'Image Download must retain state notifications received while its workspace is hidden.');
+assert.match(imageDownload, /activePageScans[\s\S]*?allFrames: deep[\s\S]*?scan timed out/,
+  'Image Download must coalesce page scans and keep standard scans bounded to the top frame.');
+assert.match(imageDownload, /imagePageQuickDiscovery[\s\S]*?scanPhase = 'checking'/,
+  'Image Download must publish a quick first result before source enrichment finishes.');
+assert.match(imageDownload, /updates\.slice\(0, 500\)/,
+  'Image Download metadata writes must remain bounded.');
+assert.match(imageDownload, /UI_IMAGE_UPDATE_METADATA_BATCH/,
+  'Image Download must combine preview metadata updates.');
+assert.match(imageWorkspace, /requestAnimationFrame\(\(\) => appendBatch\(end\)\)/,
+  'Image Download must render large result sets in small visual batches.');
+assert.match(imageWorkspace, /imageScanTimedOut/,
+  'Image Download must show a recoverable scan-timeout state.');
+assert.match(imageWorkspace, /dataset\.busy[\s\S]*?scan-progress/,
+  'Image Download must show a visible busy state while scanning.');
 
 assert.ok(central.split('\n').length < 260, 'Central must remain a compact decision and routing layer.');
 assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]*customs:/);

@@ -37,6 +37,7 @@ export function createCustomsOffscreenCoordinator() {
     const values = await chrome.storage.session.get(null);
     const hasArtifact = Object.entries(values).some(([key, session]) =>
       (key.startsWith('videoDownloadSession:') && session?.candidates?.some(candidate => candidate.artifactId))
+      || (key.startsWith('videoDownloadArtifact:') && session?.artifactId)
       || (key.startsWith('imageDownloadArtifact:') && session?.artifactId)
       || (key.startsWith('imageCaptureArtifact:') && session?.artifactId));
     if (hasArtifact) return;

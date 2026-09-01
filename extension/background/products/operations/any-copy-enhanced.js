@@ -10,8 +10,7 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
     runtime: 'content/any-copy-enhanced-runtime.js',
     async isActive(tabId) {
       if (!Number.isInteger(tabId)) return false;
-      try { return (await chrome.storage.session.get(key(tabId)))[key(tabId)]?.active === true; }
-      catch { return false; }
+      return (await chrome.storage.session.get(key(tabId)))[key(tabId)]?.active === true;
     },
     async setActive(tabId, active) {
       if (active) await chrome.storage.session.set({ [key(tabId)]: { active: true } });
@@ -38,7 +37,17 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
       await platform.sendTabMessage(tabId, { type: 'CG_REFRESH_CONFIG' });
       return anyCopyEnhancedState(tab.url || '', active);
     },
-    async removeTab(tabId) { await chrome.storage.session.remove(key(tabId)); }
+    async removeTab(tabId) { await chrome.storage.session.remove(key(tabId)); },
+    async cleanupOrphans() {
+      const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+      const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
+      const keys = Object.keys(values).filter(value => {
+        if (!value.startsWith(SESSION_PREFIX)) return false;
+        const tabId = Number(value.slice(SESSION_PREFIX.length));
+        return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
+      });
+      if (keys.length) await chrome.storage.session.remove(keys);
+    }
   });
   return product;
 }

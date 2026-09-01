@@ -46,10 +46,13 @@ export function createOperationsProvince(platform) {
     id: 'operations',
     products,
     async initialize() {
+      await platform.ensureSettings();
       await Promise.allSettled([
-        platform.ensureSettings().then(() => satellites.ensureSchedule()),
-        platform.clearLegacyAudioPromptState()
+        platform.clearLegacyAudioPromptState(),
+        platform.clearOrphanedActivity(),
+        anyCopyEnhanced.cleanupOrphans()
       ]);
+      await satellites.ensureSchedule();
     },
     async getProductState(productId, context) {
       if (productId === satellites.id) return satellites.state(context.settings);

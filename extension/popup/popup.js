@@ -28,6 +28,9 @@ let videoPanelSignature = '';
 let videoPickerActive = false;
 let videoPanelRenderPending = false;
 let actionPending = false;
+let popupClosing = false;
+let centralUiPort = null;
+let centralUiReconnectAttempts = 0;
 
 function label(element, value) {
   element.title = value;
@@ -366,7 +369,7 @@ function setVideoViewVisible(visible) {
       if (videoViewPort !== port) return;
       videoViewPort = null;
       videoViewPortTabId = null;
-      if (viewMode === 'video' && Number.isInteger(currentTab?.id) && videoViewReconnectAttempts < 5) {
+      if (!popupClosing && viewMode === 'video' && Number.isInteger(currentTab?.id) && videoViewReconnectAttempts < 5) {
         videoViewReconnectAttempts += 1;
         setTimeout(() => setVideoViewVisible(true), Math.min(250 * (2 ** videoViewReconnectAttempts), 4_000));
       }
@@ -381,6 +384,25 @@ function scheduleReload() {
     reloadTimer = 0;
     void retryRead(() => reload(false)).catch(() => {});
   }, 80);
+}
+
+function connectCentralUi() {
+  if (centralUiPort) return;
+  const port = chrome.runtime.connect({ name: 'central-ui:popup' });
+  centralUiPort = port;
+  port.onMessage.addListener(message => {
+    if (message?.type === 'central-state-changed' && message.tabId === currentTab?.id) scheduleReload();
+  });
+  setTimeout(() => {
+    if (centralUiPort === port) centralUiReconnectAttempts = 0;
+  }, 1_000);
+  port.onDisconnect.addListener(() => {
+    if (centralUiPort !== port) return;
+    centralUiPort = null;
+    if (popupClosing || document.hidden || centralUiReconnectAttempts >= 5) return;
+    centralUiReconnectAttempts += 1;
+    setTimeout(connectCentralUi, Math.min(250 * (2 ** centralUiReconnectAttempts), 4_000));
+  });
 }
 
 function render() {
@@ -525,8 +547,14 @@ label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
 label(document.querySelector('#all-settings'), t('allSettingsTitle'));
 root.dataset.localePending = 'false';
-const centralUiPort = chrome.runtime.connect({ name: 'central-ui:popup' });
-centralUiPort.onMessage.addListener(message => {
-  if (message?.type === 'central-state-changed' && message.tabId === currentTab?.id) scheduleReload();
-});
+connectCentralUi();
 try { await retryRead(() => reload()); } catch { live.textContent = t('unavailable'); }
+window.addEventListener('pagehide', () => {
+  popupClosing = true;
+  const centralPort = centralUiPort;
+  centralUiPort = null;
+  try { centralPort?.disconnect(); } catch {}
+  const videoPort = videoViewPort;
+  videoViewPort = null;
+  try { videoPort?.disconnect(); } catch {}
+}, { once: true });

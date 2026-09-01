@@ -10,3 +10,4 @@ import '../test/download-session.test.mjs';
 import '../test/customs-observation.test.mjs';
 import '../test/platform-settings.test.mjs';
 import '../test/ui-retry.test.mjs';
+import '../test/keyed-task-queue.test.mjs';

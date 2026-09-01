@@ -5,10 +5,12 @@ import { createPlatform } from '../extension/background/platform.js';
 
 function chromeMock() {
   const local = {};
+  const session = {};
   let failNextWrite = false;
   let failTabQuery = false;
   return {
     local,
+    session,
     failWrite() { failNextWrite = true; },
     failQuery() { failTabQuery = true; },
     api: {
@@ -28,6 +30,24 @@ function chromeMock() {
           async remove(keys) {
             for (const key of Array.isArray(keys) ? keys : [keys]) delete local[key];
           }
+        },
+        session: {
+          async get(keys) {
+            await Promise.resolve();
+            if (keys === null) return { ...session };
+            const names = Array.isArray(keys) ? keys : [keys];
+            return Object.fromEntries(names.filter(name => name in session).map(name => [name, structuredClone(session[name])]));
+          },
+          async set(values) {
+            await Promise.resolve();
+            for (const [key, value] of Object.entries(values)) session[key] = structuredClone(value);
+          },
+          async remove(keys) {
+            for (const key of Array.isArray(keys) ? keys : [keys]) delete session[key];
+          },
+          async clear() {
+            for (const key of Object.keys(session)) delete session[key];
+          }
         }
       },
       tabs: {
@@ -40,6 +60,13 @@ function chromeMock() {
         }
       },
       scripting: { executeScript: async () => [] },
+      action: {
+        setIcon(_details, callback) { callback(); },
+        setBadgeText(_details, callback) { callback(); },
+        setTitle(_details, callback) { callback(); }
+      },
+      alarms: { getAll: async () => [], clear: async () => true },
+      runtime: { lastError: null },
       i18n: { getUILanguage: () => 'en-US' }
     }
   };
@@ -67,4 +94,36 @@ test('page-refresh failure does not turn a saved settings update into a failure'
   }));
   assert.deepEqual(settings.nsna.whitelistRules, []);
   assert.deepEqual(mock.local[SETTINGS_KEY].nsna.whitelistRules, []);
+});
+
+test('concurrent activity updates preserve every product state', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  await Promise.all([
+    platform.setFeatureActivity(17, 'nativeScroll', true),
+    platform.setFeatureActivity(17, 'noAutoplay', true),
+    platform.setFeatureActivity(17, 'videoDownload', true)
+  ]);
+  assert.deepEqual(mock.session['tabActivity:17'], {
+    nativeScroll: true,
+    noAutoplay: true,
+    anyCopy: false,
+    anyCopyEnhanced: false,
+    imageDownload: false,
+    videoDownload: true
+  });
+});
+
+test('reset is serialized behind settings writes and leaves defaults in storage', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  const update = platform.mutateSettings(current => ({
+    ...current,
+    nativeScroll: { ...current.nativeScroll, enabled: false }
+  }), false);
+  const reset = platform.resetStorage();
+  await Promise.all([update, reset]);
+  assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
 });

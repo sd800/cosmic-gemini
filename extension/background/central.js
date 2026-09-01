@@ -77,6 +77,19 @@ function provinceForProduct(productId) {
   return province;
 }
 
+function unavailableProductState(productId, settings) {
+  const configured = productId === 'satellites' ? settings.satellites : settings[productId];
+  return {
+    ...(configured && typeof configured === 'object' ? configured : {}),
+    supported: false,
+    active: false,
+    unavailable: true,
+    status: 'unavailable',
+    candidates: [],
+    groups: []
+  };
+}
+
 function productForMessage(message) {
   if (message.type === 'UI_ADD_NSNA_WHITELIST_RULE' || message.type === 'UI_DELETE_NSNA_WHITELIST_RULE') {
     return FEATURE_IDS.NATIVE_SCROLL;
@@ -93,15 +106,19 @@ function productForMessage(message) {
 
 async function collectPageState(url, tabId, options = {}) {
   const settings = await platform.readSettings();
-  const entries = await Promise.all(STATE_PRODUCTS.map(async productId => {
-    const state = await provinceForProduct(productId).getProductState(productId, {
+  const results = await Promise.allSettled(STATE_PRODUCTS.map(productId =>
+    provinceForProduct(productId).getProductState(productId, {
       settings,
       url,
       tabId,
       prepareWorkspace: options.prepareWorkspace === true
-    });
-    return [productId, state];
-  }));
+    })));
+  const entries = STATE_PRODUCTS.map((productId, index) => [
+    productId,
+    results[index].status === 'fulfilled'
+      ? results[index].value
+      : unavailableProductState(productId, settings)
+  ]);
   return {
     nsna: settings.nsna,
     ...Object.fromEntries(entries),
@@ -118,16 +135,18 @@ async function syncPageProducts(sender, message) {
     throw new Error('The central page controller is unavailable.');
   }
   const settings = await platform.readSettings();
-  const entries = await Promise.all(PAGE_PRODUCTS.map(async productId => {
-    const active = await provinceForProduct(productId).syncProduct(productId, {
+  const results = await Promise.allSettled(PAGE_PRODUCTS.map(productId =>
+    provinceForProduct(productId).syncProduct(productId, {
       settings,
       tabId,
       frameId,
       frameUrl,
       topUrl
-    });
-    return [productId, active === true];
-  }));
+    })));
+  const entries = PAGE_PRODUCTS.map((productId, index) => [
+    productId,
+    results[index].status === 'fulfilled' && results[index].value === true
+  ]);
   return Object.fromEntries(entries);
 }
 

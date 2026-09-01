@@ -28,7 +28,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.3.3');
+assert.equal(manifest.version, '5.5.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -170,6 +170,9 @@ assert.match(central, /createStandingProvince[\s\S]*createOperationsProvince[\s\
 assert.match(central, /provinceForProduct/);
 assert.match(central, /productForMessage/);
 assert.match(central, /setCustomsResponseIngressEnabled/);
+assert.match(central, /Promise\.allSettled\(STATE_PRODUCTS/);
+assert.match(central, /Promise\.allSettled\(PAGE_PRODUCTS/);
+assert.match(central, /unavailableProductState/);
 assert.match(central, /onHeadersReceived\.removeListener\(handleCustomsHeadersReceived\)/);
 assert.doesNotMatch(central, /chrome\.storage|chrome\.scripting\.executeScript|chrome\.tabs\.(?:query|create|update)|chrome\.downloads\.download\s*\(|chrome\.sidePanel|chrome\.offscreen|chrome\.declarativeNetRequest|fetch\s*\(/,
   'Central may decide and route, but must not execute product work.');
@@ -194,6 +197,7 @@ assert.match(offscreenCoordinator, /activeAssemblies[\s\S]*sendVideo[\s\S]*sendI
 
 assert.match(runtimeHost, /chrome\.scripting\.executeScript/);
 assert.match(runtimeHost, /CG_STOP_CENTRAL_FEATURE/);
+assert.match(runtimeHost, /disposeMainRuntime/);
 assert.match(nativeScroll, /content\/native-scroll-bridge\.js[\s\S]*content\/runtime\.js/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.match(anyCopy, /content\/any-copy-bridge\.js[\s\S]*content\/any-copy-runtime\.js/);
@@ -203,13 +207,23 @@ assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
 assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/reward/);
 assert.match(administration, /UI_GET_ACTIVE_PAGE_STATE[\s\S]*UI_OPEN_ALL_SETTINGS[\s\S]*UI_RESET_ALL_SETTINGS/);
 assert.match(platform, /chrome\.storage[\s\S]*refreshOpenPages[\s\S]*renderToolbar/);
+assert.match(platform, /createKeyedTaskQueue/);
+assert.match(platform, /activityQueue\.run/);
+assert.match(platform, /queueWrite/);
+assert.match(platform, /resettingStorage/);
+assert.match(platform, /clearOrphanedActivity/);
 
 assert.match(imageDownload, /chrome\.sidePanel\.setOptions/);
 assert.match(imageDownload, /workspaces\/image-download\/image-download\.html/);
 assert.match(imageDownload, /UI_IMAGE_DOWNLOAD/);
 assert.match(imageDownload, /observation\.setCollecting\(FEATURE_IDS\.IMAGE_DOWNLOAD/);
+assert.match(imageDownload, /sessionUpdates\.run/);
+assert.match(imageDownload, /imageDownloadArtifact:/);
 assert.match(videoDownload, /CG_VIDEO_CANCEL_REQUEST/);
 assert.match(videoDownload, /observation\.setCollecting\(FEATURE_IDS\.VIDEO_DOWNLOAD/);
+assert.match(videoDownload, /sessionUpdates\.run/);
+assert.match(videoDownload, /cleanupOrphanedMediaHeaderRules/);
+assert.match(videoDownload, /videoDownloadArtifact:/);
 assert.match(videoDownload, /activeVideoProcessing\.has\(processingKey\)/);
 assert.match(videoDownload, /requestBilibiliJson/);
 assert.match(imageWorkspace, /retryRead\(\(\) => reload/);
@@ -230,16 +244,20 @@ for (const path of productFiles) {
 const centralPage = await source('content', 'central-page.js');
 assert.match(centralPage, /cosmic-gemini\.central/);
 assert.match(centralPage, /CG_SYNC_CENTRAL/);
+assert.match(centralPage, /syncFailures/);
 assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|anyCopy|imageDownload|videoDownload|chrome\.storage/);
 for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js']) {
   const value = await source('content', bridge);
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);
+  assert.match(value, /configFailures/);
+  assert.match(value, /Configuration is temporarily unavailable/);
 }
 
 assert.equal(await stat(join(extension, 'workspaces/image-download/image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'offscreen/video-download.html')).then(() => true), true);
 assert.match(await source('offscreen', 'video-download.js'), /new AbortController\(\)/);
+assert.match(offscreenCoordinator, /videoDownloadArtifact:/);
 assert.match(await source('settings', 'all-settings.html'), /language-card[\s\S]*id="reset-settings-card"/);
 assert.match(await source('settings', 'native-scroll.html'), /© 2026 Songming\.org/);
 assert.match(await readFile(join(project, '.gitignore'), 'utf8'), /^dist\/$/m);

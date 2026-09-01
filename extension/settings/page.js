@@ -333,6 +333,8 @@ function bindView() {
       try { localStorage.setItem('cosmicGeminiInterfaceLocale', locale); } catch {}
       applyLocale();
       render();
+    } catch {
+      control.value = locale;
     } finally {
       pendingControls.delete(control);
       if (control.isConnected) control.disabled = false;

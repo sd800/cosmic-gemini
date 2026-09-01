@@ -8,6 +8,8 @@
   const INTERVENED = 'cosmic-gemini:no-autoplay:intervened';
   let token = '';
   let disposed = false;
+  let configFailures = 0;
+  let configRetry = 0;
 
   const dispatchConfig = config => {
     if (!token) return;
@@ -16,6 +18,7 @@
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    if (configRetry) clearTimeout(configRetry);
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
@@ -27,10 +30,21 @@
     try {
       const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE', featureId: 'noAutoplay' });
       const config = response?.result?.noAutoplay;
-      if (!response?.ok || !config?.active) { dispose(); return; }
+      if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
+      if (!config?.active) { dispose(); return; }
+      if (configRetry) clearTimeout(configRetry);
+      configRetry = 0;
+      configFailures = 0;
       dispatchConfig(config);
-      await chrome.runtime.sendMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'noAutoplay', active: true });
-    } catch { dispose(); }
+      void chrome.runtime.sendMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'noAutoplay', active: true }).catch(() => {});
+    } catch {
+      configFailures += 1;
+      if (configFailures >= 4) { dispose(); return; }
+      if (!configRetry) configRetry = setTimeout(() => {
+        configRetry = 0;
+        void requestConfig();
+      }, [80, 240, 800][configFailures - 1]);
+    }
   };
   function onMainReady(event) {
     if (typeof event.detail !== 'string' || !event.detail) return;

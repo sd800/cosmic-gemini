@@ -6,6 +6,7 @@ import {
   normalizeSettings
 } from '../core/config.js';
 import { normalizeLocale } from '../core/locale.js';
+import { createKeyedTaskQueue } from '../core/keyed-task-queue.js';
 
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
@@ -15,7 +16,15 @@ const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
 
 export function createPlatform() {
   let writeQueue = Promise.resolve();
+  let resettingStorage = false;
+  const activityQueue = createKeyedTaskQueue();
   const centralUiPorts = new Set();
+
+  function queueWrite(task) {
+    const operation = writeQueue.then(task);
+    writeQueue = operation.catch(() => undefined);
+    return operation;
+  }
 
   function sendTabMessage(tabId, message, options = undefined) {
     return new Promise(resolve => {
@@ -35,18 +44,23 @@ export function createPlatform() {
     return normalizeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
   }
 
-  async function saveSettings(value) {
+  async function writeSettings(value) {
     const settings = normalizeSettings(value);
     await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
     return settings;
   }
 
-  async function ensureSettings() {
-    const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
-    const settings = normalizeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
-    await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
-    if (stored[LEGACY_SETTINGS_KEY]) await chrome.storage.local.remove(LEGACY_SETTINGS_KEY);
-    return settings;
+  function saveSettings(value) {
+    return queueWrite(() => writeSettings(value));
+  }
+
+  function ensureSettings() {
+    return queueWrite(async () => {
+      const stored = await chrome.storage.local.get([SETTINGS_KEY, LEGACY_SETTINGS_KEY]);
+      const settings = await writeSettings(stored[SETTINGS_KEY] || stored[LEGACY_SETTINGS_KEY] || DEFAULT_SETTINGS);
+      if (stored[LEGACY_SETTINGS_KEY]) await chrome.storage.local.remove(LEGACY_SETTINGS_KEY);
+      return settings;
+    });
   }
 
   async function refreshOpenPages() {
@@ -63,31 +77,32 @@ export function createPlatform() {
   }
 
   async function mutateSettings(update, refresh = true) {
-    const operation = writeQueue.then(async () => {
+    return queueWrite(async () => {
       const current = await readSettings();
-      const next = await saveSettings(typeof update === 'function' ? update(current) : update);
+      const next = await writeSettings(typeof update === 'function' ? update(current) : update);
       if (refresh) await refreshOpenPages();
       return next;
     });
-    writeQueue = operation.catch(() => undefined);
-    return operation;
   }
 
   function activityKey(tabId) { return ACTIVITY_PREFIX + tabId; }
 
+  async function readActivityRecord(tabId) {
+    const value = (await chrome.storage.session.get(activityKey(tabId)))[activityKey(tabId)];
+    return {
+      nativeScroll: value?.nativeScroll === true,
+      noAutoplay: value?.noAutoplay === true,
+      anyCopy: value?.anyCopy === true,
+      anyCopyEnhanced: value?.anyCopyEnhanced === true,
+      imageDownload: value?.imageDownload === true,
+      videoDownload: value?.videoDownload === true
+    };
+  }
+
   async function readActivity(tabId) {
     if (!Number.isInteger(tabId)) return emptyActivity();
-    try {
-      const value = (await chrome.storage.session.get(activityKey(tabId)))[activityKey(tabId)];
-      return {
-        nativeScroll: value?.nativeScroll === true,
-        noAutoplay: value?.noAutoplay === true,
-        anyCopy: value?.anyCopy === true,
-        anyCopyEnhanced: value?.anyCopyEnhanced === true,
-        imageDownload: value?.imageDownload === true,
-        videoDownload: value?.videoDownload === true
-      };
-    } catch { return emptyActivity(); }
+    try { return await readActivityRecord(tabId); }
+    catch { return emptyActivity(); }
   }
 
   function emptyActivity() {
@@ -137,21 +152,25 @@ export function createPlatform() {
   }
 
   async function setFeatureActivity(tabId, featureId, value) {
-    if (!Number.isInteger(tabId) || !Object.values(FEATURE_IDS).includes(featureId)) return;
-    const activity = await readActivity(tabId);
-    activity[featureId] = value === true;
-    const key = activityKey(tabId);
-    if (Object.values(activity).some(Boolean)) await chrome.storage.session.set({ [key]: activity });
-    else await chrome.storage.session.remove(key);
-    notifyCentralUi(tabId);
-    await renderToolbar(tabId, activity);
+    if (resettingStorage || !Number.isInteger(tabId) || !Object.values(FEATURE_IDS).includes(featureId)) return;
+    return activityQueue.run(tabId, async () => {
+      const activity = await readActivityRecord(tabId);
+      activity[featureId] = value === true;
+      const key = activityKey(tabId);
+      if (Object.values(activity).some(Boolean)) await chrome.storage.session.set({ [key]: activity });
+      else await chrome.storage.session.remove(key);
+      notifyCentralUi(tabId);
+      await renderToolbar(tabId, activity);
+    });
   }
 
   async function clearTabActivity(tabId) {
-    if (!Number.isInteger(tabId)) return;
-    await chrome.storage.session.remove(activityKey(tabId));
-    notifyCentralUi(tabId);
-    await renderToolbar(tabId, emptyActivity());
+    if (resettingStorage || !Number.isInteger(tabId)) return;
+    return activityQueue.run(tabId, async () => {
+      await chrome.storage.session.remove(activityKey(tabId));
+      notifyCentralUi(tabId);
+      await renderToolbar(tabId, emptyActivity());
+    });
   }
 
   function connectCentralUi(port) {
@@ -170,15 +189,28 @@ export function createPlatform() {
       .map(alarm => chrome.alarms.clear(alarm.name)));
   }
 
+  async function clearOrphanedActivity() {
+    const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+    const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
+    const keys = Object.keys(values).filter(key => {
+      if (!key.startsWith(ACTIVITY_PREFIX)) return false;
+      const tabId = Number(key.slice(ACTIVITY_PREFIX.length));
+      return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
+    });
+    if (keys.length) await chrome.storage.session.remove(keys);
+  }
+
   async function getLocale() {
     const stored = await chrome.storage.local.get('interfaceLocale');
     return normalizeLocale(stored.interfaceLocale || chrome.i18n.getUILanguage());
   }
 
-  async function setLocale(value) {
+  function setLocale(value) {
     const locale = normalizeLocale(value);
-    await chrome.storage.local.set({ interfaceLocale: locale });
-    return locale;
+    return queueWrite(async () => {
+      await chrome.storage.local.set({ interfaceLocale: locale });
+      return locale;
+    });
   }
 
   function runtimeToken() {
@@ -188,14 +220,21 @@ export function createPlatform() {
     return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  async function resetStorage() {
-    await chrome.storage.session.clear();
-    await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
-    const settings = await saveSettings(DEFAULT_SETTINGS);
-    const tabs = await chrome.tabs.query({});
-    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => renderToolbar(tab.id, emptyActivity())));
-    await refreshOpenPages();
-    return settings;
+  function resetStorage() {
+    return queueWrite(async () => {
+      resettingStorage = true;
+      try {
+        await activityQueue.drain();
+        await chrome.storage.session.clear();
+        await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
+        const settings = await writeSettings(DEFAULT_SETTINGS);
+        let tabs = [];
+        try { tabs = await chrome.tabs.query({}); } catch {}
+        await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => renderToolbar(tab.id, emptyActivity())));
+        await refreshOpenPages();
+        return settings;
+      } finally { resettingStorage = false; }
+    });
   }
 
   return Object.freeze({
@@ -211,6 +250,7 @@ export function createPlatform() {
     connectCentralUi,
     notifyCentralUi,
     clearLegacyAudioPromptState,
+    clearOrphanedActivity,
     getLocale,
     setLocale,
     runtimeToken,

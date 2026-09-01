@@ -10,6 +10,8 @@ import {
 
 export function createSatellitesProduct(platform) {
   let running = null;
+  let scheduleRepair = null;
+  let scheduleRepairAttempts = 0;
 
   async function requestJson(url) {
     const response = await fetch(url, {
@@ -25,7 +27,7 @@ export function createSatellitesProduct(platform) {
     await chrome.alarms.create(BILI_DAILY_ALARM, { when: Math.max(Date.now() + 1_000, Number(when)) });
   }
 
-  async function ensureSchedule() {
+  async function syncSchedule() {
     const settings = await platform.readSettings();
     const feature = settings.satellites.biliDailyLogin;
     if (!feature.enabled) {
@@ -36,6 +38,33 @@ export function createSatellitesProduct(platform) {
     const existing = await chrome.alarms.get(BILI_DAILY_ALARM);
     if (existing?.scheduledTime > Date.now()) return;
     await schedule(feature.lastCompletedDate === bilibiliDateKey() ? nextBilibiliSchedule() : Date.now() + 1_000);
+  }
+
+  function repairSchedule() {
+    if (scheduleRepair || scheduleRepairAttempts >= 3) return;
+    scheduleRepairAttempts += 1;
+    scheduleRepair = setTimeout(() => {
+      scheduleRepair = null;
+      void syncSchedule()
+        .then(() => { scheduleRepairAttempts = 0; })
+        .catch(() => repairSchedule());
+    }, 5_000);
+  }
+
+  async function ensureSchedule() {
+    try {
+      await syncSchedule();
+      scheduleRepairAttempts = 0;
+    } catch (error) {
+      repairSchedule();
+      throw error;
+    }
+  }
+
+  function cancelScheduleRepair() {
+    if (scheduleRepair) clearTimeout(scheduleRepair);
+    scheduleRepair = null;
+    scheduleRepairAttempts = 0;
   }
 
   async function run() {
@@ -109,9 +138,12 @@ export function createSatellitesProduct(platform) {
           biliDailyLogin: { ...current.satellites.biliDailyLogin, enabled }
         }
       }));
-      await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
-      await chrome.alarms.clear(BILI_DAILY_ALARM);
-      if (enabled) await ensureSchedule();
+      try {
+        await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+        await chrome.alarms.clear(BILI_DAILY_ALARM);
+        if (enabled) await ensureSchedule();
+        else cancelScheduleRepair();
+      } catch { repairSchedule(); }
       return settings.satellites.biliDailyLogin;
     },
     async handleAlarm(alarm) {
@@ -120,6 +152,7 @@ export function createSatellitesProduct(platform) {
       return true;
     },
     async reset() {
+      cancelScheduleRepair();
       await chrome.alarms.clear(BILI_DAILY_ALARM);
       await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
     }

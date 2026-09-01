@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.5.1 — 2026-09-01
+
+- Serialized activity and download-session updates by tab, preventing simultaneous product events from overwriting one another or dropping newly discovered media.
+- Unified settings, locale, and reset writes under one recoverable sequence. A completed reset can no longer be reversed by an older pending write.
+- Isolated product state failures so one unavailable product does not disable the whole popup or Settings. Page bridges now recover from brief Service Worker interruptions without undoing a configuration that was already applied.
+- Discarded scan results produced for a page after that tab has navigated elsewhere. Service Worker recovery also removes orphaned sessions, activity records, temporary request-header rules, and completed media artifacts.
+- Kept active Chrome downloads independent from their media workspace, preserved filenames for simultaneous downloads of the same source, and separated saved Bili Daily Login preferences from bounded schedule repair.
+
 ## 5.3.3 — 2026-09-01
 
 - Separated completed popup and Image Download actions from subsequent state refreshes, so a transient readback failure no longer presents a successful action as failed.

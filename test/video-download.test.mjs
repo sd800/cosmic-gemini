@@ -4,6 +4,7 @@ import {
   classifyVideoResource,
   compactVideoCandidates,
   formatMediaDuration,
+  limitVideoCandidatesForSession,
   mediaRequestDirectoryFilters,
   mediaRequestReferrer,
   parseHlsMaster,
@@ -32,6 +33,30 @@ test('video resources are classified without treating media segments as top-leve
   }).kind, 'hls');
   assert.equal(classifyVideoResource({ url: 'https://cdn.example/segment.m4s' }), null);
   assert.equal(classifyVideoResource({ url: 'blob:https://example.com/id' }), null);
+  assert.equal(classifyVideoResource({ url: `https://example.com/${'a'.repeat(32_000)}.mp4` }), null);
+});
+
+test('video sessions stay bounded without dropping an active download', () => {
+  const active = { id: 'active', url: 'blob:local', artifactId: 'video-1-active.mp4', status: 'downloading' };
+  const candidates = [
+    { id: 'large', url: 'https://example.com/large.mp4', label: 'x'.repeat(200), status: 'ready' },
+    active,
+    { id: 'small', url: 'https://example.com/small.mp4', status: 'ready' }
+  ];
+  assert.deepEqual(limitVideoCandidatesForSession(candidates, 2, 100), [active]);
+});
+
+test('video candidate metadata bounds alternate URLs and response headers', () => {
+  const candidate = classifyVideoResource({
+    url: 'https://example.com/video.mp4',
+    backupUrls: Array.from({ length: 40 }, (_, index) => `https://backup${index}.example/video.mp4`),
+    responseHeaders: [
+      ...Array.from({ length: 100 }, (_, index) => ({ name: `X-Test-${index}`, value: 'x' })),
+      { name: 'Content-Length', value: '999999' }
+    ]
+  });
+  assert.equal(candidate.videoBackupUrls.length, 8);
+  assert.equal(candidate.contentLength, 0);
 });
 
 test('download choices keep one user-facing option per quality plus audio', () => {

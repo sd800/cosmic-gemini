@@ -7,6 +7,7 @@ import {
   imageExtension,
   imageLayout,
   imageMimeFromHeaders,
+  limitImageCandidatesForSession,
   normalizeImageCandidate,
   sanitizeImageFilename
 } from '../extension/core/image-download.js';
@@ -25,7 +26,18 @@ test('responsive variants form one family and prefer the strongest original cand
 test('candidate normalization rejects non-image MIME responses and unsupported schemes', () => {
   assert.equal(normalizeImageCandidate({ url: 'javascript:alert(1)' }), null);
   assert.equal(normalizeImageCandidate({ url: 'https://example.com/page', mime: 'text/html' }), null);
+  assert.equal(normalizeImageCandidate({ url: `https://example.com/${'a'.repeat(32_000)}.jpg` }), null);
   assert.equal(normalizeImageCandidate({ url: 'https://example.com/image?id=1', mime: 'image/webp' }).extension, 'webp');
+});
+
+test('image sessions stay bounded without dropping local capture artifacts', () => {
+  const artifact = { id: 'capture', artifactId: 'video-1-capture.png', url: 'blob:local' };
+  const candidates = [
+    { id: 'large', url: 'https://example.com/large.jpg', label: 'x'.repeat(200) },
+    artifact,
+    { id: 'small', url: 'https://example.com/small.jpg' }
+  ];
+  assert.deepEqual(limitImageCandidatesForSession(candidates, 2, 100), [artifact]);
 });
 
 test('family keys ignore common thumbnail sizing parameters', () => {

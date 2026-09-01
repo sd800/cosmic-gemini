@@ -137,8 +137,9 @@
       this.originalXhrOpen = XMLHttpRequest.prototype.open;
       this.originalXhrSend = XMLHttpRequest.prototype.send;
       this.active = true;
+      this.messageListening = false;
+      this.onMessage = this.onMessage.bind(this);
       this.install();
-      globalThis.addEventListener('message', event => this.onMessage(event));
     }
 
     publish(candidates) {
@@ -210,6 +211,10 @@
 
     install() {
       const runtime = this;
+      if (!this.messageListening) {
+        globalThis.addEventListener('message', this.onMessage);
+        this.messageListening = true;
+      }
       function trackedFetch(...args) {
         const promise = Reflect.apply(runtime.originalFetch, this, args);
         void promise.then(response => runtime.inspectResponse(response)).catch(() => {});
@@ -258,6 +263,8 @@
       if (globalThis.fetch === this.trackedFetch) globalThis.fetch = this.originalFetch;
       if (XMLHttpRequest.prototype.open.name === 'trackedOpen') XMLHttpRequest.prototype.open = this.originalXhrOpen;
       if (XMLHttpRequest.prototype.send.name === 'trackedSend') XMLHttpRequest.prototype.send = this.originalXhrSend;
+      if (this.messageListening) globalThis.removeEventListener('message', this.onMessage);
+      this.messageListening = false;
     }
   }
 

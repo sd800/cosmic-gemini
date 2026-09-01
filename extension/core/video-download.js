@@ -10,18 +10,18 @@ const HLS_MIME = new Set([
 ]);
 
 function cleanMime(value) {
-  return String(value || '').split(';', 1)[0].trim().toLowerCase();
+  return String(value || '').slice(0, 1000).split(';', 1)[0].trim().toLowerCase();
 }
 
 function safeUrl(value, base) {
   try {
     const url = new URL(value, base);
-    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    return ['http:', 'https:'].includes(url.protocol) && url.href.length <= 32_000 ? url.href : '';
   } catch { return ''; }
 }
 
 function safeUrlList(values, base, exclude = '') {
-  const list = Array.isArray(values) ? values : values ? [values] : [];
+  const list = (Array.isArray(values) ? values : values ? [values] : []).slice(0, 16);
   return [...new Set(list.map(value => safeUrl(value, base)).filter(value => value && value !== exclude))].slice(0, 8);
 }
 
@@ -85,7 +85,7 @@ export function mediaRequestReferrer(pageUrl) {
 
 export function headerValue(headers, name) {
   const target = String(name || '').toLowerCase();
-  const entry = (Array.isArray(headers) ? headers : []).find(header =>
+  const entry = (Array.isArray(headers) ? headers.slice(0, 100) : []).find(header =>
     String(header?.name || '').toLowerCase() === target);
   return String(entry?.value || '');
 }
@@ -111,9 +111,18 @@ export function classifyVideoResource(input = {}) {
   const duration = numberOrZero(input.duration);
   const contentLength = responseContentLength(input);
   const title = String(input.title || '').trim().slice(0, 240);
-  const signature = [kind, url, videoUrl, audioUrl, input.qualityId || '', input.videoCodec || '', input.representationId || '', input.inlineId || ''].join('|');
+  const signature = [
+    kind,
+    url,
+    videoUrl,
+    audioUrl,
+    String(input.qualityId || '').slice(0, 40),
+    String(input.videoCodec || '').slice(0, 120),
+    String(input.representationId || '').slice(0, 240),
+    String(input.inlineId || '').slice(0, 240)
+  ].join('|');
   return {
-    id: String(input.id || stableVideoCandidateId(signature)),
+    id: String(input.id || stableVideoCandidateId(signature)).slice(0, 240),
     url,
     videoUrl: videoUrl || url,
     audioUrl,
@@ -128,30 +137,57 @@ export function classifyVideoResource(input = {}) {
     contentLength,
     bandwidth: numberOrZero(input.bandwidth),
     title,
-    source: String(input.source || 'network'),
+    source: String(input.source || 'network').slice(0, 80),
     downloadable: typeof input.downloadable === 'boolean' ? input.downloadable : kind !== 'dash',
-    status: String(input.status || 'ready'),
+    status: String(input.status || 'ready').slice(0, 30),
     progress: numberOrZero(input.progress),
-    codecs: String(input.codecs || ''),
-    videoCodec: String(input.videoCodec || ''),
-    audioCodec: String(input.audioCodec || ''),
+    codecs: String(input.codecs || '').slice(0, 300),
+    videoCodec: String(input.videoCodec || '').slice(0, 120),
+    audioCodec: String(input.audioCodec || '').slice(0, 120),
     hasAudio: input.hasAudio === true || Boolean(audioUrl),
-    audioLanguage: String(input.audioLanguage || ''),
-    languageLabel: String(input.languageLabel || ''),
-    codecLabel: String(input.codecLabel || ''),
+    audioLanguage: String(input.audioLanguage || '').slice(0, 80),
+    languageLabel: String(input.languageLabel || '').slice(0, 160),
+    codecLabel: String(input.codecLabel || '').slice(0, 160),
     qualityId: numberOrZero(input.qualityId),
-    qualityLabel: String(input.qualityLabel || ''),
-    frameRate: String(input.frameRate || ''),
-    outputContainer: String(input.outputContainer || ''),
-    inlineId: String(input.inlineId || ''),
+    qualityLabel: String(input.qualityLabel || '').slice(0, 160),
+    frameRate: String(input.frameRate || '').slice(0, 40),
+    outputContainer: String(input.outputContainer || '').slice(0, 20),
+    inlineId: String(input.inlineId || '').slice(0, 240),
     manifestText: String(input.manifestText || '').slice(0, 2 * 1024 * 1024),
     manifestBaseUrl: safeUrl(input.manifestBaseUrl || input.manifestUrl || url),
-    representationId: String(input.representationId || ''),
-    audioRepresentationId: String(input.audioRepresentationId || ''),
+    representationId: String(input.representationId || '').slice(0, 240),
+    audioRepresentationId: String(input.audioRepresentationId || '').slice(0, 240),
     manifestUrl: safeUrl(input.manifestUrl),
     protected: input.protected === true,
     master: input.master === true
   };
+}
+
+export function limitVideoCandidatesForSession(candidates, maxCount = 80, maxCharacters = 2_500_000) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  const retainedStatus = new Set(['preparing', 'downloading', 'complete']);
+  const required = list.filter(candidate => candidate?.artifactId || retainedStatus.has(candidate?.status));
+  const optional = list.filter(candidate => !candidate?.artifactId && !retainedStatus.has(candidate?.status));
+  const selected = new Set();
+  let characters = 0;
+  for (const candidate of required) {
+    if (!candidate) continue;
+    let size;
+    try { size = JSON.stringify(candidate).length; }
+    catch { continue; }
+    selected.add(candidate);
+    characters += size;
+  }
+  for (const candidate of optional) {
+    if (!candidate || selected.size >= maxCount) break;
+    let size;
+    try { size = JSON.stringify(candidate).length; }
+    catch { continue; }
+    if (characters + size > maxCharacters) continue;
+    selected.add(candidate);
+    characters += size;
+  }
+  return list.filter(candidate => selected.has(candidate));
 }
 
 export function mergeVideoCandidate(existing, incoming) {

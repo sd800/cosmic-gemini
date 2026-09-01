@@ -20,7 +20,10 @@ import {
 const artifacts = new Map();
 const activeVideoRequests = new Map();
 const pendingVideoCancellations = new Set();
+const STALE_ARTIFACT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const ARTIFACT_NAME = /^video-\d+-[a-z0-9-]+\.[a-z0-9]{2,5}$/i;
 let youtubeModulePromise;
+let staleArtifactCleanupPromise;
 
 function token() {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -138,7 +141,41 @@ async function resolveHlsCandidate(candidate, pageUrl, preferredQuality, request
   return resolveHls(candidate.url, pageUrl, preferredQuality, 0, requestId);
 }
 
+function collectRetainedArtifactIds(value, retained, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return;
+  seen.add(value);
+  if (typeof value.artifactId === 'string' && value.artifactId) retained.add(value.artifactId);
+  for (const child of Array.isArray(value) ? value : Object.values(value)) {
+    collectRetainedArtifactIds(child, retained, seen);
+  }
+}
+
+async function cleanupStaleArtifacts() {
+  const retained = new Set(artifacts.keys());
+  try {
+    const stored = await chrome.storage.session.get(null);
+    collectRetainedArtifactIds(stored, retained);
+  } catch {}
+  const root = await navigator.storage.getDirectory();
+  const cutoff = Date.now() - STALE_ARTIFACT_AGE_MS;
+  for await (const [name, handle] of root.entries()) {
+    if (handle.kind !== 'file' || !ARTIFACT_NAME.test(name) || retained.has(name)) continue;
+    try {
+      const file = await handle.getFile();
+      if (file.lastModified < cutoff) await root.removeEntry(name);
+    } catch {}
+  }
+}
+
+async function ensureStaleArtifactCleanup() {
+  if (!staleArtifactCleanupPromise) {
+    staleArtifactCleanupPromise = cleanupStaleArtifacts().catch(() => {});
+  }
+  await staleArtifactCleanupPromise;
+}
+
 async function createArtifact(extension) {
+  await ensureStaleArtifactCleanup();
   const root = await navigator.storage.getDirectory();
   const name = `video-${Date.now()}-${token()}.${extension}`;
   const handle = await root.getFileHandle(name, { create: true });
@@ -178,7 +215,6 @@ async function publishArtifact(artifact, extension, details = {}) {
   const url = URL.createObjectURL(file);
   const artifactId = artifact.name;
   artifacts.set(artifactId, { root: artifact.root, name: artifact.name, url });
-  setTimeout(() => void cleanupArtifact(artifactId), 60 * 60 * 1000);
   return { artifactId, url, extension, bytes: file.size, ...details };
 }
 
@@ -382,9 +418,15 @@ async function cropImageCapture(message) {
     context.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
     const output = await canvas.convertToBlob({ type: 'image/png' });
     const artifact = await createArtifact('png');
-    await artifact.writable.write(output);
-    await artifact.writable.close();
-    return publishArtifact(artifact, 'png', { bytes: output.size, width, height });
+    try {
+      await artifact.writable.write(output);
+      await artifact.writable.close();
+      return await publishArtifact(artifact, 'png', { bytes: output.size, width, height });
+    } catch (error) {
+      try { await artifact.writable.abort(); } catch {}
+      await removeArtifactFile(artifact);
+      throw error;
+    }
   } finally { bitmap.close(); }
 }
 

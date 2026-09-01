@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.6.1');
+assert.equal(manifest.version, '5.7.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -248,6 +248,10 @@ assert.match(videoDownload, /activeVideoProcessing\.has\(processingKey\)/);
 assert.match(videoDownload, /requestBilibiliJson/);
 assert.match(videoDownload, /expectedSenderPageUrl/);
 assert.match(videoDownload, /expandingVideoManifests\.clear\(\)/);
+assert.match(videoDownload, /limitVideoCandidatesForSession/);
+assert.match(videoDownload, /await stopVideoScanner\(tabId\);\s*return false;/);
+assert.match(videoDownload, /world: 'MAIN'[\s\S]*cosmic-gemini\.video-download\.page-runtime/);
+assert.match(imageDownload, /limitImageCandidatesForSession/);
 assert.match(imageWorkspace, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(imageWorkspace, /await send\(\{ type: 'UI_IMAGE_STOP'[\s\S]{0,160}await reload\(/);
 assert.doesNotMatch(imageDownload, /scheduleDownloadDiscoveryPause|videoDownloadSession:/);
@@ -278,8 +282,19 @@ for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'any-c
 
 assert.equal(await stat(join(extension, 'workspaces/image-download/image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'offscreen/video-download.html')).then(() => true), true);
-assert.match(await source('offscreen', 'video-download.js'), /new AbortController\(\)/);
-assert.match(await source('offscreen', 'video-download.js'), /artifactId = artifact\.name/);
+const videoOffscreen = await source('offscreen', 'video-download.js');
+const videoPageRuntime = await source('content', 'video-download-page.js');
+const videoScanner = await source('content', 'video-download-scanner.js');
+assert.match(videoOffscreen, /new AbortController\(\)/);
+assert.match(videoOffscreen, /artifactId = artifact\.name/);
+assert.match(videoOffscreen, /STALE_ARTIFACT_AGE_MS/);
+assert.match(videoOffscreen, /collectRetainedArtifactIds/);
+assert.doesNotMatch(videoOffscreen, /setTimeout\(\(\) => void cleanupArtifact\(artifactId\)/);
+assert.match(videoPageRuntime, /removeEventListener\('message', this\.onMessage\)/);
+assert.match(videoScanner, /chrome\.runtime\.onMessage\.removeListener\(this\.onMessage\)/);
+assert.match(videoScanner, /globalThis\.removeEventListener\('message', this\.onWindowMessage\)/);
+assert.match(videoScanner, /transportCandidate\(item\)/);
+assert.match(videoScanner, /event\.data\.candidates\.slice\(0, 500\)/);
 assert.match(offscreenCoordinator, /videoDownloadArtifact:/);
 assert.match(await source('settings', 'all-settings.html'), /language-card[\s\S]*id="reset-settings-card"/);
 assert.match(await source('settings', 'native-scroll.html'), /© 2026 Songming\.org/);

@@ -6,7 +6,7 @@
   function absoluteUrl(value) {
     try {
       const url = new URL(value, document.baseURI);
-      return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+      return ['http:', 'https:'].includes(url.protocol) && url.href.length <= 32_000 ? url.href : '';
     } catch { return ''; }
   }
 
@@ -29,9 +29,22 @@
       this.onMutation = this.onMutation.bind(this);
       this.onLoadedMetadata = this.onLoadedMetadata.bind(this);
       this.onWindowMessage = this.onWindowMessage.bind(this);
+      this.listening = false;
+      this.observe();
+    }
+
+    listen() {
+      if (this.listening) return;
       chrome.runtime.onMessage.addListener(this.onMessage);
       globalThis.addEventListener('message', this.onWindowMessage);
-      this.observe();
+      this.listening = true;
+    }
+
+    unlisten() {
+      if (!this.listening) return;
+      chrome.runtime.onMessage.removeListener(this.onMessage);
+      globalThis.removeEventListener('message', this.onWindowMessage);
+      this.listening = false;
     }
 
     onMessage(message, sender, respond) {
@@ -47,26 +60,65 @@
 
     onWindowMessage(event) {
       if (!this.active || event.source !== globalThis || event.data?.marker !== PAGE_MARKER) return;
-      if (event.data.type === 'candidates' && Array.isArray(event.data.candidates)) void this.publish(event.data.candidates);
+      if (event.data.type === 'candidates' && Array.isArray(event.data.candidates)) {
+        const candidates = event.data.candidates.slice(0, 500).map(item => this.transportCandidate(item)).filter(Boolean);
+        void this.publish(candidates);
+      }
       if (event.data.type === 'manifests' && Array.isArray(event.data.manifests)) {
+        const manifests = event.data.manifests.slice(0, 12).map(item => {
+          if (!item || typeof item !== 'object') return null;
+          const manifestText = String(item.manifestText || '');
+          if (!manifestText || manifestText.length > 2 * 1024 * 1024) return null;
+          return {
+            kind: item.kind === 'dash' ? 'dash' : item.kind === 'hls' ? 'hls' : '',
+            manifestText,
+            baseUrl: absoluteUrl(item.baseUrl) || location.href,
+            source: String(item.source || 'page-runtime').slice(0, 80),
+            inlineId: String(item.inlineId || '').slice(0, 240)
+          };
+        }).filter(item => item?.kind);
         void chrome.runtime.sendMessage({
           type: 'CG_VIDEO_INLINE_MANIFESTS',
-          manifests: event.data.manifests,
+          manifests,
           pageUrl: location.href
         }).catch(() => {});
       }
-      if (event.data.type === 'wrapped-manifest' && typeof event.data.data === 'string') {
+      if (event.data.type === 'wrapped-manifest' && typeof event.data.data === 'string'
+        && event.data.data.length <= 3 * 1024 * 1024) {
         void chrome.runtime.sendMessage({
           type: 'CG_VIDEO_WRAPPED_MANIFEST',
           data: event.data.data,
-          baseUrl: event.data.baseUrl,
+          baseUrl: absoluteUrl(event.data.baseUrl) || location.href,
           pageUrl: location.href
         }).catch(() => {});
       }
     }
 
+    transportCandidate(item) {
+      if (!item || typeof item !== 'object') return null;
+      const url = absoluteUrl(item.url || item.videoUrl);
+      const kind = ['hls', 'dash', 'direct', 'muxed', 'audio'].includes(item.kind) ? item.kind : kindFromUrl(url);
+      const mime = String(item.mime || '').slice(0, 200).toLowerCase();
+      if (!url || (!MEDIA_URL.test(url) && !mime.startsWith('video/') && !mime.startsWith('audio/')
+        && mime !== 'application/dash+xml' && !mime.includes('mpegurl'))) return null;
+      return {
+        url,
+        kind,
+        source: String(item.source || 'page-runtime').slice(0, 80),
+        title: String(item.title || document.title || '').slice(0, 240),
+        mime,
+        width: Number(item.width || 0),
+        height: Number(item.height || 0),
+        duration: Number(item.duration || 0),
+        contentLength: Number(item.contentLength || 0),
+        bandwidth: Number(item.bandwidth || 0),
+        codecs: String(item.codecs || '').slice(0, 300)
+      };
+    }
+
     observe() {
       if (!this.active) return;
+      this.listen();
       if (!this.observer && document.documentElement) {
         this.observer = new MutationObserver(this.onMutation);
         this.observer.observe(document.documentElement, {
@@ -221,6 +273,7 @@
       this.pendingRoots.clear();
       this.seen.clear();
       globalThis.postMessage({ marker: PAGE_MARKER, type: 'stop' }, location.origin);
+      this.unlisten();
     }
   }
 

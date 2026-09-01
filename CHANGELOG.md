@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.7.1 — 2026-09-01
+
+- Expanded recovery and lifecycle checks across Image Download and Video Download, including inputs received from webpages, temporary session storage, scanner injection, offscreen processing, and Chrome download handoff.
+- Video Download now removes its page and extension message listeners when the two-minute discovery period ends. A partial scanner injection is rolled back across both page worlds instead of leaving one runtime active.
+- Bounded media URLs, manifest messages, candidate collections, and automatic manifest expansion. If Chrome's temporary storage approaches its capacity, inactive discovery results are reduced progressively while local captures and active downloads are retained.
+- Temporary media files now remain available for the full lifetime of an accepted Chrome download. Failed image captures remove incomplete files, and unreferenced files older than seven days are reclaimed the next time the local processor starts.
+- Added regression coverage for oversized media input, bounded session data, retained download artifacts, and symmetric scanner cleanup.
+
 ## 5.6.1 — 2026-09-01
 
 - Corrected Any Copy website-rule removal and kept the selected interface language available through temporary Service Worker read failures.

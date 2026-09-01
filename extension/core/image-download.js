@@ -44,7 +44,7 @@ function normalizedImageUrl(value) {
     const url = new URL(raw);
     if (!['http:', 'https:'].includes(url.protocol)) return '';
     url.hash = '';
-    return url.href;
+    return url.href.length <= 32_000 ? url.href : '';
   } catch { return ''; }
 }
 
@@ -208,6 +208,32 @@ export function groupImageCandidates(rawCandidates = []) {
     (b.recommended.width * b.recommended.height) - (a.recommended.width * a.recommended.height)
     || b.recommended.score - a.recommended.score
     || a.id.localeCompare(b.id));
+}
+
+export function limitImageCandidatesForSession(candidates, maxCount = 1200, maxCharacters = 2_500_000) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  const required = list.filter(candidate => candidate?.artifactId);
+  const optional = list.filter(candidate => !candidate?.artifactId);
+  const selected = new Set();
+  let characters = 0;
+  for (const candidate of required) {
+    if (!candidate) continue;
+    let size;
+    try { size = JSON.stringify(candidate).length; }
+    catch { continue; }
+    selected.add(candidate);
+    characters += size;
+  }
+  for (const candidate of optional) {
+    if (!candidate || selected.size >= maxCount) break;
+    let size;
+    try { size = JSON.stringify(candidate).length; }
+    catch { continue; }
+    if (characters + size > maxCharacters) continue;
+    selected.add(candidate);
+    characters += size;
+  }
+  return list.filter(candidate => selected.has(candidate));
 }
 
 export function sanitizeImageFilename(value, extension = 'jpg', fallbackIndex = 1) {

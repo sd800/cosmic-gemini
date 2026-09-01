@@ -19,6 +19,7 @@ import {
 } from '../../../core/download-session.js';
 import {
   classifyVideoResource,
+  limitVideoCandidatesForSession,
   mediaRequestDirectoryFilters,
   mediaRequestReferrer,
   mergeVideoCandidate,
@@ -266,7 +267,9 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   }
   
   function bytesFromBase64(value) {
-    const binary = atob(String(value || ''));
+    const encoded = String(value || '');
+    if (encoded.length > 3 * 1024 * 1024) return new Uint8Array();
+    const binary = atob(encoded);
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
     return bytes;
@@ -286,8 +289,18 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   
   async function saveVideoSession(session) {
     if (!session?.active || !Number.isInteger(session.tabId)) return;
+    const key = videoSessionKey(session.tabId);
+    for (const budget of [2_500_000, 1_250_000, 625_000, 312_500]) {
+      session.candidates = limitVideoCandidatesForSession(session.candidates, 80, budget);
+      try {
+        await chrome.storage.session.set({ [key]: session });
+        break;
+      } catch (error) {
+        const quotaError = /quota|max(?:imum)?\s+bytes|exceed/i.test(String(error?.message || error));
+        if (!quotaError || budget === 312_500) throw error;
+      }
+    }
     await setCollecting(session.tabId, downloadScanCollects(session));
-    await chrome.storage.session.set({ [videoSessionKey(session.tabId)]: session });
     notifyViews(session.tabId);
     notifyCentralUi(session.tabId);
   }
@@ -508,16 +521,21 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         if (!existing && merged.kind === 'hls') addedHls.push(merged);
         if (!existing && merged.kind === 'dash' && merged.source !== 'dash-variant') addedDash.push(merged);
       }
-      session.candidates = sortVideoCandidates([...byId.values()]).slice(0, 80);
+      session.candidates = limitVideoCandidatesForSession(sortVideoCandidates([...byId.values()]));
       session.updatedAt = Date.now();
       session.status = session.candidates.some(candidate => !candidate.master) ? 'found' : 'scanning';
       await saveVideoSession(session);
-      return { session, addedHls, addedDash };
+      const retainedIds = new Set(session.candidates.map(candidate => candidate.id));
+      return {
+        session,
+        addedHls: addedHls.filter(candidate => retainedIds.has(candidate.id)),
+        addedDash: addedDash.filter(candidate => retainedIds.has(candidate.id))
+      };
     });
     if (!outcome.session) return null;
     await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, outcome.session.status === 'found');
-    if (expand) for (const candidate of outcome.addedHls) void expandHlsCandidate(tabId, candidate);
-    if (expand) for (const candidate of outcome.addedDash) void expandDashCandidate(tabId, candidate);
+    if (expand) for (const candidate of outcome.addedHls.slice(0, 12)) void expandHlsCandidate(tabId, candidate);
+    if (expand) for (const candidate of outcome.addedDash.slice(0, 12)) void expandDashCandidate(tabId, candidate);
     return outcome.session;
   }
   
@@ -538,20 +556,28 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       const candidates = frames.flatMap(frame => Array.isArray(frame.result) ? frame.result : []);
       if (candidates.length) await addVideoCandidates(tabId, candidates, true, expectedPageUrl);
       return true;
-    } catch { return false; }
+    } catch {
+      await stopVideoScanner(tabId);
+      return false;
+    }
   }
   
   async function stopVideoScanner(tabId) {
-    try {
-      await chrome.scripting.executeScript({
+    const results = await Promise.allSettled([
+      chrome.scripting.executeScript({
         target: { tabId, allFrames: true },
         world: 'ISOLATED',
         injectImmediately: true,
         func: () => globalThis[Symbol.for('cosmic-gemini.video-download.scanner')]?.stop()
-      });
-    } catch {
-      await sendTabMessage(tabId, { type: 'CG_VIDEO_STOP' });
-    }
+      }),
+      chrome.scripting.executeScript({
+        target: { tabId, allFrames: true },
+        world: 'MAIN',
+        injectImmediately: true,
+        func: () => globalThis[Symbol.for('cosmic-gemini.video-download.page-runtime')]?.stop()
+      })
+    ]);
+    if (results.every(result => result.status === 'rejected')) await sendTabMessage(tabId, { type: 'CG_VIDEO_STOP' });
   }
   
   async function startVideoSession(tabId, url, title = '') {

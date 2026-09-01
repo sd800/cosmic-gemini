@@ -16,6 +16,7 @@ import {
   imageExtension,
   imageMimeFromHeaders,
   imageSessionKey,
+  limitImageCandidatesForSession,
   mergeImageCandidate,
   normalizeImageCandidate,
   sanitizeImageFilename
@@ -139,8 +140,18 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
 
   async function saveImageSession(session) {
     if (!session?.active || !Number.isInteger(session.tabId)) return;
+    const key = imageSessionKey(session.tabId);
+    for (const budget of [2_500_000, 1_250_000, 625_000, 312_500]) {
+      session.candidates = limitImageCandidatesForSession(session.candidates, 1200, budget);
+      try {
+        await chrome.storage.session.set({ [key]: session });
+        break;
+      } catch (error) {
+        const quotaError = /quota|max(?:imum)?\s+bytes|exceed/i.test(String(error?.message || error));
+        if (!quotaError || budget === 312_500) throw error;
+      }
+    }
     await setCollecting(session.tabId, downloadScanCollects(session));
-    await chrome.storage.session.set({ [imageSessionKey(session.tabId)]: session });
     notifyViews(session.tabId);
     notifyCentralUi(session.tabId);
   }
@@ -159,7 +170,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       if (!candidate) continue;
       byUrl.set(candidate.url, mergeImageCandidate(byUrl.get(candidate.url), candidate));
     }
-    session.candidates = sortImageCandidates([...byUrl.values()]).slice(0, 1200);
+    session.candidates = limitImageCandidatesForSession(sortImageCandidates([...byUrl.values()]));
     session.status = session.candidates.length ? 'found' : 'scanning';
     session.updatedAt = Date.now();
     return session;

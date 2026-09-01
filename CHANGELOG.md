@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.15.5 — 2026-09-01
+
+- Fixed a first-open race between the Image Download Side Panel and its source-tab session. The workspace now waits briefly for the session, retains updates received while hidden, and shows a localized startup message instead of an empty view with disabled controls.
+
 ## 5.15.3 — 2026-09-01
 
 - Fixed the Image Download button failing to open its Side Panel because current-tab validation consumed Chrome's user-gesture window. The Side Panel request now begins directly from the click while current-tab validation continues alongside it.

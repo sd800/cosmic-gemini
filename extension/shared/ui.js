@@ -46,3 +46,21 @@ export async function retryRead(task, delays = [0, 80, 240]) {
   }
   throw lastError;
 }
+
+export async function retryReadUntil(task, accept, delays = [0, 80, 240]) {
+  let lastValue;
+  let lastError;
+  let completedRead = false;
+  for (const delay of delays) {
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    try {
+      lastValue = await task();
+      completedRead = true;
+      if (accept(lastValue)) return lastValue;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (completedRead) return lastValue;
+  throw lastError;
+}

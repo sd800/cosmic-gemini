@@ -1,6 +1,6 @@
 {
   "name": "cosmic-gemini",
-  "version": "5.15.3",
+  "version": "5.15.5",
   "private": true,
   "type": "module",
   "engines": {

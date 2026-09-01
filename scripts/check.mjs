@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.15.3');
+assert.equal(manifest.version, '5.15.5');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -195,6 +195,10 @@ assert.match(imageDownload, /scanState: active \? downloadScanState\(session\) :
 assert.match(videoDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
 assert.match(imageDownload, /const workspacePromise = openImageWorkspace\([\s\S]*?const sourceTabPromise = chrome\.tabs\.get\([\s\S]*?Promise\.all\(\[workspacePromise, sourceTabPromise\]\)/,
   'Image Download must request its Side Panel before awaiting current-tab validation.');
+assert.match(imageWorkspace, /retryReadUntil\([\s\S]*?value => value\?\.active === true/,
+  'Image Download must wait through the Side Panel and session-start handoff.');
+assert.match(imageWorkspace, /reloadPending = true[\s\S]*?document\.hidden/,
+  'Image Download must retain state notifications received while its workspace is hidden.');
 
 assert.ok(central.split('\n').length < 260, 'Central must remain a compact decision and routing layer.');
 assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]*customs:/);

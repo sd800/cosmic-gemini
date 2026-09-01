@@ -1,7 +1,7 @@
 import { formatImageBytes, imageLayout } from '../../core/image-download.js';
 import { loadLocale } from '../../core/locale.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
-import { icon, retryRead, send } from '../../shared/ui.js';
+import { icon, retryRead, retryReadUntil, send } from '../../shared/ui.js';
 
 const root = document.documentElement;
 const workspaceUrl = new URL(location.href);
@@ -20,6 +20,8 @@ let t = key => key;
 let viewPort = null;
 let viewReconnectAttempts = 0;
 let reloadTimer = 0;
+let reloadPending = false;
+let reloadPendingForce = false;
 let renderedAt = -1;
 let preferencesInitialized = false;
 let scanPending = false;
@@ -53,10 +55,20 @@ function setWorkspaceVisible(visible) {
 }
 
 function scheduleReload(force = false) {
-  if (workspaceClosing || document.hidden || reloadTimer) return;
+  if (workspaceClosing) return;
+  reloadPending = true;
+  reloadPendingForce ||= force;
+  if (document.hidden || reloadTimer) return;
   reloadTimer = setTimeout(() => {
     reloadTimer = 0;
-    void retryRead(() => reload(force)).catch(() => {});
+    if (!reloadPending) return;
+    const nextForce = reloadPendingForce;
+    reloadPending = false;
+    reloadPendingForce = false;
+    void retryRead(() => reload(nextForce)).catch(() => {
+      reloadPending = true;
+      reloadPendingForce ||= nextForce;
+    });
   }, 100);
 }
 
@@ -312,6 +324,15 @@ async function reload(force = false) {
   renderState(force);
 }
 
+async function loadInitialSession() {
+  state = await retryReadUntil(
+    () => send({ type: 'UI_IMAGE_STATE', tabId: sourceTabId }),
+    value => value?.active === true,
+    [0, 75, 150, 300, 600, 1_200, 2_400]
+  );
+  renderState(true);
+}
+
 async function reloadAfterAction(force = false) {
   try { await retryRead(() => reload(force)); }
   catch { scheduleReload(force); }
@@ -405,10 +426,15 @@ label(document.querySelector('#rescan'), t('imageRescanTitle'));
 label(document.querySelector('#deep-scan'), t('imageDeepScanTitle'));
 label(document.querySelector('#stop'), t('imageStopTitle'));
 document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
+document.querySelector('#result-count').textContent = t('imageResults', { count: 0 });
+document.querySelector('#status-text').textContent = t('imageSessionStarting');
+updateWorkspaceControls();
+updateSelectionBar();
+root.dataset.localePending = 'false';
 try {
   if (!Number.isInteger(sourceTabId)) throw new Error('The image source tab is unavailable.');
   setWorkspaceVisible(!document.hidden);
-  await retryRead(() => reload(true));
+  await loadInitialSession();
 } catch {
   document.querySelector('#status-text').textContent = t('imageUnavailablePage');
   updateWorkspaceControls();
@@ -424,4 +450,6 @@ window.addEventListener('pagehide', () => {
   viewPort = null;
   if (reloadTimer) clearTimeout(reloadTimer);
   reloadTimer = 0;
+  reloadPending = false;
+  reloadPendingForce = false;
 }, { once: true });

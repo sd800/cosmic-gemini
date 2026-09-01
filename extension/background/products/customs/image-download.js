@@ -357,6 +357,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       if (current?.workspaceMode === 'sidePanel' && chrome.sidePanel?.setOptions) {
         await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
       }
+      await offscreen.maybeClose();
       return true;
     });
   }
@@ -416,7 +417,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     const updated = await readImageSession(tabId);
     if (Number.isInteger(updated?.workspaceTabId)) {
       const workspace = await chrome.tabs.get(updated.workspaceTabId).catch(() => null);
-      if (workspace?.id) {
+      if (Number.isInteger(workspace?.id)) {
         await chrome.tabs.update(workspace.id, { active: true });
         if (Number.isInteger(workspace.windowId)) await chrome.windows.update(workspace.windowId, { focused: true });
       }
@@ -467,10 +468,13 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     const tabs = await chrome.tabs.query({});
     const existing = tabs.find(tab => {
       if (!tab.url?.startsWith(base)) return false;
-      try { return Number(new URL(tab.url).searchParams.get('sourceTab')) === tabId; }
+      try {
+        const value = new URL(tab.url).searchParams.get('sourceTab');
+        return /^\d+$/.test(value || '') && Number(value) === tabId;
+      }
       catch { return false; }
     });
-    if (existing?.id) {
+    if (Number.isInteger(existing?.id)) {
       await chrome.tabs.update(existing.id, { active: true });
       if (Number.isInteger(existing.windowId)) await chrome.windows.update(existing.windowId, { focused: true });
       return existing.id;
@@ -525,14 +529,30 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   
   async function rememberImageArtifact(downloadId, artifactId) {
     if (!Number.isInteger(downloadId) || !artifactId) return false;
+    const key = `imageDownloadArtifact:${downloadId}`;
     for (const delay of [0, 100, 500, 1_500, 3_000]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
-        await chrome.storage.session.set({ [`imageDownloadArtifact:${downloadId}`]: { artifactId } });
+        await chrome.storage.session.set({ [key]: { artifactId } });
+        try {
+          const [download] = await chrome.downloads.search({ id: downloadId });
+          if (['complete', 'interrupted'].includes(download?.state)) {
+            await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId });
+            await chrome.storage.session.remove(key);
+          }
+        } catch {}
         return true;
       } catch {}
     }
     return false;
+  }
+
+  async function trackImageArtifact(downloadId, artifactId) {
+    untrackedDownloadArtifacts.set(downloadId, artifactId);
+    offscreen.retainArtifact(artifactId);
+    if (!await rememberImageArtifact(downloadId, artifactId)) return;
+    untrackedDownloadArtifacts.delete(downloadId);
+    offscreen.releaseArtifact(artifactId);
   }
   
   async function downloadImageSelections(tabId, selections, options = {}) {
@@ -575,10 +595,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
         throw error;
       }
-      if (!await rememberImageArtifact(downloadId, artifact.artifactId)) {
-        untrackedDownloadArtifacts.set(downloadId, artifact.artifactId);
-        offscreen.retainArtifact(artifact.artifactId);
-      }
+      await trackImageArtifact(downloadId, artifact.artifactId);
       return { downloadIds: [downloadId], count: files.length };
     }
     const downloadIds = [];
@@ -600,10 +617,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
         throw error;
       }
-      if (!await rememberImageArtifact(downloadId, artifact.artifactId)) {
-        untrackedDownloadArtifacts.set(downloadId, artifact.artifactId);
-        offscreen.retainArtifact(artifact.artifactId);
-      }
+      await trackImageArtifact(downloadId, artifact.artifactId);
       downloadIds.push(downloadId);
     }
     return { downloadIds, count: files.length };

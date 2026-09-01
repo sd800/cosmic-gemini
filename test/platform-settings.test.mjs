@@ -10,6 +10,8 @@ function chromeMock() {
   let failTabQuery = false;
   let scriptFailures = 0;
   let scriptCalls = 0;
+  let tabs = [];
+  const actionTitles = [];
   return {
     local,
     session,
@@ -17,6 +19,8 @@ function chromeMock() {
     failQuery() { failTabQuery = true; },
     failScripts(count) { scriptFailures = count; },
     scriptCalls() { return scriptCalls; },
+    setTabs(value) { tabs = value; },
+    actionTitles,
     api: {
       storage: {
         local: {
@@ -60,7 +64,7 @@ function chromeMock() {
             failTabQuery = false;
             throw new Error('temporary tab query failure');
           }
-          return [];
+          return tabs;
         }
       },
       scripting: {
@@ -76,7 +80,7 @@ function chromeMock() {
       action: {
         setIcon(_details, callback) { callback(); },
         setBadgeText(_details, callback) { callback(); },
-        setTitle(_details, callback) { callback(); }
+        setTitle(details, callback) { actionTitles.push(details); callback(); }
       },
       alarms: { getAll: async () => [], clear: async () => true },
       runtime: { lastError: null },
@@ -139,6 +143,40 @@ test('reset is serialized behind settings writes and leaves defaults in storage'
   const reset = platform.resetStorage();
   await Promise.all([update, reset]);
   assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
+});
+
+test('reset preserves artifact records for downloads already accepted by Chrome', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  mock.session['videoDownloadArtifact:31'] = { artifactId: 'video-31' };
+  mock.session['imageDownloadArtifact:32'] = { artifactId: 'image-32' };
+  mock.session['imageCaptureArtifact:7:capture'] = { artifactId: 'capture' };
+  mock.session['tabActivity:7'] = { videoDownload: true };
+  const platform = createPlatform();
+  await platform.resetStorage();
+  assert.deepEqual(mock.session['videoDownloadArtifact:31'], { artifactId: 'video-31' });
+  assert.deepEqual(mock.session['imageDownloadArtifact:32'], { artifactId: 'image-32' });
+  assert.deepEqual(mock.session['imageCaptureArtifact:7:capture'], { artifactId: 'capture' });
+  assert.equal(mock.session['tabActivity:7'], undefined);
+});
+
+test('toolbar recovery does not reject a saved activity update when locale storage is unavailable', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  mock.api.storage.local.get = async () => { throw new Error('temporary locale read failure'); };
+  const platform = createPlatform();
+  await platform.setFeatureActivity(17, 'nativeScroll', true);
+  assert.equal(mock.session['tabActivity:17'].nativeScroll, true);
+});
+
+test('changing the interface language refreshes active toolbar titles', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  mock.setTabs([{ id: 17 }]);
+  mock.session['tabActivity:17'] = { nativeScroll: true };
+  const platform = createPlatform();
+  assert.equal(await platform.setLocale('zh-CN'), 'zh-CN');
+  assert.equal(mock.actionTitles.at(-1).title, 'Native Scroll · 正在处理此页面');
 });
 
 test('page synchronization retries transient script injection failures', async () => {

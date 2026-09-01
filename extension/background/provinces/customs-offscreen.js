@@ -3,6 +3,25 @@ export function createCustomsOffscreenCoordinator() {
   let activeRequests = 0;
   const retainedArtifacts = new Set();
   let documentLifecycle = Promise.resolve();
+  let requestKeepAlive = 0;
+
+  function pingServiceWorker() {
+    try {
+      const result = chrome.runtime.getPlatformInfo?.();
+      result?.catch?.(() => {});
+    } catch {}
+  }
+
+  function syncRequestKeepAlive() {
+    if (activeRequests > 0) {
+      if (requestKeepAlive) return;
+      pingServiceWorker();
+      requestKeepAlive = setInterval(pingServiceWorker, 25_000);
+      return;
+    }
+    if (requestKeepAlive) clearInterval(requestKeepAlive);
+    requestKeepAlive = 0;
+  }
 
   function queueDocumentLifecycle(task) {
     const operation = documentLifecycle.catch(() => undefined).then(task);
@@ -34,6 +53,7 @@ export function createCustomsOffscreenCoordinator() {
 
   async function send(target, message) {
     activeRequests += 1;
+    syncRequestKeepAlive();
     try {
       await ensureDocument();
       const response = await chrome.runtime.sendMessage({ ...message, target });
@@ -45,21 +65,24 @@ export function createCustomsOffscreenCoordinator() {
       return response.result;
     } finally {
       activeRequests = Math.max(0, activeRequests - 1);
+      syncRequestKeepAlive();
     }
   }
 
   function maybeClose() {
     return queueDocumentLifecycle(async () => {
-      if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
-      const values = await chrome.storage.session.get(null);
-      if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
-      const hasArtifact = Object.entries(values).some(([key, session]) =>
-        (key.startsWith('videoDownloadSession:') && session?.candidates?.some(candidate => candidate.artifactId))
-        || (key.startsWith('videoDownloadArtifact:') && session?.artifactId)
-        || (key.startsWith('imageDownloadArtifact:') && session?.artifactId)
-        || (key.startsWith('imageCaptureArtifact:') && session?.artifactId));
-      if (hasArtifact) return;
-      try { await chrome.offscreen.closeDocument(); } catch {}
+      try {
+        if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
+        const values = await chrome.storage.session.get(null);
+        if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
+        const hasArtifact = Object.entries(values).some(([key, session]) =>
+          (key.startsWith('videoDownloadSession:') && session?.candidates?.some(candidate => candidate.artifactId))
+          || (key.startsWith('videoDownloadArtifact:') && session?.artifactId)
+          || (key.startsWith('imageDownloadArtifact:') && session?.artifactId)
+          || (key.startsWith('imageCaptureArtifact:') && session?.artifactId));
+        if (hasArtifact) return;
+        await chrome.offscreen.closeDocument();
+      } catch {}
     });
   }
 

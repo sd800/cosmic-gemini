@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.10.1 — 2026-09-01
+
+- Expanded reliability checks across settings reset, interface teardown, media handoff, offscreen processing, Service Worker lifetime, and split-incognito operation.
+- Resetting the extension now preserves the temporary-file records still required by downloads already accepted by Chrome. Optional offscreen cleanup no longer turns a completed action into an error, and stopping Image Download releases an idle local processor after capture files are removed.
+- Image Download and Video Download claim an accepted download immediately and reconcile downloads that finish before session metadata is saved. A later state-write failure can no longer revoke a file that Chrome is already downloading, and completed formats no longer remain stuck in a downloading state after a fast handoff.
+- User-requested offscreen media work now keeps its Service Worker available only for the duration of the active processing request. Regular and incognito backgrounds use separate temporary request-rule ranges so one context cannot remove the other's media headers.
+- The popup and Image Download workspace no longer reconnect or refresh after their page begins closing. Image Download also rejects a workspace URL without a valid source tab instead of treating it as tab 0.
+- Changing the interface language now refreshes active toolbar titles immediately. Temporary locale-read or toolbar-refresh failures no longer turn a saved state change into an error.
+
 ## 5.9.1 — 2026-09-01
 
 - Expanded lifecycle checks across Service Worker recovery, page-script composition, media cancellation, download handoff, image capture, and response-observation restoration.

@@ -5,7 +5,8 @@ import { icon, retryRead, send } from '../../shared/ui.js';
 
 const root = document.documentElement;
 const workspaceUrl = new URL(location.href);
-const sourceTabId = Number(workspaceUrl.searchParams.get('sourceTab'));
+const sourceTabValue = workspaceUrl.searchParams.get('sourceTab');
+const sourceTabId = /^\d+$/.test(sourceTabValue || '') ? Number(sourceTabValue) : Number.NaN;
 const workspaceView = workspaceUrl.searchParams.get('view') === 'side-panel' ? 'side-panel' : 'page';
 document.body.dataset.workspaceView = workspaceView;
 const grid = document.querySelector('#image-grid');
@@ -27,6 +28,7 @@ let workspaceClosing = false;
 const pendingControls = new WeakSet();
 
 function setWorkspaceVisible(visible) {
+  if (workspaceClosing) return;
   if (!Number.isInteger(sourceTabId)) return;
   if (!visible && !viewPort) return;
   if (!viewPort) {
@@ -51,7 +53,7 @@ function setWorkspaceVisible(visible) {
 }
 
 function scheduleReload(force = false) {
-  if (document.hidden || reloadTimer) return;
+  if (workspaceClosing || document.hidden || reloadTimer) return;
   reloadTimer = setTimeout(() => {
     reloadTimer = 0;
     void retryRead(() => reload(force)).catch(() => {});
@@ -405,10 +407,12 @@ label(document.querySelector('#stop'), t('imageStopTitle'));
 document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
 root.dataset.localePending = 'false';
 try {
+  if (!Number.isInteger(sourceTabId)) throw new Error('The image source tab is unavailable.');
   setWorkspaceVisible(!document.hidden);
   await retryRead(() => reload(true));
 } catch {
   document.querySelector('#status-text').textContent = t('imageUnavailablePage');
+  updateWorkspaceControls();
 }
 document.addEventListener('visibilitychange', () => {
   setWorkspaceVisible(!document.hidden);

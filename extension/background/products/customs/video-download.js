@@ -33,7 +33,10 @@ import {
 export function createVideoDownloadProduct(platform, offscreen, observation) {
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi } = platform;
   const activeVideoProcessing = new Map();
-  let nextMediaHeaderRuleId = 700000;
+  const incognitoContext = chrome.extension?.inIncognitoContext === true;
+  const MEDIA_HEADER_RULE_MIN = incognitoContext ? 750001 : 700001;
+  const MEDIA_HEADER_RULE_MAX = incognitoContext ? 799999 : 749999;
+  let nextMediaHeaderRuleId = MEDIA_HEADER_RULE_MIN - 1;
   const pendingVideoFilenames = new Map();
   const untrackedDownloadArtifacts = new Map();
   const expandingVideoManifests = new Set();
@@ -41,8 +44,6 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   const pendingNetworkCandidates = new Map();
   const viewPorts = new Map();
   const sessionUpdates = createKeyedTaskQueue();
-  const MEDIA_HEADER_RULE_MIN = 700001;
-  const MEDIA_HEADER_RULE_MAX = 799999;
 
   async function cleanupOrphanedMediaHeaderRules() {
     if (!chrome.declarativeNetRequest?.getSessionRules || !chrome.declarativeNetRequest?.updateSessionRules) return true;
@@ -730,10 +731,18 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
 
   async function rememberVideoArtifact(downloadId, artifactId) {
     if (!Number.isInteger(downloadId) || !artifactId) return false;
+    const key = `videoDownloadArtifact:${downloadId}`;
     for (const delay of [0, 100, 500, 1_500, 3_000]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
-        await chrome.storage.session.set({ [`videoDownloadArtifact:${downloadId}`]: { artifactId } });
+        await chrome.storage.session.set({ [key]: { artifactId } });
+        try {
+          const [download] = await chrome.downloads.search({ id: downloadId });
+          if (['complete', 'interrupted'].includes(download?.state)) {
+            await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId });
+            await chrome.storage.session.remove(key);
+          }
+        } catch {}
         return true;
       } catch {}
     }
@@ -820,14 +829,18 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       } finally {
         setTimeout(releasePendingFilename, 30_000);
       }
-      const artifactRemembered = artifact?.artifactId
-        ? await rememberVideoArtifact(downloadId, artifact.artifactId)
-        : false;
-      if (artifact?.artifactId && !artifactRemembered) {
+      handedOffToChrome = true;
+      if (artifact?.artifactId) {
         untrackedDownloadArtifacts.set(downloadId, artifact.artifactId);
         offscreen.retainArtifact(artifact.artifactId);
       }
-      handedOffToChrome = true;
+      const artifactRemembered = artifact?.artifactId
+        ? await rememberVideoArtifact(downloadId, artifact.artifactId)
+        : false;
+      if (artifact?.artifactId && artifactRemembered) {
+        untrackedDownloadArtifacts.delete(downloadId);
+        offscreen.releaseArtifact(artifact.artifactId);
+      }
       await updateVideoCandidate(tabId, candidateId, value => ({
         ...value,
         status: 'downloading',
@@ -839,6 +852,20 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         outputExtension: extension,
         liveSnapshot: artifact?.liveSnapshot === true
       }));
+      for (const delay of [0, 100, 500]) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        try {
+          const [download] = await chrome.downloads.search({ id: downloadId });
+          if (['complete', 'interrupted'].includes(download?.state)) {
+            await handleVideoDownloadChanged({
+              id: downloadId,
+              state: { current: download.state },
+              ...(download.error ? { error: { current: download.error } } : {})
+            });
+          }
+          break;
+        } catch {}
+      }
       return { downloadId };
     } catch (error) {
       if (artifact?.artifactId && !handedOffToChrome) {

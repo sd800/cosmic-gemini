@@ -354,6 +354,7 @@ function showView(mode) {
 }
 
 function setVideoViewVisible(visible) {
+  if (popupClosing) return;
   const tabId = currentTab?.id;
   if (!Number.isInteger(tabId)) return;
   if (!visible && !videoViewPort) return;
@@ -379,15 +380,16 @@ function setVideoViewVisible(visible) {
 }
 
 function scheduleReload() {
-  if (reloadTimer) return;
+  if (popupClosing || document.hidden || reloadTimer) return;
   reloadTimer = setTimeout(() => {
     reloadTimer = 0;
+    if (popupClosing || document.hidden) return;
     void retryRead(() => reload(false)).catch(() => {});
   }, 80);
 }
 
 function connectCentralUi() {
-  if (centralUiPort) return;
+  if (popupClosing || document.hidden || centralUiPort) return;
   const port = chrome.runtime.connect({ name: 'central-ui:popup' });
   centralUiPort = port;
   port.onMessage.addListener(message => {
@@ -557,6 +559,8 @@ connectCentralUi();
 try { await retryRead(() => reload()); } catch { live.textContent = t('unavailable'); }
 window.addEventListener('pagehide', () => {
   popupClosing = true;
+  if (reloadTimer) clearTimeout(reloadTimer);
+  reloadTimer = 0;
   const centralPort = centralUiPort;
   centralUiPort = null;
   try { centralPort?.disconnect(); } catch {}

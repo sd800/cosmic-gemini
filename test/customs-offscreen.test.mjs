@@ -6,10 +6,12 @@ test('Customs does not close its offscreen document while a new request is start
   const previousChrome = globalThis.chrome;
   let releaseStorage;
   let closeCalls = 0;
+  let keepAliveCalls = 0;
   globalThis.chrome = {
     runtime: {
       getURL: path => `chrome-extension://test/${path}`,
       getContexts: async () => [],
+      getPlatformInfo: async () => { keepAliveCalls += 1; },
       sendMessage: async () => ({ ok: true, result: { ready: true } })
     },
     storage: {
@@ -30,6 +32,7 @@ test('Customs does not close its offscreen document while a new request is start
     releaseStorage({});
     await Promise.all([closing, request]);
     assert.equal(closeCalls, 0);
+    assert.equal(keepAliveCalls, 1);
   } finally { globalThis.chrome = previousChrome; }
 });
 
@@ -52,5 +55,20 @@ test('Customs retains a local artifact when session storage cannot track its Chr
     coordinator.releaseArtifact('artifact-1');
     await coordinator.maybeClose();
     assert.equal(closeCalls, 1);
+  } finally { globalThis.chrome = previousChrome; }
+});
+
+test('optional offscreen cleanup does not fail a completed product action', async () => {
+  const previousChrome = globalThis.chrome;
+  let closeCalls = 0;
+  globalThis.chrome = {
+    runtime: { getURL: path => `chrome-extension://test/${path}`, getContexts: async () => [] },
+    storage: { session: { get: async () => { throw new Error('temporary storage failure'); } } },
+    offscreen: { closeDocument: async () => { closeCalls += 1; } }
+  };
+  try {
+    const coordinator = createCustomsOffscreenCoordinator();
+    await coordinator.maybeClose();
+    assert.equal(closeCalls, 0);
   } finally { globalThis.chrome = previousChrome; }
 });

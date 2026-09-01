@@ -14,6 +14,7 @@ const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-supp
 const ACTIVITY_PREFIX = 'tabActivity:';
 const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
 const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
+const RETAINED_DOWNLOAD_PREFIXES = ['videoDownloadArtifact:', 'imageDownloadArtifact:', 'imageCaptureArtifact:'];
 
 export function createPlatform() {
   let writeQueue = Promise.resolve();
@@ -148,7 +149,8 @@ export function createPlatform() {
       activity.videoDownload && 'Video Download'
     ].filter(Boolean);
     if (!products.length) return 'Cosmic Gemini';
-    const locale = await getLocale();
+    let locale = 'en-US';
+    try { locale = await getLocale(); } catch {}
     const name = products.length === 1 ? products[0] : 'Cosmic Gemini';
     return locale === 'zh-CN' ? name + ' · 正在处理此页面' : name + ' · Working on this page';
   }
@@ -227,6 +229,13 @@ export function createPlatform() {
     const locale = normalizeLocale(value);
     return queueWrite(async () => {
       await chrome.storage.local.set({ interfaceLocale: locale });
+      try {
+        const tabs = await chrome.tabs.query({});
+        await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(async tab => {
+          const activity = await readActivity(tab.id);
+          await renderToolbar(tab.id, activity);
+        }));
+      } catch {}
       return locale;
     });
   }
@@ -243,7 +252,10 @@ export function createPlatform() {
       resettingStorage = true;
       try {
         await activityQueue.drain();
-        await chrome.storage.session.clear();
+        const sessionValues = await chrome.storage.session.get(null);
+        const disposableSessionKeys = Object.keys(sessionValues)
+          .filter(key => !RETAINED_DOWNLOAD_PREFIXES.some(prefix => key.startsWith(prefix)));
+        if (disposableSessionKeys.length) await chrome.storage.session.remove(disposableSessionKeys);
         await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
         const settings = await writeSettings(DEFAULT_SETTINGS);
         let tabs = [];

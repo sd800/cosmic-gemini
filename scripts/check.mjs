@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '5.12.1');
+assert.equal(manifest.version, '5.13.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -179,6 +179,7 @@ const customsObservation = await source('background', 'provinces', 'customs-obse
 const offscreenCoordinator = await source('background', 'provinces', 'customs-offscreen.js');
 const runtimeHost = await source('background', 'features', 'page-runtime-host.js');
 const nativeScroll = await source('background', 'products', 'standing', 'native-scroll.js');
+const nativeScrollRuntime = await source('content', 'runtime.js');
 const noAutoplay = await source('background', 'products', 'standing', 'no-autoplay.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
 const anyCopyEnhanced = await source('background', 'products', 'operations', 'any-copy-enhanced.js');
@@ -232,6 +233,8 @@ assert.match(runtimeHost, /response\?\.disposed === true/);
 assert.match(runtimeHost, /catch \(error\)[\s\S]*CG_STOP_CENTRAL_FEATURE[\s\S]*disposeMainRuntime[\s\S]*throw error/);
 assert.match(messageSource, /PAGE_MESSAGE_TYPES[\s\S]*OFFSCREEN_MESSAGE_TYPES[\s\S]*validatePortSource/);
 assert.match(nativeScroll, /content\/native-scroll-bridge\.js[\s\S]*content\/runtime\.js/);
+assert.match(nativeScrollRuntime, /usesNativeInteractionCompatibility\(\)[\s\S]*return this\.isXhsHost\(\)/);
+assert.match(nativeScrollRuntime, /if \(this\.usesNativeInteractionCompatibility\(\)\) return;/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.match(anyCopy, /content\/any-copy-bridge\.js[\s\S]*content\/any-copy-runtime\.js/);
 assert.match(anyCopy, /message\.rule \|\| message\.hostname/);

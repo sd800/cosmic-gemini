@@ -27,8 +27,6 @@
   ].join(',');
   const ROOTS = () => [document.documentElement, document.body].filter(Boolean);
   const PATCH_FLAG = Symbol('native-scroll-patched');
-  const XHS_POST_ROOT_SELECTOR = '#noteContainer.note-container';
-  const XHS_POST_MEDIA_SELECTOR = `${XHS_POST_ROOT_SELECTOR} .media-container`;
 
   class NativeScrollRuntime {
     constructor() {
@@ -104,9 +102,10 @@
     enable(mode) {
       this.active = true;
       this.mode = mode;
+      this.reported = false;
+      if (this.usesNativeInteractionCompatibility()) return;
       if (!this.listenerMethodsPatched) this.patchListenerMethods();
       if (!this.originalMethods.length) this.patchScrollMethods();
-      this.reported = false;
       this.originalAddEventListener.call(window, 'wheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'mousewheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'touchstart', this.onTouchStart, { capture: true, passive: true });
@@ -178,11 +177,10 @@
     }
 
     applyStyles() {
-      if (!this.active || !document.documentElement) return;
+      if (!this.active || !document.documentElement || this.usesNativeInteractionCompatibility()) return;
       this.syncRootObservers();
       this.restoreDetachedStyles();
-      const preserveXhsPost = this.hasXhsPostShell();
-      const applyEnhancedPageStyles = this.mode === 'enhanced' && !preserveXhsPost;
+      const applyEnhancedPageStyles = this.mode === 'enhanced';
       if (!this.style?.isConnected) {
         this.style = document.createElement('style');
         this.style.dataset.nativeScroll = 'runtime';
@@ -211,7 +209,7 @@
         }
       }
       if (applyEnhancedPageStyles) this.normalizeTransformScroller();
-      else if (preserveXhsPost) this.restoreNormalizedWrappers();
+      else this.restoreNormalizedWrappers();
     }
 
     setStyle(element, property, value) {
@@ -280,7 +278,7 @@
       if (!body || body.children.length > 30) return;
       const viewportArea = Math.max(1, innerWidth * innerHeight);
       for (const element of body.children) {
-        if (this.isSafeElement(element) || this.containsXhsPostShell(element)) continue;
+        if (this.isSafeElement(element)) continue;
         const style = getComputedStyle(element);
         if (!['fixed', 'absolute'].includes(style.position) || style.transform === 'none') continue;
         const rect = element.getBoundingClientRect();
@@ -436,11 +434,7 @@
     }
 
     isSafeElement(element) {
-      try {
-        return this.isXhsPostMedia(element)
-          || element.matches(SAFE_SELECTOR)
-          || !!element.closest(SAFE_SELECTOR);
-      }
+      try { return element.matches(SAFE_SELECTOR) || !!element.closest(SAFE_SELECTOR); }
       catch { return false; }
     }
 
@@ -448,24 +442,8 @@
       return this.hostname === 'xiaohongshu.com' || this.hostname.endsWith('.xiaohongshu.com');
     }
 
-    isXhsPostMedia(element) {
-      if (!this.isXhsHost()) return false;
-      try { return element.matches(XHS_POST_MEDIA_SELECTOR) || !!element.closest(XHS_POST_MEDIA_SELECTOR); }
-      catch { return false; }
-    }
-
-    hasXhsPostShell() {
-      if (!this.isXhsHost() || typeof document.querySelector !== 'function') return false;
-      try { return !!document.querySelector(XHS_POST_ROOT_SELECTOR); }
-      catch { return false; }
-    }
-
-    containsXhsPostShell(element) {
-      if (!this.isXhsHost()) return false;
-      try {
-        return element.matches(XHS_POST_ROOT_SELECTOR)
-          || (typeof element.querySelector === 'function' && !!element.querySelector(XHS_POST_ROOT_SELECTOR));
-      } catch { return false; }
+    usesNativeInteractionCompatibility() {
+      return this.isXhsHost();
     }
 
     hasScrollableAncestor(event, deltaY) {

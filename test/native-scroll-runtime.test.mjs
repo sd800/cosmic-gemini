@@ -168,53 +168,58 @@ test('Native Scroll becomes inert when a later page wrapper keeps its listener w
   runtime.onDispose({ detail: runtime.token });
 });
 
-test('Native Scroll preserves wheel-based image switching inside an enlarged Xiaohongshu post', async () => {
+test('Native Scroll preserves Xiaohongshu wheel interactions', async () => {
   const context = makeContext('www.xiaohongshu.com');
-  const media = new context.Element('media');
-  media.matches = selector => selector === '#noteContainer.note-container .media-container';
-  media.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
-  const image = new context.Element('img');
-  image.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
   const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
   context.window.addEventListener('wheel', () => {});
-  const event = wheelEvent(context, image, [image, media, context.document.body, context.document.documentElement, context.document, context.window]);
+  const event = wheelEvent(context);
   runtime.onWheel(event);
   assert.equal(event.stopped, false);
   runtime.onDispose({ detail: runtime.token });
 });
 
-test('Xiaohongshu post-card allowance does not apply to other websites', async () => {
+test('Native Scroll leaves Xiaohongshu page APIs and root styles untouched before a post opens', async () => {
+  const context = makeContext('www.xiaohongshu.com');
+  const originalAdd = context.EventTarget.prototype.addEventListener;
+  const originalScroll = context.window.scroll;
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  assert.equal(runtime.active, true);
+  assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
+  assert.equal(context.window.scroll, originalScroll);
+  assert.equal(context.document.documentElement.style.getPropertyValue('scroll-behavior'), '');
+  assert.equal(context.document.body.style.getPropertyValue('overscroll-behavior'), '');
+  assert.equal(runtime.observer, null);
+  assert.equal(runtime.rootObservers.length, 0);
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced' } }) });
+  assert.equal(context.document.documentElement.style.getPropertyValue('overflow-y'), '');
+  runtime.onDispose({ detail: runtime.token });
+});
+
+test('Xiaohongshu native-interaction compatibility does not apply to other websites', async () => {
   const context = makeContext('example.com');
-  const media = new context.Element('media');
-  media.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
-  const image = new context.Element('img');
-  image.closest = selector => selector === '#noteContainer.note-container .media-container' ? media : null;
   const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
   context.window.addEventListener('wheel', () => {});
-  const event = wheelEvent(context, image, [image, media, context.document.body, context.document.documentElement, context.document, context.window]);
+  const event = wheelEvent(context);
   runtime.onWheel(event);
   assert.equal(event.stopped, true);
   runtime.onDispose({ detail: runtime.token });
 });
 
-test('Native Scroll Enhanced preserves the enlarged Xiaohongshu post shell', async () => {
+test('Native Scroll Enhanced leaves the Xiaohongshu page intact', async () => {
   const context = makeContext('www.xiaohongshu.com');
-  const post = new context.Element('noteContainer');
-  post.matches = selector => selector === '#noteContainer.note-container';
-  post.computed = { position: 'fixed', transform: 'matrix(1, 0, 0, 1, 224, 24)' };
-  context.document.body.children = [post];
-  context.document.querySelector = selector => selector === '#noteContainer.note-container' ? post : null;
   const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced' } }) });
-  assert.equal(post.style.getPropertyValue('transform'), '');
   assert.equal(context.document.documentElement.style.getPropertyValue('height'), '');
   assert.equal(context.document.body.style.getPropertyValue('overflow-y'), '');
   runtime.onDispose({ detail: runtime.token });

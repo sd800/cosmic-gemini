@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 5.13.1 — 2026-09-01
+
+- Native Scroll now preserves Xiaohongshu's native page APIs and layout from the start of page initialization, allowing feed post cards to open and their image navigation to work while protection remains unchanged on other websites.
+
 ## 5.12.1 — 2026-09-01
 
 - Incognito windows now use an independent, memory-only settings environment. Every new incognito session starts with all products inactive and does not inherit ordinary saved settings, website rules, or interface language.

@@ -119,7 +119,7 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .satellite-card .section-heading p { max-width: 620px; }
 .satellite-control { display: flex; min-height: 24px; flex: 0 0 auto; align-items: center; }
 .satellite-site-list { padding-top: 17px; margin-top: 18px; border-top: 1px solid var(--line); }
-.satellite-site-list > h2 { margin-bottom: 10px; font-size: 13px; }
+.satellite-site-list > h2 { margin-bottom: 10px; font-size: 14px; }
 .satellite-site-row { margin: 0; }
 .incognito-status { display: inline-flex; min-height: 26px; align-items: center; border-radius: 999px; background: var(--surface-raised); color: var(--muted); padding: 0 10px; font-size: 11px; font-weight: 680; white-space: nowrap; }
 .incognito-status[hidden] { display: none; }

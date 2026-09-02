@@ -153,7 +153,7 @@ export function viewFor(featureId) {
         <div class="satellite-site-list">
           <h2 data-i18n="adMarshalSitesHeading"></h2>
           <label class="preference-row satellite-site-row" for="adMarshalNewsQqCom">
-            <span><strong>news.qq.com (including www.qq.com)</strong><small data-i18n="adMarshalNewsQqDescription"></small></span>
+            <span><strong data-i18n="adMarshalNewsQqDomains"></strong><small data-i18n="adMarshalNewsQqDescription"></small></span>
             <span class="switch"><input id="adMarshalNewsQqCom" type="checkbox"><span></span></span>
           </label>
           <label class="preference-row satellite-site-row" for="adMarshalDouyinCom">

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.5.6 — 2026-09-02
+
+- Localized the alternate Tencent News home-domain label and adjusted the Managed sites heading to sit visually between the product title and website labels.
+
 ## 6.5.5 — 2026-09-02
 
 - Reduced the Managed sites heading size in Ad Marshal settings to preserve its visual hierarchy within the card.

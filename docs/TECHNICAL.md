@@ -96,6 +96,8 @@ Bili Daily Login is disabled by default and has no Bilibili content script, tab 
 
 ## State and lifecycle
 
+Settings pages receive two separate views of state. A normalized, read-only preference snapshot is the sole source for persistent switches, rules, and selectors. Product state separately describes current-page support, matching, activity, availability, schedules, scans, and browser-rule reconciliation. Derived state can inform status presentation but cannot redefine a saved preference.
+
 For ordinary windows, `chrome.storage.local` stores one versioned settings object:
 
 - NSNA: one shared whitelist that deactivates both Native Scroll and No Autoplay

@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.8.1 — 2026-09-02
+
+- Settings now receives a dedicated read-only preference snapshot separately from derived product state. Persistent controls can no longer be affected by page matching, runtime activity, browser capabilities, schedules, scans, or DNR reconciliation.
+- Audited the saved controls for Native Scroll, No Autoplay, audio autoplay, Bili Daily Login, Ad Marshal, Image Download, and Video Download, with new regression coverage separating user preferences from effective execution state.
+
 ## 6.7.6 — 2026-09-02
 
 - Refined the Chinese introduction to the independent tools and data-use explanations in Satellites settings.

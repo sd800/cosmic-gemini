@@ -30,6 +30,15 @@ test('Bili Daily Login skips requests when Chrome explicitly reports offline', (
   assert.equal(browserReportsOffline({}), false);
 });
 
+test('Bili Daily Login ordinary state preserves the saved switch', async () => {
+  globalThis.chrome = { extension: { inIncognitoContext: false } };
+  const settings = {
+    satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } }
+  };
+  const product = createSatellitesProduct({});
+  assert.deepEqual(await product.state(settings), settings.satellites);
+});
+
 test('disabling Bili Daily Login aborts an in-flight request without rescheduling it', async () => {
   const session = {};
   const createdAlarms = [];

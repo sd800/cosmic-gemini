@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.7.6');
+assert.equal(manifest.version, '6.8.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -189,6 +189,7 @@ assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disa
 assert.match(satellitesSettings, /id="adMarshalEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:NewsQqCom|DouyinCom|ZhihuCom)"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_ENABLED/);
+assert.match(settingsSource, /states\?\.preferences \|\| states/);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await source('settings', name);
   assert.equal([...html.matchAll(/data-behavior-card/g)].length, 1);
@@ -340,6 +341,8 @@ assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/rew
 assert.match(satellites, /AbortController[\s\S]*signal[\s\S]*stopRun/);
 assert.match(satellites, /mutateSettings\([\s\S]*\), false\)/);
 assert.match(administration, /UI_GET_ACTIVE_PAGE_STATE[\s\S]*UI_OPEN_ALL_SETTINGS[\s\S]*UI_RESET_ALL_SETTINGS/);
+assert.match(administration, /UI_GET[\s\S]*includePreferences: true/);
+assert.match(central, /includePreferences === true \? \{ preferences: settings \} : \{\}/);
 assert.match(platform, /chrome\.storage[\s\S]*refreshOpenPages[\s\S]*renderToolbar/);
 assert.match(platform, /refreshTabPage[\s\S]*\[0, 80, 240\]/);
 assert.match(platform, /createKeyedTaskQueue/);
@@ -354,11 +357,13 @@ assert.match(platform, /handleIncognitoWindowChange/);
 assert.match(platform, /refreshToolbarTitles[\s\S]*readActivity\(tab\.id\)[\s\S]*renderToolbar[\s\S]*setLocale/);
 assert.match(satellites, /inIncognitoContext[\s\S]*ownsDailySchedule/);
 assert.match(satellites, /available: false/);
+assert.match(satellites, /if \(ownsDailySchedule\) return settings\.satellites/);
 assert.match(settingsSource, /disabledByDefaultInIncognito/);
 assert.match(settingsSource, /helpPanel\.hidden = false/);
 assert.doesNotMatch(settingsSource, /helpPanel\.hidden = incognitoContext/);
 
 assert.match(imageDownload, /chrome\.sidePanel\.setOptions/);
+assert.match(imageDownload, /return \{\s*\.\.\.settings\.imageDownload,\s*supported,\s*active,/);
 assert.match(imageDownload, /workspaces\/image-download\/image-download\.html/);
 assert.match(imageDownload, /UI_IMAGE_DOWNLOAD/);
 assert.match(imageDownload, /observation\.setCollecting\(FEATURE_IDS\.IMAGE_DOWNLOAD/);
@@ -368,6 +373,7 @@ assert.match(imageDownload, /trackImageArtifact/);
 assert.match(imageDownload, /downloads\.search\(\{ id: downloadId \}\)/);
 assert.match(imageDownload, /preparedImageSidePanels\.delete\(tabId\)[\s\S]*offscreen\.maybeClose\(\)/);
 assert.match(videoDownload, /CG_VIDEO_CANCEL_REQUEST/);
+assert.match(videoDownload, /return \{\s*\.\.\.settings\.videoDownload,\s*supported,\s*active,/);
 assert.match(videoDownload, /observation\.setCollecting\(FEATURE_IDS\.VIDEO_DOWNLOAD/);
 assert.match(videoDownload, /sessionUpdates\.run/);
 assert.match(videoDownload, /cleanupOrphanedMediaHeaderRules/);

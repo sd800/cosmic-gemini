@@ -65,7 +65,6 @@ function setCustomsResponseIngressEnabled(enabled) {
 
 const customsResponseIngress = Object.freeze({ setEnabled: setCustomsResponseIngressEnabled });
 setCustomsResponseIngressEnabled(true);
-
 const platform = createPlatform();
 const provinces = Object.freeze({
   standing: createStandingProvince(platform),
@@ -128,6 +127,7 @@ async function collectPageState(url, tabId, options = {}) {
   return {
     incognito: platform.isIncognitoContext(),
     nsna: settings.nsna,
+    ...(options.includePreferences === true ? { preferences: settings } : {}),
     ...Object.fromEntries(entries),
     activity: await platform.readActivity(tabId)
   };

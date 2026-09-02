@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 6.8.1 — 2026-09-02
+
+- 设置页面现在会单独接收只读的用户配置，不再从混合的功能运行状态读取持久控件。网页匹配、运行活动、浏览器能力、计划任务、扫描过程和 DNR 规则同步均不会影响用户保存的选择。
+- 检查 Native Scroll、No Autoplay、声音自动播放、Bili Daily Login、Ad Marshal、Image Download 和 Video Download 的持久设置，并新增回归测试，明确区分用户设置与实际运行状态。
+
 ## 6.7.6 — 2026-09-02
 
 - 优化 Satellites 设置页中有关功能独立开启及数据处理说明的中文表述。

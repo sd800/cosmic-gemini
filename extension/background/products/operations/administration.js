@@ -27,7 +27,13 @@ export function createAdministrationProduct(platform) {
         };
       }
       if (message.type === 'UI_GET') {
-        return context.collectPageState(message.url || '', message.tabId, { prepareWorkspace: true });
+        if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) {
+          throw new Error('Settings can only be read from the settings page.');
+        }
+        return context.collectPageState(message.url || '', message.tabId, {
+          prepareWorkspace: false,
+          includePreferences: true
+        });
       }
       if (message.type === 'UI_OPEN_SETTINGS') {
         const path = SETTINGS_PATHS[message.featureId] || SETTINGS_PATHS[FEATURE_IDS.NATIVE_SCROLL];

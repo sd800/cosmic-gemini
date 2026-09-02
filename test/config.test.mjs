@@ -200,6 +200,30 @@ test('feature updates do not mutate other products', () => {
   assert.deepEqual(next.satellites, current.satellites);
 });
 
+test('saved settings switches remain independent from effective page state', () => {
+  const nativeScroll = featureState({
+    nativeScroll: { enabled: false, standardRules: ['enabled.example'] }
+  }, FEATURE_IDS.NATIVE_SCROLL, 'https://enabled.example');
+  assert.equal(nativeScroll.enabled, false);
+  assert.equal(nativeScroll.active, true);
+
+  const noAutoplay = featureState({
+    noAutoplay: {
+      enabled: true,
+      inactiveRules: ['disabled.example'],
+      audioAutoplayAllSites: true
+    }
+  }, FEATURE_IDS.NO_AUTOPLAY, 'https://disabled.example');
+  assert.equal(noAutoplay.enabled, true);
+  assert.equal(noAutoplay.active, false);
+  assert.equal(noAutoplay.audioAutoplayAllSites, true);
+
+  const adMarshal = adMarshalState({ adMarshal: { enabled: true } }, 'https://example.com');
+  assert.equal(adMarshal.enabled, true);
+  assert.equal(adMarshal.supported, false);
+  assert.equal(adMarshal.active, false);
+});
+
 test('only HTTP and HTTPS pages expose a hostname', () => {
   assert.equal(hostnameFromUrl('https://example.com/path'), 'example.com');
   assert.equal(hostnameFromUrl('chrome://extensions'), '');

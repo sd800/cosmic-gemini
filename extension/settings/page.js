@@ -37,11 +37,11 @@ let settingsUiReconnectAttempts = 0;
 let pageClosing = false;
 
 function state() {
-  return states?.[featureId] || null;
+  return (states?.preferences || states)?.[featureId] || null;
 }
 
 function sectionState(section) {
-  return states?.[section.dataset.featureId || featureId] || null;
+  return (states?.preferences || states)?.[section.dataset.featureId || featureId] || null;
 }
 
 function applyLocale() {
@@ -169,14 +169,16 @@ function render() {
   if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
   if (biliDailyLogin) {
-    const available = current.biliDailyLogin?.available !== false && !incognito;
+    const available = states?.satellites?.biliDailyLogin?.available !== false && !incognito;
     biliDailyLogin.checked = available && current.biliDailyLogin?.enabled === true;
     biliDailyLogin.closest('.switch').hidden = !available;
     const status = biliDailyLogin.closest('.satellite-control')?.querySelector('.incognito-status');
     if (status) status.hidden = available;
   }
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
-  if (adMarshalEnabled) adMarshalEnabled.checked = states?.adMarshal?.enabled === true;
+  if (adMarshalEnabled) {
+    adMarshalEnabled.checked = (states?.preferences || states)?.adMarshal?.enabled === true;
+  }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');
@@ -197,7 +199,7 @@ async function reload() {
   if (storageSyncTimer) clearTimeout(storageSyncTimer);
   storageSyncTimer = 0;
   states = await send({ type: 'UI_GET', url: '' });
-  if (!incognitoContext) saveSettingsViewCache(states);
+  if (!incognitoContext) saveSettingsViewCache(states.preferences || states);
   render();
 }
 

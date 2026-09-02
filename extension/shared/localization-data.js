@@ -521,7 +521,7 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     biliDailyLoginName: 'Bili Daily Login',
     adMarshalName: 'Ad Marshal',
     adMarshalDescription: '部分网站会在广告或跟踪请求被拦截后不断重新创建相同请求。开启后，Ad Marshal 会在管制网站中应用专用规则，从源头停止符合条件的请求，并隐藏已知的广告组件。',
-    adMarshalManagedSites: '管制网站包括 news.qq.com（包括 www.qq.com）、douyin.com 和 zhihu.com。',
+    adMarshalManagedSites: '管制网站：news.qq.com（包括 www.qq.com）、douyin.com 和 zhihu.com。',
     adMarshalPrivacy: 'Ad Marshal 仅在上方所列的管制网站中本地运行，只保存功能是否开启，不记录浏览活动。',
     satellitesHelpHeading: '关于 Satellites',
     satellitesHelpIntro: 'Satellites 汇集了一些无需占用控制窗口的小功能，用于完成实用的后台任务。每项功能都可以独立开启，其用途和数据处理方式会直接写在对应的设置卡片中。',

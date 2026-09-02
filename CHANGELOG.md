@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.7.2 — 2026-09-02
+
+- Fixed the unified Ad Marshal switch appearing unresponsive while Chrome reconciled native network rules. The saved setting now completes independently, and rule reconciliation continues inside the product without holding the control.
+- Settings switches now use their complete visual track as the native input target for more reliable pointer interaction.
+
 ## 6.7.1 — 2026-09-02
 
 - Ad Marshal now uses one default-off switch for all managed sites. Settings lists the managed sites in one paragraph, while each site retains a separate internal policy. Former per-site settings do not enable or migrate into the new switch.

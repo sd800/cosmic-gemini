@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.7.1');
+assert.equal(manifest.version, '6.7.2');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -306,6 +306,8 @@ assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2
 assert.match(adMarshal, /wwwQqCom[\s\S]*https:\/\/www\.qq\.com\/\*/);
 assert.match(adMarshal, /settings\.adMarshal\.enabled === true[\s\S]*Object\.entries\(SITE_POLICIES\)/);
 assert.doesNotMatch(adMarshal, /settingId|UI_SET_AD_MARSHAL_SITE/);
+assert.match(adMarshal, /void reconcile\(settings\)\.catch\(\(\) => false\)[\s\S]*return settings\.adMarshal/,
+  'Saving the Ad Marshal switch must not wait for native network-rule reconciliation.');
 assert.match(adMarshal, /WWW_QQ_TRACKING_DOMAINS[\s\S]*h5\.ssp\.qq\.com[\s\S]*\/www\/js\/emonitor\//);
 assert.match(adMarshal, /douyinCom[\s\S]*collect\/[\s\S]*slardar\/fe\/sdk-web\/browser\.cn\.js/);
 assert.match(adMarshal, /DOUYIN_TELEMETRY_DOMAINS[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com/);

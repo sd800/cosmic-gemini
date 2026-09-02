@@ -213,7 +213,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
         ...current,
         adMarshal: { enabled: message.enabled === true }
       }));
-      await reconcile(settings);
+      void reconcile(settings).catch(() => false);
       return settings.adMarshal;
     },
     async handleTabUpdated(tabId, change, tab) {

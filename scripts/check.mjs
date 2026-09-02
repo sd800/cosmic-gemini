@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.5.6');
+assert.equal(manifest.version, '6.6.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -295,6 +295,8 @@ assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRe
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.match(adMarshal, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2021\/advertisement\//);
+assert.match(adMarshal, /wwwQqCom[\s\S]*settingId: 'newsQqCom'/);
+assert.match(adMarshal, /WWW_QQ_TRACKING_DOMAINS[\s\S]*h5\.ssp\.qq\.com[\s\S]*\/www\/js\/emonitor\//);
 assert.match(adMarshal, /douyinCom[\s\S]*collect\/[\s\S]*slardar\/fe\/sdk-web\/browser\.cn\.js/);
 assert.match(adMarshal, /DOUYIN_TELEMETRY_DOMAINS[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com/);
 assert.match(adMarshal, /ad-marshal-empty\.js[\s\S]*ad-marshal-empty\.json[\s\S]*ad-marshal-empty\.html[\s\S]*ad-marshal-transparent\.svg/);
@@ -305,6 +307,7 @@ assert.match(adMarshalRuntime, /globalThis\.fetch = this\.fetchWrapper[\s\S]*XML
 assert.match(adMarshalRuntime, /TRANSPARENT_IMAGE_URL[\s\S]*HTMLImageElement\.prototype/);
 assert.match(adMarshalRuntime, /127\.0\.0\.1[\s\S]*adMarshalImageSrcSet/);
 assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*NEWS_QQ_AD_CONTAINER_SELECTOR[\s\S]*this\.ensureStyle\(\)/);
+assert.match(adMarshalRuntime, /wwwQqCom[\s\S]*h5\.ssp\.qq\.com[\s\S]*qqhome-col-1:has\(> \.game-rank-wrap\)/);
 assert.match(adMarshalRuntime, /douyinCom[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com[\s\S]*collect\/[\s\S]*browser\.cn\.js/);
 assert.doesNotMatch(adMarshalRuntime, /MutationObserver|data-beacon|removeChild/,
   'Ad Marshal must not remove framework-owned DOM nodes or alter Beacon metadata.');

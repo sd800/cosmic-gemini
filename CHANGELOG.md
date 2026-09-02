@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.6.1 — 2026-09-02
+
+- The single Tencent News setting now routes `news.qq.com` and `www.qq.com` to separate internal policies. The `www.qq.com` policy handles its own monitoring loader, confirmed advertising-image source, and advertising container without extending to other `qq.com` subdomains.
+- Reworded the Tencent News setting description to refer naturally to both domains.
+
 ## 6.5.6 — 2026-09-02
 
 - Localized the alternate Tencent News home-domain label and adjusted the Managed sites heading to sit visually between the product title and website labels.

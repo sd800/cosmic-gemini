@@ -10,14 +10,21 @@ const RULE_ID_GROUPS = 20_000_000;
 const RULES_PER_TAB = 12;
 const SITE_POLICIES = Object.freeze({
   newsQqCom: Object.freeze({
+    settingId: 'newsQqCom',
     matches: Object.freeze([
       'http://news.qq.com/*',
-      'https://news.qq.com/*',
+      'https://news.qq.com/*'
+    ])
+  }),
+  wwwQqCom: Object.freeze({
+    settingId: 'newsQqCom',
+    matches: Object.freeze([
       'http://www.qq.com/*',
       'https://www.qq.com/*'
     ])
   }),
   douyinCom: Object.freeze({
+    settingId: 'douyinCom',
     matches: Object.freeze([
       'http://douyin.com/*',
       'https://douyin.com/*',
@@ -26,7 +33,7 @@ const SITE_POLICIES = Object.freeze({
     ])
   })
 });
-const NEWS_QQ_TRACKING_DOMAINS = Object.freeze([
+const TENCENT_QQ_TRACKING_DOMAINS = Object.freeze([
   'h.trace.qq.com',
   'btrace.qq.com',
   'otheve.beacon.qq.com',
@@ -39,6 +46,11 @@ const NEWS_QQ_TRACKING_DOMAINS = Object.freeze([
   'news.ssp.qq.com',
   'op.ssp.qq.com'
 ]);
+const WWW_QQ_TRACKING_DOMAINS = Object.freeze([
+  ...TENCENT_QQ_TRACKING_DOMAINS,
+  'h5.ssp.qq.com'
+]);
+const MANAGED_SETTING_IDS = new Set(['newsQqCom', 'douyinCom']);
 const DOUYIN_TELEMETRY_DOMAINS = Object.freeze([
   'mon.zijieapi.com',
   'mcs.zijieapi.com',
@@ -90,10 +102,32 @@ function newsQqRules(tabId, base) {
     scriptRedirectRule(base, tabId, 'universal-report.min.js'),
     scriptRedirectRule(base + 1, tabId, '/news-plugin/sdk/emonitor_'),
     scriptRedirectRule(base + 2, tabId, '/qqindex2021/advertisement/'),
-    domainRedirectRule(base + 3, tabId, NEWS_QQ_TRACKING_DOMAINS, ['script'], '/assets/ad-marshal-empty.js'),
-    domainRedirectRule(base + 4, tabId, NEWS_QQ_TRACKING_DOMAINS, ['xmlhttprequest', 'ping', 'other'], '/assets/ad-marshal-empty.json'),
-    domainRedirectRule(base + 5, tabId, NEWS_QQ_TRACKING_DOMAINS, ['sub_frame'], '/assets/ad-marshal-empty.html'),
-    domainRedirectRule(base + 6, tabId, NEWS_QQ_TRACKING_DOMAINS, ['image'], '/assets/ad-marshal-transparent.svg'),
+    domainRedirectRule(base + 3, tabId, TENCENT_QQ_TRACKING_DOMAINS, ['script'], '/assets/ad-marshal-empty.js'),
+    domainRedirectRule(base + 4, tabId, TENCENT_QQ_TRACKING_DOMAINS, ['xmlhttprequest', 'ping', 'other'], '/assets/ad-marshal-empty.json'),
+    domainRedirectRule(base + 5, tabId, TENCENT_QQ_TRACKING_DOMAINS, ['sub_frame'], '/assets/ad-marshal-empty.html'),
+    domainRedirectRule(base + 6, tabId, TENCENT_QQ_TRACKING_DOMAINS, ['image'], '/assets/ad-marshal-transparent.svg'),
+    {
+      id: base + 7,
+      priority: 100,
+      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.json' } },
+      condition: {
+        tabIds: [tabId],
+        urlFilter: '|http://127.0.0.1:11601/check|',
+        resourceTypes: ['xmlhttprequest', 'other']
+      }
+    }
+  ];
+}
+
+function wwwQqRules(tabId, base) {
+  return [
+    scriptRedirectRule(base, tabId, '/www/js/emonitor/'),
+    scriptRedirectRule(base + 1, tabId, 'universal-report.min.js'),
+    scriptRedirectRule(base + 2, tabId, '/qqindex2021/advertisement/'),
+    domainRedirectRule(base + 3, tabId, WWW_QQ_TRACKING_DOMAINS, ['script'], '/assets/ad-marshal-empty.js'),
+    domainRedirectRule(base + 4, tabId, WWW_QQ_TRACKING_DOMAINS, ['xmlhttprequest', 'ping', 'other'], '/assets/ad-marshal-empty.json'),
+    domainRedirectRule(base + 5, tabId, WWW_QQ_TRACKING_DOMAINS, ['sub_frame'], '/assets/ad-marshal-empty.html'),
+    domainRedirectRule(base + 6, tabId, WWW_QQ_TRACKING_DOMAINS, ['image'], '/assets/ad-marshal-transparent.svg'),
     {
       id: base + 7,
       priority: 100,
@@ -120,6 +154,7 @@ function douyinRules(tabId, base) {
 
 function rulesForTab(tabId, base, siteId) {
   if (siteId === 'newsQqCom') return newsQqRules(tabId, base);
+  if (siteId === 'wwwQqCom') return wwwQqRules(tabId, base);
   if (siteId === 'douyinCom') return douyinRules(tabId, base);
   return [];
 }
@@ -146,7 +181,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       return active;
     },
     async handleMessage(message) {
-      if (message.type !== 'UI_SET_AD_MARSHAL_SITE' || !SITE_POLICIES[message.siteId]) {
+      if (message.type !== 'UI_SET_AD_MARSHAL_SITE' || !MANAGED_SETTING_IDS.has(message.siteId)) {
         throw new Error('Ad Marshal does not support this command.');
       }
       const settings = await platform.mutateSettings(current => ({
@@ -218,7 +253,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     const existing = await ownedRules();
     const removeRuleIds = existing.map(rule => rule.id);
     const enabledPolicies = Object.entries(SITE_POLICIES)
-      .filter(([siteId]) => settings.adMarshal.sites[siteId] === true);
+      .filter(([, policy]) => settings.adMarshal.sites[policy.settingId] === true);
     const queryResults = await Promise.all(enabledPolicies.map(async ([siteId, policy]) => ({
       siteId,
       tabs: await chrome.tabs.query({ url: [...policy.matches] })

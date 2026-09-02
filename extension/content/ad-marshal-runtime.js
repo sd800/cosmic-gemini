@@ -17,28 +17,40 @@
     '[class*="qqchannel-ad"]',
     '[id*="qqchannel-ad"]'
   ].join(',');
+  const TENCENT_QQ_TRACKING_HOSTS = [
+    'h.trace.qq.com',
+    'btrace.qq.com',
+    'otheve.beacon.qq.com',
+    'beacon.cdn.qq.com',
+    'beaconcdn.qq.com',
+    'snowflake.qq.com',
+    'oth.str.beacon.qq.com',
+    'htrace.wetvinfo.com',
+    'svibeacon.onezapp.com',
+    'news.ssp.qq.com',
+    'op.ssp.qq.com'
+  ];
   const SITE_CONFIGS = Object.freeze({
     newsQqCom: Object.freeze({
-      hosts: new Set(['news.qq.com', 'www.qq.com']),
-      trackingHosts: new Set([
-        'h.trace.qq.com',
-        'btrace.qq.com',
-        'otheve.beacon.qq.com',
-        'beacon.cdn.qq.com',
-        'beaconcdn.qq.com',
-        'snowflake.qq.com',
-        'oth.str.beacon.qq.com',
-        'htrace.wetvinfo.com',
-        'svibeacon.onezapp.com',
-        'news.ssp.qq.com',
-        'op.ssp.qq.com'
-      ]),
+      hosts: new Set(['news.qq.com']),
+      trackingHosts: new Set(TENCENT_QQ_TRACKING_HOSTS),
       scriptPaths: Object.freeze([
         'universal-report.min.js',
         '/news-plugin/sdk/emonitor_',
         '/qqindex2021/advertisement/'
       ]),
       style: `${NEWS_QQ_AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
+      localProbe: true
+    }),
+    wwwQqCom: Object.freeze({
+      hosts: new Set(['www.qq.com']),
+      trackingHosts: new Set([...TENCENT_QQ_TRACKING_HOSTS, 'h5.ssp.qq.com']),
+      scriptPaths: Object.freeze([
+        '/www/js/emonitor/',
+        'universal-report.min.js',
+        '/qqindex2021/advertisement/'
+      ]),
+      style: '.qqhome-col-1:has(> .game-rank-wrap){display:none!important;visibility:hidden!important;}',
       localProbe: true
     }),
     douyinCom: Object.freeze({

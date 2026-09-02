@@ -335,17 +335,21 @@ export function anyCopyEnhancedState(url, tabActive = false) {
 export function adMarshalState(settings, url) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
-  const siteId = ['news.qq.com', 'www.qq.com'].includes(hostname)
+  const siteId = hostname === 'news.qq.com'
     ? 'newsQqCom'
-    : ['douyin.com', 'www.douyin.com'].includes(hostname)
-      ? 'douyinCom'
-      : '';
-  const enabled = !!siteId && normalized.adMarshal.sites[siteId] === true;
+    : hostname === 'www.qq.com'
+      ? 'wwwQqCom'
+      : ['douyin.com', 'www.douyin.com'].includes(hostname)
+        ? 'douyinCom'
+        : '';
+  const settingId = siteId === 'wwwQqCom' ? 'newsQqCom' : siteId;
+  const enabled = !!settingId && normalized.adMarshal.sites[settingId] === true;
   const supported = !!siteId;
   return {
     ...normalized.adMarshal,
     hostname,
     siteId,
+    settingId,
     supported,
     active: supported && enabled,
     enabled

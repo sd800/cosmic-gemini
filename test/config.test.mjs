@@ -210,8 +210,14 @@ test('Ad Marshal is limited to each enabled managed website', () => {
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.douyin.com/jingxuan').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.qq.com/').active, false);
-  assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://news.qq.com/').active, true);
-  assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://www.qq.com/').active, true);
+  const newsQq = adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://news.qq.com/');
+  assert.equal(newsQq.active, true);
+  assert.equal(newsQq.siteId, 'newsQqCom');
+  assert.equal(newsQq.settingId, 'newsQqCom');
+  const wwwQq = adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://www.qq.com/');
+  assert.equal(wwwQq.active, true);
+  assert.equal(wwwQq.siteId, 'wwwQqCom');
+  assert.equal(wwwQq.settingId, 'newsQqCom');
   assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://video.qq.com/').active, false);
   const douyin = adMarshalState({ version: 17, adMarshal: { sites: { douyinCom: true } } }, 'https://www.douyin.com/jingxuan');
   assert.equal(douyin.active, true);

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.5.5 — 2026-09-02
+
+- Reduced the Managed sites heading size in Ad Marshal settings to preserve its visual hierarchy within the card.
+
 ## 6.5.3 — 2026-09-02
 
 - The Tencent News Ad Marshal policy now applies to both `news.qq.com` and its alternate home domain `www.qq.com`. Matching remains exact and does not extend to other `qq.com` subdomains.

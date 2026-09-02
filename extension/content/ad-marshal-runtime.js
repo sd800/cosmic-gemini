@@ -19,7 +19,7 @@
   ].join(',');
   const SITE_CONFIGS = Object.freeze({
     newsQqCom: Object.freeze({
-      hosts: new Set(['news.qq.com']),
+      hosts: new Set(['news.qq.com', 'www.qq.com']),
       trackingHosts: new Set([
         'h.trace.qq.com',
         'btrace.qq.com',

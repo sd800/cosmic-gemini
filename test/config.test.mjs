@@ -211,6 +211,8 @@ test('Ad Marshal is limited to each enabled managed website', () => {
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.douyin.com/jingxuan').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.qq.com/').active, false);
   assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://news.qq.com/').active, true);
+  assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://www.qq.com/').active, true);
+  assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://video.qq.com/').active, false);
   const douyin = adMarshalState({ version: 17, adMarshal: { sites: { douyinCom: true } } }, 'https://www.douyin.com/jingxuan');
   assert.equal(douyin.active, true);
   assert.equal(douyin.siteId, 'douyinCom');

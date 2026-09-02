@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 6.5.3 — 2026-09-02
+
+- 腾讯新闻的 Ad Marshal 规则现在同时适用于 `news.qq.com` 和另一个主页域名 `www.qq.com`。匹配范围仍限定为这两个域名，不会扩展到其他 `qq.com` 子域名。
+
 ## 6.5.2 — 2026-09-02
 
 - 现在从 Chrome 打开扩展程序选项时会进入“全部设置”，不再直接进入 Native Scroll 设置页。

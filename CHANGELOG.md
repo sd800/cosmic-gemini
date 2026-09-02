@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.5.3 — 2026-09-02
+
+- The Tencent News Ad Marshal policy now applies to both `news.qq.com` and its alternate home domain `www.qq.com`. Matching remains exact and does not extend to other `qq.com` subdomains.
+
 ## 6.5.2 — 2026-09-02
 
 - Chrome's extension options command now opens All Settings instead of the Native Scroll settings page.

@@ -10,7 +10,12 @@ const RULE_ID_GROUPS = 20_000_000;
 const RULES_PER_TAB = 12;
 const SITE_POLICIES = Object.freeze({
   newsQqCom: Object.freeze({
-    matches: Object.freeze(['http://news.qq.com/*', 'https://news.qq.com/*'])
+    matches: Object.freeze([
+      'http://news.qq.com/*',
+      'https://news.qq.com/*',
+      'http://www.qq.com/*',
+      'https://www.qq.com/*'
+    ])
   }),
   douyinCom: Object.freeze({
     matches: Object.freeze([

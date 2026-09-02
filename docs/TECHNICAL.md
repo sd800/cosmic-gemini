@@ -46,7 +46,7 @@ Ad Marshal is a managed-site product under Standing Province. Central evaluates 
 
 Each enabled managed site owns a dedicated policy. The product records the active policy per tab, replaces that tab's rules when it moves between managed sites, and reserves one bounded rule group for each active tab.
 
-For an active `news.qq.com` tab, confirmed advertising and reporting loaders receive a local empty script before execution, including paths served by external Tencent CDNs. Matching telemetry requests, frames, and images receive local type-compatible success resources so their retry code has no failure signal to follow. Tencent News advertising endpoints and its local-client probe receive the same local treatment without contacting a loopback server.
+For an active `news.qq.com` or `www.qq.com` tab, confirmed advertising and reporting loaders receive a local empty script before execution, including paths served by external Tencent CDNs. Matching telemetry requests, frames, and images receive local type-compatible success resources so their retry code has no failure signal to follow. Tencent News advertising endpoints and its local-client probe receive the same local treatment without contacting a loopback server. No other `qq.com` subdomain is included.
 
 For an active `douyin.com` or `www.douyin.com` tab, the product neutralizes the confirmed AppLog collection loader, the Slardar browser-monitoring loader, and a narrow set of ByteDance telemetry hosts. It does not match video files, media CDNs, feed APIs, sign-in, account security, privacy controls, or video-cloud configuration. The Douyin policy does not scan or modify the DOM.
 

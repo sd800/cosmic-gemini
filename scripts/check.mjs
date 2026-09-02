@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.5.2');
+assert.equal(manifest.version, '6.5.3');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -54,6 +54,8 @@ assert.deepEqual(manifest.web_accessible_resources, [{
   matches: [
     'http://news.qq.com/*',
     'https://news.qq.com/*',
+    'http://www.qq.com/*',
+    'https://www.qq.com/*',
     'http://douyin.com/*',
     'https://douyin.com/*',
     'http://www.douyin.com/*',

@@ -335,7 +335,7 @@ export function anyCopyEnhancedState(url, tabActive = false) {
 export function adMarshalState(settings, url) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
-  const siteId = hostname === 'news.qq.com'
+  const siteId = ['news.qq.com', 'www.qq.com'].includes(hostname)
     ? 'newsQqCom'
     : ['douyin.com', 'www.douyin.com'].includes(hostname)
       ? 'douyinCom'

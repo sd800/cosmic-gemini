@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.8.3 — 2026-09-02
+
+- Settings switches now use a balanced medium blue in dark mode, positioned between the Cosmic Gemini logo blue and the brighter dark-theme blue.
+
 ## 6.8.2 — 2026-09-02
 
 - Settings switches now use Cosmic Gemini's deeper logo blue when enabled across both light and dark themes.

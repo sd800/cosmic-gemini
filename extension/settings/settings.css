@@ -1,4 +1,5 @@
 :root { --switch-blue: #0b57d0; }
+@media (prefers-color-scheme: dark) { :root { --switch-blue: #528be8; } }
 html { min-height: 100%; overflow-y: scroll; scrollbar-gutter: stable; background: var(--surface-raised); }
 body { min-height: 100vh; background: var(--surface-raised); }
 .topbar { border-bottom: 1px solid var(--line); background: var(--surface); }

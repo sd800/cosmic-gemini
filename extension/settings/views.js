@@ -148,18 +148,8 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p></div>
-        </div>
-        <div class="satellite-site-list">
-          <h2 data-i18n="adMarshalSitesHeading"></h2>
-          <label class="preference-row satellite-site-row" for="adMarshalNewsQqCom">
-            <span><strong data-i18n="adMarshalNewsQqDomains"></strong><small data-i18n="adMarshalNewsQqDescription"></small></span>
-            <span class="switch"><input id="adMarshalNewsQqCom" type="checkbox"><span></span></span>
-          </label>
-          <label class="preference-row satellite-site-row" for="adMarshalDouyinCom">
-            <span><strong>douyin.com</strong><small data-i18n="adMarshalDouyinDescription"></small></span>
-            <span class="switch"><input id="adMarshalDouyinCom" type="checkbox"><span></span></span>
-          </label>
+          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p><p class="ad-marshal-managed-sites" data-i18n="adMarshalManagedSites"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="adMarshalEnabled" type="checkbox"><span></span><b class="sr-only">Ad Marshal</b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
       </section>`,

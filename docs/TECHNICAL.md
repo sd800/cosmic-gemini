@@ -42,13 +42,15 @@ No Autoplay operates only on media elements and audio contexts inside the curren
 
 ## Ad Marshal
 
-Ad Marshal is a managed-site product under Standing Province. Central evaluates it at the fixed page entry, Standing Province coordinates the tab lifecycle, and the product runs only when the current hostname exactly matches an enabled managed site. It has no popup control or activity icon. Every managed-site switch starts disabled in both ordinary and incognito settings.
+Ad Marshal is a managed-site product under Standing Province. Central evaluates it at the fixed page entry, Standing Province coordinates the tab lifecycle, and the product runs only when its unified setting is enabled and the current hostname matches an internal managed-site policy. It has no popup control or activity icon. The unified setting starts disabled in both ordinary and incognito settings.
 
-Each enabled managed site owns a dedicated policy. The product records the active policy per tab, replaces that tab's rules when it moves between managed sites, and reserves one bounded rule group for each active tab.
+Each managed site owns a dedicated internal policy. The product records the active policy per tab, replaces that tab's rules when it moves between managed sites, and reserves one bounded rule group for each active tab.
 
-One Tencent News setting controls two exact-host policies. `news.qq.com` retains its article-site loader and advertising-container rules. `www.qq.com` uses a separate home-page policy for its own `emonitor` loader, `h5.ssp.qq.com` advertising assets, and the confirmed game-advertising column. Both policies neutralize their matching telemetry requests, frames, and images with local type-compatible resources so retry code has no failure signal to follow. Tencent advertising endpoints and the local-client probe receive the same local treatment without contacting a loopback server. No other `qq.com` subdomain is included.
+The unified switch authorizes two exact-host Tencent News policies. `news.qq.com` retains its article-site loader and advertising-container rules. `www.qq.com` uses a separate home-page policy for its own `emonitor` loader, `h5.ssp.qq.com` advertising assets, and the confirmed game-advertising column. Both policies neutralize their matching telemetry requests, frames, and images with local type-compatible resources so retry code has no failure signal to follow. Tencent advertising endpoints and the local-client probe receive the same local treatment without contacting a loopback server. No other `qq.com` subdomain is included.
 
-For an active `douyin.com` or `www.douyin.com` tab, the product neutralizes the confirmed AppLog collection loader, the Slardar browser-monitoring loader, and a narrow set of ByteDance telemetry hosts. It does not match video files, media CDNs, feed APIs, sign-in, account security, privacy controls, or video-cloud configuration. The Douyin policy does not scan or modify the DOM.
+For an active `douyin.com`, `www.douyin.com`, or `live.douyin.com` tab, the product neutralizes the confirmed AppLog collection loader, the Slardar browser-monitoring loader, and a narrow set of ByteDance telemetry hosts. The three exact hosts share one internal policy. It does not match video files, media CDNs, feed APIs, sign-in, account security, privacy controls, or video-cloud configuration. The Douyin policy does not scan or modify the DOM.
+
+The Zhihu policy applies to the root domain and all of its subdomains. It replaces the observed Sentry and ZA analytics loaders before execution, resolves requests to `zhihu-web-analytics.zhihu.com`, `apm.zhihu.com`, `datahub.zhihu.com`, `crash2.zhihu.com`, and Baidu Analytics with local type-compatible responses, and does not include the separate `zhimg.com` static and image domains. The policy does not scan or modify the DOM.
 
 The main-world runtime neutralizes matching `fetch`, XHR, Beacon, and tracking-image requests before they reach the network, while Chrome's session DNR rules provide an early fallback for scripts, requests, frames, images, and the Tencent loopback probe. Each Tencent policy hides only its own confirmed advertising containers with a local style. No policy removes framework-managed nodes or changes Beacon metadata. The runtime uses no observer or polling loop and restores every patched API, style, blob URL, bridge, runtime, and temporary network rule when the product is disabled.
 
@@ -104,7 +106,7 @@ For ordinary windows, `chrome.storage.local` stores one versioned settings objec
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference
 - Video Download: preferred quality and whether Chrome should ask for a save location
 - Satellites: Bili Daily Login switch state and last completed date
-- Ad Marshal: one independent switch for each managed website
+- Ad Marshal: one unified enabled setting; the product keeps separate internal policies for its managed sites
 - Interface locale
 
 The split incognito background ignores that persistent object. It keeps a separate `chrome.storage.session` object with Native Scroll, No Autoplay, and every other automatic product inactive by default. Explicit incognito choices remain in that temporary object only while the current set of incognito windows exists.
@@ -121,7 +123,7 @@ Per-tab intervention state contains product booleans and is cleared on navigatio
 
 ## Resource use
 
-The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, on an enabled Ad Marshal managed site, or during an explicitly activated download session. Image Download and Video Download views react to session-storage changes instead of polling. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Ad Marshal's native network rules are limited to active managed-site tabs, and its one filtered observer batches DOM additions without polling. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
+The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated download session. Image Download and Video Download views react to session-storage changes instead of polling. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Ad Marshal's native network rules are limited to active managed-site tabs, and its filtered page runtime uses no observer, timer, or polling loop. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
 
 ## Browser boundaries
 

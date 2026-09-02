@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.7.1 — 2026-09-02
+
+- Ad Marshal now uses one default-off switch for all managed sites. Settings lists the managed sites in one paragraph, while each site retains a separate internal policy. Former per-site settings do not enable or migrate into the new switch.
+- Added an internal Zhihu policy for the root domain and all of its subdomains. It neutralizes the analytics loaders and confirmed analytics, performance, experiment, crash-reporting, and Baidu Analytics endpoints observed on the current page without matching Zhihu's separate image and static-resource domains.
+- The Douyin policy now also covers its live site without exposing another site in Settings.
+
 ## 6.6.1 — 2026-09-02
 
 - The single Tencent News setting now routes `news.qq.com` and `www.qq.com` to separate internal policies. The `www.qq.com` policy handles its own monitoring loader, confirmed advertising-image source, and advertising container without extending to other `qq.com` subdomains.

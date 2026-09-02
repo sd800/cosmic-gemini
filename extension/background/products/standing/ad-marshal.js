@@ -10,26 +10,33 @@ const RULE_ID_GROUPS = 20_000_000;
 const RULES_PER_TAB = 12;
 const SITE_POLICIES = Object.freeze({
   newsQqCom: Object.freeze({
-    settingId: 'newsQqCom',
     matches: Object.freeze([
       'http://news.qq.com/*',
       'https://news.qq.com/*'
     ])
   }),
   wwwQqCom: Object.freeze({
-    settingId: 'newsQqCom',
     matches: Object.freeze([
       'http://www.qq.com/*',
       'https://www.qq.com/*'
     ])
   }),
   douyinCom: Object.freeze({
-    settingId: 'douyinCom',
     matches: Object.freeze([
       'http://douyin.com/*',
       'https://douyin.com/*',
       'http://www.douyin.com/*',
-      'https://www.douyin.com/*'
+      'https://www.douyin.com/*',
+      'http://live.douyin.com/*',
+      'https://live.douyin.com/*'
+    ])
+  }),
+  zhihuCom: Object.freeze({
+    matches: Object.freeze([
+      'http://zhihu.com/*',
+      'https://zhihu.com/*',
+      'http://*.zhihu.com/*',
+      'https://*.zhihu.com/*'
     ])
   })
 });
@@ -50,7 +57,6 @@ const WWW_QQ_TRACKING_DOMAINS = Object.freeze([
   ...TENCENT_QQ_TRACKING_DOMAINS,
   'h5.ssp.qq.com'
 ]);
-const MANAGED_SETTING_IDS = new Set(['newsQqCom', 'douyinCom']);
 const DOUYIN_TELEMETRY_DOMAINS = Object.freeze([
   'mon.zijieapi.com',
   'mcs.zijieapi.com',
@@ -61,6 +67,13 @@ const DOUYIN_TELEMETRY_DOMAINS = Object.freeze([
   'mon.byteoversea.com',
   'monsetting.toutiao.com',
   'monsetting.toutiaocloud.com'
+]);
+const ZHIHU_TELEMETRY_DOMAINS = Object.freeze([
+  'zhihu-web-analytics.zhihu.com',
+  'apm.zhihu.com',
+  'datahub.zhihu.com',
+  'crash2.zhihu.com',
+  'hm.baidu.com'
 ]);
 
 function isOwnedRule(rule) {
@@ -152,10 +165,22 @@ function douyinRules(tabId, base) {
   ];
 }
 
+function zhihuRules(tabId, base) {
+  return [
+    scriptRedirectRule(base, tabId, '/@cfe/sentry-script@'),
+    scriptRedirectRule(base + 1, tabId, '/za-js-sdk@'),
+    domainRedirectRule(base + 2, tabId, ZHIHU_TELEMETRY_DOMAINS, ['script'], '/assets/ad-marshal-empty.js'),
+    domainRedirectRule(base + 3, tabId, ZHIHU_TELEMETRY_DOMAINS, ['xmlhttprequest', 'ping', 'other'], '/assets/ad-marshal-empty.json'),
+    domainRedirectRule(base + 4, tabId, ZHIHU_TELEMETRY_DOMAINS, ['sub_frame'], '/assets/ad-marshal-empty.html'),
+    domainRedirectRule(base + 5, tabId, ZHIHU_TELEMETRY_DOMAINS, ['image'], '/assets/ad-marshal-transparent.svg')
+  ];
+}
+
 function rulesForTab(tabId, base, siteId) {
   if (siteId === 'newsQqCom') return newsQqRules(tabId, base);
   if (siteId === 'wwwQqCom') return wwwQqRules(tabId, base);
   if (siteId === 'douyinCom') return douyinRules(tabId, base);
+  if (siteId === 'zhihuCom') return zhihuRules(tabId, base);
   return [];
 }
 
@@ -181,18 +206,12 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       return active;
     },
     async handleMessage(message) {
-      if (message.type !== 'UI_SET_AD_MARSHAL_SITE' || !MANAGED_SETTING_IDS.has(message.siteId)) {
+      if (message.type !== 'UI_SET_AD_MARSHAL_ENABLED') {
         throw new Error('Ad Marshal does not support this command.');
       }
       const settings = await platform.mutateSettings(current => ({
         ...current,
-        adMarshal: {
-          ...current.adMarshal,
-          sites: {
-            ...current.adMarshal.sites,
-            [message.siteId]: message.enabled === true
-          }
-        }
+        adMarshal: { enabled: message.enabled === true }
       }));
       await reconcile(settings);
       return settings.adMarshal;
@@ -252,8 +271,9 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     const settings = providedSettings || await platform.readSettings();
     const existing = await ownedRules();
     const removeRuleIds = existing.map(rule => rule.id);
-    const enabledPolicies = Object.entries(SITE_POLICIES)
-      .filter(([, policy]) => settings.adMarshal.sites[policy.settingId] === true);
+    const enabledPolicies = settings.adMarshal.enabled === true
+      ? Object.entries(SITE_POLICIES)
+      : [];
     const queryResults = await Promise.all(enabledPolicies.map(async ([siteId, policy]) => ({
       siteId,
       tabs: await chrome.tabs.query({ url: [...policy.matches] })

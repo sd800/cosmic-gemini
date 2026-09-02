@@ -46,10 +46,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     siteRules: Object.freeze([])
   }),
   adMarshal: Object.freeze({
-    sites: Object.freeze({
-      newsQqCom: false,
-      douyinCom: false
-    })
+    enabled: false
   }),
   imageDownload: Object.freeze({
     workspaceMode: 'sidePanel',
@@ -80,10 +77,7 @@ export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
     enabled: false
   }),
   adMarshal: Object.freeze({
-    sites: Object.freeze({
-      newsQqCom: false,
-      douyinCom: false
-    })
+    enabled: false
   }),
   satellites: Object.freeze({
     biliDailyLogin: Object.freeze({
@@ -171,10 +165,7 @@ export function normalizeSettings(value = {}) {
       siteRules: normalizeRules(value.anyCopy?.siteRules ?? value.anyCopy?.enforcedRules)
     },
     adMarshal: {
-      sites: {
-        newsQqCom: value.adMarshal?.sites?.newsQqCom === true,
-        douyinCom: value.adMarshal?.sites?.douyinCom === true
-      }
+      enabled: value.adMarshal?.enabled === true
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
@@ -339,17 +330,17 @@ export function adMarshalState(settings, url) {
     ? 'newsQqCom'
     : hostname === 'www.qq.com'
       ? 'wwwQqCom'
-      : ['douyin.com', 'www.douyin.com'].includes(hostname)
+      : ['douyin.com', 'www.douyin.com', 'live.douyin.com'].includes(hostname)
         ? 'douyinCom'
-        : '';
-  const settingId = siteId === 'wwwQqCom' ? 'newsQqCom' : siteId;
-  const enabled = !!settingId && normalized.adMarshal.sites[settingId] === true;
+        : hostname === 'zhihu.com' || hostname.endsWith('.zhihu.com')
+          ? 'zhihuCom'
+          : '';
+  const enabled = !!siteId && normalized.adMarshal.enabled === true;
   const supported = !!siteId;
   return {
     ...normalized.adMarshal,
     hostname,
     siteId,
-    settingId,
     supported,
     active: supported && enabled,
     enabled

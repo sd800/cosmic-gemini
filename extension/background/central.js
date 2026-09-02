@@ -100,7 +100,7 @@ function productForMessage(message) {
     return FEATURE_IDS.NATIVE_SCROLL;
   }
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
-  if (message.type === 'UI_SET_AD_MARSHAL_SITE') return FEATURE_IDS.AD_MARSHAL;
+  if (message.type === 'UI_SET_AD_MARSHAL_ENABLED') return FEATURE_IDS.AD_MARSHAL;
   if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
   if (/^(?:CG|UI)_IMAGE_|^UI_SET_IMAGE_SETTING$/.test(message.type)) return FEATURE_IDS.IMAGE_DOWNLOAD;
   if (/^(?:CG|UI)_VIDEO_|^UI_SET_VIDEO_SETTING$/.test(message.type)) return FEATURE_IDS.VIDEO_DOWNLOAD;

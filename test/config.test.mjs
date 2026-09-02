@@ -21,8 +21,7 @@ test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.adMarshal.sites.newsQqCom, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.adMarshal.sites.douyinCom, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.adMarshal.enabled, false);
 });
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 
@@ -36,7 +35,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.equal(settings.noAutoplay.audioAutoplayAllSites, false);
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
-  assert.deepEqual(settings.adMarshal, { sites: { newsQqCom: false, douyinCom: false } });
+  assert.deepEqual(settings.adMarshal, { enabled: false });
   assert.equal('anyCopyEnhanced' in settings, false);
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
   assert.deepEqual(settings.videoDownload, { preferredQuality: 'best', askWhereToSave: true });
@@ -206,24 +205,27 @@ test('only HTTP and HTTPS pages expose a hostname', () => {
   assert.equal(hostnameFromUrl('chrome://extensions'), '');
 });
 
-test('Ad Marshal is limited to each enabled managed website', () => {
+test('Ad Marshal uses one explicit switch without migrating former per-site settings', () => {
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.douyin.com/jingxuan').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.qq.com/').active, false);
-  const newsQq = adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://news.qq.com/');
+  const newsQq = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://news.qq.com/');
   assert.equal(newsQq.active, true);
   assert.equal(newsQq.siteId, 'newsQqCom');
-  assert.equal(newsQq.settingId, 'newsQqCom');
-  const wwwQq = adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://www.qq.com/');
+  const wwwQq = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.qq.com/');
   assert.equal(wwwQq.active, true);
   assert.equal(wwwQq.siteId, 'wwwQqCom');
-  assert.equal(wwwQq.settingId, 'newsQqCom');
-  assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { newsQqCom: true } } }, 'https://video.qq.com/').active, false);
-  const douyin = adMarshalState({ version: 17, adMarshal: { sites: { douyinCom: true } } }, 'https://www.douyin.com/jingxuan');
+  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://video.qq.com/').active, false);
+  const douyin = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.douyin.com/jingxuan');
   assert.equal(douyin.active, true);
   assert.equal(douyin.siteId, 'douyinCom');
-  assert.equal(adMarshalState({ version: 17, adMarshal: { sites: { douyinCom: true } } }, 'https://live.douyin.com/').active, false);
-  assert.equal(normalizeSettings({ version: 16, adMarshal: { sites: { newsQqCom: true } } }).adMarshal.sites.newsQqCom, true);
+  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://live.douyin.com/').active, true);
+  const zhihu = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.zhihu.com/');
+  assert.equal(zhihu.active, true);
+  assert.equal(zhihu.siteId, 'zhihuCom');
+  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhuanlan.zhihu.com/p/1').active, true);
+  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhimg.com/').active, false);
+  assert.equal(normalizeSettings({ version: 16, adMarshal: { sites: { newsQqCom: true } } }).adMarshal.enabled, false);
 });
 
 test('settings first-frame cache keeps preferences without page activity', () => {
@@ -242,7 +244,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
     satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
-    adMarshal: { sites: { newsQqCom: true, douyinCom: true } },
+    adMarshal: { enabled: true },
     activity: { nativeScroll: true }
   });
   assert.deepEqual(cache.nativeScroll, {
@@ -253,7 +255,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   });
   assert.deepEqual(cache.nsna, { whitelistRules: ['*.private.example'] });
   assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
-  assert.deepEqual(cache.adMarshal, { sites: { newsQqCom: true, douyinCom: true } });
+  assert.deepEqual(cache.adMarshal, { enabled: true });
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.equal('anyCopyEnhanced' in cache, false);

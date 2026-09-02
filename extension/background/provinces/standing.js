@@ -91,7 +91,7 @@ export function createStandingProvince(platform) {
       })));
       return settings.noAutoplay;
     }
-    if (message.type === 'UI_SET_AD_MARSHAL_SITE') return governed.handleMessage(message, context);
+    if (message.type === 'UI_SET_AD_MARSHAL_ENABLED') return governed.handleMessage(message, context);
     if (message.type === 'UI_TOGGLE_PAGE_FEATURE') {
       const hostname = await currentPageHostname(message);
       const settings = await platform.mutateSettings(current => {

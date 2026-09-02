@@ -54,7 +54,7 @@
       localProbe: true
     }),
     douyinCom: Object.freeze({
-      hosts: new Set(['douyin.com', 'www.douyin.com']),
+      hosts: new Set(['douyin.com', 'www.douyin.com', 'live.douyin.com']),
       trackingHosts: new Set([
         'mon.zijieapi.com',
         'mcs.zijieapi.com',
@@ -69,6 +69,23 @@
       scriptPaths: Object.freeze([
         '/obj/applog-sdk-static/log-sdk/collect/',
         '/slardar/fe/sdk-web/browser.cn.js'
+      ]),
+      style: '',
+      localProbe: false
+    }),
+    zhihuCom: Object.freeze({
+      hosts: new Set(['zhihu.com']),
+      hostSuffix: '.zhihu.com',
+      trackingHosts: new Set([
+        'zhihu-web-analytics.zhihu.com',
+        'apm.zhihu.com',
+        'datahub.zhihu.com',
+        'crash2.zhihu.com',
+        'hm.baidu.com'
+      ]),
+      scriptPaths: Object.freeze([
+        '/@cfe/sentry-script@',
+        '/za-js-sdk@'
       ]),
       style: '',
       localProbe: false
@@ -91,7 +108,11 @@
 
   function siteIdForLocation() {
     const hostname = location.hostname.toLowerCase();
-    return Object.keys(SITE_CONFIGS).find(siteId => SITE_CONFIGS[siteId].hosts.has(hostname)) || '';
+    return Object.keys(SITE_CONFIGS).find(siteId => matchesConfiguredHost(SITE_CONFIGS[siteId], hostname)) || '';
+  }
+
+  function matchesConfiguredHost(config, hostname) {
+    return config.hosts.has(hostname) || (!!config.hostSuffix && hostname.endsWith(config.hostSuffix));
   }
 
   function shouldNeutralize(value, siteId) {
@@ -162,7 +183,7 @@
 
     enable(siteId) {
       const config = SITE_CONFIGS[siteId];
-      if (!config?.hosts.has(location.hostname.toLowerCase())) return;
+      if (!config || !matchesConfiguredHost(config, location.hostname.toLowerCase())) return;
       if (this.active && this.siteId === siteId) return;
       if (this.active) this.disable();
       this.active = true;

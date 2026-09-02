@@ -175,10 +175,8 @@ function render() {
     const status = biliDailyLogin.closest('.satellite-control')?.querySelector('.incognito-status');
     if (status) status.hidden = available;
   }
-  const adMarshalNewsQqCom = document.querySelector('#adMarshalNewsQqCom');
-  if (adMarshalNewsQqCom) adMarshalNewsQqCom.checked = states?.adMarshal?.sites?.newsQqCom === true;
-  const adMarshalDouyinCom = document.querySelector('#adMarshalDouyinCom');
-  if (adMarshalDouyinCom) adMarshalDouyinCom.checked = states?.adMarshal?.sites?.douyinCom === true;
+  const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
+  if (adMarshalEnabled) adMarshalEnabled.checked = states?.adMarshal?.enabled === true;
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');
@@ -277,14 +275,10 @@ function bindView() {
   if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
   }), [biliDailyLogin]));
-  const adMarshalNewsQqCom = document.querySelector('#adMarshalNewsQqCom');
-  if (adMarshalNewsQqCom) adMarshalNewsQqCom.addEventListener('change', () => void update(null, () => send({
-    type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'newsQqCom', enabled: adMarshalNewsQqCom.checked
-  }), [adMarshalNewsQqCom]));
-  const adMarshalDouyinCom = document.querySelector('#adMarshalDouyinCom');
-  if (adMarshalDouyinCom) adMarshalDouyinCom.addEventListener('change', () => void update(null, () => send({
-    type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'douyinCom', enabled: adMarshalDouyinCom.checked
-  }), [adMarshalDouyinCom]));
+  const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
+  if (adMarshalEnabled) adMarshalEnabled.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_AD_MARSHAL_ENABLED', enabled: adMarshalEnabled.checked
+  }), [adMarshalEnabled]));
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_VIDEO_SETTING', name: 'preferredQuality', value: preferredQuality.value

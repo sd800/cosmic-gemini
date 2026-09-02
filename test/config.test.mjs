@@ -216,6 +216,7 @@ test('Ad Marshal uses one explicit switch without migrating former per-site sett
   assert.equal(wwwQq.active, true);
   assert.equal(wwwQq.siteId, 'wwwQqCom');
   assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://video.qq.com/').active, false);
+  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://video.qq.com/').enabled, true);
   const douyin = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.douyin.com/jingxuan');
   assert.equal(douyin.active, true);
   assert.equal(douyin.siteId, 'douyinCom');
@@ -225,6 +226,10 @@ test('Ad Marshal uses one explicit switch without migrating former per-site sett
   assert.equal(zhihu.siteId, 'zhihuCom');
   assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhuanlan.zhihu.com/p/1').active, true);
   assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhimg.com/').active, false);
+  const settingsState = adMarshalState({ version: 17, adMarshal: { enabled: true } }, '');
+  assert.equal(settingsState.enabled, true);
+  assert.equal(settingsState.supported, false);
+  assert.equal(settingsState.active, false);
   assert.equal(normalizeSettings({ version: 16, adMarshal: { sites: { newsQqCom: true } } }).adMarshal.enabled, false);
 });
 

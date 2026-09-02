@@ -42,7 +42,7 @@ No Autoplay operates only on media elements and audio contexts inside the curren
 
 ## Ad Marshal
 
-Ad Marshal is a managed-site product under Standing Province. Central evaluates it at the fixed page entry, Standing Province coordinates the tab lifecycle, and the product runs only when its unified setting is enabled and the current hostname matches an internal managed-site policy. It has no popup control or activity icon. The unified setting starts disabled in both ordinary and incognito settings.
+Ad Marshal is a managed-site product under Standing Province. Central evaluates it at the fixed page entry, Standing Province coordinates the tab lifecycle, and the product runs only when its unified setting is enabled and the current hostname matches an internal managed-site policy. It has no popup control or activity icon. The unified setting starts disabled in both ordinary and incognito settings. Its saved `enabled` value reflects only the user's setting and never derives from the current page, policy matching, runtime activity, or Chrome DNR state.
 
 Each managed site owns a dedicated internal policy. The product records the active policy per tab, replaces that tab's rules when it moves between managed sites, and reserves one bounded rule group for each active tab.
 

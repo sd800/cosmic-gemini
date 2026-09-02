@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.7.3 — 2026-09-02
+
+- Separated the saved Ad Marshal switch from all per-page and Chrome DNR state. Settings now reflects only the user's unified choice. Managed-site matching determines `active` page state, while DNR reconciliation remains an independent product operation.
+
 ## 6.7.2 — 2026-09-02
 
 - Fixed the unified Ad Marshal switch appearing unresponsive while Chrome reconciled native network rules. The saved setting now completes independently, and rule reconciliation continues inside the product without holding the control.

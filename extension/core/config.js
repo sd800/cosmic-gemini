@@ -335,7 +335,7 @@ export function adMarshalState(settings, url) {
         : hostname === 'zhihu.com' || hostname.endsWith('.zhihu.com')
           ? 'zhihuCom'
           : '';
-  const enabled = !!siteId && normalized.adMarshal.enabled === true;
+  const enabled = normalized.adMarshal.enabled === true;
   const supported = !!siteId;
   return {
     ...normalized.adMarshal,

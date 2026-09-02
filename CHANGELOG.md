@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.8.2 — 2026-09-02
+
+- Settings switches now use Cosmic Gemini's deeper logo blue when enabled across both light and dark themes.
+
 ## 6.8.1 — 2026-09-02
 
 - Settings now receives a dedicated read-only preference snapshot separately from derived product state. Persistent controls can no longer be affected by page matching, runtime activity, browser capabilities, schedules, scans, or DNR reconciliation.

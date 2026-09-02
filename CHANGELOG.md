@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.7.6 — 2026-09-02
+
+- Refined the Chinese introduction to the independent tools and data-use explanations in Satellites settings.
+
 ## 6.7.5 — 2026-09-02
 
 - Simplified the Chinese managed-sites label in Ad Marshal settings.

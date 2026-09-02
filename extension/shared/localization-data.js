@@ -524,7 +524,7 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     adMarshalManagedSites: '管制网站：news.qq.com（包括 www.qq.com）、douyin.com 和 zhihu.com。',
     adMarshalPrivacy: 'Ad Marshal 仅在上方所列的管制网站中本地运行，只保存功能是否开启，不记录浏览活动。',
     satellitesHelpHeading: '关于 Satellites',
-    satellitesHelpIntro: 'Satellites 汇集了一些无需占用控制窗口的小功能，用于完成实用的后台任务。每项功能都可以独立开启，其用途和数据处理方式会直接写在对应的设置卡片中。',
+    satellitesHelpIntro: 'Satellites 汇集了一些无需占用控制窗口的小功能，用于完成实用的后台任务。各项功能可单独开启，相关用途和数据处理方式会在对应的设置卡片中说明。',
     satellitesOverviewHelp: '您可以在这里选择需要 Cosmic Gemini 在后台完成的小功能。',
     disabledInIncognito: '已在无痕模式下停用',
     disabledByDefaultInIncognito: '在无痕模式下默认停用。',

@@ -1,13 +1,15 @@
 import {
   BILI_DAILY_ALARM,
-  BILI_DAILY_MAX_ATTEMPTS,
-  BILI_DAILY_RETRY_MS,
-  BILI_DAILY_RETRY_KEY,
+  BILI_DAILY_ATTEMPT_KEY,
+  BILI_DAILY_DEFER_MS,
   bilibiliDateKey,
   browserReportsOffline,
-  nextBilibiliSchedule
+  nextBilibiliPlan
 } from '../../../core/bili-daily-login.js';
 import { SETTINGS_KEY } from '../../../core/config.js';
+
+const BILI_DAILY_HEADER_RULE_ID = 800_001;
+const BILI_DAILY_REQUEST_TIMEOUT_MS = 30_000;
 
 export function createSatellitesProduct(platform) {
   const ownsDailySchedule = chrome.extension?.inIncognitoContext !== true;
@@ -15,20 +17,83 @@ export function createSatellitesProduct(platform) {
   let runController = null;
   let scheduleRepair = null;
   let scheduleRepairAttempts = 0;
+  let requestHeadersActive = false;
 
   async function requestJson(url, signal) {
-    const response = await fetch(url, {
-      cache: 'no-store',
-      credentials: 'include',
-      signal,
-      headers: { Accept: 'application/json' }
-    });
-    if (!response.ok) throw new Error('Bilibili request failed.');
-    return response.json();
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    const timeout = setTimeout(abort, BILI_DAILY_REQUEST_TIMEOUT_MS);
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        credentials: 'include',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          From: 'COSMIC_GEMINI'
+        }
+      });
+      if (!response.ok) throw new Error('Bilibili request failed.');
+      return response.json();
+    } finally {
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', abort);
+    }
+  }
+
+  async function removeRequestHeaderRule() {
+    if (!chrome.declarativeNetRequest?.updateSessionRules) return;
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [BILI_DAILY_HEADER_RULE_ID]
+    }).catch(() => {});
+  }
+
+  async function withRequestHeaders(task) {
+    if (!chrome.declarativeNetRequest?.updateSessionRules || !chrome.runtime?.id) return task();
+    await removeRequestHeaderRule();
+    try {
+      await chrome.declarativeNetRequest.updateSessionRules({
+        addRules: [{
+          id: BILI_DAILY_HEADER_RULE_ID,
+          priority: 100,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: [
+              { operation: 'set', header: 'Origin', value: 'https://www.bilibili.com' },
+              { operation: 'set', header: 'Referer', value: 'https://www.bilibili.com/' }
+            ]
+          },
+          condition: {
+            initiatorDomains: [chrome.runtime.id],
+            requestDomains: ['api.bilibili.com'],
+            regexFilter: '^https://api\\.bilibili\\.com/x/(web-interface/nav|member/web/exp/reward)(?:\\?.*)?$',
+            resourceTypes: ['xmlhttprequest']
+          }
+        }]
+      });
+      requestHeadersActive = true;
+    } catch {
+      return task();
+    }
+    try { return await task(); }
+    finally {
+      await removeRequestHeaderRule();
+      requestHeadersActive = false;
+    }
+  }
+
+  async function lastAttemptSlot() {
+    return String((await chrome.storage.local.get(BILI_DAILY_ATTEMPT_KEY))[BILI_DAILY_ATTEMPT_KEY] || '');
   }
 
   async function schedule(when) {
     await chrome.alarms.create(BILI_DAILY_ALARM, { when: Math.max(Date.now() + 1_000, Number(when)) });
+  }
+
+  async function scheduleNext() {
+    const plan = nextBilibiliPlan(Date.now(), await lastAttemptSlot());
+    await schedule(plan.due ? Date.now() + 1_000 : plan.when);
   }
 
   async function syncSchedule() {
@@ -39,13 +104,12 @@ export function createSatellitesProduct(platform) {
     const settings = await platform.readSettings();
     const feature = settings.satellites.biliDailyLogin;
     if (!feature.enabled) {
-      await chrome.alarms.clear(BILI_DAILY_ALARM);
-      await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+      await clearDisabledState();
       return;
     }
     const existing = await chrome.alarms.get(BILI_DAILY_ALARM);
     if (existing?.scheduledTime > Date.now()) return;
-    await schedule(feature.lastCompletedDate === bilibiliDateKey() ? nextBilibiliSchedule() : Date.now() + 1_000);
+    await scheduleNext();
     const latest = await platform.readSettings();
     if (!latest.satellites.biliDailyLogin.enabled) await clearDisabledState();
   }
@@ -62,6 +126,7 @@ export function createSatellitesProduct(platform) {
   }
 
   async function ensureSchedule() {
+    if (!requestHeadersActive) await removeRequestHeaderRule();
     try {
       await syncSchedule();
       scheduleRepairAttempts = 0;
@@ -87,7 +152,10 @@ export function createSatellitesProduct(platform) {
 
   async function clearDisabledState() {
     await chrome.alarms.clear(BILI_DAILY_ALARM);
-    await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
+    await Promise.allSettled([
+      chrome.storage.local.remove(BILI_DAILY_ATTEMPT_KEY),
+      removeRequestHeaderRule()
+    ]);
   }
 
   async function clearUnavailableState() {
@@ -102,49 +170,49 @@ export function createSatellitesProduct(platform) {
     } catch { return false; }
   }
 
+  async function deferUnavailableAttempt() {
+    const nextPlan = nextBilibiliPlan(Date.now(), await lastAttemptSlot());
+    await schedule(nextPlan.due
+      ? Date.now() + BILI_DAILY_DEFER_MS
+      : Math.min(Date.now() + BILI_DAILY_DEFER_MS, nextPlan.when));
+  }
+
   async function run(signal) {
     const settings = await platform.readSettings();
     const feature = settings.satellites.biliDailyLogin;
-    const today = bilibiliDateKey();
     if (!feature.enabled) {
       await clearDisabledState();
       return;
     }
-    if (feature.lastCompletedDate === today) {
-      await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
-      await schedule(nextBilibiliSchedule());
+
+    const plan = nextBilibiliPlan(Date.now(), await lastAttemptSlot());
+    if (!plan.due) {
+      await schedule(plan.when);
       return;
     }
-    if (browserReportsOffline()) {
-      await schedule(Math.min(Date.now() + BILI_DAILY_RETRY_MS, nextBilibiliSchedule()));
+    if (browserReportsOffline() || !await hasRegularBrowserWindow()) {
+      await deferUnavailableAttempt();
       return;
     }
-    if (!await hasRegularBrowserWindow()) {
-      await schedule(Math.min(Date.now() + BILI_DAILY_RETRY_MS, nextBilibiliSchedule()));
-      return;
-    }
-    const stored = (await chrome.storage.session.get(BILI_DAILY_RETRY_KEY))[BILI_DAILY_RETRY_KEY];
-    const attempts = stored?.date === today ? Number(stored.attempts || 0) : 0;
-    if (attempts >= BILI_DAILY_MAX_ATTEMPTS) {
-      await schedule(nextBilibiliSchedule());
-      return;
-    }
-    const nextAttempts = attempts + 1;
-    await chrome.storage.session.set({ [BILI_DAILY_RETRY_KEY]: { date: today, attempts: nextAttempts } });
+
+    const today = bilibiliDateKey();
     let completed = false;
     try {
-      const account = await requestJson('https://api.bilibili.com/x/web-interface/nav', signal);
-      if (account?.code === 0 && account?.data?.isLogin === true) {
-        const reward = await requestJson('https://api.bilibili.com/x/member/web/exp/reward', signal);
-        completed = reward?.code === 0 && reward?.data?.login === true;
-      }
+      await withRequestHeaders(async () => {
+        const account = await requestJson('https://api.bilibili.com/x/web-interface/nav', signal);
+        if (account?.code === 0 && account?.data?.isLogin === true) {
+          const reward = await requestJson('https://api.bilibili.com/x/member/web/exp/reward', signal);
+          completed = reward?.code === 0 && reward?.data?.login === true;
+        }
+      });
     } catch {}
     const latest = await platform.readSettings();
     if (signal.aborted || !latest.satellites.biliDailyLogin.enabled) {
       await clearDisabledState();
       return;
     }
-    if (completed) {
+    await chrome.storage.local.set({ [BILI_DAILY_ATTEMPT_KEY]: plan.id });
+    if (completed && latest.satellites.biliDailyLogin.lastCompletedDate !== today) {
       const saved = await platform.mutateSettings(current => ({
         ...current,
         satellites: {
@@ -156,13 +224,8 @@ export function createSatellitesProduct(platform) {
         await clearDisabledState();
         return;
       }
-      await chrome.storage.session.remove(BILI_DAILY_RETRY_KEY);
-      await schedule(nextBilibiliSchedule());
-      return;
     }
-    await schedule(nextAttempts < BILI_DAILY_MAX_ATTEMPTS
-      ? Math.min(Date.now() + BILI_DAILY_RETRY_MS, nextBilibiliSchedule())
-      : nextBilibiliSchedule());
+    await scheduleNext();
   }
 
   function runOnce() {

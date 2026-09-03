@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.11.1 — 2026-09-03
+
+- Reworked Bili Daily Login into two independent daily checks so an earlier confirmed result no longer suppresses the later reliability check. Missed dates and earlier windows are never replayed, browser restarts do not repeat a completed window, and failed requests wait for the next window instead of starting a retry loop.
+- Bilibili account checks now use the signed-in Chrome session with temporary Bilibili-compatible request headers, a bounded request timeout, and explicit reward verification. No Bilibili page or tab is opened, and Settings now describes the outcome without exposing schedule details.
+
 ## 6.10.7 — 2026-09-03
 
 - Reduced the Mailto Capture popover title to 14px, keeping it distinct from field content without making the compact heading visually heavy.

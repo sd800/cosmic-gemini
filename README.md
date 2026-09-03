@@ -60,7 +60,7 @@ Some websites present email links without clearly showing that selecting them wi
 
 #### Bili Daily Login
 
-Bilibili gives every signed-in account one coin when it visits each day. Receiving that coin otherwise depends on remembering to return every day. Bili Daily Login handles the recurring visit at 00:05 China Standard Time while Chrome is available, allowing the daily coin to be credited automatically.
+Bilibili gives every signed-in account one coin for completing its daily login. Receiving that coin otherwise depends on remembering to check in every day. Bili Daily Login handles the recurring check-in in the background while Chrome is available, allowing the daily coin to be credited automatically.
 
 #### Ad Marshal
 
@@ -122,7 +122,7 @@ All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Vide
 
 After you enable Bili Daily Login, the task runs on its own schedule while Chrome and the computer are running.
 
-After any length of downtime, one current-day task catches up when Chrome can next run. Earlier missed days are never replayed.
+After downtime, only the latest eligible current-day check can run. Earlier checks and prior dates are never replayed.
 
 Incognito windows use a separate temporary configuration. Each new incognito session starts with every product inactive and does not inherit settings or website rules from ordinary windows. Choices made in incognito last only until the final incognito window closes, and Bili Daily Login remains unavailable there.
 
@@ -160,13 +160,13 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, and Ad Marshal run locally. Cosmic Gemini stores only product settings, website rules you choose, whether Mailto Capture and Ad Marshal are enabled, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, and Ad Marshal run locally. Cosmic Gemini stores only product settings, website rules you choose, whether Mailto Capture and Ad Marshal are enabled, the No Autoplay audio autoplay setting, and the limited completion and schedule state required by Bili Daily Login. Stored website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 
 Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Bili Daily Login does not inspect whether or when you open Bilibili.
 
-When Bili Daily Login is enabled, its background schedule contacts Bilibili while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
+When Bili Daily Login is enabled, its background schedule contacts only Bilibili account services while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 
 ## Compatibility
 

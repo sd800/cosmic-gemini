@@ -102,7 +102,9 @@ Temporary artifacts are written to the Origin Private File System instead of hol
 
 Satellites settings collects smaller products and scheduled tools that do not require popup controls. Each item owns one settings card containing its control, description, and privacy details. Governance remains independent: Mailto Capture belongs to Standing Province, while Bili Daily Login is implemented by the Operations Province Satellites product.
 
-Bili Daily Login is disabled by default and has no Bilibili content script, tab listener, URL inspection, or browsing trigger. Operations Province routes its service-worker alarm to the Satellites product, which schedules the task for 00:05 China Standard Time and uses the same UTC+8 boundary for its completion date. Chrome alarms do not wake a sleeping computer or run after Chrome exits; after a missed run, the product schedules one task for the current day and never replays earlier dates. An in-memory single-flight guard merges simultaneous startup and restored-alarm triggers. Before any network request, the product skips the attempt when `navigator.onLine` explicitly reports offline. An online result is treated only as permission to try because it does not guarantee internet reachability. The product then requests Bilibili's account navigation and daily reward endpoints with the existing signed-in Chrome session and records the completed date after verification. Failed work may run at most three times that day; its retry counter is session-only.
+Bili Daily Login is disabled by default and has no Bilibili content script, tab listener, URL inspection, or browsing trigger. Operations Province routes its service-worker alarm to the Satellites product, which defines daytime and evening checks at 10:05 and 18:05 China Standard Time and uses the same UTC+8 boundary for its completion date. Chrome alarms do not wake a sleeping computer or run after Chrome exits. After downtime, only the latest eligible check for the current day can run; earlier windows and prior dates are never replayed. A persistent slot marker prevents browser restarts from repeating a completed check, while an in-memory single-flight guard merges simultaneous startup and restored-alarm triggers.
+
+Before any request, the product waits for a regular Chrome window and skips network work when `navigator.onLine` explicitly reports offline. Each eligible check temporarily applies Bilibili-compatible `Origin` and `Referer` headers only to this extension's requests to `api.bilibili.com`, then removes the rule in `finally`. It requests the account navigation endpoint with the existing signed-in Chrome session, verifies the daily result through the reward endpoint, and limits each request to 30 seconds. The second check remains scheduled even after the first confirms completion. A failed check is left for the next window rather than starting a retry loop. No Bilibili page or tab is opened.
 
 ## State and lifecycle
 
@@ -118,7 +120,7 @@ For ordinary windows, `chrome.storage.local` stores one versioned settings objec
 - Mailto Capture: one enabled setting
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference
 - Video Download: preferred quality and whether Chrome should ask for a save location
-- Satellites: Bili Daily Login switch state and last completed date
+- Satellites: Bili Daily Login switch state, last completed date, and most recent attempted schedule slot
 - Ad Marshal: one unified enabled setting; the product keeps separate internal policies for its managed sites
 - Interface locale
 

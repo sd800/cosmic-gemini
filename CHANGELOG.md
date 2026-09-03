@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.10.3 — 2026-09-03
+
+- Removed the empty status row below Mailto Capture actions. Copy feedback now occupies space only after a success or failure message appears.
+
 ## 6.10.2 — 2026-09-03
 
 - Reduced the Mailto Capture popover's width, maximum height, padding, spacing, and shadow so it occupies less of the page. Field labels and values are now slightly larger for easier reading, while the title and button text remain unchanged.

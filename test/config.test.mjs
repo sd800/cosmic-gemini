@@ -250,6 +250,11 @@ test('Ad Marshal uses one explicit switch without migrating former per-site sett
   assert.equal(zhihu.siteId, 'zhihuCom');
   assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhuanlan.zhihu.com/p/1').active, true);
   assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhimg.com/').active, false);
+  const gmail = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://mail.google.com/mail/u/1/#inbox');
+  assert.equal(gmail.active, true);
+  assert.equal(gmail.siteId, 'gmailCom');
+  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://chat.google.com/').active, false);
+  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://play.google.com/').active, false);
   const settingsState = adMarshalState({ version: 17, adMarshal: { enabled: true } }, '');
   assert.equal(settingsState.enabled, true);
   assert.equal(settingsState.supported, false);

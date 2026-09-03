@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.9.1 — 2026-09-03
+
+- Added a narrowly scoped Gmail policy to Ad Marshal. In an enabled `mail.google.com` tab, repeated submissions to the exact `play.google.com/log` telemetry endpoint now receive a local successful response before another blocker can reject them, preventing the logging queue from repeatedly retrying.
+- The policy also covers the embedded Chat and Google top-bar frames that use the same logger. It leaves their scripts and all Gmail mail data, synchronization, attachments, authentication, Chat, Meet, and notification connections unchanged.
+
 ## 6.8.5 — 2026-09-02
 
 - Deepened the dark-mode settings switch color toward the Cosmic Gemini logo blue while retaining enough contrast against dark surfaces.

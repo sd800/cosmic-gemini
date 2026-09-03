@@ -2,7 +2,8 @@ import {
   FEATURE_IDS,
   INCOGNITO_SETTINGS_KEY,
   SETTINGS_KEY,
-  adMarshalState
+  adMarshalState,
+  hostnameFromUrl
 } from '../../../core/config.js';
 
 const RULE_ID_START = 1_600_000_000;
@@ -38,8 +39,19 @@ const SITE_POLICIES = Object.freeze({
       'http://*.zhihu.com/*',
       'https://*.zhihu.com/*'
     ])
+  }),
+  gmailCom: Object.freeze({
+    matches: Object.freeze([
+      'http://mail.google.com/*',
+      'https://mail.google.com/*'
+    ])
   })
 });
+const GMAIL_RUNTIME_FRAME_HOSTS = new Set([
+  'mail.google.com',
+  'chat.google.com',
+  'ogs.google.com'
+]);
 const TENCENT_QQ_TRACKING_DOMAINS = Object.freeze([
   'h.trace.qq.com',
   'btrace.qq.com',
@@ -176,11 +188,25 @@ function zhihuRules(tabId, base) {
   ];
 }
 
+function gmailRules(tabId, base) {
+  return [{
+    id: base,
+    priority: 100,
+    action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.json' } },
+    condition: {
+      tabIds: [tabId],
+      regexFilter: '^https://play\\.google\\.com/log(?:\\?.*)?$',
+      resourceTypes: ['xmlhttprequest', 'ping', 'other']
+    }
+  }];
+}
+
 function rulesForTab(tabId, base, siteId) {
   if (siteId === 'newsQqCom') return newsQqRules(tabId, base);
   if (siteId === 'wwwQqCom') return wwwQqRules(tabId, base);
   if (siteId === 'douyinCom') return douyinRules(tabId, base);
   if (siteId === 'zhihuCom') return zhihuRules(tabId, base);
+  if (siteId === 'gmailCom') return gmailRules(tabId, base);
   return [];
 }
 
@@ -200,8 +226,10 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     state(settings, url) { return adMarshalState(settings, url); },
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);
-      const active = context.frameId === 0 && state.active;
-      if (context.frameId === 0) await syncTabRules(context.tabId, active ? state.siteId : '');
+      const gmailFrame = state.siteId === 'gmailCom'
+        && GMAIL_RUNTIME_FRAME_HOSTS.has(hostnameFromUrl(context.frameUrl));
+      const active = state.active && (context.frameId === 0 || gmailFrame);
+      if (context.frameId === 0) await syncTabRules(context.tabId, state.active ? state.siteId : '');
       await pageRuntimeHost.sync(product, context, active);
       return active;
     },

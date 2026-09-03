@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.8.5');
+assert.equal(manifest.version, '6.9.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -65,7 +65,13 @@ assert.deepEqual(manifest.web_accessible_resources, [{
     'http://www.douyin.com/*',
     'https://www.douyin.com/*',
     'http://live.douyin.com/*',
-    'https://live.douyin.com/*'
+    'https://live.douyin.com/*',
+    'http://mail.google.com/*',
+    'https://mail.google.com/*',
+    'http://chat.google.com/*',
+    'https://chat.google.com/*',
+    'http://ogs.google.com/*',
+    'https://ogs.google.com/*'
   ]
 }]);
 
@@ -319,6 +325,8 @@ assert.match(adMarshal, /DOUYIN_TELEMETRY_DOMAINS[\s\S]*mon\.zijieapi\.com[\s\S]
 assert.match(adMarshal, /live\.douyin\.com/);
 assert.match(adMarshal, /zhihuCom[\s\S]*http:\/\/\*\.zhihu\.com\/\*/);
 assert.match(adMarshal, /ZHIHU_TELEMETRY_DOMAINS[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*crash2\.zhihu\.com[\s\S]*hm\.baidu\.com/);
+assert.match(adMarshal, /gmailCom[\s\S]*mail\.google\.com[\s\S]*play\\\\\.google\\\\\.com\/log/);
+assert.match(adMarshal, /GMAIL_RUNTIME_FRAME_HOSTS[\s\S]*chat\.google\.com[\s\S]*ogs\.google\.com/);
 assert.match(adMarshal, /\/@cfe\/sentry-script@[\s\S]*\/za-js-sdk@/);
 assert.match(adMarshal, /ad-marshal-empty\.js[\s\S]*ad-marshal-empty\.json[\s\S]*ad-marshal-empty\.html[\s\S]*ad-marshal-transparent\.svg/);
 assert.match(adMarshal, /news\.ssp\.qq\.com[\s\S]*op\.ssp\.qq\.com[\s\S]*127\.0\.0\.1:11601\/check/);
@@ -331,6 +339,7 @@ assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-c
 assert.match(adMarshalRuntime, /wwwQqCom[\s\S]*h5\.ssp\.qq\.com[\s\S]*qqhome-col-1:has\(> \.game-rank-wrap\)/);
 assert.match(adMarshalRuntime, /douyinCom[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com[\s\S]*collect\/[\s\S]*browser\.cn\.js/);
 assert.match(adMarshalRuntime, /zhihuCom[\s\S]*hostSuffix: '\.zhihu\.com'[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*\/za-js-sdk@/);
+assert.match(adMarshalRuntime, /gmailCom[\s\S]*mail\.google\.com[\s\S]*chat\.google\.com[\s\S]*requestPaths: new Set\(\['play\.google\.com\/log'\]\)/);
 assert.doesNotMatch(adMarshalRuntime, /MutationObserver|data-beacon|removeChild/,
   'Ad Marshal must not remove framework-owned DOM nodes or alter Beacon metadata.');
 assert.doesNotMatch(adMarshalRuntime, /Node\.prototype\.(?:appendChild|insertBefore|replaceChild)\s*=/,

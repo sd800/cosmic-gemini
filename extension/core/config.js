@@ -334,7 +334,9 @@ export function adMarshalState(settings, url) {
         ? 'douyinCom'
         : hostname === 'zhihu.com' || hostname.endsWith('.zhihu.com')
           ? 'zhihuCom'
-          : '';
+          : hostname === 'mail.google.com'
+            ? 'gmailCom'
+            : '';
   const enabled = normalized.adMarshal.enabled === true;
   const supported = !!siteId;
   return {

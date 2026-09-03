@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.10.6 — 2026-09-03
+
+- Aligned the Mailto Capture close control with the title's text baseline and adjusted the × glyph independently so both remain on one visual line.
+
 ## 6.10.5 — 2026-09-03
 
 - Reduced the height of the Mailto Capture heading area by tightening its line height, top padding, spacing, and close control while preserving the existing title font size.

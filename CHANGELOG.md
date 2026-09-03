@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.10.5 — 2026-09-03
+
+- Reduced the height of the Mailto Capture heading area by tightening its line height, top padding, spacing, and close control while preserving the existing title font size.
+
 ## 6.10.3 — 2026-09-03
 
 - Removed the empty status row below Mailto Capture actions. Copy feedback now occupies space only after a success or failure message appears.

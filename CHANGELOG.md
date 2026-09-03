@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.10.7 — 2026-09-03
+
+- Reduced the Mailto Capture popover title to 14px, keeping it distinct from field content without making the compact heading visually heavy.
+
 ## 6.10.6 — 2026-09-03
 
 - Aligned the Mailto Capture close control with the title's text baseline and adjusted the × glyph independently so both remain on one visual line.

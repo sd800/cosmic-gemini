@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.10.2 — 2026-09-03
+
+- Reduced the Mailto Capture popover's width, maximum height, padding, spacing, and shadow so it occupies less of the page. Field labels and values are now slightly larger for easier reading, while the title and button text remain unchanged.
+
 ## 6.10.1 — 2026-09-03
 
 - Added Mailto Capture as the first tool in Satellites settings. It is enabled by default in ordinary windows, begins disabled in incognito, and can be turned off independently without adding a popup control or activity icon.

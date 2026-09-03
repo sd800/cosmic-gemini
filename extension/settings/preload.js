@@ -96,6 +96,10 @@
       if (status) status.hidden = false;
     }
   }
+  const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
+  if (mailtoCaptureEnabled) {
+    mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
+  }
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
   if (adMarshalEnabled) adMarshalEnabled.checked = cached.adMarshal?.enabled === true;
   const preferredQuality = document.querySelector('#preferredQuality');

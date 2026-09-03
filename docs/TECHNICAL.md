@@ -1,6 +1,6 @@
 # Technical design
 
-Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Ad Marshal, Any Copy, Image Download, Video Download, and Satellites. Its authority chain is `central → province → product → feature`. Central decides jurisdiction and routes work, provinces coordinate their assigned products, products execute independently, and features or nested subfeatures implement the technical operations. Any Copy and Any Copy Enhanced own separate activation, runtime, bridge, and activity-state paths even though they share one settings page.
+Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Mailto Capture, Ad Marshal, Any Copy, Image Download, Video Download, and Satellites. Its authority chain is `central → province → product → feature`. Central decides jurisdiction and routes work, provinces coordinate their assigned products, products execute independently, and features or nested subfeatures implement the technical operations. Any Copy and Any Copy Enhanced own separate activation, runtime, bridge, and activity-state paths even though they share one settings page.
 
 ## Extension layout
 
@@ -10,13 +10,13 @@ The `extension` root contains only `manifest.json`. Chrome entry points and prod
 
 Central records the jurisdiction map and accepts browser events and typed messages. It does not contain product rules, storage mutations, page injection, scanners, scheduling, network fetches, workspace operations, media assembly, or download execution.
 
-Standing Province governs Native Scroll, No Autoplay, and Ad Marshal. Operations Province governs Any Copy, Any Copy Enhanced, Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download and Video Download. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
+Standing Province governs Native Scroll, No Autoplay, Mailto Capture, and Ad Marshal. Operations Province governs Any Copy, Any Copy Enhanced, Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download and Video Download. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
 
 Products retain separate state and execution paths. A product may use province-coordinated infrastructure, but it cannot import or control a sibling product. Features such as bridges, runtimes, scanners, adapters, and offscreen processors may contain further subfeatures as required without changing the authority chain. Shared browser and storage primitives live in `background/platform.js`; they provide infrastructure without deciding product policy.
 
 ## Page startup
 
-`content/central-page.js` is the only declarative content script. This small isolated entry loads at `document_start`, asks `background/central.js` for a per-frame decision, and contains no product behavior. Central routes the request to the assigned province and product. The product's page-runtime feature injects its isolated bridge and main-world runtime only when that product is active in the current page context. Inactive products are not injected. Native Scroll and No Autoplay remain top-frame products; Any Copy may be injected in matching frames; Any Copy Enhanced remains limited to its active top tab.
+`content/central-page.js` is the only declarative content script. This small isolated entry loads at `document_start`, asks `background/central.js` for a per-frame decision, and contains no product behavior. Central routes the request to the assigned province and product. The product's page-runtime feature injects its isolated bridge and main-world runtime only when that product is active in the current page context. Inactive products are not injected. Native Scroll and No Autoplay remain top-frame products. Mailto Capture and Any Copy may be injected in matching frames, while Any Copy Enhanced remains limited to its active top tab.
 
 Each injected feature bridge retrieves only its current page state through the authority chain and passes it to its main-world runtime through token-bound events. Stored rule collections and extension APIs are not exposed to page code. Every injected product has separate bridges, runtimes, lifecycle messages, and cleanup paths. When a new decision deactivates one product, that product restores its page changes, removes its listeners and observers, and disposes without starting or stopping another product.
 
@@ -39,6 +39,14 @@ Audio autoplay is denied silently by default. An Always inactive website rule de
 No Autoplay restores media playback and Web Audio methods and removes its event hooks whenever it becomes inactive, then disposes its runtime and bridge.
 
 No Autoplay operates only on media elements and audio contexts inside the current webpage. The extension declares no `commands` or `nativeMessaging` permission and does not use Media Session action handlers, operating-system media keys, AppleScript, or system audio APIs. Releasing blocked webpage media can call that page element's original `play()` or audio context `resume()` method, but it cannot issue a play or pause command to a separate desktop music application.
+
+## Mailto Capture
+
+Mailto Capture is a Standing Province product displayed as the first item in Satellites settings. It is enabled by default in ordinary windows, disabled by default in each incognito session, and has no popup control or activity icon. Its independent product module owns the bridge and runtime lifecycle after Central authorizes it through Standing Province.
+
+The runtime uses capture-phase delegated activation handling in every eligible HTTP or HTTPS frame, so dynamically created links require no DOM scan or observer. A trusted left or middle activation of a `mailto:` anchor is cancelled before the browser hands it to the operating system. The parser preserves path and query recipients, repeated To, CC, and BCC fields, subject, body, repeated extension fields, encoded line breaks, and literal plus signs.
+
+The page popover is created only after an intercepted activation and uses a closed Shadow DOM. Recipient values are plain selectable text rather than links. A mailto value containing only one address offers Copy address. If it contains any additional recipient or field, the popover instead offers Copy message for the complete structured content. Clicking outside, pressing Escape, disabling the product, replacing the page document, or disposing the runtime removes the popover and all associated state. The product never navigates to the mailto target and does not retain addresses or message fields.
 
 ## Ad Marshal
 
@@ -92,7 +100,7 @@ Temporary artifacts are written to the Origin Private File System instead of hol
 
 ## Satellites
 
-Satellites contains opt-in tools that do not require popup controls. Each Satellite owns one settings card containing its control, description, and privacy details.
+Satellites settings collects smaller products and scheduled tools that do not require popup controls. Each item owns one settings card containing its control, description, and privacy details. Governance remains independent: Mailto Capture belongs to Standing Province, while Bili Daily Login is implemented by the Operations Province Satellites product.
 
 Bili Daily Login is disabled by default and has no Bilibili content script, tab listener, URL inspection, or browsing trigger. Operations Province routes its service-worker alarm to the Satellites product, which schedules the task for 00:05 China Standard Time and uses the same UTC+8 boundary for its completion date. Chrome alarms do not wake a sleeping computer or run after Chrome exits; after a missed run, the product schedules one task for the current day and never replays earlier dates. An in-memory single-flight guard merges simultaneous startup and restored-alarm triggers. Before any network request, the product skips the attempt when `navigator.onLine` explicitly reports offline. An online result is treated only as permission to try because it does not guarantee internet reachability. The product then requests Bilibili's account navigation and daily reward endpoints with the existing signed-in Chrome session and records the completed date after verification. Failed work may run at most three times that day; its retry counter is session-only.
 
@@ -107,6 +115,7 @@ For ordinary windows, `chrome.storage.local` stores one versioned settings objec
 - No Autoplay: a global enabled default plus Always inactive, Always Standard, and Always Enhanced website rules, an all-sites audio autoplay setting, and hostname-specific audio autoplay rules
 - Any Copy: its own site rules
 - Any Copy Enhanced: current-tab activation for the browser session
+- Mailto Capture: one enabled setting
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference
 - Video Download: preferred quality and whether Chrome should ask for a save location
 - Satellites: Bili Daily Login switch state and last completed date
@@ -127,7 +136,7 @@ Per-tab intervention state contains product booleans and is cleared on navigatio
 
 ## Resource use
 
-The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated download session. Image Download and Video Download views react to session-storage changes instead of polling. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Ad Marshal's native network rules are limited to active managed-site tabs, and its filtered page runtime uses no observer, timer, or polling loop. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
+The runtimes are event-driven. There is no analytics code or persistent background page. Observers are feature-scoped and activated only when required: after Any Copy detects a restriction, while Any Copy Enhanced displays a reading view, while No Autoplay Enhanced mode removes newly inserted media, or during an explicitly activated download session. Mailto Capture uses delegated activation listeners without a DOM observer or polling, and it creates its Shadow DOM only after a mailto link is selected. Image Download and Video Download views react to session-storage changes instead of polling. Image or media fetching, processing, and the offscreen document start only after a download or capture action. Ad Marshal's native network rules are limited to active managed-site tabs, and its filtered page runtime uses no observer, timer, or polling loop. Bili Daily Login contacts Bilibili only from its own alarm while Chrome and the computer are running.
 
 ## Browser boundaries
 

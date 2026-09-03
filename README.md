@@ -52,7 +52,11 @@ Detection remains limited to the active tab session. It follows same-site naviga
 
 ### Satellites
 
-Satellites contains optional tools that perform small background tasks without needing controls in the popup.
+Satellites contains optional tools that work without direct controls in the popup.
+
+#### Mailto Capture
+
+Some websites present email links without clearly showing that selecting them will open a system mail app. Accidental activation interrupts browsing and reveals prefilled recipients, CC and BCC addresses, a subject, a message, or other fields only after the handoff begins. Mailto Capture intercepts the link first and shows those details in a compact page popover for copying.
 
 #### Bili Daily Login
 
@@ -114,7 +118,7 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
-All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Bili Daily Login and Ad Marshal are off by default. Ad Marshal uses one switch and runs only on its managed sites.
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Mailto Capture is on by default in ordinary windows, while Bili Daily Login and Ad Marshal are off by default. Ad Marshal uses one switch and runs only on its managed sites.
 
 After you enable Bili Daily Login, the task runs on its own schedule while Chrome and the computer are running.
 
@@ -156,11 +160,11 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, and Ad Marshal run locally. Cosmic Gemini stores only product settings, website rules you choose, whether Ad Marshal is enabled, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, and Ad Marshal run locally. Cosmic Gemini stores only product settings, website rules you choose, whether Mailto Capture and Ad Marshal are enabled, the No Autoplay audio autoplay setting, and the Bili Daily Login completion date. Stored website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 
-Cosmic Gemini does not keep browsing history or an activity log or use analytics. Bili Daily Login does not inspect whether or when you open Bilibili.
+Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Bili Daily Login does not inspect whether or when you open Bilibili.
 
 When Bili Daily Login is enabled, its background schedule contacts Bilibili while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 

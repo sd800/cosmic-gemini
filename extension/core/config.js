@@ -9,6 +9,7 @@ export const FEATURE_IDS = Object.freeze({
   NO_AUTOPLAY: 'noAutoplay',
   ANY_COPY: 'anyCopy',
   ANY_COPY_ENHANCED: 'anyCopyEnhanced',
+  MAILTO_CAPTURE: 'mailtoCapture',
   AD_MARSHAL: 'adMarshal',
   IMAGE_DOWNLOAD: 'imageDownload',
   VIDEO_DOWNLOAD: 'videoDownload'
@@ -19,6 +20,7 @@ export const FEATURE_SLOTS = Object.freeze({
   NO_AUTOPLAY: 20,
   ANY_COPY: 30,
   ANY_COPY_ENHANCED: 31,
+  MAILTO_CAPTURE: 32,
   AD_MARSHAL: 35,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
@@ -32,7 +34,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 17,
+  version: 18,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -44,6 +46,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   anyCopy: Object.freeze({
     siteRules: Object.freeze([])
+  }),
+  mailtoCapture: Object.freeze({
+    enabled: true
   }),
   adMarshal: Object.freeze({
     enabled: false
@@ -74,6 +79,9 @@ export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
   }),
   noAutoplay: Object.freeze({
     ...DEFAULT_SETTINGS.noAutoplay,
+    enabled: false
+  }),
+  mailtoCapture: Object.freeze({
     enabled: false
   }),
   adMarshal: Object.freeze({
@@ -155,7 +163,7 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 17,
+    version: 18,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules ?? value.nsnaWhitelistRules)
     },
@@ -163,6 +171,9 @@ export function normalizeSettings(value = {}) {
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
       siteRules: normalizeRules(value.anyCopy?.siteRules ?? value.anyCopy?.enforcedRules)
+    },
+    mailtoCapture: {
+      enabled: value.mailtoCapture?.enabled !== false
     },
     adMarshal: {
       enabled: value.adMarshal?.enabled === true
@@ -320,6 +331,19 @@ export function anyCopyEnhancedState(url, tabActive = false) {
     scope: 'tab',
     exactActive: active,
     matchedRule: ''
+  };
+}
+
+export function mailtoCaptureState(settings, url) {
+  const normalized = normalizeSettings(settings);
+  const hostname = hostnameFromUrl(url);
+  const enabled = normalized.mailtoCapture.enabled === true;
+  return {
+    ...normalized.mailtoCapture,
+    hostname,
+    supported: !!hostname,
+    active: !!hostname && enabled,
+    enabled
   };
 }
 

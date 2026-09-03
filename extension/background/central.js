@@ -8,17 +8,14 @@ import { createOperationsProvince } from './provinces/operations.js';
 import { createStandingProvince } from './provinces/standing.js';
 
 export const PROVINCE_PRODUCTS = Object.freeze({
-  standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.AD_MARSHAL]),
+  standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE, FEATURE_IDS.AD_MARSHAL]),
   operations: Object.freeze([FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, 'satellites', 'administration']),
   customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD])
 });
 
 const PAGE_PRODUCTS = Object.freeze([
-  FEATURE_IDS.NATIVE_SCROLL,
-  FEATURE_IDS.NO_AUTOPLAY,
-  FEATURE_IDS.AD_MARSHAL,
-  FEATURE_IDS.ANY_COPY,
-  FEATURE_IDS.ANY_COPY_ENHANCED
+  FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE,
+  FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED
 ]);
 const STATE_PRODUCTS = Object.freeze([
   ...PAGE_PRODUCTS,

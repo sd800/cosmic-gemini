@@ -52,7 +52,11 @@ Video Download 会查找当前标签页中可以下载的媒体，并直接打�
 
 ### Satellites
 
-Satellites 收纳无需在控制窗口中直接操作、适合在后台完成的小功能。
+Satellites 收纳无需在控制窗口中直接操作的小功能。
+
+#### Mailto Capture
+
+部分网站不会明确提示邮件链接会打开系统邮件应用。误触后，浏览过程会被打断，预填的收件人、抄送与密送地址、主题、正文或其他信息也要在跳转开始后才能看到。Mailto Capture 会先拦截链接，在网页内用简洁的浮层显示有关信息，供您按需复制。
 
 #### Bili Daily Login
 
@@ -114,7 +118,7 @@ Any Copy 会为当前网站启用并保存对应的主机名规则。Any Copy �
 
 **全部设置**位于底部的独立一行并靠右显示。紧凑的主控制窗口会暂时隐藏 Cosmic Gemini 名称。全部设置可进入各项功能的设置页面，也可以将全部设置和网站规则恢复为默认状态。
 
-全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download 与 Satellites 的入口。Bili Daily Login 与 Ad Marshal 均默认关闭。Ad Marshal 使用一个统一开关，并且只会在管制网站中运行。
+全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启，Bili Daily Login 与 Ad Marshal 均默认关闭。Ad Marshal 使用一个统一开关，并且只会在管制网站中运行。
 
 开启 Bili Daily Login 后，它会在电脑已唤醒且 Chrome 正在运行时按日程执行。
 
@@ -156,11 +160,11 @@ No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问�
 
 ## 隐私
 
-Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download 和 Ad Marshal 完全在本地运行。Cosmic Gemini 仅保存各项功能的设置、您选择的网站规则、Ad Marshal 是否开启、No Autoplay 的声音自动播放设置，以及 Bili Daily Login 最近一次完成日期。保存的网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中。
+Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture 和 Ad Marshal 完全在本地运行。Cosmic Gemini 仅保存各项功能的设置、您选择的网站规则、Mailto Capture 与 Ad Marshal 是否开启、No Autoplay 的声音自动播放设置，以及 Bili Daily Login 最近一次完成日期。保存的网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中。
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 
-Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
+Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
 
 开启 Bili Daily Login 后，后台日程仅在电脑已唤醒且 Chrome 正在运行时访问哔哩哔哩服务。它会直接使用 Chrome 中已有的登录状态，不会读取或保存您的哔哩哔哩密码。
 

@@ -6,7 +6,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 17,
+    version: 18,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -26,6 +26,9 @@ export function settingsViewCache(states = {}) {
     },
     anyCopy: {
       siteRules: rules(states.anyCopy?.siteRules)
+    },
+    mailtoCapture: {
+      enabled: states.mailtoCapture?.enabled !== false
     },
     imageDownload: {
       workspaceMode: states.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',

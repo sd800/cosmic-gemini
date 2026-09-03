@@ -9,6 +9,7 @@ import {
   anyCopyState,
   featureState,
   hostnameFromUrl,
+  mailtoCaptureState,
   matchingRule,
   normalizeRule,
   normalizeSettings,
@@ -19,6 +20,7 @@ import {
 test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.nativeScroll.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.mailtoCapture.enabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.adMarshal.enabled, false);
@@ -35,6 +37,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.equal(settings.noAutoplay.audioAutoplayAllSites, false);
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
+  assert.deepEqual(settings.mailtoCapture, { enabled: true });
   assert.deepEqual(settings.adMarshal, { enabled: false });
   assert.equal('anyCopyEnhanced' in settings, false);
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
@@ -229,6 +232,16 @@ test('only HTTP and HTTPS pages expose a hostname', () => {
   assert.equal(hostnameFromUrl('chrome://extensions'), '');
 });
 
+test('Mailto Capture follows its ordinary and incognito defaults without website rules', () => {
+  const ordinary = mailtoCaptureState(DEFAULT_SETTINGS, 'https://example.com/page');
+  assert.equal(ordinary.enabled, true);
+  assert.equal(ordinary.active, true);
+  assert.equal(ordinary.hostname, 'example.com');
+  assert.equal(mailtoCaptureState(DEFAULT_INCOGNITO_SETTINGS, 'https://example.com/page').active, false);
+  assert.equal(mailtoCaptureState({ mailtoCapture: { enabled: false } }, 'https://example.com/page').active, false);
+  assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
+});
+
 test('Ad Marshal uses one explicit switch without migrating former per-site settings', () => {
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.douyin.com/jingxuan').active, false);
@@ -275,6 +288,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     },
     noAutoplay: { enabled: true, audioAutoplayAllSites: true },
     anyCopy: { siteRules: ['copy.example'] },
+    mailtoCapture: { enabled: false, active: true },
     imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
     satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
@@ -292,6 +306,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.deepEqual(cache.adMarshal, { enabled: true });
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
+  assert.deepEqual(cache.mailtoCapture, { enabled: false });
   assert.equal('anyCopyEnhanced' in cache, false);
   assert.deepEqual(cache.imageDownload, { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false });
   assert.deepEqual(cache.videoDownload, { preferredQuality: '1080', askWhereToSave: false });

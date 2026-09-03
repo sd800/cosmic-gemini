@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.10.1 — 2026-09-03
+
+- Added Mailto Capture as the first tool in Satellites settings. It is enabled by default in ordinary windows, begins disabled in incognito, and can be turned off independently without adding a popup control or activity icon.
+- Mailto Capture intercepts mailto links before a system mail app opens and presents their recipients, CC and BCC addresses, subject, message, and additional fields in a compact popover built with a closed Shadow DOM. A single plain address offers Copy address, while richer links offer only Copy message. The popover closes when you click outside it or press Escape, and it retains no address or message data.
+
 ## 6.9.1 — 2026-09-03
 
 - Added a narrowly scoped Gmail policy to Ad Marshal. In an enabled `mail.google.com` tab, repeated submissions to the exact `play.google.com/log` telemetry endpoint now receive a local successful response before another blocker can reject them, preventing the logging queue from repeatedly retrying.

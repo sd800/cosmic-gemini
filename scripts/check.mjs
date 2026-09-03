@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '6.9.1');
+assert.equal(manifest.version, '6.10.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -196,9 +196,11 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
+assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="biliDailyLogin"/);
 assert.match(satellitesSettings, /id="adMarshalEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:NewsQqCom|DouyinCom|ZhihuCom)"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_ENABLED/);
+assert.match(settingsSource, /featureId: 'mailtoCapture'/);
 assert.match(settingsSource, /states\?\.preferences \|\| states/);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await source('settings', name);
@@ -222,6 +224,8 @@ const runtimeHost = await source('background', 'features', 'page-runtime-host.js
 const nativeScroll = await source('background', 'products', 'standing', 'native-scroll.js');
 const nativeScrollRuntime = await source('content', 'runtime.js');
 const noAutoplay = await source('background', 'products', 'standing', 'no-autoplay.js');
+const mailtoCapture = await source('background', 'products', 'standing', 'mailto-capture.js');
+const mailtoCaptureRuntime = await source('content', 'mailto-capture-runtime.js');
 const adMarshal = await source('background', 'products', 'standing', 'ad-marshal.js');
 const adMarshalRuntime = await source('content', 'ad-marshal-runtime.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
@@ -290,7 +294,7 @@ for (const [id, province] of [['standing', standing], ['operations', operations]
   assert.match(province, new RegExp(`id: '${id}'`));
   assert.match(province, /products/);
 }
-assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct[\s\S]*createAdMarshalProduct|createAdMarshalProduct[\s\S]*createNativeScrollProduct[\s\S]*createNoAutoplayProduct/);
+assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct[\s\S]*createMailtoCaptureProduct[\s\S]*createAdMarshalProduct/);
 assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /createCustomsObservationRegistry/);
@@ -312,6 +316,14 @@ assert.match(nativeScrollRuntime, /usesNativeInteractionCompatibility\(\)[\s\S]*
 assert.match(nativeScrollRuntime, /if \(this\.usesNativeInteractionCompatibility\(\)\) return;/);
 assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRegistry/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
+assert.match(mailtoCapture, /content\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture-runtime\.js/);
+assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
+assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
+assert.match(mailtoCaptureRuntime, /onPointerDown[\s\S]*path\.includes\(this\.host\)[\s\S]*this\.close\(\)/);
+assert.match(mailtoCaptureRuntime, /event\.key === 'Escape'[\s\S]*this\.close\(true\)/);
+assert.match(mailtoCaptureRuntime, /simpleAddressOnly[\s\S]*labels\.copyAddress[\s\S]*labels\.copyMessage/);
+assert.match(mailtoCaptureRuntime, /user-select:text/);
+assert.doesNotMatch(mailtoCaptureRuntime, /MutationObserver|setInterval|location\.(?:href|assign|replace)|document\.createElement\(['"]a['"]\)|Open mail app/);
 assert.match(adMarshal, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2021\/advertisement\//);
 assert.match(adMarshal, /wwwQqCom[\s\S]*https:\/\/www\.qq\.com\/\*/);
@@ -427,8 +439,8 @@ const centralPage = await source('content', 'central-page.js');
 assert.match(centralPage, /cosmic-gemini\.central/);
 assert.match(centralPage, /CG_SYNC_CENTRAL/);
 assert.match(centralPage, /syncFailures/);
-assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|adMarshal|anyCopy|imageDownload|videoDownload|chrome\.storage/);
-for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'ad-marshal-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js']) {
+assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|mailtoCapture|adMarshal|anyCopy|imageDownload|videoDownload|chrome\.storage/);
+for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'mailto-capture-bridge.js', 'ad-marshal-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js']) {
   const value = await source('content', bridge);
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);

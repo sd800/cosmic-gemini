@@ -175,6 +175,10 @@ function render() {
     const status = biliDailyLogin.closest('.satellite-control')?.querySelector('.incognito-status');
     if (status) status.hidden = available;
   }
+  const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
+  if (mailtoCaptureEnabled) {
+    mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
+  }
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
   if (adMarshalEnabled) {
     adMarshalEnabled.checked = (states?.preferences || states)?.adMarshal?.enabled === true;
@@ -277,6 +281,10 @@ function bindView() {
   if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
   }), [biliDailyLogin]));
+  const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
+  if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
+  }), [mailtoCaptureEnabled]));
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
   if (adMarshalEnabled) adMarshalEnabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_AD_MARSHAL_ENABLED', enabled: adMarshalEnabled.checked

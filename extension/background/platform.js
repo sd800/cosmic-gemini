@@ -317,6 +317,7 @@ export function createPlatform() {
       nativeScroll: settings.nativeScroll,
       noAutoplay: settings.noAutoplay,
       anyCopy: settings.anyCopy,
+      mailtoCapture: settings.mailtoCapture,
       adMarshal: settings.adMarshal
     });
   }
@@ -327,7 +328,10 @@ export function createPlatform() {
     if (settingsChange && pageSettingsSignature(settingsChange.oldValue) !== pageSettingsSignature(settingsChange.newValue)) {
       scheduleOpenPageRefresh();
     }
-    if (changes[localeKey]) scheduleToolbarRefresh();
+    if (changes[localeKey]) {
+      scheduleToolbarRefresh();
+      scheduleOpenPageRefresh();
+    }
     if (settingsChange || changes[localeKey]) notifyCentralUi();
     return !!(settingsChange || changes[localeKey]);
   }

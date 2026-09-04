@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 7.7.1 — 2026-09-04
+
+- Added Reduce White Point as the second tool in Satellites. It is disabled by default and offers an adjustable 10–80 percent reduction, starting at 25 percent, to make bright webpage colors more comfortable to view.
+- Implemented Reduce White Point as an independent Operations Province product. Central loads one pointer-transparent visual layer only after the user enables it; the layer covers the rendered page without changing layout or input, follows fullscreen changes, and is removed completely when the feature is turned off. It reads no page content and uses no observer, polling, page API wrapper, or network request.
+- Added synchronized English and Simplified Chinese settings, first-frame preference rendering, documentation, privacy details, and lifecycle coverage for the new product.
+
 ## 7.6.1 — 2026-09-04
 
 - Removed Ad Marshal's redundant main-world request shims from Douyin. Its confirmed telemetry loaders and hosts remain handled by Chrome's native, tab-scoped DNR rules, while Fetch, XHR, Beacon, image loading, video playback, and preloading keep their native page behavior. This removes per-request JavaScript work from Douyin's high-frequency feed and player paths without expanding or weakening the existing telemetry matches.

@@ -95,6 +95,17 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
   }
+  const reduceWhitePointEnabled = document.querySelector('#reduceWhitePointEnabled');
+  const reduceWhitePointActive = cached.reduceWhitePoint?.enabled === true;
+  if (reduceWhitePointEnabled) reduceWhitePointEnabled.checked = reduceWhitePointActive;
+  const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
+  const reduceWhitePointReductionValue = document.querySelector('#reduceWhitePointReductionValue');
+  if (reduceWhitePointReduction) {
+    const percentage = Math.round((cached.reduceWhitePoint?.reduction ?? 0.25) * 100);
+    reduceWhitePointReduction.value = String(percentage);
+    reduceWhitePointReduction.disabled = !reduceWhitePointActive;
+    if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;
+  }
   const xhsImageDarkModeEnabled = document.querySelector('#xhsImageDarkModeEnabled');
   const xhsEnabled = cached.xhsImageDarkMode?.enabled === true;
   if (xhsImageDarkModeEnabled) xhsImageDarkModeEnabled.checked = xhsEnabled;

@@ -13,6 +13,7 @@ import {
   matchingRule,
   normalizeRule,
   normalizeSettings,
+  reduceWhitePointState,
   ruleMatches,
   updateFeature,
   xhsImageDarkModeState
@@ -22,6 +23,7 @@ test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.nativeScroll.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.mailtoCapture.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.reduceWhitePoint.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkMode.enabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
@@ -40,6 +42,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
   assert.deepEqual(settings.mailtoCapture, { enabled: true });
+  assert.deepEqual(settings.reduceWhitePoint, { enabled: false, reduction: 0.25 });
   assert.deepEqual(settings.xhsImageDarkMode, {
     enabled: false,
     overrideDarkMode: false,
@@ -254,6 +257,30 @@ test('Mailto Capture follows its ordinary and incognito defaults without website
   assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
 });
 
+test('Reduce White Point is opt-in, bounded, and limited to ordinary web pages', () => {
+  assert.deepEqual(reduceWhitePointState(DEFAULT_SETTINGS, 'https://example.com/page'), {
+    enabled: false,
+    reduction: 0.25,
+    hostname: 'example.com',
+    supported: true,
+    active: false
+  });
+  const enabled = reduceWhitePointState({
+    reduceWhitePoint: { enabled: true, reduction: 0.45 }
+  }, 'http://example.com/page');
+  assert.equal(enabled.active, true);
+  assert.equal(enabled.reduction, 0.45);
+  assert.equal(reduceWhitePointState({
+    reduceWhitePoint: { enabled: true, reduction: 10 }
+  }, 'https://example.com').reduction, 0.8);
+  assert.equal(reduceWhitePointState({
+    reduceWhitePoint: { enabled: true, reduction: 0 }
+  }, 'https://example.com').reduction, 0.1);
+  assert.equal(reduceWhitePointState({
+    reduceWhitePoint: { enabled: true }
+  }, 'chrome://extensions').active, false);
+});
+
 test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
   const disabled = xhsImageDarkModeState(DEFAULT_SETTINGS, 'https://www.xiaohongshu.com/explore');
   assert.equal(disabled.supported, true);
@@ -336,6 +363,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     noAutoplay: { enabled: true, audioAutoplayAllSites: true },
     anyCopy: { siteRules: ['copy.example'] },
     mailtoCapture: { enabled: false, active: true },
+    reduceWhitePoint: { enabled: true, reduction: 0.4, active: true },
     imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
     satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
@@ -354,6 +382,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.deepEqual(cache.mailtoCapture, { enabled: false });
+  assert.deepEqual(cache.reduceWhitePoint, { enabled: true, reduction: 0.4 });
   assert.equal('anyCopyEnhanced' in cache, false);
   assert.deepEqual(cache.imageDownload, { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false });
   assert.deepEqual(cache.videoDownload, { preferredQuality: '1080', askWhereToSave: false });

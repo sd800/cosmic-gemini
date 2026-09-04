@@ -312,6 +312,7 @@ export function createPlatform() {
       nativeScroll: settings.nativeScroll,
       noAutoplay: settings.noAutoplay,
       anyCopy: settings.anyCopy,
+      reduceWhitePoint: settings.reduceWhitePoint,
       xhsImageDarkMode: settings.xhsImageDarkMode,
       mailtoCapture: settings.mailtoCapture,
       adMarshal: settings.adMarshal

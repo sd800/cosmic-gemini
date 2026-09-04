@@ -129,10 +129,13 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .satellite-preferences .preference-row > span:first-child { min-width: 0; }
 .satellite-preferences .preference-row:first-child { border-top: 1px solid var(--line); }
 .xhs-dark-reader-card .preference-row:has(input:disabled) > span:first-child,
-.xhs-dark-reader-card .preference-row:has(input:disabled) .range-control output { opacity: .68; }
+.xhs-dark-reader-card .preference-row:has(input:disabled) .range-control output,
+.reduce-white-point-card .preference-row:has(input:disabled) > span:first-child,
+.reduce-white-point-card .preference-row:has(input:disabled) .range-control output { opacity: .68; }
 .xhs-dark-reader-card .satellite-preferences .switch input:disabled + span { background: var(--switch-disabled-track); opacity: 1; }
 .xhs-dark-reader-card .satellite-preferences .switch input:disabled + span::after { background: var(--switch-disabled-thumb); box-shadow: none; }
-.xhs-dark-reader-card .satellite-preferences input[type="range"]:disabled { opacity: .72; accent-color: var(--switch-disabled-track); }
+.xhs-dark-reader-card .satellite-preferences input[type="range"]:disabled,
+.reduce-white-point-card .satellite-preferences input[type="range"]:disabled { opacity: .72; accent-color: var(--switch-disabled-track); }
 .range-control { display: flex; min-width: 176px; align-items: center; justify-content: flex-end; gap: 10px; }
 .range-control input[type="range"] { width: 124px; accent-color: var(--switch-blue); }
 .range-control output { width: 34px; color: var(--muted); font-size: 11px; text-align: right; }

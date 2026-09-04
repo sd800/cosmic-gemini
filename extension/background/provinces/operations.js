@@ -4,6 +4,7 @@ import { createAdministrationProduct } from '../products/operations/administrati
 import { createAnyCopyProduct } from '../products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../products/operations/any-copy-enhanced.js';
 import { createSatellitesProduct } from '../products/operations/satellites.js';
+import { createReduceWhitePointProduct } from '../products/operations/reduce-white-point.js';
 import { createXhsImageDarkModeProduct } from '../products/operations/xhs-image-dark-mode.js';
 import { defineProvince } from './interface.js';
 
@@ -12,12 +13,14 @@ export function createOperationsProvince(platform) {
   const anyCopy = createAnyCopyProduct(host, platform);
   const anyCopyEnhanced = createAnyCopyEnhancedProduct(host, platform);
   const satellites = createSatellitesProduct(platform);
+  const reduceWhitePoint = createReduceWhitePointProduct(host, platform);
   const xhsImageDarkMode = createXhsImageDarkModeProduct(host, platform);
   const administration = createAdministrationProduct(platform);
   const products = {
     [anyCopy.id]: anyCopy,
     [anyCopyEnhanced.id]: anyCopyEnhanced,
     [satellites.id]: satellites,
+    [reduceWhitePoint.id]: reduceWhitePoint,
     [xhsImageDarkMode.id]: xhsImageDarkMode,
     [administration.id]: administration
   };

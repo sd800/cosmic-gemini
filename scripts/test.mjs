@@ -3,6 +3,7 @@ import '../test/locale.test.mjs';
 import '../test/native-scroll-runtime.test.mjs';
 import '../test/no-autoplay-runtime.test.mjs';
 import '../test/mailto-capture-runtime.test.mjs';
+import '../test/reduce-white-point-runtime.test.mjs';
 import '../test/xhs-image-dark-mode.test.mjs';
 import '../test/any-copy-runtime.test.mjs';
 import '../test/operations-products.test.mjs';

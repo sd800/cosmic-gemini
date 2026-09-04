@@ -58,6 +58,10 @@ Satellites contains optional tools that do not need permanent rows in the popup.
 
 Stop mailto links from opening your system mail app before you can inspect them. Mailto Capture intercepts each link and shows its recipients, CC and BCC addresses, subject, message, and other included fields in a compact page popover for copying.
 
+#### Reduce White Point
+
+Reduce the intensity of bright colors across webpages for more comfortable viewing. Choose the reduction strength in Satellites; the visual adjustment covers the rendered page without changing its layout or controls.
+
 #### XHS Image Dark Mode
 
 Make bright text images easier to view after Dark Reader applies page-wide dark mode to Xiaohongshu’s website. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.
@@ -79,6 +83,7 @@ Each supported site has its own narrowly scoped policy. These policies target on
 - On-demand image discovery with original-source recommendations, filtering, local conversion, area capture, and batch ZIP downloads
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
 - Optional Satellites with their own concise settings and privacy details
+- Adjustable white-point reduction that applies locally across ordinary webpages
 - A contextual Xiaohongshu image reader that adapts bright text cards, including cards with colored frames, without changing ordinary photographs
 - Exact-host and wildcard rules such as `example.com` and `*.example.com`
 - A compact four-row popup with paired current-page controls and All Settings on its own bottom row
@@ -123,7 +128,7 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
-All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Mailto Capture is on by default in ordinary windows, while XHS Image Dark Mode, Bili Daily Login, and Ad Marshal are off by default. Ad Marshal uses one switch and runs only on its managed sites.
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Mailto Capture is on by default in ordinary windows, while Reduce White Point, XHS Image Dark Mode, Bili Daily Login, and Ad Marshal are off by default. Ad Marshal uses one switch and runs only on its managed sites.
 
 On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. The control remains blue without a background while waiting for page-wide dark mode, then gains a blue background while image adaptation is running. Settings can always apply image adjustments, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
 
@@ -167,11 +172,11 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, XHS Image Dark Mode, and Ad Marshal run locally. Website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Reduce White Point, XHS Image Dark Mode, and Ad Marshal run locally. Website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 
-Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Bili Daily Login does not inspect whether or when you open Bilibili.
+Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Reduce White Point applies one local visual layer without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Bili Daily Login does not inspect whether or when you open Bilibili.
 
 When Bili Daily Login is enabled, its background schedule contacts only Bilibili account services while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 

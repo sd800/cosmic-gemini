@@ -3,6 +3,7 @@ import test from 'node:test';
 import { normalizeSettings } from '../extension/core/config.js';
 import { createAnyCopyProduct } from '../extension/background/products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
+import { createReduceWhitePointProduct } from '../extension/background/products/operations/reduce-white-point.js';
 import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 
@@ -87,4 +88,50 @@ test('XHS Image Dark Mode settings synchronize open pages before returning', asy
   });
   assert.equal(result.overrideDarkMode, true);
   assert.equal(refreshes, 1);
+});
+
+test('Reduce White Point runs only in the top frame after its independent setting is enabled', async () => {
+  let settings = normalizeSettings();
+  const syncs = [];
+  const product = createReduceWhitePointProduct({
+    async sync(descriptor, context, active) {
+      syncs.push({ id: descriptor.id, frameId: context.frameId, active });
+    }
+  }, {
+    async mutateSettings(update) {
+      settings = normalizeSettings(update(settings));
+      return settings;
+    }
+  });
+
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 0,
+    documentId: 'top',
+    topUrl: 'https://example.com/'
+  }, settings), false);
+  await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true });
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 0,
+    documentId: 'top',
+    topUrl: 'https://example.com/'
+  }, settings), true);
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 3,
+    documentId: 'child',
+    topUrl: 'https://example.com/'
+  }, settings), false);
+  const updated = await product.handleMessage({
+    type: 'UI_SET_REDUCE_WHITE_POINT_SETTING',
+    name: 'reduction',
+    value: 0.55
+  });
+  assert.equal(updated.reduction, 0.55);
+  assert.deepEqual(syncs.map(({ frameId, active }) => ({ frameId, active })), [
+    { frameId: 0, active: false },
+    { frameId: 0, active: true },
+    { frameId: 3, active: false }
+  ]);
 });

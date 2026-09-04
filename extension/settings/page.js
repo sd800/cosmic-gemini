@@ -178,6 +178,18 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
+  const reduceWhitePointSettings = (states?.preferences || states)?.reduceWhitePoint;
+  const reduceWhitePointEnabled = document.querySelector('#reduceWhitePointEnabled');
+  const reduceWhitePointActive = reduceWhitePointSettings?.enabled === true;
+  if (reduceWhitePointEnabled) reduceWhitePointEnabled.checked = reduceWhitePointActive;
+  const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
+  const reduceWhitePointReductionValue = document.querySelector('#reduceWhitePointReductionValue');
+  if (reduceWhitePointReduction) {
+    const percentage = Math.round((reduceWhitePointSettings?.reduction ?? 0.25) * 100);
+    reduceWhitePointReduction.value = String(percentage);
+    reduceWhitePointReduction.disabled = !reduceWhitePointActive;
+    if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;
+  }
   const xhsSettings = (states?.preferences || states)?.xhsImageDarkMode;
   const xhsImageDarkModeEnabled = document.querySelector('#xhsImageDarkModeEnabled');
   const xhsEnabled = xhsSettings?.enabled === true;
@@ -309,6 +321,28 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const reduceWhitePointEnabled = document.querySelector('#reduceWhitePointEnabled');
+  if (reduceWhitePointEnabled) reduceWhitePointEnabled.addEventListener('change', () => {
+    const reduction = document.querySelector('#reduceWhitePointReduction');
+    if (reduction) reduction.disabled = !reduceWhitePointEnabled.checked;
+    void update(null, () => send({
+      type: 'UI_SET_ENABLED', featureId: 'reduceWhitePoint', enabled: reduceWhitePointEnabled.checked
+    }), [reduceWhitePointEnabled]);
+  });
+  const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
+  const reduceWhitePointReductionValue = document.querySelector('#reduceWhitePointReductionValue');
+  if (reduceWhitePointReduction) {
+    reduceWhitePointReduction.addEventListener('input', () => {
+      if (reduceWhitePointReductionValue) {
+        reduceWhitePointReductionValue.textContent = `${reduceWhitePointReduction.value}%`;
+      }
+    });
+    reduceWhitePointReduction.addEventListener('change', () => void update(null, () => send({
+      type: 'UI_SET_REDUCE_WHITE_POINT_SETTING',
+      name: 'reduction',
+      value: Number(reduceWhitePointReduction.value) / 100
+    }), [reduceWhitePointReduction]));
+  }
   const xhsImageDarkModeEnabled = document.querySelector('#xhsImageDarkModeEnabled');
   if (xhsImageDarkModeEnabled) xhsImageDarkModeEnabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED', enabled: xhsImageDarkModeEnabled.checked

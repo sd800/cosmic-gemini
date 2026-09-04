@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '7.3.3');
+assert.equal(manifest.version, '7.5.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -340,7 +340,11 @@ for (const observer of ['IntersectionObserver', 'MutationObserver', 'ResizeObser
 assert.match(xhsImageDarkModeRuntime, /this\.running < 2/);
 assert.match(xhsImageDarkModeRuntime, /isAvatar[\s\S]*sns-avatar/);
 assert.match(xhsImageDarkModeRuntime, /note-detail-follow-btn/);
-assert.match(xhsImageDarkModeRuntime, /edgeShare >= 0\.42[\s\S]*surfaceShare >= 0\.72[\s\S]*lightShare >= \(frame \? 0\.5 : 0\.72\)[\s\S]*largestForegroundShare <= 0\.16/);
+assert.match(xhsImageDarkModeRuntime, /edgeShare >= 0\.42[\s\S]*surfaceShare >= 0\.72[\s\S]*largestForegroundShare <= 0\.16/);
+assert.match(xhsImageDarkModeRuntime, /strongestPanelShare[\s\S]*splitToneLayout[\s\S]*lightPanelShare >= 0\.72[\s\S]*darkPanelShare >= 0\.48/,
+  'XHS Image Dark Mode must recognize stable split-tone document panels.');
+assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult\.kind !== 'photo'/,
+  'Negative feed-cover classifications must not suppress independent viewer analysis.');
 assert.match(xhsImageDarkModeRuntime, /grayBackground[\s\S]*'gray-theme'[\s\S]*cg-xhs-image-dark-mode-gray/);
 assert.match(xhsImageDarkModeRuntime, /--cg-xhs-image-brightness, 1[\s\S]*noteCacheKey[\s\S]*visualTarget/);
 assert.match(xhsImageDarkModeRuntime, /viewerForImage\(record\.image\)[\s\S]*fractionRect\.right - FRACTION_SLOT_WIDTH - CONTROL_GAP - CONTROL_SIZE/);

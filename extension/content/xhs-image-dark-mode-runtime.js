@@ -703,21 +703,20 @@
       return id ? `note:${id}:0` : '';
     }
 
-    cacheKeys(image, source) {
-      return [...new Set([this.cacheKey(source), this.noteCacheKey(image)].filter(Boolean))];
-    }
-
     cachedResult(image, source) {
-      for (const key of this.cacheKeys(image, source)) {
-        const result = this.cache.get(key);
-        if (result) return result;
-      }
+      const sourceResult = this.cache.get(this.cacheKey(source));
+      if (sourceResult) return sourceResult;
+      const relatedResult = this.cache.get(this.noteCacheKey(image));
+      if (relatedResult?.kind && relatedResult.kind !== 'photo') return relatedResult;
       return null;
     }
 
     cacheResult(source, result, image = null) {
       if (!source || !result) return;
-      for (const key of this.cacheKeys(image, source)) {
+      const keys = [this.cacheKey(source)];
+      const noteKey = this.noteCacheKey(image);
+      if (noteKey && result.kind !== 'photo') keys.push(noteKey);
+      for (const key of [...new Set(keys.filter(Boolean))]) {
         if (this.cache.has(key)) this.cache.delete(key);
         this.cache.set(key, result);
         while (this.cache.size > CACHE_LIMIT) this.cache.delete(this.cache.keys().next().value);
@@ -817,6 +816,9 @@
       if (!pixelCount) return { kind: 'photo' };
       const buckets = new Map();
       const edgeBuckets = new Map();
+      const rowOpaque = new Uint16Array(height);
+      const rowLightSurface = new Uint16Array(height);
+      const rowDarkSurface = new Uint16Array(height);
       const edgeBand = Math.max(1, Math.round(Math.min(width, height) * 0.08));
       let opaque = 0;
       let edgeOpaque = 0;
@@ -837,6 +839,11 @@
         bucket.g += g;
         bucket.b += b;
         buckets.set(key, bucket);
+        rowOpaque[y] += 1;
+        const pixelValue = luminance({ r, g, b });
+        const pixelChroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+        if (pixelValue >= 0.72 && pixelChroma <= 0.32) rowLightSurface[y] += 1;
+        if (pixelValue <= 0.28 && pixelChroma <= 0.18) rowDarkSurface[y] += 1;
         opaque += 1;
         if (x < edgeBand || x >= width - edgeBand || y < edgeBand || y >= height - edgeBand) {
           edgeBuckets.set(key, (edgeBuckets.get(key) || 0) + 1);
@@ -869,6 +876,32 @@
         && color.value >= 0.72 && color.chroma <= 0.32);
       const grayBackground = colorsByShare.find(color => color.share >= 0.48
         && color.value >= 0.3 && color.value <= 0.68 && color.chroma <= 0.14);
+      const darkPanel = lightBackground && colorsByShare.find(color => color.key !== lightBackground.key
+        && color.share >= 0.12 && color.value <= 0.28 && color.chroma <= 0.18);
+      const strongestPanelShare = counts => {
+        const panelRows = Math.max(3, Math.round(height * 0.14));
+        let panelPixels = 0;
+        let panelOpaque = 0;
+        let strongest = 0;
+        for (let y = 0; y < height; y += 1) {
+          panelPixels += counts[y];
+          panelOpaque += rowOpaque[y];
+          if (y >= panelRows) {
+            panelPixels -= counts[y - panelRows];
+            panelOpaque -= rowOpaque[y - panelRows];
+          }
+          if (y + 1 >= panelRows && panelOpaque) {
+            strongest = Math.max(strongest, panelPixels / panelOpaque);
+          }
+        }
+        return strongest;
+      };
+      const lightPanelShare = strongestPanelShare(rowLightSurface);
+      const darkPanelShare = strongestPanelShare(rowDarkSurface);
+      const splitToneLayout = !!(lightBackground && darkPanel
+        && lightBackground.share + darkPanel.share >= 0.62
+        && lightPanelShare >= 0.72
+        && darkPanelShare >= 0.48);
       const background = lightBackground || grayBackground;
       if (!background) return { kind: 'photo' };
       const grayCard = !lightBackground && background === grayBackground;
@@ -900,6 +933,9 @@
           && color.chroma <= 0.18 && Math.abs(color.value - backgroundLuminance) <= 0.16).slice(0, 4)
         : [...lightSurfaces];
       if (frame && !surfacePalette.some(surface => surface.key === frame.key)) surfacePalette.push(frame);
+      if (splitToneLayout && !surfacePalette.some(surface => surface.key === darkPanel.key)) {
+        surfacePalette.push(darkPanel);
+      }
       const foregroundMask = new Uint8Array(pixelCount);
       let surfaceCount = 0;
       let lightCount = 0;
@@ -925,7 +961,8 @@
         } else {
           foregroundMask[pixel] = 1;
           foregroundCount += 1;
-          if (grayCard ? value >= backgroundLuminance + 0.22 : value <= backgroundLuminance - 0.22) {
+          if (splitToneLayout
+            || (grayCard ? value >= backgroundLuminance + 0.22 : value <= backgroundLuminance - 0.22)) {
             contrastForegroundCount += 1;
           }
         }
@@ -937,7 +974,7 @@
       const largestForegroundShare = this.largestComponentShare(foregroundMask, width, height, opaque);
       const uniformLightSurface = !grayCard && surfacePalette.length > 0
         && surfaceShare >= 0.72
-        && lightShare >= (frame ? 0.5 : 0.72);
+        && lightShare >= (splitToneLayout ? 0.24 : frame ? 0.5 : 0.72);
       const uniformGraySurface = grayCard
         && surfacePalette.length > 0
         && surfaceShare >= 0.72;
@@ -952,6 +989,7 @@
         backgroundShare: surfaceShare,
         surfaceCount: surfacePalette.length,
         frameDetected: frame !== null,
+        splitToneLayout,
         frameEdgeShare: frame?.edgeShare || 0,
         foregroundShare,
         backgroundLuminance,
@@ -989,7 +1027,7 @@
     applyResult(record) {
       if (!this.processing || !record.image.isConnected || !record.result) return;
       this.clearVisual(record);
-      record.darkened = record.result.kind === 'light-theme';
+      record.darkened = record.result.kind === 'light-theme' || record.result.kind === 'gray-theme';
       if (this.viewerForImage(record.image)) this.createControl(record);
       this.updateRecordVisual(record);
       this.scheduleControlPositions();

@@ -130,6 +130,31 @@ test('uniform gray text cards use the black-background contrast treatment', asyn
   runtime.updateRecordVisual(record);
   assert.equal(classes.has('cg-xhs-image-dark-mode-gray'), true);
   assert.equal(classes.has('cg-xhs-image-dark-mode'), false);
+  runtime.processing = true;
+  runtime.clearVisual = () => {};
+  runtime.viewerForImage = () => null;
+  runtime.scheduleControlPositions = () => {};
+  runtime.updateRecordVisual = () => {};
+  const automaticRecord = { image: { isConnected: true }, result };
+  runtime.applyResult(automaticRecord);
+  assert.equal(automaticRecord.darkened, true);
+});
+
+test('split light and dark document panels are treated as one text layout', async () => {
+  const runtime = await runtimeFixture();
+  const splitDocument = pixels((x, y) => {
+    const darkPanel = y >= 23 && y <= 46;
+    const title = darkPanel && y >= 29 && y <= 39 && x >= 5 && x <= 58
+      && ((y % 5 <= 1 && x % 6 !== 0) || (x % 13 <= 1 && y % 4 !== 0));
+    const body = y >= 51 && y <= 57 && x >= 5 && x <= 58
+      && ((y % 4 <= 1 && x % 7 !== 0) || x % 17 === 0);
+    if (title) return [248, 220, 120];
+    if (body) return [72, 72, 70];
+    return darkPanel ? [30, 30, 30] : [250, 250, 248];
+  });
+  const result = runtime.classifySample(splitDocument, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+  assert.equal(result.splitToneLayout, true);
 });
 
 test('a stable frame does not make a photograph look like a text card', async () => {
@@ -280,6 +305,58 @@ test('feed and expanded images share classification through the post identity', 
   const result = { kind: 'light-theme' };
   runtime.cacheResult('https://sns-webpic-qc.xhscdn.com/feed/cover-resource!nc_n_webp_mw_1', result, feedImage);
   assert.equal(runtime.cachedResult(expandedImage, expandedImage.currentSrc), result);
+});
+
+test('a negative feed-cover result never suppresses independent viewer analysis', async () => {
+  const postId = '6a97d678000000001001f028';
+  const runtime = await runtimeFixture({}, {
+    URL,
+    location: {
+      hostname: 'www.xiaohongshu.com',
+      href: 'https://www.xiaohongshu.com/explore'
+    }
+  });
+  runtime.openingPostId = postId;
+  const anchor = { href: `https://www.xiaohongshu.com/explore/${postId}` };
+  const feedImage = {
+    closest(selector) { return selector.startsWith('a[') ? anchor : null; }
+  };
+  runtime.cacheResult('https://sns-webpic-qc.xhscdn.com/feed/cropped-cover!nc_n_webp_mw_1', {
+    kind: 'photo'
+  }, feedImage);
+  const firstSlide = {
+    getAttribute(name) { return name === 'data-swiper-slide-index' ? '0' : null; }
+  };
+  const expandedImage = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/detail/full-first-slide!nd_dft_wlteh_webp_3',
+    closest(selector) { return selector === '.swiper-slide' ? firstSlide : null; }
+  };
+  assert.equal(runtime.cachedResult(expandedImage, expandedImage.currentSrc), null);
+});
+
+test('viewer classifications remain isolated between slide indexes', async () => {
+  const postId = '6a97d678000000001001f028';
+  const runtime = await runtimeFixture({}, {
+    URL,
+    location: {
+      hostname: 'www.xiaohongshu.com',
+      href: `https://www.xiaohongshu.com/explore/${postId}`
+    }
+  });
+  const imageForSlide = index => ({
+    currentSrc: `https://sns-webpic-qc.xhscdn.com/detail/slide-${index}!nd_dft_wlteh_webp_3`,
+    closest(selector) {
+      return selector === '.swiper-slide'
+        ? { getAttribute: name => name === 'data-swiper-slide-index' ? String(index) : null }
+        : null;
+    }
+  });
+  const first = imageForSlide(0);
+  const second = imageForSlide(1);
+  runtime.cacheResult(first.currentSrc, { kind: 'photo' }, first);
+  assert.equal(runtime.cachedResult(second, second.currentSrc), null);
+  runtime.cacheResult(second.currentSrc, { kind: 'light-theme' }, second);
+  assert.equal(runtime.cachedResult(second, second.currentSrc).kind, 'light-theme');
 });
 
 test('expanded images transform the slide background and image as one visual surface', async () => {

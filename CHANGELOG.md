@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 7.5.1 — 2026-09-04
+
+- Made expanded Xiaohongshu galleries classify every slide independently. A feed cover that is left unchanged can no longer suppress analysis of the full first image or later slides; only a confirmed dark treatment is shared across related page elements, while unchanged results remain scoped to the exact image resource.
+- Added recognition for text layouts composed of broad, stable light and dark panels, including light body sections around a dark title panel. The classifier measures contiguous panel structure rather than matching fixed colors or mistaking ordinary text lines for panels. Uniform gray cards now also enter their black-background treatment automatically when recognized.
+
 ## 7.3.3 — 2026-09-04
 
 - Prevented the expanded viewer's bright placeholder background from flashing before its image appears. Feed covers and first slides now share classification through the post identity, and the viewer applies one transform to the complete slide surface so its placeholder and image stay visually consistent. The default dark-image brightness is no longer reduced, while an internal brightness variable remains available for later adjustment.

@@ -60,7 +60,7 @@ Stop mailto links from opening your system mail app before you can inspect them.
 
 #### XHS Image Dark Mode
 
-Make bright text images easier to view after Dark Reader applies page-wide dark mode to Xiaohongshu’s website. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, and deepens uniform gray cards to a black background. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.
+Make bright text images easier to view after Dark Reader applies page-wide dark mode to Xiaohongshu’s website. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.
 
 #### Bili Daily Login
 

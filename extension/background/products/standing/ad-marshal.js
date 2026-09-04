@@ -1,4 +1,5 @@
 import {
+  AD_MARSHAL_SITE_KEYS,
   FEATURE_IDS,
   INCOGNITO_SETTINGS_KEY,
   SETTINGS_KEY,
@@ -60,6 +61,13 @@ const PAGE_RUNTIME_SITE_IDS = new Set([
   'zhihuCom',
   'gmailCom'
 ]);
+const SETTING_ID_BY_SITE_ID = Object.freeze({
+  newsQqCom: 'tencentNews',
+  wwwQqCom: 'tencentNews',
+  douyinCom: 'douyin',
+  zhihuCom: 'zhihu',
+  gmailCom: 'gmail'
+});
 const TENCENT_QQ_TRACKING_DOMAINS = Object.freeze([
   'h.trace.qq.com',
   'btrace.qq.com',
@@ -254,12 +262,18 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       return active;
     },
     async handleMessage(message) {
-      if (message.type !== 'UI_SET_AD_MARSHAL_ENABLED') {
+      if (message.type !== 'UI_SET_AD_MARSHAL_SITE' || !AD_MARSHAL_SITE_KEYS.includes(message.siteId)) {
         throw new Error('Ad Marshal does not support this command.');
       }
       const settings = await platform.mutateSettings(current => ({
         ...current,
-        adMarshal: { enabled: message.enabled === true }
+        adMarshal: {
+          ...current.adMarshal,
+          managedSites: {
+            ...current.adMarshal.managedSites,
+            [message.siteId]: message.enabled === true
+          }
+        }
       }));
       void reconcile(settings).catch(() => false);
       return settings.adMarshal;
@@ -319,9 +333,8 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     const settings = providedSettings || await platform.readSettings();
     const existing = await ownedRules();
     const removeRuleIds = existing.map(rule => rule.id);
-    const enabledPolicies = settings.adMarshal.enabled === true
-      ? Object.entries(SITE_POLICIES)
-      : [];
+    const enabledPolicies = Object.entries(SITE_POLICIES)
+      .filter(([siteId]) => settings.adMarshal.managedSites?.[SETTING_ID_BY_SITE_ID[siteId]] === true);
     const queryResults = await Promise.all(enabledPolicies.map(async ([siteId, policy]) => ({
       siteId,
       tabs: await chrome.tabs.query({ url: [...policy.matches] })

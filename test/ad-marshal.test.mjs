@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createAdMarshalProduct } from '../extension/background/products/standing/ad-marshal.js';
 import { normalizeSettings } from '../extension/core/config.js';
 
-test('Ad Marshal saves its unified switch without waiting for network-rule reconciliation', async () => {
+test('Ad Marshal saves a site selection without waiting for network-rule reconciliation', async () => {
   let settings = normalizeSettings();
   globalThis.chrome = {
     declarativeNetRequest: {
@@ -24,14 +24,17 @@ test('Ad Marshal saves its unified switch without waiting for network-rule recon
   const runtimeHost = { async sync() { return false; } };
   const product = createAdMarshalProduct(runtimeHost, platform);
 
-  const result = await product.handleMessage({ type: 'UI_SET_AD_MARSHAL_ENABLED', enabled: true });
-  assert.deepEqual(result, { enabled: true });
-  assert.equal(settings.adMarshal.enabled, true);
+  const result = await product.handleMessage({
+    type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'douyin', enabled: true
+  });
+  assert.equal(result.managedSites.douyin, true);
+  assert.equal(settings.adMarshal.managedSites.douyin, true);
+  assert.equal(settings.adMarshal.managedSites.tencentNews, false);
   await new Promise(resolve => setImmediate(resolve));
 });
 
 test('Ad Marshal limits Gmail request neutralization to its tab and trusted embedded frames', async () => {
-  const settings = normalizeSettings({ adMarshal: { enabled: true } });
+  const settings = normalizeSettings({ adMarshal: { managedSites: { gmail: true } } });
   const runtimeCalls = [];
   globalThis.chrome = {
     declarativeNetRequest: {
@@ -72,7 +75,7 @@ test('Ad Marshal limits Gmail request neutralization to its tab and trusted embe
 });
 
 test('Ad Marshal routes the Tencent News timeline host through the news.qq.com policy', async () => {
-  const settings = normalizeSettings({ adMarshal: { enabled: true } });
+  const settings = normalizeSettings({ adMarshal: { managedSites: { tencentNews: true } } });
   const runtimeCalls = [];
   const ruleUpdates = [];
   globalThis.chrome = {
@@ -117,7 +120,7 @@ test('Ad Marshal routes the Tencent News timeline host through the news.qq.com p
 });
 
 test('Ad Marshal keeps Douyin handling in native tab rules without page API patches', async () => {
-  const settings = normalizeSettings({ adMarshal: { enabled: true } });
+  const settings = normalizeSettings({ adMarshal: { managedSites: { douyin: true } } });
   const runtimeCalls = [];
   const ruleUpdates = [];
   globalThis.chrome = {

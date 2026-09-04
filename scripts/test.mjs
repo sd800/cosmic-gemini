@@ -13,6 +13,7 @@ import '../test/video-download.test.mjs';
 import '../test/image-download.test.mjs';
 import '../test/download-session.test.mjs';
 import '../test/customs-observation.test.mjs';
+import '../test/customs-response-ingress.test.mjs';
 import '../test/customs-offscreen.test.mjs';
 import '../test/platform-settings.test.mjs';
 import '../test/ui-retry.test.mjs';

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.1.1');
+assert.equal(manifest.version, '8.2.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -201,9 +201,9 @@ assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncog
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
 assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*data-i18n="pageDisplayName"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="pageDisplayGreyscaleEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"/);
 assert.match(satellitesSettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
-assert.match(satellitesSettings, /id="adMarshalEnabled"/);
-assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:NewsQqCom|DouyinCom|ZhihuCom)"/);
-assert.match(settingsSource, /UI_SET_AD_MARSHAL_ENABLED/);
+assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalDouyin"[\s\S]*id="adMarshalZhihu"[\s\S]*id="adMarshalGmail"/);
+assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
+assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);
 assert.match(settingsSource, /pageDisplayReduceWhitePointEnabled[\s\S]*UI_SET_PAGE_DISPLAY_SETTING[\s\S]*pageDisplayGreyscaleEnabled/);
 assert.match(settingsPreload, /pageDisplayReduceWhitePointEnabled[\s\S]*pageDisplayGreyscaleEnabled[\s\S]*reduceWhitePointReduction/);
@@ -225,6 +225,7 @@ const standing = await source('background', 'provinces', 'standing.js');
 const operations = await source('background', 'provinces', 'operations.js');
 const customs = await source('background', 'provinces', 'customs.js');
 const customsObservation = await source('background', 'provinces', 'customs-observation.js');
+const customsResponseIngress = await source('background', 'provinces', 'customs-response-ingress.js');
 const offscreenCoordinator = await source('background', 'provinces', 'customs-offscreen.js');
 const runtimeHost = await source('background', 'features', 'page-runtime-host.js');
 const nativeScroll = await source('background', 'products', 'standing', 'native-scroll.js');
@@ -284,7 +285,7 @@ assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]
 assert.match(central, /createStandingProvince[\s\S]*createOperationsProvince[\s\S]*createCustomsProvince/);
 assert.match(central, /provinceForProduct/);
 assert.match(central, /productForMessage/);
-assert.match(central, /setCustomsResponseIngressEnabled/);
+assert.match(central, /createCustomsResponseIngress\(details => dispatchEvent\('headersReceived', details\)\)/);
 assert.match(central, /validateMessageSource\(message, sender/);
 assert.match(central, /validatePortSource\(port/);
 assert.match(central, /documentId/);
@@ -292,7 +293,8 @@ assert.match(central, /Promise\.allSettled\(STATE_PRODUCTS/);
 assert.match(central, /Promise\.allSettled\(PAGE_PRODUCTS/);
 assert.match(central, /results\.some\(result => result\.status === 'rejected'\)/);
 assert.match(central, /unavailableProductState/);
-assert.match(central, /onHeadersReceived\.removeListener\(handleCustomsHeadersReceived\)/);
+assert.doesNotMatch(central, /onHeadersReceived\.addListener|CUSTOMS_RESPONSE_FILTER|setCustomsResponseIngressEnabled/,
+  'Central must not install a global Customs response listener.');
 assert.match(central, /windowCreated[\s\S]*handleWindowCreated[\s\S]*chrome\.windows\.onCreated/);
 assert.doesNotMatch(central, /chrome\.storage\.(?!onChanged\.addListener)|chrome\.scripting\.executeScript|chrome\.tabs\.(?:query|create|update)|chrome\.downloads\.download\s*\(|chrome\.sidePanel|chrome\.offscreen|chrome\.declarativeNetRequest|fetch\s*\(/,
   'Central may decide and route, but must not execute product work.');
@@ -308,9 +310,18 @@ for (const [id, province] of [['standing', standing], ['operations', operations]
 assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct[\s\S]*createMailtoCaptureProduct[\s\S]*createAdMarshalProduct/);
 assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
+assert.match(customs, /restorationTask[\s\S]*if \(restorationTask\) return restorationTask/,
+  'Customs Province must coalesce concurrent session restoration.');
+assert.match(customsObservation, /responseIngress\.setTabs\(tabIds\)/);
+assert.doesNotMatch(customsObservation, /setEnabled|restorationReliable \|\|/,
+  'Uncertain restoration must not enable an all-tab response fallback.');
+assert.match(customsResponseIngress, /event\.addListener\(listener, \{[\s\S]*tabId/,
+  'Customs response ingress must register exact tab filters.');
+assert.match(customsResponseIngress, /event\.removeListener\(listener\)/,
+  'Customs response ingress must release exact tab filters.');
 assert.match(customs, /createCustomsObservationRegistry/);
 assert.match(customs, /imageDownload\.initialize\(\)[\s\S]*videoDownload\.initialize\(\)/);
-assert.match(customsObservation, /collecting\.size > 0/);
+assert.match(customsObservation, /const tabIds = new Set\(\[\.\.\.collecting\]/);
 assert.match(customsObservation, /restorationReliable/);
 assert.match(customsObservation, /needsRestoration/);
 assert.match(offscreenCoordinator, /activeAssemblies[\s\S]*activeRequests[\s\S]*queueDocumentLifecycle[\s\S]*sendVideoArtifact[\s\S]*sendImageArtifact[\s\S]*maybeClose/);
@@ -377,10 +388,10 @@ assert.doesNotMatch(xhsImageDarkModeRuntime, /setInterval|fetch\s*\(|XMLHttpRequ
 assert.match(adMarshal, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2021\/advertisement\//);
 assert.match(adMarshal, /wwwQqCom[\s\S]*https:\/\/www\.qq\.com\/\*/);
-assert.match(adMarshal, /settings\.adMarshal\.enabled === true[\s\S]*Object\.entries\(SITE_POLICIES\)/);
-assert.doesNotMatch(adMarshal, /settingId|UI_SET_AD_MARSHAL_SITE/);
+assert.match(adMarshal, /SETTING_ID_BY_SITE_ID[\s\S]*settings\.adMarshal\.managedSites/);
+assert.match(adMarshal, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(adMarshal, /void reconcile\(settings\)\.catch\(\(\) => false\)[\s\S]*return settings\.adMarshal/,
-  'Saving the Ad Marshal switch must not wait for native network-rule reconciliation.');
+  'Saving an Ad Marshal site selection must not wait for native network-rule reconciliation.');
 assert.match(adMarshal, /WWW_QQ_TRACKING_DOMAINS[\s\S]*h5\.ssp\.qq\.com[\s\S]*\/www\/js\/emonitor\//);
 assert.match(adMarshal, /douyinCom[\s\S]*collect\/[\s\S]*slardar\/fe\/sdk-web\/browser\.cn\.js/);
 assert.match(adMarshal, /DOUYIN_TELEMETRY_DOMAINS[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com/);

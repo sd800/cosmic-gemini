@@ -217,9 +217,9 @@ function render() {
     xhsImageDarkModeOpacity.disabled = !xhsEnabled || !showXhsImageControl;
     if (xhsImageDarkModeOpacityValue) xhsImageDarkModeOpacityValue.textContent = `${percentage}%`;
   }
-  const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
-  if (adMarshalEnabled) {
-    adMarshalEnabled.checked = (states?.preferences || states)?.adMarshal?.enabled === true;
+  const adMarshalSites = (states?.preferences || states)?.adMarshal?.managedSites || {};
+  for (const input of document.querySelectorAll('[data-ad-marshal-site]')) {
+    input.checked = adMarshalSites[input.dataset.adMarshalSite] === true;
   }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
@@ -377,10 +377,13 @@ function bindView() {
       value: Number(xhsImageDarkModeOpacity.value) / 100
     }), [xhsImageDarkModeOpacity]));
   }
-  const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
-  if (adMarshalEnabled) adMarshalEnabled.addEventListener('change', () => void update(null, () => send({
-    type: 'UI_SET_AD_MARSHAL_ENABLED', enabled: adMarshalEnabled.checked
-  }), [adMarshalEnabled]));
+  for (const input of document.querySelectorAll('[data-ad-marshal-site]')) {
+    input.addEventListener('change', () => void update(null, () => send({
+      type: 'UI_SET_AD_MARSHAL_SITE',
+      siteId: input.dataset.adMarshalSite,
+      enabled: input.checked
+    }), [input]));
+  }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_VIDEO_SETTING', name: 'preferredQuality', value: preferredQuality.value

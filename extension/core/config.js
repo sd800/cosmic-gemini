@@ -29,6 +29,21 @@ export const FEATURE_SLOTS = Object.freeze({
   VIDEO_DOWNLOAD: 50
 });
 
+export const AD_MARSHAL_SITE_KEYS = Object.freeze([
+  'tencentNews',
+  'douyin',
+  'zhihu',
+  'gmail'
+]);
+
+const AD_MARSHAL_SITE_KEY_BY_POLICY = Object.freeze({
+  newsQqCom: 'tencentNews',
+  wwwQqCom: 'tencentNews',
+  douyinCom: 'douyin',
+  zhihuCom: 'zhihu',
+  gmailCom: 'gmail'
+});
+
 const DEFAULT_FEATURE = Object.freeze({
   enabled: true,
   inactiveRules: Object.freeze([]),
@@ -37,7 +52,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 22,
+  version: 23,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -69,7 +84,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
     controlOpacity: 0.5
   }),
   adMarshal: Object.freeze({
-    enabled: false
+    managedSites: Object.freeze({
+      tencentNews: false,
+      douyin: false,
+      zhihu: false,
+      gmail: false
+    })
   }),
   imageDownload: Object.freeze({
     workspaceMode: 'sidePanel',
@@ -102,9 +122,7 @@ export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
   mailtoCapture: Object.freeze({
     enabled: false
   }),
-  adMarshal: Object.freeze({
-    enabled: false
-  }),
+  adMarshal: DEFAULT_SETTINGS.adMarshal,
   satellites: Object.freeze({
     biliDailyLogin: Object.freeze({
       enabled: false,
@@ -176,7 +194,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 22,
+    version: 23,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -206,7 +224,10 @@ export function normalizeSettings(value = {}) {
       controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkMode?.controlOpacity) || 0.5))
     },
     adMarshal: {
-      enabled: value.adMarshal?.enabled === true
+      managedSites: Object.fromEntries(AD_MARSHAL_SITE_KEYS.map(siteKey => [
+        siteKey,
+        value.adMarshal?.managedSites?.[siteKey] === true
+      ]))
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
@@ -405,12 +426,16 @@ export function adMarshalState(settings, url) {
           : hostname === 'mail.google.com'
             ? 'gmailCom'
             : '';
-  const enabled = normalized.adMarshal.enabled === true;
+  const settingId = AD_MARSHAL_SITE_KEY_BY_POLICY[siteId] || '';
+  const enabled = settingId
+    ? normalized.adMarshal.managedSites[settingId] === true
+    : Object.values(normalized.adMarshal.managedSites).some(Boolean);
   const supported = !!siteId;
   return {
     ...normalized.adMarshal,
     hostname,
     siteId,
+    settingId,
     supported,
     active: supported && enabled,
     enabled

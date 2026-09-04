@@ -2,6 +2,13 @@
 
 [English](CHANGELOG.md)
 
+## 8.2.1 — 2026-09-04
+
+- Image Download 与 Video Download 的响应监听现仅注册在正在收集媒体来源的具体标签页。未启动过这两个功能的标签页不会注册媒体 `webRequest` 监听。开始扫描时按需注册，进入两分钟等待期后继续保留，并在收集暂停或结束时移除。
+- 合并 Customs Province 的并发会话恢复，并取消恢复状态不确定时覆盖全部标签页的兜底监听，避免资源密集但与下载无关的页面进入下载响应路径。
+- Ad Marshal 不再使用统一开关，改为紧凑的普通网站复选框。各组网站均默认不选，并只会单独授权相应的网站规则。旧的统一开关设置不会被恢复。
+- 收紧 Page Display 中 Greyscale 下方的版面间距，移除多余留白。
+
 ## 8.1.1 — 2026-09-04
 
 - 在 Satellites 的第二项加入 Page Display。这个由 Operations Province 管理的新产品吸收了 Reduce White Point，并新增相互独立的 Greyscale。两个功能均默认关闭。

@@ -2,11 +2,18 @@ export function createCustomsObservationRegistry(responseIngress) {
   const collecting = new Set();
   let initialized = false;
   let restorationReliable = true;
+  let ingressSignature = null;
 
   function key(productId, tabId) { return `${productId}:${tabId}`; }
 
   function syncIngress() {
-    return responseIngress.setEnabled(!initialized || !restorationReliable || collecting.size > 0);
+    const tabIds = new Set([...collecting]
+      .map(value => Number(value.slice(value.lastIndexOf(':') + 1)))
+      .filter(tabId => Number.isInteger(tabId) && tabId >= 0));
+    const signature = [...tabIds].sort((left, right) => left - right).join(',');
+    if (signature === ingressSignature) return tabIds.size;
+    ingressSignature = signature;
+    return responseIngress.setTabs(tabIds);
   }
 
   function setCollecting(productId, tabId, active) {

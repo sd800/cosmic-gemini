@@ -132,8 +132,10 @@
     xhsImageDarkModeOpacity.disabled = !xhsEnabled || !showXhsImageControl;
     if (xhsImageDarkModeOpacityValue) xhsImageDarkModeOpacityValue.textContent = `${percentage}%`;
   }
-  const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
-  if (adMarshalEnabled) adMarshalEnabled.checked = cached.adMarshal?.enabled === true;
+  const adMarshalSites = cached.adMarshal?.managedSites || {};
+  for (const input of document.querySelectorAll('[data-ad-marshal-site]')) {
+    input.checked = adMarshalSites[input.dataset.adMarshalSite] === true;
+  }
   const preferredQuality = document.querySelector('#preferredQuality');
   if (preferredQuality) preferredQuality.value = current.preferredQuality || 'best';
   const askWhereToSave = document.querySelector('#askWhereToSave');

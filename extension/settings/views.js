@@ -178,9 +178,17 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p><p class="ad-marshal-managed-sites" data-i18n="adMarshalManagedSites"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="adMarshalEnabled" type="checkbox"><span></span><b class="sr-only">Ad Marshal</b></label></div>
+          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p></div>
         </div>
+        <fieldset class="ad-marshal-sites">
+          <legend data-i18n="adMarshalManagedSitesHeading"></legend>
+          <div class="ad-marshal-site-grid">
+            <label><input id="adMarshalTencentNews" data-ad-marshal-site="tencentNews" type="checkbox"><span data-i18n="adMarshalTencentNews"></span></label>
+            <label><input id="adMarshalDouyin" data-ad-marshal-site="douyin" type="checkbox"><span data-i18n="adMarshalDouyin"></span></label>
+            <label><input id="adMarshalZhihu" data-ad-marshal-site="zhihu" type="checkbox"><span data-i18n="adMarshalZhihu"></span></label>
+            <label><input id="adMarshalGmail" data-ad-marshal-site="gmail" type="checkbox"><span data-i18n="adMarshalGmail"></span></label>
+          </div>
+        </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'

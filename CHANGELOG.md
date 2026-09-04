@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.2.1 — 2026-09-04
+
+- Limited Image Download and Video Download response observation to the exact tabs where media discovery is collecting. A tab that has never started either product now registers no media `webRequest` listener; observation is added on demand, retained through the two-minute grace period, and removed when collection pauses or ends.
+- Coalesced concurrent Customs Province session restoration and removed the former all-tab fallback after an uncertain restoration, preventing resource-heavy unrelated pages from entering the download response path.
+- Replaced Ad Marshal's unified switch with a compact set of ordinary website checkboxes. Each managed group starts off and independently authorizes only its corresponding site policies; deprecated unified settings are not restored.
+- Tightened the Page Display layout below Greyscale to remove unnecessary empty space.
+
 ## 8.1.1 — 2026-09-04
 
 - Introduced Page Display as the second tool in Satellites. The new Operations Province product absorbs Reduce White Point and adds an independent Greyscale feature; both begin disabled.

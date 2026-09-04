@@ -4,6 +4,7 @@ import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
 import { validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';
 import { createCustomsProvince } from './provinces/customs.js';
+import { createCustomsResponseIngress } from './provinces/customs-response-ingress.js';
 import { createOperationsProvince } from './provinces/operations.js';
 import { createStandingProvince } from './provinces/standing.js';
 
@@ -37,34 +38,8 @@ const EVENT_PROVINCES = Object.freeze({
   storageChanged: Object.freeze(['standing', 'operations'])
 });
 
-const CUSTOMS_RESPONSE_FILTER = Object.freeze({
-  urls: Object.freeze(['http://*/*', 'https://*/*']),
-  types: Object.freeze(['media', 'xmlhttprequest', 'other', 'image'])
-});
-let customsResponseIngressRegistered = false;
-
-function handleCustomsHeadersReceived(details) {
-  void dispatchEvent('headersReceived', details);
-}
-
-function setCustomsResponseIngressEnabled(enabled) {
-  const next = enabled === true;
-  if (next === customsResponseIngressRegistered) return customsResponseIngressRegistered;
-  if (next) {
-    chrome.webRequest.onHeadersReceived.addListener(
-      handleCustomsHeadersReceived,
-      CUSTOMS_RESPONSE_FILTER,
-      ['responseHeaders']
-    );
-  } else {
-    chrome.webRequest.onHeadersReceived.removeListener(handleCustomsHeadersReceived);
-  }
-  customsResponseIngressRegistered = next;
-  return customsResponseIngressRegistered;
-}
-const customsResponseIngress = Object.freeze({ setEnabled: setCustomsResponseIngressEnabled });
-setCustomsResponseIngressEnabled(true);
 const platform = createPlatform();
+const customsResponseIngress = createCustomsResponseIngress(details => dispatchEvent('headersReceived', details));
 const provinces = Object.freeze({
   standing: createStandingProvince(platform),
   operations: createOperationsProvince(platform),
@@ -98,7 +73,7 @@ function productForMessage(message) {
     return FEATURE_IDS.NATIVE_SCROLL;
   }
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
-  if (message.type === 'UI_SET_AD_MARSHAL_ENABLED') return FEATURE_IDS.AD_MARSHAL;
+  if (message.type === 'UI_SET_AD_MARSHAL_SITE') return FEATURE_IDS.AD_MARSHAL;
   if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
   if (message.type === 'UI_SET_PAGE_DISPLAY_SETTING') return FEATURE_IDS.PAGE_DISPLAY;
   if (message.type.startsWith('UI_SET_XHS_IMAGE_DARK_MODE')

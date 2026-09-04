@@ -13,6 +13,7 @@ export function createCustomsProvince(platform, responseIngress) {
     [imageDownload.id]: imageDownload,
     [videoDownload.id]: videoDownload
   };
+  let restorationTask = null;
 
   function product(productId) {
     const value = products[productId];
@@ -20,9 +21,12 @@ export function createCustomsProvince(platform, responseIngress) {
     return value;
   }
 
-  async function restoreObservation() {
-    const results = await Promise.all([imageDownload.initialize(), videoDownload.initialize()]);
-    return observation.completeInitialization(results);
+  function restoreObservation() {
+    if (restorationTask) return restorationTask;
+    restorationTask = Promise.all([imageDownload.initialize(), videoDownload.initialize()])
+      .then(results => observation.completeInitialization(results))
+      .finally(() => { restorationTask = null; });
+    return restorationTask;
   }
 
   return defineProvince({

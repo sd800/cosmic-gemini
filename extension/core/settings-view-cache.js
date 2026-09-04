@@ -6,7 +6,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 22,
+    version: 23,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -61,7 +61,12 @@ export function settingsViewCache(states = {}) {
       biliDailyLogin: { enabled: states.satellites?.biliDailyLogin?.enabled === true }
     },
     adMarshal: {
-      enabled: states.adMarshal?.enabled === true
+      managedSites: {
+        tencentNews: states.adMarshal?.managedSites?.tencentNews === true,
+        douyin: states.adMarshal?.managedSites?.douyin === true,
+        zhihu: states.adMarshal?.managedSites?.zhihu === true,
+        gmail: states.adMarshal?.managedSites?.gmail === true
+      }
     }
   };
 }

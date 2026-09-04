@@ -28,7 +28,7 @@ test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkMode.enabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.adMarshal.enabled, false);
+  assert.equal(Object.values(DEFAULT_INCOGNITO_SETTINGS.adMarshal.managedSites).some(Boolean), false);
 });
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 
@@ -53,7 +53,9 @@ test('persistent products start with independent settings while Any Copy Enhance
     showImageControl: true,
     controlOpacity: 0.5
   });
-  assert.deepEqual(settings.adMarshal, { enabled: false });
+  assert.deepEqual(settings.adMarshal, {
+    managedSites: { tencentNews: false, douyin: false, zhihu: false, gmail: false }
+  });
   assert.equal('anyCopyEnhanced' in settings, false);
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
   assert.deepEqual(settings.videoDownload, { preferredQuality: 'best', askWhereToSave: true });
@@ -240,7 +242,7 @@ test('saved settings switches remain independent from effective page state', () 
   assert.equal(noAutoplay.active, false);
   assert.equal(noAutoplay.audioAutoplayAllSites, true);
 
-  const adMarshal = adMarshalState({ adMarshal: { enabled: true } }, 'https://example.com');
+  const adMarshal = adMarshalState({ adMarshal: { managedSites: { douyin: true } } }, 'https://example.com');
   assert.equal(adMarshal.enabled, true);
   assert.equal(adMarshal.supported, false);
   assert.equal(adMarshal.active, false);
@@ -321,43 +323,44 @@ test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
   assert.equal(override.status, 'active');
 });
 
-test('Ad Marshal uses one explicit switch without migrating former per-site settings', () => {
+test('Ad Marshal enables only explicitly selected managed-site groups', () => {
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.douyin.com/jingxuan').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.qq.com/').active, false);
-  const newsQq = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://news.qq.com/');
+  const selected = { adMarshal: { managedSites: { tencentNews: true, douyin: true, zhihu: true, gmail: true } } };
+  const newsQq = adMarshalState(selected, 'https://news.qq.com/');
   assert.equal(newsQq.active, true);
   assert.equal(newsQq.siteId, 'newsQqCom');
-  const newsTimeline = adMarshalState(
-    { version: 17, adMarshal: { enabled: true } },
-    'https://view.inews.qq.com/timeline/example'
-  );
+  assert.equal(newsQq.settingId, 'tencentNews');
+  const newsTimeline = adMarshalState(selected, 'https://view.inews.qq.com/timeline/example');
   assert.equal(newsTimeline.active, true);
   assert.equal(newsTimeline.siteId, 'newsQqCom');
-  const wwwQq = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.qq.com/');
+  const wwwQq = adMarshalState(selected, 'https://www.qq.com/');
   assert.equal(wwwQq.active, true);
   assert.equal(wwwQq.siteId, 'wwwQqCom');
-  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://video.qq.com/').active, false);
-  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://video.qq.com/').enabled, true);
-  const douyin = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.douyin.com/jingxuan');
+  assert.equal(adMarshalState(selected, 'https://video.qq.com/').active, false);
+  assert.equal(adMarshalState(selected, 'https://video.qq.com/').enabled, true);
+  const douyin = adMarshalState(selected, 'https://www.douyin.com/jingxuan');
   assert.equal(douyin.active, true);
   assert.equal(douyin.siteId, 'douyinCom');
-  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://live.douyin.com/').active, true);
-  const zhihu = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.zhihu.com/');
+  assert.equal(adMarshalState(selected, 'https://live.douyin.com/').active, true);
+  const zhihu = adMarshalState(selected, 'https://www.zhihu.com/');
   assert.equal(zhihu.active, true);
   assert.equal(zhihu.siteId, 'zhihuCom');
-  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhuanlan.zhihu.com/p/1').active, true);
-  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://zhimg.com/').active, false);
-  const gmail = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://mail.google.com/mail/u/1/#inbox');
+  assert.equal(adMarshalState(selected, 'https://zhuanlan.zhihu.com/p/1').active, true);
+  assert.equal(adMarshalState(selected, 'https://zhimg.com/').active, false);
+  const gmail = adMarshalState(selected, 'https://mail.google.com/mail/u/1/#inbox');
   assert.equal(gmail.active, true);
   assert.equal(gmail.siteId, 'gmailCom');
-  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://chat.google.com/').active, false);
-  assert.equal(adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://play.google.com/').active, false);
-  const settingsState = adMarshalState({ version: 17, adMarshal: { enabled: true } }, '');
+  assert.equal(adMarshalState(selected, 'https://chat.google.com/').active, false);
+  assert.equal(adMarshalState(selected, 'https://play.google.com/').active, false);
+  const settingsState = adMarshalState(selected, '');
   assert.equal(settingsState.enabled, true);
   assert.equal(settingsState.supported, false);
   assert.equal(settingsState.active, false);
-  assert.equal(normalizeSettings({ version: 16, adMarshal: { sites: { newsQqCom: true } } }).adMarshal.enabled, false);
+  assert.equal(adMarshalState({ adMarshal: { managedSites: { douyin: true } } }, 'https://news.qq.com/').active, false);
+  assert.deepEqual(normalizeSettings({ adMarshal: { enabled: true, sites: { newsQqCom: true } } }).adMarshal,
+    { managedSites: { tencentNews: false, douyin: false, zhihu: false, gmail: false } });
 });
 
 test('settings first-frame cache keeps preferences without page activity', () => {
@@ -382,7 +385,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
     satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
-    adMarshal: { enabled: true },
+    adMarshal: { managedSites: { tencentNews: true, gmail: true } },
     activity: { nativeScroll: true }
   });
   assert.deepEqual(cache.nativeScroll, {
@@ -393,7 +396,9 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   });
   assert.deepEqual(cache.nsna, { whitelistRules: ['*.private.example'] });
   assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
-  assert.deepEqual(cache.adMarshal, { enabled: true });
+  assert.deepEqual(cache.adMarshal, {
+    managedSites: { tencentNews: true, douyin: false, zhihu: false, gmail: true }
+  });
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.deepEqual(cache.mailtoCapture, { enabled: false });

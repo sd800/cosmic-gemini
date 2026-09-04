@@ -28,7 +28,8 @@
     'htrace.wetvinfo.com',
     'svibeacon.onezapp.com',
     'news.ssp.qq.com',
-    'op.ssp.qq.com'
+    'op.ssp.qq.com',
+    'n.ssp.qq.com'
   ];
   const SITE_CONFIGS = Object.freeze({
     newsQqCom: Object.freeze({
@@ -37,7 +38,8 @@
       scriptPaths: Object.freeze([
         'universal-report.min.js',
         '/news-plugin/sdk/emonitor_',
-        '/qqindex2021/advertisement/'
+        '/qqindex2021/advertisement/',
+        '/qqcdn/news-share/js/custom_'
       ]),
       style: `${NEWS_QQ_AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
       localProbe: true

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.12.2 — 2026-09-04
+
+- Replaced the monitoring bundle used by Tencent News timeline pages with a local API-compatible implementation, preventing its Fetch, XHR, Console, and performance instrumentation from starting without causing a missing-API error in the page. The timeline policy also now handles its confirmed `n.ssp.qq.com` advertising endpoint locally while leaving content, image, and audio resources unchanged.
+
 ## 6.12.1 — 2026-09-04
 
 - Extended the existing Tencent News Ad Marshal policy to its exact internal timeline host, `view.inews.qq.com`. The timeline page now receives the same local handling for its confirmed reporting loader and Tencent telemetry requests as `news.qq.com`, while Settings keeps a single Tencent News entry and other `qq.com` subdomains remain outside the policy.

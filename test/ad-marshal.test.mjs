@@ -106,7 +106,12 @@ test('Ad Marshal routes the Tencent News timeline host through the news.qq.com p
   }, settings), true);
   assert.equal(runtimeCalls[0].active, true);
   assert.equal(ruleUpdates.length, 1);
-  assert.equal(ruleUpdates[0].addRules.length, 8);
+  assert.equal(ruleUpdates[0].addRules.length, 9);
   assert.equal(ruleUpdates[0].addRules[0].condition.urlFilter, 'universal-report.min.js');
+  assert.ok(ruleUpdates[0].addRules.some(rule => (
+    rule.condition.urlFilter === '/qqcdn/news-share/js/custom_'
+      && rule.action.redirect.extensionPath === '/assets/ad-marshal-qq-emonitor.js'
+  )));
+  assert.ok(ruleUpdates[0].addRules.some(rule => rule.condition.requestDomains?.includes('n.ssp.qq.com')));
   assert.ok(ruleUpdates[0].addRules.every(rule => rule.condition.tabIds[0] === 18));
 });

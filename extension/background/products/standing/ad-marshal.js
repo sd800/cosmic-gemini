@@ -65,7 +65,8 @@ const TENCENT_QQ_TRACKING_DOMAINS = Object.freeze([
   'htrace.wetvinfo.com',
   'svibeacon.onezapp.com',
   'news.ssp.qq.com',
-  'op.ssp.qq.com'
+  'op.ssp.qq.com',
+  'n.ssp.qq.com'
 ]);
 const WWW_QQ_TRACKING_DOMAINS = Object.freeze([
   ...TENCENT_QQ_TRACKING_DOMAINS,
@@ -141,6 +142,16 @@ function newsQqRules(tabId, base) {
         tabIds: [tabId],
         urlFilter: '|http://127.0.0.1:11601/check|',
         resourceTypes: ['xmlhttprequest', 'other']
+      }
+    },
+    {
+      id: base + 8,
+      priority: 110,
+      action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-qq-emonitor.js' } },
+      condition: {
+        tabIds: [tabId],
+        urlFilter: '/qqcdn/news-share/js/custom_',
+        resourceTypes: ['script']
       }
     }
   ];

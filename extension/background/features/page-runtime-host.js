@@ -48,7 +48,14 @@ export function createPageRuntimeHost(platform) {
     try {
       await chrome.scripting.executeScript({ target, files: [product.bridge], world: 'ISOLATED', injectImmediately: true });
       await chrome.scripting.executeScript({ target, files: [product.runtime], world: 'MAIN', injectImmediately: true });
-      await platform.sendTabMessage(tabId, { type: 'CG_REFRESH_FEATURE_CONFIG', featureId: product.id }, options);
+      const response = await platform.sendTabMessage(
+        tabId,
+        { type: 'CG_REFRESH_FEATURE_CONFIG', featureId: product.id },
+        options
+      );
+      if (product.awaitConfiguration === true && response?.configured !== true) {
+        throw new Error('The page runtime did not apply its configuration.');
+      }
     } catch (error) {
       await platform.sendTabMessage(tabId, { type: 'CG_STOP_CENTRAL_FEATURE', featureId: product.id }, options).catch(() => {});
       await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});

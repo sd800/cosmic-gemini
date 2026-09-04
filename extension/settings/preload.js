@@ -7,8 +7,7 @@
     enhancedRules: 'emptyEnhancedSites',
     standardRules: 'emptyStandardSites',
     permanentAudioAllowRules: 'emptyAudioAllow',
-    whitelistRules: 'emptySharedWhitelist',
-    enforcedRules: 'emptyEnforcedSites'
+    whitelistRules: 'emptySharedWhitelist'
   };
   const iconPaths = {
     nativeScroll: '<path d="M12 3v18M7.5 7.5 12 3l4.5 4.5M7.5 16.5 12 21l4.5-4.5"/>',
@@ -66,17 +65,13 @@
   const cachedRules = name => Array.isArray(current[name])
     ? current[name].filter(rule => typeof rule === 'string')
     : [];
-  const inactiveRules = cachedRules('inactiveRules').length
-    ? cachedRules('inactiveRules')
-    : cachedRules('whitelistRules');
+  const inactiveRules = cachedRules('inactiveRules');
   const explicitStandardRules = cachedRules('standardRules').filter(rule => !inactiveRules.includes(rule));
   const enhancedRules = cachedRules('enhancedRules')
     .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule));
-  const migratedEnabledRules = cachedRules('enabledRules')
-    .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule) && !enhancedRules.includes(rule));
   const behaviorRules = {
     inactiveRules,
-    standardRules: [...new Set([...explicitStandardRules, ...migratedEnabledRules])],
+    standardRules: explicitStandardRules,
     enhancedRules
   };
   const enabled = document.querySelector('#enabled');
@@ -100,29 +95,29 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
   }
-  const xhsImageDarkReaderEnabled = document.querySelector('#xhsImageDarkReaderEnabled');
-  const xhsEnabled = cached.xhsImageDarkReader?.enabled === true;
-  if (xhsImageDarkReaderEnabled) xhsImageDarkReaderEnabled.checked = xhsEnabled;
-  const xhsImageDarkReaderOverride = document.querySelector('#xhsImageDarkReaderOverride');
-  if (xhsImageDarkReaderOverride) {
-    xhsImageDarkReaderOverride.checked = cached.xhsImageDarkReader?.overrideDarkMode === true;
-    xhsImageDarkReaderOverride.disabled = !xhsEnabled;
+  const xhsImageDarkModeEnabled = document.querySelector('#xhsImageDarkModeEnabled');
+  const xhsEnabled = cached.xhsImageDarkMode?.enabled === true;
+  if (xhsImageDarkModeEnabled) xhsImageDarkModeEnabled.checked = xhsEnabled;
+  const xhsImageDarkModeOverride = document.querySelector('#xhsImageDarkModeOverride');
+  if (xhsImageDarkModeOverride) {
+    xhsImageDarkModeOverride.checked = cached.xhsImageDarkMode?.overrideDarkMode === true;
+    xhsImageDarkModeOverride.disabled = !xhsEnabled;
   }
-  const xhsImageDarkReaderControl = document.querySelector('#xhsImageDarkReaderControl');
-  const xhsImageDarkReaderOpacityRow = document.querySelector('.xhs-opacity-row');
-  const showXhsImageControl = cached.xhsImageDarkReader?.showImageControl !== false;
-  if (xhsImageDarkReaderControl) {
-    xhsImageDarkReaderControl.checked = showXhsImageControl;
-    xhsImageDarkReaderControl.disabled = !xhsEnabled;
+  const xhsImageDarkModeControl = document.querySelector('#xhsImageDarkModeControl');
+  const xhsImageDarkModeOpacityRow = document.querySelector('.xhs-opacity-row');
+  const showXhsImageControl = cached.xhsImageDarkMode?.showImageControl !== false;
+  if (xhsImageDarkModeControl) {
+    xhsImageDarkModeControl.checked = showXhsImageControl;
+    xhsImageDarkModeControl.disabled = !xhsEnabled;
   }
-  if (xhsImageDarkReaderOpacityRow) xhsImageDarkReaderOpacityRow.hidden = !showXhsImageControl;
-  const xhsImageDarkReaderOpacity = document.querySelector('#xhsImageDarkReaderOpacity');
-  const xhsImageDarkReaderOpacityValue = document.querySelector('#xhsImageDarkReaderOpacityValue');
-  if (xhsImageDarkReaderOpacity) {
-    const percentage = Math.round((cached.xhsImageDarkReader?.controlOpacity || 0.5) * 100);
-    xhsImageDarkReaderOpacity.value = String(percentage);
-    xhsImageDarkReaderOpacity.disabled = !xhsEnabled || !showXhsImageControl;
-    if (xhsImageDarkReaderOpacityValue) xhsImageDarkReaderOpacityValue.textContent = `${percentage}%`;
+  if (xhsImageDarkModeOpacityRow) xhsImageDarkModeOpacityRow.hidden = !showXhsImageControl;
+  const xhsImageDarkModeOpacity = document.querySelector('#xhsImageDarkModeOpacity');
+  const xhsImageDarkModeOpacityValue = document.querySelector('#xhsImageDarkModeOpacityValue');
+  if (xhsImageDarkModeOpacity) {
+    const percentage = Math.round((cached.xhsImageDarkMode?.controlOpacity || 0.5) * 100);
+    xhsImageDarkModeOpacity.value = String(percentage);
+    xhsImageDarkModeOpacity.disabled = !xhsEnabled || !showXhsImageControl;
+    if (xhsImageDarkModeOpacityValue) xhsImageDarkModeOpacityValue.textContent = `${percentage}%`;
   }
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
   if (adMarshalEnabled) adMarshalEnabled.checked = cached.adMarshal?.enabled === true;

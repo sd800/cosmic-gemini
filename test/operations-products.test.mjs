@@ -3,6 +3,7 @@ import test from 'node:test';
 import { normalizeSettings } from '../extension/core/config.js';
 import { createAnyCopyProduct } from '../extension/background/products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
+import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 
 test('Any Copy settings remove the submitted rule instead of an empty hostname', async () => {
@@ -66,4 +67,24 @@ test('popup website actions stop when the source tab has navigated elsewhere', a
     expectedHostname: 'old.example'
   }), /page changed/i);
   assert.equal(writes, 0);
+});
+
+test('XHS Image Dark Mode settings synchronize open pages before returning', async () => {
+  let settings = normalizeSettings({ xhsImageDarkMode: { enabled: true } });
+  let refreshes = 0;
+  const product = createXhsImageDarkModeProduct({ sync: async () => true }, {
+    async mutateSettings(update, refresh) {
+      assert.equal(refresh, false);
+      settings = normalizeSettings(update(settings));
+      return settings;
+    },
+    async refreshOpenPages() { refreshes += 1; }
+  });
+  const result = await product.handleMessage({
+    type: 'UI_SET_XHS_IMAGE_DARK_MODE_SETTING',
+    name: 'overrideDarkMode',
+    value: true
+  });
+  assert.equal(result.overrideDarkMode, true);
+  assert.equal(refreshes, 1);
 });

@@ -2,12 +2,12 @@ import {
   FEATURE_IDS,
   hostnameFromUrl,
   updateFeature,
-  xhsImageDarkReaderState
+  xhsImageDarkModeState
 } from '../../../core/config.js';
 
-const SESSION_PREFIX = 'xhsImageDarkReaderPage:';
+const SESSION_PREFIX = 'xhsImageDarkModePage:';
 
-export function createXhsImageDarkReaderProduct(pageRuntimeHost, platform) {
+export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
   let localePromise = null;
   const key = tabId => SESSION_PREFIX + tabId;
 
@@ -31,16 +31,28 @@ export function createXhsImageDarkReaderProduct(pageRuntimeHost, platform) {
     if (current.darkModeDetected === next.darkModeDetected && current.processing === next.processing) return false;
     await chrome.storage.session.set({ [key(tabId)]: next });
     platform.notifyCentralUi(tabId);
-    await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_READER, next.processing);
+    await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_MODE, next.processing);
     return true;
   }
 
+  async function updateSettings(update, tabId) {
+    const settings = await platform.mutateSettings(current => updateFeature(
+      current,
+      FEATURE_IDS.XHS_IMAGE_DARK_MODE,
+      update
+    ), false);
+    if (Number.isInteger(tabId)) await platform.refreshTabPage(tabId);
+    else await platform.refreshOpenPages();
+    return settings;
+  }
+
   const product = Object.freeze({
-    id: FEATURE_IDS.XHS_IMAGE_DARK_READER,
-    bridge: 'content/xhs-image-dark-reader-bridge.js',
-    runtime: 'content/xhs-image-dark-reader-runtime.js',
+    id: FEATURE_IDS.XHS_IMAGE_DARK_MODE,
+    bridge: 'content/xhs-image-dark-mode-bridge.js',
+    runtime: 'content/xhs-image-dark-mode-runtime.js',
+    awaitConfiguration: true,
     async state(settings, url, tabId) {
-      const state = xhsImageDarkReaderState(settings, url, await readPageState(tabId));
+      const state = xhsImageDarkModeState(settings, url, await readPageState(tabId));
       return state.active ? { ...state, locale: await locale() } : state;
     },
     async sync(context, settings) {
@@ -55,40 +67,36 @@ export function createXhsImageDarkReaderProduct(pageRuntimeHost, platform) {
       return active;
     },
     async handleMessage(message, context = {}) {
-      if (message.type === 'CG_XHS_IMAGE_DARK_READER_STATUS') {
+      if (message.type === 'CG_XHS_IMAGE_DARK_MODE_STATUS') {
         const tabId = context.sender?.tab?.id;
         const hostname = hostnameFromUrl(context.sender?.tab?.url || context.sender?.url || '');
         if (context.sender?.frameId !== 0 || hostname !== 'www.xiaohongshu.com') return { recorded: false };
         const settings = await platform.readSettings();
-        if (!settings.xhsImageDarkReader.enabled) return { recorded: false };
+        if (!settings.xhsImageDarkMode.enabled) return { recorded: false };
         return { recorded: await writePageState(tabId, message.status) };
       }
-      if (message.type === 'UI_SET_XHS_IMAGE_DARK_READER_ENABLED') {
+      if (message.type === 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED') {
         const enabled = message.enabled === true;
-        const settings = await platform.mutateSettings(current => updateFeature(
-          current,
-          product.id,
-          feature => ({ ...feature, enabled })
-        ));
-        if (!enabled && Number.isInteger(Number(message.tabId))) await product.removeTab(Number(message.tabId));
-        return settings.xhsImageDarkReader;
+        const requestedTabId = Number(message.tabId);
+        const tabId = Number.isInteger(requestedTabId) ? requestedTabId : null;
+        const settings = await updateSettings(feature => ({ ...feature, enabled }), tabId);
+        if (!enabled && tabId !== null) await product.removeTab(tabId);
+        return settings.xhsImageDarkMode;
       }
-      if (message.type === 'UI_SET_XHS_IMAGE_DARK_READER_SETTING') {
+      if (message.type === 'UI_SET_XHS_IMAGE_DARK_MODE_SETTING') {
         const name = String(message.name || '');
         if (!['overrideDarkMode', 'showImageControl', 'controlOpacity'].includes(name)) {
-          throw new Error('XHS Image Dark Reader does not support this setting.');
+          throw new Error('XHS Image Dark Mode does not support this setting.');
         }
         const value = name === 'controlOpacity'
           ? Math.min(0.9, Math.max(0.2, Number(message.value) || 0.5))
           : message.value === true;
-        const settings = await platform.mutateSettings(current => updateFeature(
-          current,
-          product.id,
-          feature => ({ ...feature, [name]: value })
-        ));
-        return settings.xhsImageDarkReader;
+        const requestedTabId = Number(message.tabId);
+        const tabId = Number.isInteger(requestedTabId) ? requestedTabId : null;
+        const settings = await updateSettings(feature => ({ ...feature, [name]: value }), tabId);
+        return settings.xhsImageDarkMode;
       }
-      throw new Error('XHS Image Dark Reader does not support this command.');
+      throw new Error('XHS Image Dark Mode does not support this command.');
     },
     async removeTab(tabId) {
       if (!Number.isInteger(tabId)) return;

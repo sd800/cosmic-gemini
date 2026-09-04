@@ -10,7 +10,7 @@ import { createStandingProvince } from './provinces/standing.js';
 export const PROVINCE_PRODUCTS = Object.freeze({
   standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE, FEATURE_IDS.AD_MARSHAL]),
   operations: Object.freeze([
-    FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.XHS_IMAGE_DARK_READER,
+    FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.XHS_IMAGE_DARK_MODE,
     'satellites', 'administration'
   ]),
   customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD])
@@ -19,7 +19,7 @@ export const PROVINCE_PRODUCTS = Object.freeze({
 const PAGE_PRODUCTS = Object.freeze([
   FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE,
   FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED,
-  FEATURE_IDS.XHS_IMAGE_DARK_READER
+  FEATURE_IDS.XHS_IMAGE_DARK_MODE
 ]);
 const STATE_PRODUCTS = Object.freeze([
   ...PAGE_PRODUCTS,
@@ -101,8 +101,8 @@ function productForMessage(message) {
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
   if (message.type === 'UI_SET_AD_MARSHAL_ENABLED') return FEATURE_IDS.AD_MARSHAL;
   if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
-  if (message.type.startsWith('UI_SET_XHS_IMAGE_DARK_READER')
-    || message.type === 'CG_XHS_IMAGE_DARK_READER_STATUS') return FEATURE_IDS.XHS_IMAGE_DARK_READER;
+  if (message.type.startsWith('UI_SET_XHS_IMAGE_DARK_MODE')
+    || message.type === 'CG_XHS_IMAGE_DARK_MODE_STATUS') return FEATURE_IDS.XHS_IMAGE_DARK_MODE;
   if (/^(?:CG|UI)_IMAGE_|^UI_SET_IMAGE_SETTING$/.test(message.type)) return FEATURE_IDS.IMAGE_DOWNLOAD;
   if (/^(?:CG|UI)_VIDEO_|^UI_SET_VIDEO_SETTING$/.test(message.type)) return FEATURE_IDS.VIDEO_DOWNLOAD;
   if (['UI_GET', 'UI_GET_ACTIVE_PAGE_STATE', 'UI_OPEN_SETTINGS', 'UI_OPEN_ALL_SETTINGS',

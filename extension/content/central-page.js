@@ -3,14 +3,15 @@
   if (globalThis[CENTRAL_KEY]) return;
 
   let pending = null;
+  let syncQueued = false;
   let syncFailures = 0;
   let syncRetry = 0;
-  const sync = () => {
-    if (pending) return pending;
-    pending = chrome.runtime.sendMessage({ type: 'CG_SYNC_CENTRAL', url: location.href })
+  const synchronizeOnce = () => chrome.runtime.sendMessage({ type: 'CG_SYNC_CENTRAL', url: location.href })
       .then(response => {
         if (!response?.ok) throw new Error(response?.error || 'Central is temporarily unavailable.');
         syncFailures = 0;
+        if (syncRetry) clearTimeout(syncRetry);
+        syncRetry = 0;
       })
       .catch(() => {
         syncFailures += 1;
@@ -19,8 +20,16 @@
           syncRetry = 0;
           void sync();
         }, [80, 240, 800][syncFailures - 1]);
-      })
-      .finally(() => { pending = null; });
+      });
+  const sync = () => {
+    syncQueued = true;
+    if (pending) return pending;
+    pending = (async () => {
+      while (syncQueued) {
+        syncQueued = false;
+        await synchronizeOnce();
+      }
+    })().finally(() => { pending = null; });
     return pending;
   };
   const onMessage = message => {

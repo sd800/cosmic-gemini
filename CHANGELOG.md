@@ -2,12 +2,40 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 7.3.3 — 2026-09-04
+
+- Prevented the expanded viewer's bright placeholder background from flashing before its image appears. Feed covers and first slides now share classification through the post identity, and the viewer applies one transform to the complete slide surface so its placeholder and image stay visually consistent. The default dark-image brightness is no longer reduced, while an internal brightness variable remains available for later adjustment.
+
+## 7.3.2 — 2026-09-04
+
+- Added a separate high-contrast treatment for uniform mid-gray cards with light text. Their gray backgrounds are deepened to black while light text and small color accents remain visible.
+
+## 7.3.1 — 2026-09-04
+
+- Fixed Xiaohongshu images being silently skipped when the page loaded them without CORS mode. The classifier now retries through a CORS-enabled copy of the same CDN resource, reuses browser caching where available, and leaves the displayed image element untouched.
+- Expanded whole-image classification to recognize text cards built from a flat light reading surface and a stable frame. Frame detection is color-independent, so pink, blue, green, yellow, dark, and other borders can be treated as card structure without weakening the safeguards for photographs and mixed images.
+- Made light and dark presentation a per-image choice in expanded posts. Controls are created only inside the open post viewer, the active image's control sits immediately left of the page count when one is present, and feed covers no longer load or display controls.
+- Normalized Xiaohongshu CDN variants to one image identity. When an expanded post creates a higher-resolution element for an image already classified in the feed, the cached result is applied during the same DOM update so the image does not flash back to white while waiting for another analysis.
+
+## 7.2.1 — 2026-09-04
+
+- Renamed XHS Image Dark Reader to XHS Image Dark Mode throughout the extension, source, settings, and documentation. Its introduction now leads with the action it performs and identifies Dark Reader on Xiaohongshu as the primary use case.
+- Replaced regional image masks and face detection with a smaller whole-image classifier. It preserves the source aspect ratio while sampling at most 1,024 pixels, identifies nearly uniform light backgrounds with bounded text-like foregrounds, and leaves photographs and mixed photo-and-text images unchanged.
+- Each adjusted image can now switch independently between light and dark. The image control changes its action and label to match the current presentation.
+- Made page-wide dark-mode detection use the page's actual dark viewport surfaces as its first signal. It now recognizes whole-page inversion filters and Dark Reader's dynamic, filter, and static engines, observes theme styles and metadata, and briefly rechecks during initial page setup.
+- Enabling Always on now starts image processing immediately and displays the active solid-blue contextual control without waiting for page-status synchronization.
+- Reworked the Mailto Capture and Ad Marshal introductions so their opening sentences state the action each product performs, with independently localized English and Simplified Chinese wording across Settings and the README files.
+- Removed deprecated settings-key and schema migration paths. Current products now read only their current configuration fields.
+
 ## 7.1.1 — 2026-09-04
 
 - Added XHS Image Dark Reader as a default-off Operations Province product and the second item in Satellites. On `www.xiaohongshu.com`, a contextual bulb control appears below the fixed popup rows, with separate disabled, waiting-for-dark-mode, and active-processing states.
 - Added local, reduced-resolution classification that adapts high-confidence text cards and document regions while preserving portraits, scenery, ordinary photographs, avatars, and uncertain areas. Multi-image posts are handled one slide at a time, and mixed images use a regional mask instead of transforming the full image.
 - Added optional per-image restore controls, adjustable opacity, automatic dark-page detection, and a manual detection override. Image observers, styles, overlays, and controls run only while the product is authorized and processing, and are removed when it stops.
-- Increased the spacing between Satellites descriptions and their switches so wrapped text remains clear at narrower widths. XHS Image Dark Reader now disables and dims every subordinate control while its main switch is off, and hides Control opacity when image controls are hidden. Privacy descriptions omit redundant switch-state wording while retaining relevant data-handling details.
+- Increased the spacing between Satellites descriptions and their switches, and aligned Privacy text to the same wrapping boundary. XHS Image Dark Reader now uses a fully neutral, legible disabled style for subordinate controls while its main switch is off, and hides Control opacity when image controls are hidden. Privacy descriptions omit redundant switch-state wording while retaining relevant data-handling details.
+- Rewrote the complete Satellites interface independently in English and Simplified Chinese, including its overview, help, product descriptions, privacy details, XHS preferences, contextual status labels, and All Settings entry.
+- Fixed XHS Image Dark Reader configuration delivery so an in-flight page sync cannot discard a newer switch change. The page runtime now confirms that it applied the latest configuration, and the manual override takes effect before the setting action completes.
+- Improved dark-mode detection with direct Dark Reader signals, additional theme roots, and rendered page-surface sampling, so supported dark interfaces no longer depend on a single root background color.
 
 ## 6.12.2 — 2026-09-04
 

@@ -148,15 +148,15 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">
-          <div><h1 data-i18n="xhsImageDarkReaderName"></h1><p data-i18n="xhsImageDarkReaderDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="xhsImageDarkReaderEnabled" type="checkbox"><span></span><b class="sr-only">XHS Image Dark Reader</b></label></div>
+          <div><h1 data-i18n="xhsImageDarkModeName"></h1><p data-i18n="xhsImageDarkModeDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="xhsImageDarkModeEnabled" type="checkbox"><span></span><b class="sr-only">XHS Image Dark Mode</b></label></div>
         </div>
         <div class="preference-list satellite-preferences">
-          <label class="preference-row" for="xhsImageDarkReaderOverride"><span><strong data-i18n="xhsImageDarkReaderOverrideHeading"></strong><small data-i18n="xhsImageDarkReaderOverrideHelp"></small></span><span class="switch"><input id="xhsImageDarkReaderOverride" type="checkbox"><span></span></span></label>
-          <label class="preference-row" for="xhsImageDarkReaderControl"><span><strong data-i18n="xhsImageDarkReaderControlHeading"></strong><small data-i18n="xhsImageDarkReaderControlHelp"></small></span><span class="switch"><input id="xhsImageDarkReaderControl" type="checkbox" checked><span></span></span></label>
-          <label class="preference-row xhs-opacity-row" for="xhsImageDarkReaderOpacity"><span><strong data-i18n="xhsImageDarkReaderOpacityHeading"></strong><small data-i18n="xhsImageDarkReaderOpacityHelp"></small></span><span class="range-control"><input id="xhsImageDarkReaderOpacity" type="range" min="20" max="90" step="5" value="50"><output id="xhsImageDarkReaderOpacityValue" for="xhsImageDarkReaderOpacity">50%</output></span></label>
+          <label class="preference-row" for="xhsImageDarkModeOverride"><span><strong data-i18n="xhsImageDarkModeOverrideHeading"></strong><small data-i18n="xhsImageDarkModeOverrideHelp"></small></span><span class="switch"><input id="xhsImageDarkModeOverride" type="checkbox"><span></span></span></label>
+          <label class="preference-row" for="xhsImageDarkModeControl"><span><strong data-i18n="xhsImageDarkModeControlHeading"></strong><small data-i18n="xhsImageDarkModeControlHelp"></small></span><span class="switch"><input id="xhsImageDarkModeControl" type="checkbox" checked><span></span></span></label>
+          <label class="preference-row xhs-opacity-row" for="xhsImageDarkModeOpacity"><span><strong data-i18n="xhsImageDarkModeOpacityHeading"></strong><small data-i18n="xhsImageDarkModeOpacityHelp"></small></span><span class="range-control"><input id="xhsImageDarkModeOpacity" type="range" min="20" max="90" step="5" value="50"><output id="xhsImageDarkModeOpacityValue" for="xhsImageDarkModeOpacity">50%</output></span></label>
         </div>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="xhsImageDarkReaderPrivacy"></p></div>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="xhsImageDarkModePrivacy"></p></div>
       </section>
       <section class="card satellite-card">
         <div class="section-heading">

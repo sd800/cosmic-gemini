@@ -6,7 +6,6 @@ import {
   INCOGNITO_LOCALE_KEY,
   INCOGNITO_SETTINGS_KEY,
   INCOGNITO_WINDOWS_KEY,
-  LEGACY_SETTINGS_KEY,
   SETTINGS_KEY,
   normalizeSettings
 } from '../core/config.js';
@@ -16,8 +15,6 @@ import { createKeyedTaskQueue } from '../core/keyed-task-queue.js';
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
-const LEGACY_AUDIO_SESSION_PREFIXES = ['temporaryAudioAllow:', 'audioPromptShown:'];
-const LEGACY_AUDIO_ALARM_PREFIX = 'temporaryAudio:';
 const RETAINED_DOWNLOAD_PREFIXES = ['videoDownloadArtifact:', 'imageDownloadArtifact:', 'imageCaptureArtifact:'];
 
 export function createPlatform() {
@@ -56,9 +53,8 @@ export function createPlatform() {
 
   async function readSettings() {
     await prepareIncognitoSession();
-    const keys = incognitoContext ? [settingsKey] : [settingsKey, LEGACY_SETTINGS_KEY];
-    const stored = await settingsStorage.get(keys);
-    return normalizeSettings(stored[settingsKey] || (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) || defaultSettings);
+    const stored = await settingsStorage.get(settingsKey);
+    return normalizeSettings(stored[settingsKey] || defaultSettings);
   }
 
   async function writeSettings(value) {
@@ -111,10 +107,8 @@ export function createPlatform() {
   function ensureSettings() {
     return queueWrite(async () => {
       await prepareIncognitoSession();
-      const keys = incognitoContext ? [settingsKey] : [settingsKey, LEGACY_SETTINGS_KEY];
-      const stored = await settingsStorage.get(keys);
-      const settings = await writeSettings(stored[settingsKey] || (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) || defaultSettings);
-      if (!incognitoContext && stored[LEGACY_SETTINGS_KEY]) await chrome.storage.local.remove(LEGACY_SETTINGS_KEY);
+      const stored = await settingsStorage.get(settingsKey);
+      const settings = await writeSettings(stored[settingsKey] || defaultSettings);
       return settings;
     });
   }
@@ -175,7 +169,7 @@ export function createPlatform() {
       noAutoplay: value?.noAutoplay === true,
       anyCopy: value?.anyCopy === true,
       anyCopyEnhanced: value?.anyCopyEnhanced === true,
-      xhsImageDarkReader: value?.xhsImageDarkReader === true,
+      xhsImageDarkMode: value?.xhsImageDarkMode === true,
       imageDownload: value?.imageDownload === true,
       videoDownload: value?.videoDownload === true
     };
@@ -193,7 +187,7 @@ export function createPlatform() {
       noAutoplay: false,
       anyCopy: false,
       anyCopyEnhanced: false,
-      xhsImageDarkReader: false,
+      xhsImageDarkMode: false,
       imageDownload: false,
       videoDownload: false
     };
@@ -216,7 +210,7 @@ export function createPlatform() {
       activity.noAutoplay && 'No Autoplay',
       activity.anyCopy && 'Any Copy',
       activity.anyCopyEnhanced && 'Any Copy Enhanced',
-      activity.xhsImageDarkReader && 'XHS Image Dark Reader',
+      activity.xhsImageDarkMode && 'XHS Image Dark Mode',
       activity.imageDownload && 'Image Download',
       activity.videoDownload && 'Video Download'
     ].filter(Boolean);
@@ -276,15 +270,6 @@ export function createPlatform() {
     return true;
   }
 
-  async function clearLegacyAudioPromptState() {
-    const values = await chrome.storage.session.get(null);
-    const keys = Object.keys(values).filter(key => LEGACY_AUDIO_SESSION_PREFIXES.some(prefix => key.startsWith(prefix)));
-    if (keys.length) await chrome.storage.session.remove(keys);
-    const alarms = await chrome.alarms.getAll();
-    await Promise.allSettled(alarms.filter(alarm => alarm.name.startsWith(LEGACY_AUDIO_ALARM_PREFIX))
-      .map(alarm => chrome.alarms.clear(alarm.name)));
-  }
-
   async function clearOrphanedActivity() {
     const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
     const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
@@ -327,7 +312,7 @@ export function createPlatform() {
       nativeScroll: settings.nativeScroll,
       noAutoplay: settings.noAutoplay,
       anyCopy: settings.anyCopy,
-      xhsImageDarkReader: settings.xhsImageDarkReader,
+      xhsImageDarkMode: settings.xhsImageDarkMode,
       mailtoCapture: settings.mailtoCapture,
       adMarshal: settings.adMarshal
     });
@@ -335,7 +320,7 @@ export function createPlatform() {
 
   function handleStorageChanged(changes, areaName) {
     if (areaName !== settingsAreaName || !changes || typeof changes !== 'object') return false;
-    const settingsChange = changes[settingsKey] || (!incognitoContext && changes[LEGACY_SETTINGS_KEY]);
+    const settingsChange = changes[settingsKey];
     if (settingsChange && pageSettingsSignature(settingsChange.oldValue) !== pageSettingsSignature(settingsChange.newValue)) {
       scheduleOpenPageRefresh();
     }
@@ -378,7 +363,7 @@ export function createPlatform() {
         if (incognitoContext) {
           await chrome.storage.session.remove([INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY]);
         } else {
-          await chrome.storage.local.remove([SETTINGS_KEY, LEGACY_SETTINGS_KEY, 'interfaceLocale']);
+          await chrome.storage.local.remove([SETTINGS_KEY, 'interfaceLocale']);
         }
         const settings = await writeSettings(defaultSettings);
         let tabs = [];
@@ -404,7 +389,6 @@ export function createPlatform() {
     clearTabActivity,
     connectCentralUi,
     notifyCentralUi,
-    clearLegacyAudioPromptState,
     clearOrphanedActivity,
     getLocale,
     setLocale,

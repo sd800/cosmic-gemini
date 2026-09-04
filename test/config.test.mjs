@@ -15,14 +15,14 @@ import {
   normalizeSettings,
   ruleMatches,
   updateFeature,
-  xhsImageDarkReaderState
+  xhsImageDarkModeState
 } from '../extension/core/config.js';
 
 test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.nativeScroll.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.mailtoCapture.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkReader.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkMode.enabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.adMarshal.enabled, false);
@@ -40,7 +40,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
   assert.deepEqual(settings.mailtoCapture, { enabled: true });
-  assert.deepEqual(settings.xhsImageDarkReader, {
+  assert.deepEqual(settings.xhsImageDarkMode, {
     enabled: false,
     overrideDarkMode: false,
     showImageControl: true,
@@ -66,8 +66,11 @@ test('website behavior rules are normalized, deduplicated, and sorted', () => {
   assert.deepEqual(settings.anyCopy.siteRules, ['copy.example.com']);
 });
 
-test('legacy activation and mode lists migrate into one behavior per rule', () => {
+test('deprecated activation and mode fields are ignored', () => {
   const settings = normalizeSettings({
+    version: 1,
+    enabled: false,
+    whitelist: ['root.example.com'],
     nativeScroll: {
       enabledRules: ['enabled.example.com', 'enhanced.example.com'],
       whitelistRules: ['inactive.example.com', 'conflict.example.com'],
@@ -75,8 +78,9 @@ test('legacy activation and mode lists migrate into one behavior per rule', () =
       enhancedRules: ['enhanced.example.com', 'standard.example.com', 'conflict.example.com']
     }
   });
-  assert.deepEqual(settings.nativeScroll.inactiveRules, ['conflict.example.com', 'inactive.example.com']);
-  assert.deepEqual(settings.nativeScroll.standardRules, ['enabled.example.com', 'standard.example.com']);
+  assert.equal(settings.nativeScroll.enabled, true);
+  assert.deepEqual(settings.nativeScroll.inactiveRules, []);
+  assert.deepEqual(settings.nativeScroll.standardRules, ['conflict.example.com', 'standard.example.com']);
   assert.deepEqual(settings.nativeScroll.enhancedRules, ['enhanced.example.com']);
 });
 
@@ -175,13 +179,13 @@ test('Any Copy and current-tab Any Copy Enhanced activate independently', () => 
   assert.equal(anyCopyEnhancedState('https://docs.example.com', false).active, false);
 });
 
-test('legacy Any Copy rules keep standard activation and discard Enhanced website scope', () => {
-  const migrated = normalizeSettings({
+test('deprecated Any Copy website fields are ignored', () => {
+  const settings = normalizeSettings({
     version: 9,
     anyCopy: { enforcedRules: ['copy.example.com'], enhancedRules: ['reader.example.com'] }
   });
-  assert.deepEqual(migrated.anyCopy.siteRules, ['copy.example.com']);
-  assert.equal('anyCopyEnhanced' in migrated, false);
+  assert.deepEqual(settings.anyCopy.siteRules, []);
+  assert.equal('anyCopyEnhanced' in settings, false);
 });
 
 test('No Autoplay audio permission applies only while No Autoplay is active', () => {
@@ -250,31 +254,33 @@ test('Mailto Capture follows its ordinary and incognito defaults without website
   assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
 });
 
-test('XHS Image Dark Reader is exact-host, opt-in, and dark-page gated', () => {
-  const disabled = xhsImageDarkReaderState(DEFAULT_SETTINGS, 'https://www.xiaohongshu.com/explore');
+test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
+  const disabled = xhsImageDarkModeState(DEFAULT_SETTINGS, 'https://www.xiaohongshu.com/explore');
   assert.equal(disabled.supported, true);
   assert.equal(disabled.active, false);
 
-  const enabled = { xhsImageDarkReader: { enabled: true } };
-  assert.equal(xhsImageDarkReaderState(enabled, 'https://xiaohongshu.com/explore').supported, false);
-  assert.equal(xhsImageDarkReaderState(enabled, 'https://sub.www.xiaohongshu.com/explore').supported, false);
-  const waiting = xhsImageDarkReaderState(enabled, 'https://www.xiaohongshu.com/explore', {
+  const enabled = { xhsImageDarkMode: { enabled: true } };
+  assert.equal(xhsImageDarkModeState(enabled, 'https://xiaohongshu.com/explore').supported, false);
+  assert.equal(xhsImageDarkModeState(enabled, 'https://sub.www.xiaohongshu.com/explore').supported, false);
+  const waiting = xhsImageDarkModeState(enabled, 'https://www.xiaohongshu.com/explore', {
     darkModeDetected: false,
     processing: false
   });
   assert.equal(waiting.active, true);
   assert.equal(waiting.processing, false);
-  const processing = xhsImageDarkReaderState(enabled, 'https://www.xiaohongshu.com/explore', {
+  const processing = xhsImageDarkModeState(enabled, 'https://www.xiaohongshu.com/explore', {
     darkModeDetected: true,
     processing: true
   });
   assert.equal(processing.processing, true);
 
-  const override = xhsImageDarkReaderState({
-    xhsImageDarkReader: { enabled: true, overrideDarkMode: true }
+  const override = xhsImageDarkModeState({
+    xhsImageDarkMode: { enabled: true, overrideDarkMode: true }
   }, 'https://www.xiaohongshu.com/explore');
   assert.equal(override.active, true);
   assert.equal(override.overrideDarkMode, true);
+  assert.equal(override.processing, true);
+  assert.equal(override.status, 'active');
 });
 
 test('Ad Marshal uses one explicit switch without migrating former per-site settings', () => {

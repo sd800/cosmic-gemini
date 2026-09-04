@@ -15,7 +15,7 @@ const productKey = {
   videoDownload: 'videoDownloadName'
 };
 const contextualProducts = Object.freeze([
-  Object.freeze({ id: 'xhsImageDarkReader', hostname: 'www.xiaohongshu.com' })
+  Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' })
 ]);
 let state;
 let t;
@@ -127,21 +127,21 @@ function renderContextualProducts() {
     row.className = 'feature-row';
     const actions = document.createElement('nav');
     actions.className = 'launcher-actions contextual-actions';
-    actions.setAttribute('aria-label', t('xhsImageDarkReaderName'));
+    actions.setAttribute('aria-label', t('xhsImageDarkModeName'));
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'feature-status feature-toggle primary-product';
     toggle.dataset.state = feature.enabled ? 'active' : 'off';
     toggle.dataset.persistent = String(feature.processing === true);
     toggle.setAttribute('aria-pressed', String(feature.enabled === true));
-    toggle.innerHTML = icon(feature.processing ? 'xhsImageDarkReaderActive' : 'xhsImageDarkReader');
+    toggle.innerHTML = icon(feature.processing ? 'xhsImageDarkModeActive' : 'xhsImageDarkMode');
     label(toggle, t(!feature.enabled
-      ? 'xhsImageDarkReaderOffTitle'
+      ? 'xhsImageDarkModeOffTitle'
       : feature.processing
-        ? 'xhsImageDarkReaderActiveTitle'
-        : 'xhsImageDarkReaderWaitingTitle'));
+        ? 'xhsImageDarkModeActiveTitle'
+        : 'xhsImageDarkModeWaitingTitle'));
     toggle.addEventListener('click', () => void act(() => send({
-      type: 'UI_SET_XHS_IMAGE_DARK_READER_ENABLED',
+      type: 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED',
       enabled: !feature.enabled,
       tabId: currentTab?.id
     })));

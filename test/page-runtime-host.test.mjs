@@ -85,3 +85,48 @@ test('an existing bridge confirms inactive cleanup before toolbar activity is cl
   await host.sync(product, { tabId: 9, frameId: 0, documentId: 'active-document' }, false);
   assert.equal(activityWrites, 1);
 });
+
+test('products that require configuration wait for the page bridge to acknowledge it', async () => {
+  const acknowledgedProduct = { ...product, awaitConfiguration: true };
+  let messages = 0;
+  globalThis.chrome = {
+    scripting: { async executeScript() { return [{ frameId: 0, result: true }]; } }
+  };
+  const host = createPageRuntimeHost({
+    async sendTabMessage(_tabId, message) {
+      messages += 1;
+      if (message.type === 'CG_REFRESH_FEATURE_CONFIG') return { configured: true };
+      return { disposed: true };
+    },
+    async setFeatureActivity() {}
+  });
+  await host.sync(acknowledgedProduct, { tabId: 9, frameId: 0, documentId: 'acknowledged' }, true);
+  assert.equal(messages, 1);
+});
+
+test('a missing configuration acknowledgement rolls back that page runtime', async () => {
+  const acknowledgedProduct = { ...product, awaitConfiguration: true };
+  let executions = 0;
+  const messages = [];
+  globalThis.chrome = {
+    scripting: {
+      async executeScript() {
+        executions += 1;
+        return [{ frameId: 0, result: true }];
+      }
+    }
+  };
+  const host = createPageRuntimeHost({
+    async sendTabMessage(_tabId, message) {
+      messages.push(message.type);
+      return undefined;
+    },
+    async setFeatureActivity() {}
+  });
+  await assert.rejects(
+    host.sync(acknowledgedProduct, { tabId: 9, frameId: 0, documentId: 'unacknowledged' }, true),
+    /did not apply/
+  );
+  assert.equal(executions, 3);
+  assert.deepEqual(messages, ['CG_REFRESH_FEATURE_CONFIG', 'CG_STOP_CENTRAL_FEATURE']);
+});

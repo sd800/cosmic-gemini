@@ -1,5 +1,4 @@
 export const SETTINGS_KEY = 'cosmicGeminiSettings';
-export const LEGACY_SETTINGS_KEY = 'settings';
 export const INCOGNITO_SETTINGS_KEY = 'cosmicGeminiIncognitoSettings';
 export const INCOGNITO_LOCALE_KEY = 'cosmicGeminiIncognitoLocale';
 export const INCOGNITO_WINDOWS_KEY = 'cosmicGeminiIncognitoWindowIds';
@@ -9,7 +8,7 @@ export const FEATURE_IDS = Object.freeze({
   NO_AUTOPLAY: 'noAutoplay',
   ANY_COPY: 'anyCopy',
   ANY_COPY_ENHANCED: 'anyCopyEnhanced',
-  XHS_IMAGE_DARK_READER: 'xhsImageDarkReader',
+  XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
   MAILTO_CAPTURE: 'mailtoCapture',
   AD_MARSHAL: 'adMarshal',
   IMAGE_DOWNLOAD: 'imageDownload',
@@ -22,7 +21,7 @@ export const FEATURE_SLOTS = Object.freeze({
   ANY_COPY: 30,
   ANY_COPY_ENHANCED: 31,
   MAILTO_CAPTURE: 32,
-  XHS_IMAGE_DARK_READER: 33,
+  XHS_IMAGE_DARK_MODE: 33,
   AD_MARSHAL: 35,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
@@ -36,7 +35,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 19,
+  version: 20,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -52,7 +51,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   mailtoCapture: Object.freeze({
     enabled: true
   }),
-  xhsImageDarkReader: Object.freeze({
+  xhsImageDarkMode: Object.freeze({
     enabled: false,
     overrideDarkMode: false,
     showImageControl: true,
@@ -145,17 +144,15 @@ function normalizeRules(value) {
 }
 
 function normalizeFeature(value = {}, includeAudioRules = false) {
-  const inactiveRules = normalizeRules(value.inactiveRules ?? value.whitelistRules ?? value.whitelist);
+  const inactiveRules = normalizeRules(value.inactiveRules);
   const explicitStandardRules = normalizeRules(value.standardRules)
     .filter(rule => !inactiveRules.includes(rule));
   const enhancedRules = normalizeRules(value.enhancedRules)
     .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule));
-  const migratedEnabledRules = normalizeRules(value.enabledRules)
-    .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule) && !enhancedRules.includes(rule));
   const normalized = {
     enabled: value.enabled !== false,
     inactiveRules,
-    standardRules: normalizeRules([...explicitStandardRules, ...migratedEnabledRules]),
+    standardRules: explicitStandardRules,
     enhancedRules
   };
   if (includeAudioRules) {
@@ -166,28 +163,24 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 }
 
 export function normalizeSettings(value = {}) {
-  const legacy = value.version === 1 && ('enabled' in value || 'whitelist' in value || 'mode' in value);
-  const nativeValue = legacy
-    ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
-    : value.nativeScroll;
   return {
-    version: 19,
+    version: 20,
     nsna: {
-      whitelistRules: normalizeRules(value.nsna?.whitelistRules ?? value.nsnaWhitelistRules)
+      whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
-    nativeScroll: normalizeFeature(nativeValue || {}, false),
+    nativeScroll: normalizeFeature(value.nativeScroll || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
     anyCopy: {
-      siteRules: normalizeRules(value.anyCopy?.siteRules ?? value.anyCopy?.enforcedRules)
+      siteRules: normalizeRules(value.anyCopy?.siteRules)
     },
     mailtoCapture: {
       enabled: value.mailtoCapture?.enabled !== false
     },
-    xhsImageDarkReader: {
-      enabled: value.xhsImageDarkReader?.enabled === true,
-      overrideDarkMode: value.xhsImageDarkReader?.overrideDarkMode === true,
-      showImageControl: value.xhsImageDarkReader?.showImageControl !== false,
-      controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkReader?.controlOpacity) || 0.5))
+    xhsImageDarkMode: {
+      enabled: value.xhsImageDarkMode?.enabled === true,
+      overrideDarkMode: value.xhsImageDarkMode?.overrideDarkMode === true,
+      showImageControl: value.xhsImageDarkMode?.showImageControl !== false,
+      controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkMode?.controlOpacity) || 0.5))
     },
     adMarshal: {
       enabled: value.adMarshal?.enabled === true
@@ -387,16 +380,15 @@ export function adMarshalState(settings, url) {
   };
 }
 
-export function xhsImageDarkReaderState(settings, url, pageState = {}) {
+export function xhsImageDarkModeState(settings, url, pageState = {}) {
   const normalized = normalizeSettings(settings);
-  const feature = normalized.xhsImageDarkReader;
+  const feature = normalized.xhsImageDarkMode;
   const hostname = hostnameFromUrl(url);
   const supported = hostname === 'www.xiaohongshu.com';
   const enabled = feature.enabled === true;
   const darkModeDetected = pageState.darkModeDetected === true;
-  const processing = supported && enabled
-    && (feature.overrideDarkMode === true || darkModeDetected)
-    && pageState.processing === true;
+  const processing = supported && enabled && (feature.overrideDarkMode === true
+    || (darkModeDetected && pageState.processing === true));
   return {
     ...feature,
     hostname,

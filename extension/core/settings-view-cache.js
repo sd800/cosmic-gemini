@@ -6,7 +6,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 19,
+    version: 20,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -30,11 +30,11 @@ export function settingsViewCache(states = {}) {
     mailtoCapture: {
       enabled: states.mailtoCapture?.enabled !== false
     },
-    xhsImageDarkReader: {
-      enabled: states.xhsImageDarkReader?.enabled === true,
-      overrideDarkMode: states.xhsImageDarkReader?.overrideDarkMode === true,
-      showImageControl: states.xhsImageDarkReader?.showImageControl !== false,
-      controlOpacity: states.xhsImageDarkReader?.controlOpacity || 0.5
+    xhsImageDarkMode: {
+      enabled: states.xhsImageDarkMode?.enabled === true,
+      overrideDarkMode: states.xhsImageDarkMode?.overrideDarkMode === true,
+      showImageControl: states.xhsImageDarkMode?.showImageControl !== false,
+      controlOpacity: states.xhsImageDarkMode?.controlOpacity || 0.5
     },
     imageDownload: {
       workspaceMode: states.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',

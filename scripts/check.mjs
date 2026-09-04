@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '7.1.1');
+assert.equal(manifest.version, '7.3.3');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -199,7 +199,7 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkReaderEnabled"[\s\S]*id="biliDailyLogin"/);
+assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"/);
 assert.match(satellitesSettings, /id="adMarshalEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:NewsQqCom|DouyinCom|ZhihuCom)"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_ENABLED/);
@@ -234,8 +234,8 @@ const adMarshalRuntime = await source('content', 'ad-marshal-runtime.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
 const anyCopyEnhanced = await source('background', 'products', 'operations', 'any-copy-enhanced.js');
 const satellites = await source('background', 'products', 'operations', 'satellites.js');
-const xhsImageDarkReader = await source('background', 'products', 'operations', 'xhs-image-dark-reader.js');
-const xhsImageDarkReaderRuntime = await source('content', 'xhs-image-dark-reader-runtime.js');
+const xhsImageDarkMode = await source('background', 'products', 'operations', 'xhs-image-dark-mode.js');
+const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode-runtime.js');
 const administration = await source('background', 'products', 'operations', 'administration.js');
 const imageDownload = await source('background', 'products', 'customs', 'image-download.js');
 const videoDownload = await source('background', 'products', 'customs', 'video-download.js');
@@ -300,7 +300,7 @@ for (const [id, province] of [['standing', standing], ['operations', operations]
   assert.match(province, /products/);
 }
 assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct[\s\S]*createMailtoCaptureProduct[\s\S]*createAdMarshalProduct/);
-assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createXhsImageDarkReaderProduct[\s\S]*createAdministrationProduct/);
+assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /createCustomsObservationRegistry/);
 assert.match(customs, /imageDownload\.initialize\(\)[\s\S]*videoDownload\.initialize\(\)/);
@@ -331,17 +331,24 @@ assert.match(mailtoCaptureRuntime, /user-select:text/);
 assert.match(mailtoCaptureRuntime, /\.status:empty\{display:none\}/);
 assert.match(mailtoCaptureRuntime, /\.heading\{[^}]*align-items:baseline[^}]*\}[\s\S]*\.close\{[^}]*align-self:baseline/);
 assert.doesNotMatch(mailtoCaptureRuntime, /MutationObserver|setInterval|location\.(?:href|assign|replace)|document\.createElement\(['"]a['"]\)|Open mail app/);
-assert.match(xhsImageDarkReader, /content\/xhs-image-dark-reader-bridge\.js[\s\S]*content\/xhs-image-dark-reader-runtime\.js/);
-assert.match(xhsImageDarkReader, /hostname !== 'www\.xiaohongshu\.com'/);
-assert.match(xhsImageDarkReaderRuntime, /SAMPLE_SIZE = 64[\s\S]*CACHE_LIMIT = 240/);
+assert.match(xhsImageDarkMode, /content\/xhs-image-dark-mode-bridge\.js[\s\S]*content\/xhs-image-dark-mode-runtime\.js/);
+assert.match(xhsImageDarkMode, /hostname !== 'www\.xiaohongshu\.com'/);
+assert.match(xhsImageDarkModeRuntime, /MAX_SAMPLE_PIXELS = 32 \* 32[\s\S]*CACHE_LIMIT = 240/);
 for (const observer of ['IntersectionObserver', 'MutationObserver', 'ResizeObserver']) {
-  assert.match(xhsImageDarkReaderRuntime, new RegExp(observer));
+  assert.match(xhsImageDarkModeRuntime, new RegExp(observer));
 }
-assert.match(xhsImageDarkReaderRuntime, /this\.running < 2/);
-assert.match(xhsImageDarkReaderRuntime, /isAvatar[\s\S]*sns-avatar/);
-assert.match(xhsImageDarkReaderRuntime, /note-detail-follow-btn/);
-assert.match(xhsImageDarkReaderRuntime, /kind: 'mixed'[\s\S]*maskUrl/);
-assert.doesNotMatch(xhsImageDarkReaderRuntime, /setInterval|fetch\s*\(|XMLHttpRequest|WebSocket/);
+assert.match(xhsImageDarkModeRuntime, /this\.running < 2/);
+assert.match(xhsImageDarkModeRuntime, /isAvatar[\s\S]*sns-avatar/);
+assert.match(xhsImageDarkModeRuntime, /note-detail-follow-btn/);
+assert.match(xhsImageDarkModeRuntime, /edgeShare >= 0\.42[\s\S]*surfaceShare >= 0\.72[\s\S]*lightShare >= \(frame \? 0\.5 : 0\.72\)[\s\S]*largestForegroundShare <= 0\.16/);
+assert.match(xhsImageDarkModeRuntime, /grayBackground[\s\S]*'gray-theme'[\s\S]*cg-xhs-image-dark-mode-gray/);
+assert.match(xhsImageDarkModeRuntime, /--cg-xhs-image-brightness, 1[\s\S]*noteCacheKey[\s\S]*visualTarget/);
+assert.match(xhsImageDarkModeRuntime, /viewerForImage\(record\.image\)[\s\S]*fractionRect\.right - FRACTION_SLOT_WIDTH - CONTROL_GAP - CONTROL_SIZE/);
+assert.match(xhsImageDarkModeRuntime, /renderedPageWideDarkMode[\s\S]*surfaceLuminanceAtPoint[\s\S]*darkShare >= 0\.5/);
+assert.match(xhsImageDarkModeRuntime, /detectDarkMode\(\)[\s\S]*renderedPageWideDarkMode\(\)[\s\S]*explicitDarkMode\(\)/);
+assert.match(xhsImageDarkModeRuntime, /dark-reader-filter[\s\S]*data-darkreader-mode[\s\S]*meta\[name="darkreader"\]/);
+assert.doesNotMatch(xhsImageDarkModeRuntime, /FaceDetector|maskImage|cg-xhs-dark-overlay/);
+assert.doesNotMatch(xhsImageDarkModeRuntime, /setInterval|fetch\s*\(|XMLHttpRequest|WebSocket/);
 assert.match(adMarshal, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2021\/advertisement\//);
 assert.match(adMarshal, /wwwQqCom[\s\S]*https:\/\/www\.qq\.com\/\*/);

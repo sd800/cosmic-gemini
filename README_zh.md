@@ -56,11 +56,11 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Mailto Capture
 
-部分网站不会明确提示邮件链接会打开系统邮件应用。误触后，浏览过程会被打断，预填的收件人、抄送与密送地址、主题、正文或其他信息也要在跳转开始后才能看到。Mailto Capture 会先拦截链接，在网页内用简洁的浮层显示有关信息，供您按需复制。
+拦截邮件链接，避免误触时直接打开系统邮件应用。Mailto Capture 会先在网页内显示简洁的内容预览，列出收件人、抄送与密送地址、主题、正文及链接附带的其他信息，供您按需复制。
 
-#### XHS Image Dark Reader
+#### XHS Image Dark Mode
 
-小红书页面进入深色模式后，明亮的文字卡片与文档图片仍可能影响阅读。若对所有图片使用同一种滤镜，人像、风景及其他照片也会失真。XHS Image Dark Reader 只调整能够确定为文字或文档的区域，保留其中的照片部分，并允许您单独恢复每张图片。
+调暗小红书网页版在 Dark Reader 页面深色模式下仍然刺眼的文字图片。XHS Image Dark Mode 会分析每张图片的低分辨率样本，将浅色文字卡片切换为深色显示，并把均匀的灰底文字卡片进一步压暗为黑色背景。带有彩色边框的文字卡片也能识别，照片和图文混合图片则会保持原样。展开笔记后，您可以通过页码旁的按钮单独切换每张图片的浅色或深色显示。
 
 #### Bili Daily Login
 
@@ -68,7 +68,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Ad Marshal
 
-部分网站会在广告、上报或跟踪请求被拦截后，反复重新创建同类任务。这些重试不会恢复有用的页面内容，却会持续占用浏览器资源并堆积错误信息。开启后，Ad Marshal 会在管制网站中阻止已知加载器运行，为对应的上报调用返回本地成功结果，并隐藏相关广告区域。
+阻止管制网站中的广告、上报和跟踪组件反复重连。Ad Marshal 会使用轻量的专用规则，从源头阻止已知加载器和请求循环，为相应的遥测调用返回本地成功结果，并隐藏相关广告区域。
 
 每个受支持的网站都有独立且范围明确的专用规则。这些规则只处理已经确认的广告与遥测组件，不会干预正常页面内容、账号登录或安全验证。
 
@@ -79,7 +79,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 - 按需查找图片，支持原图推荐、筛选、本地格式转换、区域截取和批量 ZIP 下载
 - 按需查找视频，支持视频文件、HLS、DASH、本地音视频合并、字幕和专用网站识别
 - Satellites 中的可选功能各自提供简明设置和隐私说明
-- 按需调整小红书中的明亮文字卡片，同时保持普通照片原样
+- 按需调整小红书中的明亮文字卡片，包括带有彩色边框的卡片，同时保持普通照片原样
 - 支持 `example.com` 这样的精确主机名，以及 `*.example.com` 这样的通配规则
 - 在四行极简控制窗口中成对管理当前页面，全部设置位于底部的独立一行
 - 各项功能拥有独立设置页面，并提供带完整重置功能的全部设置导航页。页面之间可以直接切换，首次显示时也会直接使用已选语言
@@ -123,9 +123,9 @@ Any Copy 会为当前网站启用并保存对应的主机名规则。Any Copy �
 
 **全部设置**位于底部的独立一行并靠右显示。紧凑的主控制窗口会暂时隐藏 Cosmic Gemini 名称。全部设置可进入各项功能的设置页面，也可以将全部设置和网站规则恢复为默认状态。
 
-全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启，XHS Image Dark Reader、Bili Daily Login 与 Ad Marshal 均默认关闭。Ad Marshal 使用一个统一开关，并且只会在管制网站中运行。
+全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启，XHS Image Dark Mode、Bili Daily Login 与 Ad Marshal 均默认关闭。Ad Marshal 使用一个统一开关，并且只会在管制网站中运行。
 
-访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Reader 的动态开关。功能开启但尚未检测到深色页面时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终运行、隐藏单张图片的恢复按钮，或调整按钮透明度。
+访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Mode 的动态开关。功能开启但尚未检测到页面深色模式时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终启用图片处理、隐藏仅在展开笔记后显示的图片切换按钮，或调整按钮透明度。
 
 开启 Bili Daily Login 后，它会在电脑已唤醒且 Chrome 正在运行时按日程执行。
 
@@ -167,11 +167,11 @@ No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问�
 
 ## 隐私
 
-Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、XHS Image Dark Reader 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
+Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、XHS Image Dark Mode 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 
-Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。XHS Image Dark Reader 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
+Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
 
 开启 Bili Daily Login 后，后台日程仅在电脑已唤醒且 Chrome 正在运行时调用哔哩哔哩账号服务。它会直接使用 Chrome 中已有的登录状态，不会读取或保存您的哔哩哔哩密码。
 

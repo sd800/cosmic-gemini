@@ -99,8 +99,6 @@ Each supported site has its own narrowly scoped policy. These policies target on
 3. Enable **Developer mode**.
 4. Select **Load unpacked** and choose the [`extension`](extension) folder.
 
-Chrome requests access to HTTP and HTTPS pages so the tools can begin before ordinary website scripts.
-
 ## Use
 
 The popup uses four compact rows, with two related controls in each row.

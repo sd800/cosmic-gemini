@@ -179,6 +179,31 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
+  const xhsSettings = (states?.preferences || states)?.xhsImageDarkReader;
+  const xhsImageDarkReaderEnabled = document.querySelector('#xhsImageDarkReaderEnabled');
+  const xhsEnabled = xhsSettings?.enabled === true;
+  if (xhsImageDarkReaderEnabled) xhsImageDarkReaderEnabled.checked = xhsEnabled;
+  const xhsImageDarkReaderOverride = document.querySelector('#xhsImageDarkReaderOverride');
+  if (xhsImageDarkReaderOverride) {
+    xhsImageDarkReaderOverride.checked = xhsSettings?.overrideDarkMode === true;
+    xhsImageDarkReaderOverride.disabled = !xhsEnabled;
+  }
+  const xhsImageDarkReaderControl = document.querySelector('#xhsImageDarkReaderControl');
+  const xhsImageDarkReaderOpacityRow = document.querySelector('.xhs-opacity-row');
+  const showXhsImageControl = xhsSettings?.showImageControl !== false;
+  if (xhsImageDarkReaderControl) {
+    xhsImageDarkReaderControl.checked = showXhsImageControl;
+    xhsImageDarkReaderControl.disabled = !xhsEnabled;
+  }
+  if (xhsImageDarkReaderOpacityRow) xhsImageDarkReaderOpacityRow.hidden = !showXhsImageControl;
+  const xhsImageDarkReaderOpacity = document.querySelector('#xhsImageDarkReaderOpacity');
+  const xhsImageDarkReaderOpacityValue = document.querySelector('#xhsImageDarkReaderOpacityValue');
+  if (xhsImageDarkReaderOpacity) {
+    const percentage = Math.round((xhsSettings?.controlOpacity || 0.5) * 100);
+    xhsImageDarkReaderOpacity.value = String(percentage);
+    xhsImageDarkReaderOpacity.disabled = !xhsEnabled || !showXhsImageControl;
+    if (xhsImageDarkReaderOpacityValue) xhsImageDarkReaderOpacityValue.textContent = `${percentage}%`;
+  }
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
   if (adMarshalEnabled) {
     adMarshalEnabled.checked = (states?.preferences || states)?.adMarshal?.enabled === true;
@@ -285,6 +310,34 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const xhsImageDarkReaderEnabled = document.querySelector('#xhsImageDarkReaderEnabled');
+  if (xhsImageDarkReaderEnabled) xhsImageDarkReaderEnabled.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_XHS_IMAGE_DARK_READER_ENABLED', enabled: xhsImageDarkReaderEnabled.checked
+  }), [xhsImageDarkReaderEnabled]));
+  const xhsImageDarkReaderOverride = document.querySelector('#xhsImageDarkReaderOverride');
+  if (xhsImageDarkReaderOverride) xhsImageDarkReaderOverride.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_XHS_IMAGE_DARK_READER_SETTING', name: 'overrideDarkMode', value: xhsImageDarkReaderOverride.checked
+  }), [xhsImageDarkReaderOverride]));
+  const xhsImageDarkReaderControl = document.querySelector('#xhsImageDarkReaderControl');
+  if (xhsImageDarkReaderControl) xhsImageDarkReaderControl.addEventListener('change', () => {
+    const opacityRow = document.querySelector('.xhs-opacity-row');
+    if (opacityRow) opacityRow.hidden = !xhsImageDarkReaderControl.checked;
+    void update(null, () => send({
+      type: 'UI_SET_XHS_IMAGE_DARK_READER_SETTING', name: 'showImageControl', value: xhsImageDarkReaderControl.checked
+    }), [xhsImageDarkReaderControl]);
+  });
+  const xhsImageDarkReaderOpacity = document.querySelector('#xhsImageDarkReaderOpacity');
+  const xhsImageDarkReaderOpacityValue = document.querySelector('#xhsImageDarkReaderOpacityValue');
+  if (xhsImageDarkReaderOpacity) {
+    xhsImageDarkReaderOpacity.addEventListener('input', () => {
+      if (xhsImageDarkReaderOpacityValue) xhsImageDarkReaderOpacityValue.textContent = `${xhsImageDarkReaderOpacity.value}%`;
+    });
+    xhsImageDarkReaderOpacity.addEventListener('change', () => void update(null, () => send({
+      type: 'UI_SET_XHS_IMAGE_DARK_READER_SETTING',
+      name: 'controlOpacity',
+      value: Number(xhsImageDarkReaderOpacity.value) / 100
+    }), [xhsImageDarkReaderOpacity]));
+  }
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
   if (adMarshalEnabled) adMarshalEnabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_AD_MARSHAL_ENABLED', enabled: adMarshalEnabled.checked

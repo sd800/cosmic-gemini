@@ -9,13 +9,17 @@ import { createStandingProvince } from './provinces/standing.js';
 
 export const PROVINCE_PRODUCTS = Object.freeze({
   standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE, FEATURE_IDS.AD_MARSHAL]),
-  operations: Object.freeze([FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, 'satellites', 'administration']),
+  operations: Object.freeze([
+    FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.XHS_IMAGE_DARK_READER,
+    'satellites', 'administration'
+  ]),
   customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD])
 });
 
 const PAGE_PRODUCTS = Object.freeze([
   FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE,
-  FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED
+  FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED,
+  FEATURE_IDS.XHS_IMAGE_DARK_READER
 ]);
 const STATE_PRODUCTS = Object.freeze([
   ...PAGE_PRODUCTS,
@@ -59,7 +63,6 @@ function setCustomsResponseIngressEnabled(enabled) {
   customsResponseIngressRegistered = next;
   return customsResponseIngressRegistered;
 }
-
 const customsResponseIngress = Object.freeze({ setEnabled: setCustomsResponseIngressEnabled });
 setCustomsResponseIngressEnabled(true);
 const platform = createPlatform();
@@ -98,6 +101,8 @@ function productForMessage(message) {
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
   if (message.type === 'UI_SET_AD_MARSHAL_ENABLED') return FEATURE_IDS.AD_MARSHAL;
   if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
+  if (message.type.startsWith('UI_SET_XHS_IMAGE_DARK_READER')
+    || message.type === 'CG_XHS_IMAGE_DARK_READER_STATUS') return FEATURE_IDS.XHS_IMAGE_DARK_READER;
   if (/^(?:CG|UI)_IMAGE_|^UI_SET_IMAGE_SETTING$/.test(message.type)) return FEATURE_IDS.IMAGE_DOWNLOAD;
   if (/^(?:CG|UI)_VIDEO_|^UI_SET_VIDEO_SETTING$/.test(message.type)) return FEATURE_IDS.VIDEO_DOWNLOAD;
   if (['UI_GET', 'UI_GET_ACTIVE_PAGE_STATE', 'UI_OPEN_SETTINGS', 'UI_OPEN_ALL_SETTINGS',
@@ -202,8 +207,8 @@ async function dispatchEvent(eventName, ...args) {
 }
 
 void dispatchEvent('initialize');
-chrome.runtime.onInstalled.addListener(() => { void dispatchEvent('initialize'); });
-chrome.runtime.onStartup.addListener(() => { void dispatchEvent('initialize'); });
+chrome.runtime.onInstalled.addListener(() => void dispatchEvent('initialize'));
+chrome.runtime.onStartup.addListener(() => void dispatchEvent('initialize'));
 
 chrome.runtime.onConnect.addListener(port => {
   if (!validatePortSource(port, chrome.runtime.getURL(''))) {
@@ -219,9 +224,7 @@ chrome.runtime.onConnect.addListener(port => {
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   void dispatchEvent('tabUpdated', tabId, change, tab);
 });
-chrome.tabs.onRemoved.addListener(tabId => {
-  void dispatchEvent('tabRemoved', tabId);
-});
+chrome.tabs.onRemoved.addListener(tabId => void dispatchEvent('tabRemoved', tabId));
 chrome.windows.onCreated.addListener(window => {
   void dispatchEvent('windowCreated', window);
 });

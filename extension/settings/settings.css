@@ -119,8 +119,19 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .settings-dialog button:disabled { cursor: default; opacity: .55; }
 .help p:last-child { margin-bottom: 0; }
 .help hr { height: 1px; border: 0; background: var(--line); margin: 20px 0; }
+.satellite-card .section-heading { gap: 28px; }
+.satellite-card .section-heading > div:first-child { min-width: 0; }
 .satellite-card .section-heading p { max-width: 620px; }
 .satellite-control { display: flex; min-height: 24px; flex: 0 0 auto; align-items: center; }
+.satellite-preferences { margin-top: 18px; }
+.satellite-preferences .preference-row { gap: 28px; }
+.satellite-preferences .preference-row > span:first-child { min-width: 0; }
+.satellite-preferences .preference-row:first-child { border-top: 1px solid var(--line); }
+.xhs-dark-reader-card .preference-row:has(input:disabled) > span:first-child,
+.xhs-dark-reader-card .preference-row:has(input:disabled) .range-control output { opacity: .52; }
+.range-control { display: flex; min-width: 176px; align-items: center; justify-content: flex-end; gap: 10px; }
+.range-control input[type="range"] { width: 124px; accent-color: var(--switch-blue); }
+.range-control output { width: 34px; color: var(--muted); font-size: 11px; text-align: right; }
 .ad-marshal-managed-sites { margin-top: 12px; color: var(--muted); }
 .incognito-status { display: inline-flex; min-height: 26px; align-items: center; border-radius: 999px; background: var(--surface-raised); color: var(--muted); padding: 0 10px; font-size: 11px; font-weight: 680; white-space: nowrap; }
 .incognito-status[hidden] { display: none; }

@@ -14,6 +14,9 @@ const productKey = {
   imageDownload: 'imageDownloadName',
   videoDownload: 'videoDownloadName'
 };
+const contextualProducts = Object.freeze([
+  Object.freeze({ id: 'xhsImageDarkReader', hostname: 'www.xiaohongshu.com' })
+]);
 let state;
 let t;
 let currentTab = null;
@@ -110,6 +113,41 @@ function renderSiteFeature(featureId) {
   } else {
     toggle.disabled = false;
     label(toggle, t(feature.active ? 'siteFeatureOnTitle' : 'siteFeatureOffTitle', { product }));
+  }
+}
+
+function renderContextualProducts() {
+  const container = document.querySelector('#contextual-feature-list');
+  const available = contextualProducts.filter(entry => state?.[entry.id]?.supported === true);
+  container.replaceChildren();
+  container.hidden = available.length === 0;
+  for (const entry of available) {
+    const feature = state[entry.id];
+    const row = document.createElement('section');
+    row.className = 'feature-row';
+    const actions = document.createElement('nav');
+    actions.className = 'launcher-actions contextual-actions';
+    actions.setAttribute('aria-label', t('xhsImageDarkReaderName'));
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'feature-status feature-toggle primary-product';
+    toggle.dataset.state = feature.enabled ? 'active' : 'off';
+    toggle.dataset.persistent = String(feature.processing === true);
+    toggle.setAttribute('aria-pressed', String(feature.enabled === true));
+    toggle.innerHTML = icon(feature.processing ? 'xhsImageDarkReaderActive' : 'xhsImageDarkReader');
+    label(toggle, t(!feature.enabled
+      ? 'xhsImageDarkReaderOffTitle'
+      : feature.processing
+        ? 'xhsImageDarkReaderActiveTitle'
+        : 'xhsImageDarkReaderWaitingTitle'));
+    toggle.addEventListener('click', () => void act(() => send({
+      type: 'UI_SET_XHS_IMAGE_DARK_READER_ENABLED',
+      enabled: !feature.enabled,
+      tabId: currentTab?.id
+    })));
+    actions.append(toggle);
+    row.append(actions);
+    container.append(row);
   }
 }
 
@@ -444,6 +482,7 @@ function render() {
   renderSiteFeature('anyCopyEnhanced');
   renderImageRow();
   renderVideoRow();
+  renderContextualProducts();
 }
 
 async function reload(selectInitialView = true) {

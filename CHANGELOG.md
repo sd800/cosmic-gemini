@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 7.1.1 — 2026-09-04
+
+- Added XHS Image Dark Reader as a default-off Operations Province product and the second item in Satellites. On `www.xiaohongshu.com`, a contextual bulb control appears below the fixed popup rows, with separate disabled, waiting-for-dark-mode, and active-processing states.
+- Added local, reduced-resolution classification that adapts high-confidence text cards and document regions while preserving portraits, scenery, ordinary photographs, avatars, and uncertain areas. Multi-image posts are handled one slide at a time, and mixed images use a regional mask instead of transforming the full image.
+- Added optional per-image restore controls, adjustable opacity, automatic dark-page detection, and a manual detection override. Image observers, styles, overlays, and controls run only while the product is authorized and processing, and are removed when it stops.
+- Increased the spacing between Satellites descriptions and their switches so wrapped text remains clear at narrower widths. XHS Image Dark Reader now disables and dims every subordinate control while its main switch is off, and hides Control opacity when image controls are hidden. Privacy descriptions omit redundant switch-state wording while retaining relevant data-handling details.
+
 ## 6.12.2 — 2026-09-04
 
 - Replaced the monitoring bundle used by Tencent News timeline pages with a local API-compatible implementation, preventing its Fetch, XHR, Console, and performance instrumentation from starting without causing a missing-API error in the page. The timeline policy also now handles its confirmed `n.ssp.qq.com` advertising endpoint locally while leaving content, image, and audio resources unchanged.

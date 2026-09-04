@@ -4,6 +4,7 @@ import { createAdministrationProduct } from '../products/operations/administrati
 import { createAnyCopyProduct } from '../products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../products/operations/any-copy-enhanced.js';
 import { createSatellitesProduct } from '../products/operations/satellites.js';
+import { createXhsImageDarkReaderProduct } from '../products/operations/xhs-image-dark-reader.js';
 import { defineProvince } from './interface.js';
 
 export function createOperationsProvince(platform) {
@@ -11,11 +12,13 @@ export function createOperationsProvince(platform) {
   const anyCopy = createAnyCopyProduct(host, platform);
   const anyCopyEnhanced = createAnyCopyEnhancedProduct(host, platform);
   const satellites = createSatellitesProduct(platform);
+  const xhsImageDarkReader = createXhsImageDarkReaderProduct(host, platform);
   const administration = createAdministrationProduct(platform);
   const products = {
     [anyCopy.id]: anyCopy,
     [anyCopyEnhanced.id]: anyCopyEnhanced,
     [satellites.id]: satellites,
+    [xhsImageDarkReader.id]: xhsImageDarkReader,
     [administration.id]: administration
   };
 
@@ -53,7 +56,8 @@ export function createOperationsProvince(platform) {
       await Promise.allSettled([
         platform.clearLegacyAudioPromptState(),
         platform.clearOrphanedActivity(),
-        anyCopyEnhanced.cleanupOrphans()
+        anyCopyEnhanced.cleanupOrphans(),
+        xhsImageDarkReader.cleanupOrphans()
       ]);
       await satellites.ensureSchedule();
     },
@@ -68,10 +72,16 @@ export function createOperationsProvince(platform) {
     handleMessage,
     handleConnect(port) { return platform.connectCentralUi(port); },
     async handleTabUpdated(tabId, change) {
-      if (change.status === 'loading' || change.url) await platform.clearTabActivity(tabId);
+      if (change.status === 'loading' || change.url) {
+        await Promise.allSettled([
+          platform.clearTabActivity(tabId),
+          xhsImageDarkReader.removeTab(tabId)
+        ]);
+      }
     },
     async handleTabRemoved(tabId) {
       await anyCopyEnhanced.removeTab(tabId);
+      await xhsImageDarkReader.removeTab(tabId);
       await platform.clearTabActivity(tabId);
     },
     handleWindowCreated() { return platform.handleIncognitoWindowChange(); },
@@ -79,6 +89,9 @@ export function createOperationsProvince(platform) {
     handleAlarm(alarm) { return satellites.handleAlarm(alarm); },
     async handleStorageChanged(changes, areaName) {
       platform.handleStorageChanged(changes, areaName);
+      const localeKey = platform.isIncognitoContext() ? 'cosmicGeminiIncognitoLocale' : 'interfaceLocale';
+      const localeArea = platform.isIncognitoContext() ? 'session' : 'local';
+      if (areaName === localeArea && changes?.[localeKey]) xhsImageDarkReader.clearLocale();
       return satellites.handleStorageChanged(changes, areaName);
     },
     reset() { return satellites.reset(); }

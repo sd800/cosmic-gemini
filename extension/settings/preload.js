@@ -100,6 +100,30 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
   }
+  const xhsImageDarkReaderEnabled = document.querySelector('#xhsImageDarkReaderEnabled');
+  const xhsEnabled = cached.xhsImageDarkReader?.enabled === true;
+  if (xhsImageDarkReaderEnabled) xhsImageDarkReaderEnabled.checked = xhsEnabled;
+  const xhsImageDarkReaderOverride = document.querySelector('#xhsImageDarkReaderOverride');
+  if (xhsImageDarkReaderOverride) {
+    xhsImageDarkReaderOverride.checked = cached.xhsImageDarkReader?.overrideDarkMode === true;
+    xhsImageDarkReaderOverride.disabled = !xhsEnabled;
+  }
+  const xhsImageDarkReaderControl = document.querySelector('#xhsImageDarkReaderControl');
+  const xhsImageDarkReaderOpacityRow = document.querySelector('.xhs-opacity-row');
+  const showXhsImageControl = cached.xhsImageDarkReader?.showImageControl !== false;
+  if (xhsImageDarkReaderControl) {
+    xhsImageDarkReaderControl.checked = showXhsImageControl;
+    xhsImageDarkReaderControl.disabled = !xhsEnabled;
+  }
+  if (xhsImageDarkReaderOpacityRow) xhsImageDarkReaderOpacityRow.hidden = !showXhsImageControl;
+  const xhsImageDarkReaderOpacity = document.querySelector('#xhsImageDarkReaderOpacity');
+  const xhsImageDarkReaderOpacityValue = document.querySelector('#xhsImageDarkReaderOpacityValue');
+  if (xhsImageDarkReaderOpacity) {
+    const percentage = Math.round((cached.xhsImageDarkReader?.controlOpacity || 0.5) * 100);
+    xhsImageDarkReaderOpacity.value = String(percentage);
+    xhsImageDarkReaderOpacity.disabled = !xhsEnabled || !showXhsImageControl;
+    if (xhsImageDarkReaderOpacityValue) xhsImageDarkReaderOpacityValue.textContent = `${percentage}%`;
+  }
   const adMarshalEnabled = document.querySelector('#adMarshalEnabled');
   if (adMarshalEnabled) adMarshalEnabled.checked = cached.adMarshal?.enabled === true;
   const preferredQuality = document.querySelector('#preferredQuality');

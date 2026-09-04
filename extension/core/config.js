@@ -9,6 +9,7 @@ export const FEATURE_IDS = Object.freeze({
   NO_AUTOPLAY: 'noAutoplay',
   ANY_COPY: 'anyCopy',
   ANY_COPY_ENHANCED: 'anyCopyEnhanced',
+  XHS_IMAGE_DARK_READER: 'xhsImageDarkReader',
   MAILTO_CAPTURE: 'mailtoCapture',
   AD_MARSHAL: 'adMarshal',
   IMAGE_DOWNLOAD: 'imageDownload',
@@ -21,6 +22,7 @@ export const FEATURE_SLOTS = Object.freeze({
   ANY_COPY: 30,
   ANY_COPY_ENHANCED: 31,
   MAILTO_CAPTURE: 32,
+  XHS_IMAGE_DARK_READER: 33,
   AD_MARSHAL: 35,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
@@ -34,7 +36,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 18,
+  version: 19,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -49,6 +51,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   mailtoCapture: Object.freeze({
     enabled: true
+  }),
+  xhsImageDarkReader: Object.freeze({
+    enabled: false,
+    overrideDarkMode: false,
+    showImageControl: true,
+    controlOpacity: 0.5
   }),
   adMarshal: Object.freeze({
     enabled: false
@@ -163,7 +171,7 @@ export function normalizeSettings(value = {}) {
     ? { enabled: value.enabled, inactiveRules: value.whitelist, enhancedRules: [] }
     : value.nativeScroll;
   return {
-    version: 18,
+    version: 19,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules ?? value.nsnaWhitelistRules)
     },
@@ -174,6 +182,12 @@ export function normalizeSettings(value = {}) {
     },
     mailtoCapture: {
       enabled: value.mailtoCapture?.enabled !== false
+    },
+    xhsImageDarkReader: {
+      enabled: value.xhsImageDarkReader?.enabled === true,
+      overrideDarkMode: value.xhsImageDarkReader?.overrideDarkMode === true,
+      showImageControl: value.xhsImageDarkReader?.showImageControl !== false,
+      controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkReader?.controlOpacity) || 0.5))
     },
     adMarshal: {
       enabled: value.adMarshal?.enabled === true
@@ -370,6 +384,28 @@ export function adMarshalState(settings, url) {
     supported,
     active: supported && enabled,
     enabled
+  };
+}
+
+export function xhsImageDarkReaderState(settings, url, pageState = {}) {
+  const normalized = normalizeSettings(settings);
+  const feature = normalized.xhsImageDarkReader;
+  const hostname = hostnameFromUrl(url);
+  const supported = hostname === 'www.xiaohongshu.com';
+  const enabled = feature.enabled === true;
+  const darkModeDetected = pageState.darkModeDetected === true;
+  const processing = supported && enabled
+    && (feature.overrideDarkMode === true || darkModeDetected)
+    && pageState.processing === true;
+  return {
+    ...feature,
+    hostname,
+    supported,
+    enabled,
+    active: supported && enabled,
+    darkModeDetected,
+    processing,
+    status: !supported ? 'unavailable' : !enabled ? 'off' : processing ? 'active' : 'waiting'
   };
 }
 

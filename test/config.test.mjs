@@ -14,13 +14,15 @@ import {
   normalizeRule,
   normalizeSettings,
   ruleMatches,
-  updateFeature
+  updateFeature,
+  xhsImageDarkReaderState
 } from '../extension/core/config.js';
 
 test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.nativeScroll.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.mailtoCapture.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkReader.enabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.adMarshal.enabled, false);
@@ -38,6 +40,12 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
   assert.deepEqual(settings.mailtoCapture, { enabled: true });
+  assert.deepEqual(settings.xhsImageDarkReader, {
+    enabled: false,
+    overrideDarkMode: false,
+    showImageControl: true,
+    controlOpacity: 0.5
+  });
   assert.deepEqual(settings.adMarshal, { enabled: false });
   assert.equal('anyCopyEnhanced' in settings, false);
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
@@ -240,6 +248,33 @@ test('Mailto Capture follows its ordinary and incognito defaults without website
   assert.equal(mailtoCaptureState(DEFAULT_INCOGNITO_SETTINGS, 'https://example.com/page').active, false);
   assert.equal(mailtoCaptureState({ mailtoCapture: { enabled: false } }, 'https://example.com/page').active, false);
   assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
+});
+
+test('XHS Image Dark Reader is exact-host, opt-in, and dark-page gated', () => {
+  const disabled = xhsImageDarkReaderState(DEFAULT_SETTINGS, 'https://www.xiaohongshu.com/explore');
+  assert.equal(disabled.supported, true);
+  assert.equal(disabled.active, false);
+
+  const enabled = { xhsImageDarkReader: { enabled: true } };
+  assert.equal(xhsImageDarkReaderState(enabled, 'https://xiaohongshu.com/explore').supported, false);
+  assert.equal(xhsImageDarkReaderState(enabled, 'https://sub.www.xiaohongshu.com/explore').supported, false);
+  const waiting = xhsImageDarkReaderState(enabled, 'https://www.xiaohongshu.com/explore', {
+    darkModeDetected: false,
+    processing: false
+  });
+  assert.equal(waiting.active, true);
+  assert.equal(waiting.processing, false);
+  const processing = xhsImageDarkReaderState(enabled, 'https://www.xiaohongshu.com/explore', {
+    darkModeDetected: true,
+    processing: true
+  });
+  assert.equal(processing.processing, true);
+
+  const override = xhsImageDarkReaderState({
+    xhsImageDarkReader: { enabled: true, overrideDarkMode: true }
+  }, 'https://www.xiaohongshu.com/explore');
+  assert.equal(override.active, true);
+  assert.equal(override.overrideDarkMode, true);
 });
 
 test('Ad Marshal uses one explicit switch without migrating former per-site settings', () => {

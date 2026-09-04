@@ -6,6 +6,8 @@ body[data-view="video"] { width: 386px; }
 .identity strong { overflow: hidden; font-size: 15px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
 html[lang="en-US"] .identity strong, html[lang="en-US"] .video-panel-wordmark strong { letter-spacing: .018em; }
 .feature-list { display: grid; gap: 4px; }
+.contextual-feature-list[hidden] { display: none; }
+.contextual-feature-list { display: grid; gap: 4px; }
 .feature-row { display: block; padding: 3px 10px; }
 .feature-status { --icon-surface: var(--surface); display: grid; width: 34px; height: 34px; padding: 0; place-items: center; border: 0; border-radius: 9px; background: transparent; color: color-mix(in srgb, var(--text) 74%, var(--surface)); transition: background-color 150ms ease, box-shadow 150ms ease, color 150ms ease, opacity 150ms ease; }
 .feature-status.secondary-product { color: color-mix(in srgb, var(--muted) 62%, var(--surface)); }

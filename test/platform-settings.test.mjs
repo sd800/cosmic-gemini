@@ -139,7 +139,8 @@ test('concurrent activity updates preserve every product state', async () => {
     anyCopy: false,
     anyCopyEnhanced: false,
     imageDownload: false,
-    videoDownload: true
+    videoDownload: true,
+    xhsImageDarkReader: false
   });
 });
 

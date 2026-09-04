@@ -175,6 +175,7 @@ export function createPlatform() {
       noAutoplay: value?.noAutoplay === true,
       anyCopy: value?.anyCopy === true,
       anyCopyEnhanced: value?.anyCopyEnhanced === true,
+      xhsImageDarkReader: value?.xhsImageDarkReader === true,
       imageDownload: value?.imageDownload === true,
       videoDownload: value?.videoDownload === true
     };
@@ -187,7 +188,15 @@ export function createPlatform() {
   }
 
   function emptyActivity() {
-    return { nativeScroll: false, noAutoplay: false, anyCopy: false, anyCopyEnhanced: false, imageDownload: false, videoDownload: false };
+    return {
+      nativeScroll: false,
+      noAutoplay: false,
+      anyCopy: false,
+      anyCopyEnhanced: false,
+      xhsImageDarkReader: false,
+      imageDownload: false,
+      videoDownload: false
+    };
   }
 
   function updateAction(method, details) {
@@ -207,6 +216,7 @@ export function createPlatform() {
       activity.noAutoplay && 'No Autoplay',
       activity.anyCopy && 'Any Copy',
       activity.anyCopyEnhanced && 'Any Copy Enhanced',
+      activity.xhsImageDarkReader && 'XHS Image Dark Reader',
       activity.imageDownload && 'Image Download',
       activity.videoDownload && 'Video Download'
     ].filter(Boolean);
@@ -317,6 +327,7 @@ export function createPlatform() {
       nativeScroll: settings.nativeScroll,
       noAutoplay: settings.noAutoplay,
       anyCopy: settings.anyCopy,
+      xhsImageDarkReader: settings.xhsImageDarkReader,
       mailtoCapture: settings.mailtoCapture,
       adMarshal: settings.adMarshal
     });

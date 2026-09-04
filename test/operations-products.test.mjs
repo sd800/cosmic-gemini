@@ -3,7 +3,7 @@ import test from 'node:test';
 import { normalizeSettings } from '../extension/core/config.js';
 import { createAnyCopyProduct } from '../extension/background/products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
-import { createReduceWhitePointProduct } from '../extension/background/products/operations/reduce-white-point.js';
+import { createPageDisplayProduct } from '../extension/background/products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 
@@ -90,18 +90,21 @@ test('XHS Image Dark Mode settings synchronize open pages before returning', asy
   assert.equal(refreshes, 1);
 });
 
-test('Reduce White Point runs only in the top frame after its independent setting is enabled', async () => {
+test('Page Display runs only in the top frame while either visual feature is enabled', async () => {
   let settings = normalizeSettings();
   const syncs = [];
-  const product = createReduceWhitePointProduct({
+  let refreshes = 0;
+  const product = createPageDisplayProduct({
     async sync(descriptor, context, active) {
       syncs.push({ id: descriptor.id, frameId: context.frameId, active });
     }
   }, {
-    async mutateSettings(update) {
+    async mutateSettings(update, refresh) {
+      assert.equal(refresh, false);
       settings = normalizeSettings(update(settings));
       return settings;
-    }
+    },
+    async refreshOpenPages() { refreshes += 1; }
   });
 
   assert.equal(await product.sync({
@@ -110,7 +113,11 @@ test('Reduce White Point runs only in the top frame after its independent settin
     documentId: 'top',
     topUrl: 'https://example.com/'
   }, settings), false);
-  await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true });
+  await product.handleMessage({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING',
+    name: 'greyscaleEnabled',
+    value: true
+  });
   assert.equal(await product.sync({
     tabId: 9,
     frameId: 0,
@@ -124,14 +131,52 @@ test('Reduce White Point runs only in the top frame after its independent settin
     topUrl: 'https://example.com/'
   }, settings), false);
   const updated = await product.handleMessage({
-    type: 'UI_SET_REDUCE_WHITE_POINT_SETTING',
+    type: 'UI_SET_PAGE_DISPLAY_SETTING',
     name: 'reduction',
     value: 0.55
   });
-  assert.equal(updated.reduction, 0.55);
+  assert.equal(updated.reduceWhitePoint.reduction, 0.55);
+  assert.equal(updated.greyscale.enabled, true);
+  await product.handleMessage({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING',
+    name: 'greyscaleEnabled',
+    value: false
+  });
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 0,
+    documentId: 'top',
+    topUrl: 'https://example.com/'
+  }, settings), false);
+  await product.handleMessage({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING',
+    name: 'reduceWhitePointEnabled',
+    value: true
+  });
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 0,
+    documentId: 'top',
+    topUrl: 'https://example.com/'
+  }, settings), true);
+  await product.handleMessage({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING',
+    name: 'reduceWhitePointEnabled',
+    value: false
+  });
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 0,
+    documentId: 'top',
+    topUrl: 'https://example.com/'
+  }, settings), false);
+  assert.equal(refreshes, 5);
   assert.deepEqual(syncs.map(({ frameId, active }) => ({ frameId, active })), [
     { frameId: 0, active: false },
     { frameId: 0, active: true },
-    { frameId: 3, active: false }
+    { frameId: 3, active: false },
+    { frameId: 0, active: false },
+    { frameId: 0, active: true },
+    { frameId: 0, active: false }
   ]);
 });

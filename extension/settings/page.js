@@ -178,14 +178,16 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
-  const reduceWhitePointSettings = (states?.preferences || states)?.reduceWhitePoint;
-  const reduceWhitePointEnabled = document.querySelector('#reduceWhitePointEnabled');
-  const reduceWhitePointActive = reduceWhitePointSettings?.enabled === true;
+  const pageDisplaySettings = (states?.preferences || states)?.pageDisplay;
+  const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
+  const reduceWhitePointActive = pageDisplaySettings?.reduceWhitePoint?.enabled === true;
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.checked = reduceWhitePointActive;
+  const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
+  if (greyscaleEnabled) greyscaleEnabled.checked = pageDisplaySettings?.greyscale?.enabled === true;
   const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
   const reduceWhitePointReductionValue = document.querySelector('#reduceWhitePointReductionValue');
   if (reduceWhitePointReduction) {
-    const percentage = Math.round((reduceWhitePointSettings?.reduction ?? 0.25) * 100);
+    const percentage = Math.round((pageDisplaySettings?.reduceWhitePoint?.reduction ?? 0.25) * 100);
     reduceWhitePointReduction.value = String(percentage);
     reduceWhitePointReduction.disabled = !reduceWhitePointActive;
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;
@@ -321,14 +323,18 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => send({
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
-  const reduceWhitePointEnabled = document.querySelector('#reduceWhitePointEnabled');
+  const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.addEventListener('change', () => {
     const reduction = document.querySelector('#reduceWhitePointReduction');
     if (reduction) reduction.disabled = !reduceWhitePointEnabled.checked;
     void update(null, () => send({
-      type: 'UI_SET_ENABLED', featureId: 'reduceWhitePoint', enabled: reduceWhitePointEnabled.checked
+      type: 'UI_SET_PAGE_DISPLAY_SETTING', name: 'reduceWhitePointEnabled', value: reduceWhitePointEnabled.checked
     }), [reduceWhitePointEnabled]);
   });
+  const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
+  if (greyscaleEnabled) greyscaleEnabled.addEventListener('change', () => void update(null, () => send({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING', name: 'greyscaleEnabled', value: greyscaleEnabled.checked
+  }), [greyscaleEnabled]));
   const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
   const reduceWhitePointReductionValue = document.querySelector('#reduceWhitePointReductionValue');
   if (reduceWhitePointReduction) {
@@ -338,7 +344,7 @@ function bindView() {
       }
     });
     reduceWhitePointReduction.addEventListener('change', () => void update(null, () => send({
-      type: 'UI_SET_REDUCE_WHITE_POINT_SETTING',
+      type: 'UI_SET_PAGE_DISPLAY_SETTING',
       name: 'reduction',
       value: Number(reduceWhitePointReduction.value) / 100
     }), [reduceWhitePointReduction]));

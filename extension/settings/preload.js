@@ -95,13 +95,15 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
   }
-  const reduceWhitePointEnabled = document.querySelector('#reduceWhitePointEnabled');
-  const reduceWhitePointActive = cached.reduceWhitePoint?.enabled === true;
+  const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
+  const reduceWhitePointActive = cached.pageDisplay?.reduceWhitePoint?.enabled === true;
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.checked = reduceWhitePointActive;
+  const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
+  if (greyscaleEnabled) greyscaleEnabled.checked = cached.pageDisplay?.greyscale?.enabled === true;
   const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
   const reduceWhitePointReductionValue = document.querySelector('#reduceWhitePointReductionValue');
   if (reduceWhitePointReduction) {
-    const percentage = Math.round((cached.reduceWhitePoint?.reduction ?? 0.25) * 100);
+    const percentage = Math.round((cached.pageDisplay?.reduceWhitePoint?.reduction ?? 0.25) * 100);
     reduceWhitePointReduction.value = String(percentage);
     reduceWhitePointReduction.disabled = !reduceWhitePointActive;
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;

@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.1.1 — 2026-09-04
+
+- Introduced Page Display as the second tool in Satellites. The new Operations Province product absorbs Reduce White Point and adds an independent Greyscale feature; both begin disabled.
+- Combined both display features in one passive, pointer-transparent rendering layer that covers page content, images, Canvas, animations, embedded frames, and video without scanning those elements or changing layout and input behavior.
+- Made each visual effect independently reversible. Turning off one feature removes only that effect, while turning off both restores the page's prior appearance and disposes the layer, fullscreen listener, bridge, and runtime.
+- Added complete English and Simplified Chinese settings, synchronous first-frame controls, documentation, privacy copy, and lifecycle coverage for the new product architecture.
+
 ## 7.7.1 — 2026-09-04
 
 - Added Reduce White Point as the second tool in Satellites. It is disabled by default and offers an adjustable 10–80 percent reduction, starting at 25 percent, to make bright webpage colors more comfortable to view.

@@ -1,10 +1,10 @@
 (() => {
-  const BRIDGE_KEY = Symbol.for('cosmic-gemini.reduce-white-point.bridge');
+  const BRIDGE_KEY = Symbol.for('cosmic-gemini.page-display.bridge');
   if (globalThis[BRIDGE_KEY]) return;
-  const READY = 'cosmic-gemini:reduce-white-point:bridge-ready';
-  const MAIN_READY = 'cosmic-gemini:reduce-white-point:main-ready';
-  const CONFIGURE = 'cosmic-gemini:reduce-white-point:configure';
-  const DISPOSE = 'cosmic-gemini:reduce-white-point:dispose';
+  const READY = 'cosmic-gemini:page-display:bridge-ready';
+  const MAIN_READY = 'cosmic-gemini:page-display:main-ready';
+  const CONFIGURE = 'cosmic-gemini:page-display:configure';
+  const DISPOSE = 'cosmic-gemini:page-display:dispose';
   let token = '';
   let disposed = false;
   let configFailures = 0;
@@ -31,10 +31,10 @@
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'CG_PAGE_STATE',
-        featureId: 'reduceWhitePoint'
+        featureId: 'pageDisplay'
       });
       if (disposed || request !== configRequest) return false;
-      const config = response?.result?.reduceWhitePoint;
+      const config = response?.result?.pageDisplay;
       if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
       if (!config?.active) { dispose(); return false; }
       configFailures = 0;
@@ -59,10 +59,10 @@
     void requestConfig();
   }
   function onMessage(message, _sender, sendResponse) {
-    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'reduceWhitePoint') {
+    if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'pageDisplay') {
       dispose();
       sendResponse({ disposed: true });
-    } else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'reduceWhitePoint') {
+    } else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'pageDisplay') {
       void requestConfig().then(configured => sendResponse({ configured }));
       return true;
     }

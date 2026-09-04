@@ -27,7 +27,7 @@ class FakeElement {
   setAttribute(name, value) { this.attributes.set(name, value); }
   attachShadow({ mode }) {
     assert.equal(mode, 'closed');
-    return { append: child => this.children.push(child) };
+    return { append: (...children) => this.children.push(...children) };
   }
   append(child) {
     child.parentNode?.children?.splice(child.parentNode.children.indexOf(child), 1);
@@ -54,29 +54,46 @@ async function runtimeFixture() {
     crypto: { getRandomValues: values => { values.fill(7); return values; } }
   };
   vm.createContext(context);
-  const source = await readFile(new URL('../extension/content/reduce-white-point-runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/page-display-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
-  return { context, document, runtime: context[Symbol.for('cosmic-gemini.reduce-white-point.runtime')] };
+  return { context, document, runtime: context[Symbol.for('cosmic-gemini.page-display.runtime')] };
 }
 
-test('Reduce White Point maintains one passive layer and removes it when disabled', async () => {
+test('Page Display combines passive visual layers and restores the page when both are disabled', async () => {
   const { context, document, runtime } = await runtimeFixture();
   runtime.onConfigure({
-    detail: JSON.stringify({ token: runtime.token, config: { active: true, reduction: 0.35 } })
+    detail: JSON.stringify({
+      token: runtime.token,
+      config: {
+        active: true,
+        reduceWhitePoint: { enabled: true, reduction: 0.35 },
+        greyscale: { enabled: false }
+      }
+    })
   });
   const host = runtime.host;
   assert.equal(host.parentNode, document.documentElement);
   assert.match(host.style.cssText, /position:fixed/);
   assert.match(host.style.cssText, /pointer-events:none/);
   assert.equal(runtime.shade.style.opacity, '0.35');
+  assert.equal(runtime.host.style.backdropFilter, 'none');
   assert.equal(document.listeners.get('fullscreenchange').length, 1);
 
   runtime.onConfigure({
-    detail: JSON.stringify({ token: runtime.token, config: { active: true, reduction: 0.6 } })
+    detail: JSON.stringify({
+      token: runtime.token,
+      config: {
+        active: true,
+        reduceWhitePoint: { enabled: false, reduction: 0.6 },
+        greyscale: { enabled: true }
+      }
+    })
   });
   assert.equal(runtime.host, host);
   assert.equal(document.documentElement.children.length, 1);
-  assert.equal(runtime.shade.style.opacity, '0.6');
+  assert.equal(runtime.shade.style.opacity, '0');
+  assert.equal(runtime.host.style.backdropFilter, 'grayscale(1)');
+  assert.equal(runtime.host.style.webkitBackdropFilter, 'grayscale(1)');
 
   const fullscreen = new FakeElement('section');
   document.fullscreenElement = fullscreen;
@@ -84,12 +101,19 @@ test('Reduce White Point maintains one passive layer and removes it when disable
   assert.equal(runtime.host.parentNode, fullscreen);
 
   runtime.onConfigure({
-    detail: JSON.stringify({ token: runtime.token, config: { active: false } })
+    detail: JSON.stringify({
+      token: runtime.token,
+      config: {
+        active: false,
+        reduceWhitePoint: { enabled: false, reduction: 0.25 },
+        greyscale: { enabled: false }
+      }
+    })
   });
   assert.equal(runtime.host, null);
   assert.equal(fullscreen.children.length, 0);
   assert.equal(document.listeners.get('fullscreenchange').length, 0);
 
   runtime.onDispose({ detail: runtime.token });
-  assert.equal(context[Symbol.for('cosmic-gemini.reduce-white-point.runtime')], undefined);
+  assert.equal(context[Symbol.for('cosmic-gemini.page-display.runtime')], undefined);
 });

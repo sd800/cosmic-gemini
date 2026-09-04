@@ -8,7 +8,7 @@ export const FEATURE_IDS = Object.freeze({
   NO_AUTOPLAY: 'noAutoplay',
   ANY_COPY: 'anyCopy',
   ANY_COPY_ENHANCED: 'anyCopyEnhanced',
-  REDUCE_WHITE_POINT: 'reduceWhitePoint',
+  PAGE_DISPLAY: 'pageDisplay',
   XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
   MAILTO_CAPTURE: 'mailtoCapture',
   AD_MARSHAL: 'adMarshal',
@@ -22,7 +22,7 @@ export const FEATURE_SLOTS = Object.freeze({
   ANY_COPY: 30,
   ANY_COPY_ENHANCED: 31,
   MAILTO_CAPTURE: 32,
-  REDUCE_WHITE_POINT: 33,
+  PAGE_DISPLAY: 33,
   XHS_IMAGE_DARK_MODE: 34,
   AD_MARSHAL: 35,
   IMAGE_DOWNLOAD: 40,
@@ -37,7 +37,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 21,
+  version: 22,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -53,9 +53,14 @@ export const DEFAULT_SETTINGS = Object.freeze({
   mailtoCapture: Object.freeze({
     enabled: true
   }),
-  reduceWhitePoint: Object.freeze({
-    enabled: false,
-    reduction: 0.25
+  pageDisplay: Object.freeze({
+    reduceWhitePoint: Object.freeze({
+      enabled: false,
+      reduction: 0.25
+    }),
+    greyscale: Object.freeze({
+      enabled: false
+    })
   }),
   xhsImageDarkMode: Object.freeze({
     enabled: false,
@@ -169,9 +174,9 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 }
 
 export function normalizeSettings(value = {}) {
-  const whitePointReduction = Number(value.reduceWhitePoint?.reduction);
+  const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 21,
+    version: 22,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -183,11 +188,16 @@ export function normalizeSettings(value = {}) {
     mailtoCapture: {
       enabled: value.mailtoCapture?.enabled !== false
     },
-    reduceWhitePoint: {
-      enabled: value.reduceWhitePoint?.enabled === true,
-      reduction: Number.isFinite(whitePointReduction)
-        ? Math.min(0.8, Math.max(0.1, whitePointReduction))
-        : 0.25
+    pageDisplay: {
+      reduceWhitePoint: {
+        enabled: value.pageDisplay?.reduceWhitePoint?.enabled === true,
+        reduction: Number.isFinite(whitePointReduction)
+          ? Math.min(0.8, Math.max(0.1, whitePointReduction))
+          : 0.25
+      },
+      greyscale: {
+        enabled: value.pageDisplay?.greyscale?.enabled === true
+      }
     },
     xhsImageDarkMode: {
       enabled: value.xhsImageDarkMode?.enabled === true,
@@ -367,12 +377,13 @@ export function mailtoCaptureState(settings, url) {
   };
 }
 
-export function reduceWhitePointState(settings, url) {
+export function pageDisplayState(settings, url) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
-  const enabled = normalized.reduceWhitePoint.enabled === true;
+  const feature = normalized.pageDisplay;
+  const enabled = feature.reduceWhitePoint.enabled === true || feature.greyscale.enabled === true;
   return {
-    ...normalized.reduceWhitePoint,
+    ...feature,
     hostname,
     supported: !!hostname,
     active: !!hostname && enabled,

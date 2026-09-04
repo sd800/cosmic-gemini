@@ -1,9 +1,9 @@
 (() => {
-  const READY = 'cosmic-gemini:reduce-white-point:bridge-ready';
-  const MAIN_READY = 'cosmic-gemini:reduce-white-point:main-ready';
-  const CONFIGURE = 'cosmic-gemini:reduce-white-point:configure';
-  const DISPOSE = 'cosmic-gemini:reduce-white-point:dispose';
-  const RUNTIME_KEY = Symbol.for('cosmic-gemini.reduce-white-point.runtime');
+  const READY = 'cosmic-gemini:page-display:bridge-ready';
+  const MAIN_READY = 'cosmic-gemini:page-display:main-ready';
+  const CONFIGURE = 'cosmic-gemini:page-display:configure';
+  const DISPOSE = 'cosmic-gemini:page-display:dispose';
+  const RUNTIME_KEY = Symbol.for('cosmic-gemini.page-display.runtime');
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -22,11 +22,10 @@
     return;
   }
 
-  class ReduceWhitePointRuntime {
+  class PageDisplayRuntime {
     constructor() {
       this.token = randomToken();
       this.active = false;
-      this.reduction = 0.25;
       this.host = null;
       this.shade = null;
       this.onConfigure = this.onConfigure.bind(this);
@@ -44,7 +43,7 @@
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
       if (message?.token !== this.token) return;
-      if (message.config?.active === true) this.enable(message.config.reduction);
+      if (message.config?.active === true) this.enable(message.config);
       else this.disable();
     }
     onDispose(event) {
@@ -67,8 +66,7 @@
         'inset:0',
         'z-index:2147483647',
         'pointer-events:none',
-        'background:transparent',
-        'contain:strict'
+        'background:transparent'
       ].join(';');
       const shadow = host.attachShadow({ mode: 'closed' });
       const shade = document.createElement('div');
@@ -89,11 +87,22 @@
       if (this.host.parentNode !== target) target.append(this.host);
     }
 
-    enable(value) {
+    enable(config) {
+      const reduceWhitePoint = config.reduceWhitePoint?.enabled === true;
+      const greyscale = config.greyscale?.enabled === true;
+      if (!reduceWhitePoint && !greyscale) { this.disable(); return; }
       this.active = true;
-      this.reduction = normalizedReduction(value);
       this.mount();
-      if (this.shade) this.shade.style.opacity = String(this.reduction);
+      if (this.host) {
+        const value = greyscale ? 'grayscale(1)' : 'none';
+        this.host.style.backdropFilter = value;
+        this.host.style.webkitBackdropFilter = value;
+      }
+      if (this.shade) {
+        this.shade.style.opacity = reduceWhitePoint
+          ? String(normalizedReduction(config.reduceWhitePoint?.reduction))
+          : '0';
+      }
       document.addEventListener('fullscreenchange', this.mount, true);
     }
 
@@ -108,7 +117,7 @@
     }
   }
 
-  const runtime = new ReduceWhitePointRuntime();
+  const runtime = new PageDisplayRuntime();
   Object.defineProperty(globalThis, RUNTIME_KEY, { value: runtime, configurable: true });
   runtime.announce();
 })();

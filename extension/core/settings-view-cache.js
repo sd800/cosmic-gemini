@@ -6,7 +6,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 21,
+    version: 22,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -30,11 +30,16 @@ export function settingsViewCache(states = {}) {
     mailtoCapture: {
       enabled: states.mailtoCapture?.enabled !== false
     },
-    reduceWhitePoint: {
-      enabled: states.reduceWhitePoint?.enabled === true,
-      reduction: Number.isFinite(Number(states.reduceWhitePoint?.reduction))
-        ? Math.min(0.8, Math.max(0.1, Number(states.reduceWhitePoint.reduction)))
-        : 0.25
+    pageDisplay: {
+      reduceWhitePoint: {
+        enabled: states.pageDisplay?.reduceWhitePoint?.enabled === true,
+        reduction: Number.isFinite(Number(states.pageDisplay?.reduceWhitePoint?.reduction))
+          ? Math.min(0.8, Math.max(0.1, Number(states.pageDisplay.reduceWhitePoint.reduction)))
+          : 0.25
+      },
+      greyscale: {
+        enabled: states.pageDisplay?.greyscale?.enabled === true
+      }
     },
     xhsImageDarkMode: {
       enabled: states.xhsImageDarkMode?.enabled === true,

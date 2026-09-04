@@ -70,3 +70,43 @@ test('Ad Marshal limits Gmail request neutralization to its tab and trusted embe
   }, settings), false);
   assert.deepEqual(runtimeCalls.map(call => call.active), [true, true, false, false]);
 });
+
+test('Ad Marshal routes the Tencent News timeline host through the news.qq.com policy', async () => {
+  const settings = normalizeSettings({ adMarshal: { enabled: true } });
+  const runtimeCalls = [];
+  const ruleUpdates = [];
+  globalThis.chrome = {
+    declarativeNetRequest: {
+      async getSessionRules() { return []; },
+      async updateSessionRules(update) { ruleUpdates.push(update); }
+    },
+    tabs: { async query() { return []; } }
+  };
+  const platform = {
+    async mutateSettings(update) { return normalizeSettings(update(settings)); },
+    async readSettings() { return settings; },
+    isIncognitoContext() { return false; }
+  };
+  const runtimeHost = {
+    async sync(_product, context, active) {
+      runtimeCalls.push({ context, active });
+      return active;
+    }
+  };
+  const product = createAdMarshalProduct(runtimeHost, platform);
+  const url = 'https://view.inews.qq.com/timeline/example';
+
+  assert.equal(await product.sync({
+    settings,
+    tabId: 18,
+    topUrl: url,
+    frameId: 0,
+    frameUrl: url,
+    documentId: ''
+  }, settings), true);
+  assert.equal(runtimeCalls[0].active, true);
+  assert.equal(ruleUpdates.length, 1);
+  assert.equal(ruleUpdates[0].addRules.length, 8);
+  assert.equal(ruleUpdates[0].addRules[0].condition.urlFilter, 'universal-report.min.js');
+  assert.ok(ruleUpdates[0].addRules.every(rule => rule.condition.tabIds[0] === 18));
+});

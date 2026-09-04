@@ -249,6 +249,12 @@ test('Ad Marshal uses one explicit switch without migrating former per-site sett
   const newsQq = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://news.qq.com/');
   assert.equal(newsQq.active, true);
   assert.equal(newsQq.siteId, 'newsQqCom');
+  const newsTimeline = adMarshalState(
+    { version: 17, adMarshal: { enabled: true } },
+    'https://view.inews.qq.com/timeline/example'
+  );
+  assert.equal(newsTimeline.active, true);
+  assert.equal(newsTimeline.siteId, 'newsQqCom');
   const wwwQq = adMarshalState({ version: 17, adMarshal: { enabled: true } }, 'https://www.qq.com/');
   assert.equal(wwwQq.active, true);
   assert.equal(wwwQq.siteId, 'wwwQqCom');

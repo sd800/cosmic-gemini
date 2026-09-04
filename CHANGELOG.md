@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 6.12.1 — 2026-09-04
+
+- Extended the existing Tencent News Ad Marshal policy to its exact internal timeline host, `view.inews.qq.com`. The timeline page now receives the same local handling for its confirmed reporting loader and Tencent telemetry requests as `news.qq.com`, while Settings keeps a single Tencent News entry and other `qq.com` subdomains remain outside the policy.
+
 ## 6.11.1 — 2026-09-03
 
 - Reworked Bili Daily Login into two independent daily checks so an earlier confirmed result no longer suppresses the later reliability check. Missed dates and earlier windows are never replayed, browser restarts do not repeat a completed window, and failed requests wait for the next window instead of starting a retry loop.

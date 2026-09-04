@@ -350,7 +350,7 @@ export function mailtoCaptureState(settings, url) {
 export function adMarshalState(settings, url) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
-  const siteId = hostname === 'news.qq.com'
+  const siteId = hostname === 'news.qq.com' || hostname === 'view.inews.qq.com'
     ? 'newsQqCom'
     : hostname === 'www.qq.com'
       ? 'wwwQqCom'

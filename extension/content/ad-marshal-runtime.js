@@ -32,7 +32,7 @@
   ];
   const SITE_CONFIGS = Object.freeze({
     newsQqCom: Object.freeze({
-      hosts: new Set(['news.qq.com']),
+      hosts: new Set(['news.qq.com', 'view.inews.qq.com']),
       trackingHosts: new Set(TENCENT_QQ_TRACKING_HOSTS),
       scriptPaths: Object.freeze([
         'universal-report.min.js',

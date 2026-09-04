@@ -13,7 +13,9 @@ const SITE_POLICIES = Object.freeze({
   newsQqCom: Object.freeze({
     matches: Object.freeze([
       'http://news.qq.com/*',
-      'https://news.qq.com/*'
+      'https://news.qq.com/*',
+      'http://view.inews.qq.com/*',
+      'https://view.inews.qq.com/*'
     ])
   }),
   wwwQqCom: Object.freeze({

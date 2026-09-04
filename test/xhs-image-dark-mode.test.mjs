@@ -359,6 +359,98 @@ test('viewer classifications remain isolated between slide indexes', async () =>
   assert.equal(runtime.cachedResult(second, second.currentSrc).kind, 'light-theme');
 });
 
+test('lazy images wait for load without occupying an analysis slot', async () => {
+  const runtime = await runtimeFixture({}, { performance: { now: () => 10 } });
+  runtime.processing = true;
+  runtime.isContentImage = () => true;
+  runtime.schedulePump = () => {};
+  let onLoad = null;
+  const image = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/lazy/image!nc_n_webp_mw_1',
+    complete: false,
+    naturalWidth: 0,
+    addEventListener(type, listener) {
+      if (type === 'load') onLoad = listener;
+    }
+  };
+  const record = {
+    image,
+    source: '',
+    result: null,
+    loadSource: '',
+    loadPriority: Number.POSITIVE_INFINITY,
+    loadGeneration: 0
+  };
+  runtime.records.set(image, record);
+  runtime.queueImage(image, -15);
+  assert.equal(runtime.queue.length, 0);
+  assert.equal(runtime.running, 0);
+  assert.equal(typeof onLoad, 'function');
+  image.complete = true;
+  image.naturalWidth = 640;
+  onLoad();
+  assert.equal(runtime.queue.length, 1);
+  assert.equal(runtime.queue[0].priority, -15);
+});
+
+test('an intersecting image can move ahead in the pending analysis queue', async () => {
+  const runtime = await runtimeFixture({}, { performance: { now: () => 20 } });
+  runtime.processing = true;
+  runtime.isContentImage = () => true;
+  runtime.schedulePump = () => {};
+  const image = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/loaded/image!nc_n_webp_mw_1',
+    complete: true,
+    naturalWidth: 640
+  };
+  runtime.records.set(image, { image, source: '', result: null });
+  runtime.queueImage(image, 6);
+  runtime.queueImage(image, -15);
+  assert.equal(runtime.queue.length, 1);
+  assert.equal(runtime.queue[0].priority, -15);
+});
+
+test('viewer source changes are followed even while currentSrc still reports the previous slide', async () => {
+  const runtime = await runtimeFixture();
+  runtime.processing = true;
+  runtime.scheduleControlPositions = () => {};
+  runtime.scheduleCleanup = () => {};
+  runtime.applyCachedResult = () => false;
+  const queued = [];
+  runtime.queueImage = (image, priority) => queued.push({ image, priority });
+  let sourceAttribute = 'https://sns-webpic-qc.xhscdn.com/detail/slide-1';
+  let onLoad = null;
+  const image = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/detail/slide-1',
+    src: sourceAttribute,
+    srcset: '',
+    complete: true,
+    naturalWidth: 640,
+    classList: { remove() {} },
+    getAttribute(name) { return name === 'src' ? sourceAttribute : ''; },
+    addEventListener(type, listener) { if (type === 'load') onLoad = listener; }
+  };
+  const record = {
+    image,
+    requestKey: runtime.imageRequestKey(image),
+    source: image.currentSrc,
+    result: { kind: 'photo' },
+    loadGeneration: 0,
+    loadPriority: Number.POSITIVE_INFINITY,
+    loadSource: '',
+    button: null,
+    visualTarget: null
+  };
+  runtime.records.set(image, record);
+  sourceAttribute = 'https://sns-webpic-qc.xhscdn.com/detail/slide-2';
+  image.src = sourceAttribute;
+  runtime.onPageMutations([{ type: 'attributes', target: image, attributeName: 'src' }]);
+  assert.equal(typeof onLoad, 'function');
+  image.currentSrc = sourceAttribute;
+  onLoad();
+  assert.equal(queued.some(task => task.image === image && task.priority === -10), true);
+});
+
 test('expanded images transform the slide background and image as one visual surface', async () => {
   const runtime = await runtimeFixture();
   const imageClasses = new Set();

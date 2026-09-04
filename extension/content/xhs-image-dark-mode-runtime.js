@@ -541,18 +541,34 @@
       if (modal) this.prioritizeModal(modal);
     }
 
+    imageRequestKey(image) {
+      return [
+        image?.getAttribute?.('src') || image?.src || image?.currentSrc || '',
+        image?.getAttribute?.('srcset') || image?.srcset || ''
+      ].join('\n');
+    }
+
     observeImage(image) {
       if (!this.isContentImage(image)) return;
       let record = this.records.get(image);
       if (!record) {
-        record = { image, source: '', button: null, darkened: true, result: null };
+        record = {
+          image,
+          source: '',
+          button: null,
+          darkened: true,
+          result: null,
+          requestKey: this.imageRequestKey(image),
+          loadSource: '',
+          loadPriority: Number.POSITIVE_INFINITY,
+          loadGeneration: 0
+        };
         this.records.set(image, record);
         this.intersectionObserver?.observe(image);
         this.resizeObserver?.observe(image);
       }
       if (this.applyCachedResult(record)) return;
-      if (image.complete && image.naturalWidth) return;
-      image.addEventListener('load', () => this.queueImage(image, 0), { once: true });
+      if (!image.complete || !image.naturalWidth) this.waitForImageLoad(record, 0);
     }
 
     prioritizeModal(modal) {
@@ -616,11 +632,16 @@
         if (mutation.type === 'attributes') {
           const image = mutation.target;
           const record = this.records.get(image);
-          if (record && record.source !== (image.currentSrc || image.src || '')) {
+          const requestKey = this.imageRequestKey(image);
+          if (record && record.requestKey !== requestKey) {
             this.clearRecord(record);
+            record.requestKey = requestKey;
             record.source = '';
             record.darkened = true;
-            if (!this.applyCachedResult(record)) this.queueImage(image, -10);
+            if (!this.applyCachedResult(record)) {
+              this.waitForImageLoad(record, -10);
+              this.queueImage(image, -10);
+            }
           }
           continue;
         }
@@ -633,14 +654,49 @@
     }
 
     queueImage(image, priority = 0) {
-      if (!this.processing || !this.isContentImage(image) || this.queued.has(image)) return;
+      if (!this.processing || !this.isContentImage(image)) return;
       const record = this.records.get(image);
       const source = image.currentSrc || image.src || '';
-      if (!record || (record.source === source && record.result)) return;
+      if (!record || !source || (record.source === source && record.result)) return;
+      if (!image.complete || !image.naturalWidth) {
+        this.waitForImageLoad(record, priority);
+        return;
+      }
+      record.loadSource = '';
+      record.loadPriority = Number.POSITIVE_INFINITY;
+      if (this.queued.has(image)) {
+        const task = this.queue.find(item => item.image === image);
+        if (task && priority < task.priority) {
+          task.priority = priority;
+          this.queue.sort((a, b) => a.priority - b.priority || a.order - b.order);
+          this.schedulePump(true);
+        }
+        return;
+      }
       this.queued.add(image);
       this.queue.push({ image, priority, order: performance.now() });
       this.queue.sort((a, b) => a.priority - b.priority || a.order - b.order);
       this.schedulePump(priority < 0);
+    }
+
+    waitForImageLoad(record, priority) {
+      const image = record?.image;
+      const requestKey = this.imageRequestKey(image);
+      if (!image || !requestKey.trim()) return;
+      record.loadPriority = Math.min(record.loadPriority ?? Number.POSITIVE_INFINITY, priority);
+      if (record.loadSource === requestKey) return;
+      record.loadSource = requestKey;
+      record.loadGeneration = (record.loadGeneration || 0) + 1;
+      const generation = record.loadGeneration;
+      image.addEventListener('load', () => {
+        if (!this.processing || this.records.get(image) !== record
+          || record.loadGeneration !== generation
+          || requestKey !== this.imageRequestKey(image)) return;
+        const queuedPriority = Number.isFinite(record.loadPriority) ? record.loadPriority : priority;
+        record.loadSource = '';
+        record.loadPriority = Number.POSITIVE_INFINITY;
+        this.queueImage(image, queuedPriority);
+      }, { once: true });
     }
 
     schedulePump(urgent = false) {
@@ -754,6 +810,7 @@
       if (!sample) return;
       const result = this.classifySample(sample.data, sample.width, sample.height);
       this.cacheResult(source, result, image);
+      record.requestKey = this.imageRequestKey(image);
       record.source = source;
       record.result = result;
       this.applyResult(record);
@@ -1141,6 +1198,9 @@
 
     clearRecord(record) {
       this.clearVisual(record);
+      record.loadGeneration = (record.loadGeneration || 0) + 1;
+      record.loadSource = '';
+      record.loadPriority = Number.POSITIVE_INFINITY;
       record.button?.remove();
       record.button = null;
       record.result = null;

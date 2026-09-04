@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 7.6.1 — 2026-09-04
+
+- Removed Ad Marshal's redundant main-world request shims from Douyin. Its confirmed telemetry loaders and hosts remain handled by Chrome's native, tab-scoped DNR rules, while Fetch, XHR, Beacon, image loading, video playback, and preloading keep their native page behavior. This removes per-request JavaScript work from Douyin's high-frequency feed and player paths without expanding or weakening the existing telemetry matches.
+
+## 7.5.2 — 2026-09-04
+
+- Fixed XHS Image Dark Mode gradually stopping as the Xiaohongshu feed scrolled deeper. Unloaded lazy images now wait for their load event without occupying either analysis worker, and an image entering the visible range can move ahead in the pending queue. Ahead-of-viewport preparation remains enabled without allowing dormant resources to block later images. Expanded galleries also track `src` and `srcset` changes before `currentSrc` updates, so a reused viewer element reliably schedules the newly selected slide instead of retaining the previous slide's light state.
+
 ## 7.5.1 — 2026-09-04
 
 - Made expanded Xiaohongshu galleries classify every slide independently. A feed cover that is left unchanged can no longer suppress analysis of the full first image or later slides; only a confirmed dark treatment is shared across related page elements, while unchanged results remain scoped to the exact image resource.

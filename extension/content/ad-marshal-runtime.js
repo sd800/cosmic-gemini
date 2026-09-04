@@ -55,26 +55,6 @@
       style: '.qqhome-col-1:has(> .game-rank-wrap){display:none!important;visibility:hidden!important;}',
       localProbe: true
     }),
-    douyinCom: Object.freeze({
-      hosts: new Set(['douyin.com', 'www.douyin.com', 'live.douyin.com']),
-      trackingHosts: new Set([
-        'mon.zijieapi.com',
-        'mcs.zijieapi.com',
-        'log.zijieapi.com',
-        'applog.zijieapi.com',
-        'log.snssdk.com',
-        'log.byteoversea.com',
-        'mon.byteoversea.com',
-        'monsetting.toutiao.com',
-        'monsetting.toutiaocloud.com'
-      ]),
-      scriptPaths: Object.freeze([
-        '/obj/applog-sdk-static/log-sdk/collect/',
-        '/slardar/fe/sdk-web/browser.cn.js'
-      ]),
-      style: '',
-      localProbe: false
-    }),
     zhihuCom: Object.freeze({
       hosts: new Set(['zhihu.com']),
       hostSuffix: '.zhihu.com',

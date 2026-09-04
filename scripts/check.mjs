@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '7.5.1');
+assert.equal(manifest.version, '7.6.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -345,6 +345,10 @@ assert.match(xhsImageDarkModeRuntime, /strongestPanelShare[\s\S]*splitToneLayout
   'XHS Image Dark Mode must recognize stable split-tone document panels.');
 assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult\.kind !== 'photo'/,
   'Negative feed-cover classifications must not suppress independent viewer analysis.');
+assert.match(xhsImageDarkModeRuntime, /!image\.complete \|\| !image\.naturalWidth[\s\S]*waitForImageLoad[\s\S]*loadPriority/,
+  'Unloaded XHS images must not occupy an image-analysis worker.');
+assert.match(xhsImageDarkModeRuntime, /imageRequestKey[\s\S]*record\.requestKey !== requestKey[\s\S]*waitForImageLoad\(record, -10\)/,
+  'Reused XHS viewer elements must follow src and srcset changes before currentSrc updates.');
 assert.match(xhsImageDarkModeRuntime, /grayBackground[\s\S]*'gray-theme'[\s\S]*cg-xhs-image-dark-mode-gray/);
 assert.match(xhsImageDarkModeRuntime, /--cg-xhs-image-brightness, 1[\s\S]*noteCacheKey[\s\S]*visualTarget/);
 assert.match(xhsImageDarkModeRuntime, /viewerForImage\(record\.image\)[\s\S]*fractionRect\.right - FRACTION_SLOT_WIDTH - CONTROL_GAP - CONTROL_SIZE/);
@@ -378,7 +382,7 @@ assert.match(adMarshalRuntime, /TRANSPARENT_IMAGE_URL[\s\S]*HTMLImageElement\.pr
 assert.match(adMarshalRuntime, /127\.0\.0\.1[\s\S]*adMarshalImageSrcSet/);
 assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*NEWS_QQ_AD_CONTAINER_SELECTOR[\s\S]*this\.ensureStyle\(\)/);
 assert.match(adMarshalRuntime, /wwwQqCom[\s\S]*h5\.ssp\.qq\.com[\s\S]*qqhome-col-1:has\(> \.game-rank-wrap\)/);
-assert.match(adMarshalRuntime, /douyinCom[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com[\s\S]*collect\/[\s\S]*browser\.cn\.js/);
+assert.doesNotMatch(adMarshalRuntime, /douyinCom/);
 assert.match(adMarshalRuntime, /zhihuCom[\s\S]*hostSuffix: '\.zhihu\.com'[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*\/za-js-sdk@/);
 assert.match(adMarshalRuntime, /gmailCom[\s\S]*mail\.google\.com[\s\S]*chat\.google\.com[\s\S]*requestPaths: new Set\(\['play\.google\.com\/log'\]\)/);
 assert.doesNotMatch(adMarshalRuntime, /MutationObserver|data-beacon|removeChild/,

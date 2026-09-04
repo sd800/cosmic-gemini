@@ -54,6 +54,12 @@ const GMAIL_RUNTIME_FRAME_HOSTS = new Set([
   'chat.google.com',
   'ogs.google.com'
 ]);
+const PAGE_RUNTIME_SITE_IDS = new Set([
+  'newsQqCom',
+  'wwwQqCom',
+  'zhihuCom',
+  'gmailCom'
+]);
 const TENCENT_QQ_TRACKING_DOMAINS = Object.freeze([
   'h.trace.qq.com',
   'btrace.qq.com',
@@ -242,8 +248,9 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       const gmailFrame = state.siteId === 'gmailCom'
         && GMAIL_RUNTIME_FRAME_HOSTS.has(hostnameFromUrl(context.frameUrl));
       const active = state.active && (context.frameId === 0 || gmailFrame);
+      const pageRuntimeActive = active && PAGE_RUNTIME_SITE_IDS.has(state.siteId);
       if (context.frameId === 0) await syncTabRules(context.tabId, state.active ? state.siteId : '');
-      await pageRuntimeHost.sync(product, context, active);
+      await pageRuntimeHost.sync(product, context, pageRuntimeActive);
       return active;
     },
     async handleMessage(message) {

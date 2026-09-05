@@ -90,7 +90,7 @@ test('a stopped image session cannot be revived by a late rescan response', asyn
   });
   vm.runInContext(`let state = { active: true, groups: [] }, stateReadGeneration = 0,
     scanActionGeneration = 0, scanPending = false, workspaceClosing = false;
-    const sourceTabId = 7;
+    const sourceTabId = 7, workspaceView = 'page';
     ${between(imageSource, 'async function reload(', 'function updateWorkspaceControls(')}
     ${between(imageSource, 'async function stopSession(', '\nfor (const input of ')}
     globalThis.ui = { rescan, stopSession, state: () => state };`, context);
@@ -100,6 +100,51 @@ test('a stopped image session cannot be revived by a late rescan response', asyn
   scan.resolve({ active: true, groups: [{ id: 'old' }] }); await pending;
   assert.equal(context.ui.state().active, false);
   assert.equal(context.ui.state().groups.length, 0);
+});
+
+test('stopping Image Download clears its busy status before background cleanup finishes', async () => {
+  const stop = deferred(); const statuses = [];
+  const context = vm.createContext({
+    send: message => message.type === 'UI_IMAGE_STOP' ? stop.promise : Promise.resolve({ active: false }),
+    renderState() {}, updateWorkspaceControls() {}, reloadAfterAction() {},
+    setStatus(value, busy = false) { statuses.push({ value, busy }); },
+    t: key => key
+  });
+  vm.runInContext(`let state = { active: true, status: 'scanning', groups: [] }, stateReadGeneration = 0,
+    scanActionGeneration = 0, scanPending = true, workspaceClosing = false;
+    const sourceTabId = 7, workspaceView = 'page';
+    ${between(imageSource, 'async function stopSession(', '\nfor (const input of ')}
+    globalThis.ui = { stopSession, state: () => state };`, context);
+  const pending = context.ui.stopSession();
+  assert.equal(context.ui.state().active, false);
+  assert.deepEqual(statuses.at(-1), { value: 'imageSessionStopped', busy: false });
+  stop.resolve({ active: false });
+  await pending;
+});
+
+test('stopping Image Download from the Side Panel preserves it until the close transition begins', async () => {
+  const messages = []; const root = { dataset: {} }; const statuses = [];
+  const context = vm.createContext({
+    root,
+    send: async message => { messages.push(message); return { active: false }; },
+    setTimeout(callback) { callback(); },
+    matchMedia() { return { matches: false }; },
+    updateWorkspaceControls() {},
+    setStatus(value, busy = false) { statuses.push({ value, busy }); },
+    t: key => key
+  });
+  vm.runInContext(`let state = { active: true, status: 'scanning', groups: [] }, stateReadGeneration = 0,
+    scanActionGeneration = 0, scanPending = true, workspaceClosing = false;
+    const sourceTabId = 7, workspaceView = 'side-panel';
+    ${between(imageSource, 'async function stopSession(', '\nfor (const input of ')}
+    globalThis.ui = { stopSession, closing: () => workspaceClosing };`, context);
+  await context.ui.stopSession();
+  await Promise.resolve();
+  assert.deepEqual(messages.map(message => message.type), ['UI_IMAGE_STOP', 'UI_IMAGE_CLOSE_SIDE_PANEL']);
+  assert.equal(messages[0].preserveWorkspace, true);
+  assert.equal(context.ui.closing(), true);
+  assert.equal(root.dataset.workspaceClosing, 'true');
+  assert.deepEqual(statuses.at(-1), { value: 'imageSessionStopped', busy: false });
 });
 
 test('scheduled media-view reconnects do not reactivate a closed or hidden list', () => {

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.3.2');
+assert.equal(manifest.version, '8.3.3');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -452,10 +452,13 @@ assert.match(satellites, /if \(ownsDailySchedule\) return settings\.satellites/)
 assert.match(settingsSource, /disabledByDefaultInIncognito/);
 assert.match(popupStyle, /#video-stop, #video-stop:hover \{ background: transparent; color: var\(--danger\); \}/);
 assert.match(imageDownloadStyle, /#stop, #stop:hover \{ background: transparent; color: var\(--danger\); \}/);
+assert.match(imageWorkspace, /const recommendationPresentationEnabled = false/);
 assert.match(settingsSource, /helpPanel\.hidden = false/);
 assert.doesNotMatch(settingsSource, /helpPanel\.hidden = incognitoContext/);
 
 assert.match(imageDownload, /chrome\.sidePanel\.setOptions/);
+assert.match(imageDownload, /typeof chrome\.sidePanel\?\.close === 'function'/);
+assert.match(imageDownload, /UI_IMAGE_CLOSE_SIDE_PANEL/);
 assert.match(imageDownload, /return \{\s*\.\.\.settings\.imageDownload,\s*supported,\s*active,/);
 assert.match(imageDownload, /workspaces\/image-download\/image-download\.html/);
 assert.match(imageDownload, /UI_IMAGE_DOWNLOAD/);
@@ -489,6 +492,8 @@ assert.match(imageDownload, /sourceTabPromise = chrome\.tabs\.get\(tabId\)/);
 assert.match(videoDownload, /pending\.candidates\.length < 800/);
 assert.match(videoDownload, /sourceTab = await chrome\.tabs\.get\(tabId\)/);
 assert.match(imageWorkspace, /retryRead\(\(\) => reload/);
+assert.match(imageWorkspace, /preserveWorkspace: closeSidePanel/);
+assert.match(imageWorkspace, /root\.dataset\.workspaceClosing = 'true'/);
 assert.doesNotMatch(imageWorkspace, /await send\(\{ type: 'UI_IMAGE_STOP'[\s\S]{0,160}await reload\(/);
 assert.doesNotMatch(imageDownload, /scheduleDownloadDiscoveryPause|videoDownloadSession:/);
 assert.doesNotMatch(videoDownload, /scheduleDownloadDiscoveryPause|imageDownloadSession:/);

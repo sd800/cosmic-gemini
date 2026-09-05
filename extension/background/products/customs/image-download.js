@@ -401,7 +401,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     } catch {}
   }
   
-  async function stopImageSession(tabId, expectedOrigin = '') {
+  async function stopImageSession(tabId, expectedOrigin = '', options = {}) {
     if (!Number.isInteger(tabId)) return;
     await stopImageCapture(tabId);
     return sessionUpdates.run(tabId, async () => {
@@ -417,12 +417,28 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       await chrome.storage.session.remove(imageSessionKey(tabId));
       await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false);
       preparedImageSidePanels.delete(tabId);
-      if (current?.workspaceMode === 'sidePanel' && chrome.sidePanel?.setOptions) {
+      if (!options.preserveWorkspace && current?.workspaceMode === 'sidePanel' && chrome.sidePanel?.setOptions) {
         await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
       }
       await offscreen.maybeClose();
       return true;
     });
+  }
+
+  async function closeImageWorkspaceSidePanel(tabId) {
+    if (!Number.isInteger(tabId)) return { closed: false, native: false };
+    let native = false;
+    if (typeof chrome.sidePanel?.close === 'function') {
+      try {
+        await chrome.sidePanel.close({ tabId });
+        native = true;
+      } catch {}
+    }
+    if (chrome.sidePanel?.setOptions) {
+      await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+    }
+    preparedImageSidePanels.delete(tabId);
+    return { closed: true, native };
   }
   
   async function beginImageCapture(tabId) {
@@ -847,8 +863,13 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       return imageDownloadState(await readSettings(), tabId, session?.pageUrl || '');
     }
     if (message.type === 'UI_IMAGE_STOP') {
-      await stopImageSession(Number(message.tabId));
+      await stopImageSession(Number(message.tabId), '', {
+        preserveWorkspace: message.preserveWorkspace === true
+      });
       return { active: false };
+    }
+    if (message.type === 'UI_IMAGE_CLOSE_SIDE_PANEL') {
+      return closeImageWorkspaceSidePanel(Number(message.tabId));
     }
     if (message.type === 'UI_IMAGE_CAPTURE_AREA') return beginImageCapture(Number(message.tabId));
     if (message.type === 'UI_IMAGE_UPDATE_METADATA') {
@@ -918,7 +939,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         if (key.startsWith('imageDownloadSession:') && Number.isInteger(value?.tabId)) tabIds.add(value.tabId);
       }
     } catch {}
-    await Promise.allSettled([...tabIds].map(stopImageSession));
+    await Promise.allSettled([...tabIds].map(tabId => stopImageSession(tabId)));
     await Promise.allSettled([...tabIds].map(async tabId => {
       await setCollecting(tabId, false);
       clearPending(tabId);

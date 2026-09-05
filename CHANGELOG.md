@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.3.3 — 2026-09-05
+
+- Removed the visible “Recommended” badge and labels from Image Download. The best available source remains selected by default, with alternate sizes and formats still available.
+- The Image Download stop control now clears scanning feedback immediately, then closes the Side Panel with Chrome's native transition when available. Earlier Chrome versions use a short visual transition instead of an abrupt disappearance.
+- Reset cleanup now stops every active Image Download session instead of potentially leaving later tabs active.
+
 ## 8.3.2 — 2026-09-05
 
 - Changed the Image Download and Video Download stop-scanning icons to red while keeping their buttons free of background fills.

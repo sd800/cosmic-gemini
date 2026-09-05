@@ -34,6 +34,8 @@ let scanActionGeneration = 0;
 let downloadPending = false;
 let workspaceClosing = false;
 const pendingControls = new WeakSet();
+// Preserve the presentation hook while recommendation labeling is not shown in the UI.
+const recommendationPresentationEnabled = false;
 
 function setWorkspaceVisible(visible) {
   if (workspaceClosing) return;
@@ -258,11 +260,15 @@ function createCard(group, index) {
     pendingMetadata.set(candidate.id, { width: image.naturalWidth, height: image.naturalHeight });
     scheduleMetadataFlush();
   });
-  const badge = document.createElement('span');
-  badge.className = 'recommended-badge';
-  badge.textContent = t('recommendedOriginal');
   preview.append(image, checkbox);
-  if (candidate.id === group.recommended.id && !failedCandidates.has(candidate.id)) preview.append(badge);
+  if (recommendationPresentationEnabled
+    && candidate.id === group.recommended.id
+    && !failedCandidates.has(candidate.id)) {
+    const badge = document.createElement('span');
+    badge.className = 'recommended-badge';
+    badge.textContent = t('recommendedOriginal');
+    preview.append(badge);
+  }
 
   const body = document.createElement('div');
   body.className = 'image-card-body';
@@ -280,7 +286,7 @@ function createCard(group, index) {
   for (const item of group.candidates) {
     const option = document.createElement('option');
     option.value = item.id;
-    option.textContent = item.id === group.recommended.id
+    option.textContent = recommendationPresentationEnabled && item.id === group.recommended.id
       ? `${t('recommendedOriginal')} · ${candidateLabel(item)}`
       : candidateLabel(item) || t('alternateImage');
     variants.append(option);
@@ -439,9 +445,26 @@ async function runWorkspaceAction(button, task) {
 async function stopSession() {
   scanActionGeneration += 1;
   stateReadGeneration += 1;
-  await send({ type: 'UI_IMAGE_STOP', tabId: sourceTabId });
+  scanPending = false;
+  state = { ...state, active: false, status: 'stopped' };
+  setStatus(t('imageSessionStopped'));
+  updateWorkspaceControls();
+  const closeSidePanel = workspaceView === 'side-panel';
+  await send({
+    type: 'UI_IMAGE_STOP',
+    tabId: sourceTabId,
+    preserveWorkspace: closeSidePanel
+  });
+  if (closeSidePanel) {
+    workspaceClosing = true;
+    root.dataset.workspaceClosing = 'true';
+    const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    await new Promise(resolve => setTimeout(resolve, reducedMotion ? 0 : 140));
+    void send({ type: 'UI_IMAGE_CLOSE_SIDE_PANEL', tabId: sourceTabId }).catch(() => {});
+    return;
+  }
   stateReadGeneration += 1;
-  state = { ...state, active: false, status: 'stopped', groups: [] };
+  state = { ...state, groups: [] };
   renderState(true);
   await reloadAfterAction(true);
 }

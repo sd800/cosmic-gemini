@@ -34,7 +34,7 @@ Background: Some websites disable selection, block copy shortcuts, or rewrite cl
 
 Image Download finds images in the current tab and opens a dedicated workspace in Chrome’s Side Panel by default. The source page stays visible while you preview, filter, select, and download images. You can choose a separate tab in Settings or open the full-page workspace from the Side Panel.
 
-Discovery covers responsive and lazy-loaded sources, linked originals, CSS images, open shadow roots, frames, inline SVG, canvas captures, structured metadata, and images observed during the active session. Related variants stay together, and the strongest original candidate is recommended by default.
+Discovery covers responsive and lazy-loaded sources, linked originals, CSS images, open shadow roots, frames, inline SVG, canvas captures, structured metadata, and images observed during the active session. Related variants stay together, and the strongest original candidate is selected by default.
 
 You can rescan the page, reveal lazy-loaded images, capture part of the visible page, preserve original formats, or convert compatible images locally. Selected images can be downloaded separately or combined in one ZIP file.
 
@@ -82,7 +82,7 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes
 - Website activation for Any Copy and a current-tab session for Any Copy Enhanced
-- On-demand image discovery with original-source recommendations, filtering, local conversion, area capture, and batch ZIP downloads
+- On-demand image discovery with automatic original-source selection, filtering, local conversion, area capture, and batch ZIP downloads
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
 - Optional Satellites with their own concise settings and privacy details
 - Adjustable white-point reduction that applies locally across ordinary webpages

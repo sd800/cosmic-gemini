@@ -123,6 +123,7 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .satellite-card .section-heading { gap: 28px; }
 .satellite-card .section-heading > div:first-child { min-width: 0; }
 .satellite-card .section-heading p { max-width: 620px; }
+.satellite-card .section-heading .satellite-experimental-note { margin-top: 7px; }
 .satellite-control { display: flex; min-height: 24px; flex: 0 0 auto; align-items: center; }
 .satellite-preferences { margin-top: 18px; }
 .satellite-preferences .preference-row { gap: 28px; }

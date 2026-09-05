@@ -31,9 +31,7 @@ export const FEATURE_SLOTS = Object.freeze({
 
 export const AD_MARSHAL_SITE_KEYS = Object.freeze([
   'tencentNews',
-  'douyin',
-  'zhihu',
-  'gmail'
+  'zhihu'
 ]);
 
 const AD_MARSHAL_SITE_KEY_BY_POLICY = Object.freeze({
@@ -52,7 +50,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 23,
+  version: 25,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -86,9 +84,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   adMarshal: Object.freeze({
     managedSites: Object.freeze({
       tencentNews: false,
-      douyin: false,
-      zhihu: false,
-      gmail: false
+      zhihu: false
     })
   }),
   imageDownload: Object.freeze({
@@ -194,7 +190,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 23,
+    version: 25,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },

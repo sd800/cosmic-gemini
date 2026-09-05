@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.2.2 — 2026-09-05
+
+- Marked XHS Image Dark Mode as beta in Settings and added a separate experimental-feature notice. Its popup name remains unchanged.
+- Removed Douyin and Gmail from Ad Marshal. Its selectable managed-site groups now cover only Tencent News and Zhihu, and superseded stored selections cannot reactivate the removed behavior.
+- Retired the old toolbar activity artwork from the current extension source. The browser toolbar now keeps the standard Cosmic Gemini mark while existing state titles and popup controls continue to show activity.
+
 ## 8.2.1 — 2026-09-04
 
 - Limited Image Download and Video Download response observation to the exact tabs where media discovery is collecting. A tab that has never started either product now registers no media `webRequest` listener; observation is added on demand, retained through the two-minute grace period, and removed when collection pauses or ends.

@@ -6,7 +6,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 23,
+    version: 25,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -63,9 +63,7 @@ export function settingsViewCache(states = {}) {
     adMarshal: {
       managedSites: {
         tencentNews: states.adMarshal?.managedSites?.tencentNews === true,
-        douyin: states.adMarshal?.managedSites?.douyin === true,
-        zhihu: states.adMarshal?.managedSites?.zhihu === true,
-        gmail: states.adMarshal?.managedSites?.gmail === true
+        zhihu: states.adMarshal?.managedSites?.zhihu === true
       }
     }
   };

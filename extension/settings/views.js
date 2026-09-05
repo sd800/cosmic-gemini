@@ -159,7 +159,7 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">
-          <div><h1 data-i18n="xhsImageDarkModeName"></h1><p data-i18n="xhsImageDarkModeDescription"></p></div>
+          <div><h1 data-i18n="xhsImageDarkModeSettingsName"></h1><p data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
           <div class="satellite-control"><label class="switch"><input id="xhsImageDarkModeEnabled" type="checkbox"><span></span><b class="sr-only">XHS Image Dark Mode</b></label></div>
         </div>
         <div class="preference-list satellite-preferences">
@@ -184,9 +184,7 @@ export function viewFor(featureId) {
           <legend data-i18n="adMarshalManagedSitesHeading"></legend>
           <div class="ad-marshal-site-grid">
             <label><input id="adMarshalTencentNews" data-ad-marshal-site="tencentNews" type="checkbox"><span data-i18n="adMarshalTencentNews"></span></label>
-            <label><input id="adMarshalDouyin" data-ad-marshal-site="douyin" type="checkbox"><span data-i18n="adMarshalDouyin"></span></label>
             <label><input id="adMarshalZhihu" data-ad-marshal-site="zhihu" type="checkbox"><span data-i18n="adMarshalZhihu"></span></label>
-            <label><input id="adMarshalGmail" data-ad-marshal-site="gmail" type="checkbox"><span data-i18n="adMarshalGmail"></span></label>
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>

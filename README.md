@@ -76,6 +76,8 @@ Stop persistent advertising, reporting, and tracking components from repeatedly 
 
 Each supported site has its own narrowly scoped policy. These policies target only confirmed advertising and telemetry components without interfering with ordinary page content, sign-in, or account security.
 
+The current managed-site choices cover Tencent News and Zhihu.
+
 ## Features
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes
@@ -148,7 +150,7 @@ Blue means that the product is available to work in the current tab. A blue cont
 
 After Native Scroll or No Autoplay intervenes on the page, a thin blue outline appears around the active Standard or Enhanced control.
 
-The Cosmic Gemini mark in the browser toolbar remains unchanged. Its existing green artwork remains available for the separate toolbar activity indicator.
+The Cosmic Gemini mark in the browser toolbar remains unchanged. Activity continues to appear in the popup controls and the toolbar title.
 
 ### Website rules
 

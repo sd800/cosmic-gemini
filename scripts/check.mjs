@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.2.1');
+assert.equal(manifest.version, '8.2.2');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -84,7 +84,7 @@ assert.deepEqual(extensionRootEntries.filter(entry => entry.isFile()).map(entry 
 for (const size of [16, 32, 48, 128]) {
   assert.equal(manifest.icons[String(size)], `icons/icon-${size}.png`);
   assert.equal(manifest.action.default_icon[String(size)], `icons/icon-${size}.png`);
-  for (const name of [`icon-${size}.png`, `icon-suppressing-${size}.png`]) {
+  for (const name of [`icon-${size}.png`]) {
     const png = await readFile(join(extension, 'icons', name));
     assert.equal(png.toString('hex', 0, 8), '89504e470d0a1a0a', `${name} is not a PNG`);
     assert.equal(png.readUInt32BE(16), size, `${name} has the wrong width`);
@@ -201,7 +201,9 @@ assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncog
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
 assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*data-i18n="pageDisplayName"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="pageDisplayGreyscaleEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"/);
 assert.match(satellitesSettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
-assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalDouyin"[\s\S]*id="adMarshalZhihu"[\s\S]*id="adMarshalGmail"/);
+assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZhihu"/);
+assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
+assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);

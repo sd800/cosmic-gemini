@@ -54,7 +54,7 @@ test('persistent products start with independent settings while Any Copy Enhance
     controlOpacity: 0.5
   });
   assert.deepEqual(settings.adMarshal, {
-    managedSites: { tencentNews: false, douyin: false, zhihu: false, gmail: false }
+    managedSites: { tencentNews: false, zhihu: false }
   });
   assert.equal('anyCopyEnhanced' in settings, false);
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
@@ -243,7 +243,7 @@ test('saved settings switches remain independent from effective page state', () 
   assert.equal(noAutoplay.audioAutoplayAllSites, true);
 
   const adMarshal = adMarshalState({ adMarshal: { managedSites: { douyin: true } } }, 'https://example.com');
-  assert.equal(adMarshal.enabled, true);
+  assert.equal(adMarshal.enabled, false);
   assert.equal(adMarshal.supported, false);
   assert.equal(adMarshal.active, false);
 });
@@ -327,7 +327,7 @@ test('Ad Marshal enables only explicitly selected managed-site groups', () => {
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.douyin.com/jingxuan').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.qq.com/').active, false);
-  const selected = { adMarshal: { managedSites: { tencentNews: true, douyin: true, zhihu: true, gmail: true } } };
+  const selected = { adMarshal: { managedSites: { tencentNews: true, zhihu: true } } };
   const newsQq = adMarshalState(selected, 'https://news.qq.com/');
   assert.equal(newsQq.active, true);
   assert.equal(newsQq.siteId, 'newsQqCom');
@@ -340,18 +340,14 @@ test('Ad Marshal enables only explicitly selected managed-site groups', () => {
   assert.equal(wwwQq.siteId, 'wwwQqCom');
   assert.equal(adMarshalState(selected, 'https://video.qq.com/').active, false);
   assert.equal(adMarshalState(selected, 'https://video.qq.com/').enabled, true);
-  const douyin = adMarshalState(selected, 'https://www.douyin.com/jingxuan');
-  assert.equal(douyin.active, true);
-  assert.equal(douyin.siteId, 'douyinCom');
-  assert.equal(adMarshalState(selected, 'https://live.douyin.com/').active, true);
+  assert.equal(adMarshalState(selected, 'https://www.douyin.com/jingxuan').active, false);
+  assert.equal(adMarshalState(selected, 'https://live.douyin.com/').active, false);
   const zhihu = adMarshalState(selected, 'https://www.zhihu.com/');
   assert.equal(zhihu.active, true);
   assert.equal(zhihu.siteId, 'zhihuCom');
   assert.equal(adMarshalState(selected, 'https://zhuanlan.zhihu.com/p/1').active, true);
   assert.equal(adMarshalState(selected, 'https://zhimg.com/').active, false);
-  const gmail = adMarshalState(selected, 'https://mail.google.com/mail/u/1/#inbox');
-  assert.equal(gmail.active, true);
-  assert.equal(gmail.siteId, 'gmailCom');
+  assert.equal(adMarshalState(selected, 'https://mail.google.com/mail/u/1/#inbox').active, false);
   assert.equal(adMarshalState(selected, 'https://chat.google.com/').active, false);
   assert.equal(adMarshalState(selected, 'https://play.google.com/').active, false);
   const settingsState = adMarshalState(selected, '');
@@ -359,8 +355,13 @@ test('Ad Marshal enables only explicitly selected managed-site groups', () => {
   assert.equal(settingsState.supported, false);
   assert.equal(settingsState.active, false);
   assert.equal(adMarshalState({ adMarshal: { managedSites: { douyin: true } } }, 'https://news.qq.com/').active, false);
-  assert.deepEqual(normalizeSettings({ adMarshal: { enabled: true, sites: { newsQqCom: true } } }).adMarshal,
-    { managedSites: { tencentNews: false, douyin: false, zhihu: false, gmail: false } });
+  assert.deepEqual(normalizeSettings({
+    adMarshal: {
+      enabled: true,
+      sites: { newsQqCom: true },
+      managedSites: { douyin: true, gmail: true }
+    }
+  }).adMarshal, { managedSites: { tencentNews: false, zhihu: false } });
 });
 
 test('settings first-frame cache keeps preferences without page activity', () => {
@@ -397,7 +398,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.deepEqual(cache.nsna, { whitelistRules: ['*.private.example'] });
   assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
   assert.deepEqual(cache.adMarshal, {
-    managedSites: { tencentNews: true, douyin: false, zhihu: false, gmail: true }
+    managedSites: { tencentNews: true, zhihu: false }
   });
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });

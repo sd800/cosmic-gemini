@@ -13,7 +13,6 @@ import { normalizeLocale } from '../core/locale.js';
 import { createKeyedTaskQueue } from '../core/keyed-task-queue.js';
 
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
-const ACTIVE_ICONS = { 16: 'icons/icon-suppressing-16.png', 32: 'icons/icon-suppressing-32.png', 48: 'icons/icon-suppressing-48.png', 128: 'icons/icon-suppressing-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
 const RETAINED_DOWNLOAD_PREFIXES = ['videoDownloadArtifact:', 'imageDownloadArtifact:', 'imageCaptureArtifact:'];
 
@@ -223,9 +222,8 @@ export function createPlatform() {
 
   async function renderToolbar(tabId, activity) {
     if (!Number.isInteger(tabId)) return;
-    const active = Object.values(activity).some(Boolean);
     await Promise.allSettled([
-      updateAction('setIcon', { tabId, path: active ? ACTIVE_ICONS : DEFAULT_ICONS }),
+      updateAction('setIcon', { tabId, path: DEFAULT_ICONS }),
       updateAction('setBadgeText', { tabId, text: '' }),
       updateAction('setTitle', { tabId, title: await toolbarTitle(activity) })
     ]);

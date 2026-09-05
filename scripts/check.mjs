@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.3.3');
+assert.equal(manifest.version, '8.3.5');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -413,6 +413,10 @@ assert.match(adMarshalRuntime, /globalThis\.fetch = this\.fetchWrapper[\s\S]*XML
 assert.match(adMarshalRuntime, /TRANSPARENT_IMAGE_URL[\s\S]*HTMLImageElement\.prototype/);
 assert.match(adMarshalRuntime, /127\.0\.0\.1[\s\S]*adMarshalImageSrcSet/);
 assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*NEWS_QQ_AD_CONTAINER_SELECTOR[\s\S]*this\.ensureStyle\(\)/);
+assert.match(adMarshalRuntime, /NEWS_QQ_MEDIA_CONTAINER_SELECTOR[\s\S]*#content-right\.content-right[\s\S]*\.qqcom-jxvideo[\s\S]*\.video-wrap[\s\S]*video\.qq\.com[\s\S]*v\.qq\.com/);
+assert.match(adMarshalRuntime, /hostStyles:[\s\S]*'news\.qq\.com'[\s\S]*config\?\.hostStyles\?\.\[location\.hostname\.toLowerCase\(\)\]/);
+assert.match(adMarshalRuntime, /STYLE_MARKER[\s\S]*document\.querySelector[\s\S]*setAttribute\(STYLE_MARKER, this\.siteId\)/);
+assert.doesNotMatch(adMarshalRuntime, /this\.styleElement\?\.remove\(\)/);
 assert.match(adMarshalRuntime, /wwwQqCom[\s\S]*h5\.ssp\.qq\.com[\s\S]*qqhome-col-1:has\(> \.game-rank-wrap\)/);
 assert.doesNotMatch(adMarshalRuntime, /douyinCom/);
 assert.match(adMarshalRuntime, /zhihuCom[\s\S]*hostSuffix: '\.zhihu\.com'[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*\/za-js-sdk@/);

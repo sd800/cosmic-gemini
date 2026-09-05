@@ -4,6 +4,7 @@
   const CONFIGURE = 'cosmic-gemini:ad-marshal:configure';
   const DISPOSE = 'cosmic-gemini:ad-marshal:dispose';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.ad-marshal.runtime');
+  const STYLE_MARKER = 'data-cosmic-gemini-ad-marshal-style';
   const NEWS_QQ_AD_CONTAINER_SELECTOR = [
     '.tonglan-ad-channel.ad-news',
     '.rectangle-ad-channel.ad-news',
@@ -16,6 +17,13 @@
     '.c2s-ad-title',
     '[class*="qqchannel-ad"]',
     '[id*="qqchannel-ad"]'
+  ].join(',');
+  const NEWS_QQ_MEDIA_CONTAINER_SELECTOR = [
+    '#content-right.content-right',
+    '.qqcom-jxvideo',
+    '.video-wrap',
+    'iframe[src*="video.qq.com"]',
+    'iframe[src*="v.qq.com"]'
   ].join(',');
   const TENCENT_QQ_TRACKING_HOSTS = [
     'h.trace.qq.com',
@@ -42,6 +50,9 @@
         '/qqcdn/news-share/js/custom_'
       ]),
       style: `${NEWS_QQ_AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
+      hostStyles: Object.freeze({
+        'news.qq.com': `${NEWS_QQ_MEDIA_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`
+      }),
       localProbe: true
     }),
     wwwQqCom: Object.freeze({
@@ -233,14 +244,24 @@
     }
 
     ensureStyle() {
-      const style = SITE_CONFIGS[this.siteId]?.style || '';
+      const config = SITE_CONFIGS[this.siteId];
+      const style = [config?.style, config?.hostStyles?.[location.hostname.toLowerCase()]]
+        .filter(Boolean)
+        .join('');
       if (!this.active || !style || this.styleElement?.isConnected) return;
       const parent = document.head || document.documentElement;
       if (!parent) {
         document.addEventListener('readystatechange', this.ensureStyle, { once: true });
         return;
       }
+      const existing = document.querySelector(`style[${STYLE_MARKER}="${this.siteId}"]`);
+      if (existing) {
+        existing.textContent = style;
+        this.styleElement = existing;
+        return;
+      }
       this.styleElement = document.createElement('style');
+      this.styleElement.setAttribute(STYLE_MARKER, this.siteId);
       this.styleElement.textContent = style;
       parent.appendChild(this.styleElement);
     }
@@ -266,7 +287,6 @@
       this.emptyResponseUrl = '';
       this.siteId = '';
       document.removeEventListener('readystatechange', this.ensureStyle);
-      this.styleElement?.remove();
       this.styleElement = null;
     }
   }

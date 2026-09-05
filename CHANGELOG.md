@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.3.5 — 2026-09-05
+
+- Expanded the `news.qq.com` Ad Marshal policy to hide its right content rail, embedded video modules, video wrappers, and Tencent Video frames without adding DOM observers or polling. Turning the policy off stops its running code and request rules immediately; refreshing restores any areas already hidden in the current page.
+
 ## 8.3.3 — 2026-09-05
 
 - Removed the visible “Recommended” badge and labels from Image Download. The best available source remains selected by default, with alternate sizes and formats still available.

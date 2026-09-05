@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.3.1');
+assert.equal(manifest.version, '8.3.2');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -187,6 +187,8 @@ assert.match(popupSource, /dataset\.persistent = String\(scanState === 'active'\
 const settingsSource = await source('settings', 'page.js');
 const settingsPreload = await source('settings', 'preload.js');
 const settingsStyle = await source('settings', 'settings.css');
+const popupStyle = await source('popup', 'popup.css');
+const imageDownloadStyle = await source('workspaces', 'image-download', 'image-download.css');
 const satellitesSettings = await source('settings', 'satellites.html');
 assert.match(settingsStyle, /--switch-blue: #0b57d0/);
 assert.match(settingsStyle, /prefers-color-scheme: dark[\s\S]*--switch-blue: #276cd9/);
@@ -448,6 +450,8 @@ assert.match(satellites, /inIncognitoContext[\s\S]*ownsDailySchedule/);
 assert.match(satellites, /available: false/);
 assert.match(satellites, /if \(ownsDailySchedule\) return settings\.satellites/);
 assert.match(settingsSource, /disabledByDefaultInIncognito/);
+assert.match(popupStyle, /#video-stop, #video-stop:hover \{ background: transparent; color: var\(--danger\); \}/);
+assert.match(imageDownloadStyle, /#stop, #stop:hover \{ background: transparent; color: var\(--danger\); \}/);
 assert.match(settingsSource, /helpPanel\.hidden = false/);
 assert.doesNotMatch(settingsSource, /helpPanel\.hidden = incognitoContext/);
 

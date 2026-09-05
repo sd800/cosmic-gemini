@@ -9,6 +9,7 @@ body { min-width: 760px; min-height: 100vh; background: var(--surface-raised); }
 .workspace-brand small { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .workspace-brand small em { margin-right: 2px; font-family: "Snell Roundhand", "Segoe Script", "Brush Script MT", cursive; font-size: 13px; font-style: normal; }
 .workspace-actions { display: flex; gap: 4px; }
+#stop, #stop:hover { background: transparent; color: var(--danger); }
 .workspace-main { display: grid; width: min(1480px, calc(100% - 40px)); margin: 20px auto 40px; gap: 14px; }
 .filter-card, .selection-bar { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, black 8%, transparent); }
 .filter-card { overflow: hidden; }

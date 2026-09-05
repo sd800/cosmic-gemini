@@ -41,6 +41,7 @@ html[lang="en-US"] .identity strong, html[lang="en-US"] .video-panel-wordmark st
 .video-panel-body { display: grid; gap: 10px; padding: 11px 14px 15px; }
 .video-status-line { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 8px; min-height: 34px; align-items: center; }
 .video-status-line p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+#video-stop, #video-stop:hover { background: transparent; color: var(--danger); }
 .video-results, .video-candidate-list { display: grid; gap: 8px; }
 .video-media-card { overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-raised); }
 .video-target { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 11px; min-height: 63px; padding: 10px; align-items: center; }

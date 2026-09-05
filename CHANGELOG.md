@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.3.2 — 2026-09-05
+
+- Changed the Image Download and Video Download stop-scanning icons to red while keeping their buttons free of background fills.
+
 ## 8.3.1 — 2026-09-05
 
 - Fixed website rules rejecting domains that begin with a digit, such as `*.163.com`, and added consistent handling of internationalized hostnames across rule editors.

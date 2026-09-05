@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.3.6 — 2026-09-05
+
+- Added the Tencent News floating mini-player to the `news.qq.com` Ad Marshal policy. When the player enters its floating state, Ad Marshal pauses it, releases its media sources, and removes the floating node. The ordinary inline player is not targeted before that transition.
+
 ## 8.3.5 — 2026-09-05
 
 - Expanded the `news.qq.com` Ad Marshal policy to hide its right content rail, embedded video modules, video wrappers, and Tencent Video frames without adding DOM observers or polling. Turning the policy off stops its running code and request rules immediately; refreshing restores any areas already hidden in the current page.

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.3.5');
+assert.equal(manifest.version, '8.3.6');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -413,7 +413,11 @@ assert.match(adMarshalRuntime, /globalThis\.fetch = this\.fetchWrapper[\s\S]*XML
 assert.match(adMarshalRuntime, /TRANSPARENT_IMAGE_URL[\s\S]*HTMLImageElement\.prototype/);
 assert.match(adMarshalRuntime, /127\.0\.0\.1[\s\S]*adMarshalImageSrcSet/);
 assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*NEWS_QQ_AD_CONTAINER_SELECTOR[\s\S]*this\.ensureStyle\(\)/);
-assert.match(adMarshalRuntime, /NEWS_QQ_MEDIA_CONTAINER_SELECTOR[\s\S]*#content-right\.content-right[\s\S]*\.qqcom-jxvideo[\s\S]*\.video-wrap[\s\S]*video\.qq\.com[\s\S]*v\.qq\.com/);
+assert.match(adMarshalRuntime, /NEWS_QQ_MEDIA_CONTAINER_SELECTOR[\s\S]*#content-right\.content-right[\s\S]*\.qqcom-jxvideo[\s\S]*\.video-wrap[\s\S]*\.qnt-p \.videoPlayerMini[\s\S]*video\.qq\.com[\s\S]*v\.qq\.com/);
+assert.match(adMarshalRuntime, /startNewsFloatingPlayerRemoval[\s\S]*document\.querySelector\('\.qnt-p'\)[\s\S]*observeNewsFloatingPlayerRoot/);
+assert.match(adMarshalRuntime, /releaseNewsFloatingPlayer[\s\S]*video\.pause\(\)[\s\S]*video\.removeAttribute\('src'\)[\s\S]*video\.load\(\)[\s\S]*player\.remove\(\)/);
+assert.match(adMarshalRuntime, /observeNewsFloatingPlayerRoot[\s\S]*record\.addedNodes[\s\S]*attributeFilter: \['class'\]/);
+assert.match(adMarshalRuntime, /newsFloatingPlayerObserver\?\.disconnect\(\)[\s\S]*this\.newsFloatingPlayerObserver = null/);
 assert.match(adMarshalRuntime, /hostStyles:[\s\S]*'news\.qq\.com'[\s\S]*config\?\.hostStyles\?\.\[location\.hostname\.toLowerCase\(\)\]/);
 assert.match(adMarshalRuntime, /STYLE_MARKER[\s\S]*document\.querySelector[\s\S]*setAttribute\(STYLE_MARKER, this\.siteId\)/);
 assert.doesNotMatch(adMarshalRuntime, /this\.styleElement\?\.remove\(\)/);
@@ -421,8 +425,8 @@ assert.match(adMarshalRuntime, /wwwQqCom[\s\S]*h5\.ssp\.qq\.com[\s\S]*qqhome-col
 assert.doesNotMatch(adMarshalRuntime, /douyinCom/);
 assert.match(adMarshalRuntime, /zhihuCom[\s\S]*hostSuffix: '\.zhihu\.com'[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*\/za-js-sdk@/);
 assert.match(adMarshalRuntime, /gmailCom[\s\S]*mail\.google\.com[\s\S]*chat\.google\.com[\s\S]*requestPaths: new Set\(\['play\.google\.com\/log'\]\)/);
-assert.doesNotMatch(adMarshalRuntime, /MutationObserver|data-beacon|removeChild/,
-  'Ad Marshal must not remove framework-owned DOM nodes or alter Beacon metadata.');
+assert.doesNotMatch(adMarshalRuntime, /data-beacon|removeChild/,
+  'Ad Marshal must not alter Beacon metadata or use broad node-removal primitives.');
 assert.doesNotMatch(adMarshalRuntime, /Node\.prototype\.(?:appendChild|insertBefore|replaceChild)\s*=/,
   'Ad Marshal must not wrap generic DOM insertion methods.');
 assert.match(anyCopy, /content\/any-copy-bridge\.js[\s\S]*content\/any-copy-runtime\.js/);

@@ -8,6 +8,7 @@ import '../test/xhs-image-dark-mode.test.mjs';
 import '../test/any-copy-runtime.test.mjs';
 import '../test/operations-products.test.mjs';
 import '../test/ad-marshal.test.mjs';
+import '../test/ad-marshal-runtime.test.mjs';
 import '../test/bili-daily-login.test.mjs';
 import '../test/video-download.test.mjs';
 import '../test/image-download.test.mjs';

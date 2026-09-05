@@ -25,6 +25,7 @@ class FakeElement {
     this.attributes = new Map();
   }
   setAttribute(name, value) { this.attributes.set(name, value); }
+  get parentElement() { return this.parentNode; }
   attachShadow({ mode }) {
     assert.equal(mode, 'closed');
     return { append: (...children) => this.children.push(...children) };
@@ -41,7 +42,20 @@ class FakeElement {
   }
 }
 
+class FakeMutationObserver {
+  static instances = [];
+  constructor(callback) {
+    this.callback = callback;
+    this.targets = [];
+    this.disconnected = false;
+    FakeMutationObserver.instances.push(this);
+  }
+  observe(target, options) { this.targets.push({ target, options }); }
+  disconnect() { this.disconnected = true; }
+}
+
 async function runtimeFixture() {
+  FakeMutationObserver.instances = [];
   const document = new SimpleEventTarget();
   document.documentElement = new FakeElement('html');
   document.fullscreenElement = null;
@@ -49,8 +63,10 @@ async function runtimeFixture() {
   const context = {
     window: new SimpleEventTarget(),
     document,
+    MutationObserver: FakeMutationObserver,
+    getComputedStyle: node => ({ filter: node.style.filter || 'none' }),
     CustomEvent: class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
-    Uint8Array, Symbol, JSON, Number, String, Math, Object,
+    Uint8Array, Symbol, JSON, Number, String, Math, Object, WeakSet, queueMicrotask,
     crypto: { getRandomValues: values => { values.fill(7); return values; } }
   };
   vm.createContext(context);
@@ -76,8 +92,25 @@ test('Page Display combines passive visual layers and restores the page when bot
   assert.match(host.style.cssText, /position:fixed/);
   assert.match(host.style.cssText, /pointer-events:none/);
   assert.equal(runtime.shade.style.opacity, '0.35');
+  assert.equal(runtime.shade.style.backgroundColor, '#000');
   assert.equal(runtime.host.style.backdropFilter, 'none');
   assert.equal(document.listeners.get('fullscreenchange').length, 1);
+  assert.equal(FakeMutationObserver.instances.length, 1);
+
+  document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';
+  FakeMutationObserver.instances[0].callback([{ type: 'attributes', target: document.documentElement }]);
+  await Promise.resolve();
+  assert.equal(runtime.shade.style.backgroundColor, '#fff');
+
+  document.documentElement.style.filter = 'invert(80%)';
+  FakeMutationObserver.instances[0].callback([{ type: 'attributes', target: document.documentElement }]);
+  await Promise.resolve();
+  assert.equal(runtime.shade.style.backgroundColor, '#fff');
+
+  document.documentElement.style.filter = 'invert(1) invert(1)';
+  FakeMutationObserver.instances[0].callback([{ type: 'attributes', target: document.documentElement }]);
+  await Promise.resolve();
+  assert.equal(runtime.shade.style.backgroundColor, '#000');
 
   runtime.onConfigure({
     detail: JSON.stringify({
@@ -92,6 +125,7 @@ test('Page Display combines passive visual layers and restores the page when bot
   assert.equal(runtime.host, host);
   assert.equal(document.documentElement.children.length, 1);
   assert.equal(runtime.shade.style.opacity, '0');
+  assert.equal(FakeMutationObserver.instances[0].disconnected, true);
   assert.equal(runtime.host.style.backdropFilter, 'grayscale(1)');
   assert.equal(runtime.host.style.webkitBackdropFilter, 'grayscale(1)');
 

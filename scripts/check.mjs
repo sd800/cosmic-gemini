@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.5.1');
+assert.equal(manifest.version, '8.6.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -362,7 +362,12 @@ assert.match(pageDisplayRuntime, /position:fixed[\s\S]*inset:0[\s\S]*pointer-eve
 assert.match(pageDisplayRuntime, /grayscale\(1\)/);
 assert.match(pageDisplayRuntime, /document\.fullscreenElement[\s\S]*fullscreenchange/);
 assert.match(pageDisplayRuntime, /this\.host\?\.remove\(\)[\s\S]*this\.shade = null/);
-assert.doesNotMatch(pageDisplayRuntime, /MutationObserver|IntersectionObserver|ResizeObserver|setInterval|fetch\s*\(|XMLHttpRequest|WebSocket|addEventListener\(['"](?:click|pointer|wheel|touch|key)/);
+assert.match(pageDisplayRuntime, /invertSlope[\s\S]*shadeIsInsideInversion[\s\S]*backgroundColor[\s\S]*'#fff'[\s\S]*'#000'/,
+  'Reduce White Point must compensate when an ancestor filter inverts its compositing layer.');
+assert.match(pageDisplayRuntime, /observeAppearanceTarget\(document\.documentElement[\s\S]*observeAppearanceTarget\(document\.body[\s\S]*observeAppearanceTarget\(document\.head/,
+  'Reduce White Point appearance tracking must stay scoped to theme-bearing page surfaces.');
+assert.match(pageDisplayRuntime, /if \(reduceWhitePoint\) this\.startAppearanceTracking\(\)[\s\S]*else this\.stopAppearanceTracking\(\)/);
+assert.doesNotMatch(pageDisplayRuntime, /IntersectionObserver|ResizeObserver|setInterval|fetch\s*\(|XMLHttpRequest|WebSocket|addEventListener\(['"](?:click|pointer|wheel|touch|key)/);
 assert.match(xhsImageDarkMode, /content\/xhs-image-dark-mode-bridge\.js[\s\S]*content\/xhs-image-dark-mode-runtime\.js/);
 assert.match(xhsImageDarkMode, /hostname !== 'www\.xiaohongshu\.com'/);
 assert.match(xhsImageDarkModeRuntime, /MAX_SAMPLE_PIXELS = 32 \* 32[\s\S]*CACHE_LIMIT = 240/);

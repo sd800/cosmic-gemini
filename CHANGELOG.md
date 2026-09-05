@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.6.1 — 2026-09-05
+
+- Fixed Reduce White Point making some pages brighter when their page-wide dark mode uses a root inversion filter. Page Display now adjusts its compositing color to the actual ancestor-filter direction so the final rendered page can only retain or reduce brightness, including images, video, Canvas, and other rendered content.
+- Theme and fullscreen changes are followed through narrowly scoped appearance events and observation, without polling or inspecting page content.
+
 ## 8.5.1 — 2026-09-05
 
 - For the exact `news.qq.com` host only, Ad Marshal now manages article audio and video independently of No Autoplay. It stops automatic playback, keeps the article-player poster visible, and postpones media loading until the user activates the player. The first user-initiated video playback remains muted, while a later explicit unmute is respected.

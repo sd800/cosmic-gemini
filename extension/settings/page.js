@@ -1,4 +1,5 @@
 import { loadLocale } from '../core/locale.js';
+import { normalizeRule } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
@@ -418,8 +419,9 @@ function bindView() {
     const message = behaviorCard.querySelector('.form-message');
     form.addEventListener('submit', event => {
       event.preventDefault();
-      const rule = input.value.trim().toLowerCase();
-      if (!rule) { message.textContent = t('invalidRule'); return; }
+      let rule;
+      try { rule = normalizeRule(input.value); }
+      catch { message.textContent = t('invalidRule'); return; }
       void (async () => {
         if ([input, select, submit].some(control => pendingControls.has(control))) return;
         for (const control of [input, select, submit]) {
@@ -431,7 +433,7 @@ function bindView() {
           await send({ type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value });
           input.value = '';
           await reloadAfterUpdate();
-        } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
+        } catch { if (message.isConnected) message.textContent = t('ruleSaveFailed'); }
         finally {
           for (const control of [input, select, submit]) {
             pendingControls.delete(control);
@@ -451,8 +453,9 @@ function bindView() {
     const sectionFeatureId = section.dataset.featureId || featureId;
     form.addEventListener('submit', event => {
       event.preventDefault();
-      const rule = input.value.trim().toLowerCase();
-      if (!rule) { message.textContent = t('invalidRule'); return; }
+      let rule;
+      try { rule = normalizeRule(input.value); }
+      catch { message.textContent = t('invalidRule'); return; }
       if ((sectionState(section)?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
       void (async () => {
         if (pendingControls.has(submit)) return;
@@ -467,7 +470,7 @@ function bindView() {
             : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
           input.value = '';
           await reloadAfterUpdate();
-        } catch { if (message.isConnected) message.textContent = t('invalidRule'); }
+        } catch { if (message.isConnected) message.textContent = t('ruleSaveFailed'); }
         finally {
           pendingControls.delete(submit);
           pendingControls.delete(input);

@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.2.3 — 2026-09-05
+
+- Fixed shared-whitelist additions and removals being rejected after switching from All Settings or another settings page to Native Scroll or No Autoplay. Valid wildcard rules such as `*.douyin.com` now save regardless of which settings page was opened first.
+- Website-rule forms now distinguish invalid input from a failed save and retain the entered rule when saving fails.
+
 ## 8.2.2 — 2026-09-05
 
 - Marked XHS Image Dark Mode as beta in Settings and added a separate experimental-feature notice. Its popup name remains unchanged.

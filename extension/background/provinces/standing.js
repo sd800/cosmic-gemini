@@ -129,9 +129,9 @@ export function createStandingProvince(platform) {
       return settings[governed.id];
     }
     if (message.type === 'UI_ADD_NSNA_WHITELIST_RULE' || message.type === 'UI_DELETE_NSNA_WHITELIST_RULE') {
-      const allowed = ['settings/native-scroll.html', 'settings/no-autoplay.html']
-        .some(path => String(context.sender.url || '').startsWith(chrome.runtime.getURL(path)));
-      if (!allowed) throw new Error('The shared whitelist can be changed only from Native Scroll or No Autoplay settings.');
+      // Settings views share a document; in-page navigation can retain its original sender URL.
+      const allowed = String(context.sender.url || '').startsWith(chrome.runtime.getURL('settings/'));
+      if (!allowed) throw new Error('The shared whitelist can be changed only from Settings.');
       const rule = normalizeRule(message.rule || '');
       const settings = await platform.mutateSettings(current => ({
         ...current,

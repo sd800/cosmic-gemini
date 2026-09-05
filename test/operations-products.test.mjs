@@ -1,11 +1,59 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizeSettings } from '../extension/core/config.js';
+import { featureState, normalizeSettings } from '../extension/core/config.js';
 import { createAnyCopyProduct } from '../extension/background/products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
 import { createPageDisplayProduct } from '../extension/background/products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
+
+test('shared whitelist edits work from every Settings entry after in-page navigation', async () => {
+  const base = 'chrome-extension://cosmic-gemini/';
+  globalThis.chrome = { runtime: { getURL: path => base + path } };
+  let settings = normalizeSettings();
+  const standing = createStandingProvince({
+    async mutateSettings(update) {
+      settings = normalizeSettings(update(settings));
+      return settings;
+    }
+  });
+  for (const entry of ['all-settings', 'satellites', 'any-copy', 'image-download', 'video-download', 'native-scroll', 'no-autoplay']) {
+    const context = { sender: { url: `${base}settings/${entry}.html` } };
+    const result = await standing.handleMessage('nativeScroll', {
+      type: 'UI_ADD_NSNA_WHITELIST_RULE', rule: '  *.Douyin.com  '
+    }, context);
+    assert.deepEqual(result.whitelistRules, ['*.douyin.com']);
+    for (const product of ['nativeScroll', 'noAutoplay']) {
+      for (const hostname of ['douyin.com', 'www.douyin.com', 'live.douyin.com']) {
+        const state = featureState(settings, product, `https://${hostname}/`);
+        assert.equal(state.sharedWhitelisted, true);
+        assert.equal(state.active, false);
+      }
+    }
+    const removed = await standing.handleMessage('nativeScroll', {
+      type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule: '*.douyin.com'
+    }, context);
+    assert.deepEqual(removed.whitelistRules, []);
+  }
+});
+
+test('shared whitelist still rejects non-Settings senders and malformed rules without saving', async () => {
+  const base = 'chrome-extension://cosmic-gemini/';
+  globalThis.chrome = { runtime: { getURL: path => base + path } };
+  let writes = 0;
+  const standing = createStandingProvince({ async mutateSettings() { writes += 1; } });
+  for (const url of [base + 'popup/index.html', base + 'settings-fake/index.html', 'https://example.com/settings/native-scroll.html', 'chrome-extension://other/settings/native-scroll.html']) {
+    for (const type of ['UI_ADD_NSNA_WHITELIST_RULE', 'UI_DELETE_NSNA_WHITELIST_RULE']) {
+      await assert.rejects(standing.handleMessage('nativeScroll', {
+        type, rule: '*.douyin.com', url: base + 'settings/native-scroll.html'
+      }, { sender: { url } }), /only from Settings/);
+    }
+  }
+  await assert.rejects(standing.handleMessage('nativeScroll', {
+    type: 'UI_ADD_NSNA_WHITELIST_RULE', rule: 'https://douyin.com/path'
+  }, { sender: { url: base + 'settings/all-settings.html' } }));
+  assert.equal(writes, 0);
+});
 
 test('Any Copy settings remove the submitted rule instead of an empty hostname', async () => {
   let settings = normalizeSettings({ anyCopy: { siteRules: ['copy.example', 'keep.example'] } });

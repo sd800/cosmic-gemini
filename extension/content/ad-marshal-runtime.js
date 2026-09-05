@@ -5,6 +5,7 @@
   const DISPOSE = 'cosmic-gemini:ad-marshal:dispose';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.ad-marshal.runtime');
   const STYLE_MARKER = 'data-cosmic-gemini-ad-marshal-style';
+  const NEWS_MEDIA_ACTIVE_MARKER = 'data-cosmic-gemini-news-media-active';
   const NEWS_QQ_AD_CONTAINER_SELECTOR = [
     '.tonglan-ad-channel.ad-news',
     '.rectangle-ad-channel.ad-news',
@@ -55,7 +56,10 @@
       ]),
       style: `${NEWS_QQ_AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
       hostStyles: Object.freeze({
-        'news.qq.com': `${NEWS_QQ_MEDIA_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`
+        'news.qq.com': [
+          `${NEWS_QQ_MEDIA_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
+          `.qnt-p:not([${NEWS_MEDIA_ACTIVE_MARKER}]) .txp_poster_img{display:block!important;visibility:visible!important;opacity:1!important;}`
+        ].join('')
       }),
       localProbe: true
     }),
@@ -162,11 +166,22 @@
       this.styleElement = null;
       this.newsFloatingPlayerObserver = null;
       this.newsVideoContainerObserver = null;
+      this.newsMediaGuardsInstalled = false;
+      this.newsMediaIntent = new WeakMap();
+      this.newsUnmuteIntent = new WeakMap();
+      this.newsActivatedMedia = new WeakSet();
+      this.newsUserUnmutedMedia = new WeakSet();
+      this.newsSuspendedPlayers = new WeakSet();
+      this.newsMediaLoadingStates = new WeakMap();
+      this.originalMediaPause = HTMLMediaElement.prototype.pause;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
       this.ensureStyle = this.ensureStyle.bind(this);
       this.startNewsVideoContainerRemoval = this.startNewsVideoContainerRemoval.bind(this);
+      this.onNewsMediaIntent = this.onNewsMediaIntent.bind(this);
+      this.onNewsMediaPlay = this.onNewsMediaPlay.bind(this);
+      this.onNewsVolumeChange = this.onNewsVolumeChange.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
       window.addEventListener(READY, this.onBridgeReady, true);
@@ -248,8 +263,173 @@
       }
       HTMLImageElement.prototype.setAttribute = this.imageSetAttributeWrapper;
       this.ensureStyle();
+      this.installNewsMediaGuards();
       this.startNewsVideoContainerRemoval();
-      this.startNewsFloatingPlayerRemoval();
+      this.startNewsFloatingPlayerMonitoring();
+    }
+
+    isNewsMediaPolicyActive() {
+      return this.active
+        && this.siteId === 'newsQqCom'
+        && location.hostname.toLowerCase() === 'news.qq.com';
+    }
+
+    mediaElementsWithin(root) {
+      const media = [];
+      if (root instanceof HTMLMediaElement) media.push(root);
+      media.push(...(root?.querySelectorAll?.('video,audio') || []));
+      return media;
+    }
+
+    pauseNewsMedia(media) {
+      try { Reflect.apply(this.originalMediaPause, media, []); } catch {}
+      try { media.removeAttribute('autoplay'); } catch {}
+    }
+
+    prepareNewsMedia(media, { force = false, reload = false } = {}) {
+      if (!(media instanceof HTMLMediaElement)) return;
+      if (!force && this.newsActivatedMedia.has(media)) return;
+      this.pauseNewsMedia(media);
+      if (media instanceof HTMLVideoElement && !this.newsUserUnmutedMedia.has(media)) {
+        try { media.muted = true; } catch {}
+      }
+      if (!this.newsMediaLoadingStates.has(media)) {
+        this.newsMediaLoadingStates.set(media, { preload: media.getAttribute('preload') });
+        reload = true;
+      }
+      try {
+        if (media.getAttribute('preload') !== 'none') {
+          media.setAttribute('preload', 'none');
+          reload = true;
+        }
+        if (reload) media.load();
+      } catch {}
+    }
+
+    prepareNewsMediaWithin(root) {
+      if (!this.isNewsMediaPolicyActive()) return;
+      for (const media of this.mediaElementsWithin(root)) this.prepareNewsMedia(media);
+    }
+
+    activateNewsMedia(media) {
+      if (!(media instanceof HTMLMediaElement)) return;
+      const state = this.newsMediaLoadingStates.get(media);
+      if (state) {
+        try {
+          if (state.preload === null) media.removeAttribute('preload');
+          else media.setAttribute('preload', state.preload);
+        } catch {}
+        this.newsMediaLoadingStates.delete(media);
+      }
+      this.newsActivatedMedia.add(media);
+      try { media.closest?.('.qnt-p')?.setAttribute(NEWS_MEDIA_ACTIVE_MARKER, ''); } catch {}
+    }
+
+    newsMediaForEvent(event) {
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+      for (const node of path) {
+        if (node instanceof HTMLMediaElement) {
+          return [node];
+        }
+      }
+      for (const node of path) {
+        const player = node?.closest?.('.qnt-p');
+        if (!player) continue;
+        return this.mediaElementsWithin(player);
+      }
+      return [];
+    }
+
+    isNewsVolumeControlEvent(event) {
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+      return path.some(node => {
+        const marker = `${node?.className || ''} ${node?.id || ''}`;
+        return /(?:^|[-_\s])(?:volume|mute|muted|unmuted)(?:[-_\s]|$)/i.test(marker);
+      });
+    }
+
+    isNewsPlaybackControlEvent(event) {
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+      return path.some(node => {
+        if (node instanceof HTMLMediaElement) return true;
+        const marker = `${node?.className || ''} ${node?.id || ''}`;
+        return /(?:^|[-_\s])(?:play|replay|poster)(?:[-_\s]|$)/i.test(marker);
+      });
+    }
+
+    onNewsMediaIntent(event) {
+      if (!this.isNewsMediaPolicyActive() || !event.isTrusted) return;
+      if (event.type === 'keydown' && !['Enter', ' ', 'Spacebar'].includes(event.key)) return;
+      const mediaItems = this.newsMediaForEvent(event);
+      if (!mediaItems.length) return;
+      const until = performance.now() + 2000;
+      const volumeControl = this.isNewsVolumeControlEvent(event);
+      const playbackControl = this.isNewsPlaybackControlEvent(event);
+      if (!volumeControl && !playbackControl) return;
+      for (const media of mediaItems) {
+        const previouslyActivated = this.newsActivatedMedia.has(media);
+        if (playbackControl) this.newsMediaIntent.set(media, until);
+        if (volumeControl || (previouslyActivated && event.target === media && media.controls)) {
+          this.newsUnmuteIntent.set(media, until);
+        }
+        if (playbackControl) this.activateNewsMedia(media);
+      }
+    }
+
+    hasNewsMediaIntent(media) {
+      return (this.newsMediaIntent.get(media) || 0) >= performance.now();
+    }
+
+    hasNewsUnmuteIntent(media) {
+      return (this.newsUnmuteIntent.get(media) || 0) >= performance.now();
+    }
+
+    onNewsMediaPlay(event) {
+      const media = event.target;
+      if (!this.isNewsMediaPolicyActive() || !(media instanceof HTMLMediaElement)) return;
+      if (media.closest?.('.videoPlayerMini')) {
+        this.prepareNewsMedia(media, { force: true });
+        return;
+      }
+      if (this.hasNewsMediaIntent(media)) {
+        this.activateNewsMedia(media);
+        return;
+      }
+      this.prepareNewsMedia(media);
+    }
+
+    onNewsVolumeChange(event) {
+      const media = event.target;
+      if (!this.isNewsMediaPolicyActive() || !(media instanceof HTMLVideoElement)) return;
+      if (this.hasNewsUnmuteIntent(media)) {
+        if (!media.muted && media.volume > 0) this.newsUserUnmutedMedia.add(media);
+        else this.newsUserUnmutedMedia.delete(media);
+        return;
+      }
+      if (!this.newsUserUnmutedMedia.has(media) && !media.muted) {
+        try { media.muted = true; } catch {}
+      }
+    }
+
+    installNewsMediaGuards() {
+      if (!this.isNewsMediaPolicyActive() || this.newsMediaGuardsInstalled) return;
+      window.addEventListener('pointerdown', this.onNewsMediaIntent, true);
+      window.addEventListener('keydown', this.onNewsMediaIntent, true);
+      window.addEventListener('play', this.onNewsMediaPlay, true);
+      window.addEventListener('volumechange', this.onNewsVolumeChange, true);
+      this.newsMediaGuardsInstalled = true;
+      this.prepareNewsMediaWithin(document);
+    }
+
+    removeNewsMediaGuards() {
+      if (!this.newsMediaGuardsInstalled) return;
+      window.removeEventListener('pointerdown', this.onNewsMediaIntent, true);
+      window.removeEventListener('keydown', this.onNewsMediaIntent, true);
+      window.removeEventListener('play', this.onNewsMediaPlay, true);
+      window.removeEventListener('volumechange', this.onNewsVolumeChange, true);
+      this.newsMediaGuardsInstalled = false;
+      this.newsMediaIntent = new WeakMap();
+      this.newsUnmuteIntent = new WeakMap();
     }
 
     releaseNewsMediaContainer(container) {
@@ -273,16 +453,33 @@
       container.remove();
     }
 
-    releaseNewsFloatingPlayer(player) {
+    suspendNewsFloatingPlayer(player) {
       if (!this.active || !player?.matches?.('.videoPlayerMini') || !player.closest('.qnt-p')) return;
-      this.releaseNewsMediaContainer(player);
+      this.newsSuspendedPlayers.add(player);
+      for (const media of this.mediaElementsWithin(player)) {
+        this.prepareNewsMedia(media, { force: true });
+      }
     }
 
-    removeNewsFloatingPlayers(root) {
+    restoreNewsInlinePlayer(player) {
+      if (!this.newsSuspendedPlayers.has(player)) return;
+      for (const media of this.mediaElementsWithin(player)) {
+        if (this.newsActivatedMedia.has(media)) this.activateNewsMedia(media);
+      }
+      this.newsSuspendedPlayers.delete(player);
+    }
+
+    updateNewsFloatingPlayer(player) {
+      if (!this.isNewsMediaPolicyActive() || !player?.closest?.('.qnt-p')) return;
+      if (player.matches('.videoPlayerMini')) this.suspendNewsFloatingPlayer(player);
+      else this.restoreNewsInlinePlayer(player);
+    }
+
+    updateNewsFloatingPlayers(root) {
       if (!this.active || this.siteId !== 'newsQqCom' || location.hostname.toLowerCase() !== 'news.qq.com') return;
-      if (root?.matches?.('.videoPlayerMini')) this.releaseNewsFloatingPlayer(root);
+      if (root?.matches?.('.videoPlayerMini')) this.updateNewsFloatingPlayer(root);
       for (const player of root?.querySelectorAll?.('.videoPlayerMini') || []) {
-        this.releaseNewsFloatingPlayer(player);
+        this.updateNewsFloatingPlayer(player);
       }
     }
 
@@ -309,22 +506,39 @@
       this.newsVideoContainerObserver?.disconnect();
       this.newsVideoContainerObserver = new MutationObserver(records => {
         for (const record of records) {
-          for (const node of record.addedNodes) this.removeNewsVideoContainers(node);
+          if (record.type === 'attributes') {
+            const media = record.target instanceof HTMLMediaElement
+              ? record.target
+              : record.target?.closest?.('video,audio');
+            if (media && !this.newsActivatedMedia.has(media)) {
+              this.prepareNewsMedia(media, { reload: record.attributeName === 'src' });
+            }
+            continue;
+          }
+          for (const node of record.addedNodes) {
+            this.removeNewsVideoContainers(node);
+            if (node.isConnected) this.prepareNewsMediaWithin(node);
+          }
         }
       });
-      this.newsVideoContainerObserver.observe(parent, { subtree: true, childList: true });
+      this.newsVideoContainerObserver.observe(parent, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['src', 'autoplay', 'preload']
+      });
     }
 
     observeNewsFloatingPlayerRoot(root) {
       this.newsFloatingPlayerObserver?.disconnect();
-      this.removeNewsFloatingPlayers(root);
+      this.updateNewsFloatingPlayers(root);
       this.newsFloatingPlayerObserver = new MutationObserver(records => {
         for (const record of records) {
           if (record.type === 'attributes') {
-            this.removeNewsFloatingPlayers(record.target);
+            this.updateNewsFloatingPlayer(record.target);
             continue;
           }
-          for (const node of record.addedNodes) this.removeNewsFloatingPlayers(node);
+          for (const node of record.addedNodes) this.updateNewsFloatingPlayers(node);
         }
       });
       this.newsFloatingPlayerObserver.observe(root, {
@@ -335,7 +549,7 @@
       });
     }
 
-    startNewsFloatingPlayerRemoval() {
+    startNewsFloatingPlayerMonitoring() {
       if (this.siteId !== 'newsQqCom' || location.hostname.toLowerCase() !== 'news.qq.com') return;
       const root = document.querySelector('.qnt-p');
       if (root) {
@@ -384,13 +598,19 @@
     }
 
     disable() {
+      const wasActive = this.active;
+      this.active = false;
       this.newsFloatingPlayerObserver?.disconnect();
       this.newsFloatingPlayerObserver = null;
       this.newsVideoContainerObserver?.disconnect();
       this.newsVideoContainerObserver = null;
       document.removeEventListener('readystatechange', this.startNewsVideoContainerRemoval);
-      if (!this.active) return;
-      this.active = false;
+      this.removeNewsMediaGuards();
+      this.newsActivatedMedia = new WeakSet();
+      this.newsUserUnmutedMedia = new WeakSet();
+      this.newsSuspendedPlayers = new WeakSet();
+      this.newsMediaLoadingStates = new WeakMap();
+      if (!wasActive) return;
       if (globalThis.fetch === this.fetchWrapper) globalThis.fetch = this.originalFetch;
       if (XMLHttpRequest.prototype.open === this.xhrOpenWrapper) XMLHttpRequest.prototype.open = this.originalXhrOpen;
       if (Navigator.prototype.sendBeacon === this.sendBeaconWrapper) Navigator.prototype.sendBeacon = this.originalSendBeacon;

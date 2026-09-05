@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.5.1 — 2026-09-05
+
+- For the exact `news.qq.com` host only, Ad Marshal now manages article audio and video independently of No Autoplay. It stops automatic playback, keeps the article-player poster visible, and postpones media loading until the user activates the player. The first user-initiated video playback remains muted, while a later explicit unmute is respected.
+- For the exact `news.qq.com` host only, Ad Marshal now suspends the article floating player instead of deleting it. The floating player is hidden, paused, and returned to `preload="none"` without removing its node or media sources, so the original inline player remains available when the reader returns to it. Ad Marshal continues to remove the identified right-rail video modules on `news.qq.com` directly.
+
 ## 8.3.7 — 2026-09-05
 
 - Changed the `news.qq.com` video-module policy from visual hiding to direct removal. Ad Marshal now pauses and releases media before deleting `.qqcom-jxvideo`, `.video-wrap`, and Tencent Video frames, while the non-video right content rail remains hidden through CSS.

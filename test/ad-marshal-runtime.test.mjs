@@ -31,6 +31,8 @@ function matchesSelector(element, selector) {
     if (item === 'iframe[src*="v.qq.com"]') {
       return element.tagName === 'IFRAME' && (element.getAttribute('src') || '').includes('v.qq.com');
     }
+    if (item === 'video[autoplay]') return element.tagName === 'VIDEO' && element.hasAttribute('autoplay');
+    if (item === 'audio[autoplay]') return element.tagName === 'AUDIO' && element.hasAttribute('autoplay');
     return element.tagName === item.toUpperCase();
   });
 }
@@ -74,6 +76,7 @@ class FakeElement extends SimpleEventTarget {
   }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) || null; }
+  hasAttribute(name) { return this.attributes.has(name); }
   removeAttribute(name) { this.attributes.delete(name); }
   remove() {
     this.removed = true;
@@ -85,15 +88,30 @@ class FakeElement extends SimpleEventTarget {
   }
 }
 
-class FakeVideo extends FakeElement {
-  constructor() {
-    super('video');
+class FakeMedia extends FakeElement {
+  constructor(tagName) {
+    super(tagName);
     this.pauseCount = 0;
     this.loadCount = 0;
-    this.setAttribute('src', 'https://example.com/video.mp4');
+    this.muted = false;
+    this.volume = 1;
   }
   pause() { this.pauseCount += 1; }
   load() { this.loadCount += 1; }
+}
+
+class FakeVideo extends FakeMedia {
+  constructor() {
+    super('video');
+    this.setAttribute('src', 'https://example.com/video.mp4');
+  }
+}
+
+class FakeAudio extends FakeMedia {
+  constructor() {
+    super('audio');
+    this.setAttribute('src', 'https://example.com/audio.mp3');
+  }
 }
 
 class FakeImageElement extends FakeElement {
@@ -120,7 +138,10 @@ class FakeCustomEvent {
 }
 
 class FakeXhr { open() {} }
-class FakeNavigator { sendBeacon() { return false; } }
+class FakeNavigator {
+  constructor() { this.userActivation = { isActive: false }; }
+  sendBeacon() { return false; }
+}
 
 function makeContext() {
   FakeMutationObserver.instances = [];
@@ -130,6 +151,7 @@ function makeContext() {
   const head = root.appendChild(new FakeElement('head'));
   const body = root.appendChild(new FakeElement('body'));
   const playerRoot = body.appendChild(new FakeElement('div', 'qnt-p'));
+  const clock = { now: 100 };
   document.documentElement = root;
   document.head = head;
   document.body = body;
@@ -148,6 +170,9 @@ function makeContext() {
     Navigator: FakeNavigator,
     XMLHttpRequest: FakeXhr,
     HTMLImageElement: FakeImageElement,
+    HTMLMediaElement: FakeMedia,
+    HTMLVideoElement: FakeVideo,
+    HTMLAudioElement: FakeAudio,
     MutationObserver: FakeMutationObserver,
     CustomEvent: FakeCustomEvent,
     Request,
@@ -164,15 +189,16 @@ function makeContext() {
     String,
     Uint8Array,
     Promise,
+    performance: { now: () => clock.now },
     crypto: { getRandomValues: values => { values.fill(9); return values; } },
     fetch: () => Promise.resolve(new Response('{}'))
   };
   vm.createContext(context);
-  return { context, playerRoot };
+  return { context, playerRoot, clock };
 }
 
-test('Ad Marshal releases Tencent News video modules and removes only the floating player state', async () => {
-  const { context, playerRoot } = makeContext();
+test('Ad Marshal removes side modules while suspending article media until explicit playback', async () => {
+  const { context, playerRoot, clock } = makeContext();
   const contentRight = context.document.body.appendChild(new FakeElement('div', 'content-right'));
   const videoWrap = contentRight.appendChild(new FakeElement('div', 'video-wrap'));
   const module = videoWrap.appendChild(new FakeElement('div', 'qqcom-jxvideo'));
@@ -192,28 +218,100 @@ test('Ad Marshal releases Tencent News video modules and removes only the floati
   });
 
   assert.equal(videoWrap.removed, true);
-  assert.equal(moduleVideo.pauseCount, 1);
-  assert.equal(moduleVideo.loadCount, 1);
+  assert.ok(moduleVideo.pauseCount >= 1);
+  assert.ok(moduleVideo.loadCount >= 1);
   assert.equal(moduleVideo.attributes.has('src'), false);
   assert.equal(contentRight.removed, false);
   assert.equal(ordinaryPlayer.removed, false);
-  assert.equal(video.pauseCount, 0);
-  const observer = FakeMutationObserver.instances.find(item => item.target === playerRoot);
-  assert.equal(observer.target, playerRoot);
-  assert.equal([...observer.options.attributeFilter].join(','), 'class');
+  assert.equal(video.attributes.has('src'), true);
+  assert.equal(source.attributes.has('src'), true);
+  assert.equal(video.getAttribute('preload'), 'none');
+  assert.equal(video.muted, true);
+  assert.ok(video.pauseCount >= 1);
+  assert.ok(video.loadCount >= 1);
+
+  const mediaObserver = FakeMutationObserver.instances.find(item => item.options?.attributeFilter?.includes('src'));
+  const floatingObserver = FakeMutationObserver.instances.find(item => item.target === playerRoot);
+  assert.equal([...mediaObserver.options.attributeFilter].join(','), 'src,autoplay,preload');
+  assert.equal([...floatingObserver.options.attributeFilter].join(','), 'class');
+
+  video.setAttribute('preload', 'auto');
+  const loadCountBeforePreloadReset = video.loadCount;
+  mediaObserver.callback([{ type: 'attributes', attributeName: 'preload', target: video, addedNodes: [] }]);
+  assert.equal(video.getAttribute('preload'), 'none');
+  assert.ok(video.loadCount > loadCountBeforePreloadReset);
+
+  const settingsControl = ordinaryPlayer.appendChild(new FakeElement('button', 'txp_btn_settings'));
+  runtime.onNewsMediaIntent({
+    type: 'pointerdown',
+    isTrusted: true,
+    target: settingsControl,
+    composedPath: () => [settingsControl, ordinaryPlayer, playerRoot]
+  });
+  assert.equal(video.getAttribute('preload'), 'none');
+
+  const playControl = ordinaryPlayer.appendChild(new FakeElement('button', 'play-button'));
+  runtime.onNewsMediaIntent({
+    type: 'pointerdown',
+    isTrusted: true,
+    target: playControl,
+    composedPath: () => [playControl, ordinaryPlayer, playerRoot]
+  });
+  assert.equal(video.hasAttribute('preload'), false);
+  assert.equal(playerRoot.hasAttribute('data-cosmic-gemini-news-media-active'), true);
+  const pauseCountBeforeManualPlay = video.pauseCount;
+  runtime.onNewsMediaPlay({ target: video });
+  assert.equal(video.pauseCount, pauseCountBeforeManualPlay);
+
+  video.muted = false;
+  runtime.onNewsVolumeChange({ target: video });
+  assert.equal(video.muted, true);
+
+  const volumeControl = ordinaryPlayer.appendChild(new FakeElement('button', 'txp_btn_volume'));
+  runtime.onNewsMediaIntent({
+    type: 'pointerdown',
+    isTrusted: true,
+    target: volumeControl,
+    composedPath: () => [volumeControl, ordinaryPlayer, playerRoot]
+  });
+  video.muted = false;
+  runtime.onNewsVolumeChange({ target: video });
+  clock.now = 2201;
+  runtime.onNewsVolumeChange({ target: video });
+  assert.equal(video.muted, false);
 
   ordinaryPlayer.className = 'videoPlayerMini';
-  observer.callback([{ type: 'attributes', target: ordinaryPlayer, addedNodes: [] }]);
+  floatingObserver.callback([{ type: 'attributes', target: ordinaryPlayer, addedNodes: [] }]);
 
-  assert.equal(video.pauseCount, 1);
-  assert.equal(video.loadCount, 1);
-  assert.equal(video.attributes.has('src'), false);
-  assert.equal(source.attributes.has('src'), false);
-  assert.equal(ordinaryPlayer.removed, true);
+  assert.ok(video.pauseCount > pauseCountBeforeManualPlay);
+  assert.equal(video.getAttribute('preload'), 'none');
+  assert.equal(video.attributes.has('src'), true);
+  assert.equal(source.attributes.has('src'), true);
+  assert.equal(ordinaryPlayer.removed, false);
   assert.equal(playerRoot.removed, false);
 
+  const pauseCountBeforeFloatingPlay = video.pauseCount;
+  runtime.onNewsMediaPlay({ target: video });
+  assert.ok(video.pauseCount > pauseCountBeforeFloatingPlay);
+
+  ordinaryPlayer.className = 'videoPlayer';
+  floatingObserver.callback([{ type: 'attributes', target: ordinaryPlayer, addedNodes: [] }]);
+  assert.equal(video.hasAttribute('preload'), false);
+
+  const audio = context.document.body.appendChild(new FakeAudio());
+  audio.setAttribute('autoplay', '');
+  mediaObserver.callback([{ type: 'childList', target: context.document.body, addedNodes: [audio] }]);
+  assert.equal(audio.hasAttribute('autoplay'), false);
+  assert.equal(audio.getAttribute('preload'), 'none');
+  const audioPauseCount = audio.pauseCount;
+  runtime.onNewsMediaPlay({ target: audio });
+  assert.ok(audio.pauseCount > audioPauseCount);
+
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) });
-  assert.equal(observer.disconnected, true);
+  assert.equal(mediaObserver.disconnected, true);
+  assert.equal(floatingObserver.disconnected, true);
+  assert.equal(context.window.listeners.get('play')?.length || 0, 0);
+  assert.equal(context.window.listeners.get('volumechange')?.length || 0, 0);
   assert.equal(runtime.newsFloatingPlayerObserver, null);
   runtime.onDispose({ detail: runtime.token });
 });

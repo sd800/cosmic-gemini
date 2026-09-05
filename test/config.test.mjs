@@ -105,8 +105,26 @@ test('exact and wildcard rules match their intended hostnames', () => {
 });
 
 test('rule parser rejects URLs, ports, paths, and misplaced wildcards', () => {
-  for (const input of ['https://example.com', 'example.com/path', 'example.com:443', 'a.*.example.com']) {
+  for (const input of ['https://example.com', 'example.com/path', 'example.com:443', 'example.com:80',
+    'a.*.example.com', '*.localhost', '*.127.0.0.1', 'example.com\\', '%65xample.com',
+    '0x7f.0.0.1', '-bad.example', 'bad-.example', 'a..example', 'user@example.com']) {
     assert.throws(() => normalizeRule(input));
+  }
+});
+
+test('numeric-leading domains and internationalized hostnames survive saving and matching', () => {
+  for (const hostname of ['163.com', '12306.cn', '例子.公司.cn']) {
+    const canonical = new URL('https://' + hostname).hostname;
+    assert.equal(normalizeRule(hostname), canonical);
+    const rule = normalizeRule('*.' + hostname);
+    assert.equal(rule, '*.' + canonical);
+    const settings = normalizeSettings({ nsna: { whitelistRules: [rule] } });
+    assert.deepEqual(settings.nsna.whitelistRules, [rule]);
+    for (const host of [hostname, 'www.' + hostname]) {
+      assert.equal(featureState(settings, 'nativeScroll', 'https://' + host).active, false);
+      assert.equal(featureState(settings, 'noAutoplay', 'https://' + host).active, false);
+    }
+    assert.equal(featureState(settings, 'nativeScroll', 'https://not' + hostname).active, true);
   }
 });
 

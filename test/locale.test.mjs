@@ -58,3 +58,23 @@ test('incognito locale does not inherit the ordinary-window cache', async () => 
     else delete globalThis.localStorage;
   }
 });
+
+test('a speculative locale read can defer cache writes until its caller accepts the result', async () => {
+  const previousChrome = globalThis.chrome;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  let writes = 0;
+  globalThis.chrome = { runtime: { sendMessage: async () => ({ ok: true, result: { locale: 'zh-CN' } }) } };
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true, value: { getItem: () => 'en-US', setItem() { writes += 1; } }
+  });
+  try {
+    assert.equal(await loadLocale({ cacheResult: false }), 'zh-CN');
+    assert.equal(writes, 0);
+    assert.equal(await loadLocale(), 'zh-CN');
+    assert.equal(writes, 1);
+  } finally {
+    globalThis.chrome = previousChrome;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
+});

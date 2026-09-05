@@ -31,6 +31,7 @@ let videoPanelSignature = '';
 let videoPickerActive = false;
 let videoPanelRenderPending = false;
 let actionPending = false;
+let stateReadGeneration = 0;
 let popupClosing = false;
 let centralUiPort = null;
 let centralUiReconnectAttempts = 0;
@@ -438,7 +439,9 @@ function setVideoViewVisible(visible) {
       videoViewPortTabId = null;
       if (!popupClosing && viewMode === 'video' && Number.isInteger(currentTab?.id) && videoViewReconnectAttempts < 5) {
         videoViewReconnectAttempts += 1;
-        setTimeout(() => setVideoViewVisible(true), Math.min(250 * (2 ** videoViewReconnectAttempts), 4_000));
+        setTimeout(() => {
+          if (!popupClosing && !document.hidden && viewMode === 'video') setVideoViewVisible(true);
+        }, Math.min(250 * (2 ** videoViewReconnectAttempts), 4_000));
       }
     });
   }
@@ -486,7 +489,9 @@ function render() {
 }
 
 async function reload(selectInitialView = true) {
+  const ticket = ++stateReadGeneration;
   const snapshot = await send({ type: 'UI_GET_ACTIVE_PAGE_STATE' });
+  if (ticket !== stateReadGeneration || popupClosing) return;
   currentTab = snapshot.tab || null;
   if (videoSelectionTabId !== currentTab?.id) {
     videoSelectionTabId = currentTab?.id ?? null;
@@ -496,7 +501,7 @@ async function reload(selectInitialView = true) {
     videoPanelRenderPending = false;
   }
   state = snapshot.state;
-  saveSettingsViewCache(state);
+  if (!state.incognito && state.preferences) saveSettingsViewCache(state.preferences);
   render();
   if (selectInitialView && viewMode === null) showView('main');
 }
@@ -509,6 +514,7 @@ async function reloadAfterAction(selectInitialView = true) {
 async function perform(task, reloadAfter = false) {
   if (actionPending) return false;
   actionPending = true;
+  stateReadGeneration += 1;
   document.body.setAttribute('aria-busy', 'true');
   live.textContent = '';
   try {

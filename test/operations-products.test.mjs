@@ -6,6 +6,57 @@ import { createAnyCopyEnhancedProduct } from '../extension/background/products/o
 import { createPageDisplayProduct } from '../extension/background/products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
+import { createAdministrationProduct } from '../extension/background/products/operations/administration.js';
+
+test('popup cache receives saved preferences separately from effective state', async () => {
+  const base = 'chrome-extension://cosmic-gemini/';
+  globalThis.chrome = {
+    runtime: { getURL: path => base + path },
+    tabs: { async query() { return [{ id: 11, url: 'https://example.com/' }]; } }
+  };
+  const preferences = normalizeSettings({ mailtoCapture: { enabled: true } });
+  const product = createAdministrationProduct({});
+  const result = await product.handleMessage({ type: 'UI_GET_ACTIVE_PAGE_STATE' }, {
+    sender: { url: base + 'popup/index.html' },
+    async collectPageState(url, tabId, options) {
+      assert.equal(tabId, 11);
+      assert.equal(url, 'https://example.com/');
+      return { mailtoCapture: { enabled: false, status: 'unavailable' },
+        ...(options.includePreferences ? { preferences } : {}) };
+    }
+  });
+  assert.equal(result.state.mailtoCapture.enabled, false);
+  assert.equal(result.state.preferences.mailtoCapture.enabled, true);
+});
+
+test('other rule editors accept Settings navigation and keep product rules independent', async () => {
+  const base = 'chrome-extension://cosmic-gemini/';
+  globalThis.chrome = { runtime: { getURL: path => base + path } };
+  let settings = normalizeSettings();
+  const platform = { async mutateSettings(update) { settings = normalizeSettings(update(settings)); return settings; } };
+  const standing = createStandingProvince(platform);
+  const anyCopy = createAnyCopyProduct({ sync: async () => true }, platform);
+  for (const entry of ['all-settings', 'satellites', 'any-copy', 'image-download', 'video-download', 'native-scroll', 'no-autoplay']) {
+    const context = { sender: { url: `${base}settings/${entry}.html` } };
+    for (const product of ['nativeScroll', 'noAutoplay']) {
+      for (const behavior of ['inactive', 'standard', 'enhanced']) {
+        await standing.handleMessage(product, { type: 'UI_SET_BEHAVIOR_RULE', rule: '*.163.com', behavior }, context);
+        assert.equal(featureState(settings, product, 'https://mail.163.com/').behavior, behavior);
+      }
+      await standing.handleMessage(product, { type: 'UI_DELETE_BEHAVIOR_RULE', rule: '*.163.com' }, context);
+      assert.equal(settings[product].enhancedRules.length, 0);
+    }
+    for (const type of ['UI_ADD_RULE', 'UI_DELETE_RULE']) {
+      const result = await standing.handleMessage('noAutoplay', {
+        type, listName: 'permanentAudioAllowRules', rule: '*.163.com'
+      }, context);
+      assert.equal(result.permanentAudioAllowRules.length, type === 'UI_ADD_RULE' ? 1 : 0);
+      const copy = await anyCopy.handleMessage({ type, listName: 'siteRules', rule: '*.163.com' }, context);
+      assert.equal(copy.siteRules.length, type === 'UI_ADD_RULE' ? 1 : 0);
+    }
+    assert.deepEqual(settings.nsna.whitelistRules, []);
+  }
+});
 
 test('shared whitelist edits work from every Settings entry after in-page navigation', async () => {
   const base = 'chrome-extension://cosmic-gemini/';
@@ -66,6 +117,26 @@ test('Any Copy settings remove the submitted rule instead of an empty hostname',
   const product = createAnyCopyProduct({ sync: async () => true }, platform);
   await product.handleMessage({ type: 'UI_DELETE_RULE', listName: 'siteRules', rule: 'copy.example' });
   assert.deepEqual(settings.anyCopy.siteRules, ['keep.example']);
+});
+
+test('turning Any Copy Enhanced off succeeds even if activity bookkeeping fails', async () => {
+  let active = true;
+  globalThis.chrome = {
+    storage: { session: {
+      async get(key) { return { [key]: { active } }; },
+      async remove() { active = false; }
+    } },
+    tabs: { async get() { return { url: 'https://example.com/' }; } }
+  };
+  let refreshed = false;
+  const product = createAnyCopyEnhancedProduct({}, {
+    async setFeatureActivity() { throw Error('activity storage unavailable'); },
+    async refreshTabPage() { refreshed = true; }
+  });
+  const result = await product.handleMessage({ type: 'UI_TOGGLE_TAB_FEATURE', tabId: 7 });
+  assert.equal(result.active, false);
+  assert.equal(active, false);
+  assert.equal(refreshed, true);
 });
 
 test('concurrent Any Copy Enhanced clicks are applied in order', async () => {

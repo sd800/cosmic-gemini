@@ -357,14 +357,16 @@ export function createPlatform() {
         const disposableSessionKeys = Object.keys(sessionValues)
           .filter(key => !RETAINED_DOWNLOAD_PREFIXES.some(prefix => key.startsWith(prefix)))
           .filter(key => key !== INCOGNITO_WINDOWS_KEY)
+          .filter(key => key !== settingsKey)
           .filter(key => incognitoContext || ![INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY].includes(key));
+        // Replace preferences successfully before removing any prior settings or session data.
+        const settings = await writeSettings(defaultSettings);
         if (disposableSessionKeys.length) await chrome.storage.session.remove(disposableSessionKeys);
         if (incognitoContext) {
-          await chrome.storage.session.remove([INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY]);
+          await chrome.storage.session.remove(INCOGNITO_LOCALE_KEY);
         } else {
-          await chrome.storage.local.remove([SETTINGS_KEY, 'interfaceLocale']);
+          await chrome.storage.local.remove('interfaceLocale');
         }
-        const settings = await writeSettings(defaultSettings);
         let tabs = [];
         try { tabs = await chrome.tabs.query({}); } catch {}
         await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)).map(tab => renderToolbar(tab.id, emptyActivity())));

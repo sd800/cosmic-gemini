@@ -36,8 +36,11 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
         if (!hostnameFromUrl(tab.url || '')) throw new Error('This page is unavailable.');
         const active = !(await product.isActive(tabId));
         await product.setActive(tabId, active);
-        if (!active) await platform.setFeatureActivity(tabId, product.id, false);
-        void platform.refreshTabPage(tabId);
+        // The saved tab choice must survive failures in optional activity bookkeeping.
+        if (!active) {
+          try { await platform.setFeatureActivity(tabId, product.id, false); } catch {}
+        }
+        void platform.refreshTabPage(tabId).catch(() => {});
         return anyCopyEnhancedState(tab.url || '', active);
       });
     },

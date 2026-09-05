@@ -3,6 +3,7 @@ import { normalizeRule } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
+import { createSettingsState } from './state.js';
 import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
 
 const root = document.documentElement;
@@ -30,11 +31,15 @@ let featureId = featureFromPath(location.pathname);
 let locale = root.lang === 'zh-CN' ? 'zh-CN' : 'en-US';
 let t = translator(locale);
 let states = null;
-const pendingControls = new WeakSet();
+const pendingControls = new Set();
+const settingsState = createSettingsState();
+const listSignatures = new WeakMap();
 let storageSyncTimer = 0;
 let settingsUiPort = null;
 let settingsUiReconnectAttempts = 0;
 let pageClosing = false;
+let localeSaving = false;
+let localeGeneration = 0;
 
 function state() {
   return (states?.preferences || states)?.[featureId] || null;
@@ -50,7 +55,7 @@ function applyLocale() {
   localizeDocument(t);
   document.title = 'Cosmic Gemini · ' + PRODUCT_META[featureId].name;
   const language = document.querySelector('#language');
-  if (language) language.value = locale;
+  if (language) { language.value = locale; language.disabled = localeSaving; }
   document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
   const titles = {
     nativeScroll: 'switchNativeSettings',
@@ -73,6 +78,10 @@ function renderList(section) {
   const listName = section.dataset.listSection;
   const list = section.querySelector('.rule-list');
   const rules = current[listName] || [];
+  const signature = JSON.stringify([locale, rules]);
+  if (listSignatures.get(list) === signature
+    || [...pendingControls].some(control => list.contains(control))) return;
+  listSignatures.set(list, signature);
   list.replaceChildren();
   if (!rules.length) {
     const empty = document.createElement('li');
@@ -91,7 +100,7 @@ function renderList(section) {
     remove.innerHTML = icon('trash');
     remove.title = t('removeRule', { rule });
     remove.setAttribute('aria-label', remove.title);
-    remove.addEventListener('click', () => void update(section, () => send(
+    remove.addEventListener('click', () => void update(section, () => savePreference(section.dataset.featureId || featureId,
       section.dataset.featureId === 'nsna'
         ? { type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule }
         : { type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule }
@@ -122,6 +131,10 @@ function renderBehaviorList(section) {
   const selected = behaviorByList[listName];
   const rules = current[listName] || [];
   const list = section.querySelector('.rule-list');
+  const signature = JSON.stringify([locale, rules]);
+  if (listSignatures.get(list) === signature
+    || [...pendingControls].some(control => list.contains(control))) return;
+  listSignatures.set(list, signature);
   list.replaceChildren();
   if (!rules.length) {
     const empty = document.createElement('li');
@@ -135,7 +148,7 @@ function renderBehaviorList(section) {
     const code = document.createElement('code');
     code.textContent = rule;
     const select = createBehaviorSelect(rule, selected);
-    select.addEventListener('change', () => void update(section.closest('[data-behavior-card]'), () => send({
+    select.addEventListener('change', () => void update(section.closest('[data-behavior-card]'), () => savePreference(featureId, {
       type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value
     }), [select]));
     const remove = document.createElement('button');
@@ -144,7 +157,7 @@ function renderBehaviorList(section) {
     remove.innerHTML = icon('trash');
     remove.title = t('removeRule', { rule });
     remove.setAttribute('aria-label', remove.title);
-    remove.addEventListener('click', () => void update(section.closest('[data-behavior-card]'), () => send({
+    remove.addEventListener('click', () => void update(section.closest('[data-behavior-card]'), () => savePreference(featureId, {
       type: 'UI_DELETE_BEHAVIOR_RULE', featureId, rule
     }), [remove]));
     const controls = document.createElement('span');
@@ -158,7 +171,8 @@ function renderBehaviorList(section) {
 function render() {
   const current = state();
   if (!current) return;
-  const incognito = states?.incognito === true;
+  const pendingValues = [...pendingControls].map(control => ({ control, value: control.value, checked: control.checked }));
+  const incognito = incognitoContext || states?.incognito === true;
   const enabled = document.querySelector('#enabled');
   if (enabled) enabled.checked = current.enabled;
   const introSetting = document.querySelector('.intro-setting');
@@ -236,12 +250,29 @@ function render() {
   if (imageAskWhereToSave) imageAskWhereToSave.checked = current.askWhereToSave !== false;
   for (const section of document.querySelectorAll('[data-list-section]')) renderList(section);
   for (const section of document.querySelectorAll('[data-behavior-list]')) renderBehaviorList(section);
+  for (const { control, value, checked } of pendingValues) {
+    control.value = value;
+    control.checked = checked;
+  }
+  if (reduceWhitePointReduction) {
+    reduceWhitePointReduction.disabled = !reduceWhitePointEnabled.checked;
+    if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${reduceWhitePointReduction.value}%`;
+  }
+  if (xhsImageDarkModeOverride) xhsImageDarkModeOverride.disabled = !xhsImageDarkModeEnabled.checked;
+  if (xhsImageDarkModeControl) xhsImageDarkModeControl.disabled = !xhsImageDarkModeEnabled.checked;
+  if (xhsImageDarkModeOpacityRow) xhsImageDarkModeOpacityRow.hidden = !xhsImageDarkModeControl.checked;
+  if (xhsImageDarkModeOpacity) {
+    xhsImageDarkModeOpacity.disabled = !xhsImageDarkModeEnabled.checked || !xhsImageDarkModeControl.checked;
+    if (xhsImageDarkModeOpacityValue) xhsImageDarkModeOpacityValue.textContent = `${xhsImageDarkModeOpacity.value}%`;
+  }
+  for (const control of pendingControls) control.disabled = true;
 }
 
 async function reload() {
   if (storageSyncTimer) clearTimeout(storageSyncTimer);
   storageSyncTimer = 0;
-  states = await send({ type: 'UI_GET', url: '' });
+  if (!await settingsState.read(() => send({ type: 'UI_GET', url: '' }))) return;
+  states = settingsState.value;
   if (!incognitoContext) saveSettingsViewCache(states.preferences || states);
   render();
 }
@@ -251,9 +282,11 @@ function scheduleStoredStateSync() {
   storageSyncTimer = setTimeout(() => {
     storageSyncTimer = 0;
     void (async () => {
-      const storedLocale = await loadLocale();
-      if (storedLocale !== locale) {
+      const localeTicket = localeGeneration;
+      const storedLocale = await loadLocale({ cacheResult: false });
+      if (!localeSaving && localeTicket === localeGeneration && storedLocale !== locale) {
         locale = storedLocale;
+        cacheLocale();
         applyLocale();
       }
       await reloadAfterUpdate();
@@ -285,55 +318,85 @@ async function reloadAfterUpdate() {
   catch { setTimeout(() => { void retryRead(() => reload()).catch(() => {}); }, 800); }
 }
 
-async function update(section, task, controls = []) {
+async function savePreference(preference, command, toPreference) {
+  const result = await settingsState.write(preference, () => send(command), toPreference);
+  states = settingsState.value;
+  if (!incognitoContext && settingsState.loaded) saveSettingsViewCache(states.preferences);
+  return result;
+}
+
+function cacheLocale() {
+  if (!incognitoContext) {
+    try { localStorage.setItem('cosmicGeminiInterfaceLocale', locale); } catch {}
+  }
+}
+
+function actionMessage(section, controls) {
+  const container = section || controls[0]?.closest('.card');
+  if (!container) return null;
+  let message = container.querySelector('.form-message');
+  if (!message) {
+    message = document.createElement('p');
+    message.className = 'form-message action-message';
+    message.setAttribute('role', 'status');
+    message.hidden = true;
+    container.append(message);
+  }
+  return message;
+}
+
+async function update(section, task, controls = [], errorKey = 'settingsSaveFailed') {
   const actionable = controls.filter(Boolean);
   if (actionable.some(control => pendingControls.has(control))) return;
-  const disabled = actionable.map(control => control.disabled);
   for (const control of actionable) {
     pendingControls.add(control);
     control.disabled = true;
   }
-  const message = section?.querySelector('.form-message');
-  if (message) message.textContent = '';
+  const message = actionMessage(section, actionable);
+  if (message) { message.textContent = ''; message.hidden = message.className.includes('action-message'); }
   try { await task(); await reloadAfterUpdate(); }
   catch {
-    render();
-    if (message?.isConnected) message.textContent = t('unavailable');
+    for (const control of actionable) {
+      const list = control.closest('.rule-list');
+      if (list) listSignatures.delete(list);
+    }
+    if (message?.isConnected) { message.textContent = t(errorKey); message.hidden = false; }
   } finally {
-    actionable.forEach((control, index) => {
+    for (const control of actionable) {
       pendingControls.delete(control);
-      if (control.isConnected) control.disabled = disabled[index];
-    });
+      if (control.isConnected) control.disabled = false;
+    }
+    render();
   }
 }
 
 function bindView() {
   const enabled = document.querySelector('#enabled');
-  if (enabled) enabled.addEventListener('change', () => void update(null, () => send({
+  if (enabled) enabled.addEventListener('change', () => void update(null, () => savePreference(featureId, {
     type: 'UI_SET_ENABLED', featureId, enabled: enabled.checked
   }), [enabled]));
   const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
-  if (audioAutoplayAllSites) audioAutoplayAllSites.addEventListener('change', () => void update(null, () => send({
+  if (audioAutoplayAllSites) audioAutoplayAllSites.addEventListener('change', () => void update(null, () => savePreference('noAutoplay', {
     type: 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES', enabled: audioAutoplayAllSites.checked
   }), [audioAutoplayAllSites]));
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
-  if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => send({
+  if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => savePreference('satellites', {
     type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
-  }), [biliDailyLogin]));
+  }, biliDailyLogin => ({ biliDailyLogin })), [biliDailyLogin]));
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
-  if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => send({
+  if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.addEventListener('change', () => {
     const reduction = document.querySelector('#reduceWhitePointReduction');
     if (reduction) reduction.disabled = !reduceWhitePointEnabled.checked;
-    void update(null, () => send({
+    void update(null, () => savePreference('pageDisplay', {
       type: 'UI_SET_PAGE_DISPLAY_SETTING', name: 'reduceWhitePointEnabled', value: reduceWhitePointEnabled.checked
     }), [reduceWhitePointEnabled]);
   });
   const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
-  if (greyscaleEnabled) greyscaleEnabled.addEventListener('change', () => void update(null, () => send({
+  if (greyscaleEnabled) greyscaleEnabled.addEventListener('change', () => void update(null, () => savePreference('pageDisplay', {
     type: 'UI_SET_PAGE_DISPLAY_SETTING', name: 'greyscaleEnabled', value: greyscaleEnabled.checked
   }), [greyscaleEnabled]));
   const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
@@ -344,25 +407,25 @@ function bindView() {
         reduceWhitePointReductionValue.textContent = `${reduceWhitePointReduction.value}%`;
       }
     });
-    reduceWhitePointReduction.addEventListener('change', () => void update(null, () => send({
+    reduceWhitePointReduction.addEventListener('change', () => void update(null, () => savePreference('pageDisplay', {
       type: 'UI_SET_PAGE_DISPLAY_SETTING',
       name: 'reduction',
       value: Number(reduceWhitePointReduction.value) / 100
     }), [reduceWhitePointReduction]));
   }
   const xhsImageDarkModeEnabled = document.querySelector('#xhsImageDarkModeEnabled');
-  if (xhsImageDarkModeEnabled) xhsImageDarkModeEnabled.addEventListener('change', () => void update(null, () => send({
+  if (xhsImageDarkModeEnabled) xhsImageDarkModeEnabled.addEventListener('change', () => void update(null, () => savePreference('xhsImageDarkMode', {
     type: 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED', enabled: xhsImageDarkModeEnabled.checked
   }), [xhsImageDarkModeEnabled]));
   const xhsImageDarkModeOverride = document.querySelector('#xhsImageDarkModeOverride');
-  if (xhsImageDarkModeOverride) xhsImageDarkModeOverride.addEventListener('change', () => void update(null, () => send({
+  if (xhsImageDarkModeOverride) xhsImageDarkModeOverride.addEventListener('change', () => void update(null, () => savePreference('xhsImageDarkMode', {
     type: 'UI_SET_XHS_IMAGE_DARK_MODE_SETTING', name: 'overrideDarkMode', value: xhsImageDarkModeOverride.checked
   }), [xhsImageDarkModeOverride]));
   const xhsImageDarkModeControl = document.querySelector('#xhsImageDarkModeControl');
   if (xhsImageDarkModeControl) xhsImageDarkModeControl.addEventListener('change', () => {
     const opacityRow = document.querySelector('.xhs-opacity-row');
     if (opacityRow) opacityRow.hidden = !xhsImageDarkModeControl.checked;
-    void update(null, () => send({
+    void update(null, () => savePreference('xhsImageDarkMode', {
       type: 'UI_SET_XHS_IMAGE_DARK_MODE_SETTING', name: 'showImageControl', value: xhsImageDarkModeControl.checked
     }), [xhsImageDarkModeControl]);
   });
@@ -372,41 +435,41 @@ function bindView() {
     xhsImageDarkModeOpacity.addEventListener('input', () => {
       if (xhsImageDarkModeOpacityValue) xhsImageDarkModeOpacityValue.textContent = `${xhsImageDarkModeOpacity.value}%`;
     });
-    xhsImageDarkModeOpacity.addEventListener('change', () => void update(null, () => send({
+    xhsImageDarkModeOpacity.addEventListener('change', () => void update(null, () => savePreference('xhsImageDarkMode', {
       type: 'UI_SET_XHS_IMAGE_DARK_MODE_SETTING',
       name: 'controlOpacity',
       value: Number(xhsImageDarkModeOpacity.value) / 100
     }), [xhsImageDarkModeOpacity]));
   }
   for (const input of document.querySelectorAll('[data-ad-marshal-site]')) {
-    input.addEventListener('change', () => void update(null, () => send({
+    input.addEventListener('change', () => void update(null, () => savePreference('adMarshal', {
       type: 'UI_SET_AD_MARSHAL_SITE',
       siteId: input.dataset.adMarshalSite,
       enabled: input.checked
     }), [input]));
   }
   const preferredQuality = document.querySelector('#preferredQuality');
-  if (preferredQuality) preferredQuality.addEventListener('change', () => void update(null, () => send({
+  if (preferredQuality) preferredQuality.addEventListener('change', () => void update(null, () => savePreference('videoDownload', {
     type: 'UI_SET_VIDEO_SETTING', name: 'preferredQuality', value: preferredQuality.value
   }), [preferredQuality]));
   const askWhereToSave = document.querySelector('#askWhereToSave');
-  if (askWhereToSave) askWhereToSave.addEventListener('change', () => void update(null, () => send({
+  if (askWhereToSave) askWhereToSave.addEventListener('change', () => void update(null, () => savePreference('videoDownload', {
     type: 'UI_SET_VIDEO_SETTING', name: 'askWhereToSave', value: askWhereToSave.checked
   }), [askWhereToSave]));
   const imageOutputFormat = document.querySelector('#imageOutputFormat');
-  if (imageOutputFormat) imageOutputFormat.addEventListener('change', () => void update(null, () => send({
+  if (imageOutputFormat) imageOutputFormat.addEventListener('change', () => void update(null, () => savePreference('imageDownload', {
     type: 'UI_SET_IMAGE_SETTING', name: 'outputFormat', value: imageOutputFormat.value
   }), [imageOutputFormat]));
   const imageWorkspaceMode = document.querySelector('#imageWorkspaceMode');
-  if (imageWorkspaceMode) imageWorkspaceMode.addEventListener('change', () => void update(null, () => send({
+  if (imageWorkspaceMode) imageWorkspaceMode.addEventListener('change', () => void update(null, () => savePreference('imageDownload', {
     type: 'UI_SET_IMAGE_SETTING', name: 'workspaceMode', value: imageWorkspaceMode.value
   }), [imageWorkspaceMode]));
   const imageBatchMode = document.querySelector('#imageBatchMode');
-  if (imageBatchMode) imageBatchMode.addEventListener('change', () => void update(null, () => send({
+  if (imageBatchMode) imageBatchMode.addEventListener('change', () => void update(null, () => savePreference('imageDownload', {
     type: 'UI_SET_IMAGE_SETTING', name: 'batchMode', value: imageBatchMode.value
   }), [imageBatchMode]));
   const imageAskWhereToSave = document.querySelector('#imageAskWhereToSave');
-  if (imageAskWhereToSave) imageAskWhereToSave.addEventListener('change', () => void update(null, () => send({
+  if (imageAskWhereToSave) imageAskWhereToSave.addEventListener('change', () => void update(null, () => savePreference('imageDownload', {
     type: 'UI_SET_IMAGE_SETTING', name: 'askWhereToSave', value: imageAskWhereToSave.checked
   }), [imageAskWhereToSave]));
 
@@ -422,25 +485,10 @@ function bindView() {
       let rule;
       try { rule = normalizeRule(input.value); }
       catch { message.textContent = t('invalidRule'); return; }
-      void (async () => {
-        if ([input, select, submit].some(control => pendingControls.has(control))) return;
-        for (const control of [input, select, submit]) {
-          pendingControls.add(control);
-          control.disabled = true;
-        }
-        message.textContent = '';
-        try {
-          await send({ type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value });
-          input.value = '';
-          await reloadAfterUpdate();
-        } catch { if (message.isConnected) message.textContent = t('ruleSaveFailed'); }
-        finally {
-          for (const control of [input, select, submit]) {
-            pendingControls.delete(control);
-            if (control.isConnected) control.disabled = false;
-          }
-        }
-      })();
+      void update(behaviorCard, async () => {
+        await savePreference(featureId, { type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value });
+        input.value = '';
+      }, [input, select, submit], 'ruleSaveFailed');
     });
   }
 
@@ -457,27 +505,12 @@ function bindView() {
       try { rule = normalizeRule(input.value); }
       catch { message.textContent = t('invalidRule'); return; }
       if ((sectionState(section)?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
-      void (async () => {
-        if (pendingControls.has(submit)) return;
-        pendingControls.add(submit);
-        pendingControls.add(input);
-        submit.disabled = true;
-        input.disabled = true;
-        message.textContent = '';
-        try {
-          await send(sectionFeatureId === 'nsna'
-            ? { type: 'UI_ADD_NSNA_WHITELIST_RULE', rule }
-            : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
-          input.value = '';
-          await reloadAfterUpdate();
-        } catch { if (message.isConnected) message.textContent = t('ruleSaveFailed'); }
-        finally {
-          pendingControls.delete(submit);
-          pendingControls.delete(input);
-          if (submit.isConnected) submit.disabled = false;
-          if (input.isConnected) input.disabled = false;
-        }
-      })();
+      void update(section, async () => {
+        await savePreference(sectionFeatureId, sectionFeatureId === 'nsna'
+          ? { type: 'UI_ADD_NSNA_WHITELIST_RULE', rule }
+          : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
+        input.value = '';
+      }, [input, submit], 'ruleSaveFailed');
     });
   }
 
@@ -488,26 +521,23 @@ function bindView() {
     });
   }
 
-  document.querySelector('#language').onchange = event => void (async () => {
+  document.querySelector('#language').onchange = event => {
     const control = event.currentTarget;
-    if (pendingControls.has(control)) return;
-    pendingControls.add(control);
-    control.disabled = true;
-    try {
-      const result = await send({ type: 'UI_SET_LOCALE', locale: control.value });
-      locale = result.locale;
-      if (!incognitoContext) {
-        try { localStorage.setItem('cosmicGeminiInterfaceLocale', locale); } catch {}
+    if (localeSaving) return;
+    localeSaving = true;
+    localeGeneration += 1;
+    void update(null, async () => {
+      try {
+        const result = await send({ type: 'UI_SET_LOCALE', locale: control.value });
+        locale = result.locale;
+        cacheLocale();
+      } finally {
+        localeSaving = false;
+        localeGeneration += 1;
+        applyLocale();
       }
-      applyLocale();
-      render();
-    } catch {
-      control.value = locale;
-    } finally {
-      pendingControls.delete(control);
-      if (control.isConnected) control.disabled = false;
-    }
-  })();
+    }, [control]);
+  };
 }
 
 function syncResetControls() {
@@ -547,20 +577,17 @@ function syncResetControls() {
   card.querySelector('button').addEventListener('click', () => dialog.showModal());
   dialog.addEventListener('close', () => {
     if (dialog.returnValue !== 'confirm') return;
-    void (async () => {
-      const confirm = dialog.querySelector('.danger-button');
-      confirm.disabled = true;
-      try {
-        await send({ type: 'UI_RESET_ALL_SETTINGS' });
+    const confirm = dialog.querySelector('.danger-button');
+    void update(card, async () => {
+      await send({ type: 'UI_RESET_ALL_SETTINGS' });
+      if (!incognitoContext) {
         try {
           localStorage.removeItem('cosmicGeminiSettingsViewCache');
           localStorage.removeItem('cosmicGeminiInterfaceLocale');
         } catch {}
-        location.reload();
-      } catch {
-        confirm.disabled = false;
       }
-    })();
+      location.reload();
+    }, [card.querySelector('button'), confirm], 'settingsResetFailed');
   });
 }
 
@@ -611,9 +638,11 @@ window.addEventListener('popstate', () => {
 mountView(false);
 connectSettingsUi();
 try {
-  const storedLocale = await loadLocale();
-  if (storedLocale !== locale) {
+  const localeTicket = localeGeneration;
+  const storedLocale = await loadLocale({ cacheResult: false });
+  if (!localeSaving && localeTicket === localeGeneration && storedLocale !== locale) {
     locale = storedLocale;
+    cacheLocale();
     applyLocale();
     render();
   }

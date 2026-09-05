@@ -17,6 +17,7 @@ import '../test/customs-response-ingress.test.mjs';
 import '../test/customs-offscreen.test.mjs';
 import '../test/platform-settings.test.mjs';
 import '../test/ui-retry.test.mjs';
+import '../test/settings-page.test.mjs';
 import '../test/keyed-task-queue.test.mjs';
 import '../test/message-source.test.mjs';
 import '../test/page-runtime-host.test.mjs';

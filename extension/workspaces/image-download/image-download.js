@@ -29,6 +29,8 @@ let galleryRenderGeneration = 0;
 let renderedAt = -1;
 let preferencesInitialized = false;
 let scanPending = false;
+let stateReadGeneration = 0;
+let scanActionGeneration = 0;
 let downloadPending = false;
 let workspaceClosing = false;
 const pendingControls = new WeakSet();
@@ -51,7 +53,9 @@ function setWorkspaceVisible(visible) {
       viewPort = null;
       if (!workspaceClosing && !document.hidden && viewReconnectAttempts < 5) {
         viewReconnectAttempts += 1;
-        setTimeout(() => setWorkspaceVisible(true), Math.min(250 * (2 ** viewReconnectAttempts), 4_000));
+        setTimeout(() => {
+          if (!workspaceClosing && !document.hidden) setWorkspaceVisible(true);
+        }, Math.min(250 * (2 ** viewReconnectAttempts), 4_000));
       }
     });
   }
@@ -361,16 +365,25 @@ function renderState(force = false) {
 }
 
 async function reload(force = false) {
-  state = await send({ type: 'UI_IMAGE_STATE', tabId: sourceTabId });
+  const ticket = ++stateReadGeneration;
+  const snapshot = await send({ type: 'UI_IMAGE_STATE', tabId: sourceTabId });
+  if (ticket !== stateReadGeneration || workspaceClosing) return;
+  state = snapshot;
   renderState(force);
 }
 
 async function loadInitialSession() {
-  state = await retryReadUntil(
-    () => send({ type: 'UI_IMAGE_STATE', tabId: sourceTabId }),
+  let ticket;
+  const snapshot = await retryReadUntil(
+    () => {
+      ticket = ++stateReadGeneration;
+      return send({ type: 'UI_IMAGE_STATE', tabId: sourceTabId });
+    },
     value => value?.active === true,
     [0, 75, 150, 300, 600, 1_200, 2_400]
   );
+  if (ticket !== stateReadGeneration || workspaceClosing) return;
+  state = snapshot;
   renderState(true);
 }
 
@@ -382,12 +395,18 @@ async function reloadAfterAction(force = false) {
 async function rescan(deep) {
   if (scanPending) return;
   scanPending = true;
+  const action = ++scanActionGeneration;
+  stateReadGeneration += 1;
   updateWorkspaceControls();
   setStatus(deep ? t('imageDeepScanning') : t('imageFindingImages'), true);
   try {
-    state = await send({ type: 'UI_IMAGE_RESCAN', tabId: sourceTabId, deep });
-    renderState(true);
-  } catch { setStatus(t('imageUnavailablePage')); }
+    const snapshot = await send({ type: 'UI_IMAGE_RESCAN', tabId: sourceTabId, deep });
+    if (action === scanActionGeneration && !workspaceClosing) {
+      stateReadGeneration += 1;
+      state = snapshot;
+      renderState(true);
+    }
+  } catch { if (action === scanActionGeneration) setStatus(t('imageUnavailablePage')); }
   finally {
     scanPending = false;
     updateWorkspaceControls();
@@ -415,6 +434,16 @@ async function runWorkspaceAction(button, task) {
     pendingControls.delete(button);
     updateWorkspaceControls();
   }
+}
+
+async function stopSession() {
+  scanActionGeneration += 1;
+  stateReadGeneration += 1;
+  await send({ type: 'UI_IMAGE_STOP', tabId: sourceTabId });
+  stateReadGeneration += 1;
+  state = { ...state, active: false, status: 'stopped', groups: [] };
+  renderState(true);
+  await reloadAfterAction(true);
 }
 
 for (const input of document.querySelectorAll('#search, #type-filter, #layout-filter, #min-width, #min-height, #sort')) {
@@ -448,10 +477,7 @@ document.querySelector('#open-page').addEventListener('click', event => void run
 document.querySelector('#capture-area').addEventListener('click', event => void runWorkspaceAction(event.currentTarget, () => send({ type: 'UI_IMAGE_CAPTURE_AREA', tabId: sourceTabId })));
 document.querySelector('#rescan').addEventListener('click', () => void rescan(false));
 document.querySelector('#deep-scan').addEventListener('click', () => void rescan(true));
-document.querySelector('#stop').addEventListener('click', event => void runWorkspaceAction(event.currentTarget, async () => {
-  await send({ type: 'UI_IMAGE_STOP', tabId: sourceTabId });
-  await reloadAfterAction(true);
-}));
+document.querySelector('#stop').addEventListener('click', event => void runWorkspaceAction(event.currentTarget, stopSession));
 
 const locale = await loadLocale();
 root.lang = locale;

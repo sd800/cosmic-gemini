@@ -172,6 +172,23 @@ test('reset preserves artifact records for downloads already accepted by Chrome'
   assert.equal(mock.session['tabActivity:7'], undefined);
 });
 
+test('a failed default-settings replacement does not delete existing preferences or session data', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  await platform.mutateSettings(current => ({ ...current, nativeScroll: { ...current.nativeScroll, enabled: false } }), false);
+  mock.local.interfaceLocale = 'zh-CN';
+  mock.session['anyCopyEnhancedTab:7'] = { active: true };
+  const before = structuredClone({ local: mock.local, session: mock.session });
+  mock.failWrite();
+  await assert.rejects(platform.resetStorage(), /temporary storage failure/);
+  assert.deepEqual({ local: mock.local, session: mock.session }, before);
+  await platform.resetStorage();
+  assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
+  assert.equal(mock.local.interfaceLocale, undefined);
+  assert.equal(mock.session['anyCopyEnhancedTab:7'], undefined);
+});
+
 test('toolbar recovery does not reject a saved activity update when locale storage is unavailable', async () => {
   const mock = chromeMock();
   globalThis.chrome = mock.api;

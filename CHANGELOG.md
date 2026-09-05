@@ -2,6 +2,16 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.3.1 — 2026-09-05
+
+- Fixed website rules rejecting domains that begin with a digit, such as `*.163.com`, and added consistent handling of internationalized hostnames across rule editors.
+- Prevented delayed settings responses from replacing newer choices. Confirmed saves remain visible when a follow-up refresh fails, and pending actions cannot be submitted twice from the same control.
+- Kept unchanged website-rule controls in place during refreshes so dropdowns are not unexpectedly dismissed. Failed changes restore the saved choice, and dependent controls remain disabled when their parent setting is off.
+- Added clear failure messages for settings changes, language changes, and resets. Popup state no longer replaces saved preferences in the settings preview, and Incognito choices cannot populate the ordinary-window preview.
+- Reset now replaces saved preferences directly instead of deleting them first, so a failed replacement leaves the original preferences intact. Turning off Any Copy Enhanced now remains successful even if activity bookkeeping fails.
+- Prevented late popup and image-scan responses from restoring stale page controls. Stopping Image Download takes effect in its list immediately, even if the following state refresh fails.
+- Prevented delayed reconnections from marking a closed Video Download list or hidden Image Download list as visible and extending scanning unexpectedly. Also kept superseded language reads and Incognito resets from changing the ordinary Settings preview cache.
+
 ## 8.2.3 — 2026-09-05
 
 - Fixed shared-whitelist additions and removals being rejected after switching from All Settings or another settings page to Native Scroll or No Autoplay. Valid wildcard rules such as `*.douyin.com` now save regardless of which settings page was opened first.

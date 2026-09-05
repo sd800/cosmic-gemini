@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.3.7 — 2026-09-05
+
+- Changed the `news.qq.com` video-module policy from visual hiding to direct removal. Ad Marshal now pauses and releases media before deleting `.qqcom-jxvideo`, `.video-wrap`, and Tencent Video frames, while the non-video right content rail remains hidden through CSS.
+
 ## 8.3.6 — 2026-09-05
 
 - Added the Tencent News floating mini-player to the `news.qq.com` Ad Marshal policy. When the player enters its floating state, Ad Marshal pauses it, releases its media sources, and removes the floating node. The ordinary inline player is not targeted before that transition.

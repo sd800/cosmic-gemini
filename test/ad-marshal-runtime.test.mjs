@@ -19,9 +19,20 @@ class SimpleEventTarget {
 }
 
 function matchesSelector(element, selector) {
-  if (selector === '.qnt-p') return element.className === 'qnt-p';
-  if (selector === '.videoPlayerMini') return element.className === 'videoPlayerMini';
-  return element.tagName === selector.toUpperCase();
+  return selector.split(',').some(rawSelector => {
+    const item = rawSelector.trim();
+    if (item === '.qnt-p') return element.className === 'qnt-p';
+    if (item === '.videoPlayerMini') return element.className === 'videoPlayerMini';
+    if (item === '.qqcom-jxvideo') return element.className === 'qqcom-jxvideo';
+    if (item === '.video-wrap') return element.className === 'video-wrap';
+    if (item === 'iframe[src*="video.qq.com"]') {
+      return element.tagName === 'IFRAME' && (element.getAttribute('src') || '').includes('video.qq.com');
+    }
+    if (item === 'iframe[src*="v.qq.com"]') {
+      return element.tagName === 'IFRAME' && (element.getAttribute('src') || '').includes('v.qq.com');
+    }
+    return element.tagName === item.toUpperCase();
+  });
 }
 
 class FakeElement extends SimpleEventTarget {
@@ -62,6 +73,7 @@ class FakeElement extends SimpleEventTarget {
     return matches;
   }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  getAttribute(name) { return this.attributes.get(name) || null; }
   removeAttribute(name) { this.attributes.delete(name); }
   remove() {
     this.removed = true;
@@ -159,8 +171,14 @@ function makeContext() {
   return { context, playerRoot };
 }
 
-test('Ad Marshal releases and removes only the Tencent News floating player', async () => {
+test('Ad Marshal releases Tencent News video modules and removes only the floating player state', async () => {
   const { context, playerRoot } = makeContext();
+  const contentRight = context.document.body.appendChild(new FakeElement('div', 'content-right'));
+  const videoWrap = contentRight.appendChild(new FakeElement('div', 'video-wrap'));
+  const module = videoWrap.appendChild(new FakeElement('div', 'qqcom-jxvideo'));
+  const moduleVideo = module.appendChild(new FakeVideo());
+  const moduleFrame = module.appendChild(new FakeElement('iframe'));
+  moduleFrame.setAttribute('src', 'https://video.qq.com/cookie/sync_qqnews.html');
   const ordinaryPlayer = playerRoot.appendChild(new FakeElement('div', 'videoPlayer'));
   const video = ordinaryPlayer.appendChild(new FakeVideo());
   const source = video.appendChild(new FakeElement('source'));
@@ -173,9 +191,14 @@ test('Ad Marshal releases and removes only the Tencent News floating player', as
     detail: JSON.stringify({ token: runtime.token, config: { active: true, siteId: 'newsQqCom' } })
   });
 
+  assert.equal(videoWrap.removed, true);
+  assert.equal(moduleVideo.pauseCount, 1);
+  assert.equal(moduleVideo.loadCount, 1);
+  assert.equal(moduleVideo.attributes.has('src'), false);
+  assert.equal(contentRight.removed, false);
   assert.equal(ordinaryPlayer.removed, false);
   assert.equal(video.pauseCount, 0);
-  const observer = FakeMutationObserver.instances.at(-1);
+  const observer = FakeMutationObserver.instances.find(item => item.target === playerRoot);
   assert.equal(observer.target, playerRoot);
   assert.equal([...observer.options.attributeFilter].join(','), 'class');
 

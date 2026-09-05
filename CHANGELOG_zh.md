@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.3.7 — 2026-09-05
+
+- 将 `news.qq.com` 的视频模块由隐藏改为直接删除。Ad Marshal 现在会先暂停并释放媒体，再删除 `.qqcom-jxvideo`、`.video-wrap` 和腾讯视频框架。右侧非视频内容栏仍通过 CSS 隐藏。
+
 ## 8.3.6 — 2026-09-05
 
 - 在 `news.qq.com` 的 Ad Marshal 规则中新增腾讯新闻视频悬浮窗拦截。播放器进入悬浮状态后，Ad Marshal 会暂停播放、释放媒体来源并删除悬浮节点。普通内嵌播放器在进入悬浮状态前不会被处理。

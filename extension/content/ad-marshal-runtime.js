@@ -18,13 +18,16 @@
     '[class*="qqchannel-ad"]',
     '[id*="qqchannel-ad"]'
   ].join(',');
-  const NEWS_QQ_MEDIA_CONTAINER_SELECTOR = [
-    '#content-right.content-right',
+  const NEWS_QQ_REMOVED_VIDEO_SELECTOR = [
     '.qqcom-jxvideo',
     '.video-wrap',
-    '.qnt-p .videoPlayerMini',
     'iframe[src*="video.qq.com"]',
     'iframe[src*="v.qq.com"]'
+  ].join(',');
+  const NEWS_QQ_MEDIA_CONTAINER_SELECTOR = [
+    '#content-right.content-right',
+    NEWS_QQ_REMOVED_VIDEO_SELECTOR,
+    '.qnt-p .videoPlayerMini'
   ].join(',');
   const TENCENT_QQ_TRACKING_HOSTS = [
     'h.trace.qq.com',
@@ -158,10 +161,12 @@
       this.imageSetAttributeWrapper = null;
       this.styleElement = null;
       this.newsFloatingPlayerObserver = null;
+      this.newsVideoContainerObserver = null;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
       this.ensureStyle = this.ensureStyle.bind(this);
+      this.startNewsVideoContainerRemoval = this.startNewsVideoContainerRemoval.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
       window.addEventListener(READY, this.onBridgeReady, true);
@@ -243,12 +248,12 @@
       }
       HTMLImageElement.prototype.setAttribute = this.imageSetAttributeWrapper;
       this.ensureStyle();
+      this.startNewsVideoContainerRemoval();
       this.startNewsFloatingPlayerRemoval();
     }
 
-    releaseNewsFloatingPlayer(player) {
-      if (!this.active || !player?.matches?.('.videoPlayerMini') || !player.closest('.qnt-p')) return;
-      for (const video of player.querySelectorAll('video')) {
+    releaseNewsMediaContainer(container) {
+      for (const video of container.querySelectorAll('video')) {
         try {
           video.pause();
           video.removeAttribute('src');
@@ -256,7 +261,21 @@
           video.load();
         } catch {}
       }
-      player.remove();
+      if (container.matches('video')) {
+        try {
+          container.pause();
+          container.removeAttribute('src');
+          for (const source of container.querySelectorAll('source')) source.removeAttribute('src');
+          container.load();
+        } catch {}
+      }
+      if (container.matches('iframe')) container.removeAttribute('src');
+      container.remove();
+    }
+
+    releaseNewsFloatingPlayer(player) {
+      if (!this.active || !player?.matches?.('.videoPlayerMini') || !player.closest('.qnt-p')) return;
+      this.releaseNewsMediaContainer(player);
     }
 
     removeNewsFloatingPlayers(root) {
@@ -265,6 +284,35 @@
       for (const player of root?.querySelectorAll?.('.videoPlayerMini') || []) {
         this.releaseNewsFloatingPlayer(player);
       }
+    }
+
+    removeNewsVideoContainers(root) {
+      if (!this.active || this.siteId !== 'newsQqCom' || location.hostname.toLowerCase() !== 'news.qq.com') return;
+      const containers = [];
+      if (root?.matches?.(NEWS_QQ_REMOVED_VIDEO_SELECTOR)) containers.push(root);
+      containers.push(...(root?.querySelectorAll?.(NEWS_QQ_REMOVED_VIDEO_SELECTOR) || []));
+      for (const container of containers) {
+        if (!container.parentElement?.closest?.(NEWS_QQ_REMOVED_VIDEO_SELECTOR)) {
+          this.releaseNewsMediaContainer(container);
+        }
+      }
+    }
+
+    startNewsVideoContainerRemoval() {
+      if (this.siteId !== 'newsQqCom' || location.hostname.toLowerCase() !== 'news.qq.com') return;
+      const parent = document.documentElement;
+      if (!parent) {
+        document.addEventListener('readystatechange', this.startNewsVideoContainerRemoval, { once: true });
+        return;
+      }
+      this.removeNewsVideoContainers(document);
+      this.newsVideoContainerObserver?.disconnect();
+      this.newsVideoContainerObserver = new MutationObserver(records => {
+        for (const record of records) {
+          for (const node of record.addedNodes) this.removeNewsVideoContainers(node);
+        }
+      });
+      this.newsVideoContainerObserver.observe(parent, { subtree: true, childList: true });
     }
 
     observeNewsFloatingPlayerRoot(root) {
@@ -338,6 +386,9 @@
     disable() {
       this.newsFloatingPlayerObserver?.disconnect();
       this.newsFloatingPlayerObserver = null;
+      this.newsVideoContainerObserver?.disconnect();
+      this.newsVideoContainerObserver = null;
+      document.removeEventListener('readystatechange', this.startNewsVideoContainerRemoval);
       if (!this.active) return;
       this.active = false;
       if (globalThis.fetch === this.fetchWrapper) globalThis.fetch = this.originalFetch;

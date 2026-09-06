@@ -66,7 +66,7 @@ Stop mailto links from opening your system mail app before you can inspect them.
 
 #### XHS Image Dark Mode
 
-Make bright text images easier to view after Dark Reader applies page-wide dark mode to Xiaohongshu’s website. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.
+Make bright text images easier to view when a page-wide dark mode is active on Xiaohongshu. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.
 
 #### Bili Daily Login
 
@@ -136,7 +136,7 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Mailto Capture is on by default in ordinary windows, while Page Display, both of its visual adjustments, XHS Image Dark Mode, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
 
-On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can always apply image adjustments, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
+On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can keep image adjustment always on, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
 
 After you enable Bili Daily Login, the task runs on its own schedule while Chrome and the computer are running.
 

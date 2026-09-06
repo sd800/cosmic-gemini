@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.2 — 2026-09-06
+
+- Updated XHS Image Dark Mode to describe and follow the resulting page-wide dark appearance without naming a particular theme provider. Automatic processing recognizes compatible page-dark signals from either the website or other page styling, while Always on continues to bypass detection.
+
 ## 8.9.1 — 2026-09-06
 
 - Extended XHS Image Dark Mode to post covers on Xiaohongshu user-profile pages, including covers discovered before their initial layout dimensions are available. Profile post covers are no longer mistaken for user avatars.

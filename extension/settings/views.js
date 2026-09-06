@@ -102,6 +102,7 @@ export const PRODUCT_META = Object.freeze({
   anyCopy: { name: 'Any Copy', path: 'any-copy.html' },
   imageDownload: { name: 'Image Download', path: 'image-download.html' },
   videoDownload: { name: 'Video Download', path: 'video-download.html' },
+  pageDisplay: { name: 'Page Display', path: 'page-display.html' },
   satellites: { name: 'Satellites', path: 'satellites.html' },
   allSettings: { name: 'All Settings', path: 'all-settings.html' }
 });
@@ -111,6 +112,7 @@ export function featureFromPath(pathname) {
   if (pathname.endsWith('/any-copy.html')) return 'anyCopy';
   if (pathname.endsWith('/image-download.html')) return 'imageDownload';
   if (pathname.endsWith('/video-download.html')) return 'videoDownload';
+  if (pathname.endsWith('/page-display.html')) return 'pageDisplay';
   if (pathname.endsWith('/satellites.html')) return 'satellites';
   if (pathname.endsWith('/all-settings.html')) return 'allSettings';
   return 'nativeScroll';
@@ -129,6 +131,7 @@ export function viewFor(featureId) {
         ${settingsCard('anyCopy', 'anyCopyName', 'allSettingsAnyCopyDescription')}
         ${settingsCard('imageDownload', 'imageDownloadName', 'allSettingsImageDescription')}
         ${settingsCard('videoDownload', 'videoDownloadName', 'allSettingsVideoDescription')}
+        ${settingsCard('pageDisplay', 'pageDisplayName', 'allSettingsPageDisplayDescription')}
         ${settingsCard('satellites', 'satellitesName', 'allSettingsSatellitesDescription')}
       </section>`,
     help: '<h2 data-i18n="allSettingsHelpHeading"></h2><p data-i18n="allSettingsHelp"></p>'
@@ -145,17 +148,6 @@ export function viewFor(featureId) {
           <div class="satellite-control"><label class="switch"><input id="mailtoCaptureEnabled" type="checkbox" checked><span></span><b class="sr-only">Mailto Capture</b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="mailtoCapturePrivacy"></p></div>
-      </section>
-      <section class="card satellite-card page-display-card">
-        <div class="section-heading">
-          <div><h1 data-i18n="pageDisplayName"></h1><p data-i18n="pageDisplayDescription"></p></div>
-        </div>
-        <div class="preference-list satellite-preferences">
-          <label class="preference-row" for="pageDisplayReduceWhitePointEnabled"><span><strong data-i18n="reduceWhitePointName"></strong><small data-i18n="reduceWhitePointHelp"></small></span><span class="switch"><input id="pageDisplayReduceWhitePointEnabled" type="checkbox"><span></span></span></label>
-          <label class="preference-row" for="reduceWhitePointReduction"><span><strong data-i18n="reduceWhitePointReductionHeading"></strong><small data-i18n="reduceWhitePointReductionHelp"></small></span><span class="range-control"><input id="reduceWhitePointReduction" type="range" min="10" max="80" step="5" value="25"><output id="reduceWhitePointReductionValue" for="reduceWhitePointReduction">25%</output></span></label>
-          <label class="preference-row" for="pageDisplayGreyscaleEnabled"><span><strong data-i18n="greyscaleName"></strong><small data-i18n="greyscaleHelp"></small></span><span class="switch"><input id="pageDisplayGreyscaleEnabled" type="checkbox"><span></span></span></label>
-        </div>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="pageDisplayPrivacy"></p></div>
       </section>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">
@@ -190,6 +182,27 @@ export function viewFor(featureId) {
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
+  };
+  if (featureId === 'pageDisplay') return {
+    primary: `
+      <section class="card page-display-master-card">
+        <div class="section-heading">
+          <div>${introTitle('pageDisplay', 'pageDisplayName')}<p class="last" data-i18n="pageDisplayDescription"></p></div>
+          <label class="switch"><input id="enabled" type="checkbox"><span></span><b class="sr-only">Page Display</b></label>
+        </div>
+      </section>
+      <section class="card page-display-feature-card">
+        <div class="rule-heading"><span data-section-icon="reduceWhitePoint" aria-hidden="true"></span><h2 data-i18n="reduceWhitePointName"></h2></div>
+        <div class="preference-list">
+          <label class="preference-row" for="pageDisplayReduceWhitePointEnabled"><span><strong data-i18n="pageDisplayActivationHeading"></strong><small data-i18n="reduceWhitePointHelp"></small></span><span class="switch"><input id="pageDisplayReduceWhitePointEnabled" type="checkbox"><span></span></span></label>
+          <label class="preference-row" for="reduceWhitePointReduction"><span><strong data-i18n="reduceWhitePointReductionHeading"></strong><small data-i18n="reduceWhitePointReductionHelp"></small></span><span class="range-control"><input id="reduceWhitePointReduction" type="range" min="10" max="80" step="5" value="25"><output id="reduceWhitePointReductionValue" for="reduceWhitePointReduction">25%</output></span></label>
+        </div>
+      </section>
+      <section class="card page-display-feature-card">
+        <div class="rule-heading"><span data-section-icon="greyscale" aria-hidden="true"></span><h2 data-i18n="greyscaleName"></h2></div>
+        <label class="preference-row" for="pageDisplayGreyscaleEnabled"><span><strong data-i18n="pageDisplayActivationHeading"></strong><small data-i18n="greyscaleHelp"></small></span><span class="switch"><input id="pageDisplayGreyscaleEnabled" type="checkbox"><span></span></span></label>
+      </section>`,
+    help: help(['pageDisplayHelpEffects', 'pageDisplayHelpRestore'], 'pageDisplayPrivacy')
   };
   if (featureId === 'nativeScroll') return {
     primary: `

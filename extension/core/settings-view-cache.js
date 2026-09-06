@@ -6,7 +6,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 25,
+    version: 26,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -31,6 +31,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled !== false
     },
     pageDisplay: {
+      enabled: states.pageDisplay?.enabled === true,
       reduceWhitePoint: {
         enabled: states.pageDisplay?.reduceWhitePoint?.enabled === true,
         reduction: Number.isFinite(Number(states.pageDisplay?.reduceWhitePoint?.reduction))

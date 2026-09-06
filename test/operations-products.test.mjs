@@ -36,7 +36,7 @@ test('other rule editors accept Settings navigation and keep product rules indep
   const platform = { async mutateSettings(update) { settings = normalizeSettings(update(settings)); return settings; } };
   const standing = createStandingProvince(platform);
   const anyCopy = createAnyCopyProduct({ sync: async () => true }, platform);
-  for (const entry of ['all-settings', 'satellites', 'any-copy', 'image-download', 'video-download', 'native-scroll', 'no-autoplay']) {
+  for (const entry of ['all-settings', 'satellites', 'page-display', 'any-copy', 'image-download', 'video-download', 'native-scroll', 'no-autoplay']) {
     const context = { sender: { url: `${base}settings/${entry}.html` } };
     for (const product of ['nativeScroll', 'noAutoplay']) {
       for (const behavior of ['inactive', 'standard', 'enhanced']) {
@@ -68,7 +68,7 @@ test('shared whitelist edits work from every Settings entry after in-page naviga
       return settings;
     }
   });
-  for (const entry of ['all-settings', 'satellites', 'any-copy', 'image-download', 'video-download', 'native-scroll', 'no-autoplay']) {
+  for (const entry of ['all-settings', 'satellites', 'page-display', 'any-copy', 'image-download', 'video-download', 'native-scroll', 'no-autoplay']) {
     const context = { sender: { url: `${base}settings/${entry}.html` } };
     const result = await standing.handleMessage('nativeScroll', {
       type: 'UI_ADD_NSNA_WHITELIST_RULE', rule: '  *.Douyin.com  '
@@ -209,7 +209,7 @@ test('XHS Image Dark Mode settings synchronize open pages before returning', asy
   assert.equal(refreshes, 1);
 });
 
-test('Page Display runs only in the top frame while either visual feature is enabled', async () => {
+test('Page Display master authorization gates its independent top-frame visual features', async () => {
   let settings = normalizeSettings();
   const syncs = [];
   let refreshes = 0;
@@ -236,6 +236,30 @@ test('Page Display runs only in the top frame while either visual feature is ena
     type: 'UI_SET_PAGE_DISPLAY_SETTING',
     name: 'greyscaleEnabled',
     value: true
+  });
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 0,
+    documentId: 'top',
+    topUrl: 'https://example.com/'
+  }, settings), true);
+  assert.equal(settings.pageDisplay.enabled, true);
+  await product.handleMessage({
+    type: 'UI_SET_ENABLED',
+    featureId: 'pageDisplay',
+    enabled: false
+  });
+  assert.equal(settings.pageDisplay.greyscale.enabled, true);
+  assert.equal(await product.sync({
+    tabId: 9,
+    frameId: 0,
+    documentId: 'top',
+    topUrl: 'https://example.com/'
+  }, settings), false);
+  await product.handleMessage({
+    type: 'UI_SET_ENABLED',
+    featureId: 'pageDisplay',
+    enabled: true
   });
   assert.equal(await product.sync({
     tabId: 9,
@@ -289,8 +313,10 @@ test('Page Display runs only in the top frame while either visual feature is ena
     documentId: 'top',
     topUrl: 'https://example.com/'
   }, settings), false);
-  assert.equal(refreshes, 5);
+  assert.equal(refreshes, 7);
   assert.deepEqual(syncs.map(({ frameId, active }) => ({ frameId, active })), [
+    { frameId: 0, active: false },
+    { frameId: 0, active: true },
     { frameId: 0, active: false },
     { frameId: 0, active: true },
     { frameId: 3, active: false },

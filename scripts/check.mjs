@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.7.1');
+assert.equal(manifest.version, '8.8.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -146,14 +146,16 @@ assert.doesNotMatch(firstPartyJoined, /recent activity|最近活动/i);
 assert.doesNotMatch(firstPartyJoined, /sound autoplay/i);
 assert.doesNotMatch(firstPartyJoined, /navigator\.mediaSession|setActionHandler\s*\(|MediaPlayPause|nativeMessaging|osascript|AppleScript/i);
 
-const settingsPages = ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'satellites.html', 'all-settings.html'];
+const settingsPages = ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'page-display.html', 'satellites.html', 'all-settings.html'];
 for (const name of settingsPages) {
   const html = await source('settings', name);
   assert.match(html, /<script src="\.\.\/shared\/localization-data\.js"><\/script>/);
   assert.match(html, /<script src="preload\.js"><\/script>\s*<script type="module" src="page\.js"><\/script>/);
   assert.match(html, /data-feature-link="imageDownload"/);
+  assert.match(html, /data-feature-link="pageDisplay"/);
   assert.match(html, /data-feature-link="satellites"/);
   assert.match(html, /data-feature-link="allSettings"/);
+  assert.match(html, /data-feature-link="pageDisplay"[\s\S]*data-feature-link="satellites"[\s\S]*data-feature-link="allSettings"/);
 }
 for (const [name, featureId] of Object.entries({
   'native-scroll.html': 'nativeScroll',
@@ -161,6 +163,7 @@ for (const [name, featureId] of Object.entries({
   'any-copy.html': 'anyCopy',
   'image-download.html': 'imageDownload',
   'video-download.html': 'videoDownload',
+  'page-display.html': 'pageDisplay',
   'satellites.html': 'satellites',
   'all-settings.html': 'allSettings'
 })) {
@@ -169,13 +172,15 @@ for (const [name, featureId] of Object.entries({
 
 const popupHtml = await source('popup', 'index.html');
 const popupSource = await source('popup', 'popup.js');
-assert.match(popupHtml, /id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"[\s\S]*id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"[\s\S]*id="all-settings"/);
-assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 4);
+assert.match(popupHtml, /id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"[\s\S]*id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="reduceWhitePoint-status"[\s\S]*id="greyscale-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"[\s\S]*id="all-settings"/);
+assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 5);
 assert.match(popupSource, /type: 'UI_GET_ACTIVE_PAGE_STATE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_FEATURE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_ENHANCED'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_SITE_FEATURE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_TAB_FEATURE'/);
+assert.match(popupSource, /type: 'UI_SET_PAGE_DISPLAY_SETTING'/);
+assert.match(popupSource, /state\.preferences\?\.pageDisplay/);
 assert.match(popupSource, /type: 'UI_OPEN_ALL_SETTINGS'/);
 assert.match(popupSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(popupSource, /if \(reloadAfter\) await reload\(/);
@@ -190,6 +195,7 @@ const settingsStyle = await source('settings', 'settings.css');
 const popupStyle = await source('popup', 'popup.css');
 const imageDownloadStyle = await source('workspaces', 'image-download', 'image-download.css');
 const satellitesSettings = await source('settings', 'satellites.html');
+const pageDisplaySettings = await source('settings', 'page-display.html');
 assert.match(settingsStyle, /--switch-blue: #0b57d0/);
 assert.match(settingsStyle, /prefers-color-scheme: dark[\s\S]*--switch-blue: #276cd9/);
 assert.match(settingsStyle, /\.switch input:checked \+ span \{ background: var\(--switch-blue\); \}/);
@@ -201,8 +207,10 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*data-i18n="pageDisplayName"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="pageDisplayGreyscaleEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"/);
-assert.match(satellitesSettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
+assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"/);
+assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);
+assert.match(pageDisplaySettings, /id="enabled"[\s\S]*data-section-icon="reduceWhitePoint"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="reduceWhitePointReduction"[\s\S]*data-section-icon="greyscale"[\s\S]*id="pageDisplayGreyscaleEnabled"/);
+assert.match(pageDisplaySettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
 assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZhihu"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
 assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
@@ -211,6 +219,8 @@ assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);
 assert.match(settingsSource, /pageDisplayReduceWhitePointEnabled[\s\S]*UI_SET_PAGE_DISPLAY_SETTING[\s\S]*pageDisplayGreyscaleEnabled/);
 assert.match(settingsPreload, /pageDisplayReduceWhitePointEnabled[\s\S]*pageDisplayGreyscaleEnabled[\s\S]*reduceWhitePointReduction/);
+assert.match(settingsSource, /pageDisplayEnabled[\s\S]*reduceWhitePointEnabled\.disabled = !pageDisplayEnabled[\s\S]*greyscaleEnabled\.disabled = !pageDisplayEnabled/);
+assert.match(settingsStyle, /data-page-display-enabled="false"[\s\S]*\.page-display-feature-card/);
 assert.match(settingsSource, /states\?\.preferences \|\| states/);
 for (const name of ['native-scroll.html', 'no-autoplay.html']) {
   const html = await source('settings', name);
@@ -477,7 +487,8 @@ assert.match(platform, /resettingStorage/);
 assert.match(platform, /clearOrphanedActivity/);
 assert.match(platform, /RETAINED_DOWNLOAD_PREFIXES/);
 assert.match(config, /DEFAULT_INCOGNITO_SETTINGS[\s\S]*nativeScroll:[\s\S]*enabled: false[\s\S]*noAutoplay:[\s\S]*enabled: false/);
-assert.match(config, /pageDisplay:[\s\S]*reduceWhitePoint:[\s\S]*enabled: false[\s\S]*reduction: 0\.25[\s\S]*greyscale:[\s\S]*enabled: false/);
+assert.match(config, /pageDisplay:[\s\S]*enabled: false[\s\S]*reduceWhitePoint:[\s\S]*enabled: false[\s\S]*reduction: 0\.25[\s\S]*greyscale:[\s\S]*enabled: false/);
+assert.match(administration, /PAGE_DISPLAY\]: 'settings\/page-display\.html'/);
 assert.match(platform, /INCOGNITO_SETTINGS_KEY[\s\S]*chrome\.storage\.session[\s\S]*INCOGNITO_WINDOWS_KEY/);
 assert.match(platform, /handleIncognitoWindowChange/);
 assert.match(platform, /refreshToolbarTitles[\s\S]*readActivity\(tab\.id\)[\s\S]*renderToolbar[\s\S]*setLocale/);

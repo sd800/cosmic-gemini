@@ -50,6 +50,12 @@ Dedicated discovery covers YouTube, Bilibili, Vimeo, Facebook, Instagram, OK, VK
 
 Detection remains limited to the active tab session. It follows same-site navigation until you stop it or leave the website.
 
+### Page Display
+
+Adjust webpage colors without changing their content, layout, or controls. Page Display includes independent Reduce White Point and Greyscale features: use the first to reduce the intensity of bright colors at your chosen strength, and the second to render the page in shades of grey. Both cover the complete rendered page, including images, animations, Canvas, embedded content, and video.
+
+Page Display has one master switch. Turning it off restores affected pages and makes its child settings unavailable without discarding their saved selections.
+
 ### Satellites
 
 Satellites contains optional tools that do not need permanent rows in the popup.
@@ -57,10 +63,6 @@ Satellites contains optional tools that do not need permanent rows in the popup.
 #### Mailto Capture
 
 Stop mailto links from opening your system mail app before you can inspect them. Mailto Capture intercepts each link and shows its recipients, CC and BCC addresses, subject, message, and other included fields in a compact page popover for copying.
-
-#### Page Display
-
-Adjust webpage colors without changing their content, layout, or controls. Page Display includes independent Reduce White Point and Greyscale features: use the first to reduce the intensity of bright colors at your chosen strength, and the second to render the page in shades of grey. Both cover the complete rendered page, including images, animations, Canvas, embedded content, and video.
 
 #### XHS Image Dark Mode
 
@@ -84,11 +86,12 @@ The current managed-site choices cover Tencent News and Zhihu.
 - Website activation for Any Copy and a current-tab session for Any Copy Enhanced
 - On-demand image discovery with automatic original-source selection, filtering, local conversion, area capture, and batch ZIP downloads
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
+- Independent Page Display controls for white-point reduction and greyscale rendering
 - Optional Satellites with their own concise settings and privacy details
 - Adjustable white-point reduction that applies locally across ordinary webpages
 - A contextual Xiaohongshu image reader that adapts bright text cards, including cards with colored frames, without changing ordinary photographs
 - Exact-host and wildcard rules such as `example.com` and `*.example.com`
-- A compact four-row popup with paired current-page controls and All Settings on its own bottom row
+- A compact five-row popup with paired controls and All Settings on its own bottom row
 - Separate settings pages, an All Settings hub with a complete reset action, direct product switching, and stable first-frame localization
 - Natural en-US and zh-CN interfaces with system-aware light and dark themes
 - Event-driven runtimes without polling or a persistent background page
@@ -103,18 +106,21 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 ## Use
 
-The popup uses four compact rows, with two related controls in each row.
+The popup uses five compact rows, with two related controls in each row.
 
 ### Popup controls
 
 - The first row contains **Native Scroll** and **Native Scroll Enhanced**.
 - The second row contains **No Autoplay** and **No Autoplay Enhanced**.
 - The third row contains **Any Copy** and **Any Copy Enhanced**.
-- The fourth row contains **Image Download** and **Video Download**.
+- The fourth row contains the global **Reduce White Point** and **Greyscale** switches.
+- The fifth row contains **Image Download** and **Video Download**.
 
 Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 
 Any Copy is enabled for the current website and stores the corresponding hostname rule. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
+
+Reduce White Point and Greyscale are global controls. Enabling either one from the popup also enables the Page Display master switch when needed.
 
 ### Download sessions
 
@@ -128,9 +134,9 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
-All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, and Satellites. Mailto Capture is on by default in ordinary windows, while both Page Display features, XHS Image Dark Mode, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Mailto Capture is on by default in ordinary windows, while Page Display, both of its visual adjustments, XHS Image Dark Mode, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
 
-On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. The control remains blue without a background while waiting for page-wide dark mode, then gains a blue background while image adaptation is running. Settings can always apply image adjustments, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
+On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can always apply image adjustments, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
 
 After you enable Bili Daily Login, the task runs on its own schedule while Chrome and the computer are running.
 

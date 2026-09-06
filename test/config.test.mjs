@@ -23,6 +23,7 @@ test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.nativeScroll.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.mailtoCapture.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.reduceWhitePoint.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.greyscale.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkMode.enabled, false);
@@ -44,6 +45,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.anyCopy.siteRules, []);
   assert.deepEqual(settings.mailtoCapture, { enabled: true });
   assert.deepEqual(settings.pageDisplay, {
+    enabled: false,
     reduceWhitePoint: { enabled: false, reduction: 0.25 },
     greyscale: { enabled: false }
   });
@@ -283,15 +285,16 @@ test('Mailto Capture follows its ordinary and incognito defaults without website
 
 test('Page Display features are independent, bounded, and limited to ordinary web pages', () => {
   assert.deepEqual(pageDisplayState(DEFAULT_SETTINGS, 'https://example.com/page'), {
+    enabled: false,
     reduceWhitePoint: { enabled: false, reduction: 0.25 },
     greyscale: { enabled: false },
     hostname: 'example.com',
     supported: true,
-    active: false,
-    enabled: false
+    active: false
   });
   const enabled = pageDisplayState({
     pageDisplay: {
+      enabled: true,
       reduceWhitePoint: { enabled: true, reduction: 0.45 },
       greyscale: { enabled: false }
     }
@@ -305,8 +308,11 @@ test('Page Display features are independent, bounded, and limited to ordinary we
     pageDisplay: { reduceWhitePoint: { enabled: true, reduction: 0 } }
   }, 'https://example.com').reduceWhitePoint.reduction, 0.1);
   assert.equal(pageDisplayState({
-    pageDisplay: { greyscale: { enabled: true } }
+    pageDisplay: { enabled: true, greyscale: { enabled: true } }
   }, 'https://example.com').active, true);
+  assert.equal(pageDisplayState({
+    pageDisplay: { enabled: false, greyscale: { enabled: true } }
+  }, 'https://example.com').active, false);
   assert.equal(pageDisplayState({
     pageDisplay: { reduceWhitePoint: { enabled: true } }
   }, 'chrome://extensions').active, false);
@@ -397,6 +403,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     anyCopy: { siteRules: ['copy.example'] },
     mailtoCapture: { enabled: false, active: true },
     pageDisplay: {
+      enabled: true,
       reduceWhitePoint: { enabled: true, reduction: 0.4 },
       greyscale: { enabled: true },
       active: true
@@ -422,6 +429,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.deepEqual(cache.mailtoCapture, { enabled: false });
   assert.deepEqual(cache.pageDisplay, {
+    enabled: true,
     reduceWhitePoint: { enabled: true, reduction: 0.4 },
     greyscale: { enabled: true }
   });

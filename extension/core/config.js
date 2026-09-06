@@ -50,7 +50,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 25,
+  version: 26,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -67,6 +67,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true
   }),
   pageDisplay: Object.freeze({
+    enabled: false,
     reduceWhitePoint: Object.freeze({
       enabled: false,
       reduction: 0.25
@@ -191,7 +192,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 25,
+    version: 26,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -204,6 +205,7 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled !== false
     },
     pageDisplay: {
+      enabled: value.pageDisplay?.enabled === true,
       reduceWhitePoint: {
         enabled: value.pageDisplay?.reduceWhitePoint?.enabled === true,
         reduction: Number.isFinite(whitePointReduction)
@@ -399,12 +401,13 @@ export function pageDisplayState(settings, url) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
   const feature = normalized.pageDisplay;
-  const enabled = feature.reduceWhitePoint.enabled === true || feature.greyscale.enabled === true;
+  const enabled = feature.enabled === true;
+  const hasActiveEffect = feature.reduceWhitePoint.enabled === true || feature.greyscale.enabled === true;
   return {
     ...feature,
     hostname,
     supported: !!hostname,
-    active: !!hostname && enabled,
+    active: !!hostname && enabled && hasActiveEffect,
     enabled
   };
 }

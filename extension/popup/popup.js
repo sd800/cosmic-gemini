@@ -117,6 +117,34 @@ function renderSiteFeature(featureId) {
   }
 }
 
+function renderPageDisplayControl(settingName, elementId, nameKey, onTitleKey, offTitleKey) {
+  const toggle = document.querySelector('#' + elementId);
+  const saved = state.preferences?.pageDisplay?.[settingName];
+  const enabled = state.preferences?.pageDisplay?.enabled === true && saved?.enabled === true;
+  toggle.disabled = !saved;
+  toggle.dataset.state = enabled ? 'active' : 'off';
+  toggle.dataset.persistent = String(enabled);
+  toggle.setAttribute('aria-pressed', String(enabled));
+  label(toggle, t(enabled ? onTitleKey : offTitleKey, { product: t(nameKey) }));
+}
+
+function renderPageDisplayRow() {
+  renderPageDisplayControl(
+    'reduceWhitePoint',
+    'reduceWhitePoint-status',
+    'reduceWhitePointName',
+    'disableGlobalProductTitle',
+    'enableGlobalProductTitle'
+  );
+  renderPageDisplayControl(
+    'greyscale',
+    'greyscale-status',
+    'greyscaleName',
+    'disableGlobalProductTitle',
+    'enableGlobalProductTitle'
+  );
+}
+
 function renderContextualProducts() {
   const container = document.querySelector('#contextual-feature-list');
   const available = contextualProducts.filter(entry => state?.[entry.id]?.supported === true);
@@ -483,6 +511,7 @@ function render() {
   renderGuardFeature('noAutoplay');
   renderSiteFeature('anyCopy');
   renderSiteFeature('anyCopyEnhanced');
+  renderPageDisplayRow();
   renderImageRow();
   renderVideoRow();
   renderContextualProducts();
@@ -572,6 +601,19 @@ anyCopyEnhancedControl.innerHTML = icon('anyCopyEnhanced');
 anyCopyEnhancedControl.addEventListener('click', () => void act(() => send({
   type: 'UI_TOGGLE_TAB_FEATURE', featureId: 'anyCopyEnhanced', tabId: currentTab?.id
 })));
+
+for (const [elementId, settingName, iconName] of [
+  ['reduceWhitePoint-status', 'reduceWhitePointEnabled', 'reduceWhitePoint'],
+  ['greyscale-status', 'greyscaleEnabled', 'greyscale']
+]) {
+  const control = document.querySelector('#' + elementId);
+  control.innerHTML = icon(iconName);
+  control.addEventListener('click', () => void act(() => send({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING',
+    name: settingName,
+    value: control.getAttribute('aria-pressed') !== 'true'
+  })));
+}
 
 document.querySelector('#imageDownload-status').innerHTML = icon('imageDownload');
 document.querySelector('#videoDownload-status').innerHTML = icon('videoDownload');

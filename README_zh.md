@@ -50,6 +50,12 @@ Video Download 会查找当前标签页中可以下载的媒体，并直接打�
 
 视频查找仅在当前标签页的临时会话中运行。站内跳转不会中断，手动停止或离开该网站后会自动结束。
 
+### Page Display
+
+调整网页色彩，同时保持内容、布局和操作方式不变。Page Display 包含彼此独立的 Reduce White Point 和 Greyscale。前者可按您选择的程度降低明亮颜色的强度，后者则以灰阶显示网页。两项效果均覆盖整个页面，包括图片、动画、Canvas、嵌入式内容和视频。
+
+Page Display 设有总开关。关闭后，受影响的网页会恢复原样，子功能设置会暂时停用，但已经保存的选择不会丢失。
+
 ### Satellites
 
 Satellites 收纳无需长期占用控制窗口的小功能。
@@ -57,10 +63,6 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 #### Mailto Capture
 
 拦截邮件链接，避免误触时直接打开系统邮件应用。Mailto Capture 会先在网页内显示简洁的内容预览，列出收件人、抄送与密送地址、主题、正文及链接附带的其他信息，供您按需复制。
-
-#### Page Display
-
-调整网页色彩，同时保持内容、布局和操作方式不变。Page Display 包含彼此独立的 Reduce White Point 和 Greyscale。前者可按您选择的程度降低明亮颜色的强度，后者则以灰阶显示网页。两项效果均覆盖整个页面，包括图片、动画、Canvas、嵌入式内容和视频。
 
 #### XHS Image Dark Mode
 
@@ -84,11 +86,12 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 - Any Copy 按网站启用，Any Copy 强力模式仅在当前标签页中运行
 - 按需查找图片，支持自动选择原图来源、筛选、本地格式转换、区域截取和批量 ZIP 下载
 - 按需查找视频，支持视频文件、HLS、DASH、本地音视频合并、字幕和专用网站识别
+- Page Display 可独立控制白点降低与灰阶显示
 - Satellites 中的可选功能各自提供简明设置和隐私说明
 - 可调节的白点降低功能会在本地覆盖普通网页的显示
 - 按需调整小红书中的明亮文字卡片，包括带有彩色边框的卡片，同时保持普通照片原样
 - 支持 `example.com` 这样的精确主机名，以及 `*.example.com` 这样的通配规则
-- 在四行极简控制窗口中成对管理当前页面，全部设置位于底部的独立一行
+- 在五行极简控制窗口中成对管理当前页面，全部设置位于底部的独立一行
 - 各项功能拥有独立设置页面，并提供带完整重置功能的全部设置导航页。页面之间可以直接切换，首次显示时也会直接使用已选语言
 - 提供自然的 en-US 与 zh-CN 界面，并自动适配系统的浅色或深色外观
 - 采用事件驱动，不轮询，也不常驻后台页面
@@ -103,18 +106,21 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 ## 使用方法
 
-控制窗口采用紧凑的四行布局，每行放置两个相关的控制按钮。
+控制窗口采用紧凑的五行布局，每行放置两个相关的控制按钮。
 
 ### 控制窗口
 
 - 第一行排列 **Native Scroll** 和 **Native Scroll 强力模式**。
 - 第二行排列 **No Autoplay** 和 **No Autoplay 强力模式**。
 - 第三行排列 **Any Copy** 和 **Any Copy 强力模式**。
-- 第四行排列 **Image Download** 和 **Video Download**。
+- 第四行排列全局 **Reduce White Point** 和 **Greyscale** 开关。
+- 第五行排列 **Image Download** 和 **Video Download**。
 
 Native Scroll 与 No Autoplay 的控制按钮只调整当前网站，不会改变全局默认状态。即使全局设置已关闭，也可以为当前网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。
 
 Any Copy 会为当前网站启用并保存对应的主机名规则。Any Copy 强力模式只作用于当前标签页，手动关闭或关闭标签页后即会结束。两项功能可以同时运行，关闭其中一项不会改变另一项。
+
+Reduce White Point 与 Greyscale 是全局开关。在控制窗口中开启其中一项时，如果 Page Display 总开关尚未开启，插件也会同时开启 Page Display。
 
 ### 下载会话
 
@@ -128,7 +134,7 @@ Any Copy 会为当前网站启用并保存对应的主机名规则。Any Copy �
 
 **全部设置**位于底部的独立一行并靠右显示。紧凑的主控制窗口会暂时隐藏 Cosmic Gemini 名称。全部设置可进入各项功能的设置页面，也可以将全部设置和网站规则恢复为默认状态。
 
-全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启。Page Display 的两个功能、XHS Image Dark Mode、Bili Daily Login 和 Ad Marshal 的全部网站均默认关闭。Ad Marshal 允许单独选择每一组管制网站。
+全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启。Page Display 及其两项显示调整、XHS Image Dark Mode、Bili Daily Login 和 Ad Marshal 的全部网站均默认关闭。Ad Marshal 允许单独选择每一组管制网站。
 
 访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Mode 的动态开关。功能开启但尚未检测到页面深色模式时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终启用图片处理、隐藏仅在展开笔记后显示的图片切换按钮，或调整按钮透明度。
 

@@ -78,8 +78,9 @@ function controller(feature = 'satellites') {
   const timers = [];
   let transport = async () => { throw Error('readback unavailable'); };
   const root = { lang: 'en-US' };
+  const body = new Element('body');
   const document = {
-    documentElement: root,
+    documentElement: root, body,
     querySelector: selector => nodes.get(selector) || null,
     querySelectorAll: selector => groups.get(selector) || [],
     createElement: tag => new Element(tag)
@@ -179,13 +180,37 @@ test('finishing a slider save never unlocks it after the parent setting turns of
   card.append(parent, slider);
   nodes.set('#pageDisplayReduceWhitePointEnabled', parent);
   nodes.set('#reduceWhitePointReduction', slider);
-  const snapshot = enabled => ({ preferences: { satellites: {}, pageDisplay: { reduceWhitePoint: { enabled, reduction: 0.5 } } } });
+  const snapshot = enabled => ({ preferences: { satellites: {}, pageDisplay: { enabled: true, reduceWhitePoint: { enabled, reduction: 0.5 } } } });
   await api.hydrate(snapshot(true)); api.render();
   const saved = deferred();
   const updating = api.update(null, () => saved.promise, [slider]);
   await api.hydrate(snapshot(false)); api.render();
   saved.resolve(); await updating;
   assert.equal(parent.checked, false);
+  assert.equal(slider.disabled, true);
+});
+
+test('Page Display master switch disables every subordinate control without discarding its values', async () => {
+  const { api, nodes } = controller('pageDisplay');
+  const master = new Element('input');
+  const reduce = new Element('input');
+  const slider = new Element('input');
+  const greyscale = new Element('input');
+  nodes.set('#enabled', master);
+  nodes.set('#pageDisplayReduceWhitePointEnabled', reduce);
+  nodes.set('#reduceWhitePointReduction', slider);
+  nodes.set('#pageDisplayGreyscaleEnabled', greyscale);
+  await api.hydrate({ preferences: { pageDisplay: {
+    enabled: false,
+    reduceWhitePoint: { enabled: true, reduction: 0.4 },
+    greyscale: { enabled: true }
+  } } });
+  api.render();
+  assert.equal(master.checked, false);
+  assert.equal(reduce.checked, true);
+  assert.equal(greyscale.checked, true);
+  assert.equal(reduce.disabled, true);
+  assert.equal(greyscale.disabled, true);
   assert.equal(slider.disabled, true);
 });
 

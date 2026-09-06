@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.8.1 — 2026-09-06
+
+- Added global Reduce White Point and Greyscale controls to a new fourth popup row below Any Copy. Their saved settings remain directly available on restricted tabs, and each enabled control uses the popup's blue icon and background state.
+- Gave Reduce White Point the former bulb symbol and Greyscale a split solid-and-outline circle. XHS Image Dark Mode now uses a combined open-book-and-bulb icon while retaining its hollow waiting state and solid-bulb processing state.
+- Moved Page Display from Satellites into its own settings page, with a brightness-sun destination immediately before Satellites and individual icons for both visual adjustments.
+- Added a Page Display master switch. Turning it off restores affected pages and disables every child control while preserving its selections; turning on either popup adjustment also enables the master when needed.
+
 ## 8.7.1 — 2026-09-06
 
 - Fixed XHS Image Dark Mode accumulating image observation, size observation, control-position work, and continuously scheduled analysis as the Xiaohongshu feed grew. Completed ordinary photographs now leave observation immediately, while reversible transformed cards retain only the state they need.

@@ -14,12 +14,14 @@ function updatePageDisplaySetting(feature, name, value) {
   if (name === 'reduceWhitePointEnabled') {
     return {
       ...feature,
+      enabled: value === true ? true : feature.enabled,
       reduceWhitePoint: { ...feature.reduceWhitePoint, enabled: value === true }
     };
   }
   if (name === 'greyscaleEnabled') {
     return {
       ...feature,
+      enabled: value === true ? true : feature.enabled,
       greyscale: { ...feature.greyscale, enabled: value === true }
     };
   }
@@ -45,6 +47,15 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
       return active;
     },
     async handleMessage(message) {
+      if (message.type === 'UI_SET_ENABLED' && message.featureId === FEATURE_IDS.PAGE_DISPLAY) {
+        const settings = await platform.mutateSettings(current => updateFeature(
+          current,
+          FEATURE_IDS.PAGE_DISPLAY,
+          feature => ({ ...feature, enabled: message.enabled === true })
+        ), false);
+        await platform.refreshOpenPages();
+        return settings.pageDisplay;
+      }
       if (message.type !== 'UI_SET_PAGE_DISPLAY_SETTING' || !SETTING_NAMES.has(message.name)) {
         throw new Error('Page Display does not support this command.');
       }

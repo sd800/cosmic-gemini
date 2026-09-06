@@ -63,6 +63,7 @@ function applyLocale() {
     anyCopy: 'switchAnyCopySettings',
     imageDownload: 'switchImageDownloadSettings',
     videoDownload: 'switchVideoDownloadSettings',
+    pageDisplay: 'switchPageDisplaySettings',
     satellites: 'switchSatellitesSettings',
     allSettings: 'switchAllSettings'
   };
@@ -194,17 +195,25 @@ function render() {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
   const pageDisplaySettings = (states?.preferences || states)?.pageDisplay;
+  const pageDisplayEnabled = pageDisplaySettings?.enabled === true;
+  if (featureId === 'pageDisplay') document.body.dataset.pageDisplayEnabled = String(pageDisplayEnabled);
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
   const reduceWhitePointActive = pageDisplaySettings?.reduceWhitePoint?.enabled === true;
-  if (reduceWhitePointEnabled) reduceWhitePointEnabled.checked = reduceWhitePointActive;
+  if (reduceWhitePointEnabled) {
+    reduceWhitePointEnabled.checked = reduceWhitePointActive;
+    reduceWhitePointEnabled.disabled = !pageDisplayEnabled;
+  }
   const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
-  if (greyscaleEnabled) greyscaleEnabled.checked = pageDisplaySettings?.greyscale?.enabled === true;
+  if (greyscaleEnabled) {
+    greyscaleEnabled.checked = pageDisplaySettings?.greyscale?.enabled === true;
+    greyscaleEnabled.disabled = !pageDisplayEnabled;
+  }
   const reduceWhitePointReduction = document.querySelector('#reduceWhitePointReduction');
   const reduceWhitePointReductionValue = document.querySelector('#reduceWhitePointReductionValue');
   if (reduceWhitePointReduction) {
     const percentage = Math.round((pageDisplaySettings?.reduceWhitePoint?.reduction ?? 0.25) * 100);
     reduceWhitePointReduction.value = String(percentage);
-    reduceWhitePointReduction.disabled = !reduceWhitePointActive;
+    reduceWhitePointReduction.disabled = !pageDisplayEnabled || !reduceWhitePointActive;
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;
   }
   const xhsSettings = (states?.preferences || states)?.xhsImageDarkMode;
@@ -255,7 +264,7 @@ function render() {
     control.checked = checked;
   }
   if (reduceWhitePointReduction) {
-    reduceWhitePointReduction.disabled = !reduceWhitePointEnabled.checked;
+    reduceWhitePointReduction.disabled = !pageDisplayEnabled || !reduceWhitePointEnabled.checked;
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${reduceWhitePointReduction.value}%`;
   }
   if (xhsImageDarkModeOverride) xhsImageDarkModeOverride.disabled = !xhsImageDarkModeEnabled.checked;
@@ -372,9 +381,23 @@ async function update(section, task, controls = [], errorKey = 'settingsSaveFail
 
 function bindView() {
   const enabled = document.querySelector('#enabled');
-  if (enabled) enabled.addEventListener('change', () => void update(null, () => savePreference(featureId, {
-    type: 'UI_SET_ENABLED', featureId, enabled: enabled.checked
-  }), [enabled]));
+  if (enabled) {
+    const enabledFeatureId = featureId;
+    enabled.addEventListener('change', () => {
+      if (enabledFeatureId === 'pageDisplay') {
+        document.body.dataset.pageDisplayEnabled = String(enabled.checked);
+        const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
+        const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
+        const reduction = document.querySelector('#reduceWhitePointReduction');
+        if (reduceWhitePointEnabled) reduceWhitePointEnabled.disabled = !enabled.checked;
+        if (greyscaleEnabled) greyscaleEnabled.disabled = !enabled.checked;
+        if (reduction) reduction.disabled = !enabled.checked || !reduceWhitePointEnabled?.checked;
+      }
+      void update(null, () => savePreference(enabledFeatureId, {
+        type: 'UI_SET_ENABLED', featureId: enabledFeatureId, enabled: enabled.checked
+      }), [enabled]);
+    });
+  }
   const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
   if (audioAutoplayAllSites) audioAutoplayAllSites.addEventListener('change', () => void update(null, () => savePreference('noAutoplay', {
     type: 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES', enabled: audioAutoplayAllSites.checked

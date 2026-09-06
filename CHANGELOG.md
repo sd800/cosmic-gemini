@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.1 — 2026-09-06
+
+- Extended XHS Image Dark Mode to post covers on Xiaohongshu user-profile pages, including covers discovered before their initial layout dimensions are available. Profile post covers are no longer mistaken for user avatars.
+- Recognized Xiaohongshu's native page-dark marker and kept the detected state intact across same-document navigation. Document-bound, ordered status reports now prevent stale results from making the popup incorrectly say that page-wide dark mode was not detected.
+
 ## 8.8.5 — 2026-09-06
 
 - Redesigned the XHS Image Dark Mode popup icon with the open book in the upper portion and the bulb below it. The waiting and active states continue to use hollow and solid bulbs respectively.

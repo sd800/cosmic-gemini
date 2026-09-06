@@ -4,11 +4,13 @@ import {
   updateFeature,
   xhsImageDarkModeState
 } from '../../../core/config.js';
+import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 
 const SESSION_PREFIX = 'xhsImageDarkModePage:';
 
 export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
   let localePromise = null;
+  const pageStateQueue = createKeyedTaskQueue();
   const key = tabId => SESSION_PREFIX + tabId;
 
   function locale() {
@@ -21,18 +23,50 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
     return (await chrome.storage.session.get(key(tabId)))[key(tabId)] || {};
   }
 
-  async function writePageState(tabId, value) {
+  async function writePageState(tabId, value, documentId = '') {
     if (!Number.isInteger(tabId)) return false;
-    const next = {
-      darkModeDetected: value?.darkModeDetected === true,
-      processing: value?.processing === true
-    };
-    const current = await readPageState(tabId);
-    if (current.darkModeDetected === next.darkModeDetected && current.processing === next.processing) return false;
-    await chrome.storage.session.set({ [key(tabId)]: next });
-    platform.notifyCentralUi(tabId);
-    await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_MODE, next.processing);
-    return true;
+    return pageStateQueue.run(tabId, async () => {
+      const current = await readPageState(tabId);
+      const sequence = Number.isSafeInteger(value?.sequence) && value.sequence > 0 ? value.sequence : 0;
+      const nextDocumentId = String(documentId || current.documentId || '');
+      const next = {
+        documentId: nextDocumentId,
+        sequence,
+        darkModeDetected: value?.darkModeDetected === true,
+        processing: value?.processing === true
+      };
+      if (current.documentId && next.documentId && current.documentId !== next.documentId) return false;
+      const sameDocument = current.documentId === next.documentId;
+      const currentSequence = Number(current.sequence) || 0;
+      if (sameDocument && currentSequence > 0 && sequence === 0) return false;
+      if (sameDocument && sequence && sequence <= currentSequence) return false;
+      const stateChanged = current.darkModeDetected !== next.darkModeDetected
+        || current.processing !== next.processing;
+      const metadataChanged = !sameDocument || sequence !== currentSequence;
+      if (!stateChanged && !metadataChanged) return false;
+      await chrome.storage.session.set({ [key(tabId)]: next });
+      if (stateChanged) {
+        platform.notifyCentralUi(tabId);
+        await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_MODE, next.processing);
+      }
+      return true;
+    });
+  }
+
+  async function bindPageDocument(tabId, documentId) {
+    if (!Number.isInteger(tabId) || !documentId) return;
+    await pageStateQueue.run(tabId, async () => {
+      const current = await readPageState(tabId);
+      if (current.documentId === documentId) return;
+      await chrome.storage.session.set({
+        [key(tabId)]: {
+          documentId,
+          sequence: 0,
+          darkModeDetected: false,
+          processing: false
+        }
+      });
+    });
   }
 
   async function updateSettings(update, tabId) {
@@ -62,6 +96,7 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
       }
       const state = await product.state(settings, context.topUrl, context.tabId);
       const active = state.active;
+      if (active) await bindPageDocument(context.tabId, context.documentId);
       await pageRuntimeHost.sync(product, context, active);
       if (!active) await product.removeTab(context.tabId);
       return active;
@@ -73,7 +108,7 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
         if (context.sender?.frameId !== 0 || hostname !== 'www.xiaohongshu.com') return { recorded: false };
         const settings = await platform.readSettings();
         if (!settings.xhsImageDarkMode.enabled) return { recorded: false };
-        return { recorded: await writePageState(tabId, message.status) };
+        return { recorded: await writePageState(tabId, message.status, context.sender?.documentId) };
       }
       if (message.type === 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED') {
         const enabled = message.enabled === true;
@@ -100,10 +135,12 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
     },
     async removeTab(tabId) {
       if (!Number.isInteger(tabId)) return;
-      const current = await readPageState(tabId);
-      if (!Object.keys(current).length) return;
-      await chrome.storage.session.remove(key(tabId));
-      await platform.setFeatureActivity(tabId, product.id, false);
+      await pageStateQueue.run(tabId, async () => {
+        const current = await readPageState(tabId);
+        if (!Object.keys(current).length) return;
+        await chrome.storage.session.remove(key(tabId));
+        await platform.setFeatureActivity(tabId, product.id, false);
+      });
     },
     async cleanupOrphans() {
       const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);

@@ -5,6 +5,7 @@ import { createAnyCopyProduct } from '../extension/background/products/operation
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
 import { createPageDisplayProduct } from '../extension/background/products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
+import { createOperationsProvince } from '../extension/background/provinces/operations.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 import { createAdministrationProduct } from '../extension/background/products/operations/administration.js';
 
@@ -207,6 +208,102 @@ test('XHS Image Dark Mode settings synchronize open pages before returning', asy
   });
   assert.equal(result.overrideDarkMode, true);
   assert.equal(refreshes, 1);
+});
+
+test('XHS Image Dark Mode keeps the newest status report for the current document', async () => {
+  const session = {};
+  globalThis.chrome = {
+    storage: { session: {
+      async get(key) { return key in session ? { [key]: session[key] } : {}; },
+      async set(values) { Object.assign(session, values); },
+      async remove(key) { delete session[key]; }
+    } },
+    tabs: { async query() { return []; } }
+  };
+  const settings = normalizeSettings({ xhsImageDarkMode: { enabled: true } });
+  let activity = false;
+  const product = createXhsImageDarkModeProduct({ sync: async () => true }, {
+    async getLocale() { return 'en-US'; },
+    async readSettings() { return settings; },
+    notifyCentralUi() {},
+    async setFeatureActivity(_tabId, _featureId, value) { activity = value; }
+  });
+  await product.sync({
+    tabId: 17,
+    frameId: 0,
+    documentId: 'document-current',
+    topUrl: 'https://www.xiaohongshu.com/user/profile/669cf72a000000002401e0fc'
+  }, settings);
+  const context = {
+    sender: {
+      frameId: 0,
+      documentId: 'document-current',
+      tab: { id: 17, url: 'https://www.xiaohongshu.com/user/profile/669cf72a000000002401e0fc' }
+    }
+  };
+  const newest = await product.handleMessage({
+    type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
+    status: { sequence: 2, darkModeDetected: true, processing: true }
+  }, context);
+  const newerSameState = await product.handleMessage({
+    type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
+    status: { sequence: 4, darkModeDetected: true, processing: true }
+  }, context);
+  const stale = await product.handleMessage({
+    type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
+    status: { sequence: 3, darkModeDetected: false, processing: false }
+  }, context);
+  const state = await product.state(settings, context.sender.tab.url, 17);
+  assert.equal(newest.recorded, true);
+  assert.equal(newerSameState.recorded, true);
+  assert.equal(stale.recorded, false);
+  assert.equal(state.darkModeDetected, true);
+  assert.equal(state.processing, true);
+  assert.equal(activity, true);
+});
+
+test('XHS Image Dark Mode status survives Xiaohongshu same-document navigation', async () => {
+  const session = {};
+  globalThis.chrome = {
+    extension: { inIncognitoContext: false },
+    storage: { session: {
+      async get(key) { return key in session ? { [key]: session[key] } : {}; },
+      async set(values) { Object.assign(session, values); },
+      async remove(key) { delete session[key]; }
+    } },
+    tabs: { async query() { return []; } }
+  };
+  const settings = normalizeSettings({ xhsImageDarkMode: { enabled: true } });
+  let activityClears = 0;
+  const province = createOperationsProvince({
+    async getLocale() { return 'en-US'; },
+    async readSettings() { return settings; },
+    notifyCentralUi() {},
+    async setFeatureActivity() {},
+    async clearTabActivity() { activityClears += 1; }
+  });
+  const context = {
+    sender: {
+      frameId: 0,
+      documentId: 'document-spa',
+      tab: { id: 23, url: 'https://www.xiaohongshu.com/explore' }
+    }
+  };
+  await province.products.xhsImageDarkMode.handleMessage({
+    type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
+    status: { sequence: 1, darkModeDetected: true, processing: true }
+  }, context);
+  await province.handleTabUpdated(23, {
+    url: 'https://www.xiaohongshu.com/user/profile/669cf72a000000002401e0fc'
+  });
+  const state = await province.products.xhsImageDarkMode.state(
+    settings,
+    'https://www.xiaohongshu.com/user/profile/669cf72a000000002401e0fc',
+    23
+  );
+  assert.equal(activityClears, 0);
+  assert.equal(state.darkModeDetected, true);
+  assert.equal(state.processing, true);
 });
 
 test('Page Display master authorization gates its independent top-frame visual features', async () => {

@@ -99,6 +99,7 @@
       this.pumpHandle = 0;
       this.pumpKind = '';
       this.processingGeneration = 0;
+      this.statusSequence = 0;
       this.themeTimer = 0;
       this.themeCheckTimers = [];
       this.positionFrame = 0;
@@ -194,7 +195,7 @@
       this.themeObserver = new MutationObserver(this.onThemeChange);
       this.themeObserver.observe(document.documentElement, {
         attributes: true,
-        attributeFilter: ['class', 'style', 'data-theme', 'data-darkreader-mode', 'data-darkreader-scheme'],
+        attributeFilter: ['class', 'style', 'dark', 'data-theme', 'data-darkreader-mode', 'data-darkreader-scheme'],
         childList: true
       });
       this.observeThemeHead();
@@ -321,6 +322,7 @@
     explicitDarkMode() {
       const root = document.documentElement;
       if (!root) return null;
+      if (root.hasAttribute?.('dark')) return true;
       const mode = String(root.getAttribute?.('data-darkreader-mode') || '').toLowerCase();
       const scheme = String(root?.getAttribute?.('data-darkreader-scheme') || '').toLowerCase();
       if (scheme === 'dark') return true;
@@ -410,10 +412,12 @@
     }
 
     reportStatus() {
+      this.statusSequence += 1;
       window.dispatchEvent(new CustomEvent(STATUS, {
         detail: JSON.stringify({
           token: this.token,
           status: {
+            sequence: this.statusSequence,
             darkModeDetected: this.darkModeDetected,
             processing: this.active && this.processing
           }
@@ -519,7 +523,7 @@
 
     isAvatar(image) {
       return image.matches?.('.avatar-item, [class*="avatar"]')
-        || image.closest?.('[class*="avatar"], a[href^="/user/profile/"]')
+        || image.closest?.('[class*="avatar"]')
         || /sns-avatar/i.test(image.currentSrc || image.src || '');
     }
 
@@ -528,10 +532,15 @@
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
       if (image.closest('#noteContainer .media-container, .note-slider, .swiper-slide')) return true;
+      const xhsSource = /(?:^|\.)xhscdn\.com(?:[/:]|$)/i.test(source);
+      const identifiedPostCover = image.hasAttribute?.('data-xhs-img')
+        || image.getAttribute?.('elementtiming') === 'card-exposed'
+        || !!image.closest?.('section.note-item, [data-note-id], a.cover');
+      if (xhsSource && identifiedPostCover) return true;
       const width = image.clientWidth || image.naturalWidth;
       const height = image.clientHeight || image.naturalHeight;
       if (width < 140 || height < 140) return false;
-      return /xhscdn\.com/i.test(source)
+      return xhsSource
         && !!image.closest('a[href^="/explore/"], [class*="note-item"], [class*="cover"], section');
     }
 

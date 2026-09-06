@@ -559,6 +559,61 @@ test('XHS Image Dark Mode recognizes Dark Reader before sampling page colors', a
   assert.equal(runtime.detectDarkMode(), true);
 });
 
+test('Xiaohongshu native dark marker is recognized as page-wide dark mode', async () => {
+  const root = {
+    ...themeElement(),
+    hasAttribute(name) { return name === 'dark'; }
+  };
+  const runtime = await runtimeFixture({
+    documentElement: root,
+    body: null,
+    querySelector() { return null; },
+    querySelectorAll() { return []; }
+  });
+  assert.equal(runtime.explicitDarkMode(), true);
+  assert.equal(runtime.detectDarkMode(), true);
+});
+
+test('profile post covers are accepted before their initial layout has dimensions', async () => {
+  class FakeImage {}
+  const runtime = await runtimeFixture({}, { HTMLImageElement: FakeImage });
+  const image = new FakeImage();
+  Object.assign(image, {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/example/post-cover!nc_n_nwebp_mw_1',
+    clientWidth: 0,
+    clientHeight: 0,
+    naturalWidth: 0,
+    naturalHeight: 0,
+    matches() { return false; },
+    hasAttribute(name) { return name === 'data-xhs-img'; },
+    getAttribute(name) { return name === 'elementtiming' ? 'card-exposed' : null; },
+    closest(selector) {
+      if (selector === '[class*="avatar"], a[href^="/user/profile/"]') return { className: 'profile-link' };
+      if (selector.includes('section.note-item')) return {};
+      return null;
+    }
+  });
+  assert.equal(runtime.isContentImage(image), true);
+});
+
+test('runtime status reports carry a monotonic sequence', async () => {
+  const windowTarget = new SimpleEventTarget();
+  const reports = [];
+  windowTarget.addEventListener('cosmic-gemini:xhs-image-dark-mode:status', event => {
+    reports.push(JSON.parse(event.detail).status);
+  });
+  const runtime = await runtimeFixture({}, { window: windowTarget });
+  runtime.active = true;
+  runtime.processing = true;
+  runtime.darkModeDetected = true;
+  runtime.reportStatus();
+  runtime.processing = false;
+  runtime.reportStatus();
+  assert.deepEqual(reports.map(report => report.sequence), [1, 2]);
+  assert.equal(reports[0].processing, true);
+  assert.equal(reports[1].processing, false);
+});
+
 test('Dark Reader lifecycle markers are authoritative without depending on rendered colors', async () => {
   const attributes = { 'data-darkreader-mode': 'dynamic' };
   const root = themeElement(attributes);

@@ -75,10 +75,7 @@ export function createOperationsProvince(platform) {
     handleConnect(port) { return platform.connectCentralUi(port); },
     async handleTabUpdated(tabId, change) {
       if (change.status === 'loading') {
-        await Promise.allSettled([
-          platform.clearTabActivity(tabId),
-          xhsImageDarkMode.removeTab(tabId)
-        ]);
+        await platform.clearTabActivity(tabId);
       }
     },
     async handleTabRemoved(tabId) {

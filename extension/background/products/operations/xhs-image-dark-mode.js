@@ -66,6 +66,8 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
           processing: false
         }
       });
+      platform.notifyCentralUi(tabId);
+      await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_MODE, false);
     });
   }
 

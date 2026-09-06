@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.3 — 2026-09-06
+
+- Fixed a late tab-loading event erasing XHS Image Dark Mode's current-document status after the page had already reported active processing. New documents now reset this state through their own document identity, so the popup no longer falls back to “Waiting for a page-wide dark mode” while processing is active.
+
 ## 8.9.2 — 2026-09-06
 
 - Updated XHS Image Dark Mode to describe and follow the resulting page-wide dark appearance without naming a particular theme provider. Automatic processing recognizes compatible page-dark signals from either the website or other page styling, while Always on continues to bypass detection.

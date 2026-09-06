@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.8.2 — 2026-09-06
+
+- Reordered the popup so Image Download and Video Download appear above the Page Display controls. Reduce White Point and Greyscale now occupy the fifth row.
+
 ## 8.8.1 — 2026-09-06
 
 - Added global Reduce White Point and Greyscale controls to a new fourth popup row below Any Copy. Their saved settings remain directly available on restricted tabs, and each enabled control uses the popup's blue icon and background state.

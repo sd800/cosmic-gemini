@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.8.2 — 2026-09-06
+
+- 调整控制窗口中的功能顺序。Image Download 与 Video Download 现在位于 Page Display 控制项上方，Reduce White Point 与 Greyscale 移至第五行。
+
 ## 8.8.1 — 2026-09-06
 
 - 在 Any Copy 下方新增控制窗口第四行，放置 Reduce White Point 与 Greyscale 的全局开关。即使当前标签页不允许插件注入页面代码，两个按钮仍可直接修改各自保存的全局设置。开启后，按钮会显示蓝色图标与背景色。

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.8.1');
+assert.equal(manifest.version, '8.8.2');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -172,7 +172,7 @@ for (const [name, featureId] of Object.entries({
 
 const popupHtml = await source('popup', 'index.html');
 const popupSource = await source('popup', 'popup.js');
-assert.match(popupHtml, /id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"[\s\S]*id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="reduceWhitePoint-status"[\s\S]*id="greyscale-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"[\s\S]*id="all-settings"/);
+assert.match(popupHtml, /id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"[\s\S]*id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"[\s\S]*id="reduceWhitePoint-status"[\s\S]*id="greyscale-status"[\s\S]*id="all-settings"/);
 assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 5);
 assert.match(popupSource, /type: 'UI_GET_ACTIVE_PAGE_STATE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_PAGE_FEATURE'/);

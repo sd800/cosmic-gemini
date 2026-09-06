@@ -113,8 +113,8 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 - 第一行排列 **Native Scroll** 和 **Native Scroll 强力模式**。
 - 第二行排列 **No Autoplay** 和 **No Autoplay 强力模式**。
 - 第三行排列 **Any Copy** 和 **Any Copy 强力模式**。
-- 第四行排列全局 **Reduce White Point** 和 **Greyscale** 开关。
-- 第五行排列 **Image Download** 和 **Video Download**。
+- 第四行排列 **Image Download** 和 **Video Download**。
+- 第五行排列全局 **Reduce White Point** 和 **Greyscale** 开关。
 
 Native Scroll 与 No Autoplay 的控制按钮只调整当前网站，不会改变全局默认状态。即使全局设置已关闭，也可以为当前网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。
 

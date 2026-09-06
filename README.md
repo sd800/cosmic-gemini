@@ -113,8 +113,8 @@ The popup uses five compact rows, with two related controls in each row.
 - The first row contains **Native Scroll** and **Native Scroll Enhanced**.
 - The second row contains **No Autoplay** and **No Autoplay Enhanced**.
 - The third row contains **Any Copy** and **Any Copy Enhanced**.
-- The fourth row contains the global **Reduce White Point** and **Greyscale** switches.
-- The fifth row contains **Image Download** and **Video Download**.
+- The fourth row contains **Image Download** and **Video Download**.
+- The fifth row contains the global **Reduce White Point** and **Greyscale** switches.
 
 Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 

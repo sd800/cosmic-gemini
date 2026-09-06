@@ -56,7 +56,8 @@ function applyLocale() {
   document.title = 'Cosmic Gemini · ' + PRODUCT_META[featureId].name;
   const language = document.querySelector('#language');
   if (language) { language.value = locale; language.disabled = localeSaving; }
-  document.querySelector('#version').textContent = t('version', { version: chrome.runtime.getManifest().version });
+  const manifest = chrome.runtime.getManifest();
+  document.querySelector('#version').textContent = t('version', { version: manifest.version_name || manifest.version });
   const titles = {
     nativeScroll: 'switchNativeSettings',
     noAutoplay: 'switchAutoplaySettings',

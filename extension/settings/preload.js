@@ -57,7 +57,8 @@
   const language = document.querySelector('#language');
   if (language) language.value = locale;
   const version = document.querySelector('#version');
-  if (version) version.textContent = translate('version', { version: chrome.runtime.getManifest().version });
+  const manifest = chrome.runtime.getManifest();
+  if (version) version.textContent = translate('version', { version: manifest.version_name || manifest.version });
 
   let cached = {};
   if (!incognitoContext) {

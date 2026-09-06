@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.8.2');
+assert.equal(manifest.version, '8.8.3');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -211,6 +211,8 @@ assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDa
 assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);
 assert.match(pageDisplaySettings, /id="enabled"[\s\S]*data-section-icon="reduceWhitePoint"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="reduceWhitePointReduction"[\s\S]*data-section-icon="greyscale"[\s\S]*id="pageDisplayGreyscaleEnabled"/);
 assert.match(pageDisplaySettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
+assert.match(pageDisplaySettings, /page-display-feature-heading[\s\S]*reduceWhitePointName[\s\S]*reduceWhitePointHelp[\s\S]*id="pageDisplayReduceWhitePointEnabled"/);
+assert.match(pageDisplaySettings, /page-display-feature-heading[\s\S]*greyscaleName[\s\S]*greyscaleHelp[\s\S]*id="pageDisplayGreyscaleEnabled"/);
 assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZhihu"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
 assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);

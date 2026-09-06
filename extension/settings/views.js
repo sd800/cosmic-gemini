@@ -192,15 +192,19 @@ export function viewFor(featureId) {
         </div>
       </section>
       <section class="card page-display-feature-card">
-        <div class="rule-heading"><span data-section-icon="reduceWhitePoint" aria-hidden="true"></span><h2 data-i18n="reduceWhitePointName"></h2></div>
-        <div class="preference-list">
-          <label class="preference-row" for="pageDisplayReduceWhitePointEnabled"><span><strong data-i18n="pageDisplayActivationHeading"></strong><small data-i18n="reduceWhitePointHelp"></small></span><span class="switch"><input id="pageDisplayReduceWhitePointEnabled" type="checkbox"><span></span></span></label>
+        <div class="section-heading page-display-feature-heading">
+          <div><div class="rule-heading"><span data-section-icon="reduceWhitePoint" aria-hidden="true"></span><h2 data-i18n="reduceWhitePointName"></h2></div><p class="last" data-i18n="reduceWhitePointHelp"></p></div>
+          <label class="switch"><input id="pageDisplayReduceWhitePointEnabled" type="checkbox"><span></span><b class="sr-only">Reduce White Point</b></label>
+        </div>
+        <div class="preference-list page-display-strength-list">
           <label class="preference-row" for="reduceWhitePointReduction"><span><strong data-i18n="reduceWhitePointReductionHeading"></strong><small data-i18n="reduceWhitePointReductionHelp"></small></span><span class="range-control"><input id="reduceWhitePointReduction" type="range" min="10" max="80" step="5" value="25"><output id="reduceWhitePointReductionValue" for="reduceWhitePointReduction">25%</output></span></label>
         </div>
       </section>
       <section class="card page-display-feature-card">
-        <div class="rule-heading"><span data-section-icon="greyscale" aria-hidden="true"></span><h2 data-i18n="greyscaleName"></h2></div>
-        <label class="preference-row" for="pageDisplayGreyscaleEnabled"><span><strong data-i18n="pageDisplayActivationHeading"></strong><small data-i18n="greyscaleHelp"></small></span><span class="switch"><input id="pageDisplayGreyscaleEnabled" type="checkbox"><span></span></span></label>
+        <div class="section-heading page-display-feature-heading">
+          <div><div class="rule-heading"><span data-section-icon="greyscale" aria-hidden="true"></span><h2 data-i18n="greyscaleName"></h2></div><p class="last" data-i18n="greyscaleHelp"></p></div>
+          <label class="switch"><input id="pageDisplayGreyscaleEnabled" type="checkbox"><span></span><b class="sr-only">Greyscale</b></label>
+        </div>
       </section>`,
     help: help(['pageDisplayHelpEffects', 'pageDisplayHelpRestore'], 'pageDisplayPrivacy')
   };

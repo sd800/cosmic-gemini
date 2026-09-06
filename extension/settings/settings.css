@@ -149,6 +149,10 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .page-display-master-card .section-heading { align-items: flex-start; }
 .page-display-master-card .switch { margin-top: 1px; }
 .page-display-feature-card { transition: border-color 150ms ease, opacity 150ms ease; }
+.page-display-feature-heading > div:first-child { min-width: 0; }
+.page-display-feature-heading > .switch { margin-top: 1px; }
+.page-display-feature-heading p { max-width: 620px; margin-top: 7px; }
+.page-display-strength-list { margin-top: 18px; }
 body[data-feature="pageDisplay"][data-page-display-enabled="false"] .page-display-feature-card {
   border-color: color-mix(in srgb, var(--line) 82%, var(--surface-raised));
   opacity: .56;

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.8.3 — 2026-09-06
+
+- 简化 Page Display 设置页的层级。Reduce White Point 与 Greyscale 的开关现在直接对齐在各自小标题右侧，只有亮度降低幅度保留为下一级设置。
+
 ## 8.8.2 — 2026-09-06
 
 - 调整控制窗口中的功能顺序。Image Download 与 Video Download 现在位于 Page Display 控制项上方，Reduce White Point 与 Greyscale 移至第五行。

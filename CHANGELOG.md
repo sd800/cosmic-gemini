@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.8.3 — 2026-09-06
+
+- Simplified the Page Display settings hierarchy. Reduce White Point and Greyscale now place their switches directly beside their headings, while only the Reduction control remains in a subordinate row.
+
 ## 8.8.2 — 2026-09-06
 
 - Reordered the popup so Image Download and Video Download appear above the Page Display controls. Reduce White Point and Greyscale now occupy the fifth row.

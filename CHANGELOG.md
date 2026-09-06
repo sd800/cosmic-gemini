@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.8.5 — 2026-09-06
+
+- Redesigned the XHS Image Dark Mode popup icon with the open book in the upper portion and the bulb below it. The waiting and active states continue to use hollow and solid bulbs respectively.
+
 ## 8.8.3 — 2026-09-06
 
 - Simplified the Page Display settings hierarchy. Reduce White Point and Greyscale now place their switches directly beside their headings, while only the Reduction control remains in a subordinate row.

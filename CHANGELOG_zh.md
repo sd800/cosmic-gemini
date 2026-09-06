@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.8.5 — 2026-09-06
+
+- 重新设计 XHS Image Dark Mode 的控制窗口图标，将翻开的书放在上半部，灯泡放在下方。等待状态仍使用空心灯泡，生效状态仍使用实心灯泡。
+
 ## 8.8.3 — 2026-09-06
 
 - 简化 Page Display 设置页的层级。Reduce White Point 与 Greyscale 的开关现在直接对齐在各自小标题右侧，只有亮度降低幅度保留为下一级设置。

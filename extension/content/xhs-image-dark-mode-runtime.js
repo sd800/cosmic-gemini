@@ -91,14 +91,18 @@
       this.imageBrightness = 1;
       this.openingPostId = '';
       this.records = new Map();
+      this.controlRecords = new Set();
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
       this.running = 0;
       this.pumpHandle = 0;
+      this.pumpKind = '';
+      this.processingGeneration = 0;
       this.themeTimer = 0;
       this.themeCheckTimers = [];
       this.positionFrame = 0;
+      this.viewerRefreshFrame = 0;
       this.cleanupTimer = 0;
       this.style = null;
       this.themeObserver = null;
@@ -112,6 +116,7 @@
       this.resizeObserver = null;
       this.controlHost = null;
       this.controlLayer = null;
+      this.controlViewportListening = false;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
@@ -419,6 +424,7 @@
     startProcessing() {
       if (this.processing) return;
       this.processing = true;
+      this.processingGeneration += 1;
       this.installStyle();
       this.installControlLayer();
       this.intersectionObserver = new IntersectionObserver(this.onIntersections, {
@@ -433,8 +439,6 @@
         attributes: true,
         attributeFilter: ['src', 'srcset']
       });
-      window.addEventListener('scroll', this.onViewportChange, { capture: true, passive: true });
-      window.addEventListener('resize', this.onViewportChange, { passive: true });
       document.addEventListener('click', this.onPostActivation, true);
       this.collectImages(document);
       this.scheduleCleanup();
@@ -443,6 +447,7 @@
     stopProcessing() {
       if (!this.processing && !this.records.size) return;
       this.processing = false;
+      this.processingGeneration += 1;
       this.pageObserver?.disconnect();
       this.pageObserver = null;
       this.viewerObserver?.disconnect();
@@ -452,23 +457,22 @@
       this.intersectionObserver = null;
       this.resizeObserver?.disconnect();
       this.resizeObserver = null;
-      window.removeEventListener('scroll', this.onViewportChange, true);
-      window.removeEventListener('resize', this.onViewportChange, false);
+      this.stopControlPositionTracking();
       document.removeEventListener('click', this.onPostActivation, true);
       this.openingPostId = '';
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
       this.positionFrame = 0;
+      if (this.viewerRefreshFrame) cancelAnimationFrame(this.viewerRefreshFrame);
+      this.viewerRefreshFrame = 0;
       if (this.cleanupTimer) clearTimeout(this.cleanupTimer);
       this.cleanupTimer = 0;
-      if (this.pumpHandle) {
-        if (typeof cancelIdleCallback === 'function') cancelIdleCallback(this.pumpHandle);
-        else clearTimeout(this.pumpHandle);
-      }
-      this.pumpHandle = 0;
+      this.cancelPump();
+      this.running = 0;
       this.queue.length = 0;
       this.queued.clear();
       for (const record of this.records.values()) this.clearRecord(record);
       this.records.clear();
+      this.controlRecords.clear();
       this.controlHost?.remove();
       this.controlHost = null;
       this.controlLayer = null;
@@ -548,25 +552,28 @@
       ].join('\n');
     }
 
+    createRecord(image) {
+      const record = {
+        image,
+        source: '',
+        button: null,
+        darkened: true,
+        result: null,
+        requestKey: this.imageRequestKey(image),
+        loadSource: '',
+        loadPriority: Number.POSITIVE_INFINITY,
+        loadGeneration: 0,
+        loadHandler: null
+      };
+      this.records.set(image, record);
+      this.intersectionObserver?.observe(image);
+      return record;
+    }
+
     observeImage(image) {
       if (!this.isContentImage(image)) return;
       let record = this.records.get(image);
-      if (!record) {
-        record = {
-          image,
-          source: '',
-          button: null,
-          darkened: true,
-          result: null,
-          requestKey: this.imageRequestKey(image),
-          loadSource: '',
-          loadPriority: Number.POSITIVE_INFINITY,
-          loadGeneration: 0
-        };
-        this.records.set(image, record);
-        this.intersectionObserver?.observe(image);
-        this.resizeObserver?.observe(image);
-      }
+      if (!record) record = this.createRecord(image);
       if (this.applyCachedResult(record)) return;
       if (!image.complete || !image.naturalWidth) this.waitForImageLoad(record, 0);
     }
@@ -592,23 +599,33 @@
     observeViewer(modal) {
       const root = modal?.querySelector?.('.xhs-slider-container, .note-slider') || null;
       if (!root || root === this.viewerRoot) return;
+      for (const record of [...this.controlRecords]) {
+        if (root.contains?.(record.image)) continue;
+        this.removeControl(record);
+        if (record.result?.kind === 'photo') {
+          this.clearVisual(record);
+          this.retireRecord(record);
+        }
+      }
       this.viewerObserver?.disconnect();
       this.viewerObserver = new MutationObserver(this.onViewerMutations);
       this.viewerObserver.observe(root, {
         attributes: true,
         attributeFilter: ['class'],
         childList: true,
-        subtree: true,
-        characterData: true
+        subtree: true
       });
       this.viewerRoot = root;
     }
 
     onViewerMutations() {
-      if (!this.processing) return;
-      const modal = this.viewerRoot?.closest?.('#noteContainer, .note-container');
-      if (modal) this.prioritizeModal(modal);
-      else this.scheduleControlPositions();
+      if (!this.processing || this.viewerRefreshFrame) return;
+      this.viewerRefreshFrame = requestAnimationFrame(() => {
+        this.viewerRefreshFrame = 0;
+        const modal = this.viewerRoot?.closest?.('#noteContainer, .note-container');
+        if (modal) this.prioritizeModal(modal);
+        else this.scheduleControlPositions();
+      });
     }
 
     onPostActivation(event) {
@@ -631,16 +648,24 @@
       for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
           const image = mutation.target;
-          const record = this.records.get(image);
+          let record = this.records.get(image);
+          if (!record) {
+            if (!this.isContentImage(image)) continue;
+            record = this.createRecord(image);
+            const priority = this.viewerForImage(image) ? -20 : 0;
+            this.waitForImageLoad(record, priority);
+            continue;
+          }
           const requestKey = this.imageRequestKey(image);
           if (record && record.requestKey !== requestKey) {
             this.clearRecord(record);
             record.requestKey = requestKey;
             record.source = '';
             record.darkened = true;
+            this.intersectionObserver?.observe(image);
             if (!this.applyCachedResult(record)) {
-              this.waitForImageLoad(record, -10);
-              this.queueImage(image, -10);
+              const priority = this.viewerForImage(image) ? -20 : 0;
+              this.waitForImageLoad(record, priority);
             }
           }
           continue;
@@ -649,8 +674,27 @@
           if (node.nodeType === Node.ELEMENT_NODE) this.collectImages(node);
         }
       }
-      this.scheduleControlPositions();
+      if (this.controlRecords.size) this.scheduleControlPositions();
       this.scheduleCleanup();
+    }
+
+    insertTask(task) {
+      let low = 0;
+      let high = this.queue.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        const current = this.queue[middle];
+        if (current.priority < task.priority
+          || (current.priority === task.priority && current.order <= task.order)) low = middle + 1;
+        else high = middle;
+      }
+      this.queue.splice(low, 0, task);
+    }
+
+    removeQueuedImage(image) {
+      if (!this.queued.delete(image)) return;
+      const index = this.queue.findIndex(task => task.image === image);
+      if (index >= 0) this.queue.splice(index, 1);
     }
 
     queueImage(image, priority = 0) {
@@ -658,6 +702,7 @@
       const record = this.records.get(image);
       const source = image.currentSrc || image.src || '';
       if (!record || !source || (record.source === source && record.result)) return;
+      if (record.loadSource) return;
       if (!image.complete || !image.naturalWidth) {
         this.waitForImageLoad(record, priority);
         return;
@@ -667,15 +712,15 @@
       if (this.queued.has(image)) {
         const task = this.queue.find(item => item.image === image);
         if (task && priority < task.priority) {
+          this.queue.splice(this.queue.indexOf(task), 1);
           task.priority = priority;
-          this.queue.sort((a, b) => a.priority - b.priority || a.order - b.order);
+          this.insertTask(task);
           this.schedulePump(true);
         }
         return;
       }
       this.queued.add(image);
-      this.queue.push({ image, priority, order: performance.now() });
-      this.queue.sort((a, b) => a.priority - b.priority || a.order - b.order);
+      this.insertTask({ image, priority, order: performance.now() });
       this.schedulePump(priority < 0);
     }
 
@@ -688,7 +733,9 @@
       record.loadSource = requestKey;
       record.loadGeneration = (record.loadGeneration || 0) + 1;
       const generation = record.loadGeneration;
-      image.addEventListener('load', () => {
+      if (record.loadHandler) image.removeEventListener?.('load', record.loadHandler);
+      const onLoad = () => {
+        if (record.loadHandler === onLoad) record.loadHandler = null;
         if (!this.processing || this.records.get(image) !== record
           || record.loadGeneration !== generation
           || requestKey !== this.imageRequestKey(image)) return;
@@ -696,18 +743,48 @@
         record.loadSource = '';
         record.loadPriority = Number.POSITIVE_INFINITY;
         this.queueImage(image, queuedPriority);
-      }, { once: true });
+      };
+      record.loadHandler = onLoad;
+      image.addEventListener('load', onLoad, { once: true });
     }
 
     schedulePump(urgent = false) {
-      if (this.pumpHandle || this.running >= 2 || !this.queue.length) return;
+      if (this.running >= 2 || !this.queue.length) return;
+      if (this.pumpHandle) {
+        if (!urgent || this.pumpKind === 'frame' || this.pumpKind === 'timeout-urgent') return;
+        this.cancelPump();
+      }
       const run = () => {
         this.pumpHandle = 0;
+        this.pumpKind = '';
         this.pump();
       };
-      if (urgent) this.pumpHandle = setTimeout(run, 0);
-      else if (typeof requestIdleCallback === 'function') this.pumpHandle = requestIdleCallback(run, { timeout: 450 });
-      else this.pumpHandle = setTimeout(run, 35);
+      if (urgent && typeof requestAnimationFrame === 'function') {
+        this.pumpKind = 'frame';
+        this.pumpHandle = requestAnimationFrame(run);
+      } else if (urgent) {
+        this.pumpKind = 'timeout-urgent';
+        this.pumpHandle = setTimeout(run, 0);
+      } else if (typeof requestIdleCallback === 'function') {
+        this.pumpKind = 'idle';
+        this.pumpHandle = requestIdleCallback(run, { timeout: 600 });
+      } else {
+        this.pumpKind = 'timeout';
+        this.pumpHandle = setTimeout(run, 40);
+      }
+    }
+
+    cancelPump() {
+      if (!this.pumpHandle) return;
+      if (this.pumpKind === 'idle' && typeof cancelIdleCallback === 'function') {
+        cancelIdleCallback(this.pumpHandle);
+      } else if (this.pumpKind === 'frame' && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(this.pumpHandle);
+      } else {
+        clearTimeout(this.pumpHandle);
+      }
+      this.pumpHandle = 0;
+      this.pumpKind = '';
     }
 
     pump() {
@@ -715,10 +792,12 @@
         const task = this.queue.shift();
         this.queued.delete(task.image);
         if (!task.image.isConnected || !this.isContentImage(task.image)) continue;
+        const generation = this.processingGeneration;
         this.running += 1;
-        void this.analyze(task.image).finally(() => {
+        void this.analyze(task.image, generation).finally(() => {
+          if (generation !== this.processingGeneration) return;
           this.running -= 1;
-          this.schedulePump(true);
+          this.schedulePump((this.queue[0]?.priority ?? 0) < 0);
         });
       }
     }
@@ -791,9 +870,9 @@
       return true;
     }
 
-    async analyze(image) {
+    async analyze(image, generation = this.processingGeneration) {
       const record = this.records.get(image);
-      if (!record || !this.processing) return;
+      if (!record || !this.processing || generation !== this.processingGeneration) return;
       const source = image.currentSrc || image.src || '';
       if (!source) return;
       const cached = this.cachedResult(image, source);
@@ -804,9 +883,13 @@
         return;
       }
       try { await image.decode?.(); } catch {}
-      if (!this.processing || !image.isConnected || source !== (image.currentSrc || image.src || '')) return;
+      if (!this.processing || generation !== this.processingGeneration
+        || this.records.get(image) !== record || !image.isConnected
+        || source !== (image.currentSrc || image.src || '')) return;
       const sample = await this.sampleImage(image);
-      if (!this.processing || !image.isConnected || source !== (image.currentSrc || image.src || '')) return;
+      if (!this.processing || generation !== this.processingGeneration
+        || this.records.get(image) !== record || !image.isConnected
+        || source !== (image.currentSrc || image.src || '')) return;
       if (!sample) return;
       const result = this.classifySample(sample.data, sample.width, sample.height);
       this.cacheResult(source, result, image);
@@ -1083,11 +1166,17 @@
 
     applyResult(record) {
       if (!this.processing || !record.image.isConnected || !record.result) return;
+      this.intersectionObserver?.unobserve?.(record.image);
       this.clearVisual(record);
       record.darkened = record.result.kind === 'light-theme' || record.result.kind === 'gray-theme';
-      if (this.viewerForImage(record.image)) this.createControl(record);
+      const viewer = this.viewerForImage(record.image);
+      if (viewer) this.createControl(record);
       this.updateRecordVisual(record);
-      this.scheduleControlPositions();
+      if (viewer) this.scheduleControlPositions();
+      else if (record.result.kind === 'photo') {
+        this.clearVisual(record);
+        this.retireRecord(record);
+      }
     }
 
     createControl(record) {
@@ -1102,7 +1191,34 @@
       });
       this.controlLayer.append(button);
       record.button = button;
+      this.controlRecords.add(record);
+      if (this.showImageControl) {
+        this.resizeObserver?.observe(record.image);
+        this.startControlPositionTracking();
+      }
       this.updateControl(record);
+    }
+
+    startControlPositionTracking() {
+      if (this.controlViewportListening) return;
+      this.controlViewportListening = true;
+      window.addEventListener('scroll', this.onViewportChange, { capture: true, passive: true });
+      window.addEventListener('resize', this.onViewportChange, { passive: true });
+    }
+
+    stopControlPositionTracking() {
+      if (!this.controlViewportListening) return;
+      this.controlViewportListening = false;
+      window.removeEventListener('scroll', this.onViewportChange, true);
+      window.removeEventListener('resize', this.onViewportChange, false);
+    }
+
+    removeControl(record) {
+      this.resizeObserver?.unobserve?.(record.image);
+      record.button?.remove();
+      record.button = null;
+      this.controlRecords.delete(record);
+      if (!this.controlRecords.size) this.stopControlPositionTracking();
     }
 
     updateRecordVisual(record) {
@@ -1133,11 +1249,20 @@
     }
 
     updateControls() {
-      for (const record of this.records.values()) this.updateControl(record);
+      if (this.showImageControl && this.controlRecords.size) {
+        for (const record of this.controlRecords) this.resizeObserver?.observe(record.image);
+        this.startControlPositionTracking();
+      } else {
+        for (const record of this.controlRecords) this.resizeObserver?.unobserve?.(record.image);
+        this.stopControlPositionTracking();
+      }
+      for (const record of this.controlRecords) this.updateControl(record);
       this.scheduleControlPositions();
     }
 
-    onViewportChange() { this.scheduleControlPositions(); }
+    onViewportChange() {
+      if (this.controlRecords.size) this.scheduleControlPositions();
+    }
 
     viewerForImage(image) {
       const viewer = image?.closest?.('#noteContainer');
@@ -1174,10 +1299,10 @@
     }
 
     scheduleControlPositions() {
-      if (this.positionFrame || !this.processing) return;
+      if (this.positionFrame || !this.processing || !this.controlRecords.size) return;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
-        for (const record of this.records.values()) {
+        for (const record of this.controlRecords) {
           if (!record.button || !record.image.isConnected) continue;
           const placement = this.showImageControl ? this.controlPlacement(record) : null;
           record.button.style.display = placement ? 'grid' : 'none';
@@ -1198,13 +1323,26 @@
 
     clearRecord(record) {
       this.clearVisual(record);
+      this.intersectionObserver?.unobserve?.(record.image);
+      this.removeQueuedImage(record.image);
       record.loadGeneration = (record.loadGeneration || 0) + 1;
+      if (record.loadHandler) record.image?.removeEventListener?.('load', record.loadHandler);
+      record.loadHandler = null;
       record.loadSource = '';
       record.loadPriority = Number.POSITIVE_INFINITY;
-      record.button?.remove();
-      record.button = null;
+      this.removeControl(record);
       record.result = null;
       record.darkened = true;
+    }
+
+    retireRecord(record) {
+      if (!record || record.button || record.visualTarget) return;
+      this.intersectionObserver?.unobserve?.(record.image);
+      this.removeQueuedImage(record.image);
+      if (record.loadHandler) record.image?.removeEventListener?.('load', record.loadHandler);
+      record.loadHandler = null;
+      record.loadGeneration = (record.loadGeneration || 0) + 1;
+      this.records.delete(record.image);
     }
 
     scheduleCleanup() {
@@ -1215,12 +1353,18 @@
           if (image.isConnected) continue;
           this.clearRecord(record);
           this.records.delete(image);
-          this.queued.delete(image);
         }
+        this.queue = this.queue.filter(task => {
+          const keep = task.image.isConnected && this.records.has(task.image);
+          if (!keep) this.queued.delete(task.image);
+          return keep;
+        });
         if (this.viewerRoot && !this.viewerRoot.isConnected) {
           this.viewerObserver?.disconnect();
           this.viewerObserver = null;
           this.viewerRoot = null;
+          if (this.viewerRefreshFrame) cancelAnimationFrame(this.viewerRefreshFrame);
+          this.viewerRefreshFrame = 0;
         }
       }, 1_500);
     }

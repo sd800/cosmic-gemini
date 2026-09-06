@@ -416,6 +416,7 @@ test('viewer source changes are followed even while currentSrc still reports the
   runtime.scheduleControlPositions = () => {};
   runtime.scheduleCleanup = () => {};
   runtime.applyCachedResult = () => false;
+  runtime.viewerForImage = () => ({});
   const queued = [];
   runtime.queueImage = (image, priority) => queued.push({ image, priority });
   let sourceAttribute = 'https://sns-webpic-qc.xhscdn.com/detail/slide-1';
@@ -446,9 +447,77 @@ test('viewer source changes are followed even while currentSrc still reports the
   image.src = sourceAttribute;
   runtime.onPageMutations([{ type: 'attributes', target: image, attributeName: 'src' }]);
   assert.equal(typeof onLoad, 'function');
+  assert.equal(queued.length, 0);
   image.currentSrc = sourceAttribute;
   onLoad();
-  assert.equal(queued.some(task => task.image === image && task.priority === -10), true);
+  assert.equal(queued.some(task => task.image === image && task.priority === -20), true);
+});
+
+test('completed feed photographs release their record and intersection observation', async () => {
+  const runtime = await runtimeFixture();
+  runtime.processing = true;
+  const unobserved = [];
+  runtime.intersectionObserver = { unobserve: image => unobserved.push(image) };
+  runtime.viewerForImage = () => null;
+  runtime.scheduleControlPositions = () => {};
+  const classes = new Set();
+  const image = {
+    isConnected: true,
+    closest: () => null,
+    classList: {
+      toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); },
+      remove(...names) { names.forEach(name => classes.delete(name)); }
+    },
+    style: { setProperty() {}, removeProperty() {} }
+  };
+  const record = {
+    image,
+    button: null,
+    darkened: false,
+    result: { kind: 'photo' },
+    loadGeneration: 0,
+    loadHandler: null,
+    visualTarget: null
+  };
+  runtime.records.set(image, record);
+  runtime.applyResult(record);
+  assert.equal(runtime.records.has(image), false);
+  assert.equal(unobserved.includes(image), true);
+  assert.equal(classes.size, 0);
+});
+
+test('control positioning visits only records that own viewer controls', async () => {
+  let frame = null;
+  const runtime = await runtimeFixture({}, {
+    requestAnimationFrame(callback) { frame = callback; return 1; }
+  });
+  runtime.processing = true;
+  let placements = 0;
+  runtime.controlPlacement = () => { placements += 1; return null; };
+  const passive = { image: { isConnected: true }, button: null };
+  const controlled = {
+    image: { isConnected: true },
+    button: { style: {} }
+  };
+  runtime.records.set(passive.image, passive);
+  runtime.records.set(controlled.image, controlled);
+  runtime.controlRecords.add(controlled);
+  runtime.scheduleControlPositions();
+  frame();
+  assert.equal(placements, 1);
+});
+
+test('feed scrolling has no viewport listener until an expanded-view control needs positioning', async () => {
+  const windowTarget = new SimpleEventTarget();
+  const runtime = await runtimeFixture({}, { window: windowTarget });
+  assert.equal(windowTarget.listeners.get('scroll')?.length || 0, 0);
+  assert.equal(windowTarget.listeners.get('resize')?.length || 0, 0);
+  runtime.startControlPositionTracking();
+  assert.equal(windowTarget.listeners.get('scroll')?.length, 1);
+  assert.equal(windowTarget.listeners.get('resize')?.length, 1);
+  runtime.stopControlPositionTracking();
+  assert.equal(windowTarget.listeners.get('scroll')?.length, 0);
+  assert.equal(windowTarget.listeners.get('resize')?.length, 0);
 });
 
 test('expanded images transform the slide background and image as one visual surface', async () => {

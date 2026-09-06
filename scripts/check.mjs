@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.6.1');
+assert.equal(manifest.version, '8.7.1');
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
@@ -384,8 +384,16 @@ assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult
   'Negative feed-cover classifications must not suppress independent viewer analysis.');
 assert.match(xhsImageDarkModeRuntime, /!image\.complete \|\| !image\.naturalWidth[\s\S]*waitForImageLoad[\s\S]*loadPriority/,
   'Unloaded XHS images must not occupy an image-analysis worker.');
-assert.match(xhsImageDarkModeRuntime, /imageRequestKey[\s\S]*record\.requestKey !== requestKey[\s\S]*waitForImageLoad\(record, -10\)/,
+assert.match(xhsImageDarkModeRuntime, /imageRequestKey[\s\S]*record\.requestKey !== requestKey[\s\S]*viewerForImage\(image\) \? -20 : 0[\s\S]*waitForImageLoad\(record, priority\)/,
   'Reused XHS viewer elements must follow src and srcset changes before currentSrc updates.');
+assert.match(xhsImageDarkModeRuntime, /controlRecords[\s\S]*createControl[\s\S]*resizeObserver\?\.observe\(record\.image\)[\s\S]*startControlPositionTracking[\s\S]*if \(!this\.controlRecords\.size\) this\.stopControlPositionTracking\(\)[\s\S]*scheduleControlPositions[\s\S]*for \(const record of this\.controlRecords\)/,
+  'Only expanded-view controls may participate in resize and scroll positioning.');
+assert.match(xhsImageDarkModeRuntime, /result\.kind === 'photo'[\s\S]*retireRecord\(record\)[\s\S]*intersectionObserver\?\.unobserve/,
+  'Completed feed photographs must release their record and intersection observation.');
+assert.match(xhsImageDarkModeRuntime, /requestIdleCallback\(run, \{ timeout: 600 \}\)[\s\S]*schedulePump\(\(this\.queue\[0\]\?\.priority \?\? 0\) < 0\)/,
+  'Background image work must return to idle scheduling after urgent work completes.');
+assert.match(xhsImageDarkModeRuntime, /processingGeneration[\s\S]*generation !== this\.processingGeneration[\s\S]*this\.records\.get\(image\) !== record/,
+  'Superseded image work must not write into a later processing lifecycle.');
 assert.match(xhsImageDarkModeRuntime, /grayBackground[\s\S]*'gray-theme'[\s\S]*cg-xhs-image-dark-mode-gray/);
 assert.match(xhsImageDarkModeRuntime, /--cg-xhs-image-brightness, 1[\s\S]*noteCacheKey[\s\S]*visualTarget/);
 assert.match(xhsImageDarkModeRuntime, /viewerForImage\(record\.image\)[\s\S]*fractionRect\.right - FRACTION_SLOT_WIDTH - CONTROL_GAP - CONTROL_SIZE/);

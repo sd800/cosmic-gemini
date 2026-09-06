@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.7.1 — 2026-09-06
+
+- Fixed XHS Image Dark Mode accumulating image observation, size observation, control-position work, and continuously scheduled analysis as the Xiaohongshu feed grew. Completed ordinary photographs now leave observation immediately, while reversible transformed cards retain only the state they need.
+- Restricted resize and scroll-position work to expanded-view images that actually own controls. Background analysis now yields to browser-idle scheduling between images, while visible and expanded-view images remain prioritized without reducing the existing forward-processing range.
+- Viewer replacement, recycled image sources, disconnection, and product restart now release obsolete controls, listeners, records, and queued work. Analysis started by an earlier lifecycle cannot update a later one.
+
 ## 8.6.1 — 2026-09-05
 
 - Fixed Reduce White Point making some pages brighter when their page-wide dark mode uses a root inversion filter. Page Display now adjusts its compositing color to the actual ancestor-filter direction so the final rendered page can only retain or reduce brightness, including images, video, Canvas, and other rendered content.

@@ -8,6 +8,7 @@ import {
 } from '../../../core/bilibili-video.js';
 import { youtubePageContext } from '../../../core/youtube-video.js';
 import { siteVideoPageDiscovery } from '../../../core/site-video.js';
+import { twitterPostContext, twitterSyndicationUrl, twitterVideoCandidates, twitterVideoPageContext, twitterVideoControlTarget } from '../../../core/twitter-video.js';
 import { unwrapObfuscatedHls } from '../../../core/obfuscated-hls.js';
 import {
   activateDownloadScan,
@@ -20,6 +21,8 @@ import {
 } from '../../../core/download-session.js';
 import {
   classifyVideoResource,
+  knownVideoFileSize,
+  readVideoFileSize,
   limitVideoCandidatesForSession,
   mediaRequestDirectoryFilters,
   mediaRequestReferrer,
@@ -45,6 +48,76 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   const pendingNetworkCandidates = new Map();
   const viewPorts = new Map();
   const sessionUpdates = createKeyedTaskQueue();
+  const twitterDiscoveryJobs = new Map();
+  const videoSizeJobs = new Map();
+
+  function twitterTarget(session) {
+    const page = twitterPostContext(session?.pageUrl);
+    return session?.twitterSelection || page;
+  }
+
+  function cancelVideoSizeReads(tabId) {
+    videoSizeJobs.get(tabId)?.controller.abort();
+    videoSizeJobs.delete(tabId);
+  }
+
+  function queueVideoSizeReads(session) {
+    if (!downloadScanCollects(session)) return;
+    const tabId = session.tabId;
+    let job = videoSizeJobs.get(tabId);
+    if (job && job.pageUrl !== session.pageUrl) { cancelVideoSizeReads(tabId); job = null; }
+    if (!job) {
+      job = { pageUrl: session.pageUrl, controller: new AbortController(), queue: [], seen: new Set(), pending: 0 };
+      videoSizeJobs.set(tabId, job);
+    }
+    for (const candidate of session.candidates) {
+      if (!['direct', 'audio', 'subtitle'].includes(candidate.kind) || knownVideoFileSize(candidate)
+        || job.seen.has(candidate.id) || job.seen.size >= 160) continue;
+      job.seen.add(candidate.id);
+      job.queue.push(candidate);
+    }
+    const drain = async () => {
+      while (job.queue.length && !job.controller.signal.aborted) {
+        const candidate = job.queue.shift();
+        const request = new AbortController();
+        const abort = () => request.abort();
+        job.controller.signal.addEventListener('abort', abort, { once: true });
+        const timer = setTimeout(abort, 5000);
+        try {
+          const size = await readVideoFileSize(candidate, (url, options) => withMediaRequestHeaders(candidate, job.pageUrl, () => {
+            if (job.controller.signal.aborted) request.abort();
+            return fetch(url, { ...options, signal: request.signal });
+          }));
+          if (!size || job.controller.signal.aborted || videoSizeJobs.get(tabId) !== job) continue;
+          await updateVideoCandidate(tabId, candidate.id, current => videoSizeJobs.get(tabId) === job
+            ? { ...current, contentLength: size, source: current.source === 'performance' ? 'file-metadata' : current.source }
+            : current, job.pageUrl);
+        } finally { clearTimeout(timer); job.controller.signal.removeEventListener('abort', abort); }
+      }
+    };
+    while (job.pending < 3 && job.queue.length) {
+      job.pending += 1;
+      void drain().catch(() => {}).finally(() => { job.pending -= 1; });
+    }
+  }
+
+  function observesResponses(session) {
+    return downloadScanCollects(session) && !twitterPostContext(session?.pageUrl).isTwitter;
+  }
+
+  function cancelTwitterDiscovery(tabId) {
+    const job = twitterDiscoveryJobs.get(tabId);
+    job?.controller.abort();
+    if (job?.pageRequest) void chrome.scripting.executeScript({
+      target: { tabId }, world: 'MAIN', injectImmediately: true,
+      func: discoveryId => {
+        const request = globalThis[Symbol.for('cosmic-gemini.video-download.twitter-request')];
+        if (request?.discoveryId === discoveryId) request.controller.abort();
+      },
+      args: [job.discoveryId]
+    }).catch(() => {});
+    twitterDiscoveryJobs.delete(tabId);
+  }
 
   async function cleanupOrphanedMediaHeaderRules() {
     if (!chrome.declarativeNetRequest?.getSessionRules || !chrome.declarativeNetRequest?.updateSessionRules) return true;
@@ -101,7 +174,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         }
         if (updated) await chrome.storage.session.set({ [key]: value });
         if (liveTabIds.has(value.tabId)) {
-          if (downloadScanCollects(value)) {
+          if (observesResponses(value)) {
             restoredCollecting.add(value.tabId);
             await setCollecting(value.tabId, true);
           }
@@ -132,7 +205,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         if (restoredCollecting.has(tabId)) continue;
         const key = videoSessionKey(tabId);
         const latest = (await chrome.storage.session.get(key))[key];
-        if (!liveTabIds.has(tabId) || !downloadScanCollects(latest)) await setCollecting(tabId, false);
+        if (!liveTabIds.has(tabId) || !observesResponses(latest)) await setCollecting(tabId, false);
       }
       await offscreen.maybeClose();
       return true;
@@ -303,7 +376,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     const key = videoSessionKey(tabId);
     const session = (await chrome.storage.session.get(key))[key];
     if (session?.active === true) {
-      await setCollecting(tabId, downloadScanCollects(session));
+      await setCollecting(tabId, observesResponses(session));
       return session;
     }
     await setCollecting(tabId, false);
@@ -323,7 +396,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         if (!quotaError || budget === 312_500) throw error;
       }
     }
-    await setCollecting(session.tabId, downloadScanCollects(session));
+    await setCollecting(session.tabId, observesResponses(session));
     notifyViews(session.tabId);
     notifyCentralUi(session.tabId);
   }
@@ -425,11 +498,82 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   }
   
   async function discoverSiteVideoCandidates(tabId, pageUrl) {
+    if (twitterPostContext(pageUrl).isTwitter) return discoverTwitterCandidates(tabId, pageUrl);
     const tasks = [discoverAdapterCandidates(tabId, pageUrl)];
     if (isBilibiliVideoUrl(pageUrl)) tasks.push(discoverBilibiliCandidates(tabId, pageUrl));
     if (isYoutubeVideoUrl(pageUrl)) tasks.push(discoverYoutubeCandidates(tabId, pageUrl));
     const results = await Promise.allSettled(tasks);
     return results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  }
+
+  async function discoverTwitterCandidates(tabId, pageUrl, force = false) {
+    const session = await readVideoSession(tabId);
+    if (!session || session.pageUrl !== pageUrl || !downloadScanCollects(session)) return [];
+    const context = twitterTarget(session);
+    if (!context.postId) return [];
+    if (session.candidates.length && !force) {
+      queueVideoSizeReads(session);
+      return session.candidates;
+    }
+    const existing = twitterDiscoveryJobs.get(tabId);
+    if (existing?.pageUrl === pageUrl && existing.discoveryId === session.discoveryId) return existing.promise;
+    cancelTwitterDiscovery(tabId);
+    const job = { pageUrl, discoveryId: session.discoveryId, controller: new AbortController(), promise: null };
+    twitterDiscoveryJobs.set(tabId, job);
+    const live = async () => {
+      if (job.controller.signal.aborted || twitterDiscoveryJobs.get(tabId) !== job) return false;
+      const tab = await chrome.tabs.get(tabId).catch(() => null);
+      return tab?.url === pageUrl;
+    };
+    const readPage = async allowRequest => {
+      if (!await live()) return null;
+      job.pageRequest = allowRequest;
+      const frames = await chrome.scripting.executeScript({
+        target: { tabId }, world: 'MAIN', injectImmediately: true,
+        func: twitterVideoPageContext, args: [pageUrl, allowRequest, job.discoveryId, context.postId]
+      }).catch(() => []);
+      const result = frames.find(frame => frame.frameId === 0)?.result;
+      return result?.pageUrl === pageUrl ? result.tweet : null;
+    };
+    job.promise = (async () => {
+      let candidates = twitterVideoCandidates(await readPage(false), context);
+      if (!candidates.length && await live()) {
+        const request = new AbortController();
+        const abort = () => request.abort();
+        job.controller.signal.addEventListener('abort', abort, { once: true });
+        const timer = setTimeout(abort, 8000);
+        try {
+          const response = await fetch(twitterSyndicationUrl(context.postId), {
+            credentials: 'omit', signal: request.signal
+          });
+          if (response.ok) candidates = twitterVideoCandidates(await response.json(), context);
+        } catch {}
+        finally { clearTimeout(timer); job.controller.signal.removeEventListener('abort', abort); }
+      }
+      if (!candidates.length && await live()) candidates = twitterVideoCandidates(await readPage(true), context);
+      if (!await live()) return [];
+      if (candidates.length) await addVideoCandidates(tabId, candidates, true, pageUrl, job.discoveryId);
+      await sessionUpdates.run(tabId, async () => {
+        const current = await readVideoSession(tabId);
+        if (!current || current.pageUrl !== pageUrl || current.discoveryId !== job.discoveryId || !downloadScanCollects(current)) return;
+        current.status = current.candidates.length ? 'found' : 'twitter-empty';
+        await saveVideoSession(current);
+      });
+      return candidates;
+    })().catch(async () => {
+      if (!await live()) return [];
+      await sessionUpdates.run(tabId, async () => {
+        const current = await readVideoSession(tabId);
+        if (current?.pageUrl === pageUrl && current.discoveryId === job.discoveryId && !current.candidates.length) {
+          current.status = 'twitter-empty';
+          await saveVideoSession(current);
+        }
+      });
+      return [];
+    }).finally(() => {
+      if (twitterDiscoveryJobs.get(tabId) === job) twitterDiscoveryJobs.delete(tabId);
+    });
+    return job.promise;
   }
   
   async function updateVideoCandidate(tabId, candidateId, update, expectedPageUrl = '') {
@@ -510,6 +654,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   async function addInlineVideoManifests(tabId, manifests, expectedPageUrl = '') {
     const session = await readVideoSession(tabId);
     if (!session || !Array.isArray(manifests)) return session;
+    if (twitterPostContext(session.pageUrl).isTwitter) return session;
     const candidates = [];
     for (const item of manifests.slice(0, 12)) {
       const kind = item?.kind === 'dash' ? 'dash' : item?.kind === 'hls' ? 'hls' : '';
@@ -560,7 +705,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     finally { expandingVideoManifests.delete(expansionKey); }
   }
   
-  async function addVideoCandidates(tabId, rawCandidates, expand = true, expectedPageUrl = '') {
+  async function addVideoCandidates(tabId, rawCandidates, expand = true, expectedPageUrl = '', expectedDiscoveryId = '') {
     if (!Array.isArray(rawCandidates)) return readVideoSession(tabId);
     const outcome = await sessionUpdates.run(tabId, async () => {
       const session = await readVideoSession(tabId);
@@ -568,10 +713,19 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       if (expectedPageUrl && session.pageUrl !== expectedPageUrl) {
         return { session: null, addedHls: [], addedDash: [] };
       }
+      const twitter = twitterTarget(session);
+      if (twitter.isTwitter && (!twitter.postId || !downloadScanCollects(session)
+        || (expectedDiscoveryId && session.discoveryId !== expectedDiscoveryId))) {
+        return { session: null, addedHls: [], addedDash: [] };
+      }
       const byId = new Map(session.candidates.map(candidate => [candidate.id, candidate]));
       const addedHls = [];
       const addedDash = [];
       for (const raw of rawCandidates.slice(0, 100)) {
+        if (twitter.isTwitter && raw?.mediaKey !== `twitter:${twitter.key}`
+          && !(twitter.mediaIndex === null && twitter.videoIndex === undefined
+            && /^\d+$/.test(String(raw?.mediaKey || '').replace(`twitter:${twitter.key}:video-`, ''))
+            && String(raw?.mediaKey || '').startsWith(`twitter:${twitter.key}:video-`))) continue;
         const candidate = classifyVideoResource({ ...raw, title: raw.title || session.title });
         if (!candidate) continue;
         const existing = byId.get(candidate.id);
@@ -592,6 +746,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       };
     });
     if (!outcome.session) return null;
+    queueVideoSizeReads(outcome.session);
     await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, outcome.session.status === 'found');
     if (expand) for (const candidate of outcome.addedHls.slice(0, 12)) void expandHlsCandidate(tabId, candidate);
     if (expand) for (const candidate of outcome.addedDash.slice(0, 12)) void expandDashCandidate(tabId, candidate);
@@ -599,6 +754,15 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   }
   
   async function injectVideoScanner(tabId, expectedPageUrl = '') {
+    if (twitterPostContext(expectedPageUrl).isTwitter) {
+      await chrome.scripting.executeScript({
+        target: { tabId }, world: 'ISOLATED', injectImmediately: true,
+        files: ['content/twitter-video-controls.js']
+      });
+      const locale = await platform.getLocale();
+      await sendTabMessage(tabId, { type: 'CG_VIDEO_TWITTER_CONTROLS', locale });
+      return true;
+    }
     try {
       await chrome.scripting.executeScript({
         target: { tabId, allFrames: true },
@@ -622,6 +786,11 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   }
   
   async function stopVideoScanner(tabId) {
+    const session = await readVideoSession(tabId);
+    if (twitterPostContext(session?.pageUrl).isTwitter) {
+      await sendTabMessage(tabId, { type: 'CG_VIDEO_STOP' });
+      return;
+    }
     const results = await Promise.allSettled([
       chrome.scripting.executeScript({
         target: { tabId, allFrames: true },
@@ -643,7 +812,8 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     if (!Number.isInteger(tabId)) throw new Error('This tab is unavailable.');
     const origin = originFromUrl(url);
     if (!origin) throw new Error('Video Download is unavailable on this page.');
-    const metadata = await readVideoPageMetadata(tabId);
+    const twitter = twitterPostContext(url);
+    const metadata = twitter.isTwitter ? {} : await readVideoPageMetadata(tabId);
     const session = await sessionUpdates.run(tabId, async () => {
       const existing = await readVideoSession(tabId);
       if (existing && existing.origin !== origin) await stopVideoSessionUnlocked(tabId, existing);
@@ -666,11 +836,29 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         scanState: 'active',
         scanDeadline: 0
       };
+      if (twitter.isTwitter) {
+        const samePost = twitter.key ? twitterPostContext(existing?.pageUrl).key === twitter.key
+          : existing?.pageUrl === url && !!existing?.twitterSelection;
+        if (!samePost) {
+          next.candidates = [];
+          next.title = '';
+          next.thumbnailUrl = '';
+          next.discoveryId = runtimeToken();
+          next.twitterSelection = null;
+        }
+        next.status = !twitterTarget(next).postId ? 'twitter-open-post' : next.candidates.length ? 'found' : 'twitter-loading';
+      }
       await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
       await saveVideoSession(next);
       return next;
     });
     await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, session.status === 'found');
+    if (twitter.isTwitter) {
+      await injectVideoScanner(tabId, url);
+      void discoverTwitterCandidates(tabId, url).catch(() => {});
+      await schedulePause(tabId);
+      return session;
+    }
     const [injected, site] = await Promise.allSettled([
       injectVideoScanner(tabId, url),
       discoverSiteVideoCandidates(tabId, url)
@@ -690,6 +878,8 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   }
   
   async function stopVideoSessionUnlocked(tabId, session = undefined) {
+    cancelVideoSizeReads(tabId);
+    cancelTwitterDiscovery(tabId);
     const current = session === undefined ? await readVideoSession(tabId) : session;
     await stopVideoScanner(tabId);
     const artifacts = [];
@@ -715,6 +905,8 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     clearPending(tabId);
     await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
     await chrome.storage.session.remove(videoSessionKey(tabId));
+    cancelVideoSizeReads(tabId);
+    cancelTwitterDiscovery(tabId);
     await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, false);
     await offscreen.maybeClose();
   }
@@ -746,15 +938,19 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     const supported = !!originFromUrl(url);
     const session = await readVideoSession(tabId);
     const active = supported && session?.origin === originFromUrl(url);
+    const twitter = twitterPostContext(url);
+    const target = twitterTarget(session);
+    const currentPost = !twitter.isTwitter || (session?.pageUrl === url && !!target.postId);
     return {
       ...settings.videoDownload,
       supported,
       active,
       scanState: active ? downloadScanState(session) : 'paused',
-      status: active ? session.status : 'off',
-      candidates: active ? session.candidates : [],
-      title: active ? session.title : '',
-      thumbnailUrl: active ? session.thumbnailUrl || '' : '',
+      status: !active ? 'off' : twitter.isTwitter && !twitter.postId && !currentPost ? 'twitter-open-post'
+        : !currentPost ? 'twitter-loading' : session.status,
+      candidates: active && currentPost ? session.candidates : [],
+      title: active && currentPost ? session.title : '',
+      thumbnailUrl: active && currentPost ? session.thumbnailUrl || '' : '',
       startedAt: active ? session.startedAt : 0
     };
   }
@@ -792,6 +988,11 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     if (activeVideoProcessing.has(processingKey)) return { alreadyProcessing: true };
     const session = await readVideoSession(tabId);
     if (!session) throw new Error('Video Download is not active in this tab.');
+    if (twitterPostContext(session.pageUrl).isTwitter) {
+      const tab = await chrome.tabs.get(tabId);
+      const expected = twitterTarget(session);
+      if (!expected.postId || tab.url !== session.pageUrl) throw new Error('The source post has changed.');
+    }
     let candidate = session.candidates.find(item => item.id === candidateId);
     if (!candidate || candidate.downloadable === false) throw new Error('This video format is not downloadable.');
     if (['preparing', 'downloading', 'complete'].includes(candidate.status)) return { alreadyProcessing: true };
@@ -1034,10 +1235,14 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
 
   async function pauseDiscovery(tabId) {
     if (hasVisibleView(tabId)) return;
+    cancelVideoSizeReads(tabId);
+    cancelTwitterDiscovery(tabId);
     await sessionUpdates.run(tabId, async () => {
       const session = await readVideoSession(tabId);
       if (session) await saveVideoSession(pauseDownloadScan(session));
     });
+    cancelVideoSizeReads(tabId);
+    cancelTwitterDiscovery(tabId);
     clearPending(tabId);
     await stopVideoScanner(tabId);
   }
@@ -1104,6 +1309,71 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     const expectedSenderPageUrl = context.sender.frameId === 0
       ? String(message.pageUrl || context.sender.url || context.sender.tab?.url || '')
       : String(context.sender.tab?.url || '');
+    if (message.type === 'CG_VIDEO_TWITTER_CONTROLS_STATE') {
+      const session = await readVideoSession(senderTabId);
+      const active = context.sender.frameId === 0 && twitterPostContext(message.pageUrl).isTwitter
+        && session?.pageUrl === message.pageUrl && downloadScanCollects(session);
+      return { active, locale: active ? await platform.getLocale() : 'en-US' };
+    }
+    if (message.type === 'CG_VIDEO_SELECT_TWITTER') {
+      const tab = await chrome.tabs.get(senderTabId);
+      const page = twitterPostContext(tab.url);
+      const existing = await readVideoSession(senderTabId);
+      if (context.sender.frameId !== 0 || !tab.active || !page.isTwitter || tab.url !== message.pageUrl
+        || existing?.pageUrl !== tab.url || !downloadScanCollects(existing)) {
+        throw new Error('The video source is no longer available.');
+      }
+      let selection = message;
+      if (message.controlId) {
+        const frames = await chrome.scripting.executeScript({ target: { tabId: senderTabId }, world: 'MAIN',
+          func: twitterVideoControlTarget, args: [tab.url, String(message.controlId)] });
+        selection = frames.find(frame => frame.frameId === 0)?.result || {};
+      }
+      const selected = twitterPostContext(selection.postUrl);
+      const videoIndex = Number(selection.videoIndex || 0);
+      if (!selected.postId || !Number.isInteger(videoIndex) || videoIndex < 0 || videoIndex > 15) {
+        throw new Error('The video source is no longer available.');
+      }
+      cancelTwitterDiscovery(senderTabId);
+      cancelVideoSizeReads(senderTabId);
+      await sessionUpdates.run(senderTabId, async () => {
+        const session = await readVideoSession(senderTabId);
+        if (!session || session.pageUrl !== tab.url || !downloadScanCollects(session)) throw new Error('Video Download is not active in this tab.');
+        session.twitterSelection = {
+          ...selected, videoIndex,
+          key: selected.mediaIndex === null && videoIndex ? `${selected.postId}:video-${videoIndex}` : selected.key
+        };
+        session.candidates = [];
+        session.title = '';
+        session.thumbnailUrl = '';
+        session.discoveryId = runtimeToken();
+        session.popupRequest = { expires: Date.now() + 30000 };
+        session.status = 'twitter-loading';
+        await saveVideoSession(activateDownloadScan(session));
+      });
+      void discoverTwitterCandidates(senderTabId, tab.url).catch(() => {});
+      let popupOpened = false;
+      try {
+        const currentTab = await chrome.tabs.get(senderTabId);
+        if (currentTab.active && currentTab.url === tab.url) {
+          await chrome.action.openPopup({ windowId: tab.windowId });
+          popupOpened = true;
+        }
+      } catch {}
+      if (!hasVisibleView(senderTabId)) await schedulePause(senderTabId);
+      return { selected: true, popupOpened };
+    }
+    if (message.type === 'UI_VIDEO_CONSUME_OPEN_REQUEST') {
+      const tabId = Number(message.tabId);
+      return sessionUpdates.run(tabId, async () => {
+        const session = await readVideoSession(tabId);
+        if (!session?.popupRequest) return { open: false };
+        const open = session.popupRequest.expires > Date.now();
+        delete session.popupRequest;
+        await saveVideoSession(session);
+        return { open };
+      });
+    }
     if (message.type === 'CG_VIDEO_CANDIDATES') {
       if (!Number.isInteger(senderTabId)) throw new Error('The video source tab is unavailable.');
       const session = await addVideoCandidates(
@@ -1146,10 +1416,17 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         const current = await readVideoSession(tabId);
         if (!current) throw new Error('Video Download is not active in this tab.');
         const next = activateDownloadScan(current);
+        if (twitterTarget(current).postId && !next.candidates.length) next.status = 'twitter-loading';
         await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
         await saveVideoSession(next);
         return next;
       });
+      if (twitterPostContext(session.pageUrl).isTwitter) {
+        await injectVideoScanner(tabId, session.pageUrl);
+        void discoverTwitterCandidates(tabId, session.pageUrl, true).catch(() => {});
+        if (!hasVisibleView(tabId)) await schedulePause(tabId);
+        return videoDownloadState(await readSettings(), tabId, session.pageUrl);
+      }
       await Promise.allSettled([injectVideoScanner(tabId, session.pageUrl), discoverSiteVideoCandidates(tabId, session.pageUrl)]);
       if (!hasVisibleView(tabId)) await schedulePause(tabId);
       return videoDownloadState(await readSettings(), tabId, session.pageUrl);
@@ -1180,6 +1457,8 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     const session = await readVideoSession(tabId);
     if (!session) return;
     if (change.url) {
+      cancelVideoSizeReads(tabId);
+      cancelTwitterDiscovery(tabId);
       const nextOrigin = originFromUrl(change.url);
       if (!nextOrigin || nextOrigin !== session.origin) {
         await stopVideoSession(tabId, session.origin);
@@ -1191,11 +1470,26 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         current.pageUrl = change.url;
         current.title = tab.title || current.title;
         current.candidates = [];
-        current.status = 'scanning';
+        const twitter = twitterPostContext(change.url);
+        current.status = twitter.isTwitter ? twitter.postId ? 'twitter-loading' : 'twitter-open-post' : 'scanning';
+        if (twitter.isTwitter) {
+          current.twitterSelection = null;
+          delete current.popupRequest;
+          current.discoveryId = runtimeToken();
+          current.title = '';
+          current.thumbnailUrl = '';
+        }
         current.updatedAt = Date.now();
         await saveVideoSession(current);
       });
-      if (downloadScanCollects(session)) await injectVideoScanner(tabId, change.url);
+      if (downloadScanCollects(session)) {
+        if (twitterPostContext(change.url).isTwitter) {
+          await stopVideoScanner(tabId);
+          await injectVideoScanner(tabId, change.url);
+          void discoverTwitterCandidates(tabId, change.url).catch(() => {});
+        }
+        else await injectVideoScanner(tabId, change.url);
+      }
     }
     const current = change.status === 'complete' ? await readVideoSession(tabId) : null;
     if (current && downloadScanCollects(current)) {

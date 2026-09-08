@@ -1,5 +1,29 @@
 export const VIDEO_SESSION_PREFIX = 'videoDownloadSession:';
 
+export function knownVideoFileSize(candidate = {}) {
+  const output = Number(candidate.outputBytes);
+  if (Number.isSafeInteger(output) && output > 0) return output;
+  if (!['direct', 'audio', 'subtitle'].includes(candidate.kind) || candidate.source === 'performance') return 0;
+  const size = Number(candidate.contentLength);
+  return Number.isSafeInteger(size) && size > 0 ? size : 0;
+}
+
+export async function readVideoFileSize(candidate, request = fetch) {
+  const known = knownVideoFileSize(candidate);
+  if (known) return known;
+  if (!['direct', 'audio', 'subtitle'].includes(candidate?.kind)) return 0;
+  try {
+    const response = await request(candidate.url, { method: 'HEAD', credentials: 'include' });
+    if (!response.ok) return 0;
+    const mime = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    const encoding = response.headers.get('content-encoding');
+    if ((encoding && encoding !== 'identity') || /(?:html|json|mpegurl|dash\+xml)/.test(mime)) return 0;
+    if (response.status !== 200) return 0;
+    const size = Number(response.headers.get('content-length'));
+    return Number.isSafeInteger(size) && size > 0 ? size : 0;
+  } catch { return 0; }
+}
+
 export function recoverInterruptedVideoCandidates(candidates = []) {
   const requestIds = [];
   let changed = false;

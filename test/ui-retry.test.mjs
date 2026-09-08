@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { retryRead, retryReadUntil } from '../extension/shared/ui.js';
+import { knownVideoFileSize } from '../extension/core/video-download.js';
 
 test('read retries can recover from transient failures', async () => {
   let attempts = 0;
@@ -59,6 +60,22 @@ const imageSource = readFileSync(new URL('../extension/workspaces/image-download
 function between(source, from, to) {
   return source.slice(source.indexOf(from), source.indexOf(to, source.indexOf(from)));
 }
+
+test('verified file sizes update quality labels even when the previous transfer estimate had the same bytes', () => {
+  const context = vm.createContext({ knownVideoFileSize, formatBytes: bytes => bytes ? `${bytes} B` : '',
+    videoDisplayLabel: () => '720p', selectedVideoCandidateIds: new Map() });
+  vm.runInContext(`${between(popupSource, 'function videoOptionLabel(', 'function videoCandidateType(')}
+    ${between(popupSource, 'function videoPanelStateSignature(', 'function createVideoMediaCard(')}`, context);
+  const candidate = { id: 'one', kind: 'direct', source: 'performance', contentLength: 5000 };
+  const feature = { active: true, status: 'found' };
+  const groups = [{ id: 'one', candidates: [candidate] }];
+  assert.equal(context.videoOptionLabel(candidate), '720p');
+  const previous = context.videoPanelStateSignature(feature, groups);
+  candidate.source = 'file-metadata';
+  assert.equal(context.videoOptionLabel(candidate), '720p (5000 B)');
+  assert.notEqual(context.videoPanelStateSignature(feature, groups), previous);
+  assert.equal(context.videoOptionLabel({ kind: 'hls', contentLength: 5000 }), '720p');
+});
 
 test('a late popup snapshot cannot switch controls back to the previously read tab', async () => {
   const old = deferred(); let reads = 0;

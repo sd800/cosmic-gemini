@@ -50,6 +50,10 @@ Dedicated discovery covers YouTube, Bilibili, Vimeo, Facebook, Instagram, OK, VK
 
 Detection remains limited to the active tab session. It follows same-site navigation until you stop it or leave the website.
 
+On X / Twitter, enabling Video Download adds a download arrow to videos on the page. Click an arrow to open the media menu for that video. On a post’s detail page, the menu initially lists all videos belonging to that post, without mixing in replies or other posts. Thumbnails, available qualities, and durations appear when provided by the source.
+
+Quality options include the file size when it is known before downloading. For direct files, Video Download can check response headers without downloading the media. Streams whose final size is not available leave that value blank.
+
 ### Page Display
 
 Adjust webpage colors without changing their content, layout, or controls. Page Display includes independent Reduce White Point and Greyscale features: use the first to reduce the intensity of bright colors at your chosen strength, and the second to render the page in shades of grey. Both cover the complete rendered page, including images, animations, Canvas, embedded content, and video.

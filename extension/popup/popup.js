@@ -1,6 +1,6 @@
 import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { candidateQuality, formatMediaDuration, groupVideoCandidates } from '../core/video-download.js';
+import { candidateQuality, formatMediaDuration, groupVideoCandidates, knownVideoFileSize } from '../core/video-download.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 
@@ -222,7 +222,7 @@ function createVideoCandidate(candidate) {
   if (candidate.codecLabel) pieces.push(candidate.codecLabel);
   else if (candidate.videoCodec) pieces.push(String(candidate.videoCodec).split('.')[0].toUpperCase());
   else if (candidate.audioCodec) pieces.push(String(candidate.audioCodec).split('.')[0].toUpperCase());
-  const bytes = formatBytes(candidate.outputBytes || candidate.contentLength);
+  const bytes = formatBytes(knownVideoFileSize(candidate));
   if (bytes) pieces.push(bytes);
   const duration = formatMediaDuration(candidate.duration);
   if (duration) pieces.push(duration);
@@ -261,7 +261,8 @@ function createVideoCandidate(candidate) {
 }
 
 function videoOptionLabel(candidate) {
-  return videoDisplayLabel(candidate);
+  const size = formatBytes(knownVideoFileSize(candidate));
+  return videoDisplayLabel(candidate) + (size ? ` (${size})` : '');
 }
 
 function videoCandidateType(candidate) {
@@ -364,7 +365,7 @@ function videoPanelStateSignature(feature, groups) {
       group.id, group.title, group.thumbnailUrl,
       group.candidates.map(candidate => [
         candidate.id, candidate.kind, candidate.status, candidate.progress, candidate.downloadable,
-        candidate.contentLength, candidate.outputBytes, candidate.duration, candidate.qualityLabel,
+        knownVideoFileSize(candidate), candidate.outputBytes, candidate.duration, candidate.qualityLabel,
         candidate.width, candidate.height, candidate.bandwidth, candidate.codecLabel,
         candidate.videoCodec, candidate.audioCodec, candidate.extension, candidate.protected
       ])
@@ -421,7 +422,13 @@ function renderVideoPanel(force = false) {
     return;
   }
   if (!groups.length) {
-    status.textContent = feature.status === 'unavailable' ? t('videoUnavailablePage') : t('videoScanningHelp');
+    const messages = {
+      'twitter-open-post': 'videoTwitterOpenPost',
+      'twitter-loading': 'videoTwitterLoading',
+      'twitter-empty': 'videoTwitterEmpty',
+      unavailable: 'videoUnavailablePage'
+    };
+    status.textContent = t(messages[feature.status] || 'videoScanningHelp');
     return;
   }
   const formatCount = groups.reduce((count, group) => count + group.candidates.length, 0);
@@ -671,7 +678,12 @@ label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
 label(document.querySelector('#all-settings'), t('allSettingsTitle'));
 connectCentralUi();
-try { await retryRead(() => reload()); }
+try {
+  await retryRead(() => reload());
+  const request = Number.isInteger(currentTab?.id)
+    ? await send({ type: 'UI_VIDEO_CONSUME_OPEN_REQUEST', tabId: currentTab.id }).catch(() => null) : null;
+  if (request?.open) showView('video');
+}
 catch {
   for (const control of document.querySelectorAll('.feature-toggle')) control.disabled = true;
   live.textContent = t('unavailable');

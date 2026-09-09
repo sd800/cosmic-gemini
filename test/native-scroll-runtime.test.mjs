@@ -147,6 +147,26 @@ test('Native Scroll leaves page APIs untouched while inactive and restores them 
   assert.equal(context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')], undefined);
 });
 
+test('Native Scroll does not create inline page styles on strict-CSP pages', async () => {
+  const context = makeContext();
+  let styleElements = 0;
+  context.document.createElement = name => {
+    if (name === 'style') styleElements += 1;
+    return new FakeElement(name);
+  };
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced' } }) });
+  assert.equal(styleElements, 0);
+  for (const root of [context.document.documentElement, context.document.body]) {
+    assert.equal(root.style.getPropertyValue('scroll-behavior'), '');
+    assert.equal(root.style.getPropertyValue('scroll-snap-type'), '');
+    assert.equal(root.style.getPropertyValue('overflow-y'), '');
+  }
+  runtime.onDispose({ detail: runtime.token });
+});
+
 test('Native Scroll becomes inert when a later page wrapper keeps its listener wrapper reachable', async () => {
   const context = makeContext();
   context.document.permissionsPolicy = { allowsFeature: feature => feature !== 'unload' };

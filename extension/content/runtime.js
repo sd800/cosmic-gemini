@@ -26,7 +26,6 @@
     '.monaco-editor', '.CodeMirror', '.mapboxgl-map', '.leaflet-container',
     '[data-native-scroll-allow]'
   ].join(',');
-  const ROOTS = () => [document.documentElement, document.body].filter(Boolean);
   const PATCH_FLAG = Symbol('native-scroll-patched');
 
   class NativeScrollRuntime {
@@ -42,8 +41,6 @@
       this.rootObservers = [];
       this.observedNodes = [];
       this.frame = 0;
-      this.style = null;
-      this.savedStyles = new Map();
       this.normalizedWrappers = new Set();
       this.originalMethods = [];
       const retainedListeners = window[RETAINED_LISTENERS_KEY];
@@ -118,7 +115,7 @@
     }
 
     disable() {
-      if (!this.active && !this.style && this.savedStyles.size === 0 && this.originalMethods.length === 0 && !this.listenerMethodsPatched) return;
+      if (!this.active && this.normalizedWrappers.size === 0 && this.originalMethods.length === 0 && !this.listenerMethodsPatched) return;
       this.active = false;
       this.reported = false;
       this.touchY = null;
@@ -134,10 +131,7 @@
       this.observedNodes = [];
       if (this.frame) cancelAnimationFrame(this.frame);
       this.frame = 0;
-      this.style?.remove();
-      this.style = null;
-      this.restoreStyles();
-      this.normalizedWrappers.clear();
+      this.restoreNormalizedWrappers();
       this.restoreScrollMethods();
       this.retainListenerRegistry();
       this.restoreListenerMethods();
@@ -193,96 +187,21 @@
     applyStyles() {
       if (!this.active || !document.documentElement || this.usesNativeInteractionCompatibility()) return;
       this.syncRootObservers();
-      this.restoreDetachedStyles();
       const applyEnhancedPageStyles = this.mode === 'enhanced';
-      if (!this.style?.isConnected) {
-        this.style = document.createElement('style');
-        this.style.dataset.nativeScroll = 'runtime';
-        (document.head || document.documentElement).append(this.style);
-      }
-      const stylesheet = applyEnhancedPageStyles
-        ? ':root,body,*{scroll-behavior:auto!important;scroll-snap-type:none!important}:root,body{height:auto!important;overflow-y:auto!important;overscroll-behavior:auto!important}'
-        : ':root,body{scroll-behavior:auto!important;scroll-snap-type:none!important;overscroll-behavior:auto!important}';
-      if (this.style.textContent !== stylesheet) this.style.textContent = stylesheet;
-
-      for (const root of ROOTS()) {
+      for (const root of [document.documentElement, document.body].filter(Boolean)) {
         const computed = getComputedStyle(root);
         if (computed.scrollBehavior === 'smooth' || (computed.scrollSnapType && computed.scrollSnapType !== 'none')) {
           this.reportSuppression();
         }
-        this.setStyle(root, 'scroll-behavior', 'auto');
-        this.setStyle(root, 'scroll-snap-type', 'none');
-        this.setStyle(root, 'overscroll-behavior', 'auto');
-        if (applyEnhancedPageStyles) {
-          if (['hidden', 'clip'].includes(computed.overflowY)) this.reportSuppression();
-          this.setStyle(root, 'height', 'auto');
-          this.setStyle(root, 'overflow-y', 'auto');
-        } else {
-          this.restoreStyle(root, 'height');
-          this.restoreStyle(root, 'overflow-y');
-        }
+        if (applyEnhancedPageStyles && ['hidden', 'clip'].includes(computed.overflowY)) this.reportSuppression();
       }
       if (applyEnhancedPageStyles) this.normalizeTransformScroller();
       else this.restoreNormalizedWrappers();
     }
 
-    setStyle(element, property, value) {
-      let saved = this.savedStyles.get(element);
-      if (!saved) {
-        saved = new Map();
-        this.savedStyles.set(element, saved);
-      }
-      if (!saved.has(property)) {
-        saved.set(property, {
-          value: element.style.getPropertyValue(property),
-          priority: element.style.getPropertyPriority(property)
-        });
-      }
-      if (element.style.getPropertyValue(property) !== value || element.style.getPropertyPriority(property) !== 'important') {
-        element.style.setProperty(property, value, 'important');
-      }
-    }
-
-    restoreStyle(element, property) {
-      const saved = this.savedStyles.get(element);
-      const original = saved?.get(property);
-      if (!original) return;
-      if (original.value) element.style.setProperty(property, original.value, original.priority);
-      else element.style.removeProperty(property);
-      saved.delete(property);
-      if (!saved.size) this.savedStyles.delete(element);
-    }
-
-    restoreElementStyles(element, properties) {
-      if (!(element instanceof Element)) return;
-      for (const [property, original] of properties) {
-        if (original.value) element.style.setProperty(property, original.value, original.priority);
-        else element.style.removeProperty(property);
-      }
-      element.removeAttribute('data-native-scroll-normalized');
-    }
-
-    restoreDetachedStyles() {
-      for (const [element, properties] of this.savedStyles) {
-        if (element.isConnected || element === document.documentElement || element === document.body) continue;
-        this.restoreElementStyles(element, properties);
-        this.savedStyles.delete(element);
-        this.normalizedWrappers.delete(element);
-      }
-    }
-
-    restoreStyles() {
-      for (const [element, properties] of this.savedStyles) this.restoreElementStyles(element, properties);
-      this.savedStyles.clear();
-    }
-
     restoreNormalizedWrappers() {
       for (const element of this.normalizedWrappers) {
-        const properties = this.savedStyles.get(element);
-        if (properties) {
-          this.restoreElementStyles(element, properties);
-          this.savedStyles.delete(element);
-        }
+        if (element instanceof Element) element.removeAttribute('data-native-scroll-normalized');
       }
       this.normalizedWrappers.clear();
     }
@@ -297,9 +216,6 @@
         if (!['fixed', 'absolute'].includes(style.position) || style.transform === 'none') continue;
         const rect = element.getBoundingClientRect();
         if (Math.max(0, rect.width) * Math.max(0, rect.height) < viewportArea * 0.75) continue;
-        this.setStyle(element, 'transform', 'none');
-        this.setStyle(element, 'position', 'relative');
-        this.setStyle(element, 'inset', 'auto');
         element.dataset.nativeScrollNormalized = 'true';
         this.normalizedWrappers.add(element);
         this.reportSuppression();

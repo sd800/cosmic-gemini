@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.6 — 2026-09-09
+
+- Fixed Native Scroll repeatedly generating Content Security Policy errors on websites with strict style policies. Standard and Enhanced mode page rules now use Chrome's extension stylesheet injection instead of page inline styles, and switching modes or disabling Native Scroll removes those rules cleanly.
+
 ## 8.9.5 — 2026-09-08
 
 - On X / Twitter, enabling Video Download now adds download arrows to page videos. Clicking an arrow opens the media menu for that video. Post detail pages initially list all of the post’s own videos, with thumbnails, available qualities, and durations when supplied by the source. Other pages prompt you to choose a video. Moving between posts clears the previous results.

@@ -1,0 +1,19 @@
+:root,
+body,
+* {
+  scroll-behavior: auto !important;
+  scroll-snap-type: none !important;
+}
+
+:root,
+body {
+  height: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior: auto !important;
+}
+
+[data-native-scroll-normalized="true"] {
+  position: relative !important;
+  inset: auto !important;
+  transform: none !important;
+}

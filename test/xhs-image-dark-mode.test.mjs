@@ -109,6 +109,23 @@ test('XHS Image Dark Mode recognizes text cards with stable frames of different 
   }
 });
 
+test('XHS Image Dark Mode recognizes dark text on a lightly textured pastel surface', async () => {
+  const runtime = await runtimeFixture();
+  const texturedPastelCard = pixels((x, y) => {
+    const text = x >= 7 && x <= 48 && y >= 17 && y <= 39
+      && ((y % 8 <= 1 && x % 5 !== 0) || (x % 13 <= 1 && y % 4 !== 0));
+    if (text) return [18, 54, 137];
+    const texture = ((x * 11 + y * 17 + x * y * 3) % 27) - 13;
+    return [
+      Math.max(138, Math.min(188, 166 + texture)),
+      Math.max(174, Math.min(222, 201 + texture)),
+      Math.max(216, Math.min(252, 241 + Math.round(texture * 0.55)))
+    ];
+  });
+  const result = runtime.classifySample(texturedPastelCard, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+});
+
 test('uniform gray text cards use the black-background contrast treatment', async () => {
   const runtime = await runtimeFixture();
   const grayCard = pixels((x, y) => {
@@ -279,6 +296,15 @@ test('XHS CDN display variants share cached classification before an expanded im
   assert.equal(runtime.applyCachedResult(record), true);
   assert.equal(record.source, expanded);
   assert.equal(applied, true);
+});
+
+test('a low-detail CDN variant cannot suppress analysis of a sharper variant', async () => {
+  const runtime = await runtimeFixture({}, { URL });
+  const preview = 'https://sns-webpic-qc.xhscdn.com/hash/1040g2sg324example!nc_n_webp_mw_1';
+  const expanded = 'https://sns-webpic-qc.xhscdn.com/hash/1040g2sg324example!nd_dft_wlteh_webp_3';
+  runtime.cacheResult(preview, { kind: 'photo' });
+  assert.equal(runtime.cachedResult(null, preview)?.kind, 'photo');
+  assert.equal(runtime.cachedResult(null, expanded), null);
 });
 
 test('feed and expanded images share classification through the post identity', async () => {

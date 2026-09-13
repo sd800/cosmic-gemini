@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.7 — 2026-09-14
+
+- Fixed a low-detail Xiaohongshu CDN preview being able to classify an image as a photograph and suppress analysis of its sharper version. Negative results now remain specific to the exact image variant, while confirmed text-card results can still be reused across variants. Lightly textured pastel cards with contrasting text are therefore processed once their detailed image is available.
+
 ## 8.9.6 — 2026-09-09
 
 - Fixed Native Scroll repeatedly generating Content Security Policy errors on websites with strict style policies. Standard and Enhanced mode page rules now use Chrome's extension stylesheet injection instead of page inline styles, and switching modes or disabling Native Scroll removes those rules cleanly.

@@ -827,6 +827,16 @@
       }
     }
 
+    exactCacheKey(source) {
+      const value = String(source || '');
+      if (!value) return '';
+      try {
+        return `source:${new URL(value, location.href).href}`;
+      } catch {
+        return `source:${value}`;
+      }
+    }
+
     noteId(value) {
       try {
         return new URL(value, location.href).pathname.match(/^\/explore\/([^/]+)/)?.[1] || '';
@@ -848,8 +858,10 @@
     }
 
     cachedResult(image, source) {
+      const exactResult = this.cache.get(this.exactCacheKey(source));
+      if (exactResult) return exactResult;
       const sourceResult = this.cache.get(this.cacheKey(source));
-      if (sourceResult) return sourceResult;
+      if (sourceResult?.kind && sourceResult.kind !== 'photo') return sourceResult;
       const relatedResult = this.cache.get(this.noteCacheKey(image));
       if (relatedResult?.kind && relatedResult.kind !== 'photo') return relatedResult;
       return null;
@@ -857,7 +869,8 @@
 
     cacheResult(source, result, image = null) {
       if (!source || !result) return;
-      const keys = [this.cacheKey(source)];
+      const keys = [this.exactCacheKey(source)];
+      if (result.kind !== 'photo') keys.push(this.cacheKey(source));
       const noteKey = this.noteCacheKey(image);
       if (noteKey && result.kind !== 'photo') keys.push(noteKey);
       for (const key of [...new Set(keys.filter(Boolean))]) {

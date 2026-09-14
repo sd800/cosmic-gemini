@@ -1073,6 +1073,14 @@
       const grayCard = !lightBackground && background === grayBackground;
       const vividCard = !lightBackground && !grayCard && background === vividBackground;
       const backgroundLuminance = luminance(background);
+      const annotationSurfaces = lightBackground?.share >= 0.58
+        ? colorsByShare.filter(color => color.key !== lightBackground.key
+          && color.share >= 0.008 && color.share <= 0.18
+          && color.value >= Math.max(0.62, backgroundLuminance - 0.28)
+          && color.chroma >= 0.18 && color.chroma <= 0.78).slice(0, 3)
+        : [];
+      const annotationShare = annotationSurfaces.reduce((total, color) => total + color.share, 0);
+      const annotatedCard = annotationShare >= 0.03 && annotationShare <= 0.24;
       let frame = null;
       if (edgeOpaque) {
         let edgeDominantKey = null;
@@ -1108,6 +1116,11 @@
               && Math.abs(color.value - backgroundLuminance) <= 0.22;
           }).slice(0, 6)
           : [...lightSurfaces];
+      if (annotatedCard) {
+        for (const annotation of annotationSurfaces) {
+          if (!surfacePalette.some(surface => surface.key === annotation.key)) surfacePalette.push(annotation);
+        }
+      }
       if (frame && !surfacePalette.some(surface => surface.key === frame.key)) surfacePalette.push(frame);
       if (splitToneLayout && !surfacePalette.some(surface => surface.key === darkPanel.key)) {
         surfacePalette.push(darkPanel);
@@ -1164,8 +1177,10 @@
         && largestForegroundShare <= 0.16;
       const vividTextStructure = !vividCard
         || (foregroundComponents.count >= 3 && largestForegroundShare <= 0.12);
+      const annotationTextStructure = !annotatedCard
+        || (foregroundComponents.count >= 5 && largestForegroundShare <= 0.12);
       return {
-        kind: textLikeForeground && vividTextStructure
+        kind: textLikeForeground && vividTextStructure && annotationTextStructure
           && (uniformLightSurface || uniformGraySurface || uniformVividSurface)
           ? grayCard ? 'gray-theme' : 'light-theme'
           : 'photo',
@@ -1176,6 +1191,7 @@
         frameEdgeShare: frame?.edgeShare || 0,
         foregroundShare,
         backgroundLuminance,
+        annotationShare,
         largestForegroundShare,
         foregroundComponentCount: foregroundComponents.count
       };

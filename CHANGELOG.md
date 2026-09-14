@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.9 — 2026-09-14
+
+- Expanded XHS Image Dark Mode to recognize white text cards containing bounded bright highlights and small illustrations. Bright annotations are evaluated as secondary reading surfaces before the remaining foreground structure is classified, while white-background product photographs and other large visual subjects remain unchanged.
+
 ## 8.9.8 — 2026-09-14
 
 - Expanded XHS Image Dark Mode to recognize text cards built on a vivid, uniform color surface. The classifier requires a dominant stable background, contrasting text-like foreground, and multiple separated foreground structures, so colorful photographic layouts remain unchanged.

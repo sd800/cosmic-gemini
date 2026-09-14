@@ -151,6 +151,37 @@ test('a vivid photographic layout is not treated as a text card', async () => {
   assert.equal(runtime.classifySample(vividLandscape, 64, 64).kind, 'photo');
 });
 
+test('XHS Image Dark Mode recognizes white text cards with bounded bright annotations', async () => {
+  const runtime = await runtimeFixture();
+  const annotatedTextCard = pixels((x, y) => {
+    const highlight = x >= 5 && x <= 58 && y >= 7 && y <= 21;
+    const text = x >= 8 && x <= 55 && y >= 10 && y <= 49
+      && ((y % 8 <= 2 && x % 6 !== 0) || (x % 12 <= 1 && y % 5 !== 0));
+    const coloredText = text && highlight && x >= 31 && x <= 44;
+    const smallIllustration = x >= 46 && x <= 52 && y >= 43 && y <= 50;
+    if (smallIllustration) return [239, 168, 157];
+    if (coloredText) return [20, 162, 54];
+    if (text) return [27, 27, 25];
+    if (highlight) return [250, 231, 69];
+    return [251, 250, 251];
+  });
+  const result = runtime.classifySample(annotatedTextCard, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+  assert.equal(result.annotationShare >= 0.03, true);
+});
+
+test('a bright product on white remains photographic content', async () => {
+  const runtime = await runtimeFixture();
+  const productPhoto = pixels((x, y) => {
+    const body = x >= 18 && x <= 46 && y >= 16 && y <= 51;
+    const handle = x >= 25 && x <= 39 && y >= 9 && y <= 19;
+    if (handle) return [55, 42, 22];
+    if (body) return [246, 215 + Math.floor(x / 8), 54 + Math.floor(y / 5)];
+    return [250, 250, 248];
+  });
+  assert.equal(runtime.classifySample(productPhoto, 64, 64).kind, 'photo');
+});
+
 test('uniform gray text cards use the black-background contrast treatment', async () => {
   const runtime = await runtimeFixture();
   const grayCard = pixels((x, y) => {

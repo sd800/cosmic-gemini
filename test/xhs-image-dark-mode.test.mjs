@@ -126,6 +126,31 @@ test('XHS Image Dark Mode recognizes dark text on a lightly textured pastel surf
   assert.equal(result.kind, 'light-theme', JSON.stringify(result));
 });
 
+test('XHS Image Dark Mode recognizes text on a vivid uniform reading surface', async () => {
+  const runtime = await runtimeFixture();
+  const vividTextCard = pixels((x, y) => {
+    const text = x >= 6 && x <= 55 && y >= 14 && y <= 45
+      && ((y % 8 <= 2 && x % 6 !== 0) || (x % 12 <= 1 && y % 5 !== 0));
+    const accent = x >= 42 && x <= 53 && y >= 50 && y <= 57 && (x % 5 <= 2 || y >= 55);
+    if (text) return [67, 29, 13];
+    if (accent) return [244, 126, 225];
+    const texture = ((x * 7 + y * 11) % 9) - 4;
+    return [250 + texture, 229 + texture, 106 + texture];
+  });
+  const result = runtime.classifySample(vividTextCard, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+  assert.equal(result.foregroundComponentCount >= 3, true);
+});
+
+test('a vivid photographic layout is not treated as a text card', async () => {
+  const runtime = await runtimeFixture();
+  const vividLandscape = pixels((x, y) => {
+    if (y < 42) return [244 - Math.floor(y / 8), 210 + Math.floor(x / 12), 62 + Math.floor(y / 3)];
+    return [42 + Math.floor(x / 3), 117 + Math.floor((63 - x) / 4), 55 + Math.floor(y / 5)];
+  });
+  assert.equal(runtime.classifySample(vividLandscape, 64, 64).kind, 'photo');
+});
+
 test('uniform gray text cards use the black-background contrast treatment', async () => {
   const runtime = await runtimeFixture();
   const grayCard = pixels((x, y) => {

@@ -1038,6 +1038,10 @@
         && color.value >= 0.72 && color.chroma <= 0.32);
       const grayBackground = colorsByShare.find(color => color.share >= 0.48
         && color.value >= 0.3 && color.value <= 0.68 && color.chroma <= 0.14);
+      const vividBackground = !lightBackground && !grayBackground
+        ? colorsByShare.find(color => color.share >= 0.58
+          && color.value >= 0.52 && color.chroma <= 0.72)
+        : null;
       const darkPanel = lightBackground && colorsByShare.find(color => color.key !== lightBackground.key
         && color.share >= 0.12 && color.value <= 0.28 && color.chroma <= 0.18);
       const strongestPanelShare = counts => {
@@ -1064,9 +1068,10 @@
         && lightBackground.share + darkPanel.share >= 0.62
         && lightPanelShare >= 0.72
         && darkPanelShare >= 0.48);
-      const background = lightBackground || grayBackground;
+      const background = lightBackground || grayBackground || vividBackground;
       if (!background) return { kind: 'photo' };
       const grayCard = !lightBackground && background === grayBackground;
+      const vividCard = !lightBackground && !grayCard && background === vividBackground;
       const backgroundLuminance = luminance(background);
       let frame = null;
       if (edgeOpaque) {
@@ -1093,7 +1098,16 @@
       const surfacePalette = grayCard
         ? colorsByShare.filter(color => color.share >= 0.02
           && color.chroma <= 0.18 && Math.abs(color.value - backgroundLuminance) <= 0.16).slice(0, 4)
-        : [...lightSurfaces];
+        : vividCard
+          ? colorsByShare.filter(color => {
+            const dr = (color.r - background.r) / 255;
+            const dg = (color.g - background.g) / 255;
+            const db = (color.b - background.b) / 255;
+            return color.share >= 0.006
+              && dr * dr + dg * dg + db * db <= 0.06
+              && Math.abs(color.value - backgroundLuminance) <= 0.22;
+          }).slice(0, 6)
+          : [...lightSurfaces];
       if (frame && !surfacePalette.some(surface => surface.key === frame.key)) surfacePalette.push(frame);
       if (splitToneLayout && !surfacePalette.some(surface => surface.key === darkPanel.key)) {
         surfacePalette.push(darkPanel);
@@ -1133,19 +1147,26 @@
       const foregroundShare = foregroundCount / opaque;
       const lightShare = lightCount / opaque;
       const contrastForegroundShare = contrastForegroundCount / opaque;
-      const largestForegroundShare = this.largestComponentShare(foregroundMask, width, height, opaque);
-      const uniformLightSurface = !grayCard && surfacePalette.length > 0
+      const foregroundComponents = this.componentStats(foregroundMask, width, height, opaque);
+      const largestForegroundShare = foregroundComponents.largestShare;
+      const uniformLightSurface = !grayCard && !vividCard && surfacePalette.length > 0
         && surfaceShare >= 0.72
         && lightShare >= (splitToneLayout ? 0.24 : frame ? 0.5 : 0.72);
       const uniformGraySurface = grayCard
+        && surfacePalette.length > 0
+        && surfaceShare >= 0.72;
+      const uniformVividSurface = vividCard
         && surfacePalette.length > 0
         && surfaceShare >= 0.72;
       const textLikeForeground = foregroundShare >= 0.008
         && foregroundShare <= 0.32
         && contrastForegroundShare >= 0.006
         && largestForegroundShare <= 0.16;
+      const vividTextStructure = !vividCard
+        || (foregroundComponents.count >= 3 && largestForegroundShare <= 0.12);
       return {
-        kind: textLikeForeground && (uniformLightSurface || uniformGraySurface)
+        kind: textLikeForeground && vividTextStructure
+          && (uniformLightSurface || uniformGraySurface || uniformVividSurface)
           ? grayCard ? 'gray-theme' : 'light-theme'
           : 'photo',
         backgroundShare: surfaceShare,
@@ -1155,16 +1176,19 @@
         frameEdgeShare: frame?.edgeShare || 0,
         foregroundShare,
         backgroundLuminance,
-        largestForegroundShare
+        largestForegroundShare,
+        foregroundComponentCount: foregroundComponents.count
       };
     }
 
-    largestComponentShare(mask, width, height, opaque) {
+    componentStats(mask, width, height, opaque) {
       const visited = new Uint8Array(mask.length);
       const stack = [];
       let largest = 0;
+      let count = 0;
       for (let start = 0; start < mask.length; start += 1) {
         if (!mask[start] || visited[start]) continue;
+        count += 1;
         visited[start] = 1;
         stack.push(start);
         let size = 0;
@@ -1183,7 +1207,7 @@
         }
         largest = Math.max(largest, size);
       }
-      return largest / Math.max(opaque, 1);
+      return { count, largestShare: largest / Math.max(opaque, 1) };
     }
 
     applyResult(record) {

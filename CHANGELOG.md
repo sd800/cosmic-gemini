@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.8 — 2026-09-14
+
+- Expanded XHS Image Dark Mode to recognize text cards built on a vivid, uniform color surface. The classifier requires a dominant stable background, contrasting text-like foreground, and multiple separated foreground structures, so colorful photographic layouts remain unchanged.
+
 ## 8.9.7 — 2026-09-14
 
 - Fixed a low-detail Xiaohongshu CDN preview being able to classify an image as a photograph and suppress analysis of its sharper version. Negative results now remain specific to the exact image variant, while confirmed text-card results can still be reused across variants. Lightly textured pastel cards with contrasting text are therefore processed once their detailed image is available.

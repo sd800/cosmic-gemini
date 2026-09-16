@@ -5,7 +5,7 @@ import { createAnyCopyProduct } from '../extension/background/products/operation
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
 import { createPageDisplayProduct } from '../extension/background/products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
-import { createChinesePunctuationClaudeProduct } from '../extension/background/products/operations/chinese-punctuation-claude.js';
+import { createChineseResponseClaudeProduct } from '../extension/background/products/operations/chinese-response-claude.js';
 import { createOperationsProvince } from '../extension/background/provinces/operations.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 import { createAdministrationProduct } from '../extension/background/products/operations/administration.js';
@@ -31,10 +31,10 @@ test('popup cache receives saved preferences separately from effective state', a
   assert.equal(result.state.preferences.mailtoCapture.enabled, true);
 });
 
-test('Claude punctuation product saves independently and refreshes page decisions', async () => {
+test('Claude response display product saves independently and refreshes page decisions', async () => {
   let settings = normalizeSettings();
   let refreshes = 0;
-  const product = createChinesePunctuationClaudeProduct({ sync: async () => true }, {
+  const product = createChineseResponseClaudeProduct({ sync: async () => true }, {
     async mutateSettings(update) {
       settings = normalizeSettings(update(settings));
       return settings;
@@ -43,11 +43,11 @@ test('Claude punctuation product saves independently and refreshes page decision
   });
   const result = await product.handleMessage({
     type: 'UI_SET_ENABLED',
-    featureId: 'chinesePunctuationClaude',
+    featureId: 'chineseResponseClaude',
     enabled: true
   });
   assert.equal(result.enabled, true);
-  assert.equal(settings.chinesePunctuationClaude.enabled, true);
+  assert.equal(settings.chineseResponseClaude.enabled, true);
   assert.equal(settings.mailtoCapture.enabled, true);
   assert.equal(refreshes, 1);
 });

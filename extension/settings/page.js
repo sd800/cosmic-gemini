@@ -195,9 +195,9 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
-  const chinesePunctuationClaudeEnabled = document.querySelector('#chinesePunctuationClaudeEnabled');
-  if (chinesePunctuationClaudeEnabled) {
-    chinesePunctuationClaudeEnabled.checked = (states?.preferences || states)?.chinesePunctuationClaude?.enabled === true;
+  const chineseResponseClaudeEnabled = document.querySelector('#chineseResponseClaudeEnabled');
+  if (chineseResponseClaudeEnabled) {
+    chineseResponseClaudeEnabled.checked = (states?.preferences || states)?.chineseResponseClaude?.enabled === true;
   }
   const pageDisplaySettings = (states?.preferences || states)?.pageDisplay;
   const pageDisplayEnabled = pageDisplaySettings?.enabled === true;
@@ -415,12 +415,12 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
-  const chinesePunctuationClaudeEnabled = document.querySelector('#chinesePunctuationClaudeEnabled');
-  if (chinesePunctuationClaudeEnabled) chinesePunctuationClaudeEnabled.addEventListener('change', () => void update(null, () => savePreference('chinesePunctuationClaude', {
+  const chineseResponseClaudeEnabled = document.querySelector('#chineseResponseClaudeEnabled');
+  if (chineseResponseClaudeEnabled) chineseResponseClaudeEnabled.addEventListener('change', () => void update(null, () => savePreference('chineseResponseClaude', {
     type: 'UI_SET_ENABLED',
-    featureId: 'chinesePunctuationClaude',
-    enabled: chinesePunctuationClaudeEnabled.checked
-  }), [chinesePunctuationClaudeEnabled]));
+    featureId: 'chineseResponseClaude',
+    enabled: chineseResponseClaudeEnabled.checked
+  }), [chineseResponseClaudeEnabled]));
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.addEventListener('change', () => {
     const reduction = document.querySelector('#reduceWhitePointReduction');

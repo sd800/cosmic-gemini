@@ -1,9 +1,9 @@
 (() => {
-  const READY = 'cosmic-gemini:chinese-punctuation-claude:bridge-ready';
-  const MAIN_READY = 'cosmic-gemini:chinese-punctuation-claude:main-ready';
-  const CONFIGURE = 'cosmic-gemini:chinese-punctuation-claude:configure';
-  const DISPOSE = 'cosmic-gemini:chinese-punctuation-claude:dispose';
-  const RUNTIME_KEY = Symbol.for('cosmic-gemini.chinese-punctuation-claude.runtime');
+  const READY = 'cosmic-gemini:chinese-response-claude:bridge-ready';
+  const MAIN_READY = 'cosmic-gemini:chinese-response-claude:main-ready';
+  const CONFIGURE = 'cosmic-gemini:chinese-response-claude:configure';
+  const DISPOSE = 'cosmic-gemini:chinese-response-claude:dispose';
+  const RUNTIME_KEY = Symbol.for('cosmic-gemini.chinese-response-claude.runtime');
   const ASSISTANT_ROOT_SELECTOR = [
     '[data-message-author-role="assistant"]',
     '[data-testid="assistant-message"]',
@@ -18,7 +18,12 @@
     '[data-testid*="code"]', '[data-testid*="citation"]', '.katex', '.MathJax'
   ].join(',');
   const HAN = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g;
-  const PROTECTED_TEXT = /(?:https?:\/\/|www\.)[^\s<>()]+|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|\b(?:[A-Za-z]:\\|\/)[^\s]+/g;
+  const HAN_CHARACTER = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+  const LATIN_OR_NUMBER = /[A-Za-z0-9]/;
+  const TOKEN_PREFIX_SYMBOL = /[$€£¥￥₩₹₽@#]/;
+  const TOKEN_SUFFIX_SYMBOL = /[%‰℃°]/;
+  const OPERATOR_SYMBOL = /[+−±×÷=<>≤≥&|]/;
+  const PROTECTED_TEXT = /(?:https?:\/\/|www\.)[^\s<>()\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?:\+\d{1,3}[\s.-]?)?\(\d{2,4}\)[\s.-]*\d{3,4}[\s.-]\d{4}\b|\b(?:[A-Za-z]:\\|\/)[^\s]+/g;
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -32,11 +37,13 @@
     return;
   }
 
-  class ChinesePunctuationClaudeRuntime {
+  class ChineseResponseClaudeRuntime {
     constructor() {
       this.token = randomToken();
       this.active = false;
-      this.observer = null;
+      this.discoveryObserver = null;
+      this.responseObserver = null;
+      this.observedRoots = new Set();
       this.pendingTargets = new Set();
       this.flushQueued = false;
       this.records = new Map();
@@ -44,7 +51,8 @@
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
-      this.onMutations = this.onMutations.bind(this);
+      this.onDiscoveryMutations = this.onDiscoveryMutations.bind(this);
+      this.onResponseMutations = this.onResponseMutations.bind(this);
       this.flush = this.flush.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
@@ -77,6 +85,27 @@
         for (let index = match.index; index < end; index += 1) mask[index] = 1;
       }
       return mask;
+    }
+
+    addInterScriptSpacing(characters) {
+      const spaced = [];
+      for (let index = 0; index < characters.length; index += 1) {
+        const character = characters[index];
+        const previous = characters[index - 1] || '';
+        const afterChinese = HAN_CHARACTER.test(previous)
+          && (LATIN_OR_NUMBER.test(character)
+            || TOKEN_PREFIX_SYMBOL.test(character)
+            || OPERATOR_SYMBOL.test(character));
+        const beforeChinese = HAN_CHARACTER.test(character)
+          && (LATIN_OR_NUMBER.test(previous)
+            || TOKEN_SUFFIX_SYMBOL.test(previous)
+            || OPERATOR_SYMBOL.test(previous));
+        if (afterChinese || beforeChinese) {
+          spaced.push(' ');
+        }
+        spaced.push(character);
+      }
+      return spaced.join('');
     }
 
     optimizeText(text, chineseBlock = true, quoteState = { double: false, single: false }) {
@@ -112,7 +141,7 @@
           quoteState.single = !quoteState.single;
         }
       }
-      return characters.join('');
+      return this.addInterScriptSpacing(characters);
     }
 
     assistantRoot(node) {
@@ -125,6 +154,28 @@
       if (scope?.matches?.(ASSISTANT_ROOT_SELECTOR)) roots.push(scope);
       for (const root of scope?.querySelectorAll?.(ASSISTANT_ROOT_SELECTOR) || []) roots.push(root);
       return roots.filter(root => !root.parentElement?.closest?.(ASSISTANT_ROOT_SELECTOR));
+    }
+
+    observeRoot(root) {
+      if (!this.active || !root || this.observedRoots.has(root)) return;
+      this.observedRoots.add(root);
+      this.responseObserver ||= new MutationObserver(this.onResponseMutations);
+      this.responseObserver.observe(root, { subtree: true, childList: true, characterData: true });
+      this.queueTarget(root);
+    }
+
+    pruneRemovedRoots() {
+      const connectedRoots = [...this.observedRoots].filter(root => root.isConnected);
+      if (connectedRoots.length === this.observedRoots.size) return;
+      this.responseObserver?.disconnect();
+      this.responseObserver = null;
+      this.observedRoots = new Set(connectedRoots);
+      for (const [node] of this.records) if (!node.isConnected) this.records.delete(node);
+      if (!this.active || !connectedRoots.length) return;
+      this.responseObserver = new MutationObserver(this.onResponseMutations);
+      for (const root of connectedRoots) {
+        this.responseObserver.observe(root, { subtree: true, childList: true, characterData: true });
+      }
     }
 
     shouldExclude(textNode) {
@@ -209,9 +260,34 @@
       }
     }
 
-    onMutations(mutations) {
+    onDiscoveryMutations(mutations) {
+      let rootsWereRemoved = false;
+      for (const mutation of mutations) {
+        const owner = this.assistantRoot(mutation.target);
+        if (owner && this.observedRoots.has(owner)) continue;
+        if (owner) this.observeRoot(owner);
+        for (const node of mutation.addedNodes) {
+          for (const root of this.collectRoots(node)) this.observeRoot(root);
+        }
+        for (const node of mutation.removedNodes || []) {
+          if (this.observedRoots.has(node)) rootsWereRemoved = true;
+          for (const root of this.collectRoots(node)) {
+            if (this.observedRoots.has(root)) rootsWereRemoved = true;
+          }
+        }
+      }
+      if (rootsWereRemoved) this.pruneRemovedRoots();
+    }
+
+    isRecordedOutput(node) {
+      const record = this.records.get(node);
+      return !!record && node.data === record.transformed;
+    }
+
+    onResponseMutations(mutations) {
       for (const mutation of mutations) {
         if (mutation.type === 'characterData') {
+          if (this.isRecordedOutput(mutation.target)) continue;
           this.queueTarget(this.processingTarget(mutation.target));
           continue;
         }
@@ -226,11 +302,11 @@
     enable() {
       if (this.active) return;
       this.active = true;
-      for (const root of this.collectRoots(document)) this.queueTarget(root);
       const target = document.documentElement;
       if (!target) return;
-      this.observer = new MutationObserver(this.onMutations);
-      this.observer.observe(target, { subtree: true, childList: true, characterData: true });
+      this.discoveryObserver = new MutationObserver(this.onDiscoveryMutations);
+      this.discoveryObserver.observe(target, { subtree: true, childList: true });
+      for (const root of this.collectRoots(document)) this.observeRoot(root);
     }
 
     restore() {
@@ -242,15 +318,18 @@
 
     disable() {
       this.active = false;
-      this.observer?.disconnect();
-      this.observer = null;
+      this.discoveryObserver?.disconnect();
+      this.responseObserver?.disconnect();
+      this.discoveryObserver = null;
+      this.responseObserver = null;
+      this.observedRoots = new Set();
       this.pendingTargets.clear();
       this.flushQueued = false;
       this.restore();
     }
   }
 
-  const runtime = new ChinesePunctuationClaudeRuntime();
+  const runtime = new ChineseResponseClaudeRuntime();
   Object.defineProperty(globalThis, RUNTIME_KEY, { value: runtime, configurable: true });
   runtime.announce();
 })();

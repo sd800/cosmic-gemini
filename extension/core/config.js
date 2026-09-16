@@ -10,7 +10,7 @@ export const FEATURE_IDS = Object.freeze({
   ANY_COPY_ENHANCED: 'anyCopyEnhanced',
   PAGE_DISPLAY: 'pageDisplay',
   XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
-  CHINESE_PUNCTUATION_CLAUDE: 'chinesePunctuationClaude',
+  CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   MAILTO_CAPTURE: 'mailtoCapture',
   AD_MARSHAL: 'adMarshal',
   IMAGE_DOWNLOAD: 'imageDownload',
@@ -26,7 +26,7 @@ export const FEATURE_SLOTS = Object.freeze({
   PAGE_DISPLAY: 33,
   XHS_IMAGE_DARK_MODE: 34,
   AD_MARSHAL: 35,
-  CHINESE_PUNCTUATION_CLAUDE: 36,
+  CHINESE_RESPONSE_CLAUDE: 36,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
 });
@@ -52,7 +52,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 27,
+  version: 28,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -84,7 +84,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     showImageControl: true,
     controlOpacity: 0.5
   }),
-  chinesePunctuationClaude: Object.freeze({
+  chineseResponseClaude: Object.freeze({
     enabled: false
   }),
   adMarshal: Object.freeze({
@@ -197,7 +197,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 27,
+    version: 28,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -227,8 +227,8 @@ export function normalizeSettings(value = {}) {
       showImageControl: value.xhsImageDarkMode?.showImageControl !== false,
       controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkMode?.controlOpacity) || 0.5))
     },
-    chinesePunctuationClaude: {
-      enabled: value.chinesePunctuationClaude?.enabled === true
+    chineseResponseClaude: {
+      enabled: value.chineseResponseClaude?.enabled === true
     },
     adMarshal: {
       managedSites: Object.fromEntries(AD_MARSHAL_SITE_KEYS.map(siteKey => [
@@ -471,9 +471,9 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
   };
 }
 
-export function chinesePunctuationClaudeState(settings, url) {
+export function chineseResponseClaudeState(settings, url) {
   const normalized = normalizeSettings(settings);
-  const feature = normalized.chinesePunctuationClaude;
+  const feature = normalized.chineseResponseClaude;
   const hostname = hostnameFromUrl(url);
   const supported = hostname === 'claude.ai';
   const enabled = feature.enabled === true;

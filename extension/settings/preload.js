@@ -99,9 +99,9 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
   }
-  const chinesePunctuationClaudeEnabled = document.querySelector('#chinesePunctuationClaudeEnabled');
-  if (chinesePunctuationClaudeEnabled) {
-    chinesePunctuationClaudeEnabled.checked = cached.chinesePunctuationClaude?.enabled === true;
+  const chineseResponseClaudeEnabled = document.querySelector('#chineseResponseClaudeEnabled');
+  if (chineseResponseClaudeEnabled) {
+    chineseResponseClaudeEnabled.checked = cached.chineseResponseClaude?.enabled === true;
   }
   const pageDisplayEnabled = cached.pageDisplay?.enabled === true;
   if (feature === 'pageDisplay') document.body.dataset.pageDisplayEnabled = String(pageDisplayEnabled);

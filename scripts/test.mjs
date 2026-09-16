@@ -3,7 +3,7 @@ import '../test/locale.test.mjs';
 import '../test/native-scroll-runtime.test.mjs';
 import '../test/no-autoplay-runtime.test.mjs';
 import '../test/mailto-capture-runtime.test.mjs';
-import '../test/chinese-punctuation-claude-runtime.test.mjs';
+import '../test/chinese-response-claude-runtime.test.mjs';
 import '../test/page-display-runtime.test.mjs';
 import '../test/xhs-image-dark-mode.test.mjs';
 import '../test/any-copy-runtime.test.mjs';

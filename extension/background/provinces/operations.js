@@ -3,7 +3,7 @@ import { createPageRuntimeHost } from '../features/page-runtime-host.js';
 import { createAdministrationProduct } from '../products/operations/administration.js';
 import { createAnyCopyProduct } from '../products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../products/operations/any-copy-enhanced.js';
-import { createChinesePunctuationClaudeProduct } from '../products/operations/chinese-punctuation-claude.js';
+import { createChineseResponseClaudeProduct } from '../products/operations/chinese-response-claude.js';
 import { createSatellitesProduct } from '../products/operations/satellites.js';
 import { createPageDisplayProduct } from '../products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../products/operations/xhs-image-dark-mode.js';
@@ -16,7 +16,7 @@ export function createOperationsProvince(platform) {
   const satellites = createSatellitesProduct(platform);
   const pageDisplay = createPageDisplayProduct(host, platform);
   const xhsImageDarkMode = createXhsImageDarkModeProduct(host, platform);
-  const chinesePunctuationClaude = createChinesePunctuationClaudeProduct(host, platform);
+  const chineseResponseClaude = createChineseResponseClaudeProduct(host, platform);
   const administration = createAdministrationProduct(platform);
   const products = {
     [anyCopy.id]: anyCopy,
@@ -24,7 +24,7 @@ export function createOperationsProvince(platform) {
     [satellites.id]: satellites,
     [pageDisplay.id]: pageDisplay,
     [xhsImageDarkMode.id]: xhsImageDarkMode,
-    [chinesePunctuationClaude.id]: chinesePunctuationClaude,
+    [chineseResponseClaude.id]: chineseResponseClaude,
     [administration.id]: administration
   };
 

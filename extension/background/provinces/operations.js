@@ -38,6 +38,19 @@ export function createOperationsProvince(platform) {
     const governed = product(productId);
     const senderUrl = context.sender.tab?.url || message.url || '';
     const senderTabId = context.sender.tab?.id;
+    if (message.type === 'CG_FEATURE_ACTIVITY') {
+      if (governed.id !== FEATURE_IDS.CHINESE_RESPONSE_CLAUDE) {
+        throw new Error('Live activity updates are unavailable for this product.');
+      }
+      const eventHostname = hostnameFromUrl(message.pageUrl || context.sender.url || '');
+      const currentHostname = hostnameFromUrl(context.sender.tab?.url || '');
+      if (eventHostname && currentHostname && eventHostname !== currentHostname) return { recorded: false };
+      const settings = await platform.readSettings();
+      const state = await governed.state(settings, senderUrl, senderTabId);
+      const active = state.active && message.active === true;
+      await platform.setFeatureActivity(senderTabId, governed.id, active);
+      return { recorded: true, active };
+    }
     if (message.type === 'CG_FEATURE_INTERVENED') {
       const eventHostname = hostnameFromUrl(message.pageUrl || context.sender.url || '');
       const currentHostname = hostnameFromUrl(context.sender.tab?.url || '');

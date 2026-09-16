@@ -19,6 +19,11 @@ test('central accepts page events only from HTTP or HTTPS tab documents', () => 
     { url: 'https://example.com/', tab: { id: 7 } },
     extensionBase
   ), true);
+  assert.equal(validateMessageSource(
+    { type: 'CG_FEATURE_ACTIVITY' },
+    { url: 'https://claude.ai/', tab: { id: 8 } },
+    extensionBase
+  ), true);
   assert.throws(() => validateMessageSource(
     { type: 'CG_SYNC_CENTRAL' },
     { url: `${extensionBase}popup/index.html`, tab: { id: 7 } },

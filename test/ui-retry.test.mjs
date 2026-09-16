@@ -172,6 +172,7 @@ test('Claude contextual popup control is always present on claude.ai and reflect
     }
     ${between(popupSource, 'function renderContextualProducts(', 'function formatBytes(')}
     renderContextualProducts();
+    globalThis.renderContextualState = next => { state = next; renderContextualProducts(); };
   `, context);
   assert.equal(container.hidden, false);
   assert.equal(container.children.length, 1);
@@ -188,6 +189,15 @@ test('Claude contextual popup control is always present on claude.ai and reflect
     enabled: false,
     tabId: 41
   }]);
+  context.renderContextualState({
+    xhsImageDarkMode: { supported: false },
+    chineseResponseClaude: { supported: true, enabled: false },
+    activity: { chineseResponseClaude: true }
+  });
+  const disabledToggle = container.children[0].children[0].children[0];
+  assert.equal(disabledToggle.dataset.state, 'off');
+  assert.equal(disabledToggle.dataset.persistent, 'false');
+  assert.equal(disabledToggle.dataset.intervened, 'false');
 });
 
 test('a stopped image session cannot be revived by a late rescan response', async () => {

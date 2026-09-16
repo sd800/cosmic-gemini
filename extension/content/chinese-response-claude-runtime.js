@@ -3,7 +3,7 @@
   const MAIN_READY = 'cosmic-gemini:chinese-response-claude:main-ready';
   const CONFIGURE = 'cosmic-gemini:chinese-response-claude:configure';
   const DISPOSE = 'cosmic-gemini:chinese-response-claude:dispose';
-  const INTERVENED = 'cosmic-gemini:chinese-response-claude:intervened';
+  const ACTIVITY = 'cosmic-gemini:chinese-response-claude:activity';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.chinese-response-claude.runtime');
   const ASSISTANT_ROOT_SELECTOR = [
     '[data-message-author-role="assistant"]',
@@ -49,7 +49,8 @@
       this.pendingTargets = new Set();
       this.flushQueued = false;
       this.records = new Map();
-      this.reported = false;
+      this.recordsNeedPrune = false;
+      this.reportedActivity = null;
       this.flushCount = 0;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
@@ -68,7 +69,10 @@
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
       if (message?.token !== this.token) return;
-      if (message.config?.active === true) this.enable();
+      if (message.config?.active === true) {
+        if (this.active) this.syncActivity(true, true);
+        else this.enable();
+      }
       else this.disable();
     }
     onDispose(event) {
@@ -190,6 +194,7 @@
       this.responseObserver = null;
       this.observedRoots = new Set(connectedRoots);
       for (const [node] of this.records) if (!node.isConnected) this.records.delete(node);
+      this.syncActivity();
       if (!this.active || !connectedRoots.length) return;
       this.responseObserver = new MutationObserver(this.onResponseMutations);
       for (const root of connectedRoots) {
@@ -224,13 +229,20 @@
       }
       this.records.set(node, { original: source, transformed });
       node.data = transformed;
-      this.reportIntervention();
     }
 
-    reportIntervention() {
-      if (this.reported) return;
-      this.reported = true;
-      window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
+    syncActivity(force = false, prune = false) {
+      if (prune) {
+        for (const [node, record] of this.records) {
+          if (!node.isConnected || node.data !== record.transformed) this.records.delete(node);
+        }
+      }
+      const activity = this.records.size > 0;
+      if (!force && this.reportedActivity === activity) return;
+      this.reportedActivity = activity;
+      window.dispatchEvent(new CustomEvent(ACTIVITY, {
+        detail: JSON.stringify({ token: this.token, active: activity })
+      }));
     }
 
     processBlock(block, assistantRoot) {
@@ -281,9 +293,9 @@
         }
       }
       this.flushCount += 1;
-      if (this.records.size > 1500 || this.flushCount % 128 === 0) {
-        for (const [node] of this.records) if (!node.isConnected) this.records.delete(node);
-      }
+      const periodicPrune = this.records.size > 1500 || this.flushCount % 128 === 0;
+      this.syncActivity(false, this.recordsNeedPrune || periodicPrune);
+      this.recordsNeedPrune = false;
     }
 
     onDiscoveryMutations(mutations) {
@@ -317,6 +329,7 @@
           this.queueTarget(this.processingTarget(mutation.target));
           continue;
         }
+        if (mutation.removedNodes?.length) this.recordsNeedPrune = true;
         this.queueTarget(this.processingTarget(mutation.target));
         for (const node of mutation.addedNodes) {
           this.queueTarget(this.processingTarget(node));
@@ -333,6 +346,7 @@
       this.discoveryObserver = new MutationObserver(this.onDiscoveryMutations);
       this.discoveryObserver.observe(target, { subtree: true, childList: true });
       for (const root of this.collectRoots(document)) this.observeRoot(root);
+      queueMicrotask(() => this.syncActivity());
     }
 
     restore() {
@@ -340,6 +354,7 @@
         if (node.isConnected && node.data === record.transformed) node.data = record.original;
       }
       this.records.clear();
+      this.syncActivity();
     }
 
     disable() {
@@ -351,8 +366,9 @@
       this.observedRoots = new Set();
       this.pendingTargets.clear();
       this.flushQueued = false;
+      this.recordsNeedPrune = false;
       this.restore();
-      this.reported = false;
+      this.reportedActivity = null;
     }
   }
 

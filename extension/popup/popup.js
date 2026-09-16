@@ -159,7 +159,9 @@ function renderContextualProducts() {
   for (const entry of available) {
     const feature = state[entry.id];
     const isXhs = entry.id === 'xhsImageDarkMode';
-    const processing = isXhs ? feature.processing === true : state.activity?.[entry.id] === true;
+    const processing = isXhs
+      ? feature.processing === true
+      : feature.enabled === true && state.activity?.[entry.id] === true;
     const nameKey = isXhs ? 'xhsImageDarkModeName' : 'chineseResponseClaudeName';
     const row = document.createElement('section');
     row.className = 'feature-row';

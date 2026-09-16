@@ -52,7 +52,7 @@ test('Claude response display product saves independently and refreshes page dec
   assert.equal(refreshes, 1);
 });
 
-test('Claude response display records an actual page intervention for popup state', async () => {
+test('Claude response display records and clears live page activity for popup state', async () => {
   const activity = [];
   const settings = normalizeSettings({ chineseResponseClaude: { enabled: true } });
   const province = createOperationsProvince({
@@ -62,8 +62,9 @@ test('Claude response display records an actual page intervention for popup stat
     }
   });
   const result = await province.handleMessage('chineseResponseClaude', {
-    type: 'CG_FEATURE_INTERVENED',
+    type: 'CG_FEATURE_ACTIVITY',
     featureId: 'chineseResponseClaude',
+    active: true,
     pageUrl: 'https://claude.ai/chat/example'
   }, {
     sender: {
@@ -72,8 +73,24 @@ test('Claude response display records an actual page intervention for popup stat
       tab: { id: 19, url: 'https://claude.ai/chat/example' }
     }
   });
-  assert.deepEqual(result, { recorded: true });
-  assert.deepEqual(activity, [{ tabId: 19, featureId: 'chineseResponseClaude', active: true }]);
+  assert.deepEqual(result, { recorded: true, active: true });
+  const cleared = await province.handleMessage('chineseResponseClaude', {
+    type: 'CG_FEATURE_ACTIVITY',
+    featureId: 'chineseResponseClaude',
+    active: false,
+    pageUrl: 'https://claude.ai/chat/example'
+  }, {
+    sender: {
+      frameId: 0,
+      url: 'https://claude.ai/chat/example',
+      tab: { id: 19, url: 'https://claude.ai/chat/example' }
+    }
+  });
+  assert.deepEqual(cleared, { recorded: true, active: false });
+  assert.deepEqual(activity, [
+    { tabId: 19, featureId: 'chineseResponseClaude', active: true },
+    { tabId: 19, featureId: 'chineseResponseClaude', active: false }
+  ]);
 });
 
 test('other rule editors accept Settings navigation and keep product rules independent', async () => {

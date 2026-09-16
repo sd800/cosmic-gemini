@@ -94,20 +94,95 @@ test('Claude response observation ignores the runtime own recorded text writes',
   assert.deepEqual(queued, [block]);
 });
 
-test('Claude response optimization reports its first actual text change only once', async () => {
+test('Claude response optimization reports live activity only when transformed text remains', async () => {
   const { context, runtime } = await runtimeFixture();
-  let reports = 0;
-  context.window.addEventListener('cosmic-gemini:chinese-response-claude:intervened', event => {
-    assert.equal(event.detail, runtime.token);
-    reports += 1;
+  const reports = [];
+  context.window.addEventListener('cosmic-gemini:chinese-response-claude:activity', event => {
+    const detail = JSON.parse(event.detail);
+    assert.equal(detail.token, runtime.token);
+    reports.push(detail.active);
   });
   const first = { data: '中文,', isConnected: true };
   const second = { data: '价格$45', isConnected: true };
   runtime.transformNode(first, true, { double: false, single: false });
   runtime.transformNode(second, true, { double: false, single: false });
+  runtime.syncActivity();
   assert.equal(first.data, '中文，');
   assert.equal(second.data, '价格 $45');
-  assert.equal(reports, 1);
+  assert.deepEqual(reports, [true]);
+
+  first.isConnected = false;
+  second.isConnected = false;
+  runtime.syncActivity(false, true);
+  assert.deepEqual(reports, [true, false]);
+});
+
+test('Claude response optimization reaffirms live activity after configuration refresh', async () => {
+  const { context, runtime } = await runtimeFixture();
+  const reports = [];
+  context.window.addEventListener('cosmic-gemini:chinese-response-claude:activity', event => {
+    reports.push(JSON.parse(event.detail).active);
+  });
+  const node = { data: '中文,', isConnected: true };
+  runtime.transformNode(node, true, { double: false, single: false });
+  runtime.syncActivity();
+  runtime.active = true;
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true } }) });
+  assert.deepEqual(reports, [true, true]);
+});
+
+test('Claude bridge forwards both live activity transitions to the governed product', async () => {
+  const window = new SimpleEventTarget();
+  const messages = [];
+  const runtimeListeners = new Set();
+  const context = {
+    window,
+    top: window,
+    location: { href: 'https://claude.ai/chat/example' },
+    CustomEvent: class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
+    setTimeout,
+    clearTimeout,
+    Symbol,
+    JSON,
+    chrome: { runtime: {
+      async sendMessage(message) {
+        messages.push(message);
+        if (message.type === 'CG_PAGE_STATE') {
+          return { ok: true, result: { chineseResponseClaude: { active: true } } };
+        }
+        return { ok: true };
+      },
+      onMessage: {
+        addListener(listener) { runtimeListeners.add(listener); },
+        removeListener(listener) { runtimeListeners.delete(listener); }
+      }
+    } }
+  };
+  vm.createContext(context);
+  const bridgeSource = await readFile(new URL('../extension/content/chinese-response-claude-bridge.js', import.meta.url), 'utf8');
+  vm.runInContext(bridgeSource, context);
+  window.dispatchEvent({ type: 'cosmic-gemini:chinese-response-claude:main-ready', detail: 'page-token' });
+  await Promise.resolve();
+  await Promise.resolve();
+  for (const active of [true, false]) {
+    window.dispatchEvent({
+      type: 'cosmic-gemini:chinese-response-claude:activity',
+      detail: JSON.stringify({ token: 'page-token', active })
+    });
+  }
+  await Promise.resolve();
+  assert.deepEqual(JSON.parse(JSON.stringify(
+    messages.filter(message => message.type === 'CG_FEATURE_ACTIVITY')
+  )), [
+    {
+      type: 'CG_FEATURE_ACTIVITY', featureId: 'chineseResponseClaude', active: true,
+      pageUrl: 'https://claude.ai/chat/example'
+    },
+    {
+      type: 'CG_FEATURE_ACTIVITY', featureId: 'chineseResponseClaude', active: false,
+      pageUrl: 'https://claude.ai/chat/example'
+    }
+  ]);
 });
 
 test('Claude Chinese punctuation optimization preserves structured ASCII content', async () => {

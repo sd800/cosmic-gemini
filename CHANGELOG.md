@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.20 — 2026-09-16
+
+- Made the contextual C control's solid outline follow live page intervention state. It now appears only while transformed Claude reply text remains in the current page, clears when that text is replaced or removed during in-page navigation or when the product is off, and is reaffirmed after configuration resynchronization without repeatedly scanning the full conversation.
+
 ## 8.9.19 — 2026-09-16
 
 - Kept the contextual C control present whenever the popup belongs to an exact `claude.ai` tab, independently of the product's saved on/off setting and transient product-state readbacks.

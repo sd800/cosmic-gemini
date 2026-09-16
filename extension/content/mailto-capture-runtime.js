@@ -75,6 +75,9 @@
       this.shadow = null;
       this.anchor = null;
       this.mailto = null;
+      this.closingHost = null;
+      this.closingAnimation = null;
+      this.closeSequence = 0;
       this.viewportFrame = 0;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
@@ -251,7 +254,8 @@
     show(anchor, href) {
       const mailto = this.parseMailto(href);
       if (!mailto) return;
-      this.close();
+      this.finishClosing();
+      this.close(false, true);
       this.anchor = anchor;
       this.mailto = mailto;
       this.render();
@@ -412,16 +416,59 @@
       this.host.style.setProperty('top', `${Math.round(top)}px`, 'important');
     }
 
-    close(restoreFocus = false) {
+    finishClosing() {
+      const host = this.closingHost;
+      if (!host) return;
+      this.closeSequence += 1;
+      this.closingHost = null;
+      const animation = this.closingAnimation;
+      this.closingAnimation = null;
+      try { animation?.cancel(); } catch {}
+      host.remove();
+    }
+
+    close(restoreFocus = false, immediate = false) {
       if (this.viewportFrame) cancelAnimationFrame(this.viewportFrame);
       this.viewportFrame = 0;
+      const host = this.host;
+      const shadow = this.shadow;
       const anchor = this.anchor;
-      this.host?.remove();
       this.host = null;
       this.shadow = null;
       this.anchor = null;
       this.mailto = null;
-      if (restoreFocus && anchor?.isConnected) anchor.focus({ preventScroll: true });
+      if (!host) return;
+      const restore = () => {
+        if (restoreFocus && anchor?.isConnected) anchor.focus({ preventScroll: true });
+      };
+      const popover = shadow?.querySelector?.('.popover');
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+      if (immediate || reduceMotion || typeof popover?.animate !== 'function') {
+        host.remove();
+        restore();
+        return;
+      }
+      host.style?.setProperty?.('pointer-events', 'none', 'important');
+      const animation = popover.animate([
+        { opacity: 1, transform: 'translateY(0)' },
+        { opacity: 0, transform: 'translateY(-3px)' }
+      ], { duration: 100, easing: 'ease-in', fill: 'forwards' });
+      this.closingHost = host;
+      this.closingAnimation = animation;
+      const sequence = ++this.closeSequence;
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        host.remove();
+        if (sequence !== this.closeSequence) return;
+        if (this.closingHost === host) {
+          this.closingHost = null;
+          this.closingAnimation = null;
+        }
+        restore();
+      };
+      animation.finished.then(finish, finish);
     }
   }
 

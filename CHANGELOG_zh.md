@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.10.5 — 2026-09-16
+
+- 为 Mailto Capture 弹窗添加与进入效果相呼应的短暂退出动画，并遵循系统的减少动态效果偏好。
+
 ## 8.10.4 — 2026-09-16
 
 - 去除 Global Privacy Control 设置项下方多余的留白。

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.5 — 2026-09-16
+
+- Added a short exit animation to the Mailto Capture popover, matching its entrance motion while respecting reduced-motion preferences.
+
 ## 8.10.4 — 2026-09-16
 
 - Removed the excess space beneath the Global Privacy Control setting.

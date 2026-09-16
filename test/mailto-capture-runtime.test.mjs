@@ -139,3 +139,63 @@ test('Mailto Capture closes only for outside activation or Escape', async () => 
   assert.equal(prevented, true);
   assert.equal(stopped, true);
 });
+
+test('Mailto Capture reverses its entrance motion before removing the popover', async () => {
+  const { runtime } = await runtimeFixture();
+  let resolveAnimation;
+  let removed = false;
+  let focused = false;
+  let animationOptions;
+  let animationFrames;
+  const animation = {
+    finished: new Promise(resolve => { resolveAnimation = resolve; }),
+    cancel() {}
+  };
+  const popover = {
+    animate(frames, options) { animationFrames = frames; animationOptions = options; return animation; }
+  };
+  runtime.host = {
+    style: { setProperty() {} },
+    remove() { removed = true; }
+  };
+  runtime.shadow = { querySelector: () => popover };
+  runtime.anchor = { isConnected: true, focus() { focused = true; } };
+  runtime.mailto = {};
+
+  runtime.close(true);
+  assert.equal(runtime.host, null, 'the closing popover stops receiving runtime actions immediately');
+  assert.equal(removed, false, 'the host remains only for the exit animation');
+  assert.deepEqual(JSON.parse(JSON.stringify(animationFrames)), [
+    { opacity: 1, transform: 'translateY(0)' },
+    { opacity: 0, transform: 'translateY(-3px)' }
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(animationOptions)), {
+    duration: 100, easing: 'ease-in', fill: 'forwards'
+  });
+  resolveAnimation();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(removed, true);
+  assert.equal(focused, true);
+});
+
+test('Mailto Capture clears a closing popover before opening another without restoring stale focus', async () => {
+  const { runtime } = await runtimeFixture();
+  let rejectAnimation;
+  let removed = 0;
+  let focused = 0;
+  const animation = {
+    finished: new Promise((_resolve, reject) => { rejectAnimation = reject; }),
+    cancel() { rejectAnimation(new Error('cancelled')); }
+  };
+  runtime.host = { style: { setProperty() {} }, remove() { removed += 1; } };
+  runtime.shadow = { querySelector: () => ({ animate: () => animation }) };
+  runtime.anchor = { isConnected: true, focus() { focused += 1; } };
+  runtime.mailto = {};
+  runtime.close(true);
+  runtime.finishClosing();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.ok(removed >= 1);
+  assert.equal(focused, 0);
+});

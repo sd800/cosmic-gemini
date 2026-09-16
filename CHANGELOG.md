@@ -2,15 +2,20 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.19 — 2026-09-16
+
+- Kept the contextual C control present whenever the popup belongs to an exact `claude.ai` tab, independently of the product's saved on/off setting and transient product-state readbacks.
+- Preserved half-width punctuation inside adjacent Latin-letter or numeric phrases in otherwise Chinese Claude replies. English addresses therefore retain their original punctuation, while surrounding Chinese prose continues to use full-width punctuation.
+
 ## 8.9.18 — 2026-09-16
 
 - Added a contextual C control to the popup on `claude.ai`. Its blue surface shows that the product is enabled, while a solid blue outline appears only after the product has changed reply text on the current page.
 
 ## 8.9.17 — 2026-09-16
 
-- Renamed Chinese Punctuation Marks Display Optimization for Claude to Chinese Response Display Optimization for Claude and replaced its internal technical identity with `chinese-response-claude`.
+- Renamed Chinese Punctuation Marks Display Optimization for Claude to Chinese Response Display Optimization for Claude and changed its internal technical identity from `chinese-punctuation-claude` to `chinese-response-claude`.
 - Added consistent spaces between Chinese text and adjacent Latin letters, numbers, or related symbols to the same product without another switch. This includes currency forms such as `$45`, percentages, temperatures, mentions, tags, and common operators without treating ordinary prose punctuation as a spacing symbol. The reversible text transformation follows streamed replies and excludes code, links, formulas, controls, and editable content together with punctuation conversion.
-- Preserved ASCII parentheses in telephone numbers such as `(312) 285-2968`, where the parentheses are part of the number rather than Chinese prose punctuation.
+- Preserved ASCII parentheses in telephone numbers, where the parentheses are part of the number rather than Chinese prose punctuation.
 - Reduced page work by limiting streamed-text observation to Claude response containers. The lightweight page observer now discovers new responses without watching unrelated character changes, and recorded writes made by the product itself are ignored before another processing task is queued.
 
 ## 8.9.16 — 2026-09-16

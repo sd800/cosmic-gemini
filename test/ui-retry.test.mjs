@@ -125,7 +125,7 @@ test('Page Display popup controls use the unavailable state on unsupported pages
   assert.equal(toggle.title, 'unsupportedTitle');
 });
 
-test('Claude contextual popup control distinguishes enabled and intervened states', () => {
+test('Claude contextual popup control is always present on claude.ai and reflects enabled and intervened states', () => {
   class Element {
     constructor(tag) {
       this.tag = tag;
@@ -142,6 +142,7 @@ test('Claude contextual popup control distinguishes enabled and intervened state
   const container = new Element('div');
   const messages = [];
   const context = vm.createContext({
+    URL,
     document: {
       querySelector(selector) {
         assert.equal(selector, '#contextual-feature-list');
@@ -158,10 +159,10 @@ test('Claude contextual popup control distinguishes enabled and intervened state
       Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' }),
       Object.freeze({ id: 'chineseResponseClaude', hostname: 'claude.ai' })
     ]);
-    let currentTab = { id: 41 };
+    let currentTab = { id: 41, url: 'https://claude.ai/new' };
     let state = {
       xhsImageDarkMode: { supported: false },
-      chineseResponseClaude: { supported: true, enabled: true },
+      chineseResponseClaude: { supported: false, enabled: true },
       activity: { chineseResponseClaude: true }
     };
     const t = key => key;

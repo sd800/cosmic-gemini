@@ -151,7 +151,9 @@ function renderPageDisplayRow() {
 
 function renderContextualProducts() {
   const container = document.querySelector('#contextual-feature-list');
-  const available = contextualProducts.filter(entry => state?.[entry.id]?.supported === true);
+  let hostname = '';
+  try { hostname = new URL(currentTab?.url || '').hostname.toLowerCase().replace(/\.$/, ''); } catch {}
+  const available = contextualProducts.filter(entry => entry.hostname === hostname);
   container.replaceChildren();
   container.hidden = available.length === 0;
   for (const entry of available) {

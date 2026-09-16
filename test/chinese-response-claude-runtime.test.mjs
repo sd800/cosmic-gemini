@@ -115,13 +115,21 @@ test('Claude Chinese punctuation optimization preserves structured ASCII content
   const state = { double: false, single: false };
   assert.equal(
     runtime.optimizeText('他说, "你好!" (version 1.2), Claude\'s URL: https://example.com/a?x=1.', true, state),
-    '他说， “你好！” （version 1.2）， Claude\'s URL： https://example.com/a?x=1.'
+    '他说， “你好！” （version 1.2）， Claude\'s URL: https://example.com/a?x=1.'
   );
   assert.equal(runtime.optimizeText('English, punctuation!', false), 'English, punctuation!');
   assert.equal(runtime.optimizeText('稍后...再说, 可以吗?', true), '稍后...再说， 可以吗？');
   assert.equal(runtime.optimizeText('联系 me@example.com, 时间 12:30.', true), '联系 me@example.com， 时间 12:30。');
   assert.equal(runtime.optimizeText('电话 (312) 285-2968, 明天联系.', true), '电话 (312) 285-2968， 明天联系。');
   assert.equal(runtime.optimizeText('国际号码 +1 (312) 285-2968, 请记录.', true), '国际号码 +1 (312) 285-2968， 请记录。');
+  assert.equal(
+    runtime.optimizeText('地址是 30 E Hubbard St, Chicago, IL 60611, 请按时到达.', true),
+    '地址是 30 E Hubbard St, Chicago, IL 60611， 请按时到达。'
+  );
+  assert.equal(
+    runtime.optimizeText('办公地点: 30 E Hubbard St, Chicago, IL 60611', true),
+    '办公地点： 30 E Hubbard St, Chicago, IL 60611'
+  );
 });
 
 test('Claude Chinese response optimization inserts stable Chinese, Latin, and numeric spacing', async () => {

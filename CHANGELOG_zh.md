@@ -2,15 +2,20 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.19 — 2026-09-16
+
+- 只要控制窗口对应的标签页为精确的 `claude.ai` 域名，就始终显示动态 C 按钮，不再受功能已保存的开关状态或短暂的产品状态读取结果影响。
+- Claude 的中文回复中，相邻英文字母或数字片段内部的半角标点现会保持原样。因此，英文地址不会被改用全角标点，其外围的中文行文仍会正常使用全角标点。
+
 ## 8.9.18 — 2026-09-16
 
 - 在 `claude.ai` 页面为控制窗口加入以 C 为主体的动态按钮。蓝色背景表示功能已经开启，只有本功能确实修改了当前页面的回复文本后，按钮才会显示蓝色实线外边框。
 
 ## 8.9.17 — 2026-09-16
 
-- 将 Chinese Punctuation Marks Display Optimization for Claude 更名为 Chinese Response Display Optimization for Claude，并将内部技术标识更换为 `chinese-response-claude`。
+- 将 Chinese Punctuation Marks Display Optimization for Claude 更名为 Chinese Response Display Optimization for Claude，并将内部技术标识由 `chinese-punctuation-claude` 更换为 `chinese-response-claude`。
 - 在同一功能中加入中文与相邻英文字母、数字及相关符号之间的一致空格，不另外设置开关。相关符号包括 `$45` 等货币写法、百分比、温度、提及、标签和常见运算符，普通行文标点不会被当作间距符号。可逆文本转换会自动跟随流式回复，并与标点转换共同跳过代码、链接、公式、控件和可编辑内容。
-- 保留 `(312) 285-2968` 等电话号码中的半角括号。这类括号属于号码格式，不作为中文行文标点转换。
+- 保留电话号码中的半角括号。这类括号属于号码格式，不作为中文行文标点转换。
 - 将流式文本监听范围限制在 Claude 回复容器内，降低页面运行负担。页面级轻量监听只负责发现新增回复，不再监听无关区域的文字变化；本功能自身已经记录的文本写入也会在再次进入处理队列前直接忽略。
 
 ## 8.9.16 — 2026-09-16

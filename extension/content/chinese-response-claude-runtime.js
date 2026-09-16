@@ -24,6 +24,7 @@
   const TOKEN_PREFIX_SYMBOL = /[$€£¥￥₩₹₽@#]/;
   const TOKEN_SUFFIX_SYMBOL = /[%‰℃°]/;
   const OPERATOR_SYMBOL = /[+−±×÷=<>≤≥&|]/;
+  const ASCII_WORD_CHARACTER = /[A-Za-z0-9]/;
   const PROTECTED_TEXT = /(?:https?:\/\/|www\.)[^\s<>()\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?:\+\d{1,3}[\s.-]?)?\(\d{2,4}\)[\s.-]*\d{3,4}[\s.-]\d{4}\b|\b(?:[A-Za-z]:\\|\/)[^\s]+/g;
 
   function randomToken() {
@@ -114,6 +115,18 @@
       if (!chineseBlock || !text) return text;
       const protectedCharacters = this.protectedMask(text);
       const characters = text.split('');
+      const previousNonSpaces = new Array(characters.length);
+      const nextNonSpaces = new Array(characters.length);
+      let visibleCharacter = '';
+      for (let index = 0; index < characters.length; index += 1) {
+        previousNonSpaces[index] = visibleCharacter;
+        if (!/\s/.test(characters[index])) visibleCharacter = characters[index];
+      }
+      visibleCharacter = '';
+      for (let index = characters.length - 1; index >= 0; index -= 1) {
+        nextNonSpaces[index] = visibleCharacter;
+        if (!/\s/.test(characters[index])) visibleCharacter = characters[index];
+      }
       const mapped = {
         ',': '，', '?': '？', '!': '！', ':': '：', ';': '；',
         '(': '（', ')': '）'
@@ -123,7 +136,11 @@
         if (protectedCharacters[index]) continue;
         const previous = characters[index - 1] || '';
         const next = characters[index + 1] || '';
+        const withinAsciiPhrase = ASCII_WORD_CHARACTER.test(previousNonSpaces[index])
+          && ASCII_WORD_CHARACTER.test(nextNonSpaces[index]);
         if ((character === ',' || character === '.' || character === ':') && /\d/.test(previous) && /\d/.test(next)) continue;
+        if ((character === ',' || character === '.' || character === ':' || character === ';')
+          && withinAsciiPhrase) continue;
         if (character === '.' && (previous === '.' || next === '.')) continue;
         if (character === '.') {
           characters[index] = '。';

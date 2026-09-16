@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.16 — 2026-09-16
+
+- Fixed Reduce White Point and Greyscale remaining interactive and using their ordinary neutral appearance on pages where Page Display cannot run. Both popup controls now use the same unavailable state and label as other products, regardless of saved Page Display settings.
+
 ## 8.9.15 — 2026-09-16
 
 - Moved Chinese Punctuation Marks Display Optimization for Claude to the final position in Satellites. Static first-frame Settings and in-page Settings navigation now preserve the same order.

@@ -120,12 +120,15 @@ function renderSiteFeature(featureId) {
 function renderPageDisplayControl(settingName, elementId, nameKey, onTitleKey, offTitleKey) {
   const toggle = document.querySelector('#' + elementId);
   const saved = state.preferences?.pageDisplay?.[settingName];
-  const enabled = state.preferences?.pageDisplay?.enabled === true && saved?.enabled === true;
-  toggle.disabled = !saved;
+  const supported = state.pageDisplay?.supported === true;
+  const enabled = supported
+    && state.preferences?.pageDisplay?.enabled === true
+    && saved?.enabled === true;
+  toggle.disabled = !supported || !saved;
   toggle.dataset.state = enabled ? 'active' : 'off';
   toggle.dataset.persistent = String(enabled);
   toggle.setAttribute('aria-pressed', String(enabled));
-  label(toggle, t(enabled ? onTitleKey : offTitleKey, { product: t(nameKey) }));
+  label(toggle, t(!supported ? 'unsupportedTitle' : enabled ? onTitleKey : offTitleKey, { product: t(nameKey) }));
 }
 
 function renderPageDisplayRow() {

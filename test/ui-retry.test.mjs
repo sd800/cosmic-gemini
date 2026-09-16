@@ -94,6 +94,37 @@ test('a late popup snapshot cannot switch controls back to the previously read t
   assert.equal(context.ui.tab().id, 2);
 });
 
+test('Page Display popup controls use the unavailable state on unsupported pages', () => {
+  const toggle = {
+    dataset: {},
+    setAttribute(name, value) { this[name] = value; }
+  };
+  const context = vm.createContext({
+    document: { querySelector: () => toggle }
+  });
+  vm.runInContext(`
+    let state = {
+      pageDisplay: { supported: false },
+      preferences: {
+        pageDisplay: { enabled: true, reduceWhitePoint: { enabled: true } }
+      }
+    };
+    const t = key => key;
+    function label(element, value) {
+      element.title = value;
+      element.setAttribute('aria-label', value);
+    }
+    ${between(popupSource, 'function renderPageDisplayControl(', 'function renderPageDisplayRow(')}
+    renderPageDisplayControl('reduceWhitePoint', 'reduceWhitePoint-status',
+      'reduceWhitePointName', 'disableGlobalProductTitle', 'enableGlobalProductTitle');
+  `, context);
+  assert.equal(toggle.disabled, true);
+  assert.equal(toggle.dataset.state, 'off');
+  assert.equal(toggle.dataset.persistent, 'false');
+  assert.equal(toggle['aria-pressed'], 'false');
+  assert.equal(toggle.title, 'unsupportedTitle');
+});
+
 test('a stopped image session cannot be revived by a late rescan response', async () => {
   const scan = deferred();
   const context = vm.createContext({

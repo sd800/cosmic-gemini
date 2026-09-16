@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.15');
+assert.equal(manifest.version, '8.9.16');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -183,6 +183,7 @@ assert.match(popupSource, /type: 'UI_TOGGLE_SITE_FEATURE'/);
 assert.match(popupSource, /type: 'UI_TOGGLE_TAB_FEATURE'/);
 assert.match(popupSource, /type: 'UI_SET_PAGE_DISPLAY_SETTING'/);
 assert.match(popupSource, /state\.preferences\?\.pageDisplay/);
+assert.match(popupSource, /state\.pageDisplay\?\.supported === true[\s\S]*toggle\.disabled = !supported \|\| !saved/);
 assert.match(popupSource, /type: 'UI_OPEN_ALL_SETTINGS'/);
 assert.match(popupSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(popupSource, /if \(reloadAfter\) await reload\(/);

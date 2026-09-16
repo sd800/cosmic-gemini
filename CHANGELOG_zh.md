@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.16 — 2026-09-16
+
+- 修复 Page Display 无法运行的页面中，Reduce White Point 与 Greyscale 仍可操作并显示普通中性色的问题。无论已保存的 Page Display 设置如何，这两个控制按钮现在都会与其他功能一样显示不可用状态及对应提示。
+
 ## 8.9.15 — 2026-09-16
 
 - 将 Chinese Punctuation Marks Display Optimization for Claude 移至 Satellites 的最后一项。设置页首次显示及页面内导航现在会保持相同顺序。

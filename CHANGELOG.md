@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.25 — 2026-09-16
+
+- Prevented stale page scripts from reporting uncaught “Extension context invalidated” errors after Cosmic Gemini is reloaded or updated. Page bridges and media discovery now guard both synchronous message failures and asynchronous rejections while releasing runtime listeners safely.
+
 ## 8.9.24 — 2026-09-16
 
 - Presented Claude browser identity consistency as a compact checkbox beneath the product description and removed its redundant heading and separate settings row. Saving this independent preference no longer reports a failure after the setting has already been applied.

@@ -12,6 +12,14 @@
   let retryTimer = 0;
   let configRequest = 0;
 
+  const sendRuntimeMessage = message => {
+    try {
+      return Promise.resolve(chrome.runtime.sendMessage(message));
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+
   const dispatchConfig = config => {
     if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
   };
@@ -24,14 +32,14 @@
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
     window.removeEventListener(ACTIVITY, onActivity, true);
-    chrome.runtime.onMessage.removeListener(onMessage);
+    try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
   const requestConfig = async () => {
     if (disposed) return;
     const request = ++configRequest;
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE', featureId: 'chineseResponseClaude' });
+      const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'chineseResponseClaude' });
       if (disposed) return;
       if (request !== configRequest) return false;
       const config = response?.result?.chineseResponseClaude;
@@ -62,7 +70,7 @@
     let detail;
     try { detail = JSON.parse(event.detail); } catch { return; }
     if (!token || detail?.token !== token || typeof detail.active !== 'boolean' || window !== top) return;
-    void chrome.runtime.sendMessage({
+    void sendRuntimeMessage({
       type: 'CG_FEATURE_ACTIVITY',
       featureId: 'chineseResponseClaude',
       active: detail.active,

@@ -2,6 +2,14 @@
   const CAPTURE_KEY = Symbol.for('cosmic-gemini.image-capture');
   globalThis[CAPTURE_KEY]?.dispose?.();
   const zh = (navigator.languages || [navigator.language]).some(value => String(value).toLowerCase().startsWith('zh'));
+  const sendRuntimeMessage = message => {
+    try {
+      return Promise.resolve(chrome.runtime.sendMessage(message));
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+
   const overlay = document.createElement('div');
   overlay.dataset.cosmicGeminiImageCapture = 'true';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;cursor:crosshair;background:rgba(0,0,0,.22);touch-action:none;user-select:none;';
@@ -57,7 +65,7 @@
     removeOverlay();
     if (rect.width < 8 || rect.height < 8) return;
     setTimeout(() => {
-      void chrome.runtime.sendMessage({ type: 'CG_IMAGE_CAPTURE_RECT', rect }).catch(() => {});
+      void sendRuntimeMessage({ type: 'CG_IMAGE_CAPTURE_RECT', rect }).catch(() => {});
     }, 80);
   }, true);
   function cancel(event) {

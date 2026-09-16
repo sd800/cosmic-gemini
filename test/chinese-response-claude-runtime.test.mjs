@@ -200,6 +200,7 @@ test('Claude bridge forwards both live activity transitions to the governed prod
   const window = new SimpleEventTarget();
   const messages = [];
   const runtimeListeners = new Set();
+  let contextInvalidated = false;
   const context = {
     window,
     top: window,
@@ -210,7 +211,8 @@ test('Claude bridge forwards both live activity transitions to the governed prod
     Symbol,
     JSON,
     chrome: { runtime: {
-      async sendMessage(message) {
+      sendMessage(message) {
+        if (contextInvalidated) throw new Error('Extension context invalidated.');
         messages.push(message);
         if (message.type === 'CG_PAGE_STATE') {
           return { ok: true, result: { chineseResponseClaude: {
@@ -250,6 +252,12 @@ test('Claude bridge forwards both live activity transitions to the governed prod
       pageUrl: 'https://claude.ai/chat/example'
     }
   ]);
+  contextInvalidated = true;
+  assert.doesNotThrow(() => window.dispatchEvent({
+    type: 'cosmic-gemini:chinese-response-claude:activity',
+    detail: JSON.stringify({ token: 'page-token', active: true })
+  }));
+  await Promise.resolve();
 });
 
 test('Claude Chinese punctuation optimization preserves structured ASCII content', async () => {

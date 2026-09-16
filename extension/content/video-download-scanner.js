@@ -3,6 +3,14 @@
   const PAGE_MARKER = 'cosmic-gemini-video-download';
   const MEDIA_URL = /(?:\.m3u8|\.mpd|\.(?:mp4|webm|mov|mkv|m4v|ogv))(?:$|[?#])/i;
 
+  const sendRuntimeMessage = message => {
+    try {
+      return Promise.resolve(chrome.runtime.sendMessage(message));
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+
   function absoluteUrl(value) {
     try {
       const url = new URL(value, document.baseURI);
@@ -44,7 +52,7 @@
 
     unlisten() {
       if (!this.listening) return;
-      chrome.runtime.onMessage.removeListener(this.onMessage);
+      try { chrome.runtime.onMessage.removeListener(this.onMessage); } catch {}
       globalThis.removeEventListener('message', this.onWindowMessage);
       this.listening = false;
     }
@@ -79,7 +87,7 @@
             inlineId: String(item.inlineId || '').slice(0, 240)
           };
         }).filter(item => item?.kind);
-        void chrome.runtime.sendMessage({
+        void sendRuntimeMessage({
           type: 'CG_VIDEO_INLINE_MANIFESTS',
           manifests,
           pageUrl: location.href
@@ -87,7 +95,7 @@
       }
       if (event.data.type === 'wrapped-manifest' && typeof event.data.data === 'string'
         && event.data.data.length <= 3 * 1024 * 1024) {
-        void chrome.runtime.sendMessage({
+        void sendRuntimeMessage({
           type: 'CG_VIDEO_WRAPPED_MANIFEST',
           data: event.data.data,
           baseUrl: absoluteUrl(event.data.baseUrl) || location.href,
@@ -276,7 +284,7 @@
       }
       if (!unique.length) return [];
       try {
-        await chrome.runtime.sendMessage({ type: 'CG_VIDEO_CANDIDATES', candidates: unique, pageUrl: location.href });
+        await sendRuntimeMessage({ type: 'CG_VIDEO_CANDIDATES', candidates: unique, pageUrl: location.href });
       } catch {}
       return unique;
     }

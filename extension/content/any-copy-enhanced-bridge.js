@@ -11,6 +11,14 @@
   let configFailures = 0;
   let configRetry = 0;
 
+  const sendRuntimeMessage = message => {
+    try {
+      return Promise.resolve(chrome.runtime.sendMessage(message));
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+
   const dispatchConfig = config => {
     if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
   };
@@ -22,13 +30,13 @@
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
     window.removeEventListener(INTERVENED, onIntervened, true);
-    chrome.runtime.onMessage.removeListener(onMessage);
+    try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
   const requestConfig = async () => {
     if (disposed) return;
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'CG_PAGE_STATE', featureId: 'anyCopyEnhanced' });
+      const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'anyCopyEnhanced' });
       if (disposed) return;
       const config = response?.result?.anyCopyEnhanced;
       if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
@@ -37,7 +45,7 @@
       configRetry = 0;
       configFailures = 0;
       dispatchConfig(config);
-      if (window === top) void chrome.runtime.sendMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'anyCopyEnhanced', active: true }).catch(() => {});
+      if (window === top) void sendRuntimeMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'anyCopyEnhanced', active: true }).catch(() => {});
     } catch {
       if (disposed) return;
       configFailures += 1;
@@ -55,7 +63,7 @@
   }
   function onIntervened(event) {
     if (!token || event.detail !== token || window !== top) return;
-    void chrome.runtime.sendMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopyEnhanced', pageUrl: location.href }).catch(() => {});
+    void sendRuntimeMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'anyCopyEnhanced', pageUrl: location.href }).catch(() => {});
   }
   function onMessage(message, _sender, sendResponse) {
     if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'anyCopyEnhanced') {

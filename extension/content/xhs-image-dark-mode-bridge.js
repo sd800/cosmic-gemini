@@ -12,6 +12,14 @@
   let retryTimer = 0;
   let configRequest = 0;
 
+  const sendRuntimeMessage = message => {
+    try {
+      return Promise.resolve(chrome.runtime.sendMessage(message));
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+
   const dispatchConfig = config => {
     if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
   };
@@ -23,14 +31,14 @@
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
     window.removeEventListener(STATUS, onStatus, true);
-    chrome.runtime.onMessage.removeListener(onMessage);
+    try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
   const requestConfig = async () => {
     if (disposed) return false;
     const request = ++configRequest;
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await sendRuntimeMessage({
         type: 'CG_PAGE_STATE',
         featureId: 'xhsImageDarkMode'
       });
@@ -63,7 +71,7 @@
     let message;
     try { message = JSON.parse(event.detail); } catch { return; }
     if (message?.token !== token) return;
-    void chrome.runtime.sendMessage({
+    void sendRuntimeMessage({
       type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
       featureId: 'xhsImageDarkMode',
       status: message.status

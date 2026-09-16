@@ -6,7 +6,15 @@
   let syncQueued = false;
   let syncFailures = 0;
   let syncRetry = 0;
-  const synchronizeOnce = () => chrome.runtime.sendMessage({ type: 'CG_SYNC_CENTRAL', url: location.href })
+  const sendRuntimeMessage = message => {
+    try {
+      return Promise.resolve(chrome.runtime.sendMessage(message));
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+
+  const synchronizeOnce = () => sendRuntimeMessage({ type: 'CG_SYNC_CENTRAL', url: location.href })
       .then(response => {
         if (!response?.ok) throw new Error(response?.error || 'Central is temporarily unavailable.');
         syncFailures = 0;

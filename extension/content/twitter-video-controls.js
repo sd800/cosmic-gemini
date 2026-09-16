@@ -126,7 +126,7 @@
     observer?.disconnect(); intersections?.disconnect(); appearance?.disconnect();
     for (const player of records.keys()) remove(player);
     roots.clear();
-    chrome.runtime.onMessage.removeListener(onMessage);
+    try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     if (globalThis[KEY] === api) delete globalThis[KEY];
   }
   async function sync() {

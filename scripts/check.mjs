@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.24');
+assert.equal(manifest.version, '8.9.25');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -605,6 +605,15 @@ for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'mailt
   assert.match(value, /sendMessage[\s\S]*if \(disposed\) return;/);
   assert.match(value, /sendResponse\(\{ disposed: true \}\)/);
   assert.match(value, /Configuration is temporarily unavailable/);
+  assert.match(value, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/,
+    `${bridge} must catch synchronous extension-context invalidation before returning a rejected promise`);
+  assert.doesNotMatch(value, /void chrome\.runtime\.sendMessage/);
+}
+assert.match(centralPage, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/);
+for (const name of ['page-display-bridge.js', 'xhs-image-dark-mode-bridge.js', 'video-download-scanner.js', 'image-capture.js']) {
+  const value = await source('content', name);
+  assert.match(value, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/);
+  assert.doesNotMatch(value, /void chrome\.runtime\.sendMessage/);
 }
 
 assert.equal(await stat(join(extension, 'workspaces/image-download/image-download.html')).then(() => true), true);

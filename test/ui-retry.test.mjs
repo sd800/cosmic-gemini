@@ -157,7 +157,7 @@ test('contextual popup controls keep authorization, operating, and intervention 
   vm.runInContext(`
     const contextualProducts = Object.freeze([
       Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' }),
-      Object.freeze({ id: 'chineseResponseClaude', hostname: 'claude.ai' })
+      Object.freeze({ id: 'chineseResponseClaude', domains: Object.freeze(['claude.ai', 'claude.com', 'anthropic.com']) })
     ]);
     let currentTab = { id: 41, url: 'https://claude.ai/new' };
     let state = {
@@ -235,6 +235,15 @@ test('contextual popup controls keep authorization, operating, and intervention 
   xhsToggle = container.children[0].children[0].children[0];
   assert.equal(xhsToggle.dataset.persistent, 'true');
   assert.equal(xhsToggle.dataset.intervened, 'true');
+
+  context.renderContextualState({ id: 43, url: 'https://console.anthropic.com/' }, {
+    xhsImageDarkMode: { supported: false },
+    chineseResponseClaude: { supported: true, enabled: true },
+    activity: {}
+  });
+  const anthropicToggle = container.children[0].children[0].children[0];
+  assert.equal(anthropicToggle.innerHTML, '<chineseResponseClaude>');
+  assert.equal(anthropicToggle.dataset.state, 'active');
 });
 
 test('a stopped image session cannot be revived by a late rescan response', async () => {

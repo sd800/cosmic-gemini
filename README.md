@@ -86,7 +86,7 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 #### Chinese Response Display Optimization for Claude
 
-Claude can render Chinese replies with half-width punctuation and omit spaces around embedded Latin text, numbers, or related symbols. Chinese Response Display Optimization for Claude replaces those displayed marks and adds consistent spaces at these boundaries. Code, links, formulas, editable text, and Claude’s saved conversation remain unchanged, and all processing stays local to `claude.ai`.
+Claude can render Chinese replies with half-width punctuation and omit spaces around embedded Latin text, numbers, or related symbols. Chinese Response Display Optimization for Claude replaces those displayed marks and adds consistent spaces at these boundaries. Code, links, formulas, editable text, and Claude’s saved conversation remain unchanged. It also keeps selected browser identity signals consistent for Claude use in the United States, with all processing confined to supported Claude and Anthropic pages.
 
 ## Features
 
@@ -190,7 +190,7 @@ Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video D
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 
-Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Chinese Response Display Optimization for Claude adjusts only the punctuation and spacing of replies already rendered on the current page, and sends or retains none of their content. Bili Daily Login does not inspect whether or when you open Bilibili.
+Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Chinese Response Display Optimization for Claude applies its reply-display and browser-identity consistency adjustments within the page without separately sending or retaining reply content or identity information. Bili Daily Login does not inspect whether or when you open Bilibili.
 
 When Bili Daily Login is enabled, its background schedule contacts only Bilibili account services while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 

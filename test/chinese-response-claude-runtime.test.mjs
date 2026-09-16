@@ -26,7 +26,7 @@ class FakeMutationObserver {
   disconnect() { this.disconnected = true; }
 }
 
-async function runtimeFixture() {
+async function runtimeFixture(globals = {}) {
   FakeMutationObserver.instances = [];
   const window = new SimpleEventTarget();
   const document = {
@@ -36,13 +36,15 @@ async function runtimeFixture() {
   const context = {
     window,
     document,
+    location: { hostname: 'claude.ai' },
     MutationObserver: FakeMutationObserver,
     Node: { ELEMENT_NODE: 1 },
     NodeFilter: { SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
     CustomEvent: class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
     Uint8Array, Map, Set, Symbol, JSON, Number, String, Math, Object, Array, RegExp,
     queueMicrotask,
-    crypto: { getRandomValues: values => { values.fill(5); return values; } }
+    crypto: { getRandomValues: values => { values.fill(5); return values; } },
+    ...globals
   };
   vm.createContext(context);
   const source = await readFile(new URL('../extension/content/chinese-response-claude-runtime.js', import.meta.url), 'utf8');
@@ -70,6 +72,66 @@ test('Claude response observation limits character changes to assistant roots', 
 
   runtime.disable();
   assert.equal(FakeMutationObserver.instances.every(observer => observer.disconnected), true);
+});
+
+test('Claude browser identity normalization uses stable US defaults and restores native APIs', async () => {
+  const navigatorPrototype = {};
+  Object.defineProperties(navigatorPrototype, {
+    language: { configurable: true, get: () => 'fr-FR' },
+    languages: { configurable: true, get: () => ['fr-FR', 'fr'] }
+  });
+  const navigator = Object.create(navigatorPrototype);
+  const { context, runtime } = await runtimeFixture({
+    navigator,
+    location: { hostname: 'console.anthropic.com' }
+  });
+  const nativeDateTimeFormat = vm.runInContext('Intl.DateTimeFormat', context);
+  const nativeOffset = vm.runInContext("new Date('2026-01-15T12:00:00Z').getTimezoneOffset()", context);
+  runtime.detectSystemTimeZone = () => 'Asia/Shanghai';
+  runtime.detectSystemTimeZoneOffset = () => -480;
+  runtime.onConfigure({
+    detail: JSON.stringify({
+      token: runtime.token,
+      config: { active: true, responseDisplay: false }
+    })
+  });
+
+  assert.equal(FakeMutationObserver.instances.length, 0);
+  assert.equal(vm.runInContext('navigator.language', context), 'en-US');
+  assert.equal(vm.runInContext('navigator.languages.join(",")', context), 'en-US');
+  assert.equal(vm.runInContext('new Intl.NumberFormat().resolvedOptions().locale', context), 'en-US');
+  assert.equal(vm.runInContext('new Intl.NumberFormat("de-DE").resolvedOptions().locale', context), 'de-DE');
+  assert.equal(vm.runInContext('new Intl.DateTimeFormat().resolvedOptions().timeZone', context), 'America/New_York');
+  assert.equal(vm.runInContext(
+    'new Intl.DateTimeFormat("en-US", { timeZone: "UTC" }).resolvedOptions().timeZone', context
+  ), 'UTC');
+  assert.equal(vm.runInContext("new Date('2026-01-15T12:00:00Z').getTimezoneOffset()", context), 300);
+  assert.equal(vm.runInContext("new Date('2026-07-15T12:00:00Z').getTimezoneOffset()", context), 240);
+  assert.equal(vm.runInContext("new Date('2026-01-15T12:00:00Z').getHours()", context), 7);
+  assert.match(vm.runInContext("new Date('2026-01-15T12:00:00Z').toString()", context), /GMT-0500/);
+  assert.match(vm.runInContext('Date()', context), /GMT-0[45]00/);
+  assert.equal(
+    vm.runInContext('new Date(2026, 0, 15, 7).toISOString()', context),
+    '2026-01-15T12:00:00.000Z'
+  );
+  assert.equal(
+    vm.runInContext('new Date(2026, 6, 15, 8).toISOString()', context),
+    '2026-07-15T12:00:00.000Z'
+  );
+
+  runtime.disable();
+  assert.equal(vm.runInContext('navigator.language', context), 'fr-FR');
+  assert.equal(vm.runInContext('Intl.DateTimeFormat', context), nativeDateTimeFormat);
+  assert.equal(vm.runInContext("new Date('2026-01-15T12:00:00Z').getTimezoneOffset()", context), nativeOffset);
+});
+
+test('Claude browser identity normalization changes only UTC+8 device time zones', async () => {
+  const { runtime } = await runtimeFixture();
+  assert.equal(runtime.selectTimeZone('Asia/Shanghai', -480), 'America/New_York');
+  assert.equal(runtime.selectTimeZone('Australia/Perth', -480), 'America/New_York');
+  assert.equal(runtime.selectTimeZone('America/Chicago', 360), 'America/Chicago');
+  assert.equal(runtime.selectTimeZone('America/Puerto_Rico', 240), 'America/Puerto_Rico');
+  assert.equal(runtime.selectTimeZone('Europe/London', 0), 'Europe/London');
 });
 
 test('Claude response observation ignores the runtime own recorded text writes', async () => {

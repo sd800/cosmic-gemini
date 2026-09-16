@@ -86,7 +86,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Chinese Response Display Optimization for Claude
 
-Claude 有时会在中文回复中使用半角标点，或者省略中文与英文字母、数字及相关符号之间的空格。Chinese Response Display Optimization for Claude 会替换页面上显示的这些标点，并在这些边界补充一致的空格。代码、链接、公式、可编辑文本及 Claude 保存的对话均保持不变，所有处理都在当前 `claude.ai` 页面中进行。
+Claude 有时会在中文回复中使用半角标点，或者省略中文与英文字母、数字及相关符号之间的空格。Chinese Response Display Optimization for Claude 会替换页面上显示的这些标点，并在这些边界补充一致的空格。代码、链接、公式、可编辑文本及 Claude 保存的对话均保持不变。同时会针对在美国使用 Claude 的场景统一部分浏览器标识信息，所有处理仅在受支持的 Claude 与 Anthropic 页面中进行。
 
 ## 主要特性
 
@@ -190,7 +190,7 @@ Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download�
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 
-Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 只调整当前页面已显示回复的标点与空格，不会发送或留存回复内容。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
+Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 仅在页面内调整回复显示与浏览器标识的一致性，不会另行发送或留存回复内容及标识信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
 
 开启 Bili Daily Login 后，后台日程仅在电脑已唤醒且 Chrome 正在运行时调用哔哩哔哩账号服务。它会直接使用 Chrome 中已有的登录状态，不会读取或保存您的哔哩哔哩密码。
 

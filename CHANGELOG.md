@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.22 — 2026-09-16
+
+- Extended Chinese Response Display Optimization for Claude across supported Claude and Anthropic sites with a local consistency layer for selected browser identification signals in US usage contexts. The existing reply-display adjustment remains limited to Claude chat responses, and both parts follow the same product switch and reversible page-runtime lifecycle.
+
 ## 8.9.21 — 2026-09-16
 
 - Separated the contextual XHS Image Dark Mode control into three live signals. Its icon is blue whenever the product is enabled, its blue surface appears when Always on or a detected page-wide dark mode permits processing, and its solid outline appears only while at least one image on the page remains transformed. Restoring every transformed image or stopping the product now removes the outline.

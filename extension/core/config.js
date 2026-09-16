@@ -476,14 +476,17 @@ export function chineseResponseClaudeState(settings, url) {
   const normalized = normalizeSettings(settings);
   const feature = normalized.chineseResponseClaude;
   const hostname = hostnameFromUrl(url);
-  const supported = hostname === 'claude.ai';
+  const supported = hostname === 'claude.ai' || hostname.endsWith('.claude.ai')
+    || hostname === 'claude.com' || hostname.endsWith('.claude.com')
+    || hostname === 'anthropic.com' || hostname.endsWith('.anthropic.com');
   const enabled = feature.enabled === true;
   return {
     ...feature,
     hostname,
     supported,
     enabled,
-    active: supported && enabled
+    active: supported && enabled,
+    responseDisplay: hostname === 'claude.ai'
   };
 }
 

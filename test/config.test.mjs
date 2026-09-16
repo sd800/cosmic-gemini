@@ -285,14 +285,19 @@ test('Mailto Capture follows its ordinary and incognito defaults without website
   assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
 });
 
-test('Claude response display optimization is opt-in and limited to claude.ai', () => {
+test('Claude response optimization is opt-in across Claude and Anthropic domains', () => {
   const disabled = chineseResponseClaudeState(DEFAULT_SETTINGS, 'https://claude.ai/new');
   assert.equal(disabled.supported, true);
   assert.equal(disabled.enabled, false);
   assert.equal(disabled.active, false);
   const enabled = { chineseResponseClaude: { enabled: true } };
   assert.equal(chineseResponseClaudeState(enabled, 'https://claude.ai/chat/example').active, true);
-  assert.equal(chineseResponseClaudeState(enabled, 'https://www.claude.ai/').supported, false);
+  assert.equal(chineseResponseClaudeState(enabled, 'https://www.claude.ai/').supported, true);
+  assert.equal(chineseResponseClaudeState(enabled, 'https://www.claude.ai/').responseDisplay, false);
+  assert.equal(chineseResponseClaudeState(enabled, 'https://console.anthropic.com/').active, true);
+  assert.equal(chineseResponseClaudeState(enabled, 'https://anthropic.com/').active, true);
+  assert.equal(chineseResponseClaudeState(enabled, 'https://platform.claude.com/docs/').active, true);
+  assert.equal(chineseResponseClaudeState(enabled, 'https://claude.ai/chat/example').responseDisplay, true);
   assert.equal(chineseResponseClaudeState(enabled, 'https://notclaude.ai/').active, false);
   assert.equal(chineseResponseClaudeState(enabled, 'chrome://extensions').active, false);
 });

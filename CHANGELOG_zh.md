@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.15 — 2026-09-16
+
+- 将 Chinese Punctuation Marks Display Optimization for Claude 移至 Satellites 的最后一项。设置页首次显示及页面内导航现在会保持相同顺序。
+
 ## 8.9.13 — 2026-09-16
 
 - 新增 Chinese Punctuation Marks Display Optimization for Claude，作为 Operations Province 管理且默认关闭的 Satellite。它仅在 `claude.ai` 精确域名中替换已显示中文回复里的半角标点，并跳过代码、链接、公式、控件和可编辑文本。

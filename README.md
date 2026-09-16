@@ -72,10 +72,6 @@ Stop mailto links from opening your system mail app before you can inspect them.
 
 Make bright text images easier to view when a page-wide dark mode is active on Xiaohongshu. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.
 
-#### Chinese Punctuation Marks Display Optimization for Claude
-
-Claude can render Chinese replies with half-width punctuation even when the surrounding prose is Chinese. Chinese Punctuation Marks Display Optimization for Claude replaces those marks in the displayed reply while leaving code, links, formulas, and editable text unchanged. The adjustment remains local to `claude.ai` and does not alter Claude’s saved conversation.
-
 #### Bili Daily Login
 
 Bilibili gives every signed-in account one coin for completing its daily login. Receiving that coin otherwise depends on remembering to check in every day. Bili Daily Login handles the recurring check-in in the background while Chrome is available, allowing the daily coin to be credited automatically.
@@ -87,6 +83,10 @@ Stop persistent advertising, reporting, and tracking components from repeatedly 
 Each supported site has its own narrowly scoped policy. These policies target only confirmed advertising and telemetry components without interfering with ordinary page content, sign-in, or account security.
 
 The current managed-site choices cover Tencent News and Zhihu.
+
+#### Chinese Punctuation Marks Display Optimization for Claude
+
+Claude can render Chinese replies with half-width punctuation even when the surrounding prose is Chinese. Chinese Punctuation Marks Display Optimization for Claude replaces those marks in the displayed reply while leaving code, links, formulas, and editable text unchanged. The adjustment remains local to `claude.ai` and does not alter Claude’s saved conversation.
 
 ## Features
 

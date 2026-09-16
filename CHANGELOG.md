@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.15 — 2026-09-16
+
+- Moved Chinese Punctuation Marks Display Optimization for Claude to the final position in Satellites. Static first-frame Settings and in-page Settings navigation now preserve the same order.
+
 ## 8.9.13 — 2026-09-16
 
 - Added Chinese Punctuation Marks Display Optimization for Claude as a default-off Satellite governed by Operations Province. On the exact `claude.ai` host, it replaces half-width punctuation in rendered Chinese replies while excluding code, links, formulas, controls, and editable text.

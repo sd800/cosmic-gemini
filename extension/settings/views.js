@@ -163,13 +163,6 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="chinesePunctuationClaudeName"></h1><p data-i18n="chinesePunctuationClaudeDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="chinesePunctuationClaudeEnabled" type="checkbox"><span></span><b class="sr-only">Chinese Punctuation Marks Display Optimization for Claude</b></label></div>
-        </div>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="chinesePunctuationClaudePrivacy"></p></div>
-      </section>
-      <section class="card satellite-card">
-        <div class="section-heading">
           <div><h1 data-i18n="biliDailyLoginName"></h1><p data-i18n="biliDailyLoginDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
         </div>
@@ -187,6 +180,13 @@ export function viewFor(featureId) {
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
+      </section>
+      <section class="card satellite-card">
+        <div class="section-heading">
+          <div><h1 data-i18n="chinesePunctuationClaudeName"></h1><p data-i18n="chinesePunctuationClaudeDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="chinesePunctuationClaudeEnabled" type="checkbox"><span></span><b class="sr-only">Chinese Punctuation Marks Display Optimization for Claude</b></label></div>
+        </div>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="chinesePunctuationClaudePrivacy"></p></div>
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
   };

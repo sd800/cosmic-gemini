@@ -72,10 +72,6 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 调暗小红书网页版在页面深色模式下仍然刺眼的文字图片。XHS Image Dark Mode 会分析每张图片的低分辨率样本，将浅色文字卡片切换为深色显示，把均匀的灰底文字卡片进一步压暗为黑色背景，并识别由稳定浅色与深色区域组成的文字版式。带有彩色边框的文字卡片也能识别，照片和图文混合图片则会保持原样。展开笔记后，您可以通过页码旁的按钮单独切换每张图片的浅色或深色显示。
 
-#### Chinese Punctuation Marks Display Optimization for Claude
-
-Claude 有时会在中文回复中使用半角标点，使标点样式与周围的中文正文不一致。Chinese Punctuation Marks Display Optimization for Claude 会替换已显示回复中的这些标点，同时保持代码、链接、公式和可编辑文本不变。所有调整仅在当前 `claude.ai` 页面中进行，不会更改 Claude 保存的对话内容。
-
 #### Bili Daily Login
 
 哔哩哔哩每天会向完成每日登录的账号发放一枚硬币。若要持续领取，原本需要您记得每天完成登录。Bili Daily Login 会在 Chrome 可以运行时于后台自动完成这项任务，帮助当前账号领取当日硬币。
@@ -87,6 +83,10 @@ Claude 有时会在中文回复中使用半角标点，使标点样式与周围�
 每个受支持的网站都有独立且范围明确的专用规则。这些规则只处理已经确认的广告与遥测组件，不会干预正常页面内容、账号登录或安全验证。
 
 目前可选的管制网站包括腾讯新闻和知乎。
+
+#### Chinese Punctuation Marks Display Optimization for Claude
+
+Claude 有时会在中文回复中使用半角标点，使标点样式与周围的中文正文不一致。Chinese Punctuation Marks Display Optimization for Claude 会替换已显示回复中的这些标点，同时保持代码、链接、公式和可编辑文本不变。所有调整仅在当前 `claude.ai` 页面中进行，不会更改 Claude 保存的对话内容。
 
 ## 主要特性
 

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.26 — 2026-09-16
+
+- Clarified that Chinese Response Display Optimization for Claude adjusts only the reply text displayed in the user’s browser while leaving excluded content unchanged.
+
 ## 8.9.25 — 2026-09-16
 
 - Prevented stale page scripts from reporting uncaught “Extension context invalidated” errors after Cosmic Gemini is reloaded or updated. Page bridges and media discovery now guard both synchronous message failures and asynchronous rejections while releasing runtime listeners safely.

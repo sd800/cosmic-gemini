@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.26 — 2026-09-16
+
+- 明确说明 Chinese Response Display Optimization for Claude 只调整用户浏览器中显示的回复文字，排除的内容保持不变。
+
 ## 8.9.25 — 2026-09-16
 
 - 修复 Cosmic Gemini 重新加载或更新后，旧页面脚本可能报告未捕获的“Extension context invalidated”错误。页面桥接与媒体发现现会同时处理消息调用的同步失败和异步拒绝，并安全释放运行时监听器。

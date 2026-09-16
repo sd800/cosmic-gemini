@@ -457,8 +457,8 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
   const supported = hostname === 'www.xiaohongshu.com';
   const enabled = feature.enabled === true;
   const darkModeDetected = pageState.darkModeDetected === true;
-  const processing = supported && enabled && (feature.overrideDarkMode === true
-    || (darkModeDetected && pageState.processing === true));
+  const processing = supported && enabled && (feature.overrideDarkMode === true || darkModeDetected);
+  const intervened = processing && pageState.intervened === true;
   return {
     ...feature,
     hostname,
@@ -467,6 +467,7 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
     active: supported && enabled,
     darkModeDetected,
     processing,
+    intervened,
     status: !supported ? 'unavailable' : !enabled ? 'off' : processing ? 'active' : 'waiting'
   };
 }

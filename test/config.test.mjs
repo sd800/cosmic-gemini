@@ -346,11 +346,21 @@ test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
   });
   assert.equal(waiting.active, true);
   assert.equal(waiting.processing, false);
+  assert.equal(waiting.intervened, false);
   const processing = xhsImageDarkModeState(enabled, 'https://www.xiaohongshu.com/explore', {
     darkModeDetected: true,
-    processing: true
+    processing: false,
+    intervened: false
   });
   assert.equal(processing.processing, true);
+  assert.equal(processing.intervened, false);
+  const intervened = xhsImageDarkModeState(enabled, 'https://www.xiaohongshu.com/explore', {
+    darkModeDetected: true,
+    processing: true,
+    intervened: true
+  });
+  assert.equal(intervened.processing, true);
+  assert.equal(intervened.intervened, true);
 
   const override = xhsImageDarkModeState({
     xhsImageDarkMode: { enabled: true, overrideDarkMode: true }
@@ -358,6 +368,7 @@ test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
   assert.equal(override.active, true);
   assert.equal(override.overrideDarkMode, true);
   assert.equal(override.processing, true);
+  assert.equal(override.intervened, false);
   assert.equal(override.status, 'active');
 });
 

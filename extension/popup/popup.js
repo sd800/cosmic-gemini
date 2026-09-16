@@ -159,9 +159,10 @@ function renderContextualProducts() {
   for (const entry of available) {
     const feature = state[entry.id];
     const isXhs = entry.id === 'xhsImageDarkMode';
-    const processing = isXhs
+    const operating = isXhs
       ? feature.processing === true
       : feature.enabled === true && state.activity?.[entry.id] === true;
+    const intervened = isXhs ? feature.intervened === true : operating;
     const nameKey = isXhs ? 'xhsImageDarkModeName' : 'chineseResponseClaudeName';
     const row = document.createElement('section');
     row.className = 'feature-row';
@@ -172,11 +173,11 @@ function renderContextualProducts() {
     toggle.type = 'button';
     toggle.className = 'feature-status feature-toggle primary-product';
     toggle.dataset.state = feature.enabled ? 'active' : 'off';
-    toggle.dataset.persistent = String(isXhs ? feature.processing === true : feature.enabled === true);
-    toggle.dataset.intervened = String(!isXhs && processing);
+    toggle.dataset.persistent = String(isXhs ? operating : feature.enabled === true);
+    toggle.dataset.intervened = String(intervened);
     toggle.setAttribute('aria-pressed', String(feature.enabled === true));
     toggle.innerHTML = icon(isXhs
-      ? feature.processing ? 'xhsImageDarkModeActive' : 'xhsImageDarkMode'
+      ? operating ? 'xhsImageDarkModeActive' : 'xhsImageDarkMode'
       : 'chineseResponseClaude');
     if (isXhs) {
       label(toggle, t(!feature.enabled
@@ -192,7 +193,7 @@ function renderContextualProducts() {
     } else {
       label(toggle, t(!feature.enabled
         ? 'chineseResponseClaudeOffTitle'
-        : processing
+        : operating
           ? 'chineseResponseClaudeActiveTitle'
           : 'chineseResponseClaudeOnTitle'));
       toggle.addEventListener('click', () => void act(() => send({

@@ -33,7 +33,8 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
         documentId: nextDocumentId,
         sequence,
         darkModeDetected: value?.darkModeDetected === true,
-        processing: value?.processing === true
+        processing: value?.processing === true,
+        intervened: value?.intervened === true
       };
       if (current.documentId && next.documentId && current.documentId !== next.documentId) return false;
       const sameDocument = current.documentId === next.documentId;
@@ -41,13 +42,14 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
       if (sameDocument && currentSequence > 0 && sequence === 0) return false;
       if (sameDocument && sequence && sequence <= currentSequence) return false;
       const stateChanged = current.darkModeDetected !== next.darkModeDetected
-        || current.processing !== next.processing;
+        || current.processing !== next.processing
+        || current.intervened !== next.intervened;
       const metadataChanged = !sameDocument || sequence !== currentSequence;
       if (!stateChanged && !metadataChanged) return false;
       await chrome.storage.session.set({ [key(tabId)]: next });
       if (stateChanged) {
         platform.notifyCentralUi(tabId);
-        await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_MODE, next.processing);
+        await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_MODE, next.intervened);
       }
       return true;
     });
@@ -63,7 +65,8 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
           documentId,
           sequence: 0,
           darkModeDetected: false,
-          processing: false
+          processing: false,
+          intervened: false
         }
       });
       platform.notifyCentralUi(tabId);

@@ -687,13 +687,44 @@ test('runtime status reports carry a monotonic sequence', async () => {
   const runtime = await runtimeFixture({}, { window: windowTarget });
   runtime.active = true;
   runtime.processing = true;
+  runtime.intervened = true;
   runtime.darkModeDetected = true;
   runtime.reportStatus();
   runtime.processing = false;
   runtime.reportStatus();
   assert.deepEqual(reports.map(report => report.sequence), [1, 2]);
   assert.equal(reports[0].processing, true);
+  assert.equal(reports[0].intervened, true);
   assert.equal(reports[1].processing, false);
+  assert.equal(reports[1].intervened, false);
+});
+
+test('runtime intervention status follows transformed images rather than eligibility alone', async () => {
+  const windowTarget = new SimpleEventTarget();
+  const reports = [];
+  windowTarget.addEventListener('cosmic-gemini:xhs-image-dark-mode:status', event => {
+    reports.push(JSON.parse(event.detail).status);
+  });
+  const runtime = await runtimeFixture({}, { window: windowTarget });
+  runtime.active = true;
+  runtime.processing = true;
+  const classes = new Set();
+  const record = {
+    image: {
+      classList: { toggle(name, active) { active ? classes.add(name) : classes.delete(name); } },
+      style: { setProperty() {} }
+    },
+    button: null,
+    result: { kind: 'light-theme' },
+    darkened: true
+  };
+  runtime.updateRecordVisual(record);
+  assert.equal(runtime.intervened, true);
+  assert.equal(reports.at(-1).intervened, true);
+  record.darkened = false;
+  runtime.updateRecordVisual(record);
+  assert.equal(runtime.intervened, false);
+  assert.equal(reports.at(-1).intervened, false);
 });
 
 test('Dark Reader lifecycle markers are authoritative without depending on rendered colors', async () => {

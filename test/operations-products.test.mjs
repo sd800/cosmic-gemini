@@ -306,11 +306,11 @@ test('XHS Image Dark Mode keeps the newest status report for the current documen
   };
   const newest = await product.handleMessage({
     type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
-    status: { sequence: 2, darkModeDetected: true, processing: true }
+    status: { sequence: 2, darkModeDetected: true, processing: true, intervened: true }
   }, context);
   const newerSameState = await product.handleMessage({
     type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
-    status: { sequence: 4, darkModeDetected: true, processing: true }
+    status: { sequence: 4, darkModeDetected: true, processing: true, intervened: true }
   }, context);
   const stale = await product.handleMessage({
     type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
@@ -322,6 +322,7 @@ test('XHS Image Dark Mode keeps the newest status report for the current documen
   assert.equal(stale.recorded, false);
   assert.equal(state.darkModeDetected, true);
   assert.equal(state.processing, true);
+  assert.equal(state.intervened, true);
   assert.equal(activity, true);
 });
 
@@ -354,7 +355,7 @@ test('XHS Image Dark Mode status survives Xiaohongshu same-document navigation',
   };
   await province.products.xhsImageDarkMode.handleMessage({
     type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
-    status: { sequence: 1, darkModeDetected: true, processing: true }
+    status: { sequence: 1, darkModeDetected: true, processing: true, intervened: true }
   }, context);
   await province.handleTabUpdated(23, {
     url: 'https://www.xiaohongshu.com/user/profile/669cf72a000000002401e0fc'
@@ -367,6 +368,7 @@ test('XHS Image Dark Mode status survives Xiaohongshu same-document navigation',
   assert.equal(activityClears, 0);
   assert.equal(state.darkModeDetected, true);
   assert.equal(state.processing, true);
+  assert.equal(state.intervened, true);
 });
 
 test('XHS Image Dark Mode status survives a late loading event for its current document', async () => {
@@ -399,13 +401,14 @@ test('XHS Image Dark Mode status survives a late loading event for its current d
   };
   await province.products.xhsImageDarkMode.handleMessage({
     type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
-    status: { sequence: 1, darkModeDetected: true, processing: true }
+    status: { sequence: 1, darkModeDetected: true, processing: true, intervened: true }
   }, context);
   await province.handleTabUpdated(29, { status: 'loading' });
   const state = await province.products.xhsImageDarkMode.state(settings, url, 29);
   assert.equal(activityClears, 1);
   assert.equal(state.darkModeDetected, true);
   assert.equal(state.processing, true);
+  assert.equal(state.intervened, true);
 });
 
 test('XHS Image Dark Mode resets state only when a new document takes ownership', async () => {

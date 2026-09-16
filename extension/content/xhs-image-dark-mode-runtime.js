@@ -83,6 +83,7 @@
       this.token = randomToken();
       this.active = false;
       this.processing = false;
+      this.intervened = false;
       this.darkModeDetected = false;
       this.locale = 'en-US';
       this.overrideDarkMode = false;
@@ -91,6 +92,7 @@
       this.imageBrightness = 1;
       this.openingPostId = '';
       this.records = new Map();
+      this.intervenedRecords = new Set();
       this.controlRecords = new Set();
       this.cache = new Map();
       this.queue = [];
@@ -419,7 +421,8 @@
           status: {
             sequence: this.statusSequence,
             darkModeDetected: this.darkModeDetected,
-            processing: this.active && this.processing
+            processing: this.active && this.processing,
+            intervened: this.active && this.processing && this.intervened
           }
         })
       }));
@@ -476,6 +479,8 @@
       this.queued.clear();
       for (const record of this.records.values()) this.clearRecord(record);
       this.records.clear();
+      this.intervenedRecords.clear();
+      this.syncInterventionStatus();
       this.controlRecords.clear();
       this.controlHost?.remove();
       this.controlHost = null;
@@ -1229,16 +1234,17 @@
     applyResult(record) {
       if (!this.processing || !record.image.isConnected || !record.result) return;
       this.intersectionObserver?.unobserve?.(record.image);
-      this.clearVisual(record);
+      this.clearVisual(record, false);
       record.darkened = record.result.kind === 'light-theme' || record.result.kind === 'gray-theme';
       const viewer = this.viewerForImage(record.image);
       if (viewer) this.createControl(record);
-      this.updateRecordVisual(record);
+      this.updateRecordVisual(record, false);
       if (viewer) this.scheduleControlPositions();
       else if (record.result.kind === 'photo') {
-        this.clearVisual(record);
+        this.clearVisual(record, false);
         this.retireRecord(record);
       }
+      this.syncInterventionStatus();
     }
 
     createControl(record) {
@@ -1283,7 +1289,7 @@
       if (!this.controlRecords.size) this.stopControlPositionTracking();
     }
 
-    updateRecordVisual(record) {
+    updateRecordVisual(record, notify = true) {
       const grayTheme = record.result?.kind === 'gray-theme';
       const target = this.visualTarget(record.image);
       if (record.visualTarget && record.visualTarget !== target) {
@@ -1296,7 +1302,12 @@
       target?.classList?.toggle('cg-xhs-image-dark-mode', record.darkened && !grayTheme);
       target?.classList?.toggle('cg-xhs-image-dark-mode-gray', record.darkened && grayTheme);
       record.visualTarget = target;
+      const transformed = record.darkened
+        && (record.result?.kind === 'light-theme' || record.result?.kind === 'gray-theme');
+      if (transformed) this.intervenedRecords.add(record);
+      else this.intervenedRecords.delete(record);
       this.updateControl(record);
+      if (notify) this.syncInterventionStatus();
     }
 
     updateControl(record) {
@@ -1375,12 +1386,21 @@
       });
     }
 
-    clearVisual(record) {
+    clearVisual(record, notify = true) {
       record.image?.classList?.remove('cg-xhs-image-dark-mode');
       record.image?.classList?.remove('cg-xhs-image-dark-mode-gray');
       record.visualTarget?.classList?.remove('cg-xhs-image-dark-mode', 'cg-xhs-image-dark-mode-gray');
       record.visualTarget?.style?.removeProperty?.('--cg-xhs-image-brightness');
       record.visualTarget = null;
+      const changed = this.intervenedRecords.delete(record);
+      if (notify && changed) this.syncInterventionStatus();
+    }
+
+    syncInterventionStatus() {
+      const intervened = this.active && this.processing && this.intervenedRecords.size > 0;
+      if (intervened === this.intervened) return;
+      this.intervened = intervened;
+      this.reportStatus();
     }
 
     clearRecord(record) {

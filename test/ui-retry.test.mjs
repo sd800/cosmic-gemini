@@ -125,7 +125,7 @@ test('Page Display popup controls use the unavailable state on unsupported pages
   assert.equal(toggle.title, 'unsupportedTitle');
 });
 
-test('Claude contextual popup control is always present on claude.ai and reflects enabled and intervened states', () => {
+test('contextual popup controls keep authorization, operating, and intervention states separate', () => {
   class Element {
     constructor(tag) {
       this.tag = tag;
@@ -172,7 +172,11 @@ test('Claude contextual popup control is always present on claude.ai and reflect
     }
     ${between(popupSource, 'function renderContextualProducts(', 'function formatBytes(')}
     renderContextualProducts();
-    globalThis.renderContextualState = next => { state = next; renderContextualProducts(); };
+    globalThis.renderContextualState = (tab, next) => {
+      currentTab = tab;
+      state = next;
+      renderContextualProducts();
+    };
   `, context);
   assert.equal(container.hidden, false);
   assert.equal(container.children.length, 1);
@@ -189,7 +193,7 @@ test('Claude contextual popup control is always present on claude.ai and reflect
     enabled: false,
     tabId: 41
   }]);
-  context.renderContextualState({
+  context.renderContextualState({ id: 41, url: 'https://claude.ai/new' }, {
     xhsImageDarkMode: { supported: false },
     chineseResponseClaude: { supported: true, enabled: false },
     activity: { chineseResponseClaude: true }
@@ -198,6 +202,39 @@ test('Claude contextual popup control is always present on claude.ai and reflect
   assert.equal(disabledToggle.dataset.state, 'off');
   assert.equal(disabledToggle.dataset.persistent, 'false');
   assert.equal(disabledToggle.dataset.intervened, 'false');
+
+  context.renderContextualState({ id: 42, url: 'https://www.xiaohongshu.com/explore' }, {
+    xhsImageDarkMode: { supported: true, enabled: true, processing: false, intervened: false },
+    chineseResponseClaude: { supported: false },
+    activity: {}
+  });
+  let xhsToggle = container.children[0].children[0].children[0];
+  assert.equal(xhsToggle.dataset.state, 'active');
+  assert.equal(xhsToggle.dataset.persistent, 'false');
+  assert.equal(xhsToggle.dataset.intervened, 'false');
+  assert.equal(xhsToggle.innerHTML, '<xhsImageDarkMode>');
+  assert.equal(xhsToggle.title, 'xhsImageDarkModeWaitingTitle');
+
+  context.renderContextualState({ id: 42, url: 'https://www.xiaohongshu.com/explore' }, {
+    xhsImageDarkMode: { supported: true, enabled: true, processing: true, intervened: false },
+    chineseResponseClaude: { supported: false },
+    activity: {}
+  });
+  xhsToggle = container.children[0].children[0].children[0];
+  assert.equal(xhsToggle.dataset.state, 'active');
+  assert.equal(xhsToggle.dataset.persistent, 'true');
+  assert.equal(xhsToggle.dataset.intervened, 'false');
+  assert.equal(xhsToggle.innerHTML, '<xhsImageDarkModeActive>');
+  assert.equal(xhsToggle.title, 'xhsImageDarkModeActiveTitle');
+
+  context.renderContextualState({ id: 42, url: 'https://www.xiaohongshu.com/explore' }, {
+    xhsImageDarkMode: { supported: true, enabled: true, processing: true, intervened: true },
+    chineseResponseClaude: { supported: false },
+    activity: { xhsImageDarkMode: true }
+  });
+  xhsToggle = container.children[0].children[0].children[0];
+  assert.equal(xhsToggle.dataset.persistent, 'true');
+  assert.equal(xhsToggle.dataset.intervened, 'true');
 });
 
 test('a stopped image session cannot be revived by a late rescan response', async () => {

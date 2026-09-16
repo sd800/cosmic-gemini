@@ -316,6 +316,7 @@ export function createPlatform() {
       pageDisplay: settings.pageDisplay,
       xhsImageDarkMode: settings.xhsImageDarkMode,
       mailtoCapture: settings.mailtoCapture,
+      websiteKnowledgeControl: settings.websiteKnowledgeControl,
       chineseResponseClaude: settings.chineseResponseClaude,
       adMarshal: settings.adMarshal
     });

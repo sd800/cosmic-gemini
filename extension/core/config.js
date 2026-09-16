@@ -12,6 +12,7 @@ export const FEATURE_IDS = Object.freeze({
   XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   MAILTO_CAPTURE: 'mailtoCapture',
+  WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
   AD_MARSHAL: 'adMarshal',
   IMAGE_DOWNLOAD: 'imageDownload',
   VIDEO_DOWNLOAD: 'videoDownload'
@@ -27,6 +28,7 @@ export const FEATURE_SLOTS = Object.freeze({
   XHS_IMAGE_DARK_MODE: 34,
   AD_MARSHAL: 35,
   CHINESE_RESPONSE_CLAUDE: 36,
+  WEBSITE_KNOWLEDGE_CONTROL: 37,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
 });
@@ -52,7 +54,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 29,
+  version: 30,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -67,6 +69,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   mailtoCapture: Object.freeze({
     enabled: true
+  }),
+  websiteKnowledgeControl: Object.freeze({
+    enabled: false,
+    languages: Object.freeze({ enabled: true, value: 'en-US' }),
+    locale: Object.freeze({ enabled: true, value: 'en-US' }),
+    timeZone: Object.freeze({ enabled: false, value: 'America/New_York' })
   }),
   pageDisplay: Object.freeze({
     enabled: false,
@@ -195,10 +203,50 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
   return normalized;
 }
 
+const websiteKnowledgeValueCache = new Map();
+export function validateWebsiteKnowledgeValue(category, value) {
+  if (typeof value !== 'string' || !value.trim() || value.length > 100) throw new Error('Enter a valid value.');
+  const key = category + ':' + value;
+  if (websiteKnowledgeValueCache.has(key)) return websiteKnowledgeValueCache.get(key);
+  let result;
+  if (category === 'languages' || category === 'locale') {
+    result = Intl.getCanonicalLocales(value.trim())[0];
+    if (!Intl.DateTimeFormat.supportedLocalesOf([result]).length) throw new Error('Unsupported locale.');
+  } else if (category === 'timeZone') {
+    result = new Intl.DateTimeFormat('en-US', { timeZone: value.trim() }).resolvedOptions().timeZone;
+  } else throw new Error('Unknown browser information category.');
+  if (websiteKnowledgeValueCache.size >= 64) websiteKnowledgeValueCache.delete(websiteKnowledgeValueCache.keys().next().value);
+  websiteKnowledgeValueCache.set(key, result);
+  return result;
+}
+
+export function normalizeWebsiteKnowledge(value = {}) {
+  const normalized = { enabled: value?.enabled === true };
+  for (const category of ['languages', 'locale', 'timeZone']) {
+    const defaults = DEFAULT_SETTINGS.websiteKnowledgeControl[category];
+    let selected = defaults.value;
+    if (value?.[category]?.value !== undefined) {
+      try { selected = validateWebsiteKnowledgeValue(category, value[category].value); } catch {}
+    }
+    normalized[category] = {
+      enabled: typeof value?.[category]?.enabled === 'boolean' ? value[category].enabled : defaults.enabled,
+      value: selected
+    };
+  }
+  return normalized;
+}
+
+export function websiteKnowledgeControlState(settings, url) {
+  const feature = normalizeWebsiteKnowledge(settings.websiteKnowledgeControl);
+  const supported = Boolean(hostnameFromUrl(url));
+  return { ...feature, supported, active: supported && feature.enabled
+    && ['languages', 'locale', 'timeZone'].some(category => feature[category].enabled) };
+}
+
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 29,
+    version: 30,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -210,6 +258,7 @@ export function normalizeSettings(value = {}) {
     mailtoCapture: {
       enabled: value.mailtoCapture?.enabled !== false
     },
+    websiteKnowledgeControl: normalizeWebsiteKnowledge(value.websiteKnowledgeControl),
     pageDisplay: {
       enabled: value.pageDisplay?.enabled === true,
       reduceWhitePoint: {

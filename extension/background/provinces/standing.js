@@ -7,6 +7,7 @@ import {
 } from '../../core/config.js';
 import { createPageRuntimeHost } from '../features/page-runtime-host.js';
 import { createAdMarshalProduct } from '../products/standing/ad-marshal.js';
+import { createWebsiteKnowledgeControlProduct } from '../products/standing/website-knowledge-control.js';
 import { createMailtoCaptureProduct } from '../products/standing/mailto-capture.js';
 import { createNativeScrollProduct } from '../products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../products/standing/no-autoplay.js';
@@ -38,10 +39,12 @@ export function createStandingProvince(platform) {
   const noAutoplay = createNoAutoplayProduct(host);
   const mailtoCapture = createMailtoCaptureProduct(host, platform);
   const adMarshal = createAdMarshalProduct(host, platform);
+  const websiteKnowledgeControl = createWebsiteKnowledgeControlProduct(host, platform);
   const products = {
     [nativeScroll.id]: nativeScroll,
     [noAutoplay.id]: noAutoplay,
     [mailtoCapture.id]: mailtoCapture,
+    [websiteKnowledgeControl.id]: websiteKnowledgeControl,
     [adMarshal.id]: adMarshal
   };
 
@@ -84,6 +87,7 @@ export function createStandingProvince(platform) {
       if (message.active !== true) await platform.setFeatureActivity(senderTabId, governed.id, false);
       return { updated: true };
     }
+    if (governed?.id === websiteKnowledgeControl.id) return governed.handleMessage(message, context);
     if (message.type === 'UI_SET_ENABLED') {
       const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
         ...feature,
@@ -172,21 +176,24 @@ export function createStandingProvince(platform) {
     products,
     async initialize() {
       await platform.ensureSettings();
-      await adMarshal.reconcile();
+      await Promise.allSettled([adMarshal.reconcile(), websiteKnowledgeControl.initialize()]);
     },
     async getProductState(productId, context) {
-      return product(productId).state(context.settings, context.url);
+      return product(productId).state(context.settings, productId === websiteKnowledgeControl.id ? (context.frameUrl || context.url) : context.url);
     },
     async syncProduct(productId, context) {
       return product(productId).sync(context, context.settings);
     },
     handleMessage,
-    handleTabUpdated(tabId, change, tab) { return adMarshal.handleTabUpdated(tabId, change, tab); },
-    handleTabRemoved(tabId) { return adMarshal.handleTabRemoved(tabId); },
+    handleTabCreated(tab) { return websiteKnowledgeControl.handleTabCreated(tab); },
+    handleTabUpdated(tabId, change, tab) { return Promise.allSettled([
+      adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab)
+    ]); },
+    handleTabRemoved(tabId) { return Promise.allSettled([adMarshal.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId)]); },
     handleStorageChanged(changes, areaName) {
       mailtoCapture.handleStorageChanged(changes, areaName);
-      return adMarshal.handleStorageChanged(changes, areaName);
+      return Promise.allSettled([adMarshal.handleStorageChanged(changes, areaName), websiteKnowledgeControl.handleStorageChanged(changes, areaName)]);
     },
-    reset() { return adMarshal.reset(); }
+    reset() { return Promise.allSettled([adMarshal.reset(), websiteKnowledgeControl.reset()]); }
   });
 }

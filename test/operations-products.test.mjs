@@ -106,12 +106,12 @@ test('Claude browser identity setting stays active until the final governed tab 
     },
     condition: {
       requestDomains: ['claude.ai', 'claude.com', 'anthropic.com'],
-      resourceTypes: ['main_frame']
+      resourceTypes: ['main_frame'], tabIds: [61, 62]
     }
   });
   assert.deepEqual(ruleUpdates[0].addRules[1].condition, {
     initiatorDomains: ['claude.ai', 'claude.com', 'anthropic.com'],
-    excludedResourceTypes: ['main_frame']
+    excludedResourceTypes: ['main_frame'], tabIds: [61, 62]
   });
 
   const restarted = createChineseResponseClaudeProduct({ sync: async () => true }, platform);
@@ -121,7 +121,7 @@ test('Claude browser identity setting stays active until the final governed tab 
   await restarted.handleTabRemoved(61);
   assert.equal((await restarted.state(settings, 'https://console.anthropic.com/')).browserIdentityActive, false);
   assert.equal('chineseResponseClaudeIdentitySession:regular' in session, false);
-  assert.deepEqual(ruleUpdates[2], { removeRuleIds: [900001, 900002] });
+  assert.deepEqual(ruleUpdates[2], { removeRuleIds: [900001, 900002], addRules: [] });
   assert.equal(refreshes, 1);
 
   tabs = [{ id: 63, url: 'https://platform.claude.com/' }];
@@ -138,7 +138,7 @@ test('Claude browser identity setting stays active until the final governed tab 
   assert.equal(refreshes, 2);
 });
 
-test('Claude browser identity prepares the request language before a governed tab opens', async () => {
+test('Claude browser identity scopes request language before an existing blank tab navigates', async () => {
   const ruleUpdates = [];
   globalThis.chrome = {
     extension: { inIncognitoContext: false },
@@ -150,7 +150,7 @@ test('Claude browser identity prepares the request language before a governed ta
     declarativeNetRequest: {
       async updateSessionRules(update) { ruleUpdates.push(update); }
     },
-    tabs: { async query() { return []; } }
+    tabs: { async query() { return [{ id: 71, url: "chrome://newtab/", incognito: false }]; } }
   };
   const settings = normalizeSettings({
     chineseResponseClaude: { enabled: false, browserIdentityEnabled: true }
@@ -166,7 +166,7 @@ test('Claude browser identity prepares the request language before a governed ta
   assert.equal(ruleUpdates[0].addRules[0].action.requestHeaders[0].value, 'en-US');
 
   await product.reset();
-  assert.deepEqual(ruleUpdates[1], { removeRuleIds: [900001, 900002] });
+  assert.deepEqual(ruleUpdates[1], { removeRuleIds: [900001, 900002], addRules: [] });
 });
 
 test('Claude browser identity saves even when optional session metadata is unavailable', async () => {

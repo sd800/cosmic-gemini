@@ -48,6 +48,7 @@ async function runtimeFixture(globals = {}) {
   };
   vm.createContext(context);
   const source = await readFile(new URL('../extension/content/chinese-response-claude-runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(await readFile(new URL('../extension/content/browser-identity.js', import.meta.url), 'utf8'), context);
   vm.runInContext(source, context);
   return { context, runtime: context[Symbol.for('cosmic-gemini.chinese-response-claude.runtime')] };
 }

@@ -9,7 +9,7 @@ import { createOperationsProvince } from './provinces/operations.js';
 import { createStandingProvince } from './provinces/standing.js';
 
 export const PROVINCE_PRODUCTS = Object.freeze({
-  standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE, FEATURE_IDS.AD_MARSHAL]),
+  standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE, FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL, FEATURE_IDS.AD_MARSHAL]),
   operations: Object.freeze([
     FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.PAGE_DISPLAY, FEATURE_IDS.XHS_IMAGE_DARK_MODE,
     FEATURE_IDS.CHINESE_RESPONSE_CLAUDE, 'satellites', 'administration'
@@ -18,7 +18,7 @@ export const PROVINCE_PRODUCTS = Object.freeze({
 });
 
 const PAGE_PRODUCTS = Object.freeze([
-  FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE,
+  FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE, FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL,
   FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED,
   FEATURE_IDS.PAGE_DISPLAY, FEATURE_IDS.XHS_IMAGE_DARK_MODE, FEATURE_IDS.CHINESE_RESPONSE_CLAUDE
 ]);
@@ -30,6 +30,7 @@ const STATE_PRODUCTS = Object.freeze([
 ]);
 const EVENT_PROVINCES = Object.freeze({
   initialize: Object.freeze(['standing', 'operations', 'customs']),
+  tabCreated: Object.freeze(['standing', 'operations']),
   tabUpdated: Object.freeze(['standing', 'operations', 'customs']),
   tabRemoved: Object.freeze(['standing', 'operations', 'customs']),
   windowCreated: Object.freeze(['operations']),
@@ -76,6 +77,7 @@ function productForMessage(message) {
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
   if (message.type === 'UI_SET_AD_MARSHAL_SITE') return FEATURE_IDS.AD_MARSHAL;
   if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
+  if (message.type === 'UI_SET_WEBSITE_KNOWLEDGE_SETTING') return FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL;
   if (message.type === 'UI_SET_CLAUDE_BROWSER_IDENTITY') return FEATURE_IDS.CHINESE_RESPONSE_CLAUDE;
   if (message.type === 'UI_SET_PAGE_DISPLAY_SETTING') return FEATURE_IDS.PAGE_DISPLAY;
   if (message.type.startsWith('UI_SET_XHS_IMAGE_DARK_MODE')
@@ -148,7 +150,7 @@ async function collectProductPageState(sender, message) {
   const tabId = sender.tab?.id;
   const settings = await platform.readSettings();
   return {
-    [productId]: await provinceForProduct(productId).getProductState(productId, { settings, url, tabId })
+    [productId]: await provinceForProduct(productId).getProductState(productId, { settings, url, tabId, frameUrl: sender.url, frameId: sender.frameId })
   };
 }
 
@@ -172,6 +174,7 @@ async function dispatchEvent(eventName, ...args) {
   const provinceIds = EVENT_PROVINCES[eventName] || [];
   await Promise.allSettled(provinceIds.map(provinceId => {
     const handlerName = eventName === 'initialize' ? 'initialize'
+      : eventName === 'tabCreated' ? 'handleTabCreated'
       : eventName === 'tabUpdated' ? 'handleTabUpdated'
         : eventName === 'tabRemoved' ? 'handleTabRemoved'
           : eventName === 'windowCreated' ? 'handleWindowCreated'
@@ -198,6 +201,7 @@ chrome.runtime.onConnect.addListener(port => {
   province.handleConnect(port);
 });
 
+chrome.tabs.onCreated?.addListener(tab => void dispatchEvent('tabCreated', tab));
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   void dispatchEvent('tabUpdated', tabId, change, tab);
 });

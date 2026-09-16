@@ -1,3 +1,5 @@
+import { normalizeWebsiteKnowledge } from './config.js';
+
 export const SETTINGS_VIEW_CACHE_KEY = 'cosmicGeminiSettingsViewCache';
 
 function rules(value) {
@@ -6,7 +8,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 29,
+    version: 30,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -30,6 +32,7 @@ export function settingsViewCache(states = {}) {
     mailtoCapture: {
       enabled: states.mailtoCapture?.enabled !== false
     },
+    websiteKnowledgeControl: normalizeWebsiteKnowledge(states.websiteKnowledgeControl),
     pageDisplay: {
       enabled: states.pageDisplay?.enabled === true,
       reduceWhitePoint: {

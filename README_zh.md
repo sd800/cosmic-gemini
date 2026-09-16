@@ -68,6 +68,12 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 拦截邮件链接，避免误触时直接打开系统邮件应用。Mailto Capture 会先在网页内显示简洁的内容预览，列出收件人、抄送与密送地址、主题、正文及链接附带的其他信息，供您按需复制。
 
+#### Website Knowledge Control
+
+自行设置网站从浏览器获取到的语言、地区格式和时区信息。Website Knowledge Control 默认关闭。开启总开关后，可分别勾选要调整的项目：语言与 Intl 地区设置提供相同的地区选项，且均默认使用 `en-US`；时区需另行勾选，默认候选值为纽约，并遵循当地夏令时规则。
+
+未勾选的项目保持原样，这些调整也不会修改系统设置。每个页面会沿用载入时获取到的浏览器信息；修改或关闭设置后，新状态将在页面下次载入时生效。
+
 #### XHS Image Dark Mode
 
 调暗小红书网页版在页面深色模式下仍然刺眼的文字图片。XHS Image Dark Mode 会分析每张图片的低分辨率样本，将浅色文字卡片切换为深色显示，把均匀的灰底文字卡片进一步压暗为黑色背景，并识别由稳定浅色与深色区域组成的文字版式。带有彩色边框的文字卡片也能识别，照片和图文混合图片则会保持原样。展开笔记后，您可以通过页码旁的按钮单独切换每张图片的浅色或深色显示。
@@ -142,7 +148,7 @@ Reduce White Point 与 Greyscale 是全局开关。在控制窗口中开启其�
 
 **全部设置**位于底部的独立一行并靠右显示。紧凑的主控制窗口会暂时隐藏 Cosmic Gemini 名称。全部设置可进入各项功能的设置页面，也可以将全部设置和网站规则恢复为默认状态。
 
-全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启。Page Display 及其两项显示调整、XHS Image Dark Mode、Chinese Response Display Optimization for Claude、Bili Daily Login 和 Ad Marshal 的全部网站均默认关闭。Ad Marshal 允许单独选择每一组管制网站。
+全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启。Website Knowledge Control、Page Display 及其两项显示调整、XHS Image Dark Mode、Chinese Response Display Optimization for Claude、Bili Daily Login 和 Ad Marshal 的全部网站均默认关闭。Ad Marshal 允许单独选择每一组管制网站。
 
 访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Mode 的动态开关。功能开启但尚未检测到页面深色模式时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终启用图片处理、隐藏仅在展开笔记后显示的图片切换按钮，或调整按钮透明度。
 
@@ -186,7 +192,7 @@ No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问�
 
 ## 隐私
 
-Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
+Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Website Knowledge Control、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 

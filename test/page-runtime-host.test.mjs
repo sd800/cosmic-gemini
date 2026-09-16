@@ -287,3 +287,16 @@ test('Standing Province records governed No Autoplay interventions from child fr
   assert.deepEqual(result, { recorded: true });
   assert.deepEqual(activity, [{ tabId: 9, featureId: 'noAutoplay', active: true }]);
 });
+
+test('authorized runtime dependencies load in order in the same main-world document', async () => {
+  const executions = [];
+  globalThis.chrome = { scripting: { async executeScript(details) { executions.push(details); return []; } } };
+  const host = createPageRuntimeHost({ sendTabMessage: async () => ({ configured: true }) });
+  const descriptor = { id: 'websiteKnowledgeControl', bridge: 'content/website-knowledge-control-bridge.js',
+    runtime: 'content/website-knowledge-control-runtime.js', runtimeDependencies: ['content/browser-identity.js'], awaitConfiguration: true };
+  await host.sync(descriptor, { tabId: 3, frameId: 2, documentId: 'identity-frame' }, true);
+  assert.equal(executions[0].world, 'ISOLATED');
+  assert.equal(executions[1].world, 'MAIN');
+  assert.deepEqual(executions[1].files, ['content/browser-identity.js', 'content/website-knowledge-control-runtime.js']);
+  assert.deepEqual(executions[1].target, { tabId: 3, documentIds: ['identity-frame'] });
+});

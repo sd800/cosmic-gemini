@@ -195,6 +195,23 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
+  const knowledge = (states?.preferences || states)?.websiteKnowledgeControl;
+  const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
+  if (knowledgeEnabled) {
+    knowledgeEnabled.checked = knowledge?.enabled === true;
+    document.querySelector('#websiteKnowledgeOptions').disabled = !knowledgeEnabled.checked;
+    for (const [category, suffix] of [['languages', 'Languages'], ['locale', 'Locale'], ['timeZone', 'TimeZone']]) {
+      const control = document.querySelector('#websiteKnowledge' + suffix);
+      control.checked = knowledge?.[category]?.enabled === true;
+      const value = document.querySelector('#websiteKnowledge' + suffix + 'Value');
+      if (value) {
+        const selected = knowledge?.[category]?.value || (category === 'timeZone' ? 'America/New_York' : 'en-US');
+        if (![...value.options].some(option => option.value === selected)) value.add(new Option(selected, selected));
+        value.value = selected;
+        value.disabled = !knowledgeEnabled.checked || !control.checked;
+      }
+    }
+  }
   const chineseResponseClaudeEnabled = document.querySelector('#chineseResponseClaudeEnabled');
   if (chineseResponseClaudeEnabled) {
     chineseResponseClaudeEnabled.checked = (states?.preferences || states)?.chineseResponseClaude?.enabled === true;
@@ -419,6 +436,58 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
+  if (knowledgeEnabled) {
+    const zoneSelect = document.querySelector('#websiteKnowledgeTimeZoneValue');
+    const selected = zoneSelect.value;
+    const primaryZones = ['Asia/Shanghai', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Pacific/Honolulu'];
+    const secondaryZones = [
+      'America/Toronto',
+      'America/Denver',
+      'America/Phoenix',
+      'America/Vancouver',
+      'America/Anchorage',
+      'UTC'
+    ];
+    const tertiaryZones = [
+      'Pacific/Auckland',
+      'Australia/Sydney',
+      'Asia/Seoul',
+      'Asia/Hong_Kong',
+      'Asia/Bangkok',
+      'Asia/Dubai',
+      'Europe/Istanbul',
+      'Europe/Athens',
+      'Europe/Paris',
+      'Europe/Zurich',
+      'Europe/London',
+      'America/Sao_Paulo'
+    ];
+    const pinnedZones = new Set([...primaryZones, ...secondaryZones, ...tertiaryZones]);
+    const remainingZones = [...new Set(['UTC', ...(Intl.supportedValuesOf?.('timeZone') || [])])]
+      .filter(zone => !pinnedZones.has(zone)).sort();
+    const zoneOption = zone => new Option(zone.replaceAll('_', ' '), zone);
+    zoneSelect.replaceChildren(
+      ...primaryZones.map(zoneOption), document.createElement('hr'),
+      ...secondaryZones.map(zoneOption), document.createElement('hr'),
+      ...tertiaryZones.map(zoneOption), document.createElement('hr'),
+      ...remainingZones.map(zoneOption)
+    );
+    zoneSelect.value = selected || 'America/New_York';
+    knowledgeEnabled.addEventListener('change', () => void update(null, () => savePreference('websiteKnowledgeControl', {
+      type: 'UI_SET_ENABLED', featureId: 'websiteKnowledgeControl', enabled: knowledgeEnabled.checked
+    }), [knowledgeEnabled]));
+    for (const [category, suffix] of [['languages', 'Languages'], ['locale', 'Locale'], ['timeZone', 'TimeZone']]) {
+      const control = document.querySelector('#websiteKnowledge' + suffix);
+      const value = document.querySelector('#websiteKnowledge' + suffix + 'Value');
+      const save = () => void update(null, () => savePreference('websiteKnowledgeControl', {
+        type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', featureId: 'websiteKnowledgeControl', category,
+        enabled: control.checked, ...(value ? { value: value.value } : {})
+      }), value ? [control, value] : [control]);
+      control.addEventListener('change', save);
+      value?.addEventListener('change', save);
+    }
+  }
   const chineseResponseClaudeEnabled = document.querySelector('#chineseResponseClaudeEnabled');
   if (chineseResponseClaudeEnabled) chineseResponseClaudeEnabled.addEventListener('change', () => void update(null, () => savePreference('chineseResponseClaude', {
     type: 'UI_SET_ENABLED',

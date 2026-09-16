@@ -96,6 +96,9 @@ const help = (keys, privacyKey, list = false) => `
   ${list ? `<ol class="flow-list">${keys.map(key => `<li data-i18n="${key}"></li>`).join('')}</ol>` : keys.map(key => `<p data-i18n="${key}"></p>`).join('')}
   <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="${privacyKey}"></p>`;
 
+const knowledgeLocaleOptions = `
+  <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option>`;
+
 export const PRODUCT_META = Object.freeze({
   nativeScroll: { name: 'Native Scroll', path: 'native-scroll.html' },
   noAutoplay: { name: 'No Autoplay', path: 'no-autoplay.html' },
@@ -148,6 +151,30 @@ export function viewFor(featureId) {
           <div class="satellite-control"><label class="switch"><input id="mailtoCaptureEnabled" type="checkbox" checked><span></span><b class="sr-only">Mailto Capture</b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="mailtoCapturePrivacy"></p></div>
+      </section>
+      <section class="card satellite-card knowledge-card">
+        <div class="section-heading">
+          <div><h1 data-i18n="websiteKnowledgeName"></h1><p data-i18n="websiteKnowledgeDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="websiteKnowledgeEnabled" type="checkbox"><span></span><b class="sr-only">Website Knowledge Control</b></label></div>
+        </div>
+        <fieldset id="websiteKnowledgeOptions" class="knowledge-options" disabled>
+          <legend class="sr-only" data-i18n="websiteKnowledgeOptions"></legend>
+          <div class="knowledge-row">
+            <label for="websiteKnowledgeLanguages"><input id="websiteKnowledgeLanguages" type="checkbox" checked><span><strong id="websiteKnowledgeLanguagesLabel" data-i18n="websiteKnowledgeLanguages"></strong><small data-i18n="websiteKnowledgeLanguagesHelp"></small></span></label>
+            <select id="websiteKnowledgeLanguagesValue" aria-labelledby="websiteKnowledgeLanguagesLabel">${knowledgeLocaleOptions}</select>
+          </div>
+          <div class="knowledge-row">
+            <label for="websiteKnowledgeLocale"><input id="websiteKnowledgeLocale" type="checkbox" checked><span><strong id="websiteKnowledgeLocaleLabel" data-i18n="websiteKnowledgeLocale"></strong><small data-i18n="websiteKnowledgeLocaleHelp"></small></span></label>
+            <select id="websiteKnowledgeLocaleValue" aria-labelledby="websiteKnowledgeLocaleLabel">
+              ${knowledgeLocaleOptions}
+            </select>
+          </div>
+          <div class="knowledge-row">
+            <label for="websiteKnowledgeTimeZone"><input id="websiteKnowledgeTimeZone" type="checkbox"><span><strong id="websiteKnowledgeTimeZoneLabel" data-i18n="websiteKnowledgeTimeZone"></strong><small data-i18n="websiteKnowledgeTimeZoneHelp"></small></span></label>
+            <select id="websiteKnowledgeTimeZoneValue" aria-labelledby="websiteKnowledgeTimeZoneLabel" disabled><option value="America/New_York">America/New_York</option><option value="UTC">UTC</option></select>
+          </div>
+        </fieldset>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteKnowledgePrivacy"></p></div>
       </section>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">

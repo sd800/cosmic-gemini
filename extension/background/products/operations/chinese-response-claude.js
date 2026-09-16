@@ -1,3 +1,4 @@
+import { createRequestLanguageRules } from '../../features/request-language-rules.js';
 import {
   FEATURE_IDS,
   chineseResponseClaudeState,
@@ -6,35 +7,7 @@ import {
 } from '../../../core/config.js';
 
 const IDENTITY_SESSION_KEY = 'chineseResponseClaudeIdentitySession';
-const ACCEPT_LANGUAGE_RULE_IDS = Object.freeze([900_001, 900_002]);
 const CLAUDE_FAMILY_DOMAINS = Object.freeze(['claude.ai', 'claude.com', 'anthropic.com']);
-
-function acceptLanguageRules() {
-  const action = {
-    type: 'modifyHeaders',
-    requestHeaders: [{ header: 'Accept-Language', operation: 'set', value: 'en-US' }]
-  };
-  return [
-    {
-      id: ACCEPT_LANGUAGE_RULE_IDS[0],
-      priority: 100,
-      action,
-      condition: {
-        requestDomains: [...CLAUDE_FAMILY_DOMAINS],
-        resourceTypes: ['main_frame']
-      }
-    },
-    {
-      id: ACCEPT_LANGUAGE_RULE_IDS[1],
-      priority: 100,
-      action,
-      condition: {
-        initiatorDomains: [...CLAUDE_FAMILY_DOMAINS],
-        excludedResourceTypes: ['main_frame']
-      }
-    }
-  ];
-}
 
 export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
   const sessionKey = platform.isIncognitoContext?.() === true
@@ -42,7 +15,13 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
     : `${IDENTITY_SESSION_KEY}:regular`;
   let retainedIdentity;
   let identityQueue = Promise.resolve();
-  let requestLanguageRulesActive;
+  const requestLanguageRules = createRequestLanguageRules(platform, {
+    regularIds: [900_001, 900_002], incognitoIds: [900_003, 900_004], priority: 100,
+    conditions: [
+      { requestDomains: [...CLAUDE_FAMILY_DOMAINS], resourceTypes: ['main_frame'] },
+      { initiatorDomains: [...CLAUDE_FAMILY_DOMAINS], excludedResourceTypes: ['main_frame'] }
+    ]
+  });
 
   function serializeIdentity(task) {
     const operation = identityQueue.then(task);
@@ -74,41 +53,26 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
     let tabs = [];
     try { tabs = await chrome.tabs.query({}); } catch {}
     return tabs.some(tab => {
-      if (!Number.isInteger(tab.id) || tab.id === options.excludeTabId) return false;
+      if (Boolean(tab.incognito) !== (platform.isIncognitoContext?.() === true) || !Number.isInteger(tab.id) || tab.id === options.excludeTabId) return false;
       const url = tab.id === options.replaceTabId ? options.replacementUrl : tab.url;
       return isClaudeFamilyUrl(url || '');
     });
   }
 
-  async function syncRequestLanguageRules(active) {
-    const nextActive = active === true;
-    if (requestLanguageRulesActive === nextActive) return nextActive;
-    if (!globalThis.chrome?.declarativeNetRequest?.updateSessionRules) return false;
-    try {
-      await chrome.declarativeNetRequest.updateSessionRules({
-        removeRuleIds: [...ACCEPT_LANGUAGE_RULE_IDS],
-        ...(nextActive ? { addRules: acceptLanguageRules() } : {})
-      });
-      requestLanguageRulesActive = nextActive;
-      return nextActive;
-    } catch {
-      requestLanguageRulesActive = undefined;
-      return false;
-    }
-  }
+  const syncRequestLanguageRules = (active, options) => requestLanguageRules.sync(active, options);
 
   async function reconcileIdentitySession(options = {}) {
     return serializeIdentity(async () => {
       const settings = await platform.readSettings();
       if (settings.chineseResponseClaude.browserIdentityEnabled === true) {
         await setRetainedIdentity(false);
-        await syncRequestLanguageRules(true);
+        await syncRequestLanguageRules(true, options);
         return true;
       }
       const retained = await readRetainedIdentity();
       const active = retained && await hasOpenClaudeFamilyTab(options);
       if (retained && !active) await setRetainedIdentity(false);
-      await syncRequestLanguageRules(active);
+      await syncRequestLanguageRules(active, options);
       return active;
     });
   }
@@ -117,15 +81,18 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.CHINESE_RESPONSE_CLAUDE,
     bridge: 'content/chinese-response-claude-bridge.js',
     runtime: 'content/chinese-response-claude-runtime.js',
+    runtimeDependencies: ['content/browser-identity.js'],
     awaitConfiguration: true,
-    async state(settings, url) {
-      return chineseResponseClaudeState(settings, url, {
+    async state(settings, url, _tabId, frameId = 0) {
+      const state = chineseResponseClaudeState(settings, url, {
         browserIdentityRetained: await readRetainedIdentity()
       });
+      if (frameId > 0) return { ...state, responseDisplay: false, active: state.browserIdentityActive === true };
+      return state;
     },
     async sync(context, settings) {
-      const state = await product.state(settings, context.topUrl);
-      const active = context.frameId === 0 && state.active;
+      const state = await product.state(settings, context.frameUrl || context.topUrl, context.tabId, context.frameId);
+      const active = state.active;
       await pageRuntimeHost.sync(product, context, active);
       return active;
     },
@@ -166,6 +133,7 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
       });
     },
     initialize() { return reconcileIdentitySession(); },
+    handleTabCreated() { return reconcileIdentitySession(); },
     handleTabUpdated(tabId, change, tab) {
       if (!change.url) return undefined;
       return reconcileIdentitySession({ replaceTabId: tabId, replacementUrl: tab?.url || change.url });

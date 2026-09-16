@@ -237,3 +237,33 @@ test('popup readback caches only saved ordinary-window preferences', async () =>
   await context.reload(false);
   assert.equal(cached.length, 1);
 });
+
+test('Website Knowledge Control renders master authorization separately from saved category choices', async () => {
+  const { api, nodes } = controller('satellites');
+  const master = new Element('input');
+  const fieldset = new Element('fieldset');
+  nodes.set('#websiteKnowledgeEnabled', master);
+  nodes.set('#websiteKnowledgeOptions', fieldset);
+  for (const [suffix, selected] of [['Languages', 'fr-FR'], ['Locale', 'de-DE'], ['TimeZone', 'Asia/Tokyo']]) {
+    nodes.set('#websiteKnowledge' + suffix, new Element('input'));
+    if (selected) {
+      const select = new Element('select');
+      select.options = [{ value: selected }];
+      nodes.set('#websiteKnowledge' + suffix + 'Value', select);
+    }
+  }
+  const preference = { enabled: false, languages: { enabled: true, value: 'fr-FR' },
+    locale: { enabled: true, value: 'de-DE' }, timeZone: { enabled: false, value: 'Asia/Tokyo' } };
+  await api.hydrate({ preferences: { satellites: {}, websiteKnowledgeControl: preference } });
+  api.render();
+  assert.equal(fieldset.disabled, true);
+  assert.equal(nodes.get('#websiteKnowledgeLanguages').checked, true);
+  assert.equal(nodes.get('#websiteKnowledgeLanguagesValue').value, 'fr-FR');
+  assert.equal(nodes.get('#websiteKnowledgeLocaleValue').value, 'de-DE');
+  await api.hydrate({ preferences: { satellites: {}, websiteKnowledgeControl: { ...preference, enabled: true } } });
+  api.render();
+  assert.equal(fieldset.disabled, false);
+  assert.equal(nodes.get('#websiteKnowledgeLocaleValue').disabled, false);
+  assert.equal(nodes.get('#websiteKnowledgeTimeZoneValue').disabled, true);
+  assert.equal(nodes.get('#websiteKnowledgeTimeZoneValue').value, 'Asia/Tokyo');
+});

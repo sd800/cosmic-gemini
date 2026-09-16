@@ -81,6 +81,7 @@ export function createOperationsProvince(platform) {
       await satellites.ensureSchedule();
     },
     async getProductState(productId, context) {
+      if (productId === chineseResponseClaude.id) return chineseResponseClaude.state(context.settings, context.frameUrl || context.url, context.tabId, context.frameId);
       if (productId === satellites.id) return satellites.state(context.settings);
       if (productId === administration.id) return null;
       return product(productId).state(context.settings, context.url, context.tabId);
@@ -90,11 +91,12 @@ export function createOperationsProvince(platform) {
     },
     handleMessage,
     handleConnect(port) { return platform.connectCentralUi(port); },
-    async handleTabUpdated(tabId, change) {
+    handleTabCreated(tab) { return chineseResponseClaude.handleTabCreated(tab); },
+    async handleTabUpdated(tabId, change, tab) {
       if (change.status === 'loading') {
         await platform.clearTabActivity(tabId);
       }
-      await chineseResponseClaude.handleTabUpdated(tabId, change);
+      await chineseResponseClaude.handleTabUpdated(tabId, change, tab);
     },
     async handleTabRemoved(tabId) {
       await anyCopyEnhanced.removeTab(tabId);

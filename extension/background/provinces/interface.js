@@ -10,6 +10,7 @@ export function defineProvince({ id, products, ...implementation }) {
     syncProduct: implementation.syncProduct || NOOP,
     handleMessage: implementation.handleMessage || NOOP,
     handleConnect: implementation.handleConnect || (() => false),
+    handleTabCreated: implementation.handleTabCreated || NOOP,
     handleTabUpdated: implementation.handleTabUpdated || NOOP,
     handleTabRemoved: implementation.handleTabRemoved || NOOP,
     handleWindowCreated: implementation.handleWindowCreated || NOOP,

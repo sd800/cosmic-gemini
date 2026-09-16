@@ -99,6 +99,23 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
   }
+  const knowledge = cached.websiteKnowledgeControl;
+  const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
+  if (knowledgeEnabled) {
+    knowledgeEnabled.checked = knowledge?.enabled === true;
+    document.querySelector('#websiteKnowledgeOptions').disabled = !knowledgeEnabled.checked;
+    for (const [category, suffix] of [['languages', 'Languages'], ['locale', 'Locale'], ['timeZone', 'TimeZone']]) {
+      const control = document.querySelector('#websiteKnowledge' + suffix);
+      control.checked = knowledge?.[category]?.enabled ?? (category !== 'timeZone');
+      const value = document.querySelector('#websiteKnowledge' + suffix + 'Value');
+      if (value) {
+        const selected = knowledge?.[category]?.value || (category === 'timeZone' ? 'America/New_York' : 'en-US');
+        if (![...value.options].some(option => option.value === selected)) value.add(new Option(selected, selected));
+        value.value = selected;
+        value.disabled = !knowledgeEnabled.checked || !control.checked;
+      }
+    }
+  }
   const chineseResponseClaudeEnabled = document.querySelector('#chineseResponseClaudeEnabled');
   if (chineseResponseClaudeEnabled) {
     chineseResponseClaudeEnabled.checked = cached.chineseResponseClaude?.enabled === true;

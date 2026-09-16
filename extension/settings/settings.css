@@ -208,3 +208,14 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
   .behavior-rule-panel h3, .behavior-rule-panel > p { min-height: 0; }
   .behavior-rule-select { width: 100%; }
 }
+
+.knowledge-options { border: 0; padding: 0; margin: 18px 0 0; min-width: 0; }
+.knowledge-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 40%); align-items: center; gap: 24px; padding: 16px 0; border-top: 1px solid var(--line); }
+.knowledge-row label { display: flex; gap: 9px; align-items: flex-start; cursor: pointer; min-width: 0; }
+.knowledge-row input { width: 15px; height: 15px; flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--switch-blue); }
+.knowledge-row strong { display: block; font-size: 13px; }
+.knowledge-row small { display: block; font-size: 12px; line-height: 1.5; color: var(--muted); margin-top: 4px; }
+.knowledge-row select { width: 100%; min-width: 0; }
+.knowledge-options:disabled label { opacity: .55; cursor: default; }
+.knowledge-options:disabled input { accent-color: var(--switch-disabled-track); }
+@media (max-width: 560px) { .knowledge-row { grid-template-columns: 1fr; gap: 10px; } }

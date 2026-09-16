@@ -77,7 +77,7 @@ export function createPageRuntimeHost(platform) {
     try {
       await removePageStyles(target, product);
       await chrome.scripting.executeScript({ target, files: [product.bridge], world: 'ISOLATED', injectImmediately: true });
-      await chrome.scripting.executeScript({ target, files: [product.runtime], world: 'MAIN', injectImmediately: true });
+      await chrome.scripting.executeScript({ target, files: [...(product.runtimeDependencies || []), product.runtime], world: 'MAIN', injectImmediately: true });
       const response = await platform.sendTabMessage(
         tabId,
         { type: 'CG_REFRESH_FEATURE_CONFIG', featureId: product.id },

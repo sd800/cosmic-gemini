@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.28');
+assert.equal(manifest.version, '8.10.1');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -224,6 +224,13 @@ assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimenta
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);
+assert.match(settingsSource, /primaryZones[\s\S]*Pacific\/Honolulu[\s\S]*secondaryZones[\s\S]*America\/Toronto[\s\S]*America\/Vancouver[\s\S]*America\/Anchorage[\s\S]*'UTC'[\s\S]*tertiaryZones[\s\S]*Pacific\/Auckland[\s\S]*Asia\/Seoul[\s\S]*Asia\/Hong_Kong[\s\S]*Asia\/Bangkok[\s\S]*Europe\/Zurich[\s\S]*America\/Sao_Paulo/,
+  'Website Knowledge Control must preserve the three requested pinned time-zone groups.');
+assert.match(settingsSource, /\}\), \[knowledgeEnabled\]\)\);[\s\S]*value \? \[control, value\] : \[control\]/,
+  'Website Knowledge Control saves must mark only the changed controls as pending.');
+assert.match(satellitesSettings, /value="zh-HK">繁體中文（中國香港）<\/option>/);
+assert.match(satellitesSettings, /id="websiteKnowledgeLanguagesValue"[\s\S]*<option value="en-US">English \(United States\)<\/option>[\s\S]*<option value="zh-HK">繁體中文（中國香港）<\/option>/,
+  'Languages must offer the same localized choices as Intl locale.');
 assert.match(settingsSource, /pageDisplayReduceWhitePointEnabled[\s\S]*UI_SET_PAGE_DISPLAY_SETTING[\s\S]*pageDisplayGreyscaleEnabled/);
 assert.match(settingsPreload, /pageDisplayReduceWhitePointEnabled[\s\S]*pageDisplayGreyscaleEnabled[\s\S]*reduceWhitePointReduction/);
 assert.match(settingsSource, /pageDisplayEnabled[\s\S]*reduceWhitePointEnabled\.disabled = !pageDisplayEnabled[\s\S]*greyscaleEnabled\.disabled = !pageDisplayEnabled/);
@@ -414,8 +421,8 @@ assert.match(xhsImageDarkModeRuntime, /strongestPanelShare[\s\S]*splitToneLayout
 assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult\.kind !== 'photo'/,
   'Negative feed-cover classifications must not suppress independent viewer analysis.');
 assert.match(chineseResponseClaude, /content\/chinese-response-claude-bridge\.js[\s\S]*content\/chinese-response-claude-runtime\.js/);
-assert.match(chineseResponseClaude, /Accept-Language[\s\S]*en-US[\s\S]*updateSessionRules/);
-assert.match(chineseResponseClaude, /context\.frameId === 0[\s\S]*pageRuntimeHost\.sync/);
+assert.match(chineseResponseClaude, /createRequestLanguageRules/);
+assert.match(chineseResponseClaude, /frameId > 0[\s\S]*responseDisplay: false/);
 assert.match(chineseResponseClaudeRuntime, /font-claude-response[\s\S]*MutationObserver/);
 assert.match(chineseResponseClaudeRuntime, /pre[\s\S]*code[\s\S]*contenteditable[\s\S]*katex/);
 assert.match(chineseResponseClaudeRuntime, /this\.records[\s\S]*record\.transformed[\s\S]*record\.original/);
@@ -425,7 +432,7 @@ assert.match(popupSource, /chineseResponseClaude[\s\S]*hostname: 'claude\.ai'[\s
   'Claude response display optimization must expose its contextual popup control and intervention state.');
 assert.match(chineseResponseClaudeRuntime, /EAST_EIGHT_TIMEZONE_OFFSET = -480[\s\S]*America\/New_York/,
   'Claude browser identity normalization must change only UTC+8 device time zones to New York.');
-assert.match(chineseResponseClaudeRuntime, /installNavigatorIdentity[\s\S]*installIdentityNormalization[\s\S]*restoreIdentityNormalization/,
+assert.match(chineseResponseClaudeRuntime, /installIdentityNormalization[\s\S]*restoreIdentityNormalization/,
   'Claude browser identity normalization must share the product lifecycle and restore its page API wrappers.');
 assert.match(chineseResponseClaude, /UI_SET_CLAUDE_BROWSER_IDENTITY[\s\S]*retainUntilTabsClose[\s\S]*handleTabRemoved/,
   'Claude browser identity normalization must have independent control and defer shutdown until governed tabs close.');

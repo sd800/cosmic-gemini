@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.1 — 2026-09-16
+
+- Added Website Knowledge Control beneath Mailto Capture in Satellites. Its master switch and independent language, Intl locale, and time-zone controls let users choose what browser information websites receive; the language menu shares the Intl locale choices. The feature is off by default.
+- Isolated request-language rules between ordinary and Incognito tabs and coordinated browser-information adjustments to prevent overlapping settings from overwriting each other.
+- Kept each loaded page on its initial Website Knowledge Control policy so changing or disabling a setting restores the browser's original values only when that page next loads.
+
 ## 8.9.28 — 2026-09-16
 
 - Extended Claude browser identity consistency to the network layer. While its independent setting is active, top-level navigations to supported Claude and Anthropic sites, together with network requests initiated by those pages, now use only `Accept-Language: en-US`; the scoped rules follow the existing retained-tab lifecycle and are removed during final cleanup or reset.

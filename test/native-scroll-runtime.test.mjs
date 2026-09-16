@@ -147,6 +147,30 @@ test('Native Scroll leaves page APIs untouched while inactive and restores them 
   assert.equal(context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')], undefined);
 });
 
+test('Native Scroll keeps Window scroll methods bound when pages call them through another object', async () => {
+  const context = makeContext();
+  const calls = [];
+  const originalScrollTo = function (...args) {
+    if (this !== context.window) throw new TypeError('Illegal invocation');
+    calls.push(args);
+  };
+  context.window.scrollTo = originalScrollTo;
+  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(source, context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+
+  Reflect.apply(context.window.scrollTo, { scrollTo: context.window.scrollTo }, [12, 34]);
+  assert.deepEqual(calls, [[12, 34]]);
+
+  runtime.beginGesture();
+  Reflect.apply(context.window.scrollTo, { scrollTo: context.window.scrollTo }, [56, 78]);
+  assert.deepEqual(calls, [[12, 34]]);
+
+  runtime.onDispose({ detail: runtime.token });
+  assert.equal(context.window.scrollTo, originalScrollTo);
+});
+
 test('Native Scroll does not create inline page styles on strict-CSP pages', async () => {
   const context = makeContext();
   let styleElements = 0;

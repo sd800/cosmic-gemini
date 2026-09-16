@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.12 — 2026-09-16
+
+- 修复网页通过其他对象或回调调用 `window.scroll`、`scrollTo`、`scrollBy` 时，Native Scroll 可能引发 `Illegal invocation` 报错的问题。Window 滚动方法的包装层现会保留其所属 Window 作为接收对象，Element 滚动方法仍使用实际的元素接收对象。
+
 ## 8.9.11 — 2026-09-16
 
 - 修复 No Autoplay 可能遗漏在页面配置生效前已经开始播放的媒体，包括启动后移除 `autoplay` 属性的播放器。首次运行时的一次性检查现会同时确认媒体是否正在播放，不增加轮询或持续扫描 DOM。

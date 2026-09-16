@@ -411,11 +411,12 @@
         if (typeof original !== 'function' || original[PATCH_FLAG]) continue;
         const runtime = this;
         function guardedScroll(...args) {
-          if (runtime.shouldBlockScriptedScroll(this, name, args)) {
+          const receiver = owner === window ? window : this;
+          if (runtime.shouldBlockScriptedScroll(receiver, name, args)) {
             runtime.reportSuppression();
             return undefined;
           }
-          return Reflect.apply(original, this, args);
+          return Reflect.apply(original, receiver, args);
         }
         Object.defineProperty(guardedScroll, PATCH_FLAG, { value: true });
         try {

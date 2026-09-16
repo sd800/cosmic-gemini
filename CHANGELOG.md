@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.12 — 2026-09-16
+
+- Fixed Native Scroll causing `Illegal invocation` errors when a page called `window.scroll`, `scrollTo`, or `scrollBy` through another object or callback. Window scrolling wrappers now preserve the owning Window receiver, while Element scrolling methods continue to use their actual element receiver.
+
 ## 8.9.11 — 2026-09-16
 
 - Fixed No Autoplay missing media that began playing before its page configuration arrived, including players that removed their `autoplay` attribute after starting. The one-time initial check now considers current playback state without adding polling or an ongoing DOM scan.

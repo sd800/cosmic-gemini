@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.11');
+assert.equal(manifest.version, '8.9.12');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -355,6 +355,8 @@ assert.match(messageSource, /PAGE_MESSAGE_TYPES[\s\S]*OFFSCREEN_MESSAGE_TYPES[\s
 assert.match(nativeScroll, /content\/native-scroll-bridge\.js[\s\S]*content\/runtime\.js/);
 assert.match(nativeScrollRuntime, /usesNativeInteractionCompatibility\(\)[\s\S]*return this\.isXhsHost\(\)/);
 assert.match(nativeScrollRuntime, /if \(this\.usesNativeInteractionCompatibility\(\)\) return;/);
+assert.match(nativeScrollRuntime, /const receiver = owner === window \? window : this[\s\S]*Reflect\.apply\(original, receiver, args\)/,
+  'Native Scroll must preserve the Window receiver for wrapped Window scrolling methods.');
 assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRegistry/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
 assert.doesNotMatch(noAutoplay, /topFrameOnly|context\.frameId === 0/,

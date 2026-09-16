@@ -183,11 +183,12 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="chineseResponseClaudeName"></h1><p data-i18n="chineseResponseClaudeDescription"></p></div>
+          <div>
+            <h1 data-i18n="chineseResponseClaudeName"></h1>
+            <p data-i18n="chineseResponseClaudeDescription"></p>
+            <label class="satellite-inline-checkbox" for="claudeBrowserIdentityEnabled"><input id="claudeBrowserIdentityEnabled" type="checkbox"><span data-i18n="claudeBrowserIdentityHelp"></span></label>
+          </div>
           <div class="satellite-control"><label class="switch"><input id="chineseResponseClaudeEnabled" type="checkbox"><span></span><b class="sr-only">Chinese Response Display Optimization for Claude</b></label></div>
-        </div>
-        <div class="satellite-preferences">
-          <label class="preference-row" for="claudeBrowserIdentityEnabled"><span><strong data-i18n="claudeBrowserIdentityHeading"></strong><small data-i18n="claudeBrowserIdentityHelp"></small></span><span class="switch"><input id="claudeBrowserIdentityEnabled" type="checkbox"><span></span></span></label>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="chineseResponseClaudePrivacy"></p></div>
       </section>`,

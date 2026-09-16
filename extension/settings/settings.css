@@ -145,6 +145,8 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .ad-marshal-site-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
 .ad-marshal-site-grid label { display: flex; min-width: 0; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; font-size: 12px; line-height: 1.4; }
 .ad-marshal-sites input { width: 15px; height: 15px; flex: 0 0 auto; margin: 0; accent-color: var(--switch-blue); }
+.satellite-inline-checkbox { display: flex; width: fit-content; min-width: 0; align-items: flex-start; gap: 8px; margin-top: 9px; color: var(--muted); cursor: pointer; font-size: 12px; line-height: 1.45; }
+.satellite-inline-checkbox input { width: 15px; height: 15px; flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--switch-blue); }
 .page-display-card .satellite-privacy { margin-top: 7px; }
 .page-display-master-card .section-heading { align-items: flex-start; }
 .page-display-master-card .switch { margin-top: 1px; }

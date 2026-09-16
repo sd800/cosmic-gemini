@@ -76,6 +76,7 @@ function productForMessage(message) {
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
   if (message.type === 'UI_SET_AD_MARSHAL_SITE') return FEATURE_IDS.AD_MARSHAL;
   if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
+  if (message.type === 'UI_SET_CLAUDE_BROWSER_IDENTITY') return FEATURE_IDS.CHINESE_RESPONSE_CLAUDE;
   if (message.type === 'UI_SET_PAGE_DISPLAY_SETTING') return FEATURE_IDS.PAGE_DISPLAY;
   if (message.type.startsWith('UI_SET_XHS_IMAGE_DARK_MODE')
     || message.type === 'CG_XHS_IMAGE_DARK_MODE_STATUS') return FEATURE_IDS.XHS_IMAGE_DARK_MODE;

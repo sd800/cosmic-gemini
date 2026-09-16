@@ -30,11 +30,13 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
   async function setRetainedIdentity(retained) {
     retainedIdentity = retained === true;
     if (!globalThis.chrome?.storage?.session) return retainedIdentity;
-    if (retainedIdentity) {
-      await chrome.storage.session.set({ [sessionKey]: { retained: true } });
-    } else {
-      await chrome.storage.session.remove(sessionKey);
-    }
+    try {
+      if (retainedIdentity) {
+        await chrome.storage.session.set({ [sessionKey]: { retained: true } });
+      } else {
+        await chrome.storage.session.remove(sessionKey);
+      }
+    } catch {}
     return retainedIdentity;
   }
 

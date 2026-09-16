@@ -114,6 +114,38 @@ test('Claude browser identity setting stays active until the final governed tab 
   assert.equal(refreshes, 2);
 });
 
+test('Claude browser identity saves even when optional session metadata is unavailable', async () => {
+  globalThis.chrome = {
+    extension: { inIncognitoContext: false },
+    storage: { session: {
+      async get() { return {}; },
+      async set() { throw new Error('session storage unavailable'); },
+      async remove() { throw new Error('session storage unavailable'); }
+    } },
+    tabs: { async query() { return []; } }
+  };
+  let settings = normalizeSettings({
+    chineseResponseClaude: { enabled: false, browserIdentityEnabled: true }
+  });
+  const product = createChineseResponseClaudeProduct({ sync: async () => true }, {
+    isIncognitoContext() { return false; },
+    async mutateSettings(update) {
+      settings = normalizeSettings(update(settings));
+      return settings;
+    },
+    async refreshOpenPages() {}
+  });
+
+  const result = await product.handleMessage({
+    type: 'UI_SET_CLAUDE_BROWSER_IDENTITY',
+    featureId: 'chineseResponseClaude',
+    enabled: false
+  });
+
+  assert.equal(result.browserIdentityEnabled, false);
+  assert.equal(settings.chineseResponseClaude.enabled, false);
+});
+
 test('Claude response display records and clears live page activity for popup state', async () => {
   const activity = [];
   const settings = normalizeSettings({ chineseResponseClaude: { enabled: true } });

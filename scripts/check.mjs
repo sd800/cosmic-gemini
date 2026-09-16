@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.23');
+assert.equal(manifest.version, '8.9.24');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -210,7 +210,9 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="adMarshalTencentNews"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*id="claudeBrowserIdentityEnabled"/);
+assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="adMarshalTencentNews"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"/);
+assert.match(satellitesSettings, /chineseResponseClaudeDescription[\s\S]*class="satellite-inline-checkbox"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*claudeBrowserIdentityHelp[\s\S]*chineseResponseClaudeEnabled/);
+assert.doesNotMatch(satellitesSettings, /claudeBrowserIdentityHeading|class="switch"><input id="claudeBrowserIdentityEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);
 assert.match(pageDisplaySettings, /id="enabled"[\s\S]*data-section-icon="reduceWhitePoint"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="reduceWhitePointReduction"[\s\S]*data-section-icon="greyscale"[\s\S]*id="pageDisplayGreyscaleEnabled"/);
 assert.match(pageDisplaySettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
@@ -308,6 +310,7 @@ assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]
 assert.match(central, /createStandingProvince[\s\S]*createOperationsProvince[\s\S]*createCustomsProvince/);
 assert.match(central, /provinceForProduct/);
 assert.match(central, /productForMessage/);
+assert.match(central, /UI_SET_CLAUDE_BROWSER_IDENTITY'\) return FEATURE_IDS\.CHINESE_RESPONSE_CLAUDE/);
 assert.match(central, /createCustomsResponseIngress\(details => dispatchEvent\('headersReceived', details\)\)/);
 assert.match(central, /validateMessageSource\(message, sender/);
 assert.match(central, /validatePortSource\(port/);

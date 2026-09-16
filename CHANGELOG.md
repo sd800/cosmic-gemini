@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.24 — 2026-09-16
+
+- Presented Claude browser identity consistency as a compact checkbox beneath the product description and removed its redundant heading and separate settings row. Saving this independent preference no longer reports a failure after the setting has already been applied.
+
 ## 8.9.23 — 2026-09-16
 
 - Separated Claude browser identity consistency into its own setting beneath Chinese Response Display Optimization for Claude. It now operates independently from the reply-display switch while retaining the same local and reversible page-runtime boundary.

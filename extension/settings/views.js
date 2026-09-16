@@ -173,6 +173,9 @@ export function viewFor(featureId) {
             <label for="websiteKnowledgeTimeZone"><input id="websiteKnowledgeTimeZone" type="checkbox"><span><strong id="websiteKnowledgeTimeZoneLabel" data-i18n="websiteKnowledgeTimeZone"></strong><small data-i18n="websiteKnowledgeTimeZoneHelp"></small></span></label>
             <select id="websiteKnowledgeTimeZoneValue" aria-labelledby="websiteKnowledgeTimeZoneLabel" disabled><option value="America/New_York">America/New_York</option><option value="UTC">UTC</option></select>
           </div>
+          <div class="knowledge-row knowledge-checkbox-row">
+            <label for="websiteKnowledgeGlobalPrivacyControl"><input id="websiteKnowledgeGlobalPrivacyControl" type="checkbox" checked><span><strong data-i18n="websiteKnowledgeGlobalPrivacyControl"></strong><small data-i18n="websiteKnowledgeGlobalPrivacyControlHelp"></small></span></label>
+          </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteKnowledgePrivacy"></p></div>
       </section>

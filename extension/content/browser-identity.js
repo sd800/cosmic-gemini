@@ -23,7 +23,7 @@
       this.identityTimeZone = policy.timeZone || '';
       this.zonedPartsFormatter = null;
       this.zonedNameFormatter = null;
-      if (policy.language) this.installNavigatorIdentity();
+      if (policy.language || policy.globalPrivacyControl) this.installNavigatorIdentity();
       if (policy.locale || policy.timeZone) {
         this.installIntlConstructor('DateTimeFormat', args => this.dateTimeFormatArguments(args));
         for (const name of ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']) {
@@ -83,14 +83,19 @@
     installNavigatorIdentity() {
       const pageNavigator = globalThis.navigator;
       if (!pageNavigator) return;
-      const languages = Object.freeze([this.policy.language]);
-      for (const [name, value] of [
-        ['language', this.policy.language],
-        ['languages', languages],
-        ['userLanguage', this.policy.language],
-        ['browserLanguage', this.policy.language],
-        ['systemLanguage', this.policy.language]
-      ]) {
+      const values = [];
+      if (this.policy.language) {
+        const languages = Object.freeze([this.policy.language]);
+        values.push(
+          ['language', this.policy.language],
+          ['languages', languages],
+          ['userLanguage', this.policy.language],
+          ['browserLanguage', this.policy.language],
+          ['systemLanguage', this.policy.language]
+        );
+      }
+      if (this.policy.globalPrivacyControl === true) values.push(['globalPrivacyControl', true]);
+      for (const [name, value] of values) {
         const owner = this.propertyOwner(pageNavigator, name);
         const original = Object.getOwnPropertyDescriptor(owner, name);
         this.installIdentityProperty(owner, name, {
@@ -380,13 +385,18 @@
 
   }
   function reconcile() {
-    const next = [...policies.values()].sort((a, b) => b.priority - a.priority)[0];
-    const nextSignature = JSON.stringify(next?.policy || null);
+    const ordered = [...policies.values()].sort((a, b) => b.priority - a.priority);
+    const highest = ordered[0];
+    const next = highest ? {
+      ...highest.policy,
+      globalPrivacyControl: ordered.some(item => item.policy.globalPrivacyControl === true)
+    } : null;
+    const nextSignature = JSON.stringify(next);
     if (signature === nextSignature) return;
     installed?.dispose();
     installed = null;
     signature = nextSignature;
-    if (next) installed = new IdentityInstallation(next.policy);
+    if (next) installed = new IdentityInstallation(next);
   }
   Object.defineProperty(globalThis, KEY, { configurable: true, value: Object.freeze({
     systemTimeZone,

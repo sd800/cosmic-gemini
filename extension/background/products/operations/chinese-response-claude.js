@@ -1,4 +1,4 @@
-import { createRequestLanguageRules } from '../../features/request-language-rules.js';
+import { createRequestIdentityRules } from '../../features/request-identity-rules.js';
 import {
   FEATURE_IDS,
   chineseResponseClaudeState,
@@ -15,7 +15,7 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
     : `${IDENTITY_SESSION_KEY}:regular`;
   let retainedIdentity;
   let identityQueue = Promise.resolve();
-  const requestLanguageRules = createRequestLanguageRules(platform, {
+  const requestLanguageRules = createRequestIdentityRules(platform, {
     regularIds: [900_001, 900_002], incognitoIds: [900_003, 900_004], priority: 100,
     conditions: [
       { requestDomains: [...CLAUDE_FAMILY_DOMAINS], resourceTypes: ['main_frame'] },

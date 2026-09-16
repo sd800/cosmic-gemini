@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.10.3 — 2026-09-16
+
+- 在 Website Knowledge Control 中新增可独立勾选的 Global Privacy Control。启用产品后，该选项会随网页请求发送 `Sec-GPC: 1`，并向页面提供 `navigator.globalPrivacyControl`；与其他浏览器信息设置一致，修改后的状态会在页面下次载入时生效。
+
 ## 8.10.2 — 2026-09-16
 
 - 在 Website Knowledge Control 时区菜单的三级置顶组中新增新加坡。

@@ -6,7 +6,7 @@ export const ALL_REQUEST_RESOURCE_TYPES = Object.freeze([
   'webbundle', 'other'
 ]);
 
-export function createRequestLanguageRules(platform, { regularIds, incognitoIds, priority, conditions }) {
+export function createRequestIdentityRules(platform, { regularIds, incognitoIds, priority, conditions }) {
   const incognito = platform.isIncognitoContext?.() === true;
   const ids = incognito ? incognitoIds : regularIds;
   let signature;
@@ -19,28 +19,34 @@ export function createRequestLanguageRules(platform, { regularIds, incognitoIds,
           let targets = [];
           if (active && Array.isArray(options.targets)) {
             targets = options.targets.map(target => {
-              let value = 'en-US';
-              try { value = Intl.getCanonicalLocales(target?.value || value)[0]; } catch {}
+              let language = '';
+              if (target?.value || target?.language) {
+                try { language = Intl.getCanonicalLocales(target.value || target.language)[0]; } catch {}
+              }
               const tabIds = [...new Set((target?.tabIds || []).filter(tabId => Number.isInteger(tabId) && tabId >= 0))]
                 .sort((a, b) => a - b);
-              return { value, tabIds };
-            }).filter(target => target.tabIds.length).sort((a, b) => a.value.localeCompare(b.value));
+              return { language, globalPrivacyControl: target?.globalPrivacyControl === true, tabIds };
+            }).filter(target => target.tabIds.length && (target.language || target.globalPrivacyControl))
+              .sort((a, b) => `${a.language}:${a.globalPrivacyControl}`.localeCompare(`${b.language}:${b.globalPrivacyControl}`));
           } else if (active) {
-            let value = 'en-US';
-            try { value = Intl.getCanonicalLocales(options.value || value)[0]; } catch {}
+            let language = 'en-US';
+            try { language = Intl.getCanonicalLocales(options.value || options.language || language)[0]; } catch {}
             const tabs = await chrome.tabs.query({});
             const tabIds = tabs.filter(tab => Number.isInteger(tab.id) && tab.id >= 0
               && Boolean(tab.incognito) === incognito && tab.id !== options.excludeTabId)
               .map(tab => tab.id).sort((a, b) => a - b);
-            if (tabIds.length) targets = [{ value, tabIds }];
+            if (tabIds.length) targets = [{ language, globalPrivacyControl: options.globalPrivacyControl === true, tabIds }];
           }
           // No empty tabIds rule: omitting the condition would leak into other contexts.
           const rules = targets.flatMap((target, targetIndex) => conditions.map((condition, conditionIndex) => {
             const id = ids[targetIndex * conditions.length + conditionIndex];
-            if (!Number.isInteger(id)) throw new Error('Request-language rule capacity exceeded.');
+            if (!Number.isInteger(id)) throw new Error('Request-identity rule capacity exceeded.');
             return {
               id, priority,
-              action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Accept-Language', operation: 'set', value: target.value }] },
+              action: { type: 'modifyHeaders', requestHeaders: [
+                ...(target.language ? [{ header: 'Accept-Language', operation: 'set', value: target.language }] : []),
+                ...(target.globalPrivacyControl ? [{ header: 'Sec-GPC', operation: 'set', value: '1' }] : [])
+              ] },
               condition: { ...condition, tabIds: target.tabIds }
             };
           }));

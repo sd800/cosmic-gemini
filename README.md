@@ -70,7 +70,7 @@ Stop mailto links from opening your system mail app before you can inspect them.
 
 #### Website Knowledge Control
 
-Choose the language, regional format, and time zone websites receive from your browser. Website Knowledge Control is off by default. Enable its master switch, then select the categories to adjust: Languages and Intl locale offer the same regional choices and default to `en-US`; the optional time-zone setting defaults to New York and follows daylight saving time.
+Control the language, regional format, time zone, and privacy preference sent to websites. Website Knowledge Control is off by default. Enable its master switch, then select the categories to adjust: Languages and Intl locale offer the same regional choices and default to `en-US`; the optional time-zone setting defaults to New York and follows daylight saving time. Global Privacy Control is selected by default and asks websites not to sell or share your personal data.
 
 Unselected categories keep their original values. These adjustments do not change your system settings. Each page keeps the browser information it received when it loaded, so changed or disabled settings take effect when that page next loads.
 

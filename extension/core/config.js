@@ -54,7 +54,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 30,
+  version: 31,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -74,7 +74,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: false,
     languages: Object.freeze({ enabled: true, value: 'en-US' }),
     locale: Object.freeze({ enabled: true, value: 'en-US' }),
-    timeZone: Object.freeze({ enabled: false, value: 'America/New_York' })
+    timeZone: Object.freeze({ enabled: false, value: 'America/New_York' }),
+    globalPrivacyControl: Object.freeze({ enabled: true })
   }),
   pageDisplay: Object.freeze({
     enabled: false,
@@ -233,6 +234,11 @@ export function normalizeWebsiteKnowledge(value = {}) {
       value: selected
     };
   }
+  normalized.globalPrivacyControl = {
+    enabled: typeof value?.globalPrivacyControl?.enabled === 'boolean'
+      ? value.globalPrivacyControl.enabled
+      : DEFAULT_SETTINGS.websiteKnowledgeControl.globalPrivacyControl.enabled
+  };
   return normalized;
 }
 
@@ -240,13 +246,13 @@ export function websiteKnowledgeControlState(settings, url) {
   const feature = normalizeWebsiteKnowledge(settings.websiteKnowledgeControl);
   const supported = Boolean(hostnameFromUrl(url));
   return { ...feature, supported, active: supported && feature.enabled
-    && ['languages', 'locale', 'timeZone'].some(category => feature[category].enabled) };
+    && ['languages', 'locale', 'timeZone', 'globalPrivacyControl'].some(category => feature[category].enabled) };
 }
 
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 30,
+    version: 31,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },

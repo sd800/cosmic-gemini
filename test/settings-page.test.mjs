@@ -244,7 +244,7 @@ test('Website Knowledge Control renders master authorization separately from sav
   const fieldset = new Element('fieldset');
   nodes.set('#websiteKnowledgeEnabled', master);
   nodes.set('#websiteKnowledgeOptions', fieldset);
-  for (const [suffix, selected] of [['Languages', 'fr-FR'], ['Locale', 'de-DE'], ['TimeZone', 'Asia/Tokyo']]) {
+  for (const [suffix, selected] of [['Languages', 'fr-FR'], ['Locale', 'de-DE'], ['TimeZone', 'Asia/Tokyo'], ['GlobalPrivacyControl', null]]) {
     nodes.set('#websiteKnowledge' + suffix, new Element('input'));
     if (selected) {
       const select = new Element('select');
@@ -253,13 +253,15 @@ test('Website Knowledge Control renders master authorization separately from sav
     }
   }
   const preference = { enabled: false, languages: { enabled: true, value: 'fr-FR' },
-    locale: { enabled: true, value: 'de-DE' }, timeZone: { enabled: false, value: 'Asia/Tokyo' } };
+    locale: { enabled: true, value: 'de-DE' }, timeZone: { enabled: false, value: 'Asia/Tokyo' },
+    globalPrivacyControl: { enabled: true } };
   await api.hydrate({ preferences: { satellites: {}, websiteKnowledgeControl: preference } });
   api.render();
   assert.equal(fieldset.disabled, true);
   assert.equal(nodes.get('#websiteKnowledgeLanguages').checked, true);
   assert.equal(nodes.get('#websiteKnowledgeLanguagesValue').value, 'fr-FR');
   assert.equal(nodes.get('#websiteKnowledgeLocaleValue').value, 'de-DE');
+  assert.equal(nodes.get('#websiteKnowledgeGlobalPrivacyControl').checked, true);
   await api.hydrate({ preferences: { satellites: {}, websiteKnowledgeControl: { ...preference, enabled: true } } });
   api.render();
   assert.equal(fieldset.disabled, false);

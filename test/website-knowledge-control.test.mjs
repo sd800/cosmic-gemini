@@ -43,6 +43,7 @@ test('Website Knowledge Control validates independent preferences and starts dis
   const settings = normalizeSettings();
   assert.equal(websiteKnowledgeControlState(settings, 'https://example.com').active, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.websiteKnowledgeControl.enabled, false);
+  assert.equal(settings.websiteKnowledgeControl.globalPrivacyControl.enabled, true);
   assert.equal(validateWebsiteKnowledgeValue('locale', 'zh-cn'), 'zh-CN');
   assert.throws(() => validateWebsiteKnowledgeValue('locale', 'made up'));
   assert.throws(() => validateWebsiteKnowledgeValue('timeZone', 'Not/A_Zone'));
@@ -59,11 +60,13 @@ test('Website Knowledge Control freezes the initial document policy until the ne
   f.configure({ languages: { enabled: false }, locale: { enabled: true, value: 'de-DE' }, timeZone: { enabled: false } });
   assert.equal(f.run('navigator.language'), 'fr-FR');
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
+  assert.equal(f.run('navigator.globalPrivacyControl'), true);
   assert.equal(f.run('new Intl.NumberFormat("ja-JP").resolvedOptions().locale'), 'ja-JP');
   assert.equal(f.run('Date === native.Date'), true);
   f.configure({ languages: { enabled: true, value: 'de-DE' }, locale: { enabled: false }, timeZone: { enabled: false } });
   assert.equal(f.run('navigator.language'), 'fr-FR');
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
+  assert.equal(f.run('navigator.globalPrivacyControl'), true);
   f.configure({ enabled: false });
   assert.equal(f.run('navigator.language'), 'fr-FR');
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
@@ -75,6 +78,7 @@ test('Website Knowledge Control freezes the initial document policy until the ne
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
   const nextDocument = runtimeFixture();
   assert.equal(nextDocument.run('new Intl.NumberFormat().resolvedOptions().locale === native.locale'), true);
+  assert.equal(nextDocument.run('navigator.globalPrivacyControl'), undefined);
 });
 
 test('Website Knowledge Control time zone follows DST and keeps local Date operations coherent', () => {
@@ -112,6 +116,7 @@ test('Claude dedicated identity wins as a whole in either activation order and y
     if (!claudeFirst) startClaude();
     assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'en-US');
     assert.equal(f.run('new Intl.DateTimeFormat().resolvedOptions().timeZone'), 'Europe/Paris');
+    assert.equal(f.run('navigator.globalPrivacyControl'), true);
     f.run('claude.disable()');
     assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
     assert.equal(f.run('new Intl.DateTimeFormat().resolvedOptions().timeZone'), 'Asia/Tokyo');
@@ -149,7 +154,8 @@ test('Website Knowledge Control scopes request language by context, retries rule
   assert.deepEqual(rule.condition.tabIds, [1]);
   assert.ok(rule.condition.resourceTypes.includes('main_frame'));
   assert.ok(rule.condition.resourceTypes.includes('xmlhttprequest'));
-  assert.equal(rule.action.requestHeaders[0].value, 'en-US');
+  assert.equal(rule.action.requestHeaders.find(header => header.header === 'Accept-Language').value, 'en-US');
+  assert.equal(rule.action.requestHeaders.find(header => header.header === 'Sec-GPC').value, '1');
   const previous = updates.length;
   await product.initialize();
   assert.equal(updates.length, previous, 'unchanged rules are not reinstalled');
@@ -166,18 +172,27 @@ test('Website Knowledge Control scopes request language by context, retries rule
   await product.handleMessage({ type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', category: 'languages', enabled: true, value: 'de-DE' });
   assert.equal(updates.length, beforeLanguageChange, 'saving does not replace the current page request language');
   await product.handleTabUpdated(1, { status: 'loading' }, tabs[0]);
-  assert.equal(updates.at(-1).addRules[0].action.requestHeaders[0].value, 'de-DE');
+  assert.equal(updates.at(-1).addRules[0].action.requestHeaders.find(header => header.header === 'Accept-Language').value, 'de-DE');
   await product.handleMessage({ type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', category: 'languages', enabled: true, value: 'fr-FR' });
   const thirdTab = { id: 3, url: 'https://new.example', incognito: false };
   tabs.push(thirdTab);
   await product.handleTabCreated(thirdTab);
   assert.deepEqual(updates.at(-1).addRules.map(item => [
-    item.action.requestHeaders[0].value,
+    item.action.requestHeaders.find(header => header.header === 'Accept-Language')?.value || '',
     item.condition.tabIds
   ]), [['de-DE', [1]], ['fr-FR', [3]]]);
   const beforeDisable = updates.length;
   await product.handleMessage({ type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', category: 'languages', enabled: false });
   assert.equal(updates.length, beforeDisable, 'turning the setting off waits for the next page load');
+  await product.handleTabUpdated(1, { status: 'loading' }, tabs[0]);
+  assert.deepEqual(updates.at(-1).addRules.map(item => item.condition.tabIds), [[1], [3]]);
+  await product.handleTabUpdated(3, { status: 'loading' }, thirdTab);
+  assert.deepEqual(updates.at(-1).addRules.map(item => item.condition.tabIds), [[1, 3]]);
+  assert.equal(updates.at(-1).addRules[0].action.requestHeaders.some(header => header.header === 'Accept-Language'), false);
+  assert.equal(updates.at(-1).addRules[0].action.requestHeaders.find(header => header.header === 'Sec-GPC').value, '1');
+  const beforeGpcDisable = updates.length;
+  await product.handleMessage({ type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', category: 'globalPrivacyControl', enabled: false });
+  assert.equal(updates.length, beforeGpcDisable, 'turning GPC off waits for the next page load');
   await product.handleTabUpdated(1, { status: 'loading' }, tabs[0]);
   assert.deepEqual(updates.at(-1).addRules.map(item => item.condition.tabIds), [[3]]);
   await product.handleTabUpdated(3, { status: 'loading' }, thirdTab);

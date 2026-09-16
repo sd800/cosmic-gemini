@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.3 — 2026-09-16
+
+- Added Global Privacy Control as an independently selected option in Website Knowledge Control. When the product is enabled, the option sends `Sec-GPC: 1` with web requests and exposes `navigator.globalPrivacyControl` to pages; like the other browser-information settings, changes apply when a page next loads.
+
 ## 8.10.2 — 2026-09-16
 
 - Added Singapore to the tertiary pinned group in the Website Knowledge Control time-zone menu.

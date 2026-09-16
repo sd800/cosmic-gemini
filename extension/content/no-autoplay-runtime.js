@@ -26,7 +26,7 @@
       this.mode = 'standard';
       this.audioAllowed = false;
       this.reported = false;
-      this.userIntentUntil = 0;
+      this.userIntentUntil = -1;
       this.observer = null;
       this.mediaIntent = new WeakMap();
       this.pendingAudio = new Set();
@@ -75,6 +75,7 @@
       try { message = JSON.parse(event.detail); } catch { return; }
       if (message?.token !== this.token) return;
       const config = message.config || {};
+      const wasActive = this.active;
       const wasAudioAllowed = this.audioAllowed;
       this.configured = true;
       this.active = config.active === true;
@@ -94,7 +95,7 @@
         this.removeMedia(document);
       } else {
         this.disableObserver();
-        this.stopInitialAutoplay();
+        if (!wasActive) this.stopInitialPlayback();
       }
       if (!wasAudioAllowed && this.audioAllowed) {
         this.resumePendingMedia(false);
@@ -188,27 +189,50 @@
       }
       this.audioContextPatches = [];
       this.behaviorHooksInstalled = false;
-      this.userIntentUntil = 0;
+      this.userIntentUntil = -1;
       this.mediaIntent = new WeakMap();
     }
 
     onUserIntent(event) {
       if (!event.isTrusted) return;
       if (event.type === 'keydown' && !['Enter', ' ', 'Spacebar'].includes(event.key)) return;
-      this.userIntentUntil = performance.now() + 2000;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
       for (const node of path) {
         if (node instanceof HTMLMediaElement) {
           this.mediaIntent.set(node, performance.now() + 2000);
-          break;
+          return;
         }
+      }
+      if (path.some(node => this.isPlaybackControl(node))) {
+        this.userIntentUntil = performance.now() + 2000;
       }
     }
 
+    isPlaybackControl(node) {
+      if (!node || typeof node.getAttribute !== 'function') return false;
+      const attribute = name => String(node.getAttribute(name) || '');
+      const metadata = [
+        attribute('aria-label'), attribute('title'), attribute('data-action'),
+        attribute('data-testid'), attribute('data-control'), attribute('id'),
+        typeof node.className === 'string' ? node.className : node.className?.baseVal || ''
+      ].join(' ').toLowerCase();
+      const metadataSignalsPlayback = /(^|[\s:_-])(play|resume|unmute)(?=$|[\s:_-])|播放|继续播放|恢复播放|解除静音|取消静音/.test(metadata)
+        || (/(^|[\s:_-])start(?=$|[\s:_-])/.test(metadata) && /(media|video|audio|player)/.test(metadata));
+      if (metadataSignalsPlayback) return true;
+      const tagName = String(node.localName || node.tagName || '').toLowerCase();
+      const role = attribute('role').toLowerCase();
+      if (!['button', 'a', 'input'].includes(tagName) && role !== 'button') return false;
+      const text = String(node.textContent || attribute('value') || '').trim().slice(0, 80).toLowerCase();
+      return /(^|\s)(play|resume|unmute)(?=$|\s)|播放|继续播放|恢复播放|解除静音|取消静音/.test(text);
+    }
+
+    hasRecentPlaybackIntent() {
+      return this.userIntentUntil > performance.now();
+    }
+
     hasUserIntent(media) {
-      if (navigator.userActivation?.isActive) return true;
-      if (this.userIntentUntil >= performance.now()) return true;
-      return (this.mediaIntent.get(media) || 0) >= performance.now();
+      if (this.hasRecentPlaybackIntent()) return true;
+      return (this.mediaIntent.get(media) || -1) > performance.now();
     }
 
     shouldBlockMedia(media) {
@@ -222,7 +246,7 @@
     shouldBlockAudioContext() {
       if (!this.active) return false;
       if (this.mode === 'enhanced') return true;
-      if (navigator.userActivation?.isActive) return false;
+      if (this.hasRecentPlaybackIntent()) return false;
       return !this.audioAllowed;
     }
 
@@ -247,9 +271,13 @@
       }
     }
 
-    stopInitialAutoplay() {
+    stopInitialPlayback() {
       if (!document.querySelectorAll) return;
-      for (const media of document.querySelectorAll('video[autoplay],audio[autoplay]')) this.blockMedia(media);
+      for (const media of document.querySelectorAll('video,audio')) {
+        const requestedAutoplay = media.hasAttribute?.('autoplay') === true;
+        const alreadyPlaying = media.paused === false;
+        if ((requestedAutoplay || alreadyPlaying) && this.shouldBlockMedia(media)) this.blockMedia(media);
+      }
     }
 
     enableEnhancedObserver() {

@@ -5,11 +5,10 @@ export function createNoAutoplayProduct(pageRuntimeHost) {
     id: FEATURE_IDS.NO_AUTOPLAY,
     bridge: 'content/no-autoplay-bridge.js',
     runtime: 'content/no-autoplay-runtime.js',
-    topFrameOnly: true,
     state(settings, url) { return featureState(settings, product.id, url); },
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);
-      const active = context.frameId === 0 && state.active;
+      const active = state.active;
       await pageRuntimeHost.sync(product, context, active);
       return active;
     }

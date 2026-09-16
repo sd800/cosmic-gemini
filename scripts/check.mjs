@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.9');
+assert.equal(manifest.version, '8.9.11');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -249,6 +249,7 @@ const runtimeHost = await source('background', 'features', 'page-runtime-host.js
 const nativeScroll = await source('background', 'products', 'standing', 'native-scroll.js');
 const nativeScrollRuntime = await source('content', 'runtime.js');
 const noAutoplay = await source('background', 'products', 'standing', 'no-autoplay.js');
+const noAutoplayRuntime = await source('content', 'no-autoplay-runtime.js');
 const mailtoCapture = await source('background', 'products', 'standing', 'mailto-capture.js');
 const mailtoCaptureRuntime = await source('content', 'mailto-capture-runtime.js');
 const adMarshal = await source('background', 'products', 'standing', 'ad-marshal.js');
@@ -356,6 +357,13 @@ assert.match(nativeScrollRuntime, /usesNativeInteractionCompatibility\(\)[\s\S]*
 assert.match(nativeScrollRuntime, /if \(this\.usesNativeInteractionCompatibility\(\)\) return;/);
 assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRegistry/);
 assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
+assert.doesNotMatch(noAutoplay, /topFrameOnly|context\.frameId === 0/,
+  'No Autoplay must follow the top-level page policy inside embedded web frames.');
+assert.match(noAutoplayRuntime, /querySelectorAll\('video,audio'\)[\s\S]*media\.paused === false/,
+  'No Autoplay must catch media that began playing before its configuration arrived.');
+assert.match(noAutoplayRuntime, /isPlaybackControl[\s\S]*hasRecentPlaybackIntent/);
+assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
+  'Ordinary page interaction must not be treated as playback intent.');
 assert.match(mailtoCapture, /content\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture-runtime\.js/);
 assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
 assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);

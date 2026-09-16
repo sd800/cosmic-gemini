@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.11 — 2026-09-16
+
+- Fixed No Autoplay missing media that began playing before its page configuration arrived, including players that removed their `autoplay` attribute after starting. The one-time initial check now considers current playback state without adding polling or an ongoing DOM scan.
+- Applied the top-level page's No Autoplay decision inside its HTTP(S) child frames, so embedded players follow the same Standard, Enhanced, inactive, whitelist, and audio-autoplay policy as their containing page.
+- Restricted playback intent to direct interaction with a media element or a control identified as play, resume, or unmute. Ordinary clicks, page controls, and Chrome's general user-activation state no longer permit delayed HTML media or Web Audio autoplay.
+
 ## 8.9.9 — 2026-09-14
 
 - Expanded XHS Image Dark Mode to recognize white text cards containing bounded bright highlights and small illustrations. Bright annotations are evaluated as secondary reading surfaces before the remaining foreground structure is classified, while white-background product photographs and other large visual subjects remain unchanged.

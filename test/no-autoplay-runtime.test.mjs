@@ -10,10 +10,20 @@ class SimpleEventTarget {
   dispatchEvent(event) { event.target ||= this; for (const listener of this.listeners.get(event.type) || []) listener.call(this, event); }
 }
 class FakeMedia extends SimpleEventTarget {
-  constructor() { super(); this.muted = false; this.volume = 1; this.isConnected = true; this.played = 0; this.paused = 0; this.removed = false; }
+  constructor() {
+    super();
+    this.muted = false;
+    this.volume = 1;
+    this.isConnected = true;
+    this.played = 0;
+    this.paused = 0;
+    this.removed = false;
+    this.attributes = new Set();
+  }
   play() { this.played += 1; return Promise.resolve(); }
   pause() { this.paused += 1; }
-  removeAttribute() {}
+  hasAttribute(name) { return this.attributes.has(name); }
+  removeAttribute(name) { this.attributes.delete(name); }
   remove() { this.removed = true; this.isConnected = false; }
 }
 class FakeAudio extends FakeMedia {}
@@ -24,7 +34,12 @@ class FakeAudioContext { constructor() { this.resumed = 0; this.suspended = 0; }
 
 test('No Autoplay blocks automatic media, preserves direct play, and keeps video blocked when audio is allowed', async () => {
   const window = new SimpleEventTarget();
-  const document = { documentElement: {}, querySelectorAll: () => [] };
+  const alreadyPlayingAudio = new FakeAudio();
+  alreadyPlayingAudio.paused = false;
+  const document = {
+    documentElement: {},
+    querySelectorAll: selector => selector === 'video,audio' ? [alreadyPlayingAudio] : []
+  };
   const navigator = { userActivation: { isActive: false } };
   const context = {
     window, document, navigator,
@@ -41,6 +56,7 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   assert.equal(context.HTMLMediaElement.prototype.play, runtime.originalPlay);
   assert.equal(context.AudioContext, FakeAudioContext);
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: false } }) });
+  assert.equal(alreadyPlayingAudio.paused, 1);
 
   const audio = new FakeAudio();
   await audio.play();
@@ -51,18 +67,37 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   assert.equal(webAudio.suspended, 1);
 
   navigator.userActivation.isActive = true;
+  const activationOnlyVideo = new FakeVideo();
+  await activationOnlyVideo.play();
+  assert.equal(activationOnlyVideo.played, 0);
+  const activationOnlyContext = new context.AudioContext();
+  assert.equal(activationOnlyContext.suspended, 1);
+
+  navigator.userActivation.isActive = false;
   const intentionalVideo = new FakeVideo();
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', target: intentionalVideo, composedPath: () => [intentionalVideo] });
   await intentionalVideo.play();
   assert.equal(intentionalVideo.played, 1);
 
-  navigator.userActivation.isActive = false;
   runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', target: {}, composedPath: () => [{}] });
+  const unrelatedClickVideo = new FakeVideo();
+  await unrelatedClickVideo.play();
+  assert.equal(unrelatedClickVideo.played, 0);
+
+  const playControl = {
+    localName: 'button',
+    className: 'video-play-control',
+    textContent: 'Play',
+    getAttribute: () => ''
+  };
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', target: playControl, composedPath: () => [playControl] });
   const customControlVideo = new FakeVideo();
   await customControlVideo.play();
   assert.equal(customControlVideo.played, 1);
 
   context.performance.now = () => 2201;
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: true } }) });
+  assert.equal(intentionalVideo.paused, 0);
   assert.equal(webAudio.resumed, 1);
   const allowedAudio = new FakeAudio();
   await allowedAudio.play();

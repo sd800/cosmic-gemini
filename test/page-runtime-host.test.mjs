@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createPageRuntimeHost } from '../extension/background/features/page-runtime-host.js';
 import { createNativeScrollProduct } from '../extension/background/products/standing/native-scroll.js';
+import { createNoAutoplayProduct } from '../extension/background/products/standing/no-autoplay.js';
+import { createStandingProvince } from '../extension/background/provinces/standing.js';
 import { DEFAULT_SETTINGS } from '../extension/core/config.js';
 
 const product = {
@@ -232,4 +234,56 @@ test('Native Scroll selects one declared mode stylesheet and keeps Xiaohongshu s
     { active: true, files: ['content/native-scroll-enhanced.css'] },
     { active: true, files: [] }
   ]);
+});
+
+test('No Autoplay follows the top-level page decision in every web frame', async () => {
+  const calls = [];
+  const noAutoplay = createNoAutoplayProduct({
+    async sync(...args) { calls.push(args); }
+  });
+  const topUrl = 'https://example.com/article';
+  await noAutoplay.sync({ tabId: 9, frameId: 0, documentId: 'top', topUrl }, DEFAULT_SETTINGS);
+  await noAutoplay.sync({
+    tabId: 9,
+    frameId: 3,
+    documentId: 'embedded-player',
+    frameUrl: 'https://media.example.net/player',
+    topUrl
+  }, DEFAULT_SETTINGS);
+  await noAutoplay.sync({
+    tabId: 9,
+    frameId: 4,
+    documentId: 'disabled-frame',
+    frameUrl: 'https://media.example.net/player',
+    topUrl
+  }, {
+    ...DEFAULT_SETTINGS,
+    noAutoplay: { ...DEFAULT_SETTINGS.noAutoplay, enabled: false }
+  });
+  assert.deepEqual(calls.map(([, context, active]) => ({ frameId: context.frameId, active })), [
+    { frameId: 0, active: true },
+    { frameId: 3, active: true },
+    { frameId: 4, active: false }
+  ]);
+});
+
+test('Standing Province records governed No Autoplay interventions from child frames', async () => {
+  const activity = [];
+  const province = createStandingProvince({
+    async readSettings() { return DEFAULT_SETTINGS; },
+    async setFeatureActivity(tabId, featureId, active) { activity.push({ tabId, featureId, active }); }
+  });
+  const result = await province.handleMessage('noAutoplay', {
+    type: 'CG_FEATURE_INTERVENED',
+    featureId: 'noAutoplay',
+    pageUrl: 'https://media.example.net/player'
+  }, {
+    sender: {
+      frameId: 3,
+      url: 'https://media.example.net/player',
+      tab: { id: 9, url: 'https://example.com/article' }
+    }
+  });
+  assert.deepEqual(result, { recorded: true });
+  assert.deepEqual(activity, [{ tabId: 9, featureId: 'noAutoplay', active: true }]);
 });

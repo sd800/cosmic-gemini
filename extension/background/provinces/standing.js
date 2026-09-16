@@ -70,7 +70,11 @@ export function createStandingProvince(platform) {
     if (message.type === 'CG_FEATURE_INTERVENED') {
       const eventHostname = hostnameFromUrl(message.pageUrl || context.sender.url || '');
       const currentHostname = hostnameFromUrl(context.sender.tab?.url || '');
-      if (eventHostname && currentHostname && eventHostname !== currentHostname) return { recorded: false };
+      const allowedChildFrameReport = governed.id === FEATURE_IDS.NO_AUTOPLAY
+        && Number(context.sender.frameId) > 0;
+      if (!allowedChildFrameReport && eventHostname && currentHostname && eventHostname !== currentHostname) {
+        return { recorded: false };
+      }
       const settings = await platform.readSettings();
       const state = await governed.state(settings, senderUrl);
       if (state.active) await platform.setFeatureActivity(senderTabId, governed.id, true);

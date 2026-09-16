@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.23 — 2026-09-16
+
+- Separated Claude browser identity consistency into its own setting beneath Chinese Response Display Optimization for Claude. It now operates independently from the reply-display switch while retaining the same local and reversible page-runtime boundary.
+
 ## 8.9.22 — 2026-09-16
 
 - Extended Chinese Response Display Optimization for Claude across supported Claude and Anthropic sites with a local consistency layer for selected browser identification signals in US usage contexts. The existing reply-display adjustment remains limited to Claude chat responses, and both parts follow the same product switch and reversible page-runtime lifecycle.

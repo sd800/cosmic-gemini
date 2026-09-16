@@ -52,7 +52,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 28,
+  version: 29,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -85,7 +85,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     controlOpacity: 0.5
   }),
   chineseResponseClaude: Object.freeze({
-    enabled: false
+    enabled: false,
+    browserIdentityEnabled: false
   }),
   adMarshal: Object.freeze({
     managedSites: Object.freeze({
@@ -197,7 +198,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 28,
+    version: 29,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -228,7 +229,8 @@ export function normalizeSettings(value = {}) {
       controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkMode?.controlOpacity) || 0.5))
     },
     chineseResponseClaude: {
-      enabled: value.chineseResponseClaude?.enabled === true
+      enabled: value.chineseResponseClaude?.enabled === true,
+      browserIdentityEnabled: value.chineseResponseClaude?.browserIdentityEnabled === true
     },
     adMarshal: {
       managedSites: Object.fromEntries(AD_MARSHAL_SITE_KEYS.map(siteKey => [
@@ -300,6 +302,17 @@ export function hostnameFromUrl(value) {
     const url = new URL(value);
     return ['http:', 'https:'].includes(url.protocol) ? url.hostname.toLowerCase().replace(/\.$/, '') : '';
   } catch { return ''; }
+}
+
+export function isClaudeFamilyHostname(value) {
+  const hostname = String(value || '').toLowerCase().replace(/\.$/, '');
+  return hostname === 'claude.ai' || hostname.endsWith('.claude.ai')
+    || hostname === 'claude.com' || hostname.endsWith('.claude.com')
+    || hostname === 'anthropic.com' || hostname.endsWith('.anthropic.com');
+}
+
+export function isClaudeFamilyUrl(value) {
+  return isClaudeFamilyHostname(hostnameFromUrl(value));
 }
 
 export function featureState(settings, featureId, url) {
@@ -472,21 +485,25 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
   };
 }
 
-export function chineseResponseClaudeState(settings, url) {
+export function chineseResponseClaudeState(settings, url, pageState = {}) {
   const normalized = normalizeSettings(settings);
   const feature = normalized.chineseResponseClaude;
   const hostname = hostnameFromUrl(url);
-  const supported = hostname === 'claude.ai' || hostname.endsWith('.claude.ai')
-    || hostname === 'claude.com' || hostname.endsWith('.claude.com')
-    || hostname === 'anthropic.com' || hostname.endsWith('.anthropic.com');
+  const supported = isClaudeFamilyHostname(hostname);
   const enabled = feature.enabled === true;
+  const responseDisplay = hostname === 'claude.ai' && enabled;
+  const browserIdentityRetained = pageState.browserIdentityRetained === true;
+  const browserIdentityActive = supported
+    && (feature.browserIdentityEnabled === true || browserIdentityRetained);
   return {
     ...feature,
     hostname,
     supported,
     enabled,
-    active: supported && enabled,
-    responseDisplay: hostname === 'claude.ai'
+    active: responseDisplay || browserIdentityActive,
+    responseDisplay,
+    browserIdentityActive,
+    browserIdentityRetained
   };
 }
 

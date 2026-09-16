@@ -103,6 +103,10 @@
   if (chineseResponseClaudeEnabled) {
     chineseResponseClaudeEnabled.checked = cached.chineseResponseClaude?.enabled === true;
   }
+  const claudeBrowserIdentityEnabled = document.querySelector('#claudeBrowserIdentityEnabled');
+  if (claudeBrowserIdentityEnabled) {
+    claudeBrowserIdentityEnabled.checked = cached.chineseResponseClaude?.browserIdentityEnabled === true;
+  }
   const pageDisplayEnabled = cached.pageDisplay?.enabled === true;
   if (feature === 'pageDisplay') document.body.dataset.pageDisplayEnabled = String(pageDisplayEnabled);
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');

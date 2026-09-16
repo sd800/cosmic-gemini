@@ -29,6 +29,7 @@ test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.greyscale.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkMode.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.chineseResponseClaude.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.chineseResponseClaude.browserIdentityEnabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
   assert.equal(Object.values(DEFAULT_INCOGNITO_SETTINGS.adMarshal.managedSites).some(Boolean), false);
@@ -285,7 +286,7 @@ test('Mailto Capture follows its ordinary and incognito defaults without website
   assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
 });
 
-test('Claude response optimization is opt-in across Claude and Anthropic domains', () => {
+test('Claude reply display and browser identity settings authorize independently', () => {
   const disabled = chineseResponseClaudeState(DEFAULT_SETTINGS, 'https://claude.ai/new');
   assert.equal(disabled.supported, true);
   assert.equal(disabled.enabled, false);
@@ -294,10 +295,18 @@ test('Claude response optimization is opt-in across Claude and Anthropic domains
   assert.equal(chineseResponseClaudeState(enabled, 'https://claude.ai/chat/example').active, true);
   assert.equal(chineseResponseClaudeState(enabled, 'https://www.claude.ai/').supported, true);
   assert.equal(chineseResponseClaudeState(enabled, 'https://www.claude.ai/').responseDisplay, false);
-  assert.equal(chineseResponseClaudeState(enabled, 'https://console.anthropic.com/').active, true);
-  assert.equal(chineseResponseClaudeState(enabled, 'https://anthropic.com/').active, true);
-  assert.equal(chineseResponseClaudeState(enabled, 'https://platform.claude.com/docs/').active, true);
+  assert.equal(chineseResponseClaudeState(enabled, 'https://console.anthropic.com/').active, false);
   assert.equal(chineseResponseClaudeState(enabled, 'https://claude.ai/chat/example').responseDisplay, true);
+  const identityEnabled = { chineseResponseClaude: { browserIdentityEnabled: true } };
+  assert.equal(chineseResponseClaudeState(identityEnabled, 'https://anthropic.com/').active, true);
+  assert.equal(chineseResponseClaudeState(identityEnabled, 'https://platform.claude.com/docs/').active, true);
+  assert.equal(chineseResponseClaudeState(identityEnabled, 'https://claude.ai/chat/example').responseDisplay, false);
+  assert.equal(chineseResponseClaudeState(identityEnabled, 'https://claude.ai/chat/example').browserIdentityActive, true);
+  const retained = chineseResponseClaudeState(DEFAULT_SETTINGS, 'https://console.anthropic.com/', {
+    browserIdentityRetained: true
+  });
+  assert.equal(retained.browserIdentityActive, true);
+  assert.equal(retained.browserIdentityRetained, true);
   assert.equal(chineseResponseClaudeState(enabled, 'https://notclaude.ai/').active, false);
   assert.equal(chineseResponseClaudeState(enabled, 'chrome://extensions').active, false);
 });
@@ -432,7 +441,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     noAutoplay: { enabled: true, audioAutoplayAllSites: true },
     anyCopy: { siteRules: ['copy.example'] },
     mailtoCapture: { enabled: false, active: true },
-    chineseResponseClaude: { enabled: true, active: false },
+    chineseResponseClaude: { enabled: true, browserIdentityEnabled: true, active: false },
     pageDisplay: {
       enabled: true,
       reduceWhitePoint: { enabled: true, reduction: 0.4 },
@@ -459,7 +468,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.deepEqual(cache.mailtoCapture, { enabled: false });
-  assert.deepEqual(cache.chineseResponseClaude, { enabled: true });
+  assert.deepEqual(cache.chineseResponseClaude, { enabled: true, browserIdentityEnabled: true });
   assert.deepEqual(cache.pageDisplay, {
     enabled: true,
     reduceWhitePoint: { enabled: true, reduction: 0.4 },

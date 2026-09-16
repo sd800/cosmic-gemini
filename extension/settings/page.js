@@ -199,6 +199,10 @@ function render() {
   if (chineseResponseClaudeEnabled) {
     chineseResponseClaudeEnabled.checked = (states?.preferences || states)?.chineseResponseClaude?.enabled === true;
   }
+  const claudeBrowserIdentityEnabled = document.querySelector('#claudeBrowserIdentityEnabled');
+  if (claudeBrowserIdentityEnabled) {
+    claudeBrowserIdentityEnabled.checked = (states?.preferences || states)?.chineseResponseClaude?.browserIdentityEnabled === true;
+  }
   const pageDisplaySettings = (states?.preferences || states)?.pageDisplay;
   const pageDisplayEnabled = pageDisplaySettings?.enabled === true;
   if (featureId === 'pageDisplay') document.body.dataset.pageDisplayEnabled = String(pageDisplayEnabled);
@@ -421,6 +425,12 @@ function bindView() {
     featureId: 'chineseResponseClaude',
     enabled: chineseResponseClaudeEnabled.checked
   }), [chineseResponseClaudeEnabled]));
+  const claudeBrowserIdentityEnabled = document.querySelector('#claudeBrowserIdentityEnabled');
+  if (claudeBrowserIdentityEnabled) claudeBrowserIdentityEnabled.addEventListener('change', () => void update(null, () => savePreference('chineseResponseClaude', {
+    type: 'UI_SET_CLAUDE_BROWSER_IDENTITY',
+    featureId: 'chineseResponseClaude',
+    enabled: claudeBrowserIdentityEnabled.checked
+  }), [claudeBrowserIdentityEnabled]));
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.addEventListener('change', () => {
     const reduction = document.querySelector('#reduceWhitePointReduction');

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.22');
+assert.equal(manifest.version, '8.9.23');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -210,7 +210,7 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="adMarshalTencentNews"[\s\S]*id="chineseResponseClaudeEnabled"/);
+assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="adMarshalTencentNews"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*id="claudeBrowserIdentityEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);
 assert.match(pageDisplaySettings, /id="enabled"[\s\S]*data-section-icon="reduceWhitePoint"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="reduceWhitePointReduction"[\s\S]*data-section-icon="greyscale"[\s\S]*id="pageDisplayGreyscaleEnabled"/);
 assert.match(pageDisplaySettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
@@ -417,12 +417,14 @@ assert.match(chineseResponseClaudeRuntime, /pre[\s\S]*code[\s\S]*contenteditable
 assert.match(chineseResponseClaudeRuntime, /this\.records[\s\S]*record\.transformed[\s\S]*record\.original/);
 assert.match(chineseResponseClaudeRuntime, /chinese-response-claude:activity[\s\S]*syncActivity/);
 assert.match(chineseResponseClaudeBridge, /chinese-response-claude:activity[\s\S]*CG_FEATURE_ACTIVITY/);
-assert.match(popupSource, /chineseResponseClaude[\s\S]*domains:[\s\S]*'claude\.ai'[\s\S]*'claude\.com'[\s\S]*'anthropic\.com'[\s\S]*chineseResponseClaudeActiveTitle/,
+assert.match(popupSource, /chineseResponseClaude[\s\S]*hostname: 'claude\.ai'[\s\S]*chineseResponseClaudeActiveTitle/,
   'Claude response display optimization must expose its contextual popup control and intervention state.');
 assert.match(chineseResponseClaudeRuntime, /EAST_EIGHT_TIMEZONE_OFFSET = -480[\s\S]*America\/New_York/,
   'Claude browser identity normalization must change only UTC+8 device time zones to New York.');
 assert.match(chineseResponseClaudeRuntime, /installNavigatorIdentity[\s\S]*installIdentityNormalization[\s\S]*restoreIdentityNormalization/,
   'Claude browser identity normalization must share the product lifecycle and restore its page API wrappers.');
+assert.match(chineseResponseClaude, /UI_SET_CLAUDE_BROWSER_IDENTITY[\s\S]*retainUntilTabsClose[\s\S]*handleTabRemoved/,
+  'Claude browser identity normalization must have independent control and defer shutdown until governed tabs close.');
 assert.doesNotMatch(chineseResponseClaudeRuntime, /fetch\s*\(|XMLHttpRequest|WebSocket|setInterval/);
 assert.match(xhsImageDarkModeRuntime, /!image\.complete \|\| !image\.naturalWidth[\s\S]*waitForImageLoad[\s\S]*loadPriority/,
   'Unloaded XHS images must not occupy an image-analysis worker.');

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.23 — 2026-09-16
+
+- 将 Claude 浏览器标识一致性调整拆分为 Chinese Response Display Optimization for Claude 下方的独立设置。该设置不再受回复显示优化开关控制，同时继续遵循仅在本地运行且可恢复的页面运行边界。
+
 ## 8.9.22 — 2026-09-16
 
 - 将 Chinese Response Display Optimization for Claude 扩展至受支持的 Claude 与 Anthropic 网站，并为在美国使用 Claude 的场景加入本地浏览器标识一致性调整。原有回复显示调整仍仅作用于 Claude 聊天回复，两部分由同一个产品开关管理，并遵循可恢复的页面运行周期。

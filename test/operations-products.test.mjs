@@ -52,6 +52,68 @@ test('Claude response display product saves independently and refreshes page dec
   assert.equal(refreshes, 1);
 });
 
+test('Claude browser identity setting stays active until the final governed tab closes', async () => {
+  const session = {};
+  let tabs = [
+    { id: 61, url: 'https://claude.ai/chat/example' },
+    { id: 62, url: 'https://example.com/' }
+  ];
+  globalThis.chrome = {
+    extension: { inIncognitoContext: false },
+    storage: { session: {
+      async get(key) { return key in session ? { [key]: session[key] } : {}; },
+      async set(values) { Object.assign(session, values); },
+      async remove(key) { delete session[key]; }
+    } },
+    tabs: { async query() { return tabs; } }
+  };
+  let settings = normalizeSettings({
+    chineseResponseClaude: { enabled: true, browserIdentityEnabled: true }
+  });
+  let refreshes = 0;
+  const platform = {
+    isIncognitoContext() { return false; },
+    async readSettings() { return settings; },
+    async mutateSettings(update) {
+      settings = normalizeSettings(update(settings));
+      return settings;
+    },
+    async refreshOpenPages() { refreshes += 1; }
+  };
+  const product = createChineseResponseClaudeProduct({ sync: async () => true }, platform);
+
+  const disabled = await product.handleMessage({
+    type: 'UI_SET_CLAUDE_BROWSER_IDENTITY',
+    featureId: 'chineseResponseClaude',
+    enabled: false
+  });
+  assert.equal(disabled.enabled, true);
+  assert.equal(disabled.browserIdentityEnabled, false);
+  assert.equal((await product.state(settings, tabs[0].url)).browserIdentityActive, true);
+  assert.equal(session['chineseResponseClaudeIdentitySession:regular'].retained, true);
+
+  const restarted = createChineseResponseClaudeProduct({ sync: async () => true }, platform);
+  await restarted.initialize();
+  assert.equal((await restarted.state(settings, tabs[0].url)).browserIdentityActive, true);
+
+  await restarted.handleTabRemoved(61);
+  assert.equal((await restarted.state(settings, 'https://console.anthropic.com/')).browserIdentityActive, false);
+  assert.equal('chineseResponseClaudeIdentitySession:regular' in session, false);
+  assert.equal(refreshes, 1);
+
+  tabs = [{ id: 63, url: 'https://platform.claude.com/' }];
+  await restarted.handleMessage({
+    type: 'UI_SET_CLAUDE_BROWSER_IDENTITY',
+    featureId: 'chineseResponseClaude',
+    enabled: true
+  });
+  const reenabled = await restarted.state(settings, tabs[0].url);
+  assert.equal(reenabled.browserIdentityActive, true);
+  assert.equal(reenabled.responseDisplay, false);
+  assert.equal(settings.chineseResponseClaude.enabled, true);
+  assert.equal(refreshes, 2);
+});
+
 test('Claude response display records and clears live page activity for popup state', async () => {
   const activity = [];
   const settings = normalizeSettings({ chineseResponseClaude: { enabled: true } });

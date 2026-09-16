@@ -45,6 +45,7 @@
       this.token = randomToken();
       this.active = false;
       this.responseDisplay = location.hostname === 'claude.ai';
+      this.browserIdentity = false;
       this.identityRestorers = [];
       this.systemTimeZone = '';
       this.systemTimeZoneOffset = 0;
@@ -79,16 +80,22 @@
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
       if (message?.token !== this.token) return;
-      const responseDisplay = location.hostname === 'claude.ai' && message.config?.responseDisplay !== false;
+      const responseDisplay = location.hostname === 'claude.ai' && message.config?.responseDisplay === true;
+      const browserIdentity = message.config?.browserIdentityActive === true;
       if (message.config?.active === true) {
         if (!this.active) {
           this.responseDisplay = responseDisplay;
+          this.browserIdentity = browserIdentity;
           this.enable();
         } else {
-          const changed = responseDisplay !== this.responseDisplay;
+          const responseChanged = responseDisplay !== this.responseDisplay;
+          const identityChanged = browserIdentity !== this.browserIdentity;
           this.responseDisplay = responseDisplay;
-          if (changed && responseDisplay) this.startResponseDisplay();
-          else if (changed) this.stopResponseDisplay();
+          this.browserIdentity = browserIdentity;
+          if (responseChanged && responseDisplay) this.startResponseDisplay();
+          else if (responseChanged) this.stopResponseDisplay();
+          if (identityChanged && browserIdentity) this.installIdentityNormalization();
+          else if (identityChanged) this.restoreIdentityNormalization();
           this.syncActivity(true, true);
         }
       }
@@ -677,7 +684,7 @@
     enable() {
       if (this.active) return;
       this.active = true;
-      this.installIdentityNormalization();
+      if (this.browserIdentity) this.installIdentityNormalization();
       if (this.responseDisplay) this.startResponseDisplay();
       else queueMicrotask(() => this.syncActivity());
     }

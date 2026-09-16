@@ -16,7 +16,7 @@ const productKey = {
 };
 const contextualProducts = Object.freeze([
   Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' }),
-  Object.freeze({ id: 'chineseResponseClaude', domains: Object.freeze(['claude.ai', 'claude.com', 'anthropic.com']) })
+  Object.freeze({ id: 'chineseResponseClaude', hostname: 'claude.ai' })
 ]);
 let state;
 let t;
@@ -153,8 +153,7 @@ function renderContextualProducts() {
   const container = document.querySelector('#contextual-feature-list');
   let hostname = '';
   try { hostname = new URL(currentTab?.url || '').hostname.toLowerCase().replace(/\.$/, ''); } catch {}
-  const available = contextualProducts.filter(entry => entry.hostname === hostname
-    || entry.domains?.some(domain => hostname === domain || hostname.endsWith(`.${domain}`)));
+  const available = contextualProducts.filter(entry => entry.hostname === hostname);
   container.replaceChildren();
   container.hidden = available.length === 0;
   for (const entry of available) {

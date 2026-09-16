@@ -47,7 +47,7 @@ export function createOperationsProvince(platform) {
       if (eventHostname && currentHostname && eventHostname !== currentHostname) return { recorded: false };
       const settings = await platform.readSettings();
       const state = await governed.state(settings, senderUrl, senderTabId);
-      const active = state.active && message.active === true;
+      const active = state.responseDisplay === true && message.active === true;
       await platform.setFeatureActivity(senderTabId, governed.id, active);
       return { recorded: true, active };
     }
@@ -75,7 +75,8 @@ export function createOperationsProvince(platform) {
       await Promise.allSettled([
         platform.clearOrphanedActivity(),
         anyCopyEnhanced.cleanupOrphans(),
-        xhsImageDarkMode.cleanupOrphans()
+        xhsImageDarkMode.cleanupOrphans(),
+        chineseResponseClaude.initialize()
       ]);
       await satellites.ensureSchedule();
     },
@@ -93,10 +94,12 @@ export function createOperationsProvince(platform) {
       if (change.status === 'loading') {
         await platform.clearTabActivity(tabId);
       }
+      await chineseResponseClaude.handleTabUpdated(tabId, change);
     },
     async handleTabRemoved(tabId) {
       await anyCopyEnhanced.removeTab(tabId);
       await xhsImageDarkMode.removeTab(tabId);
+      await chineseResponseClaude.handleTabRemoved(tabId);
       await platform.clearTabActivity(tabId);
     },
     handleWindowCreated() { return platform.handleIncognitoWindowChange(); },
@@ -109,6 +112,8 @@ export function createOperationsProvince(platform) {
       if (areaName === localeArea && changes?.[localeKey]) xhsImageDarkMode.clearLocale();
       return satellites.handleStorageChanged(changes, areaName);
     },
-    reset() { return satellites.reset(); }
+    async reset() {
+      await Promise.allSettled([satellites.reset(), chineseResponseClaude.reset()]);
+    }
   });
 }

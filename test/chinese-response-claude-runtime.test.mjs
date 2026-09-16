@@ -92,7 +92,7 @@ test('Claude browser identity normalization uses stable US defaults and restores
   runtime.onConfigure({
     detail: JSON.stringify({
       token: runtime.token,
-      config: { active: true, responseDisplay: false }
+      config: { active: true, responseDisplay: false, browserIdentityActive: true }
     })
   });
 
@@ -189,7 +189,10 @@ test('Claude response optimization reaffirms live activity after configuration r
   runtime.transformNode(node, true, { double: false, single: false });
   runtime.syncActivity();
   runtime.active = true;
-  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true } }) });
+  runtime.onConfigure({ detail: JSON.stringify({
+    token: runtime.token,
+    config: { active: true, responseDisplay: true, browserIdentityActive: false }
+  }) });
   assert.deepEqual(reports, [true, true]);
 });
 
@@ -210,7 +213,9 @@ test('Claude bridge forwards both live activity transitions to the governed prod
       async sendMessage(message) {
         messages.push(message);
         if (message.type === 'CG_PAGE_STATE') {
-          return { ok: true, result: { chineseResponseClaude: { active: true } } };
+          return { ok: true, result: { chineseResponseClaude: {
+            active: true, responseDisplay: true, browserIdentityActive: false
+          } } };
         }
         return { ok: true };
       },

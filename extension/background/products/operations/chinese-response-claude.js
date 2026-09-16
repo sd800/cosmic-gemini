@@ -6,6 +6,35 @@ import {
 } from '../../../core/config.js';
 
 const IDENTITY_SESSION_KEY = 'chineseResponseClaudeIdentitySession';
+const ACCEPT_LANGUAGE_RULE_IDS = Object.freeze([900_001, 900_002]);
+const CLAUDE_FAMILY_DOMAINS = Object.freeze(['claude.ai', 'claude.com', 'anthropic.com']);
+
+function acceptLanguageRules() {
+  const action = {
+    type: 'modifyHeaders',
+    requestHeaders: [{ header: 'Accept-Language', operation: 'set', value: 'en-US' }]
+  };
+  return [
+    {
+      id: ACCEPT_LANGUAGE_RULE_IDS[0],
+      priority: 100,
+      action,
+      condition: {
+        requestDomains: [...CLAUDE_FAMILY_DOMAINS],
+        resourceTypes: ['main_frame']
+      }
+    },
+    {
+      id: ACCEPT_LANGUAGE_RULE_IDS[1],
+      priority: 100,
+      action,
+      condition: {
+        initiatorDomains: [...CLAUDE_FAMILY_DOMAINS],
+        excludedResourceTypes: ['main_frame']
+      }
+    }
+  ];
+}
 
 export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
   const sessionKey = platform.isIncognitoContext?.() === true
@@ -13,6 +42,7 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
     : `${IDENTITY_SESSION_KEY}:regular`;
   let retainedIdentity;
   let identityQueue = Promise.resolve();
+  let requestLanguageRulesActive;
 
   function serializeIdentity(task) {
     const operation = identityQueue.then(task);
@@ -50,16 +80,36 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
     });
   }
 
+  async function syncRequestLanguageRules(active) {
+    const nextActive = active === true;
+    if (requestLanguageRulesActive === nextActive) return nextActive;
+    if (!globalThis.chrome?.declarativeNetRequest?.updateSessionRules) return false;
+    try {
+      await chrome.declarativeNetRequest.updateSessionRules({
+        removeRuleIds: [...ACCEPT_LANGUAGE_RULE_IDS],
+        ...(nextActive ? { addRules: acceptLanguageRules() } : {})
+      });
+      requestLanguageRulesActive = nextActive;
+      return nextActive;
+    } catch {
+      requestLanguageRulesActive = undefined;
+      return false;
+    }
+  }
+
   async function reconcileIdentitySession(options = {}) {
     return serializeIdentity(async () => {
       const settings = await platform.readSettings();
       if (settings.chineseResponseClaude.browserIdentityEnabled === true) {
-        return setRetainedIdentity(false);
+        await setRetainedIdentity(false);
+        await syncRequestLanguageRules(true);
+        return true;
       }
-      if (!await readRetainedIdentity()) return false;
-      if (await hasOpenClaudeFamilyTab(options)) return true;
-      await setRetainedIdentity(false);
-      return false;
+      const retained = await readRetainedIdentity();
+      const active = retained && await hasOpenClaudeFamilyTab(options);
+      if (retained && !active) await setRetainedIdentity(false);
+      await syncRequestLanguageRules(active);
+      return active;
     });
   }
 
@@ -110,6 +160,7 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
           throw error;
         }
         if (enabled || !retainUntilTabsClose) await setRetainedIdentity(false);
+        await syncRequestLanguageRules(enabled || retainUntilTabsClose);
         await platform.refreshOpenPages();
         return settings.chineseResponseClaude;
       });
@@ -123,7 +174,11 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
       return reconcileIdentitySession({ excludeTabId: tabId });
     },
     reset() {
-      return serializeIdentity(() => setRetainedIdentity(false));
+      return serializeIdentity(async () => {
+        await setRetainedIdentity(false);
+        await syncRequestLanguageRules(false);
+        return false;
+      });
     }
   });
 

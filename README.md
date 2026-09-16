@@ -86,7 +86,7 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 #### Chinese Response Display Optimization for Claude
 
-Claude can render Chinese replies with half-width punctuation and omit spaces around embedded Latin text, numbers, or related symbols. Chinese Response Display Optimization for Claude replaces those displayed marks and adds consistent spaces at these boundaries. Code, links, formulas, and editable text remain unchanged; only the text displayed in your browser is adjusted. An independently controlled option also keeps selected browser identity signals consistent for Claude use in the United States, with all processing confined to supported Claude and Anthropic pages.
+Claude can render Chinese replies with half-width punctuation and omit spaces around embedded Latin text, numbers, or related symbols. Chinese Response Display Optimization for Claude replaces those displayed marks and adds consistent spaces at these boundaries. Code, links, formulas, and editable text remain unchanged; only the text displayed in your browser is adjusted. An independently controlled option also keeps selected browser identity signals consistent for Claude use in the United States.
 
 ## Features
 

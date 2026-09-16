@@ -54,6 +54,7 @@ test('Claude response display product saves independently and refreshes page dec
 
 test('Claude browser identity setting stays active until the final governed tab closes', async () => {
   const session = {};
+  const ruleUpdates = [];
   let tabs = [
     { id: 61, url: 'https://claude.ai/chat/example' },
     { id: 62, url: 'https://example.com/' }
@@ -65,6 +66,9 @@ test('Claude browser identity setting stays active until the final governed tab 
       async set(values) { Object.assign(session, values); },
       async remove(key) { delete session[key]; }
     } },
+    declarativeNetRequest: {
+      async updateSessionRules(update) { ruleUpdates.push(update); }
+    },
     tabs: { async query() { return tabs; } }
   };
   let settings = normalizeSettings({
@@ -91,6 +95,24 @@ test('Claude browser identity setting stays active until the final governed tab 
   assert.equal(disabled.browserIdentityEnabled, false);
   assert.equal((await product.state(settings, tabs[0].url)).browserIdentityActive, true);
   assert.equal(session['chineseResponseClaudeIdentitySession:regular'].retained, true);
+  assert.deepEqual(ruleUpdates[0].removeRuleIds, [900001, 900002]);
+  assert.equal(ruleUpdates[0].addRules.length, 2);
+  assert.deepEqual(ruleUpdates[0].addRules[0], {
+    id: 900001,
+    priority: 100,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [{ header: 'Accept-Language', operation: 'set', value: 'en-US' }]
+    },
+    condition: {
+      requestDomains: ['claude.ai', 'claude.com', 'anthropic.com'],
+      resourceTypes: ['main_frame']
+    }
+  });
+  assert.deepEqual(ruleUpdates[0].addRules[1].condition, {
+    initiatorDomains: ['claude.ai', 'claude.com', 'anthropic.com'],
+    excludedResourceTypes: ['main_frame']
+  });
 
   const restarted = createChineseResponseClaudeProduct({ sync: async () => true }, platform);
   await restarted.initialize();
@@ -99,6 +121,7 @@ test('Claude browser identity setting stays active until the final governed tab 
   await restarted.handleTabRemoved(61);
   assert.equal((await restarted.state(settings, 'https://console.anthropic.com/')).browserIdentityActive, false);
   assert.equal('chineseResponseClaudeIdentitySession:regular' in session, false);
+  assert.deepEqual(ruleUpdates[2], { removeRuleIds: [900001, 900002] });
   assert.equal(refreshes, 1);
 
   tabs = [{ id: 63, url: 'https://platform.claude.com/' }];
@@ -111,7 +134,39 @@ test('Claude browser identity setting stays active until the final governed tab 
   assert.equal(reenabled.browserIdentityActive, true);
   assert.equal(reenabled.responseDisplay, false);
   assert.equal(settings.chineseResponseClaude.enabled, true);
+  assert.equal(ruleUpdates.at(-1).addRules.length, 2);
   assert.equal(refreshes, 2);
+});
+
+test('Claude browser identity prepares the request language before a governed tab opens', async () => {
+  const ruleUpdates = [];
+  globalThis.chrome = {
+    extension: { inIncognitoContext: false },
+    storage: { session: {
+      async get() { return {}; },
+      async set() {},
+      async remove() {}
+    } },
+    declarativeNetRequest: {
+      async updateSessionRules(update) { ruleUpdates.push(update); }
+    },
+    tabs: { async query() { return []; } }
+  };
+  const settings = normalizeSettings({
+    chineseResponseClaude: { enabled: false, browserIdentityEnabled: true }
+  });
+  const product = createChineseResponseClaudeProduct({ sync: async () => true }, {
+    isIncognitoContext() { return false; },
+    async readSettings() { return settings; }
+  });
+
+  assert.equal(await product.initialize(), true);
+  assert.equal(ruleUpdates.length, 1);
+  assert.equal(ruleUpdates[0].addRules.length, 2);
+  assert.equal(ruleUpdates[0].addRules[0].action.requestHeaders[0].value, 'en-US');
+
+  await product.reset();
+  assert.deepEqual(ruleUpdates[1], { removeRuleIds: [900001, 900002] });
 });
 
 test('Claude browser identity saves even when optional session metadata is unavailable', async () => {

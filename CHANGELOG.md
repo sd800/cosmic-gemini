@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.28 — 2026-09-16
+
+- Extended Claude browser identity consistency to the network layer. While its independent setting is active, top-level navigations to supported Claude and Anthropic sites, together with network requests initiated by those pages, now use only `Accept-Language: en-US`; the scoped rules follow the existing retained-tab lifecycle and are removed during final cleanup or reset.
+
 ## 8.9.27 — 2026-09-16
 
 - Refined the feature description shown in Settings for Chinese Response Display Optimization for Claude.

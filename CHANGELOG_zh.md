@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.28 — 2026-09-16
+
+- 将 Claude 浏览器标识一致性调整扩展至网络层。这项独立设置生效时，打开受支持 Claude 与 Anthropic 网站的顶层导航请求，以及由这些页面发起的网络请求，现在仅使用 `Accept-Language: en-US`；限定范围的规则沿用现有的标签页保留周期，并会在最终清理或重置时移除。
+
 ## 8.9.27 — 2026-09-16
 
 - 调整设置页面中 Chinese Response Display Optimization for Claude 的功能说明表述。

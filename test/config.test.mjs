@@ -7,6 +7,7 @@ import {
   adMarshalState,
   anyCopyEnhancedState,
   anyCopyState,
+  chinesePunctuationClaudeState,
   featureState,
   hostnameFromUrl,
   mailtoCaptureState,
@@ -27,6 +28,7 @@ test('incognito defaults keep every automatic product inactive', () => {
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.reduceWhitePoint.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.greyscale.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkMode.enabled, false);
+  assert.equal(DEFAULT_INCOGNITO_SETTINGS.chinesePunctuationClaude.enabled, false);
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
   assert.equal(Object.values(DEFAULT_INCOGNITO_SETTINGS.adMarshal.managedSites).some(Boolean), false);
@@ -283,6 +285,18 @@ test('Mailto Capture follows its ordinary and incognito defaults without website
   assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
 });
 
+test('Claude punctuation display optimization is opt-in and limited to claude.ai', () => {
+  const disabled = chinesePunctuationClaudeState(DEFAULT_SETTINGS, 'https://claude.ai/new');
+  assert.equal(disabled.supported, true);
+  assert.equal(disabled.enabled, false);
+  assert.equal(disabled.active, false);
+  const enabled = { chinesePunctuationClaude: { enabled: true } };
+  assert.equal(chinesePunctuationClaudeState(enabled, 'https://claude.ai/chat/example').active, true);
+  assert.equal(chinesePunctuationClaudeState(enabled, 'https://www.claude.ai/').supported, false);
+  assert.equal(chinesePunctuationClaudeState(enabled, 'https://notclaude.ai/').active, false);
+  assert.equal(chinesePunctuationClaudeState(enabled, 'chrome://extensions').active, false);
+});
+
 test('Page Display features are independent, bounded, and limited to ordinary web pages', () => {
   assert.deepEqual(pageDisplayState(DEFAULT_SETTINGS, 'https://example.com/page'), {
     enabled: false,
@@ -402,6 +416,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     noAutoplay: { enabled: true, audioAutoplayAllSites: true },
     anyCopy: { siteRules: ['copy.example'] },
     mailtoCapture: { enabled: false, active: true },
+    chinesePunctuationClaude: { enabled: true, active: false },
     pageDisplay: {
       enabled: true,
       reduceWhitePoint: { enabled: true, reduction: 0.4 },
@@ -428,6 +443,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.deepEqual(cache.mailtoCapture, { enabled: false });
+  assert.deepEqual(cache.chinesePunctuationClaude, { enabled: true });
   assert.deepEqual(cache.pageDisplay, {
     enabled: true,
     reduceWhitePoint: { enabled: true, reduction: 0.4 },

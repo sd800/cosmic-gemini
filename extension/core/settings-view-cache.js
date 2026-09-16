@@ -6,7 +6,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 26,
+    version: 27,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -47,6 +47,9 @@ export function settingsViewCache(states = {}) {
       overrideDarkMode: states.xhsImageDarkMode?.overrideDarkMode === true,
       showImageControl: states.xhsImageDarkMode?.showImageControl !== false,
       controlOpacity: states.xhsImageDarkMode?.controlOpacity || 0.5
+    },
+    chinesePunctuationClaude: {
+      enabled: states.chinesePunctuationClaude?.enabled === true
     },
     imageDownload: {
       workspaceMode: states.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',

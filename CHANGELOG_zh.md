@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.13 — 2026-09-16
+
+- 新增 Chinese Punctuation Marks Display Optimization for Claude，作为 Operations Province 管理且默认关闭的 Satellite。它仅在 `claude.ai` 精确域名中替换已显示中文回复里的半角标点，并跳过代码、链接、公式、控件和可编辑文本。
+- 文本处理采用页面内的增量方式并完全在本地完成。功能关闭后会恢复由它修改的文本，但不会覆盖 Claude 已经更新的内容。
+
 ## 8.9.12 — 2026-09-16
 
 - 修复网页通过其他对象或回调调用 `window.scroll`、`scrollTo`、`scrollBy` 时，Native Scroll 可能引发 `Illegal invocation` 报错的问题。Window 滚动方法的包装层现会保留其所属 Window 作为接收对象，Element 滚动方法仍使用实际的元素接收对象。

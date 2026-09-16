@@ -195,6 +195,10 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
+  const chinesePunctuationClaudeEnabled = document.querySelector('#chinesePunctuationClaudeEnabled');
+  if (chinesePunctuationClaudeEnabled) {
+    chinesePunctuationClaudeEnabled.checked = (states?.preferences || states)?.chinesePunctuationClaude?.enabled === true;
+  }
   const pageDisplaySettings = (states?.preferences || states)?.pageDisplay;
   const pageDisplayEnabled = pageDisplaySettings?.enabled === true;
   if (featureId === 'pageDisplay') document.body.dataset.pageDisplayEnabled = String(pageDisplayEnabled);
@@ -411,6 +415,12 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const chinesePunctuationClaudeEnabled = document.querySelector('#chinesePunctuationClaudeEnabled');
+  if (chinesePunctuationClaudeEnabled) chinesePunctuationClaudeEnabled.addEventListener('change', () => void update(null, () => savePreference('chinesePunctuationClaude', {
+    type: 'UI_SET_ENABLED',
+    featureId: 'chinesePunctuationClaude',
+    enabled: chinesePunctuationClaudeEnabled.checked
+  }), [chinesePunctuationClaudeEnabled]));
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.addEventListener('change', () => {
     const reduction = document.querySelector('#reduceWhitePointReduction');

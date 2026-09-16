@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.13 — 2026-09-16
+
+- Added Chinese Punctuation Marks Display Optimization for Claude as a default-off Satellite governed by Operations Province. On the exact `claude.ai` host, it replaces half-width punctuation in rendered Chinese replies while excluding code, links, formulas, controls, and editable text.
+- Processing is incremental and local to the page. Disabling the product restores text that it changed unless Claude has already replaced that text with newer content.
+
 ## 8.9.12 — 2026-09-16
 
 - Fixed Native Scroll causing `Illegal invocation` errors when a page called `window.scroll`, `scrollTo`, or `scrollBy` through another object or callback. Window scrolling wrappers now preserve the owning Window receiver, while Element scrolling methods continue to use their actual element receiver.

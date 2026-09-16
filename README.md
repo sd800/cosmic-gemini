@@ -72,6 +72,10 @@ Stop mailto links from opening your system mail app before you can inspect them.
 
 Make bright text images easier to view when a page-wide dark mode is active on Xiaohongshu. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.
 
+#### Chinese Punctuation Marks Display Optimization for Claude
+
+Claude can render Chinese replies with half-width punctuation even when the surrounding prose is Chinese. Chinese Punctuation Marks Display Optimization for Claude replaces those marks in the displayed reply while leaving code, links, formulas, and editable text unchanged. The adjustment remains local to `claude.ai` and does not alter Claude’s saved conversation.
+
 #### Bili Daily Login
 
 Bilibili gives every signed-in account one coin for completing its daily login. Receiving that coin otherwise depends on remembering to check in every day. Bili Daily Login handles the recurring check-in in the background while Chrome is available, allowing the daily coin to be credited automatically.
@@ -138,7 +142,7 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
-All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Mailto Capture is on by default in ordinary windows, while Page Display, both of its visual adjustments, XHS Image Dark Mode, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Mailto Capture is on by default in ordinary windows, while Page Display, both of its visual adjustments, XHS Image Dark Mode, Chinese Punctuation Marks Display Optimization for Claude, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
 
 On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can keep image adjustment always on, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
 
@@ -182,11 +186,11 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Page Display, XHS Image Dark Mode, and Ad Marshal run locally. Website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Page Display, XHS Image Dark Mode, Chinese Punctuation Marks Display Optimization for Claude, and Ad Marshal run locally. Website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 
-Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Bili Daily Login does not inspect whether or when you open Bilibili.
+Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Chinese Punctuation Marks Display Optimization for Claude changes only rendered reply text in the current page and sends or retains none of it. Bili Daily Login does not inspect whether or when you open Bilibili.
 
 When Bili Daily Login is enabled, its background schedule contacts only Bilibili account services while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 

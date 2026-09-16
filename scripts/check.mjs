@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.12');
+assert.equal(manifest.version, '8.9.13');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -209,7 +209,7 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"/);
+assert.match(satellitesSettings, /id="mailtoCaptureEnabled"[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="chinesePunctuationClaudeEnabled"[\s\S]*id="biliDailyLogin"/);
 assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);
 assert.match(pageDisplaySettings, /id="enabled"[\s\S]*data-section-icon="reduceWhitePoint"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="reduceWhitePointReduction"[\s\S]*data-section-icon="greyscale"[\s\S]*id="pageDisplayGreyscaleEnabled"/);
 assert.match(pageDisplaySettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
@@ -262,6 +262,8 @@ const pageDisplayBridge = await source('content', 'page-display-bridge.js');
 const pageDisplayRuntime = await source('content', 'page-display-runtime.js');
 const xhsImageDarkMode = await source('background', 'products', 'operations', 'xhs-image-dark-mode.js');
 const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode-runtime.js');
+const chinesePunctuationClaude = await source('background', 'products', 'operations', 'chinese-punctuation-claude.js');
+const chinesePunctuationClaudeRuntime = await source('content', 'chinese-punctuation-claude-runtime.js');
 const administration = await source('background', 'products', 'operations', 'administration.js');
 const imageDownload = await source('background', 'products', 'customs', 'image-download.js');
 const videoDownload = await source('background', 'products', 'customs', 'video-download.js');
@@ -406,6 +408,12 @@ assert.match(xhsImageDarkModeRuntime, /strongestPanelShare[\s\S]*splitToneLayout
   'XHS Image Dark Mode must recognize stable split-tone document panels.');
 assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult\.kind !== 'photo'/,
   'Negative feed-cover classifications must not suppress independent viewer analysis.');
+assert.match(chinesePunctuationClaude, /content\/chinese-punctuation-claude-bridge\.js[\s\S]*content\/chinese-punctuation-claude-runtime\.js/);
+assert.match(chinesePunctuationClaude, /context\.frameId === 0[\s\S]*pageRuntimeHost\.sync/);
+assert.match(chinesePunctuationClaudeRuntime, /font-claude-response[\s\S]*MutationObserver/);
+assert.match(chinesePunctuationClaudeRuntime, /pre[\s\S]*code[\s\S]*contenteditable[\s\S]*katex/);
+assert.match(chinesePunctuationClaudeRuntime, /this\.records[\s\S]*record\.transformed[\s\S]*record\.original/);
+assert.doesNotMatch(chinesePunctuationClaudeRuntime, /fetch\s*\(|XMLHttpRequest|WebSocket|setInterval/);
 assert.match(xhsImageDarkModeRuntime, /!image\.complete \|\| !image\.naturalWidth[\s\S]*waitForImageLoad[\s\S]*loadPriority/,
   'Unloaded XHS images must not occupy an image-analysis worker.');
 assert.match(xhsImageDarkModeRuntime, /imageRequestKey[\s\S]*record\.requestKey !== requestKey[\s\S]*viewerForImage\(image\) \? -20 : 0[\s\S]*waitForImageLoad\(record, priority\)/,
@@ -573,7 +581,7 @@ assert.match(centralPage, /cosmic-gemini\.central/);
 assert.match(centralPage, /CG_SYNC_CENTRAL/);
 assert.match(centralPage, /syncFailures/);
 assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|mailtoCapture|adMarshal|anyCopy|pageDisplay|reduceWhitePoint|greyscale|imageDownload|videoDownload|chrome\.storage/);
-for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'mailto-capture-bridge.js', 'ad-marshal-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js']) {
+for (const bridge of ['native-scroll-bridge.js', 'no-autoplay-bridge.js', 'mailto-capture-bridge.js', 'ad-marshal-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js', 'chinese-punctuation-claude-bridge.js']) {
   const value = await source('content', bridge);
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);

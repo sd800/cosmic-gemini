@@ -3,6 +3,7 @@
   const MAIN_READY = 'cosmic-gemini:chinese-response-claude:main-ready';
   const CONFIGURE = 'cosmic-gemini:chinese-response-claude:configure';
   const DISPOSE = 'cosmic-gemini:chinese-response-claude:dispose';
+  const INTERVENED = 'cosmic-gemini:chinese-response-claude:intervened';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.chinese-response-claude.runtime');
   const ASSISTANT_ROOT_SELECTOR = [
     '[data-message-author-role="assistant"]',
@@ -47,6 +48,7 @@
       this.pendingTargets = new Set();
       this.flushQueued = false;
       this.records = new Map();
+      this.reported = false;
       this.flushCount = 0;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
@@ -205,6 +207,13 @@
       }
       this.records.set(node, { original: source, transformed });
       node.data = transformed;
+      this.reportIntervention();
+    }
+
+    reportIntervention() {
+      if (this.reported) return;
+      this.reported = true;
+      window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
     }
 
     processBlock(block, assistantRoot) {
@@ -326,6 +335,7 @@
       this.pendingTargets.clear();
       this.flushQueued = false;
       this.restore();
+      this.reported = false;
     }
   }
 

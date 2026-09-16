@@ -52,6 +52,30 @@ test('Claude response display product saves independently and refreshes page dec
   assert.equal(refreshes, 1);
 });
 
+test('Claude response display records an actual page intervention for popup state', async () => {
+  const activity = [];
+  const settings = normalizeSettings({ chineseResponseClaude: { enabled: true } });
+  const province = createOperationsProvince({
+    async readSettings() { return settings; },
+    async setFeatureActivity(tabId, featureId, active) {
+      activity.push({ tabId, featureId, active });
+    }
+  });
+  const result = await province.handleMessage('chineseResponseClaude', {
+    type: 'CG_FEATURE_INTERVENED',
+    featureId: 'chineseResponseClaude',
+    pageUrl: 'https://claude.ai/chat/example'
+  }, {
+    sender: {
+      frameId: 0,
+      url: 'https://claude.ai/chat/example',
+      tab: { id: 19, url: 'https://claude.ai/chat/example' }
+    }
+  });
+  assert.deepEqual(result, { recorded: true });
+  assert.deepEqual(activity, [{ tabId: 19, featureId: 'chineseResponseClaude', active: true }]);
+});
+
 test('other rule editors accept Settings navigation and keep product rules independent', async () => {
   const base = 'chrome-extension://cosmic-gemini/';
   globalThis.chrome = { runtime: { getURL: path => base + path } };

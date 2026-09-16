@@ -125,6 +125,70 @@ test('Page Display popup controls use the unavailable state on unsupported pages
   assert.equal(toggle.title, 'unsupportedTitle');
 });
 
+test('Claude contextual popup control distinguishes enabled and intervened states', () => {
+  class Element {
+    constructor(tag) {
+      this.tag = tag;
+      this.children = [];
+      this.dataset = {};
+      this.listeners = {};
+      this.hidden = false;
+    }
+    replaceChildren(...children) { this.children = children; }
+    append(...children) { this.children.push(...children); }
+    setAttribute(name, value) { this[name] = value; }
+    addEventListener(type, listener) { this.listeners[type] = listener; }
+  }
+  const container = new Element('div');
+  const messages = [];
+  const context = vm.createContext({
+    document: {
+      querySelector(selector) {
+        assert.equal(selector, '#contextual-feature-list');
+        return container;
+      },
+      createElement: tag => new Element(tag)
+    },
+    icon: name => `<${name}>`,
+    send: message => { messages.push(message); },
+    act: task => task()
+  });
+  vm.runInContext(`
+    const contextualProducts = Object.freeze([
+      Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' }),
+      Object.freeze({ id: 'chineseResponseClaude', hostname: 'claude.ai' })
+    ]);
+    let currentTab = { id: 41 };
+    let state = {
+      xhsImageDarkMode: { supported: false },
+      chineseResponseClaude: { supported: true, enabled: true },
+      activity: { chineseResponseClaude: true }
+    };
+    const t = key => key;
+    function label(element, value) {
+      element.title = value;
+      element.setAttribute('aria-label', value);
+    }
+    ${between(popupSource, 'function renderContextualProducts(', 'function formatBytes(')}
+    renderContextualProducts();
+  `, context);
+  assert.equal(container.hidden, false);
+  assert.equal(container.children.length, 1);
+  const toggle = container.children[0].children[0].children[0];
+  assert.equal(toggle.innerHTML, '<chineseResponseClaude>');
+  assert.equal(toggle.dataset.state, 'active');
+  assert.equal(toggle.dataset.persistent, 'true');
+  assert.equal(toggle.dataset.intervened, 'true');
+  assert.equal(toggle.title, 'chineseResponseClaudeActiveTitle');
+  toggle.listeners.click();
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [{
+    type: 'UI_SET_ENABLED',
+    featureId: 'chineseResponseClaude',
+    enabled: false,
+    tabId: 41
+  }]);
+});
+
 test('a stopped image session cannot be revived by a late rescan response', async () => {
   const scan = deferred();
   const context = vm.createContext({

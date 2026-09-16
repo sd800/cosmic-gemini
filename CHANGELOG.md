@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.18 — 2026-09-16
+
+- Added a contextual C control to the popup on `claude.ai`. Its blue surface shows that the product is enabled, while a solid blue outline appears only after the product has changed reply text on the current page.
+
 ## 8.9.17 — 2026-09-16
 
 - Renamed Chinese Punctuation Marks Display Optimization for Claude to Chinese Response Display Optimization for Claude and replaced its internal technical identity with `chinese-response-claude`.

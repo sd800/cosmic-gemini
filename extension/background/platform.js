@@ -169,6 +169,7 @@ export function createPlatform() {
       anyCopy: value?.anyCopy === true,
       anyCopyEnhanced: value?.anyCopyEnhanced === true,
       xhsImageDarkMode: value?.xhsImageDarkMode === true,
+      chineseResponseClaude: value?.chineseResponseClaude === true,
       imageDownload: value?.imageDownload === true,
       videoDownload: value?.videoDownload === true
     };
@@ -187,6 +188,7 @@ export function createPlatform() {
       anyCopy: false,
       anyCopyEnhanced: false,
       xhsImageDarkMode: false,
+      chineseResponseClaude: false,
       imageDownload: false,
       videoDownload: false
     };
@@ -210,6 +212,7 @@ export function createPlatform() {
       activity.anyCopy && 'Any Copy',
       activity.anyCopyEnhanced && 'Any Copy Enhanced',
       activity.xhsImageDarkMode && 'XHS Image Dark Mode',
+      activity.chineseResponseClaude && 'Chinese Response Display Optimization for Claude',
       activity.imageDownload && 'Image Download',
       activity.videoDownload && 'Video Download'
     ].filter(Boolean);

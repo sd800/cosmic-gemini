@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.9.17');
+assert.equal(manifest.version, '8.9.18');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -414,6 +414,9 @@ assert.match(chineseResponseClaude, /context\.frameId === 0[\s\S]*pageRuntimeHos
 assert.match(chineseResponseClaudeRuntime, /font-claude-response[\s\S]*MutationObserver/);
 assert.match(chineseResponseClaudeRuntime, /pre[\s\S]*code[\s\S]*contenteditable[\s\S]*katex/);
 assert.match(chineseResponseClaudeRuntime, /this\.records[\s\S]*record\.transformed[\s\S]*record\.original/);
+assert.match(chineseResponseClaudeRuntime, /chinese-response-claude:intervened[\s\S]*reportIntervention/);
+assert.match(popupSource, /chineseResponseClaude[\s\S]*hostname: 'claude\.ai'[\s\S]*chineseResponseClaudeActiveTitle/,
+  'Claude response display optimization must expose its contextual popup control and intervention state.');
 assert.doesNotMatch(chineseResponseClaudeRuntime, /fetch\s*\(|XMLHttpRequest|WebSocket|setInterval/);
 assert.match(xhsImageDarkModeRuntime, /!image\.complete \|\| !image\.naturalWidth[\s\S]*waitForImageLoad[\s\S]*loadPriority/,
   'Unloaded XHS images must not occupy an image-analysis worker.');

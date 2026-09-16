@@ -5,6 +5,7 @@
   const MAIN_READY = 'cosmic-gemini:chinese-response-claude:main-ready';
   const CONFIGURE = 'cosmic-gemini:chinese-response-claude:configure';
   const DISPOSE = 'cosmic-gemini:chinese-response-claude:dispose';
+  const INTERVENED = 'cosmic-gemini:chinese-response-claude:intervened';
   let token = '';
   let disposed = false;
   let configFailures = 0;
@@ -22,6 +23,7 @@
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
+    window.removeEventListener(INTERVENED, onIntervened, true);
     chrome.runtime.onMessage.removeListener(onMessage);
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
@@ -56,6 +58,14 @@
     token = event.detail;
     void requestConfig();
   }
+  function onIntervened(event) {
+    if (!token || event.detail !== token || window !== top) return;
+    void chrome.runtime.sendMessage({
+      type: 'CG_FEATURE_INTERVENED',
+      featureId: 'chineseResponseClaude',
+      pageUrl: location.href
+    }).catch(() => {});
+  }
   function onMessage(message, _sender, sendResponse) {
     if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'chineseResponseClaude') {
       dispose();
@@ -68,6 +78,7 @@
   }
 
   window.addEventListener(MAIN_READY, onMainReady, true);
+  window.addEventListener(INTERVENED, onIntervened, true);
   chrome.runtime.onMessage.addListener(onMessage);
   Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose }, configurable: true });
   window.dispatchEvent(new CustomEvent(READY));

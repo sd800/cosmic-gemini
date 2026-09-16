@@ -138,6 +138,7 @@ test('concurrent activity updates preserve every product state', async () => {
     noAutoplay: true,
     anyCopy: false,
     anyCopyEnhanced: false,
+    chineseResponseClaude: false,
     imageDownload: false,
     videoDownload: true,
     xhsImageDarkMode: false

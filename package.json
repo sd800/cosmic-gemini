@@ -1,6 +1,6 @@
 {
   "name": "cosmic-gemini",
-  "version": "8.9.17",
+  "version": "8.9.18",
   "private": true,
   "type": "module",
   "engines": {

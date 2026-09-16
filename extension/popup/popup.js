@@ -15,7 +15,8 @@ const productKey = {
   videoDownload: 'videoDownloadName'
 };
 const contextualProducts = Object.freeze([
-  Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' })
+  Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' }),
+  Object.freeze({ id: 'chineseResponseClaude', hostname: 'claude.ai' })
 ]);
 let state;
 let t;
@@ -155,28 +156,48 @@ function renderContextualProducts() {
   container.hidden = available.length === 0;
   for (const entry of available) {
     const feature = state[entry.id];
+    const isXhs = entry.id === 'xhsImageDarkMode';
+    const processing = isXhs ? feature.processing === true : state.activity?.[entry.id] === true;
+    const nameKey = isXhs ? 'xhsImageDarkModeName' : 'chineseResponseClaudeName';
     const row = document.createElement('section');
     row.className = 'feature-row';
     const actions = document.createElement('nav');
     actions.className = 'launcher-actions contextual-actions';
-    actions.setAttribute('aria-label', t('xhsImageDarkModeName'));
+    actions.setAttribute('aria-label', t(nameKey));
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'feature-status feature-toggle primary-product';
     toggle.dataset.state = feature.enabled ? 'active' : 'off';
-    toggle.dataset.persistent = String(feature.processing === true);
+    toggle.dataset.persistent = String(isXhs ? feature.processing === true : feature.enabled === true);
+    toggle.dataset.intervened = String(!isXhs && processing);
     toggle.setAttribute('aria-pressed', String(feature.enabled === true));
-    toggle.innerHTML = icon(feature.processing ? 'xhsImageDarkModeActive' : 'xhsImageDarkMode');
-    label(toggle, t(!feature.enabled
-      ? 'xhsImageDarkModeOffTitle'
-      : feature.processing
-        ? 'xhsImageDarkModeActiveTitle'
-        : 'xhsImageDarkModeWaitingTitle'));
-    toggle.addEventListener('click', () => void act(() => send({
-      type: 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED',
-      enabled: !feature.enabled,
-      tabId: currentTab?.id
-    })));
+    toggle.innerHTML = icon(isXhs
+      ? feature.processing ? 'xhsImageDarkModeActive' : 'xhsImageDarkMode'
+      : 'chineseResponseClaude');
+    if (isXhs) {
+      label(toggle, t(!feature.enabled
+        ? 'xhsImageDarkModeOffTitle'
+        : feature.processing
+          ? 'xhsImageDarkModeActiveTitle'
+          : 'xhsImageDarkModeWaitingTitle'));
+      toggle.addEventListener('click', () => void act(() => send({
+        type: 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED',
+        enabled: !feature.enabled,
+        tabId: currentTab?.id
+      })));
+    } else {
+      label(toggle, t(!feature.enabled
+        ? 'chineseResponseClaudeOffTitle'
+        : processing
+          ? 'chineseResponseClaudeActiveTitle'
+          : 'chineseResponseClaudeOnTitle'));
+      toggle.addEventListener('click', () => void act(() => send({
+        type: 'UI_SET_ENABLED',
+        featureId: entry.id,
+        enabled: !feature.enabled,
+        tabId: currentTab?.id
+      })));
+    }
     actions.append(toggle);
     row.append(actions);
     container.append(row);

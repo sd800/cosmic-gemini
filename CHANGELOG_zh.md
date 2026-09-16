@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.18 — 2026-09-16
+
+- 在 `claude.ai` 页面为控制窗口加入以 C 为主体的动态按钮。蓝色背景表示功能已经开启，只有本功能确实修改了当前页面的回复文本后，按钮才会显示蓝色实线外边框。
+
 ## 8.9.17 — 2026-09-16
 
 - 将 Chinese Punctuation Marks Display Optimization for Claude 更名为 Chinese Response Display Optimization for Claude，并将内部技术标识更换为 `chinese-response-claude`。

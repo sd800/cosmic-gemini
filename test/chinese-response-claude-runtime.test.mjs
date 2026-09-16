@@ -94,6 +94,22 @@ test('Claude response observation ignores the runtime own recorded text writes',
   assert.deepEqual(queued, [block]);
 });
 
+test('Claude response optimization reports its first actual text change only once', async () => {
+  const { context, runtime } = await runtimeFixture();
+  let reports = 0;
+  context.window.addEventListener('cosmic-gemini:chinese-response-claude:intervened', event => {
+    assert.equal(event.detail, runtime.token);
+    reports += 1;
+  });
+  const first = { data: '中文,', isConnected: true };
+  const second = { data: '价格$45', isConnected: true };
+  runtime.transformNode(first, true, { double: false, single: false });
+  runtime.transformNode(second, true, { double: false, single: false });
+  assert.equal(first.data, '中文，');
+  assert.equal(second.data, '价格 $45');
+  assert.equal(reports, 1);
+});
+
 test('Claude Chinese punctuation optimization preserves structured ASCII content', async () => {
   const { runtime } = await runtimeFixture();
   const state = { double: false, single: false };

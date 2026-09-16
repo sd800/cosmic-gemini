@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.2 — 2026-09-16
+
+- Added Singapore to the tertiary pinned group in the Website Knowledge Control time-zone menu.
+
 ## 8.10.1 — 2026-09-16
 
 - Added Website Knowledge Control beneath Mailto Capture in Satellites. Its master switch and independent language, Intl locale, and time-zone controls let users choose what browser information websites receive; the language menu shares the Intl locale choices. The feature is off by default.

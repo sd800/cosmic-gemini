@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.10.2 — 2026-09-16
+
+- 在 Website Knowledge Control 时区菜单的三级置顶组中新增新加坡。
+
 ## 8.10.1 — 2026-09-16
 
 - 在 Satellites 的 Mailto Capture 下方新增 Website Knowledge Control。通过总开关和独立的语言、Intl 地区格式及时区选项，自行设置网站可获取的浏览器信息；语言菜单与 Intl 地区设置共用同一组选项；新功能默认关闭。

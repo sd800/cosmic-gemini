@@ -454,6 +454,7 @@ function bindView() {
       'Australia/Sydney',
       'Asia/Seoul',
       'Asia/Hong_Kong',
+      'Asia/Singapore',
       'Asia/Bangkok',
       'Asia/Dubai',
       'Europe/Istanbul',

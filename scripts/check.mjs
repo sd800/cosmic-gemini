@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.10.1');
+assert.equal(manifest.version, '8.10.2');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -224,7 +224,7 @@ assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimenta
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);
-assert.match(settingsSource, /primaryZones[\s\S]*Pacific\/Honolulu[\s\S]*secondaryZones[\s\S]*America\/Toronto[\s\S]*America\/Vancouver[\s\S]*America\/Anchorage[\s\S]*'UTC'[\s\S]*tertiaryZones[\s\S]*Pacific\/Auckland[\s\S]*Asia\/Seoul[\s\S]*Asia\/Hong_Kong[\s\S]*Asia\/Bangkok[\s\S]*Europe\/Zurich[\s\S]*America\/Sao_Paulo/,
+assert.match(settingsSource, /primaryZones[\s\S]*Pacific\/Honolulu[\s\S]*secondaryZones[\s\S]*America\/Toronto[\s\S]*America\/Vancouver[\s\S]*America\/Anchorage[\s\S]*'UTC'[\s\S]*tertiaryZones[\s\S]*Pacific\/Auckland[\s\S]*Asia\/Seoul[\s\S]*Asia\/Hong_Kong[\s\S]*Asia\/Singapore[\s\S]*Asia\/Bangkok[\s\S]*Europe\/Zurich[\s\S]*America\/Sao_Paulo/,
   'Website Knowledge Control must preserve the three requested pinned time-zone groups.');
 assert.match(settingsSource, /\}\), \[knowledgeEnabled\]\)\);[\s\S]*value \? \[control, value\] : \[control\]/,
   'Website Knowledge Control saves must mark only the changed controls as pending.');

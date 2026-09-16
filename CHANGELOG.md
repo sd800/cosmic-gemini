@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.9.27 — 2026-09-16
+
+- Refined the feature description shown in Settings for Chinese Response Display Optimization for Claude.
+
 ## 8.9.26 — 2026-09-16
 
 - Clarified that Chinese Response Display Optimization for Claude adjusts only the reply text displayed in the user’s browser while leaving excluded content unchanged.

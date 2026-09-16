@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.9.27 — 2026-09-16
+
+- 调整设置页面中 Chinese Response Display Optimization for Claude 的功能说明表述。
+
 ## 8.9.26 — 2026-09-16
 
 - 明确说明 Chinese Response Display Optimization for Claude 只调整用户浏览器中显示的回复文字，排除的内容保持不变。

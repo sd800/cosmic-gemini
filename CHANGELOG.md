@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.10 — 2026-09-17
+
+- Fixed Website Knowledge Control failing to initialize on HTTP pages where `crypto.randomUUID()` is unavailable. Its page bridge now uses the same secure random-byte fallback as the other page runtimes.
+
 ## 8.10.9 — 2026-09-17
 
 - Fixed Xiaohongshu feed covers occasionally remaining light after the expanded first image had already been recognized as a text card. A higher-quality viewer result now supersedes an earlier cropped-cover photo result and is applied immediately to the mounted feed cover.

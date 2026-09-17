@@ -7,8 +7,8 @@ import { normalizeSettings, DEFAULT_INCOGNITO_SETTINGS, websiteKnowledgeControlS
 import { createWebsiteKnowledgeControlProduct } from '../extension/background/products/standing/website-knowledge-control.js';
 import { createChineseResponseClaudeProduct } from '../extension/background/products/operations/chinese-response-claude.js';
 
-function runtimeFixture() {
-  const context = vm.createContext({ crypto: { randomUUID: () => 'test-token' }, location: { hostname: 'claude.ai' }, queueMicrotask });
+function runtimeFixture(crypto = { randomUUID: () => 'test-token' }) {
+  const context = vm.createContext({ crypto, location: { hostname: 'claude.ai' }, queueMicrotask });
   vm.runInContext(`
     globalThis.window = new class {
       listeners = new Map();
@@ -38,6 +38,13 @@ function runtimeFixture() {
   };
   return { context, run, configure, load };
 }
+
+test('Website Knowledge Control starts when randomUUID is unavailable on an HTTP page', () => {
+  const f = runtimeFixture({
+    getRandomValues(values) { values.fill(0xab); return values; }
+  });
+  assert.equal(f.run(`globalThis[Symbol.for('cosmic-gemini.website-knowledge-control.runtime')].token`), 'ab'.repeat(18));
+});
 
 test('Website Knowledge Control validates independent preferences and starts disabled', () => {
   const settings = normalizeSettings();

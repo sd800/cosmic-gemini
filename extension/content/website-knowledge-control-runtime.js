@@ -2,8 +2,14 @@
   const KEY = Symbol.for('cosmic-gemini.website-knowledge-control.runtime');
   const PREFIX = 'cosmic-gemini:website-knowledge-control:';
   const identity = globalThis[Symbol.for('cosmic-gemini.browser-identity')];
+  function randomToken() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    const bytes = new Uint8Array(18);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
   if (globalThis[KEY]) { globalThis[KEY].announce(); return; }
-  const token = crypto.randomUUID();
+  const token = randomToken();
   let configured = false;
   const announce = () => window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: token }));
   function configure(event) {

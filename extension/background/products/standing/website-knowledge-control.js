@@ -114,7 +114,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
       if (message.type === 'UI_SET_ENABLED') patch = { enabled: message.enabled === true };
       else if (message.type === 'UI_SET_WEBSITE_KNOWLEDGE_SETTING') {
         const { category } = message;
-        if (!['languages', 'locale', 'timeZone', 'globalPrivacyControl'].includes(category)) throw new Error('Unknown browser information category.');
+        if (!['languages', 'timeZone', 'globalPrivacyControl'].includes(category)) throw new Error('Unknown browser information category.');
         if (category === 'globalPrivacyControl' && message.value !== undefined) throw new Error('Global Privacy Control does not accept a value.');
         patch = { [category]: {
           ...(typeof message.enabled === 'boolean' ? { enabled: message.enabled } : {}),
@@ -123,7 +123,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
       } else throw new Error('Unsupported Website Knowledge Control command.');
       const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({
         ...feature, ...patch,
-        ...Object.fromEntries(['languages', 'locale', 'timeZone', 'globalPrivacyControl']
+        ...Object.fromEntries(['languages', 'timeZone', 'globalPrivacyControl']
           .map(category => [category, { ...feature[category], ...patch[category] }]))
       })), false);
       // The current document keeps the values it received when it loaded. The

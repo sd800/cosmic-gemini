@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.10.5');
+assert.equal(manifest.version, '8.10.6');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -228,9 +228,10 @@ assert.match(settingsSource, /primaryZones[\s\S]*Pacific\/Honolulu[\s\S]*seconda
   'Website Knowledge Control must preserve the three requested pinned time-zone groups.');
 assert.match(settingsSource, /\}\), \[knowledgeEnabled\]\)\);[\s\S]*value \? \[control, value\] : \[control\]/,
   'Website Knowledge Control saves must mark only the changed controls as pending.');
-assert.match(satellitesSettings, /value="zh-HK">繁體中文（中國香港）<\/option>/);
-assert.match(satellitesSettings, /id="websiteKnowledgeLanguagesValue"[\s\S]*<option value="en-US">English \(United States\)<\/option>[\s\S]*<option value="zh-HK">繁體中文（中國香港）<\/option>/,
-  'Languages must offer the same localized choices as Intl locale.');
+assert.match(satellitesSettings, /id="websiteKnowledgeLanguagesValue"[\s\S]*value="zh-HK">繁體中文（中國香港）<\/option>[\s\S]*value="zh-MO">繁體中文（中國澳門）<\/option>[\s\S]*value="zh-TW">繁體中文（中華台北）<\/option>[\s\S]*value="zh-MY">简体中文（马来西亚）<\/option>[\s\S]*value="zh-SG">简体中文（新加坡）<\/option>/,
+  'The combined language and regional-format menu must preserve the requested Chinese locale order.');
+assert.doesNotMatch(satellitesSettings, /websiteKnowledgeLocale/,
+  'Website Knowledge Control must not retain a separate Intl locale control.');
 assert.match(satellitesSettings, /id="websiteKnowledgeGlobalPrivacyControl"[^>]*checked[\s\S]*websiteKnowledgeGlobalPrivacyControlHelp/,
   'Global Privacy Control must be an independently selected Website Knowledge Control option.');
 assert.match(settingsSource, /pageDisplayReduceWhitePointEnabled[\s\S]*UI_SET_PAGE_DISPLAY_SETTING[\s\S]*pageDisplayGreyscaleEnabled/);

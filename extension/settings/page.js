@@ -200,7 +200,7 @@ function render() {
   if (knowledgeEnabled) {
     knowledgeEnabled.checked = knowledge?.enabled === true;
     document.querySelector('#websiteKnowledgeOptions').disabled = !knowledgeEnabled.checked;
-    for (const [category, suffix] of [['languages', 'Languages'], ['locale', 'Locale'], ['timeZone', 'TimeZone'], ['globalPrivacyControl', 'GlobalPrivacyControl']]) {
+    for (const [category, suffix] of [['languages', 'Languages'], ['timeZone', 'TimeZone'], ['globalPrivacyControl', 'GlobalPrivacyControl']]) {
       const control = document.querySelector('#websiteKnowledge' + suffix);
       control.checked = knowledge?.[category]?.enabled === true;
       const value = document.querySelector('#websiteKnowledge' + suffix + 'Value');
@@ -478,7 +478,7 @@ function bindView() {
     knowledgeEnabled.addEventListener('change', () => void update(null, () => savePreference('websiteKnowledgeControl', {
       type: 'UI_SET_ENABLED', featureId: 'websiteKnowledgeControl', enabled: knowledgeEnabled.checked
     }), [knowledgeEnabled]));
-    for (const [category, suffix] of [['languages', 'Languages'], ['locale', 'Locale'], ['timeZone', 'TimeZone'], ['globalPrivacyControl', 'GlobalPrivacyControl']]) {
+    for (const [category, suffix] of [['languages', 'Languages'], ['timeZone', 'TimeZone'], ['globalPrivacyControl', 'GlobalPrivacyControl']]) {
       const control = document.querySelector('#websiteKnowledge' + suffix);
       const value = document.querySelector('#websiteKnowledge' + suffix + 'Value');
       const save = () => void update(null, () => savePreference('websiteKnowledgeControl', {

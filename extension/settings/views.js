@@ -97,7 +97,7 @@ const help = (keys, privacyKey, list = false) => `
   <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="${privacyKey}"></p>`;
 
 const knowledgeLocaleOptions = `
-  <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option>`;
+  <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="zh-MO">繁體中文（中國澳門）</option><option value="zh-TW">繁體中文（中華台北）</option><option value="zh-MY">简体中文（马来西亚）</option><option value="zh-SG">简体中文（新加坡）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option>`;
 
 export const PRODUCT_META = Object.freeze({
   nativeScroll: { name: 'Native Scroll', path: 'native-scroll.html' },
@@ -162,12 +162,6 @@ export function viewFor(featureId) {
           <div class="knowledge-row">
             <label for="websiteKnowledgeLanguages"><input id="websiteKnowledgeLanguages" type="checkbox" checked><span><strong id="websiteKnowledgeLanguagesLabel" data-i18n="websiteKnowledgeLanguages"></strong><small data-i18n="websiteKnowledgeLanguagesHelp"></small></span></label>
             <select id="websiteKnowledgeLanguagesValue" aria-labelledby="websiteKnowledgeLanguagesLabel">${knowledgeLocaleOptions}</select>
-          </div>
-          <div class="knowledge-row">
-            <label for="websiteKnowledgeLocale"><input id="websiteKnowledgeLocale" type="checkbox" checked><span><strong id="websiteKnowledgeLocaleLabel" data-i18n="websiteKnowledgeLocale"></strong><small data-i18n="websiteKnowledgeLocaleHelp"></small></span></label>
-            <select id="websiteKnowledgeLocaleValue" aria-labelledby="websiteKnowledgeLocaleLabel">
-              ${knowledgeLocaleOptions}
-            </select>
           </div>
           <div class="knowledge-row">
             <label for="websiteKnowledgeTimeZone"><input id="websiteKnowledgeTimeZone" type="checkbox"><span><strong id="websiteKnowledgeTimeZoneLabel" data-i18n="websiteKnowledgeTimeZone"></strong><small data-i18n="websiteKnowledgeTimeZoneHelp"></small></span></label>

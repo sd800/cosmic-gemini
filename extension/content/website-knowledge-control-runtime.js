@@ -17,7 +17,7 @@
     configured = true;
     identity.set('website-knowledge-control', {
       language: config.languages?.enabled ? config.languages.value : '',
-      locale: config.locale?.enabled ? config.locale.value : '',
+      locale: config.languages?.enabled ? config.languages.value : '',
       timeZone: config.timeZone?.enabled ? config.timeZone.value : '',
       globalPrivacyControl: config.globalPrivacyControl?.enabled === true
     }, 10);

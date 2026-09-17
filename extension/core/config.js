@@ -54,7 +54,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 31,
+  version: 32,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -73,7 +73,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
   websiteKnowledgeControl: Object.freeze({
     enabled: false,
     languages: Object.freeze({ enabled: true, value: 'en-US' }),
-    locale: Object.freeze({ enabled: true, value: 'en-US' }),
     timeZone: Object.freeze({ enabled: false, value: 'America/New_York' }),
     globalPrivacyControl: Object.freeze({ enabled: true })
   }),
@@ -210,7 +209,7 @@ export function validateWebsiteKnowledgeValue(category, value) {
   const key = category + ':' + value;
   if (websiteKnowledgeValueCache.has(key)) return websiteKnowledgeValueCache.get(key);
   let result;
-  if (category === 'languages' || category === 'locale') {
+  if (category === 'languages') {
     result = Intl.getCanonicalLocales(value.trim())[0];
     if (!Intl.DateTimeFormat.supportedLocalesOf([result]).length) throw new Error('Unsupported locale.');
   } else if (category === 'timeZone') {
@@ -223,7 +222,7 @@ export function validateWebsiteKnowledgeValue(category, value) {
 
 export function normalizeWebsiteKnowledge(value = {}) {
   const normalized = { enabled: value?.enabled === true };
-  for (const category of ['languages', 'locale', 'timeZone']) {
+  for (const category of ['languages', 'timeZone']) {
     const defaults = DEFAULT_SETTINGS.websiteKnowledgeControl[category];
     let selected = defaults.value;
     if (value?.[category]?.value !== undefined) {
@@ -246,13 +245,13 @@ export function websiteKnowledgeControlState(settings, url) {
   const feature = normalizeWebsiteKnowledge(settings.websiteKnowledgeControl);
   const supported = Boolean(hostnameFromUrl(url));
   return { ...feature, supported, active: supported && feature.enabled
-    && ['languages', 'locale', 'timeZone', 'globalPrivacyControl'].some(category => feature[category].enabled) };
+    && ['languages', 'timeZone', 'globalPrivacyControl'].some(category => feature[category].enabled) };
 }
 
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 31,
+    version: 32,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },

@@ -44,37 +44,43 @@ test('Website Knowledge Control validates independent preferences and starts dis
   assert.equal(websiteKnowledgeControlState(settings, 'https://example.com').active, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.websiteKnowledgeControl.enabled, false);
   assert.equal(settings.websiteKnowledgeControl.globalPrivacyControl.enabled, true);
-  assert.equal(validateWebsiteKnowledgeValue('locale', 'zh-cn'), 'zh-CN');
-  assert.throws(() => validateWebsiteKnowledgeValue('locale', 'made up'));
+  assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-cn'), 'zh-CN');
+  assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-mo'), 'zh-MO');
+  assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-tw'), 'zh-TW');
+  assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-my'), 'zh-MY');
+  assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-sg'), 'zh-SG');
+  assert.throws(() => validateWebsiteKnowledgeValue('languages', 'made up'));
   assert.throws(() => validateWebsiteKnowledgeValue('timeZone', 'Not/A_Zone'));
   assert.equal(validateWebsiteKnowledgeValue('languages', 'fr-fr'), 'fr-FR');
   assert.equal(websiteKnowledgeControlState(normalizeSettings({ websiteKnowledgeControl: { enabled: true } }), 'chrome://settings').active, false);
-  const malformed = normalizeSettings({ websiteKnowledgeControl: { enabled: true, locale: { value: 'bad_locale' }, timeZone: { value: 'bad' } } });
-  assert.equal(malformed.websiteKnowledgeControl.locale.value, 'en-US');
+  const malformed = normalizeSettings({ websiteKnowledgeControl: { enabled: true,
+    languages: { value: 'bad_locale' }, locale: { enabled: true, value: 'de-DE' }, timeZone: { value: 'bad' } } });
+  assert.equal(malformed.websiteKnowledgeControl.languages.value, 'en-US');
+  assert.equal('locale' in malformed.websiteKnowledgeControl, false, 'the retired independent locale setting is ignored');
   assert.equal(malformed.websiteKnowledgeControl.timeZone.value, 'America/New_York');
 });
 
 test('Website Knowledge Control freezes the initial document policy until the next page load', () => {
   const f = runtimeFixture();
   assert.equal(f.run('navigator.language'), 'fr-FR', 'loading an authorized runtime does not apply policy before configuration');
-  f.configure({ languages: { enabled: false }, locale: { enabled: true, value: 'de-DE' }, timeZone: { enabled: false } });
-  assert.equal(f.run('navigator.language'), 'fr-FR');
+  f.configure({ languages: { enabled: true, value: 'de-DE' }, timeZone: { enabled: false } });
+  assert.equal(f.run('navigator.language'), 'de-DE');
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
   assert.equal(f.run('navigator.globalPrivacyControl'), true);
   assert.equal(f.run('new Intl.NumberFormat("ja-JP").resolvedOptions().locale'), 'ja-JP');
   assert.equal(f.run('Date === native.Date'), true);
-  f.configure({ languages: { enabled: true, value: 'de-DE' }, locale: { enabled: false }, timeZone: { enabled: false } });
-  assert.equal(f.run('navigator.language'), 'fr-FR');
+  f.configure({ languages: { enabled: true, value: 'fr-FR' }, timeZone: { enabled: false } });
+  assert.equal(f.run('navigator.language'), 'de-DE');
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
   assert.equal(f.run('navigator.globalPrivacyControl'), true);
   f.configure({ enabled: false });
-  assert.equal(f.run('navigator.language'), 'fr-FR');
+  assert.equal(f.run('navigator.language'), 'de-DE');
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
   f.run(`window.dispatchEvent(new CustomEvent('cosmic-gemini:website-knowledge-control:dispose', { detail: 'test-token' }))`);
   assert.equal(f.run('[...window.listeners.values()].flat().length'), 0);
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
   f.load('website-knowledge-control-runtime.js');
-  f.configure({ languages: { enabled: true, value: 'fr-FR' }, locale: { enabled: false }, timeZone: { enabled: false } });
+  f.configure({ languages: { enabled: true, value: 'fr-FR' }, timeZone: { enabled: false } });
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
   const nextDocument = runtimeFixture();
   assert.equal(nextDocument.run('new Intl.NumberFormat().resolvedOptions().locale === native.locale'), true);
@@ -83,7 +89,7 @@ test('Website Knowledge Control freezes the initial document policy until the ne
 
 test('Website Knowledge Control time zone follows DST and keeps local Date operations coherent', () => {
   const f = runtimeFixture();
-  f.configure({ languages: { enabled: false }, locale: { enabled: false }, timeZone: { enabled: true, value: 'America/New_York' } });
+  f.configure({ languages: { enabled: false }, timeZone: { enabled: true, value: 'America/New_York' } });
   assert.equal(f.run('new Intl.DateTimeFormat().resolvedOptions().timeZone'), 'America/New_York');
   assert.equal(f.run('new Intl.DateTimeFormat(undefined, { timeZone: undefined }).resolvedOptions().timeZone'), 'America/New_York');
   assert.equal(f.run('new Intl.DateTimeFormat("en-US", { timeZone: "UTC" }).resolvedOptions().timeZone'), 'UTC');
@@ -112,7 +118,7 @@ test('Claude dedicated identity wins as a whole in either activation order and y
       active: true, responseDisplay: false, browserIdentityActive: true
     } }) });`);
     if (claudeFirst) startClaude();
-    f.configure({ locale: { enabled: true, value: 'de-DE' }, timeZone: { enabled: true, value: 'Asia/Tokyo' } });
+    f.configure({ languages: { enabled: true, value: 'de-DE' }, timeZone: { enabled: true, value: 'Asia/Tokyo' } });
     if (!claudeFirst) startClaude();
     assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'en-US');
     assert.equal(f.run('new Intl.DateTimeFormat().resolvedOptions().timeZone'), 'Europe/Paris');
@@ -197,10 +203,14 @@ test('Website Knowledge Control scopes request language by context, retries rule
   assert.deepEqual(updates.at(-1).addRules.map(item => item.condition.tabIds), [[3]]);
   await product.handleTabUpdated(3, { status: 'loading' }, thirdTab);
   assert.equal(updates.at(-1).addRules.length, 0);
-  assert.equal(settings.websiteKnowledgeControl.locale.enabled, true);
+  assert.equal(settings.websiteKnowledgeControl.languages.enabled, false);
+  await product.handleMessage({ type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', category: 'timeZone',
+    enabled: true, value: 'America/New_York' });
   await product.sync({ frameId: 3, frameUrl: 'https://frame.example', topUrl: 'https://example.com' }, settings);
   assert.equal(syncs.at(-1).active, true);
   await assert.rejects(product.handleMessage({ type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', category: 'timeZone', value: 'broken' }));
+  await assert.rejects(product.handleMessage({ type: 'UI_SET_WEBSITE_KNOWLEDGE_SETTING', category: 'locale',
+    enabled: true, value: 'de-DE' }));
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false });
   await product.sync({ frameId: 0, topUrl: 'https://example.com' }, settings);
   assert.equal(syncs.at(-1).active, false);

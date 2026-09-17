@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.6 — 2026-09-17
+
+- Combined Website Knowledge Control's language and Intl locale settings into one language-and-regional-formats choice, so one selection now governs request and browser languages together with default Intl formatting. Added Chinese locale choices for Macao, Chinese Taipei, Malaysia, and Singapore after Hong Kong.
+
 ## 8.10.5 — 2026-09-16
 
 - Added a short exit animation to the Mailto Capture popover, matching its entrance motion while respecting reduced-motion preferences.

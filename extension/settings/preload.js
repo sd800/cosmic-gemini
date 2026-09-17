@@ -104,7 +104,7 @@
   if (knowledgeEnabled) {
     knowledgeEnabled.checked = knowledge?.enabled === true;
     document.querySelector('#websiteKnowledgeOptions').disabled = !knowledgeEnabled.checked;
-    for (const [category, suffix] of [['languages', 'Languages'], ['locale', 'Locale'], ['timeZone', 'TimeZone'], ['globalPrivacyControl', 'GlobalPrivacyControl']]) {
+    for (const [category, suffix] of [['languages', 'Languages'], ['timeZone', 'TimeZone'], ['globalPrivacyControl', 'GlobalPrivacyControl']]) {
       const control = document.querySelector('#websiteKnowledge' + suffix);
       control.checked = knowledge?.[category]?.enabled ?? (category !== 'timeZone');
       const value = document.querySelector('#websiteKnowledge' + suffix + 'Value');

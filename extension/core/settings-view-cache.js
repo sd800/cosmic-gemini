@@ -8,7 +8,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 31,
+    version: 32,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },

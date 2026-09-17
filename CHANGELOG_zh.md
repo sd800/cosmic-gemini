@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.11.1 — 2026-09-17
+
+- 在 Satellites 的 Website Knowledge Control 下方新增 Clipboard Protect。通过独立开关保护选中并复制的原文，阻止网站在复制时夹带其他内容，并尽量保留原有格式；可编辑区域继续使用网站自身的复制方式。可与 Any Copy 同时使用，默认关闭。
+
 ## 8.10.11 — 2026-09-17
 
 - 在 Ad Marshal 中勾选知乎后，Central 现在会在 `zhihu.com` 及其全部子域名中持续开启 Any Copy。控制窗口中的 Any Copy 按钮可仅为当前标签页暂停或恢复功能，不会改动持久的管制网站选择，也不影响其他知乎标签页。

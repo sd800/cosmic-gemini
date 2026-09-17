@@ -8,7 +8,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 32,
+    version: 33,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -32,6 +32,7 @@ export function settingsViewCache(states = {}) {
     mailtoCapture: {
       enabled: states.mailtoCapture?.enabled !== false
     },
+    clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(states.websiteKnowledgeControl),
     pageDisplay: {
       enabled: states.pageDisplay?.enabled === true,

@@ -121,6 +121,28 @@ test('unchanged settings refreshes preserve rule controls and pending removals',
   assert.equal(list.children[0].className, 'empty');
 });
 
+test('Clipboard Protect settings follow the saved switch regardless of current page support', async () => {
+  const { api, nodes, setTransport } = controller();
+  const card = new Element('section', 'card');
+  const control = new Element('input');
+  card.append(control);
+  nodes.set('#clipboardProtectEnabled', control);
+  await api.hydrate({ preferences: { satellites: {}, clipboardProtect: { enabled: true } }, clipboardProtect: { enabled: false, supported: false } });
+  api.render();
+  assert.equal(control.checked, true);
+  control.checked = false;
+  setTransport(message => {
+    if (message.type === 'UI_GET') throw Error('readback unavailable');
+    assert.equal(message.featureId, 'clipboardProtect');
+    return { enabled: false };
+  });
+  await api.update(null, () => api.savePreference('clipboardProtect', {
+    type: 'UI_SET_ENABLED', featureId: 'clipboardProtect', enabled: false
+  }), [control]);
+  assert.equal(control.checked, false);
+  assert.equal(control.disabled, false);
+});
+
 test('failed behavior changes restore the saved choice without hiding later validation errors', async () => {
   const { api, groups } = controller('nativeScroll');
   const card = new Element('section', 'card');

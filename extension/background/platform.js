@@ -317,6 +317,7 @@ export function createPlatform() {
       xhsImageDarkMode: settings.xhsImageDarkMode,
       mailtoCapture: settings.mailtoCapture,
       websiteKnowledgeControl: settings.websiteKnowledgeControl,
+      clipboardProtect: settings.clipboardProtect,
       chineseResponseClaude: settings.chineseResponseClaude,
       adMarshal: settings.adMarshal
     });

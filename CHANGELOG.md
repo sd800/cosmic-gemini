@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.1 — 2026-09-17
+
+- Added Clipboard Protect beneath Website Knowledge Control in Satellites. Its independent switch protects selected text from website additions during copying, preserves available formatting, and works alongside Any Copy. Editable areas retain their own copy handling. It is off by default.
+
 ## 8.10.11 — 2026-09-17
 
 - When Zhihu is selected in Ad Marshal, Central now keeps Any Copy active across `zhihu.com` and all of its subdomains. The popup control can pause or resume Any Copy only for the current tab without changing the persistent managed-site selection or other Zhihu tabs.

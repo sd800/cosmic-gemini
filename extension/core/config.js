@@ -13,6 +13,7 @@ export const FEATURE_IDS = Object.freeze({
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   MAILTO_CAPTURE: 'mailtoCapture',
   WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
+  CLIPBOARD_PROTECT: 'clipboardProtect',
   AD_MARSHAL: 'adMarshal',
   IMAGE_DOWNLOAD: 'imageDownload',
   VIDEO_DOWNLOAD: 'videoDownload'
@@ -29,6 +30,7 @@ export const FEATURE_SLOTS = Object.freeze({
   AD_MARSHAL: 35,
   CHINESE_RESPONSE_CLAUDE: 36,
   WEBSITE_KNOWLEDGE_CONTROL: 37,
+  CLIPBOARD_PROTECT: 38,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
 });
@@ -54,7 +56,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 32,
+  version: 33,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   mailtoCapture: Object.freeze({
     enabled: true
   }),
+  clipboardProtect: Object.freeze({ enabled: false }),
   websiteKnowledgeControl: Object.freeze({
     enabled: false,
     languages: Object.freeze({ enabled: true, value: 'en-US' }),
@@ -251,7 +254,7 @@ export function websiteKnowledgeControlState(settings, url) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 32,
+    version: 33,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -263,6 +266,7 @@ export function normalizeSettings(value = {}) {
     mailtoCapture: {
       enabled: value.mailtoCapture?.enabled !== false
     },
+    clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(value.websiteKnowledgeControl),
     pageDisplay: {
       enabled: value.pageDisplay?.enabled === true,
@@ -470,6 +474,12 @@ export function mailtoCaptureState(settings, url) {
     active: !!hostname && enabled,
     enabled
   };
+}
+
+export function clipboardProtectState(settings, url) {
+  const enabled = settings.clipboardProtect?.enabled === true;
+  const supported = Boolean(hostnameFromUrl(url));
+  return { enabled, supported, active: enabled && supported };
 }
 
 export function pageDisplayState(settings, url) {

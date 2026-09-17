@@ -8,6 +8,7 @@ import {
 import { createPageRuntimeHost } from '../features/page-runtime-host.js';
 import { createAdMarshalProduct } from '../products/standing/ad-marshal.js';
 import { createWebsiteKnowledgeControlProduct } from '../products/standing/website-knowledge-control.js';
+import { createClipboardProtectProduct } from '../products/standing/clipboard-protect.js';
 import { createMailtoCaptureProduct } from '../products/standing/mailto-capture.js';
 import { createNativeScrollProduct } from '../products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../products/standing/no-autoplay.js';
@@ -38,12 +39,14 @@ export function createStandingProvince(platform) {
   const nativeScroll = createNativeScrollProduct(host);
   const noAutoplay = createNoAutoplayProduct(host);
   const mailtoCapture = createMailtoCaptureProduct(host, platform);
+  const clipboardProtect = createClipboardProtectProduct(host, platform);
   const adMarshal = createAdMarshalProduct(host, platform);
   const websiteKnowledgeControl = createWebsiteKnowledgeControlProduct(host, platform);
   const products = {
     [nativeScroll.id]: nativeScroll,
     [noAutoplay.id]: noAutoplay,
     [mailtoCapture.id]: mailtoCapture,
+    [clipboardProtect.id]: clipboardProtect,
     [websiteKnowledgeControl.id]: websiteKnowledgeControl,
     [adMarshal.id]: adMarshal
   };
@@ -87,7 +90,7 @@ export function createStandingProvince(platform) {
       if (message.active !== true) await platform.setFeatureActivity(senderTabId, governed.id, false);
       return { updated: true };
     }
-    if (governed?.id === websiteKnowledgeControl.id) return governed.handleMessage(message, context);
+    if ([websiteKnowledgeControl.id, clipboardProtect.id].includes(governed?.id)) return governed.handleMessage(message, context);
     if (message.type === 'UI_SET_ENABLED') {
       const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
         ...feature,

@@ -74,6 +74,10 @@ Control the language and regional format, time zone, and privacy preference sent
 
 Unselected categories keep their original values. These adjustments do not change your system settings. Each page keeps the browser information it received when it loaded, so changed or disabled settings take effect when that page next loads.
 
+#### Clipboard Protect
+
+Keep selected text free of content a website adds during copying, such as links, credits, and promotional messages. Clipboard Protect preserves the selected text and available formatting, with no clipboard reading, logging, or uploads. It is off by default and has one independent switch in Satellites. Editable areas, including rich-text editors and spreadsheet grids, keep their own copy handling. Normal copy buttons with no selected text also keep their existing behavior.
+
 #### XHS Image Dark Mode
 
 Make bright text images easier to view when a page-wide dark mode is active on Xiaohongshu. XHS Image Dark Mode analyzes a reduced sample from each image, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. After opening a post, you can switch each image between light and dark from the control beside its page count.

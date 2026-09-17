@@ -195,6 +195,8 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
+  const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
+  if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
   const knowledge = (states?.preferences || states)?.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
   if (knowledgeEnabled) {
@@ -433,6 +435,10 @@ function bindView() {
     type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
   }, biliDailyLogin => ({ biliDailyLogin })), [biliDailyLogin]));
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
+  const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
+  if (clipboardProtectEnabled) clipboardProtectEnabled.addEventListener('change', () => void update(null, () => savePreference('clipboardProtect', {
+    type: 'UI_SET_ENABLED', featureId: 'clipboardProtect', enabled: clipboardProtectEnabled.checked
+  }), [clipboardProtectEnabled]));
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));

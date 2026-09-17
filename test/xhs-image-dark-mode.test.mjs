@@ -74,6 +74,37 @@ test('XHS Image Dark Mode adapts documents while preserving photographs', async 
   assert.equal(runtime.classifySample(emptyBrightCard, 64, 64).kind, 'photo');
 });
 
+test('XHS Image Dark Mode recognizes sparse text slides with transparent reading surfaces', async () => {
+  const runtime = await runtimeFixture();
+  const data = new Uint8ClampedArray(64 * 64 * 4);
+  for (let y = 0; y < 64; y += 1) {
+    for (let x = 0; x < 64; x += 1) {
+      const offset = (y * 64 + x) * 4;
+      const text = y >= 9 && y <= 55 && x >= 7 && x <= 57
+        && ((y % 11 <= 1 && x % 7 !== 0) || (x % 17 <= 1 && y % 5 !== 0));
+      data.set(text ? [28, 28, 27, 255] : [0, 0, 0, 0], offset);
+    }
+  }
+  const result = runtime.classifySample(data, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+  assert.equal(result.transparencyShare > 0.5, true);
+});
+
+test('transparent isolated photo subjects remain unchanged', async () => {
+  const runtime = await runtimeFixture();
+  const data = new Uint8ClampedArray(64 * 64 * 4);
+  for (let y = 0; y < 64; y += 1) {
+    for (let x = 0; x < 64; x += 1) {
+      const offset = (y * 64 + x) * 4;
+      const subject = x >= 20 && x <= 43 && y >= 12 && y <= 53;
+      data.set(subject
+        ? [80 + x * 2, 45 + y * 2, 155 - Math.floor(y / 2), 255]
+        : [0, 0, 0, 0], offset);
+    }
+  }
+  assert.equal(runtime.classifySample(data, 64, 64).kind, 'photo');
+});
+
 test('XHS Image Dark Mode leaves mixed photo and document images unchanged', async () => {
   const runtime = await runtimeFixture();
   const document = documentPixels();
@@ -473,6 +504,81 @@ test('lazy images wait for load without occupying an analysis slot', async () =>
   onLoad();
   assert.equal(runtime.queue.length, 1);
   assert.equal(runtime.queue[0].priority, -15);
+});
+
+test('decoded images inserted by the expanded viewer are queued immediately', async () => {
+  class FakeImage {}
+  const runtime = await runtimeFixture({}, {
+    HTMLImageElement: FakeImage,
+    performance: { now: () => 11 }
+  });
+  runtime.processing = true;
+  runtime.isContentImage = () => true;
+  runtime.viewerForImage = () => ({});
+  runtime.applyCachedResult = () => false;
+  runtime.schedulePump = () => {};
+  const image = new FakeImage();
+  Object.assign(image, {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/detail/decoded-slide',
+    src: 'https://sns-webpic-qc.xhscdn.com/detail/decoded-slide',
+    srcset: '',
+    complete: true,
+    naturalWidth: 1080,
+    naturalHeight: 1620,
+    getAttribute(name) { return name === 'src' ? this.src : ''; }
+  });
+  runtime.observeImage(image);
+  assert.equal(runtime.queue.length, 1);
+  assert.equal(runtime.queue[0].image, image);
+  assert.equal(runtime.queue[0].priority, -20);
+});
+
+test('responsive source mutations are routed back to their owning viewer image', async () => {
+  const runtime = await runtimeFixture();
+  runtime.processing = true;
+  runtime.viewerForImage = () => ({});
+  runtime.scheduleControlPositions = () => {};
+  runtime.scheduleCleanup = () => {};
+  runtime.applyCachedResult = () => false;
+  let waited = null;
+  runtime.waitForImageLoad = (record, priority) => { waited = { record, priority }; };
+  const source = {
+    value: 'slide-2 1080w',
+    matches(selector) { return selector === 'source'; },
+    getAttribute(name) { return name === 'srcset' ? this.value : ''; }
+  };
+  const picture = {
+    matches(selector) { return selector === 'picture'; },
+    querySelector(selector) { return selector === 'img' ? image : null; },
+    querySelectorAll(selector) { return selector === 'source' ? [source] : []; }
+  };
+  source.closest = selector => selector === 'picture' ? picture : null;
+  const image = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/detail/slide-1',
+    src: 'https://sns-webpic-qc.xhscdn.com/detail/slide-1',
+    srcset: '',
+    parentElement: picture,
+    classList: { remove() {} },
+    getAttribute(name) { return name === 'src' ? this.src : ''; }
+  };
+  const record = {
+    image,
+    requestKey: runtime.imageRequestKey(image),
+    source: image.currentSrc,
+    result: { kind: 'photo' },
+    loadGeneration: 0,
+    loadPriority: Number.POSITIVE_INFINITY,
+    loadSource: '',
+    button: null,
+    visualTarget: null
+  };
+  runtime.records.set(image, record);
+  source.value = 'slide-3 1080w';
+  runtime.onPageMutations([{ type: 'attributes', target: source, attributeName: 'srcset' }]);
+  assert.equal(waited?.record, record);
+  assert.equal(waited?.priority, -20);
+  assert.equal(record.source, image.currentSrc);
+  assert.equal(record.result?.kind, 'photo');
 });
 
 test('an intersecting image can move ahead in the pending analysis queue', async () => {

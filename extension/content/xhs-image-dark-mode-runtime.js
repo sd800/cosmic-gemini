@@ -444,7 +444,7 @@
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ['src', 'srcset']
+        attributeFilter: ['src', 'srcset', 'sizes', 'media', 'type']
       });
       document.addEventListener('click', this.onPostActivation, true);
       this.collectImages(document);
@@ -560,10 +560,32 @@
     }
 
     imageRequestKey(image) {
+      const picture = image?.parentElement?.matches?.('picture')
+        ? image.parentElement
+        : image?.closest?.('picture');
+      const responsiveSources = [...(picture?.querySelectorAll?.('source') || [])]
+        .flatMap(source => [
+          source.getAttribute?.('src') || '',
+          source.getAttribute?.('srcset') || '',
+          source.getAttribute?.('sizes') || '',
+          source.getAttribute?.('media') || '',
+          source.getAttribute?.('type') || ''
+        ]);
       return [
-        image?.getAttribute?.('src') || image?.src || image?.currentSrc || '',
-        image?.getAttribute?.('srcset') || image?.srcset || ''
+        image?.currentSrc || '',
+        image?.getAttribute?.('src') || '',
+        image?.src || '',
+        image?.getAttribute?.('srcset') || image?.srcset || '',
+        image?.getAttribute?.('sizes') || image?.sizes || '',
+        ...responsiveSources
       ].join('\n');
+    }
+
+    imageForMutation(target) {
+      if (typeof HTMLImageElement !== 'undefined' && target instanceof HTMLImageElement) return target;
+      if (String(target?.tagName || '').toUpperCase() === 'IMG' || 'currentSrc' in (target || {})) return target;
+      if (!target?.matches?.('source')) return null;
+      return target.closest?.('picture')?.querySelector?.('img') || null;
     }
 
     createRecord(image) {
@@ -589,7 +611,12 @@
       let record = this.records.get(image);
       if (!record) record = this.createRecord(image);
       if (this.applyCachedResult(record)) return;
-      if (!image.complete || !image.naturalWidth) this.waitForImageLoad(record, 0);
+      const viewerPriority = this.viewerForImage(image) ? -20 : null;
+      if (viewerPriority !== null) {
+        this.waitForImageLoad(record, viewerPriority);
+      } else if (!image.complete || !image.naturalWidth) {
+        this.waitForImageLoad(record, 0);
+      }
     }
 
     prioritizeModal(modal) {
@@ -661,7 +688,8 @@
     onPageMutations(mutations) {
       for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
-          const image = mutation.target;
+          const image = this.imageForMutation(mutation.target);
+          if (!image) continue;
           let record = this.records.get(image);
           if (!record) {
             if (!this.isContentImage(image)) continue;
@@ -672,13 +700,16 @@
           }
           const requestKey = this.imageRequestKey(image);
           if (record && record.requestKey !== requestKey) {
-            this.clearRecord(record);
+            const currentSource = image.currentSrc || image.src || '';
+            const displayedSourceUnchanged = !!record.source && currentSource === record.source;
+            if (!displayedSourceUnchanged) this.clearRecord(record);
             record.requestKey = requestKey;
-            record.source = '';
-            record.darkened = true;
+            if (!displayedSourceUnchanged) record.darkened = true;
             this.intersectionObserver?.observe(image);
-            if (!this.applyCachedResult(record)) {
-              const priority = this.viewerForImage(image) ? -20 : 0;
+            const priority = this.viewerForImage(image) ? -20 : 0;
+            if (displayedSourceUnchanged) {
+              this.waitForImageLoad(record, priority);
+            } else if (!this.applyCachedResult(record)) {
               this.waitForImageLoad(record, priority);
             }
           }
@@ -743,6 +774,17 @@
       const requestKey = this.imageRequestKey(image);
       if (!image || !requestKey.trim()) return;
       record.loadPriority = Math.min(record.loadPriority ?? Number.POSITIVE_INFINITY, priority);
+      const currentSource = image.currentSrc || image.src || '';
+      if (image.complete && image.naturalWidth && currentSource
+        && (!record.source || currentSource !== record.source)) {
+        if (record.loadHandler) image.removeEventListener?.('load', record.loadHandler);
+        record.loadHandler = null;
+        record.loadSource = '';
+        const queuedPriority = Number.isFinite(record.loadPriority) ? record.loadPriority : priority;
+        record.loadPriority = Number.POSITIVE_INFINITY;
+        this.queueImage(image, queuedPriority);
+        return;
+      }
       if (record.loadSource === requestKey) return;
       record.loadSource = requestKey;
       record.loadGeneration = (record.loadGeneration || 0) + 1;
@@ -751,11 +793,14 @@
       const onLoad = () => {
         if (record.loadHandler === onLoad) record.loadHandler = null;
         if (!this.processing || this.records.get(image) !== record
-          || record.loadGeneration !== generation
-          || requestKey !== this.imageRequestKey(image)) return;
+          || record.loadGeneration !== generation) return;
         const queuedPriority = Number.isFinite(record.loadPriority) ? record.loadPriority : priority;
         record.loadSource = '';
         record.loadPriority = Number.POSITIVE_INFINITY;
+        if (requestKey !== this.imageRequestKey(image)) {
+          this.waitForImageLoad(record, queuedPriority);
+          return;
+        }
         this.queueImage(image, queuedPriority);
       };
       record.loadHandler = onLoad;
@@ -989,14 +1034,16 @@
       const edgeBand = Math.max(1, Math.round(Math.min(width, height) * 0.08));
       let opaque = 0;
       let edgeOpaque = 0;
+      let transparent = 0;
       for (let pixel = 0; pixel < pixelCount; pixel += 1) {
         const offset = pixel * 4;
-        if (data[offset + 3] < 24) continue;
         const x = pixel % width;
         const y = Math.floor(pixel / width);
-        const r = data[offset];
-        const g = data[offset + 1];
-        const b = data[offset + 2];
+        const alpha = data[offset + 3] / 255;
+        if (alpha < 0.95) transparent += 1;
+        const r = Math.round(data[offset] * alpha + 255 * (1 - alpha));
+        const g = Math.round(data[offset + 1] * alpha + 255 * (1 - alpha));
+        const b = Math.round(data[offset + 2] * alpha + 255 * (1 - alpha));
         const key = (Math.min(COLOR_BUCKETS - 1, r >> 5) << 6)
           | (Math.min(COLOR_BUCKETS - 1, g >> 5) << 3)
           | Math.min(COLOR_BUCKETS - 1, b >> 5);
@@ -1017,7 +1064,7 @@
           edgeOpaque += 1;
         }
       }
-      if (opaque / pixelCount < 0.9 || !buckets.size) return { kind: 'photo' };
+      if (!buckets.size) return { kind: 'photo' };
       const colors = [...buckets.entries()]
         .map(bucket => {
           const [key, value] = bucket;
@@ -1137,10 +1184,12 @@
       let foregroundCount = 0;
       for (let pixel = 0; pixel < pixelCount; pixel += 1) {
         const offset = pixel * 4;
-        if (data[offset + 3] < 24) {
-          continue;
-        }
-        const color = { r: data[offset], g: data[offset + 1], b: data[offset + 2] };
+        const alpha = data[offset + 3] / 255;
+        const color = {
+          r: Math.round(data[offset] * alpha + 255 * (1 - alpha)),
+          g: Math.round(data[offset + 1] * alpha + 255 * (1 - alpha)),
+          b: Math.round(data[offset + 2] * alpha + 255 * (1 - alpha))
+        };
         const value = luminance(color);
         if (value >= 0.64) lightCount += 1;
         const nearSurface = surfacePalette.some(surface => {
@@ -1165,6 +1214,7 @@
       const foregroundShare = foregroundCount / opaque;
       const lightShare = lightCount / opaque;
       const contrastForegroundShare = contrastForegroundCount / opaque;
+      const transparencyShare = transparent / pixelCount;
       const foregroundComponents = this.componentStats(foregroundMask, width, height, opaque);
       const largestForegroundShare = foregroundComponents.largestShare;
       const uniformLightSurface = !grayCard && !vividCard && surfacePalette.length > 0
@@ -1184,8 +1234,10 @@
         || (foregroundComponents.count >= 3 && largestForegroundShare <= 0.12);
       const annotationTextStructure = !annotatedCard
         || (foregroundComponents.count >= 5 && largestForegroundShare <= 0.12);
+      const transparentTextStructure = transparencyShare < 0.1
+        || (foregroundComponents.count >= 3 && largestForegroundShare <= 0.12);
       return {
-        kind: textLikeForeground && vividTextStructure && annotationTextStructure
+        kind: textLikeForeground && vividTextStructure && annotationTextStructure && transparentTextStructure
           && (uniformLightSurface || uniformGraySurface || uniformVividSurface)
           ? grayCard ? 'gray-theme' : 'light-theme'
           : 'photo',
@@ -1197,6 +1249,7 @@
         foregroundShare,
         backgroundLuminance,
         annotationShare,
+        transparencyShare,
         largestForegroundShare,
         foregroundComponentCount: foregroundComponents.count
       };

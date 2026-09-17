@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.7 — 2026-09-17
+
+- Fixed expanded Xiaohongshu galleries sometimes leaving already-decoded second and later slides unanalyzed. Newly inserted viewer images now enter the priority queue immediately, responsive image-source replacements stay attached to their owning slide, and transparent reading surfaces can be classified without turning isolated transparent photo subjects into dark-mode cards.
+
 ## 8.10.6 — 2026-09-17
 
 - Combined Website Knowledge Control's language and Intl locale settings into one language-and-regional-formats choice, so one selection now governs request and browser languages together with default Intl formatting. Added Chinese locale choices for Macao, Chinese Taipei, Malaysia, and Singapore after Hong Kong.

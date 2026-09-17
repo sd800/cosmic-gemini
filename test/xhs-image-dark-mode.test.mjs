@@ -474,6 +474,71 @@ test('a negative feed-cover result never suppresses independent viewer analysis'
   assert.equal(runtime.cachedResult(expandedImage, expandedImage.currentSrc), null);
 });
 
+test('a positive viewer result supersedes a stale exact feed-cover photo result', async () => {
+  const postId = '6a97d678000000001001f028';
+  const runtime = await runtimeFixture({}, {
+    URL,
+    location: {
+      hostname: 'www.xiaohongshu.com',
+      href: `https://www.xiaohongshu.com/explore/${postId}`
+    }
+  });
+  const anchor = { href: `https://www.xiaohongshu.com/explore/${postId}` };
+  const feedImage = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/feed/cropped-cover!nc_n_webp_mw_1',
+    closest(selector) { return selector.startsWith('a[') ? anchor : null; }
+  };
+  const slide = {
+    getAttribute(name) { return name === 'data-swiper-slide-index' ? '0' : null; }
+  };
+  const expandedImage = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/detail/full-first-slide!nd_dft_wlteh_webp_3',
+    closest(selector) { return selector === '.swiper-slide' ? slide : null; }
+  };
+  runtime.cacheResult(feedImage.currentSrc, { kind: 'photo' }, feedImage);
+  runtime.cacheResult(expandedImage.currentSrc, { kind: 'light-theme' }, expandedImage);
+  assert.equal(runtime.cachedResult(feedImage, feedImage.currentSrc).kind, 'light-theme');
+});
+
+test('a positive first-slide viewer result refreshes an already mounted feed cover', async () => {
+  const postId = '6aa1ff5a000000002b000927';
+  const anchor = {
+    href: `https://www.xiaohongshu.com/explore/${postId}`,
+    matches: () => false,
+    querySelectorAll: () => [feedImage]
+  };
+  const document = { querySelectorAll: () => [anchor] };
+  const runtime = await runtimeFixture(document, {
+    URL,
+    location: {
+      hostname: 'www.xiaohongshu.com',
+      href: `https://www.xiaohongshu.com/explore/${postId}`
+    }
+  });
+  const feedImage = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/feed/cropped-cover!nc_n_webp_mw_1',
+    isConnected: true,
+    closest(selector) { return selector.startsWith('a[') ? anchor : null; }
+  };
+  const slide = {
+    getAttribute(name) { return name === 'data-swiper-slide-index' ? '0' : null; }
+  };
+  const expandedImage = {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/detail/full-first-slide!nd_dft_wlteh_webp_3',
+    closest(selector) { return selector === '.swiper-slide' ? slide : null; }
+  };
+  runtime.processing = true;
+  runtime.isContentImage = () => true;
+  runtime.viewerForImage = image => image === expandedImage ? {} : null;
+  runtime.cacheResult(feedImage.currentSrc, { kind: 'photo' }, feedImage);
+  let applied = null;
+  runtime.applyResult = record => { applied = record; };
+  const result = { kind: 'light-theme' };
+  runtime.cacheResult(expandedImage.currentSrc, result, expandedImage);
+  assert.equal(applied?.image, feedImage);
+  assert.equal(applied?.result, result);
+});
+
 test('viewer classifications remain isolated between slide indexes', async () => {
   const postId = '6a97d678000000001001f028';
   const runtime = await runtimeFixture({}, {

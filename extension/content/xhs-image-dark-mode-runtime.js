@@ -909,12 +909,12 @@
 
     cachedResult(image, source) {
       const exactResult = this.cache.get(this.exactCacheKey(source));
-      if (exactResult) return exactResult;
+      if (exactResult?.kind && exactResult.kind !== 'photo') return exactResult;
       const sourceResult = this.cache.get(this.cacheKey(source));
       if (sourceResult?.kind && sourceResult.kind !== 'photo') return sourceResult;
       const relatedResult = this.cache.get(this.noteCacheKey(image));
       if (relatedResult?.kind && relatedResult.kind !== 'photo') return relatedResult;
-      return null;
+      return exactResult || null;
     }
 
     cacheResult(source, result, image = null) {
@@ -928,14 +928,38 @@
         this.cache.set(key, result);
         while (this.cache.size > CACHE_LIMIT) this.cache.delete(this.cache.keys().next().value);
       }
+      if (result.kind !== 'photo') this.refreshFeedCoverFromViewer(image);
+    }
+
+    refreshFeedCoverFromViewer(image) {
+      if (!image || !this.viewerForImage(image)) return;
+      const noteKey = this.noteCacheKey(image);
+      const match = /^note:([^:]+):0$/.exec(noteKey);
+      if (!match) return;
+      const postId = match[1];
+      const anchors = document.querySelectorAll?.(
+        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
+      ) || [];
+      const seen = new Set();
+      for (const anchor of anchors) {
+        if (this.noteId(anchor.href || anchor.getAttribute?.('href')) !== postId) continue;
+        const images = anchor.matches?.('img') ? [anchor] : anchor.querySelectorAll?.('img') || [];
+        for (const relatedImage of images) {
+          if (relatedImage === image || seen.has(relatedImage) || !relatedImage.isConnected
+            || !this.isContentImage(relatedImage)) continue;
+          seen.add(relatedImage);
+          const record = this.records.get(relatedImage) || this.createRecord(relatedImage);
+          this.applyCachedResult(record);
+        }
+      }
     }
 
     applyCachedResult(record) {
       const source = record?.image?.currentSrc || record?.image?.src || '';
       if (!source) return false;
-      if (record.source === source && record.result) return true;
       const cached = this.cachedResult(record.image, source);
-      if (!cached) return false;
+      if (!cached) return record.source === source && !!record.result;
+      if (record.source === source && record.result === cached) return true;
       record.source = source;
       record.result = cached;
       this.applyResult(record);

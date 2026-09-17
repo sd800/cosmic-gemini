@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.9 — 2026-09-17
+
+- Fixed Xiaohongshu feed covers occasionally remaining light after the expanded first image had already been recognized as a text card. A higher-quality viewer result now supersedes an earlier cropped-cover photo result and is applied immediately to the mounted feed cover.
+
 ## 8.10.8 — 2026-09-17
 
 - Fixed very sparse text slides in expanded Xiaohongshu galleries being mistaken for photographs. The classifier now recognizes separated text marks on an overwhelmingly uniform bright reading surface while continuing to leave isolated small photo subjects unchanged.

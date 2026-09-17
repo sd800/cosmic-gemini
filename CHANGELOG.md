@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.2 — 2026-09-17
+
+- Clipboard Protect now automatically yields whenever Any Copy is active on the current page. Central stops the outgoing copy guard before starting the incoming one, and Clipboard Protect resumes when Any Copy is no longer active there.
+
 ## 8.11.1 — 2026-09-17
 
 - Added Clipboard Protect beneath Website Knowledge Control in Satellites. Its independent switch protects selected text from website additions during copying, preserves available formatting, and works alongside Any Copy. Editable areas retain their own copy handling. It is off by default.

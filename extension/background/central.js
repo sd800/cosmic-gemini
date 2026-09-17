@@ -1,7 +1,7 @@
 import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
 import { BILI_DAILY_ALARM } from '../core/bili-daily-login.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
-import { centralPageDirectives } from './central-policy.js';
+import { centralPageDirectives, syncCentralPageProducts } from './central-policy.js';
 import { validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';
 import { createCustomsProvince } from './provinces/customs.js';
@@ -71,6 +71,14 @@ function unavailableProductState(productId, settings) {
   };
 }
 
+async function resolvedPageDirectives(settings, url, tabId) {
+  const initial = centralPageDirectives(settings, url);
+  const state = await provinces.operations.getProductState(FEATURE_IDS.ANY_COPY, {
+    settings, directives: initial, url, tabId
+  });
+  return centralPageDirectives(settings, url, { anyCopyActive: state?.active === true });
+}
+
 function productForMessage(message) {
   if (message.type === 'UI_ADD_NSNA_WHITELIST_RULE' || message.type === 'UI_DELETE_NSNA_WHITELIST_RULE') {
     return FEATURE_IDS.NATIVE_SCROLL;
@@ -93,7 +101,7 @@ function productForMessage(message) {
 
 async function collectPageState(url, tabId, options = {}) {
   const settings = await platform.readSettings();
-  const directives = centralPageDirectives(settings, url);
+  const directives = await resolvedPageDirectives(settings, url, tabId);
   const results = await Promise.allSettled(STATE_PRODUCTS.map(productId =>
     provinceForProduct(productId).getProductState(productId, {
       settings,
@@ -127,8 +135,8 @@ async function syncPageProducts(sender, message) {
     throw new Error('The central page controller is unavailable.');
   }
   const settings = await platform.readSettings();
-  const directives = centralPageDirectives(settings, topUrl);
-  const results = await Promise.allSettled(PAGE_PRODUCTS.map(productId =>
+  const directives = await resolvedPageDirectives(settings, topUrl, tabId);
+  return syncCentralPageProducts(PAGE_PRODUCTS, directives, productId =>
     provinceForProduct(productId).syncProduct(productId, {
       settings,
       directives,
@@ -137,15 +145,7 @@ async function syncPageProducts(sender, message) {
       documentId,
       frameUrl,
       topUrl
-    })));
-  if (results.some(result => result.status === 'rejected')) {
-    throw new Error('One or more page products are temporarily unavailable.');
-  }
-  const entries = PAGE_PRODUCTS.map((productId, index) => [
-    productId,
-    results[index].value === true
-  ]);
-  return Object.fromEntries(entries);
+    }));
 }
 
 async function collectProductPageState(sender, message) {
@@ -154,7 +154,7 @@ async function collectProductPageState(sender, message) {
   const url = sender.tab?.url || message.url || sender.url || '';
   const tabId = sender.tab?.id;
   const settings = await platform.readSettings();
-  const directives = centralPageDirectives(settings, url);
+  const directives = await resolvedPageDirectives(settings, url, tabId);
   return {
     [productId]: await provinceForProduct(productId).getProductState(productId, {
       settings, directives, url, tabId, frameUrl: sender.url, frameId: sender.frameId
@@ -172,7 +172,8 @@ function messageContext(sender) {
     collectPageState,
     resetProvinces,
     async resolvePageDirectives(url) {
-      return centralPageDirectives(await platform.readSettings(), url);
+      const settings = await platform.readSettings();
+      return resolvedPageDirectives(settings, url, sender.tab?.id);
     }
   });
 }

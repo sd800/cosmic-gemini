@@ -176,10 +176,17 @@ test('Clipboard Protect synchronizes eligible child frames and forwards deactiva
   const context = { tabId: 5, frameId: 3, documentId: 'child', topUrl: 'https://example.com/' };
   const enabled = normalizeSettings({ clipboardProtect: { enabled: true } });
   assert.equal(await product.sync(context, enabled), true);
+  const yielding = { clipboardProtect: { yieldToAnyCopy: true } };
+  const yieldedState = product.state(enabled, context.topUrl, context.tabId, yielding);
+  assert.equal(yieldedState.enabled, true);
+  assert.equal(yieldedState.active, false);
+  assert.equal(yieldedState.yieldedToAnyCopy, true);
+  assert.equal(await product.sync({ ...context, directives: yielding }, enabled), false);
   assert.equal(await product.sync(context, normalizeSettings()), false);
   assert.equal(await product.sync({ ...context, documentId: 'unsupported', topUrl: 'chrome://settings/' }, enabled), false);
   assert.deepEqual(syncs, [
     { id: 'clipboardProtect', documentId: 'child', active: true },
+    { id: 'clipboardProtect', documentId: 'child', active: false },
     { id: 'clipboardProtect', documentId: 'child', active: false },
     { id: 'clipboardProtect', documentId: 'unsupported', active: false }
   ]);

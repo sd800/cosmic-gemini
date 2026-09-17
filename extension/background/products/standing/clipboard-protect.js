@@ -5,9 +5,13 @@ export function createClipboardProtectProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.CLIPBOARD_PROTECT,
     bridge: 'content/clipboard-protect-bridge.js',
     runtime: 'content/clipboard-protect-runtime.js',
-    state: clipboardProtectState,
+    state(settings, url, _tabId, directives = {}) {
+      const base = clipboardProtectState(settings, url);
+      const yieldedToAnyCopy = directives?.[product.id]?.yieldToAnyCopy === true;
+      return { ...base, active: base.active && !yieldedToAnyCopy, yieldedToAnyCopy };
+    },
     async sync(context, settings) {
-      const state = product.state(settings, context.topUrl);
+      const state = product.state(settings, context.topUrl, context.tabId, context.directives);
       await pageRuntimeHost.sync(product, context, state.active);
       return state.active;
     },

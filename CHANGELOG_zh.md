@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.11.2 — 2026-09-17
+
+- Any Copy 在当前网页生效时，Clipboard Protect 现在会自动让路。Central 会先停用原有的复制保护，再启动接管的一方；当 Any Copy 不再在该网页生效时，Clipboard Protect 会自动恢复。
+
 ## 8.11.1 — 2026-09-17
 
 - 在 Satellites 的 Website Knowledge Control 下方新增 Clipboard Protect。通过独立开关保护选中并复制的原文，阻止网站在复制时夹带其他内容，并尽量保留原有格式；可编辑区域继续使用网站自身的复制方式。可与 Any Copy 同时使用，默认关闭。

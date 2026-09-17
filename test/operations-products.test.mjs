@@ -9,7 +9,7 @@ import { createChineseResponseClaudeProduct } from '../extension/background/prod
 import { createOperationsProvince } from '../extension/background/provinces/operations.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 import { createAdministrationProduct } from '../extension/background/products/operations/administration.js';
-import { centralPageDirectives } from '../extension/background/central-policy.js';
+import { centralPageDirectives, syncCentralPageProducts } from '../extension/background/central-policy.js';
 
 test('popup cache receives saved preferences separately from effective state', async () => {
   const base = 'chrome-extension://cosmic-gemini/';
@@ -345,6 +345,34 @@ test('Central persistently authorizes Any Copy across the Zhihu domain family on
   assert.equal(centralPageDirectives(normalizeSettings(), 'https://www.zhihu.com/').anyCopy.persistent, false);
 });
 
+test('Central gives effective Any Copy priority over Clipboard Protect', async () => {
+  const productIds = ['nativeScroll', 'clipboardProtect', 'anyCopy', 'mailtoCapture'];
+  for (const anyCopyActive of [true, false]) {
+    const directives = centralPageDirectives(normalizeSettings(), 'https://example.com/', { anyCopyActive });
+    assert.equal(directives.clipboardProtect.yieldToAnyCopy, anyCopyActive);
+    const calls = [];
+    const states = await syncCentralPageProducts(productIds, directives, async productId => {
+      calls.push(productId);
+      return productId === (anyCopyActive ? 'anyCopy' : 'clipboardProtect');
+    });
+    const pair = calls.filter(productId => ['anyCopy', 'clipboardProtect'].includes(productId));
+    assert.deepEqual(pair, anyCopyActive ? ['clipboardProtect', 'anyCopy'] : ['anyCopy', 'clipboardProtect']);
+    assert.equal(states.anyCopy, anyCopyActive);
+    assert.equal(states.clipboardProtect, !anyCopyActive);
+  }
+});
+
+test('Central does not start the incoming copy guard when the outgoing guard fails to stop', async () => {
+  const calls = [];
+  const directives = centralPageDirectives(normalizeSettings(), 'https://example.com/', { anyCopyActive: true });
+  await assert.rejects(syncCentralPageProducts(['clipboardProtect', 'anyCopy'], directives, async productId => {
+    calls.push(productId);
+    if (productId === 'clipboardProtect') throw Error('cleanup failed');
+    return true;
+  }), /cleanup failed/);
+  assert.deepEqual(calls, ['clipboardProtect']);
+});
+
 test('coordinated Zhihu Any Copy can be paused only for the current tab', async () => {
   const session = {};
   const tabs = new Map([
@@ -385,6 +413,9 @@ test('coordinated Zhihu Any Copy can be paused only for the current tab', async 
   assert.equal(paused.active, false);
   assert.equal(paused.coordinated, true);
   assert.equal(paused.tabPaused, true);
+  assert.equal(centralPageDirectives(settings, tabs.get(51).url, {
+    anyCopyActive: paused.active
+  }).clipboardProtect.yieldToAnyCopy, false);
   assert.equal((await product.state(settings, tabs.get(52).url, 52, directivesFor(tabs.get(52).url))).active, true);
   assert.deepEqual(settings.anyCopy.siteRules, []);
 
@@ -395,6 +426,9 @@ test('coordinated Zhihu Any Copy can be paused only for the current tab', async 
   }, context);
   assert.equal(resumed.active, true);
   assert.equal(resumed.tabPaused, false);
+  assert.equal(centralPageDirectives(settings, tabs.get(51).url, {
+    anyCopyActive: resumed.active
+  }).clipboardProtect.yieldToAnyCopy, true);
   await product.handleMessage({
     type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE',
     tabId: 51,

@@ -182,7 +182,12 @@ export function createStandingProvince(platform) {
       await Promise.allSettled([adMarshal.reconcile(), websiteKnowledgeControl.initialize()]);
     },
     async getProductState(productId, context) {
-      return product(productId).state(context.settings, productId === websiteKnowledgeControl.id ? (context.frameUrl || context.url) : context.url);
+      return product(productId).state(
+        context.settings,
+        productId === websiteKnowledgeControl.id ? (context.frameUrl || context.url) : context.url,
+        context.tabId,
+        context.directives
+      );
     },
     async syncProduct(productId, context) {
       return product(productId).sync(context, context.settings);

@@ -76,7 +76,7 @@ Unselected categories keep their original values. These adjustments do not chang
 
 #### Clipboard Protect
 
-Keep selected text free of content a website adds during copying, such as links, credits, and promotional messages. Clipboard Protect preserves the selected text and available formatting, with no clipboard reading, logging, or uploads. It is off by default and has one independent switch in Satellites. Editable areas, including rich-text editors and spreadsheet grids, keep their own copy handling. Normal copy buttons with no selected text also keep their existing behavior.
+Keep selected text free of content a website adds during copying, such as links, credits, and promotional messages. Clipboard Protect preserves the selected text and available formatting, with no clipboard reading, logging, or uploads. It is off by default and has one independent switch in Satellites. Editable areas, including rich-text editors and spreadsheet grids, keep their own copy handling. Normal copy buttons with no selected text also keep their existing behavior. When Any Copy is active on the current page, it takes priority and Clipboard Protect remains inactive there.
 
 #### XHS Image Dark Mode
 

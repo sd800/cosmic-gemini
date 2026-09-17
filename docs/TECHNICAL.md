@@ -50,13 +50,13 @@ The page popover is created only after an intercepted activation and uses a clos
 
 ## Clipboard Protect
 
-Clipboard Protect is an independent Standing Province product directly below Website Knowledge Control in Satellites. It defaults off in ordinary and incognito contexts, has no popup icon, and is authorized through Central for eligible HTTP(S) frames. Its saved switch does not depend on Any Copy, NSNA rules, or current page activity.
+Clipboard Protect is an independent Standing Province product directly below Website Knowledge Control in Satellites. It defaults off in ordinary and incognito contexts, has no popup icon, and is authorized through Central for eligible HTTP(S) frames. Its saved switch remains independent from Any Copy, NSNA rules, and current page activity.
 
 During a trusted copy event with selected non-editable text, the runtime captures that selection and writes its original plain text plus an inert, sanitized HTML fragment where available. A narrow clipboard-event getter hook captures the selection before an earlier website handler writes added content; a guarded propagation hook keeps the final copy handler reachable. It does not block arbitrary events or replace clipboard APIs globally. Both hooks and the copy listener are removed on disable, and retained wrappers become inert. No page scan, DOM observer, polling, clipboard-read permission, clipboard history, or network request is involved.
 
 Design-mode documents, inputs, textareas, contenteditable regions, ARIA textbox/grid/treegrid controls, and common code editors are excluded. The decision checks the event path, focus (including open shadow focus), selection endpoints, and shadow hosts. Those editors retain their own plain text, rich HTML, and custom clipboard formats. Copy buttons without a text selection, cut/paste operations, and synthetic events also keep their normal handling. A protected ordinary selection takes precedence over a site's custom copy formatting, while basic selected markup and links remain available.
 
-The product protects selected-content copy events, not every possible write to the system clipboard: unrelated or later asynchronous Clipboard API writes are outside its scope. It does not read existing clipboard contents. It neither enables nor changes Any Copy; that product retains its own behavior when independently enabled.
+The product protects selected-content copy events, not every possible write to the system clipboard: unrelated or later asynchronous Clipboard API writes are outside its scope. It does not read existing clipboard contents. It neither enables nor changes Any Copy; that product retains its own saved behavior. Central resolves Any Copy's effective per-page state, including coordinated activation and a current-tab pause, and directs Clipboard Protect to yield while Any Copy is active. During transitions, Central stops the outgoing copy guard before starting the incoming one, so the two main-world copy guards do not remain active together.
 
 ## Page Display
 

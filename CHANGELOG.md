@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.8 — 2026-09-17
+
+- Fixed very sparse text slides in expanded Xiaohongshu galleries being mistaken for photographs. The classifier now recognizes separated text marks on an overwhelmingly uniform bright reading surface while continuing to leave isolated small photo subjects unchanged.
+
 ## 8.10.7 — 2026-09-17
 
 - Fixed expanded Xiaohongshu galleries sometimes leaving already-decoded second and later slides unanalyzed. Newly inserted viewer images now enter the priority queue immediately, responsive image-source replacements stay attached to their owning slide, and transparent reading surfaces can be classified without turning isolated transparent photo subjects into dark-mode cards.

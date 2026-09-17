@@ -74,6 +74,33 @@ test('XHS Image Dark Mode adapts documents while preserving photographs', async 
   assert.equal(runtime.classifySample(emptyBrightCard, 64, 64).kind, 'photo');
 });
 
+test('XHS Image Dark Mode recognizes extremely sparse text on a uniform white page', async () => {
+  const runtime = await runtimeFixture();
+  const textRuns = [
+    [9, 8], [18, 8],
+    [11, 19], [25, 19],
+    [8, 31], [22, 31],
+    [12, 45], [29, 45],
+    [10, 55], [27, 55]
+  ];
+  const sparsePage = pixels((x, y) => {
+    const text = textRuns.some(([startX, row]) => y === row && x >= startX && x < startX + 3);
+    return text ? [20, 20, 20] : [255, 255, 255];
+  });
+  const result = runtime.classifySample(sparsePage, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+  assert.equal(result.sparseTextForeground, true);
+});
+
+test('an isolated small subject on white is not treated as sparse text', async () => {
+  const runtime = await runtimeFixture();
+  const smallSubject = pixels((x, y) => {
+    const subject = x >= 29 && x <= 33 && y >= 28 && y <= 33;
+    return subject ? [25, 25, 25] : [255, 255, 255];
+  });
+  assert.equal(runtime.classifySample(smallSubject, 64, 64).kind, 'photo');
+});
+
 test('XHS Image Dark Mode recognizes sparse text slides with transparent reading surfaces', async () => {
   const runtime = await runtimeFixture();
   const data = new Uint8ClampedArray(64 * 64 * 4);

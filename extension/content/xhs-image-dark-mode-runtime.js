@@ -1226,10 +1226,19 @@
       const uniformVividSurface = vividCard
         && surfacePalette.length > 0
         && surfaceShare >= 0.72;
-      const textLikeForeground = foregroundShare >= 0.008
+      const regularTextForeground = foregroundShare >= 0.008
         && foregroundShare <= 0.32
         && contrastForegroundShare >= 0.006
         && largestForegroundShare <= 0.16;
+      const sparseTextForeground = !grayCard && !vividCard
+        && surfaceShare >= 0.985
+        && backgroundLuminance >= 0.9
+        && foregroundShare >= 0.005
+        && foregroundShare < 0.008
+        && contrastForegroundShare >= 0.004
+        && foregroundComponents.count >= 3
+        && largestForegroundShare <= 0.006;
+      const textLikeForeground = regularTextForeground || sparseTextForeground;
       const vividTextStructure = !vividCard
         || (foregroundComponents.count >= 3 && largestForegroundShare <= 0.12);
       const annotationTextStructure = !annotatedCard
@@ -1247,6 +1256,7 @@
         splitToneLayout,
         frameEdgeShare: frame?.edgeShare || 0,
         foregroundShare,
+        sparseTextForeground,
         backgroundLuminance,
         annotationShare,
         transparencyShare,

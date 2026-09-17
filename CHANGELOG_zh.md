@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.10.11 — 2026-09-17
+
+- 在 Ad Marshal 中勾选知乎后，Central 现在会在 `zhihu.com` 及其全部子域名中持续开启 Any Copy。控制窗口中的 Any Copy 按钮可仅为当前标签页暂停或恢复功能，不会改动持久的管制网站选择，也不影响其他知乎标签页。
+
 ## 8.10.10 — 2026-09-17
 
 - 修复 Website Knowledge Control 在不提供 `crypto.randomUUID()` 的 HTTP 页面中无法初始化的问题。页面桥接现在与其他页面运行代码一样，改用安全随机字节作为后备方案。

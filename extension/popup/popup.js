@@ -109,6 +109,9 @@ function renderSiteFeature(featureId) {
   } else if (featureId === 'anyCopyEnhanced') {
     toggle.disabled = false;
     label(toggle, t(feature.active ? 'anyCopyEnhancedOnTitle' : 'anyCopyEnhancedOffTitle'));
+  } else if (featureId === 'anyCopy' && feature.coordinationSource === 'adMarshalZhihu') {
+    toggle.disabled = false;
+    label(toggle, t(feature.tabPaused ? 'anyCopyZhihuResumeTitle' : 'anyCopyZhihuPauseTitle'));
   } else if (feature.active && !feature.exactActive) {
     toggle.disabled = false;
     label(toggle, t('siteFeatureCoveredTitle', { product, rule: feature.matchedRule }));
@@ -622,6 +625,10 @@ const anyCopyControl = document.querySelector('#anyCopy-status');
 anyCopyControl.innerHTML = icon('anyCopy');
 anyCopyControl.addEventListener('click', () => void act(() => {
   const feature = state.anyCopy;
+  if (feature.coordinationSource === 'adMarshalZhihu') return send({
+    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE', featureId: 'anyCopy',
+    tabId: currentTab?.id, expectedHostname: feature.hostname
+  });
   if (feature.matchedRule) return send({
     type: 'UI_DELETE_RULE', featureId: 'anyCopy', listName: 'siteRules', rule: feature.matchedRule,
     tabId: currentTab?.id, expectedHostname: feature.hostname

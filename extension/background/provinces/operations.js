@@ -56,7 +56,9 @@ export function createOperationsProvince(platform) {
       const currentHostname = hostnameFromUrl(context.sender.tab?.url || '');
       if (eventHostname && currentHostname && eventHostname !== currentHostname) return { recorded: false };
       const settings = await platform.readSettings();
-      const state = await governed.state(settings, senderUrl, senderTabId);
+      const state = governed.id === FEATURE_IDS.ANY_COPY
+        ? await governed.state(settings, senderUrl, senderTabId, await context.resolvePageDirectives?.(senderUrl))
+        : await governed.state(settings, senderUrl, senderTabId);
       if (state.active) await platform.setFeatureActivity(senderTabId, governed.id, true);
       return { recorded: state.active };
     }
@@ -74,6 +76,7 @@ export function createOperationsProvince(platform) {
       await platform.ensureSettings();
       await Promise.allSettled([
         platform.clearOrphanedActivity(),
+        anyCopy.cleanupOrphans(),
         anyCopyEnhanced.cleanupOrphans(),
         xhsImageDarkMode.cleanupOrphans(),
         chineseResponseClaude.initialize()
@@ -84,7 +87,7 @@ export function createOperationsProvince(platform) {
       if (productId === chineseResponseClaude.id) return chineseResponseClaude.state(context.settings, context.frameUrl || context.url, context.tabId, context.frameId);
       if (productId === satellites.id) return satellites.state(context.settings);
       if (productId === administration.id) return null;
-      return product(productId).state(context.settings, context.url, context.tabId);
+      return product(productId).state(context.settings, context.url, context.tabId, context.directives);
     },
     async syncProduct(productId, context) {
       return product(productId).sync(context, context.settings);
@@ -99,6 +102,7 @@ export function createOperationsProvince(platform) {
       await chineseResponseClaude.handleTabUpdated(tabId, change, tab);
     },
     async handleTabRemoved(tabId) {
+      await anyCopy.removeTab(tabId);
       await anyCopyEnhanced.removeTab(tabId);
       await xhsImageDarkMode.removeTab(tabId);
       await chineseResponseClaude.handleTabRemoved(tabId);

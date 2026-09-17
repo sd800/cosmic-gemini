@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.10.10');
+assert.equal(manifest.version, '8.10.11');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -248,6 +248,7 @@ for (const name of ['native-scroll.html', 'no-autoplay.html']) {
 }
 
 const central = await source('background', 'central.js');
+const centralPolicy = await source('background', 'central-policy.js');
 const config = await source('core', 'config.js');
 const messageSource = await source('background', 'message-source.js');
 const platform = await source('background', 'platform.js');
@@ -320,6 +321,9 @@ assert.match(central, /PROVINCE_PRODUCTS[\s\S]*standing:[\s\S]*operations:[\s\S]
 assert.match(central, /createStandingProvince[\s\S]*createOperationsProvince[\s\S]*createCustomsProvince/);
 assert.match(central, /provinceForProduct/);
 assert.match(central, /productForMessage/);
+assert.match(central, /centralPageDirectives/);
+assert.match(centralPolicy, /managedSites\?\.zhihu === true[\s\S]*hostname\.endsWith\('\.zhihu\.com'\)/,
+  'Central must own the Ad Marshal to Any Copy Zhihu coordination decision.');
 assert.match(central, /UI_SET_CLAUDE_BROWSER_IDENTITY'\) return FEATURE_IDS\.CHINESE_RESPONSE_CLAUDE/);
 assert.match(central, /createCustomsResponseIngress\(details => dispatchEvent\('headersReceived', details\)\)/);
 assert.match(central, /validateMessageSource\(message, sender/);
@@ -388,6 +392,10 @@ assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
 assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
 assert.match(mailtoCaptureRuntime, /onPointerDown[\s\S]*path\.includes\(this\.host\)[\s\S]*this\.close\(\)/);
 assert.match(mailtoCaptureRuntime, /event\.key === 'Escape'[\s\S]*this\.close\(true\)/);
+assert.match(anyCopy, /UI_TOGGLE_COORDINATED_TAB_FEATURE[\s\S]*COORDINATED_PAUSE_PREFIX/,
+  'Any Copy must keep coordinated pauses tab-scoped and separate from hostname rules.');
+assert.doesNotMatch(anyCopy, /ad-marshal|managedSites/,
+  'Any Copy must consume Central directives without reading or controlling Ad Marshal.');
 assert.match(mailtoCaptureRuntime, /simpleAddressOnly[\s\S]*labels\.copyAddress[\s\S]*labels\.copyMessage/);
 assert.match(mailtoCaptureRuntime, /user-select:text/);
 assert.match(mailtoCaptureRuntime, /\.status:empty\{display:none\}/);

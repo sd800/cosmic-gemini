@@ -9,6 +9,7 @@ import { createChineseResponseClaudeProduct } from '../extension/background/prod
 import { createOperationsProvince } from '../extension/background/provinces/operations.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 import { createAdministrationProduct } from '../extension/background/products/operations/administration.js';
+import { centralPageDirectives } from '../extension/background/central-policy.js';
 
 test('popup cache receives saved preferences separately from effective state', async () => {
   const base = 'chrome-extension://cosmic-gemini/';
@@ -330,6 +331,79 @@ test('Any Copy settings remove the submitted rule instead of an empty hostname',
   const product = createAnyCopyProduct({ sync: async () => true }, platform);
   await product.handleMessage({ type: 'UI_DELETE_RULE', listName: 'siteRules', rule: 'copy.example' });
   assert.deepEqual(settings.anyCopy.siteRules, ['keep.example']);
+});
+
+test('Central persistently authorizes Any Copy across the Zhihu domain family only when Ad Marshal manages it', () => {
+  const enabled = normalizeSettings({ adMarshal: { managedSites: { zhihu: true } } });
+  for (const url of ['https://zhihu.com/', 'https://www.zhihu.com/', 'https://zhuanlan.zhihu.com/p/example']) {
+    assert.deepEqual(centralPageDirectives(enabled, url).anyCopy, {
+      persistent: true,
+      source: 'adMarshalZhihu'
+    });
+  }
+  assert.equal(centralPageDirectives(enabled, 'https://notzhihu.com/').anyCopy.persistent, false);
+  assert.equal(centralPageDirectives(normalizeSettings(), 'https://www.zhihu.com/').anyCopy.persistent, false);
+});
+
+test('coordinated Zhihu Any Copy can be paused only for the current tab', async () => {
+  const session = {};
+  const tabs = new Map([
+    [51, { id: 51, url: 'https://www.zhihu.com/question/1' }],
+    [52, { id: 52, url: 'https://zhuanlan.zhihu.com/p/2' }]
+  ]);
+  globalThis.chrome = {
+    storage: { session: {
+      async get(key) {
+        if (key === null) return { ...session };
+        return key in session ? { [key]: session[key] } : {};
+      },
+      async set(values) { Object.assign(session, values); },
+      async remove(keys) { for (const key of Array.isArray(keys) ? keys : [keys]) delete session[key]; }
+    } },
+    tabs: {
+      async get(tabId) { return tabs.get(tabId); },
+      async query() { return [...tabs.values()]; }
+    }
+  };
+  const settings = normalizeSettings({ adMarshal: { managedSites: { zhihu: true } } });
+  const directivesFor = url => centralPageDirectives(settings, url);
+  let refreshes = 0;
+  const product = createAnyCopyProduct({ async sync() {} }, {
+    async readSettings() { return settings; },
+    async setFeatureActivity() {},
+    async refreshTabPage() { refreshes += 1; }
+  });
+
+  assert.equal((await product.state(settings, tabs.get(51).url, 51, directivesFor(tabs.get(51).url))).active, true);
+  assert.equal((await product.state(settings, tabs.get(52).url, 52, directivesFor(tabs.get(52).url))).active, true);
+  const context = { async resolvePageDirectives(url) { return directivesFor(url); } };
+  const paused = await product.handleMessage({
+    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE',
+    tabId: 51,
+    expectedHostname: 'www.zhihu.com'
+  }, context);
+  assert.equal(paused.active, false);
+  assert.equal(paused.coordinated, true);
+  assert.equal(paused.tabPaused, true);
+  assert.equal((await product.state(settings, tabs.get(52).url, 52, directivesFor(tabs.get(52).url))).active, true);
+  assert.deepEqual(settings.anyCopy.siteRules, []);
+
+  const resumed = await product.handleMessage({
+    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE',
+    tabId: 51,
+    expectedHostname: 'www.zhihu.com'
+  }, context);
+  assert.equal(resumed.active, true);
+  assert.equal(resumed.tabPaused, false);
+  await product.handleMessage({
+    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE',
+    tabId: 51,
+    expectedHostname: 'www.zhihu.com'
+  }, context);
+  assert.equal(await product.isCoordinatedPaused(51), true);
+  await product.removeTab(51);
+  assert.equal(await product.isCoordinatedPaused(51), false);
+  assert.equal(refreshes, 3);
 });
 
 test('turning Any Copy Enhanced off succeeds even if activity bookkeeping fails', async () => {

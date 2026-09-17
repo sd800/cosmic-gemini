@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.10.11 — 2026-09-17
+
+- When Zhihu is selected in Ad Marshal, Central now keeps Any Copy active across `zhihu.com` and all of its subdomains. The popup control can pause or resume Any Copy only for the current tab without changing the persistent managed-site selection or other Zhihu tabs.
+
 ## 8.10.10 — 2026-09-17
 
 - Fixed Website Knowledge Control failing to initialize on HTTP pages where `crypto.randomUUID()` is unavailable. Its page bridge now uses the same secure random-byte fallback as the other page runtimes.

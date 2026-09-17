@@ -1,6 +1,7 @@
 import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
 import { BILI_DAILY_ALARM } from '../core/bili-daily-login.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
+import { centralPageDirectives } from './central-policy.js';
 import { validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';
 import { createCustomsProvince } from './provinces/customs.js';
@@ -92,9 +93,11 @@ function productForMessage(message) {
 
 async function collectPageState(url, tabId, options = {}) {
   const settings = await platform.readSettings();
+  const directives = centralPageDirectives(settings, url);
   const results = await Promise.allSettled(STATE_PRODUCTS.map(productId =>
     provinceForProduct(productId).getProductState(productId, {
       settings,
+      directives,
       url,
       tabId,
       prepareWorkspace: options.prepareWorkspace === true
@@ -124,9 +127,11 @@ async function syncPageProducts(sender, message) {
     throw new Error('The central page controller is unavailable.');
   }
   const settings = await platform.readSettings();
+  const directives = centralPageDirectives(settings, topUrl);
   const results = await Promise.allSettled(PAGE_PRODUCTS.map(productId =>
     provinceForProduct(productId).syncProduct(productId, {
       settings,
+      directives,
       tabId,
       frameId,
       documentId,
@@ -149,8 +154,11 @@ async function collectProductPageState(sender, message) {
   const url = sender.tab?.url || message.url || sender.url || '';
   const tabId = sender.tab?.id;
   const settings = await platform.readSettings();
+  const directives = centralPageDirectives(settings, url);
   return {
-    [productId]: await provinceForProduct(productId).getProductState(productId, { settings, url, tabId, frameUrl: sender.url, frameId: sender.frameId })
+    [productId]: await provinceForProduct(productId).getProductState(productId, {
+      settings, directives, url, tabId, frameUrl: sender.url, frameId: sender.frameId
+    })
   };
 }
 
@@ -159,7 +167,14 @@ async function resetProvinces() {
 }
 
 function messageContext(sender) {
-  return Object.freeze({ sender, collectPageState, resetProvinces });
+  return Object.freeze({
+    sender,
+    collectPageState,
+    resetProvinces,
+    async resolvePageDirectives(url) {
+      return centralPageDirectives(await platform.readSettings(), url);
+    }
+  });
 }
 
 async function dispatchMessage(message, sender) {

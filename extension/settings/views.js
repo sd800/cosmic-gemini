@@ -97,7 +97,7 @@ const help = (keys, privacyKey, list = false) => `
   <hr><h2 data-i18n="privacyHeading"></h2><p data-i18n="${privacyKey}"></p>`;
 
 const knowledgeLocaleOptions = `
-  <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="zh-MO">繁體中文（中國澳門）</option><option value="zh-TW">繁體中文（中華台北）</option><option value="zh-MY">简体中文（马来西亚）</option><option value="zh-SG">简体中文（新加坡）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option>`;
+  <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-Hans">简体中文（无地区）</option><option value="zh-Hant">繁體中文（無地區）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="zh-MO">繁體中文（中國澳門）</option><option value="zh-TW">繁體中文（中華台北）</option><option value="zh-MY">简体中文（马来西亚）</option><option value="zh-SG">简体中文（新加坡）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option>`;
 
 export const PRODUCT_META = Object.freeze({
   nativeScroll: { name: 'Native Scroll', path: 'native-scroll.html' },
@@ -172,6 +172,13 @@ export function viewFor(featureId) {
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteKnowledgePrivacy"></p></div>
+      </section>
+      <section class="card satellite-card">
+        <div class="section-heading">
+          <div><h1 data-i18n="clipboardProtectName"></h1><p data-i18n="clipboardProtectDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="clipboardProtectEnabled" type="checkbox"><span></span><b class="sr-only">Clipboard Protect</b></label></div>
+        </div>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="clipboardProtectPrivacy"></p></div>
       </section>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">

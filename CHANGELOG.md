@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.5 — 2026-09-17
+
+- Added region-neutral Simplified Chinese (`zh-Hans`) and Traditional Chinese (`zh-Hant`) choices to Website Knowledge Control immediately after Simplified Chinese (China). Each selection applies to request language, browser language signals, and default regional formatting.
+
+## 8.11.3 — 2026-09-17
+
+- Fixed Clipboard Protect appearing in Satellites only after a page refresh. Refreshed Settings pages and in-page navigation now render the same controls, and automated coverage prevents their complete page content and navigation structure from drifting apart again.
+
 ## 8.11.2 — 2026-09-17
 
 - Clipboard Protect now automatically yields whenever Any Copy is active on the current page. Central stops the outgoing copy guard before starting the incoming one, and Clipboard Protect resumes when Any Copy is no longer active there.

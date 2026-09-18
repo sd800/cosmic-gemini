@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.2');
+assert.equal(manifest.version, '8.11.5');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -228,7 +228,7 @@ assert.match(settingsSource, /primaryZones[\s\S]*Pacific\/Honolulu[\s\S]*seconda
   'Website Knowledge Control must preserve the three requested pinned time-zone groups.');
 assert.match(settingsSource, /\}\), \[knowledgeEnabled\]\)\);[\s\S]*value \? \[control, value\] : \[control\]/,
   'Website Knowledge Control saves must mark only the changed controls as pending.');
-assert.match(satellitesSettings, /id="websiteKnowledgeLanguagesValue"[\s\S]*value="zh-HK">繁體中文（中國香港）<\/option>[\s\S]*value="zh-MO">繁體中文（中國澳門）<\/option>[\s\S]*value="zh-TW">繁體中文（中華台北）<\/option>[\s\S]*value="zh-MY">简体中文（马来西亚）<\/option>[\s\S]*value="zh-SG">简体中文（新加坡）<\/option>/,
+assert.match(satellitesSettings, /id="websiteKnowledgeLanguagesValue"[\s\S]*value="zh-CN">简体中文（中国）<\/option>[\s\S]*value="zh-Hans">简体中文（无地区）<\/option>[\s\S]*value="zh-Hant">繁體中文（無地區）<\/option>[\s\S]*value="zh-HK">繁體中文（中國香港）<\/option>[\s\S]*value="zh-MO">繁體中文（中國澳門）<\/option>[\s\S]*value="zh-TW">繁體中文（中華台北）<\/option>[\s\S]*value="zh-MY">简体中文（马来西亚）<\/option>[\s\S]*value="zh-SG">简体中文（新加坡）<\/option>/,
   'The combined language and regional-format menu must preserve the requested Chinese locale order.');
 assert.doesNotMatch(satellitesSettings, /websiteKnowledgeLocale/,
   'Website Knowledge Control must not retain a separate Intl locale control.');

@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md)
 
+## 8.11.5 — 2026-09-17
+
+- 在 Website Knowledge Control 的简体中文（中国）之后新增简体中文（无地区）`zh-Hans` 与繁體中文（無地區）`zh-Hant`。所选语言会同时用于请求语言、浏览器语言信息及默认地区格式。
+
+## 8.11.3 — 2026-09-17
+
+- 修复 Clipboard Protect 只有刷新 Satellites 后才会显示的问题。刷新载入与设置页内部导航现在会呈现相同的控件，并新增自动化检查，防止两种载入路径的完整页面内容和导航结构再次发生偏差。
+
 ## 8.11.2 — 2026-09-17
 
 - Any Copy 在当前网页生效时，Clipboard Protect 现在会自动让路。Central 会先停用原有的复制保护，再启动接管的一方；当 Any Copy 不再在该网页生效时，Clipboard Protect 会自动恢复。

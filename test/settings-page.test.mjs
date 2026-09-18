@@ -3,6 +3,57 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createSettingsState } from '../extension/settings/state.js';
+import { PRODUCT_META, featureFromPath, viewFor } from '../extension/settings/views.js';
+
+function settingsRegion(html, pattern, label) {
+  const match = html.match(pattern);
+  assert.ok(match, `Missing ${label}`);
+  return match[1];
+}
+
+function normalizeSettingsMarkup(markup) {
+  return markup
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/>\s+</g, '><')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+test('static Settings documents and in-page navigation views stay identical', () => {
+  const expectedNavigation = Object.entries(PRODUCT_META).map(([featureId, meta]) => [featureId, meta.path]);
+  for (const [featureId, meta] of Object.entries(PRODUCT_META)) {
+    const html = readFileSync(new URL(`../extension/settings/${meta.path}`, import.meta.url), 'utf8');
+    const staticPrimary = settingsRegion(
+      html,
+      /<div class="primary">([\s\S]*?)<\/div>\s*<div class="sidebar">/,
+      `${meta.path} primary view`
+    );
+    const staticHelp = settingsRegion(
+      html,
+      /<aside class="help card">([\s\S]*?)<\/aside>/,
+      `${meta.path} help view`
+    );
+    const dynamicView = viewFor(featureId);
+    assert.equal(
+      normalizeSettingsMarkup(staticPrimary),
+      normalizeSettingsMarkup(dynamicView.primary),
+      `${meta.path} must match its in-page navigation primary view`
+    );
+    assert.equal(
+      normalizeSettingsMarkup(staticHelp),
+      normalizeSettingsMarkup(dynamicView.help),
+      `${meta.path} must match its in-page navigation help view`
+    );
+
+    const navigation = [...html.matchAll(/<a class="feature-link(?: active)?" href="([^"]+)" data-feature-link="([^"]+)"/g)]
+      .map(match => [match[2], match[1]]);
+    assert.deepEqual(navigation, expectedNavigation, `${meta.path} must expose every Settings destination in order`);
+    const activeLinks = [...html.matchAll(/<a class="feature-link active"[^>]+data-feature-link="([^"]+)"/g)]
+      .map(match => match[1]);
+    assert.deepEqual(activeLinks, [featureId], `${meta.path} must identify only its own navigation destination as active`);
+    assert.equal(featureFromPath(`/settings/${meta.path}`), featureId);
+  }
+});
 
 function deferred() {
   let resolve, reject;

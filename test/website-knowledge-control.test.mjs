@@ -52,6 +52,8 @@ test('Website Knowledge Control validates independent preferences and starts dis
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.websiteKnowledgeControl.enabled, false);
   assert.equal(settings.websiteKnowledgeControl.globalPrivacyControl.enabled, true);
   assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-cn'), 'zh-CN');
+  assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-hans'), 'zh-Hans');
+  assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-hant'), 'zh-Hant');
   assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-mo'), 'zh-MO');
   assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-tw'), 'zh-TW');
   assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-my'), 'zh-MY');
@@ -65,6 +67,39 @@ test('Website Knowledge Control validates independent preferences and starts dis
   assert.equal(malformed.websiteKnowledgeControl.languages.value, 'en-US');
   assert.equal('locale' in malformed.websiteKnowledgeControl, false, 'the retired independent locale setting is ignored');
   assert.equal(malformed.websiteKnowledgeControl.timeZone.value, 'America/New_York');
+});
+
+test('Website Knowledge Control applies region-neutral Chinese language and locale identities', () => {
+  for (const language of ['zh-Hans', 'zh-Hant']) {
+    const f = runtimeFixture();
+    f.configure({ languages: { enabled: true, value: language }, timeZone: { enabled: false } });
+    assert.equal(f.run('navigator.language'), language);
+    assert.equal(f.run('[...navigator.languages].join(",")'), language);
+    assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), language);
+  }
+});
+
+test('Website Knowledge Control sends region-neutral Chinese Accept-Language values unchanged', async () => {
+  for (const language of ['zh-Hans', 'zh-Hant']) {
+    const updates = [];
+    globalThis.chrome = {
+      tabs: { async query() { return [{ id: 8, url: 'https://example.com', incognito: false }]; } },
+      declarativeNetRequest: { async updateSessionRules(update) { updates.push(update); } }
+    };
+    const settings = normalizeSettings({ websiteKnowledgeControl: {
+      enabled: true,
+      languages: { enabled: true, value: language },
+      timeZone: { enabled: false },
+      globalPrivacyControl: { enabled: false }
+    } });
+    const product = createWebsiteKnowledgeControlProduct({ sync: async () => true }, {
+      isIncognitoContext: () => false,
+      readSettings: async () => settings
+    });
+    await product.initialize();
+    const requestHeaders = updates.at(-1).addRules[0].action.requestHeaders;
+    assert.equal(requestHeaders.find(header => header.header === 'Accept-Language').value, language);
+  }
 });
 
 test('Website Knowledge Control freezes the initial document policy until the next page load', () => {

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.7 — 2026-09-18
+
+- Added a press-and-hold action to the XHS Image Dark Mode image control. A long press applies the current light-or-dark change to every image in the open post, including images loaded later; a second long press restores each image’s own automatic result. Short presses continue to affect only the current image.
+
 ## 8.11.6 — 2026-09-18
 
 - Fixed Xiaohongshu viewer notices and overlays being mistaken for post images, which could stack light and dark controls in the same position and make the visible control appear ineffective. Image controls now attach only to actual slide media, and each viewer displays at most one control.

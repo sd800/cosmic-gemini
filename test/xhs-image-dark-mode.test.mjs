@@ -326,6 +326,79 @@ test('each transformed image can switch independently between dark and light', a
   assert.equal(classes.has('cg-xhs-image-dark-mode'), false);
 });
 
+test('a post-wide long press toggles every image and then restores automatic results', async () => {
+  const runtime = await runtimeFixture();
+  const viewer = {};
+  const otherViewer = {};
+  const makeRecord = (viewerOwner, kind, darkened) => ({
+    image: { viewerOwner },
+    button: null,
+    result: { kind },
+    darkened
+  });
+  const light = makeRecord(viewer, 'light-theme', true);
+  const gray = makeRecord(viewer, 'gray-theme', true);
+  const photo = makeRecord(viewer, 'photo', false);
+  const unrelated = makeRecord(otherViewer, 'light-theme', true);
+  for (const record of [light, gray, photo, unrelated]) runtime.records.set(record.image, record);
+  runtime.viewerForImage = image => image.viewerOwner;
+  runtime.viewerPostKey = image => image.viewerOwner === viewer ? 'post-1' : 'post-2';
+  runtime.updateRecordVisual = () => {};
+  runtime.syncInterventionStatus = () => {};
+
+  runtime.toggleViewerImages(light);
+  assert.deepEqual([light.darkened, gray.darkened, photo.darkened], [false, false, false]);
+  assert.equal(unrelated.darkened, true);
+  const lateImage = makeRecord(viewer, 'light-theme', true);
+  lateImage.image.isConnected = true;
+  runtime.records.set(lateImage.image, lateImage);
+  runtime.processing = true;
+  runtime.clearVisual = () => {};
+  runtime.createControl = () => {};
+  runtime.scheduleControlPositions = () => {};
+  runtime.applyResult(lateImage);
+  assert.equal(lateImage.darkened, false);
+
+  runtime.toggleViewerImages(light);
+  assert.deepEqual([light.darkened, gray.darkened, photo.darkened, lateImage.darkened], [true, true, false, true]);
+  assert.equal(runtime.viewerOverride(light), null);
+});
+
+test('holding the image control suppresses its following short-click action', async () => {
+  let scheduled = null;
+  const runtime = await runtimeFixture({}, {
+    setTimeout(callback, delay) { scheduled = { callback, delay }; return 1; },
+    clearTimeout() { scheduled = null; }
+  });
+  const button = new SimpleEventTarget();
+  const record = { darkened: true };
+  let held = 0;
+  let clicked = 0;
+  runtime.toggleViewerImages = () => { held += 1; };
+  runtime.updateRecordVisual = () => { clicked += 1; };
+  runtime.bindControlGestures(button, record);
+  const event = type => ({
+    type,
+    isPrimary: true,
+    button: 0,
+    clientX: 10,
+    clientY: 10,
+    preventDefault() {},
+    stopPropagation() {}
+  });
+  button.dispatchEvent(event('pointerdown'));
+  assert.equal(scheduled.delay, 550);
+  scheduled.callback();
+  button.dispatchEvent(event('pointerup'));
+  button.dispatchEvent(event('click'));
+  assert.equal(held, 1);
+  assert.equal(clicked, 0);
+  assert.equal(record.darkened, true);
+  button.dispatchEvent(event('click'));
+  assert.equal(clicked, 1);
+  assert.equal(record.darkened, false);
+});
+
 test('per-image controls are created only for images in an expanded post viewer', async () => {
   const runtime = await runtimeFixture();
   runtime.processing = true;
@@ -988,6 +1061,11 @@ test('runtime intervention status follows transformed images rather than eligibi
   runtime.updateRecordVisual(record);
   assert.equal(runtime.intervened, false);
   assert.equal(reports.at(-1).intervened, false);
+  record.result = { kind: 'photo' };
+  record.darkened = true;
+  runtime.updateRecordVisual(record);
+  assert.equal(runtime.intervened, true);
+  assert.equal(reports.at(-1).intervened, true);
 });
 
 test('Dark Reader lifecycle markers are authoritative without depending on rendered colors', async () => {

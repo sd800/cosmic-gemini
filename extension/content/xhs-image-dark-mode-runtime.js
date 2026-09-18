@@ -11,9 +11,23 @@
   const CONTROL_SIZE = 27;
   const FRACTION_SLOT_WIDTH = 64;
   const CONTROL_GAP = 8;
+  const LONG_PRESS_MS = 550;
+  const LONG_PRESS_MOVE_TOLERANCE = 8;
   const COPY = Object.freeze({
-    'en-US': Object.freeze({ showLight: 'Show light image', showDark: 'Show dark image' }),
-    'zh-CN': Object.freeze({ showLight: '显示浅色图片', showDark: '显示深色图片' })
+    'en-US': Object.freeze({
+      showLight: 'Show light image',
+      showDark: 'Show dark image',
+      holdAll: 'Press and hold to apply this change to every image in the post',
+      holdRestore: 'Press and hold to restore automatic results for every image in the post',
+      separator: '. '
+    }),
+    'zh-CN': Object.freeze({
+      showLight: '显示浅色图片',
+      showDark: '显示深色图片',
+      holdAll: '长按可将本次切换应用到整篇笔记的所有图片',
+      holdRestore: '长按可恢复整篇笔记中每张图片的自动识别结果',
+      separator: '。'
+    })
   });
   const LIGHT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   const DARK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/></svg>';
@@ -94,6 +108,7 @@
       this.records = new Map();
       this.intervenedRecords = new Set();
       this.controlRecords = new Set();
+      this.viewerOverrides = new WeakMap();
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
@@ -482,6 +497,7 @@
       this.intervenedRecords.clear();
       this.syncInterventionStatus();
       this.controlRecords.clear();
+      this.viewerOverrides = new WeakMap();
       this.controlHost?.remove();
       this.controlHost = null;
       this.controlLayer = null;
@@ -1325,7 +1341,8 @@
       if (!this.processing || !record.image.isConnected || !record.result) return;
       this.intersectionObserver?.unobserve?.(record.image);
       this.clearVisual(record, false);
-      record.darkened = record.result.kind === 'light-theme' || record.result.kind === 'gray-theme';
+      const override = this.viewerOverride(record);
+      record.darkened = override?.darkened ?? this.automaticDarkened(record);
       const viewer = this.viewerForImage(record.image);
       if (viewer) this.createControl(record);
       this.updateRecordVisual(record, false);
@@ -1344,12 +1361,7 @@
       // Keep newly discovered controls out of the hit-testing layer until their
       // owning slide has been selected and positioned on the next frame.
       button.style.display = 'none';
-      button.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        record.darkened = !record.darkened;
-        this.updateRecordVisual(record);
-      });
+      this.bindControlGestures(button, record);
       this.controlLayer.append(button);
       record.button = button;
       this.controlRecords.add(record);
@@ -1358,6 +1370,85 @@
         this.startControlPositionTracking();
       }
       this.updateControl(record);
+    }
+
+    automaticDarkened(record) {
+      return record?.result?.kind === 'light-theme' || record?.result?.kind === 'gray-theme';
+    }
+
+    viewerPostKey(image) {
+      const noteKey = this.noteCacheKey(image);
+      const match = /^note:([^:]+):/.exec(noteKey);
+      return match?.[1] || this.noteId(location.href) || this.openingPostId || '';
+    }
+
+    viewerOverride(record) {
+      const viewer = this.viewerForImage(record?.image);
+      if (!viewer) return null;
+      const override = this.viewerOverrides.get(viewer);
+      if (!override) return null;
+      if (override.postKey === this.viewerPostKey(record.image)) return override;
+      this.viewerOverrides.delete(viewer);
+      return null;
+    }
+
+    toggleViewerImages(record) {
+      const viewer = this.viewerForImage(record?.image);
+      if (!viewer || !record?.result) return;
+      const postKey = this.viewerPostKey(record.image);
+      const existing = this.viewerOverride(record);
+      if (existing) this.viewerOverrides.delete(viewer);
+      else this.viewerOverrides.set(viewer, { postKey, darkened: !record.darkened });
+      const override = this.viewerOverrides.get(viewer) || null;
+      for (const related of this.records.values()) {
+        if (!related.result || this.viewerForImage(related.image) !== viewer
+          || this.viewerPostKey(related.image) !== postKey) continue;
+        related.darkened = override?.darkened ?? this.automaticDarkened(related);
+        this.updateRecordVisual(related, false);
+      }
+      this.syncInterventionStatus();
+    }
+
+    bindControlGestures(button, record) {
+      let timer = 0;
+      let startX = 0;
+      let startY = 0;
+      let suppressClickUntil = 0;
+      const cancel = () => {
+        if (timer) clearTimeout(timer);
+        timer = 0;
+      };
+      button.addEventListener('pointerdown', event => {
+        if (event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
+        cancel();
+        startX = Number(event.clientX) || 0;
+        startY = Number(event.clientY) || 0;
+        try { button.setPointerCapture?.(event.pointerId); } catch {}
+        timer = setTimeout(() => {
+          timer = 0;
+          suppressClickUntil = Date.now() + 1_000;
+          this.toggleViewerImages(record);
+        }, LONG_PRESS_MS);
+      });
+      button.addEventListener('pointermove', event => {
+        if (!timer) return;
+        const distance = Math.hypot((Number(event.clientX) || 0) - startX, (Number(event.clientY) || 0) - startY);
+        if (distance > LONG_PRESS_MOVE_TOLERANCE) cancel();
+      });
+      button.addEventListener('pointerup', cancel);
+      button.addEventListener('pointercancel', cancel);
+      button.addEventListener('lostpointercapture', cancel);
+      button.addEventListener('contextmenu', event => event.preventDefault());
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (Date.now() < suppressClickUntil) {
+          suppressClickUntil = 0;
+          return;
+        }
+        record.darkened = !record.darkened;
+        this.updateRecordVisual(record);
+      });
     }
 
     startControlPositionTracking() {
@@ -1395,8 +1486,7 @@
       target?.classList?.toggle('cg-xhs-image-dark-mode', record.darkened && !grayTheme);
       target?.classList?.toggle('cg-xhs-image-dark-mode-gray', record.darkened && grayTheme);
       record.visualTarget = target;
-      const transformed = record.darkened
-        && (record.result?.kind === 'light-theme' || record.result?.kind === 'gray-theme');
+      const transformed = record.darkened && !!record.result;
       if (transformed) this.intervenedRecords.add(record);
       else this.intervenedRecords.delete(record);
       this.updateControl(record);
@@ -1409,9 +1499,10 @@
       record.button.style.opacity = String(this.controlOpacity);
       const copy = COPY[this.locale];
       const label = record.darkened ? copy.showLight : copy.showDark;
+      const fullLabel = `${label}${copy.separator}${this.viewerOverride(record) ? copy.holdRestore : copy.holdAll}`;
       record.button.innerHTML = record.darkened ? LIGHT_ICON : DARK_ICON;
-      record.button.title = label;
-      record.button.setAttribute('aria-label', label);
+      record.button.title = fullLabel;
+      record.button.setAttribute('aria-label', fullLabel);
     }
 
     updateControls() {

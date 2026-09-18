@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.8 — 2026-09-18
+
+- Changed the XHS Image Dark Mode press-and-hold action to turn image adaptation off for the open post. Every image returns to its original display, later images remain untouched, and the image control changes to an off-switch symbol. Pressing and holding again restores automatic handling for that post; short presses remain unavailable while it is paused.
+
 ## 8.11.7 — 2026-09-18
 
 - Added a press-and-hold action to the XHS Image Dark Mode image control. A long press applies the current light-or-dark change to every image in the open post, including images loaded later; a second long press restores each image’s own automatic result. Short presses continue to affect only the current image.

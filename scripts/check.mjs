@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.7');
+assert.equal(manifest.version, '8.11.8');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -459,8 +459,10 @@ assert.match(xhsImageDarkModeRuntime, /viewerImageContext\(image\)[\s\S]*image\.
   'Viewer overlays must not be analyzed as post media.');
 assert.match(xhsImageDarkModeRuntime, /const positionedViewers = new Set\(\)[\s\S]*!positionedViewers\.has\(viewer\)[\s\S]*positionedViewers\.add\(viewer\)/,
   'A viewer must never display overlapping image controls.');
-assert.match(xhsImageDarkModeRuntime, /LONG_PRESS_MS = 550[\s\S]*bindControlGestures[\s\S]*toggleViewerImages[\s\S]*viewerOverrides[\s\S]*automaticDarkened/,
-  'Long-press image controls must apply a reversible post-wide display override.');
+assert.match(xhsImageDarkModeRuntime, /POST_DISABLED_ICON[\s\S]*LONG_PRESS_MS = 550|LONG_PRESS_MS = 550[\s\S]*POST_DISABLED_ICON/,
+  'A disabled post must replace the image theme symbol with a switch control.');
+assert.match(xhsImageDarkModeRuntime, /bindControlGestures[\s\S]*toggleViewerDisabled[\s\S]*disabledViewers[\s\S]*automaticDarkened/,
+  'Long-press image controls must reversibly disable image adaptation for one post.');
 assert.match(xhsImageDarkModeRuntime, /result\.kind === 'photo'[\s\S]*retireRecord\(record\)[\s\S]*intersectionObserver\?\.unobserve/,
   'Completed feed photographs must release their record and intersection observation.');
 assert.match(xhsImageDarkModeRuntime, /requestIdleCallback\(run, \{ timeout: 600 \}\)[\s\S]*schedulePump\(\(this\.queue\[0\]\?\.priority \?\? 0\) < 0\)/,

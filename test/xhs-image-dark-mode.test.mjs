@@ -326,7 +326,7 @@ test('each transformed image can switch independently between dark and light', a
   assert.equal(classes.has('cg-xhs-image-dark-mode'), false);
 });
 
-test('a post-wide long press toggles every image and then restores automatic results', async () => {
+test('a post-wide long press disables adaptation and then restores automatic results', async () => {
   const runtime = await runtimeFixture();
   const viewer = {};
   const otherViewer = {};
@@ -346,7 +346,7 @@ test('a post-wide long press toggles every image and then restores automatic res
   runtime.updateRecordVisual = () => {};
   runtime.syncInterventionStatus = () => {};
 
-  runtime.toggleViewerImages(light);
+  runtime.toggleViewerDisabled(light);
   assert.deepEqual([light.darkened, gray.darkened, photo.darkened], [false, false, false]);
   assert.equal(unrelated.darkened, true);
   const lateImage = makeRecord(viewer, 'light-theme', true);
@@ -359,9 +359,9 @@ test('a post-wide long press toggles every image and then restores automatic res
   runtime.applyResult(lateImage);
   assert.equal(lateImage.darkened, false);
 
-  runtime.toggleViewerImages(light);
+  runtime.toggleViewerDisabled(light);
   assert.deepEqual([light.darkened, gray.darkened, photo.darkened, lateImage.darkened], [true, true, false, true]);
-  assert.equal(runtime.viewerOverride(light), null);
+  assert.equal(runtime.viewerDisabledState(light), null);
 });
 
 test('holding the image control suppresses its following short-click action', async () => {
@@ -374,7 +374,8 @@ test('holding the image control suppresses its following short-click action', as
   const record = { darkened: true };
   let held = 0;
   let clicked = 0;
-  runtime.toggleViewerImages = () => { held += 1; };
+  runtime.toggleViewerDisabled = () => { held += 1; };
+  runtime.viewerDisabledState = () => null;
   runtime.updateRecordVisual = () => { clicked += 1; };
   runtime.bindControlGestures(button, record);
   const event = type => ({
@@ -397,6 +398,23 @@ test('holding the image control suppresses its following short-click action', as
   button.dispatchEvent(event('click'));
   assert.equal(clicked, 1);
   assert.equal(record.darkened, false);
+});
+
+test('short clicks stay inactive while XHS Image Dark Mode is disabled for the post', async () => {
+  const runtime = await runtimeFixture();
+  const button = new SimpleEventTarget();
+  const record = { darkened: false };
+  let updated = 0;
+  runtime.viewerDisabledState = () => ({ postKey: 'post-1' });
+  runtime.updateRecordVisual = () => { updated += 1; };
+  runtime.bindControlGestures(button, record);
+  button.dispatchEvent({
+    type: 'click',
+    preventDefault() {},
+    stopPropagation() {}
+  });
+  assert.equal(record.darkened, false);
+  assert.equal(updated, 0);
 });
 
 test('per-image controls are created only for images in an expanded post viewer', async () => {

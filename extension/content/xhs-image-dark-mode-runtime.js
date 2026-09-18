@@ -17,20 +17,23 @@
     'en-US': Object.freeze({
       showLight: 'Show light image',
       showDark: 'Show dark image',
-      holdAll: 'Press and hold to apply this change to every image in the post',
-      holdRestore: 'Press and hold to restore automatic results for every image in the post',
+      postDisabled: 'XHS Image Dark Mode is off for this post',
+      holdDisable: 'Press and hold to turn off XHS Image Dark Mode for this post',
+      holdRestore: 'Press and hold to restore XHS Image Dark Mode for this post',
       separator: '. '
     }),
     'zh-CN': Object.freeze({
       showLight: '显示浅色图片',
       showDark: '显示深色图片',
-      holdAll: '长按可将本次切换应用到整篇笔记的所有图片',
-      holdRestore: '长按可恢复整篇笔记中每张图片的自动识别结果',
+      postDisabled: 'XHS Image Dark Mode 已暂停处理这篇笔记',
+      holdDisable: '长按可暂停 XHS Image Dark Mode 对这篇笔记的处理',
+      holdRestore: '长按可恢复 XHS Image Dark Mode 对这篇笔记的处理',
       separator: '。'
     })
   });
   const LIGHT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   const DARK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/></svg>';
+  const POST_DISABLED_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="8" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>';
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -108,7 +111,7 @@
       this.records = new Map();
       this.intervenedRecords = new Set();
       this.controlRecords = new Set();
-      this.viewerOverrides = new WeakMap();
+      this.disabledViewers = new WeakMap();
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
@@ -497,7 +500,7 @@
       this.intervenedRecords.clear();
       this.syncInterventionStatus();
       this.controlRecords.clear();
-      this.viewerOverrides = new WeakMap();
+      this.disabledViewers = new WeakMap();
       this.controlHost?.remove();
       this.controlHost = null;
       this.controlLayer = null;
@@ -1341,8 +1344,7 @@
       if (!this.processing || !record.image.isConnected || !record.result) return;
       this.intersectionObserver?.unobserve?.(record.image);
       this.clearVisual(record, false);
-      const override = this.viewerOverride(record);
-      record.darkened = override?.darkened ?? this.automaticDarkened(record);
+      record.darkened = this.viewerDisabledState(record) ? false : this.automaticDarkened(record);
       const viewer = this.viewerForImage(record.image);
       if (viewer) this.createControl(record);
       this.updateRecordVisual(record, false);
@@ -1382,28 +1384,28 @@
       return match?.[1] || this.noteId(location.href) || this.openingPostId || '';
     }
 
-    viewerOverride(record) {
+    viewerDisabledState(record) {
       const viewer = this.viewerForImage(record?.image);
       if (!viewer) return null;
-      const override = this.viewerOverrides.get(viewer);
-      if (!override) return null;
-      if (override.postKey === this.viewerPostKey(record.image)) return override;
-      this.viewerOverrides.delete(viewer);
+      const state = this.disabledViewers.get(viewer);
+      if (!state) return null;
+      if (state.postKey === this.viewerPostKey(record.image)) return state;
+      this.disabledViewers.delete(viewer);
       return null;
     }
 
-    toggleViewerImages(record) {
+    toggleViewerDisabled(record) {
       const viewer = this.viewerForImage(record?.image);
       if (!viewer || !record?.result) return;
       const postKey = this.viewerPostKey(record.image);
-      const existing = this.viewerOverride(record);
-      if (existing) this.viewerOverrides.delete(viewer);
-      else this.viewerOverrides.set(viewer, { postKey, darkened: !record.darkened });
-      const override = this.viewerOverrides.get(viewer) || null;
+      const disabled = !!this.viewerDisabledState(record);
+      if (disabled) this.disabledViewers.delete(viewer);
+      else this.disabledViewers.set(viewer, { postKey });
+      const nextDisabled = !disabled;
       for (const related of this.records.values()) {
         if (!related.result || this.viewerForImage(related.image) !== viewer
           || this.viewerPostKey(related.image) !== postKey) continue;
-        related.darkened = override?.darkened ?? this.automaticDarkened(related);
+        related.darkened = nextDisabled ? false : this.automaticDarkened(related);
         this.updateRecordVisual(related, false);
       }
       this.syncInterventionStatus();
@@ -1427,7 +1429,7 @@
         timer = setTimeout(() => {
           timer = 0;
           suppressClickUntil = Date.now() + 1_000;
-          this.toggleViewerImages(record);
+          this.toggleViewerDisabled(record);
         }, LONG_PRESS_MS);
       });
       button.addEventListener('pointermove', event => {
@@ -1446,6 +1448,7 @@
           suppressClickUntil = 0;
           return;
         }
+        if (this.viewerDisabledState(record)) return;
         record.darkened = !record.darkened;
         this.updateRecordVisual(record);
       });
@@ -1498,9 +1501,10 @@
       record.button.hidden = !this.showImageControl;
       record.button.style.opacity = String(this.controlOpacity);
       const copy = COPY[this.locale];
-      const label = record.darkened ? copy.showLight : copy.showDark;
-      const fullLabel = `${label}${copy.separator}${this.viewerOverride(record) ? copy.holdRestore : copy.holdAll}`;
-      record.button.innerHTML = record.darkened ? LIGHT_ICON : DARK_ICON;
+      const disabled = !!this.viewerDisabledState(record);
+      const label = disabled ? copy.postDisabled : record.darkened ? copy.showLight : copy.showDark;
+      const fullLabel = `${label}${copy.separator}${disabled ? copy.holdRestore : copy.holdDisable}`;
+      record.button.innerHTML = disabled ? POST_DISABLED_ICON : record.darkened ? LIGHT_ICON : DARK_ICON;
       record.button.title = fullLabel;
       record.button.setAttribute('aria-label', fullLabel);
     }

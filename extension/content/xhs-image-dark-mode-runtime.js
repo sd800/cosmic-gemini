@@ -20,6 +20,8 @@
       postDisabled: 'XHS Image Dark Mode is off for this post',
       holdDisable: 'Press and hold to turn off XHS Image Dark Mode for this post',
       holdRestore: 'Press and hold to restore XHS Image Dark Mode for this post',
+      profileEnabled: 'XHS Image Dark Mode is on for this profile. Click to turn it off for all posts',
+      profileDisabled: 'XHS Image Dark Mode is off for this profile. Click to turn it on',
       separator: '. '
     }),
     'zh-CN': Object.freeze({
@@ -28,12 +30,15 @@
       postDisabled: 'XHS Image Dark Mode 已暂停处理这篇笔记',
       holdDisable: '长按可暂停 XHS Image Dark Mode 对这篇笔记的处理',
       holdRestore: '长按可恢复 XHS Image Dark Mode 对这篇笔记的处理',
+      profileEnabled: 'XHS Image Dark Mode 已在这个用户主页中开启，点击可暂停处理全部笔记',
+      profileDisabled: 'XHS Image Dark Mode 已在这个用户主页中暂停，点击可恢复处理',
       separator: '。'
     })
   });
   const LIGHT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   const DARK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/></svg>';
   const POST_DISABLED_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="8" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>';
+  const PROFILE_ENABLED_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>';
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -108,10 +113,13 @@
       this.controlOpacity = 0.5;
       this.imageBrightness = 1;
       this.openingPostId = '';
+      this.openingProfileKey = '';
       this.records = new Map();
       this.intervenedRecords = new Set();
       this.controlRecords = new Set();
       this.disabledViewers = new WeakMap();
+      this.disabledPostKeys = new Set();
+      this.disabledProfileKeys = new Set();
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
@@ -137,6 +145,7 @@
       this.resizeObserver = null;
       this.controlHost = null;
       this.controlLayer = null;
+      this.profileControl = null;
       this.controlViewportListening = false;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
@@ -207,6 +216,8 @@
       window.removeEventListener('pageshow', this.onThemeChange, true);
       window.removeEventListener('load', this.onThemeChange, true);
       this.stopProcessing();
+      this.disabledPostKeys.clear();
+      this.disabledProfileKeys.clear();
       this.reportStatus();
     }
 
@@ -427,7 +438,10 @@
       this.darkModeDetected = detected;
       if (nextProcessing && !this.processing) this.startProcessing();
       else if (!nextProcessing && this.processing) this.stopProcessing();
-      else if (nextProcessing) this.updateControls();
+      else if (nextProcessing) {
+        this.syncProfileControl();
+        this.updateControls();
+      }
       if (changed || force) this.reportStatus();
     }
 
@@ -452,6 +466,7 @@
       this.processingGeneration += 1;
       this.installStyle();
       this.installControlLayer();
+      this.syncProfileControl();
       this.intersectionObserver = new IntersectionObserver(this.onIntersections, {
         rootMargin: '150% 0px 700% 0px',
         threshold: 0
@@ -485,6 +500,7 @@
       this.stopControlPositionTracking();
       document.removeEventListener('click', this.onPostActivation, true);
       this.openingPostId = '';
+      this.openingProfileKey = '';
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
       this.positionFrame = 0;
       if (this.viewerRefreshFrame) cancelAnimationFrame(this.viewerRefreshFrame);
@@ -501,6 +517,7 @@
       this.syncInterventionStatus();
       this.controlRecords.clear();
       this.disabledViewers = new WeakMap();
+      this.profileControl = null;
       this.controlHost?.remove();
       this.controlHost = null;
       this.controlLayer = null;
@@ -532,6 +549,7 @@
         :host { all: initial; }
         .layer { position: fixed; inset: 0; pointer-events: none; }
         button { position: absolute; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; transition: opacity 120ms ease, background-color 120ms ease; }
+        button.profile-control { position: fixed; top: 88px; right: 24px; }
         button:hover, button:focus-visible { opacity: 1 !important; background: rgba(20,24,30,.96); }
         button[hidden] { display: none !important; }
         button:focus-visible { outline: 2px solid #4f8df0; outline-offset: 2px; }
@@ -617,6 +635,7 @@
         button: null,
         darkened: true,
         result: null,
+        profileKey: this.profileKeyForImage(image),
         requestKey: this.imageRequestKey(image),
         loadSource: '',
         loadPriority: Number.POSITIVE_INFINITY,
@@ -631,6 +650,8 @@
     observeImage(image) {
       if (!this.isContentImage(image)) return;
       let record = this.records.get(image);
+      if (record) record.profileKey = this.currentProfileKey() || record.profileKey;
+      if (this.profileProcessingDisabled(record || image)) return;
       if (!record) record = this.createRecord(image);
       if (this.applyCachedResult(record)) return;
       const viewerPriority = this.viewerForImage(image) ? -20 : null;
@@ -696,7 +717,10 @@
         'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
       ));
       const id = this.noteId(anchor?.href || anchor?.getAttribute?.('href'));
-      if (id) this.openingPostId = id;
+      if (id) {
+        this.openingProfileKey = this.currentProfileKey();
+        this.openingPostId = id;
+      }
     }
 
     onIntersections(entries) {
@@ -720,6 +744,7 @@
             this.waitForImageLoad(record, priority);
             continue;
           }
+          record.profileKey = this.currentProfileKey() || record.profileKey;
           const requestKey = this.imageRequestKey(image);
           if (record && record.requestKey !== requestKey) {
             const currentSource = image.currentSrc || image.src || '';
@@ -742,6 +767,7 @@
         }
       }
       if (this.controlRecords.size) this.scheduleControlPositions();
+      this.syncProfileControl();
       this.scheduleCleanup();
     }
 
@@ -767,6 +793,7 @@
     queueImage(image, priority = 0) {
       if (!this.processing || !this.isContentImage(image)) return;
       const record = this.records.get(image);
+      if (this.profileProcessingDisabled(record || image)) return;
       const source = image.currentSrc || image.src || '';
       if (!record || !source || (record.source === source && record.result)) return;
       if (record.loadSource) return;
@@ -990,7 +1017,8 @@
 
     async analyze(image, generation = this.processingGeneration) {
       const record = this.records.get(image);
-      if (!record || !this.processing || generation !== this.processingGeneration) return;
+      if (!record || !this.processing || generation !== this.processingGeneration
+        || this.profileProcessingDisabled(record)) return;
       const source = image.currentSrc || image.src || '';
       if (!source) return;
       const cached = this.cachedResult(image, source);
@@ -1002,10 +1030,12 @@
       }
       try { await image.decode?.(); } catch {}
       if (!this.processing || generation !== this.processingGeneration
+        || this.profileProcessingDisabled(record)
         || this.records.get(image) !== record || !image.isConnected
         || source !== (image.currentSrc || image.src || '')) return;
       const sample = await this.sampleImage(image);
       if (!this.processing || generation !== this.processingGeneration
+        || this.profileProcessingDisabled(record)
         || this.records.get(image) !== record || !image.isConnected
         || source !== (image.currentSrc || image.src || '')) return;
       if (!sample) return;
@@ -1344,7 +1374,9 @@
       if (!this.processing || !record.image.isConnected || !record.result) return;
       this.intersectionObserver?.unobserve?.(record.image);
       this.clearVisual(record, false);
-      record.darkened = this.viewerDisabledState(record) ? false : this.automaticDarkened(record);
+      record.darkened = this.postDisabledState(record) || this.profileProcessingDisabled(record)
+        ? false
+        : this.automaticDarkened(record);
       const viewer = this.viewerForImage(record.image);
       if (viewer) this.createControl(record);
       this.updateRecordVisual(record, false);
@@ -1384,27 +1416,116 @@
       return match?.[1] || this.noteId(location.href) || this.openingPostId || '';
     }
 
+    profileId(value) {
+      try {
+        return new URL(value, location.href).pathname.match(/^\/user\/profile\/([^/]+)/)?.[1] || '';
+      } catch {
+        return '';
+      }
+    }
+
+    currentProfileKey() {
+      return this.profileId(location.href);
+    }
+
+    profileKeyForImage(image) {
+      const currentProfileKey = this.currentProfileKey();
+      if (currentProfileKey) return currentProfileKey;
+      const postKey = this.viewerForImage(image) ? this.viewerPostKey(image) : '';
+      return postKey && postKey === this.openingPostId ? this.openingProfileKey : '';
+    }
+
+    profileProcessingDisabled(recordOrImage) {
+      const image = recordOrImage?.image || recordOrImage;
+      const profileKey = recordOrImage?.profileKey || this.profileKeyForImage(image);
+      return !!profileKey && this.disabledProfileKeys.has(profileKey);
+    }
+
+    toggleProfileDisabled() {
+      const profileKey = this.currentProfileKey();
+      if (!profileKey) return;
+      const nextDisabled = !this.disabledProfileKeys.has(profileKey);
+      if (nextDisabled) this.disabledProfileKeys.add(profileKey);
+      else this.disabledProfileKeys.delete(profileKey);
+      for (const record of this.records.values()) {
+        if (record.profileKey !== profileKey) continue;
+        if (nextDisabled) {
+          this.intersectionObserver?.unobserve?.(record.image);
+          this.removeQueuedImage(record.image);
+          record.darkened = false;
+          this.updateRecordVisual(record, false);
+        } else if (record.result) {
+          record.darkened = this.postDisabledState(record) ? false : this.automaticDarkened(record);
+          this.updateRecordVisual(record, false);
+        } else {
+          this.intersectionObserver?.observe?.(record.image);
+        }
+      }
+      if (!nextDisabled) this.collectImages(document);
+      this.updateProfileControl();
+      this.updateControls();
+      this.syncInterventionStatus();
+    }
+
+    syncProfileControl() {
+      if (!this.controlLayer) return;
+      const profileKey = this.currentProfileKey();
+      if (!profileKey) {
+        this.profileControl?.remove();
+        this.profileControl = null;
+        return;
+      }
+      if (!this.profileControl) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'profile-control';
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.toggleProfileDisabled();
+        });
+        this.controlLayer.append(button);
+        this.profileControl = button;
+      }
+      this.updateProfileControl();
+    }
+
+    updateProfileControl() {
+      if (!this.profileControl) return;
+      const disabled = this.disabledProfileKeys.has(this.currentProfileKey());
+      const label = disabled ? COPY[this.locale].profileDisabled : COPY[this.locale].profileEnabled;
+      this.profileControl.style.opacity = String(this.controlOpacity);
+      this.profileControl.innerHTML = disabled ? POST_DISABLED_ICON : PROFILE_ENABLED_ICON;
+      this.profileControl.title = label;
+      this.profileControl.setAttribute('aria-label', label);
+    }
+
     viewerDisabledState(record) {
-      const viewer = this.viewerForImage(record?.image);
-      if (!viewer) return null;
-      const state = this.disabledViewers.get(viewer);
-      if (!state) return null;
-      if (state.postKey === this.viewerPostKey(record.image)) return state;
-      this.disabledViewers.delete(viewer);
-      return null;
+      return this.postDisabledState(record);
+    }
+
+    postDisabledState(record) {
+      const postKey = this.viewerPostKey(record?.image);
+      if (!postKey || !this.disabledPostKeys.has(postKey)) return null;
+      return { postKey };
     }
 
     toggleViewerDisabled(record) {
       const viewer = this.viewerForImage(record?.image);
-      if (!viewer || !record?.result) return;
+      if (!viewer || !record?.result || this.profileProcessingDisabled(record)) return;
       const postKey = this.viewerPostKey(record.image);
-      const disabled = !!this.viewerDisabledState(record);
-      if (disabled) this.disabledViewers.delete(viewer);
-      else this.disabledViewers.set(viewer, { postKey });
+      if (!postKey) return;
+      const disabled = this.disabledPostKeys.has(postKey);
+      if (disabled) {
+        this.disabledPostKeys.delete(postKey);
+        this.disabledViewers.delete(viewer);
+      } else {
+        this.disabledPostKeys.add(postKey);
+        this.disabledViewers.set(viewer, { postKey });
+      }
       const nextDisabled = !disabled;
       for (const related of this.records.values()) {
-        if (!related.result || this.viewerForImage(related.image) !== viewer
-          || this.viewerPostKey(related.image) !== postKey) continue;
+        if (!related.result || this.viewerPostKey(related.image) !== postKey) continue;
         related.darkened = nextDisabled ? false : this.automaticDarkened(related);
         this.updateRecordVisual(related, false);
       }
@@ -1498,10 +1619,10 @@
 
     updateControl(record) {
       if (!record.button) return;
-      record.button.hidden = !this.showImageControl;
-      record.button.style.opacity = String(this.controlOpacity);
       const copy = COPY[this.locale];
       const disabled = !!this.viewerDisabledState(record);
+      record.button.hidden = !this.showImageControl || disabled || this.profileProcessingDisabled(record);
+      record.button.style.opacity = String(this.controlOpacity);
       const label = disabled ? copy.postDisabled : record.darkened ? copy.showLight : copy.showDark;
       const fullLabel = `${label}${copy.separator}${disabled ? copy.holdRestore : copy.holdDisable}`;
       record.button.innerHTML = disabled ? POST_DISABLED_ICON : record.darkened ? LIGHT_ICON : DARK_ICON;
@@ -1518,6 +1639,7 @@
         this.stopControlPositionTracking();
       }
       for (const record of this.controlRecords) this.updateControl(record);
+      this.updateProfileControl();
       this.scheduleControlPositions();
     }
 

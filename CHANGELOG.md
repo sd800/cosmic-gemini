@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.9 — 2026-09-18
+
+- Changed the XHS Image Dark Mode post-level press-and-hold action to hide the image control after pausing the open post. Its feed cover also returns to the original display, and reopening the same post keeps it paused. User profile pages now provide a separate switch that can pause image analysis and adjustment for every post on that profile.
+- Cleaned up unused Ad Marshal code.
+
 ## 8.11.8 — 2026-09-18
 
 - Changed the XHS Image Dark Mode press-and-hold action to turn image adaptation off for the open post. Every image returns to its original display, later images remain untouched, and the image control changes to an off-switch symbol. Pressing and holding again restores automatic handling for that post; short presses remain unavailable while it is paused.

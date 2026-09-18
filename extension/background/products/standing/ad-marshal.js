@@ -3,8 +3,7 @@ import {
   FEATURE_IDS,
   INCOGNITO_SETTINGS_KEY,
   SETTINGS_KEY,
-  adMarshalState,
-  hostnameFromUrl
+  adMarshalState
 } from '../../../core/config.js';
 
 const RULE_ID_START = 1_600_000_000;
@@ -25,16 +24,6 @@ const SITE_POLICIES = Object.freeze({
       'https://www.qq.com/*'
     ])
   }),
-  douyinCom: Object.freeze({
-    matches: Object.freeze([
-      'http://douyin.com/*',
-      'https://douyin.com/*',
-      'http://www.douyin.com/*',
-      'https://www.douyin.com/*',
-      'http://live.douyin.com/*',
-      'https://live.douyin.com/*'
-    ])
-  }),
   zhihuCom: Object.freeze({
     matches: Object.freeze([
       'http://zhihu.com/*',
@@ -42,31 +31,17 @@ const SITE_POLICIES = Object.freeze({
       'http://*.zhihu.com/*',
       'https://*.zhihu.com/*'
     ])
-  }),
-  gmailCom: Object.freeze({
-    matches: Object.freeze([
-      'http://mail.google.com/*',
-      'https://mail.google.com/*'
-    ])
   })
 });
-const GMAIL_RUNTIME_FRAME_HOSTS = new Set([
-  'mail.google.com',
-  'chat.google.com',
-  'ogs.google.com'
-]);
 const PAGE_RUNTIME_SITE_IDS = new Set([
   'newsQqCom',
   'wwwQqCom',
-  'zhihuCom',
-  'gmailCom'
+  'zhihuCom'
 ]);
 const SETTING_ID_BY_SITE_ID = Object.freeze({
   newsQqCom: 'tencentNews',
   wwwQqCom: 'tencentNews',
-  douyinCom: 'douyin',
-  zhihuCom: 'zhihu',
-  gmailCom: 'gmail'
+  zhihuCom: 'zhihu'
 });
 const TENCENT_QQ_TRACKING_DOMAINS = Object.freeze([
   'h.trace.qq.com',
@@ -85,17 +60,6 @@ const TENCENT_QQ_TRACKING_DOMAINS = Object.freeze([
 const WWW_QQ_TRACKING_DOMAINS = Object.freeze([
   ...TENCENT_QQ_TRACKING_DOMAINS,
   'h5.ssp.qq.com'
-]);
-const DOUYIN_TELEMETRY_DOMAINS = Object.freeze([
-  'mon.zijieapi.com',
-  'mcs.zijieapi.com',
-  'log.zijieapi.com',
-  'applog.zijieapi.com',
-  'log.snssdk.com',
-  'log.byteoversea.com',
-  'mon.byteoversea.com',
-  'monsetting.toutiao.com',
-  'monsetting.toutiaocloud.com'
 ]);
 const ZHIHU_TELEMETRY_DOMAINS = Object.freeze([
   'zhihu-web-analytics.zhihu.com',
@@ -193,17 +157,6 @@ function wwwQqRules(tabId, base) {
   ];
 }
 
-function douyinRules(tabId, base) {
-  return [
-    scriptRedirectRule(base, tabId, '/obj/applog-sdk-static/log-sdk/collect/'),
-    scriptRedirectRule(base + 1, tabId, '/slardar/fe/sdk-web/browser.cn.js'),
-    domainRedirectRule(base + 2, tabId, DOUYIN_TELEMETRY_DOMAINS, ['script'], '/assets/ad-marshal-empty.js'),
-    domainRedirectRule(base + 3, tabId, DOUYIN_TELEMETRY_DOMAINS, ['xmlhttprequest', 'ping', 'other'], '/assets/ad-marshal-empty.json'),
-    domainRedirectRule(base + 4, tabId, DOUYIN_TELEMETRY_DOMAINS, ['sub_frame'], '/assets/ad-marshal-empty.html'),
-    domainRedirectRule(base + 5, tabId, DOUYIN_TELEMETRY_DOMAINS, ['image'], '/assets/ad-marshal-transparent.svg')
-  ];
-}
-
 function zhihuRules(tabId, base) {
   return [
     scriptRedirectRule(base, tabId, '/@cfe/sentry-script@'),
@@ -215,25 +168,10 @@ function zhihuRules(tabId, base) {
   ];
 }
 
-function gmailRules(tabId, base) {
-  return [{
-    id: base,
-    priority: 100,
-    action: { type: 'redirect', redirect: { extensionPath: '/assets/ad-marshal-empty.json' } },
-    condition: {
-      tabIds: [tabId],
-      regexFilter: '^https://play\\.google\\.com/log(?:\\?.*)?$',
-      resourceTypes: ['xmlhttprequest', 'ping', 'other']
-    }
-  }];
-}
-
 function rulesForTab(tabId, base, siteId) {
   if (siteId === 'newsQqCom') return newsQqRules(tabId, base);
   if (siteId === 'wwwQqCom') return wwwQqRules(tabId, base);
-  if (siteId === 'douyinCom') return douyinRules(tabId, base);
   if (siteId === 'zhihuCom') return zhihuRules(tabId, base);
-  if (siteId === 'gmailCom') return gmailRules(tabId, base);
   return [];
 }
 
@@ -253,9 +191,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     state(settings, url) { return adMarshalState(settings, url); },
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);
-      const gmailFrame = state.siteId === 'gmailCom'
-        && GMAIL_RUNTIME_FRAME_HOSTS.has(hostnameFromUrl(context.frameUrl));
-      const active = state.active && (context.frameId === 0 || gmailFrame);
+      const active = state.active && context.frameId === 0;
       const pageRuntimeActive = active && PAGE_RUNTIME_SITE_IDS.has(state.siteId);
       if (context.frameId === 0) await syncTabRules(context.tabId, state.active ? state.siteId : '');
       await pageRuntimeHost.sync(product, context, pageRuntimeActive);

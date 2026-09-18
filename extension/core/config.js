@@ -43,9 +43,7 @@ export const AD_MARSHAL_SITE_KEYS = Object.freeze([
 const AD_MARSHAL_SITE_KEY_BY_POLICY = Object.freeze({
   newsQqCom: 'tencentNews',
   wwwQqCom: 'tencentNews',
-  douyinCom: 'douyin',
-  zhihuCom: 'zhihu',
-  gmailCom: 'gmail'
+  zhihuCom: 'zhihu'
 });
 
 const DEFAULT_FEATURE = Object.freeze({
@@ -504,13 +502,9 @@ export function adMarshalState(settings, url) {
     ? 'newsQqCom'
     : hostname === 'www.qq.com'
       ? 'wwwQqCom'
-      : ['douyin.com', 'www.douyin.com', 'live.douyin.com'].includes(hostname)
-        ? 'douyinCom'
-        : hostname === 'zhihu.com' || hostname.endsWith('.zhihu.com')
-          ? 'zhihuCom'
-          : hostname === 'mail.google.com'
-            ? 'gmailCom'
-            : '';
+      : hostname === 'zhihu.com' || hostname.endsWith('.zhihu.com')
+        ? 'zhihuCom'
+        : '';
   const settingId = AD_MARSHAL_SITE_KEY_BY_POLICY[siteId] || '';
   const enabled = settingId
     ? normalized.adMarshal.managedSites[settingId] === true

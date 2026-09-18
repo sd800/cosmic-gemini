@@ -265,7 +265,7 @@ test('saved settings switches remain independent from effective page state', () 
   assert.equal(noAutoplay.active, false);
   assert.equal(noAutoplay.audioAutoplayAllSites, true);
 
-  const adMarshal = adMarshalState({ adMarshal: { managedSites: { douyin: true } } }, 'https://example.com');
+  const adMarshal = adMarshalState({ adMarshal: { managedSites: { unknown: true } } }, 'https://example.com');
   assert.equal(adMarshal.enabled, false);
   assert.equal(adMarshal.supported, false);
   assert.equal(adMarshal.active, false);
@@ -388,7 +388,6 @@ test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
 
 test('Ad Marshal enables only explicitly selected managed-site groups', () => {
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://news.qq.com/').active, false);
-  assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.douyin.com/jingxuan').active, false);
   assert.equal(adMarshalState(DEFAULT_SETTINGS, 'https://www.qq.com/').active, false);
   const selected = { adMarshal: { managedSites: { tencentNews: true, zhihu: true } } };
   const newsQq = adMarshalState(selected, 'https://news.qq.com/');
@@ -403,26 +402,19 @@ test('Ad Marshal enables only explicitly selected managed-site groups', () => {
   assert.equal(wwwQq.siteId, 'wwwQqCom');
   assert.equal(adMarshalState(selected, 'https://video.qq.com/').active, false);
   assert.equal(adMarshalState(selected, 'https://video.qq.com/').enabled, true);
-  assert.equal(adMarshalState(selected, 'https://www.douyin.com/jingxuan').active, false);
-  assert.equal(adMarshalState(selected, 'https://live.douyin.com/').active, false);
   const zhihu = adMarshalState(selected, 'https://www.zhihu.com/');
   assert.equal(zhihu.active, true);
   assert.equal(zhihu.siteId, 'zhihuCom');
   assert.equal(adMarshalState(selected, 'https://zhuanlan.zhihu.com/p/1').active, true);
   assert.equal(adMarshalState(selected, 'https://zhimg.com/').active, false);
-  assert.equal(adMarshalState(selected, 'https://mail.google.com/mail/u/1/#inbox').active, false);
-  assert.equal(adMarshalState(selected, 'https://chat.google.com/').active, false);
-  assert.equal(adMarshalState(selected, 'https://play.google.com/').active, false);
   const settingsState = adMarshalState(selected, '');
   assert.equal(settingsState.enabled, true);
   assert.equal(settingsState.supported, false);
   assert.equal(settingsState.active, false);
-  assert.equal(adMarshalState({ adMarshal: { managedSites: { douyin: true } } }, 'https://news.qq.com/').active, false);
   assert.deepEqual(normalizeSettings({
     adMarshal: {
       enabled: true,
-      sites: { newsQqCom: true },
-      managedSites: { douyin: true, gmail: true }
+      sites: { newsQqCom: true }
     }
   }).adMarshal, { managedSites: { tencentNews: false, zhihu: false } });
 });
@@ -451,7 +443,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
     satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
-    adMarshal: { managedSites: { tencentNews: true, gmail: true } },
+    adMarshal: { managedSites: { tencentNews: true } },
     activity: { nativeScroll: true }
   });
   assert.deepEqual(cache.nativeScroll, {

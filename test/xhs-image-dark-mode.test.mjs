@@ -326,7 +326,7 @@ test('each transformed image can switch independently between dark and light', a
   assert.equal(classes.has('cg-xhs-image-dark-mode'), false);
 });
 
-test('a post-wide long press disables adaptation and then restores automatic results', async () => {
+test('a post-wide long press disables adaptation in the viewer and its feed cover', async () => {
   const runtime = await runtimeFixture();
   const viewer = {};
   const otherViewer = {};
@@ -339,15 +339,17 @@ test('a post-wide long press disables adaptation and then restores automatic res
   const light = makeRecord(viewer, 'light-theme', true);
   const gray = makeRecord(viewer, 'gray-theme', true);
   const photo = makeRecord(viewer, 'photo', false);
+  const feedCover = makeRecord(null, 'light-theme', true);
+  feedCover.image.postKey = 'post-1';
   const unrelated = makeRecord(otherViewer, 'light-theme', true);
-  for (const record of [light, gray, photo, unrelated]) runtime.records.set(record.image, record);
+  for (const record of [light, gray, photo, feedCover, unrelated]) runtime.records.set(record.image, record);
   runtime.viewerForImage = image => image.viewerOwner;
-  runtime.viewerPostKey = image => image.viewerOwner === viewer ? 'post-1' : 'post-2';
+  runtime.viewerPostKey = image => image.postKey || (image.viewerOwner === viewer ? 'post-1' : 'post-2');
   runtime.updateRecordVisual = () => {};
   runtime.syncInterventionStatus = () => {};
 
   runtime.toggleViewerDisabled(light);
-  assert.deepEqual([light.darkened, gray.darkened, photo.darkened], [false, false, false]);
+  assert.deepEqual([light.darkened, gray.darkened, photo.darkened, feedCover.darkened], [false, false, false, false]);
   assert.equal(unrelated.darkened, true);
   const lateImage = makeRecord(viewer, 'light-theme', true);
   lateImage.image.isConnected = true;
@@ -359,9 +361,72 @@ test('a post-wide long press disables adaptation and then restores automatic res
   runtime.applyResult(lateImage);
   assert.equal(lateImage.darkened, false);
 
+  const reopenedViewer = {};
+  const reopenedImage = makeRecord(reopenedViewer, 'light-theme', true);
+  reopenedImage.image.postKey = 'post-1';
+  assert.equal(runtime.viewerDisabledState(reopenedImage)?.postKey, 'post-1');
+
   runtime.toggleViewerDisabled(light);
-  assert.deepEqual([light.darkened, gray.darkened, photo.darkened, lateImage.darkened], [true, true, false, true]);
+  assert.deepEqual([light.darkened, gray.darkened, photo.darkened, feedCover.darkened, lateImage.darkened], [true, true, false, true, true]);
   assert.equal(runtime.viewerDisabledState(light), null);
+});
+
+test('the per-image control hides after adaptation is disabled for its post', async () => {
+  const runtime = await runtimeFixture();
+  runtime.showImageControl = true;
+  runtime.viewerDisabledState = () => ({ postKey: 'post-1' });
+  const button = {
+    hidden: false,
+    style: {},
+    setAttribute() {}
+  };
+  runtime.updateControl({ button, darkened: false });
+  assert.equal(button.hidden, true);
+});
+
+test('a profile switch pauses classification and restores every post cover on that profile', async () => {
+  const profileId = '669cf72a000000002401e0fc';
+  const runtime = await runtimeFixture({}, {
+    URL,
+    location: {
+      hostname: 'www.xiaohongshu.com',
+      href: `https://www.xiaohongshu.com/user/profile/${profileId}`
+    }
+  });
+  const cover = { profile: profileId };
+  const otherCover = { profile: 'another-profile' };
+  const record = { image: cover, profileKey: profileId, result: { kind: 'light-theme' }, darkened: true };
+  const unrelated = { image: otherCover, profileKey: 'another-profile', result: { kind: 'light-theme' }, darkened: true };
+  runtime.records.set(cover, record);
+  runtime.records.set(otherCover, unrelated);
+  const unobserved = [];
+  const observed = [];
+  runtime.intersectionObserver = {
+    unobserve(image) { unobserved.push(image); },
+    observe(image) { observed.push(image); }
+  };
+  runtime.removeQueuedImage = () => {};
+  runtime.updateRecordVisual = () => {};
+  runtime.updateControls = () => {};
+  runtime.syncInterventionStatus = () => {};
+  runtime.processing = false;
+
+  runtime.toggleProfileDisabled();
+  assert.equal(runtime.profileProcessingDisabled(record), true);
+  assert.equal(record.darkened, false);
+  assert.equal(unrelated.darkened, true);
+  assert.deepEqual(unobserved, [cover]);
+
+  runtime.openingProfileKey = profileId;
+  runtime.openingPostId = 'post-from-profile';
+  runtime.viewerForImage = () => ({});
+  runtime.viewerPostKey = () => 'post-from-profile';
+  assert.equal(runtime.profileProcessingDisabled({}), true);
+
+  runtime.toggleProfileDisabled();
+  assert.equal(runtime.profileProcessingDisabled(record), false);
+  assert.equal(record.darkened, true);
+  assert.deepEqual(observed, []);
 });
 
 test('holding the image control suppresses its following short-click action', async () => {

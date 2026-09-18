@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cosmic Gemini",
   "description": "A personal toolkit for the web.",
-  "version": "8.11.8",
+  "version": "8.11.9",
   "minimum_chrome_version": "120",
   "icons": {
     "16": "icons/icon-16.png",
@@ -70,19 +70,7 @@
         "http://zhihu.com/*",
         "https://zhihu.com/*",
         "http://*.zhihu.com/*",
-        "https://*.zhihu.com/*",
-        "http://douyin.com/*",
-        "https://douyin.com/*",
-        "http://www.douyin.com/*",
-        "https://www.douyin.com/*",
-        "http://live.douyin.com/*",
-        "https://live.douyin.com/*",
-        "http://mail.google.com/*",
-        "https://mail.google.com/*",
-        "http://chat.google.com/*",
-        "https://chat.google.com/*",
-        "http://ogs.google.com/*",
-        "https://ogs.google.com/*"
+        "https://*.zhihu.com/*"
       ]
     }
   ]

@@ -33,7 +33,7 @@ test('Ad Marshal saves a site selection without waiting for network-rule reconci
   await new Promise(resolve => setImmediate(resolve));
 });
 
-test('Ad Marshal rejects removed managed-site controls', async () => {
+test('Ad Marshal rejects unknown managed-site controls', async () => {
   let settings = normalizeSettings();
   globalThis.chrome = {
     declarativeNetRequest: {
@@ -52,52 +52,8 @@ test('Ad Marshal rejects removed managed-site controls', async () => {
   };
   const product = createAdMarshalProduct({ async sync() { return false; } }, platform);
   await assert.rejects(product.handleMessage({
-    type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'douyin', enabled: true
+    type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'unknown', enabled: true
   }), /does not support this command/);
-  await assert.rejects(product.handleMessage({
-    type: 'UI_SET_AD_MARSHAL_SITE', siteId: 'gmail', enabled: true
-  }), /does not support this command/);
-});
-
-test('Ad Marshal leaves the removed Gmail policy dormant', async () => {
-  const settings = normalizeSettings({ adMarshal: { managedSites: { gmail: true } } });
-  const runtimeCalls = [];
-  globalThis.chrome = {
-    declarativeNetRequest: {
-      async getSessionRules() { return []; },
-      async updateSessionRules() {}
-    },
-    tabs: { async query() { return []; } }
-  };
-  const platform = {
-    async mutateSettings(update) { return normalizeSettings(update(settings)); },
-    async readSettings() { return settings; },
-    isIncognitoContext() { return false; }
-  };
-  const runtimeHost = {
-    async sync(_product, context, active) {
-      runtimeCalls.push({ frameUrl: context.frameUrl, active });
-      return active;
-    }
-  };
-  const product = createAdMarshalProduct(runtimeHost, platform);
-  const base = {
-    settings,
-    tabId: 12,
-    topUrl: 'https://mail.google.com/mail/u/1/#inbox',
-    documentId: ''
-  };
-
-  assert.equal(await product.sync({ ...base, frameId: 1, frameUrl: 'https://chat.google.com/u/1/frame' }, settings), false);
-  assert.equal(await product.sync({ ...base, frameId: 2, frameUrl: 'https://ogs.google.com/u/1/widget' }, settings), false);
-  assert.equal(await product.sync({ ...base, frameId: 3, frameUrl: 'https://www.gstatic.com/blank.html' }, settings), false);
-  assert.equal(await product.sync({
-    ...base,
-    frameId: 0,
-    frameUrl: 'https://chat.google.com/',
-    topUrl: 'https://chat.google.com/'
-  }, settings), false);
-  assert.deepEqual(runtimeCalls.map(call => call.active), [false, false, false, false]);
 });
 
 test('Ad Marshal routes the Tencent News timeline host through the news.qq.com policy', async () => {
@@ -143,41 +99,4 @@ test('Ad Marshal routes the Tencent News timeline host through the news.qq.com p
   )));
   assert.ok(ruleUpdates[0].addRules.some(rule => rule.condition.requestDomains?.includes('n.ssp.qq.com')));
   assert.ok(ruleUpdates[0].addRules.every(rule => rule.condition.tabIds[0] === 18));
-});
-
-test('Ad Marshal leaves the removed Douyin policy dormant', async () => {
-  const settings = normalizeSettings({ adMarshal: { managedSites: { douyin: true } } });
-  const runtimeCalls = [];
-  const ruleUpdates = [];
-  globalThis.chrome = {
-    declarativeNetRequest: {
-      async getSessionRules() { return []; },
-      async updateSessionRules(update) { ruleUpdates.push(update); }
-    },
-    tabs: { async query() { return []; } }
-  };
-  const platform = {
-    async mutateSettings(update) { return normalizeSettings(update(settings)); },
-    async readSettings() { return settings; },
-    isIncognitoContext() { return false; }
-  };
-  const runtimeHost = {
-    async sync(_product, context, active) {
-      runtimeCalls.push({ context, active });
-      return active;
-    }
-  };
-  const product = createAdMarshalProduct(runtimeHost, platform);
-  const url = 'https://www.douyin.com/';
-
-  assert.equal(await product.sync({
-    settings,
-    tabId: 21,
-    topUrl: url,
-    frameId: 0,
-    frameUrl: url,
-    documentId: ''
-  }, settings), false);
-  assert.equal(runtimeCalls[0].active, false);
-  assert.equal(ruleUpdates.length, 0);
 });

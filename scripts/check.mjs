@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.8');
+assert.equal(manifest.version, '8.11.9');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -63,19 +63,7 @@ assert.deepEqual(manifest.web_accessible_resources, [{
     'http://zhihu.com/*',
     'https://zhihu.com/*',
     'http://*.zhihu.com/*',
-    'https://*.zhihu.com/*',
-    'http://douyin.com/*',
-    'https://douyin.com/*',
-    'http://www.douyin.com/*',
-    'https://www.douyin.com/*',
-    'http://live.douyin.com/*',
-    'https://live.douyin.com/*',
-    'http://mail.google.com/*',
-    'https://mail.google.com/*',
-    'http://chat.google.com/*',
-    'https://chat.google.com/*',
-    'http://ogs.google.com/*',
-    'https://ogs.google.com/*'
+    'https://*.zhihu.com/*'
   ]
 }]);
 
@@ -459,10 +447,12 @@ assert.match(xhsImageDarkModeRuntime, /viewerImageContext\(image\)[\s\S]*image\.
   'Viewer overlays must not be analyzed as post media.');
 assert.match(xhsImageDarkModeRuntime, /const positionedViewers = new Set\(\)[\s\S]*!positionedViewers\.has\(viewer\)[\s\S]*positionedViewers\.add\(viewer\)/,
   'A viewer must never display overlapping image controls.');
-assert.match(xhsImageDarkModeRuntime, /POST_DISABLED_ICON[\s\S]*LONG_PRESS_MS = 550|LONG_PRESS_MS = 550[\s\S]*POST_DISABLED_ICON/,
-  'A disabled post must replace the image theme symbol with a switch control.');
-assert.match(xhsImageDarkModeRuntime, /bindControlGestures[\s\S]*toggleViewerDisabled[\s\S]*disabledViewers[\s\S]*automaticDarkened/,
-  'Long-press image controls must reversibly disable image adaptation for one post.');
+assert.match(xhsImageDarkModeRuntime, /toggleViewerDisabled[\s\S]*disabledPostKeys\.add\(postKey\)[\s\S]*viewerPostKey\(related\.image\) !== postKey/,
+  'Long-press image controls must disable the complete post through its stable post identity.');
+assert.match(xhsImageDarkModeRuntime, /record\.button\.hidden = !this\.showImageControl \|\| disabled \|\| this\.profileProcessingDisabled\(record\)/,
+  'A post-level pause must hide its image control.');
+assert.match(xhsImageDarkModeRuntime, /currentProfileKey[\s\S]*disabledProfileKeys[\s\S]*toggleProfileDisabled[\s\S]*removeQueuedImage[\s\S]*collectImages\(document\)/,
+  'Profile controls must stop pending analysis and resume image discovery for only the current profile.');
 assert.match(xhsImageDarkModeRuntime, /result\.kind === 'photo'[\s\S]*retireRecord\(record\)[\s\S]*intersectionObserver\?\.unobserve/,
   'Completed feed photographs must release their record and intersection observation.');
 assert.match(xhsImageDarkModeRuntime, /requestIdleCallback\(run, \{ timeout: 600 \}\)[\s\S]*schedulePump\(\(this\.queue\[0\]\?\.priority \?\? 0\) < 0\)/,
@@ -485,13 +475,9 @@ assert.match(adMarshal, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(adMarshal, /void reconcile\(settings\)\.catch\(\(\) => false\)[\s\S]*return settings\.adMarshal/,
   'Saving an Ad Marshal site selection must not wait for native network-rule reconciliation.');
 assert.match(adMarshal, /WWW_QQ_TRACKING_DOMAINS[\s\S]*h5\.ssp\.qq\.com[\s\S]*\/www\/js\/emonitor\//);
-assert.match(adMarshal, /douyinCom[\s\S]*collect\/[\s\S]*slardar\/fe\/sdk-web\/browser\.cn\.js/);
-assert.match(adMarshal, /DOUYIN_TELEMETRY_DOMAINS[\s\S]*mon\.zijieapi\.com[\s\S]*mcs\.zijieapi\.com/);
-assert.match(adMarshal, /live\.douyin\.com/);
 assert.match(adMarshal, /zhihuCom[\s\S]*http:\/\/\*\.zhihu\.com\/\*/);
 assert.match(adMarshal, /ZHIHU_TELEMETRY_DOMAINS[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*crash2\.zhihu\.com[\s\S]*hm\.baidu\.com/);
-assert.match(adMarshal, /gmailCom[\s\S]*mail\.google\.com[\s\S]*play\\\\\.google\\\\\.com\/log/);
-assert.match(adMarshal, /GMAIL_RUNTIME_FRAME_HOSTS[\s\S]*chat\.google\.com[\s\S]*ogs\.google\.com/);
+assert.doesNotMatch(adMarshal, /douyinCom|gmailCom|DOUYIN_TELEMETRY_DOMAINS|GMAIL_RUNTIME_FRAME_HOSTS/);
 assert.match(adMarshal, /\/@cfe\/sentry-script@[\s\S]*\/za-js-sdk@/);
 assert.match(adMarshal, /ad-marshal-empty\.js[\s\S]*ad-marshal-empty\.json[\s\S]*ad-marshal-empty\.html[\s\S]*ad-marshal-transparent\.svg/);
 assert.match(adMarshal, /news\.ssp\.qq\.com[\s\S]*op\.ssp\.qq\.com[\s\S]*127\.0\.0\.1:11601\/check/);
@@ -524,9 +510,8 @@ assert.match(adMarshalRuntime, /hostStyles:[\s\S]*'news\.qq\.com'[\s\S]*config\?
 assert.match(adMarshalRuntime, /STYLE_MARKER[\s\S]*document\.querySelector[\s\S]*setAttribute\(STYLE_MARKER, this\.siteId\)/);
 assert.doesNotMatch(adMarshalRuntime, /this\.styleElement\?\.remove\(\)/);
 assert.match(adMarshalRuntime, /wwwQqCom[\s\S]*h5\.ssp\.qq\.com[\s\S]*qqhome-col-1:has\(> \.game-rank-wrap\)/);
-assert.doesNotMatch(adMarshalRuntime, /douyinCom/);
 assert.match(adMarshalRuntime, /zhihuCom[\s\S]*hostSuffix: '\.zhihu\.com'[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*\/za-js-sdk@/);
-assert.match(adMarshalRuntime, /gmailCom[\s\S]*mail\.google\.com[\s\S]*chat\.google\.com[\s\S]*requestPaths: new Set\(\['play\.google\.com\/log'\]\)/);
+assert.doesNotMatch(adMarshalRuntime, /douyinCom|gmailCom|play\.google\.com\/log/);
 assert.doesNotMatch(adMarshalRuntime, /data-beacon|removeChild/,
   'Ad Marshal must not alter Beacon metadata or use broad node-removal primitives.');
 assert.doesNotMatch(adMarshalRuntime, /Node\.prototype\.(?:appendChild|insertBefore|replaceChild)\s*=/,

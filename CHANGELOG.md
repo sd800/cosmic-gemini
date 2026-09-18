@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.6 — 2026-09-18
+
+- Fixed Xiaohongshu viewer notices and overlays being mistaken for post images, which could stack light and dark controls in the same position and make the visible control appear ineffective. Image controls now attach only to actual slide media, and each viewer displays at most one control.
+
 ## 8.11.5 — 2026-09-17
 
 - Added region-neutral Simplified Chinese (`zh-Hans`) and Traditional Chinese (`zh-Hant`) choices to Website Knowledge Control immediately after Simplified Chinese (China). Each selection applies to request language, browser language signals, and default regional formatting.

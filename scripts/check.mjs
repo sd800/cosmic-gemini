@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.5');
+assert.equal(manifest.version, '8.11.6');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -455,6 +455,10 @@ assert.match(xhsImageDarkModeRuntime, /imageRequestKey[\s\S]*record\.requestKey 
   'Reused XHS viewer elements must follow src and srcset changes before currentSrc updates.');
 assert.match(xhsImageDarkModeRuntime, /controlRecords[\s\S]*createControl[\s\S]*resizeObserver\?\.observe\(record\.image\)[\s\S]*startControlPositionTracking[\s\S]*if \(!this\.controlRecords\.size\) this\.stopControlPositionTracking\(\)[\s\S]*scheduleControlPositions[\s\S]*for \(const record of this\.controlRecords\)/,
   'Only expanded-view controls may participate in resize and scroll positioning.');
+assert.match(xhsImageDarkModeRuntime, /viewerImageContext\(image\)[\s\S]*image\.closest\?\.\('#noteContainer'\)[\s\S]*return false[\s\S]*note-slider-img, \.img-container[\s\S]*primaryImage !== image/,
+  'Viewer overlays must not be analyzed as post media.');
+assert.match(xhsImageDarkModeRuntime, /const positionedViewers = new Set\(\)[\s\S]*!positionedViewers\.has\(viewer\)[\s\S]*positionedViewers\.add\(viewer\)/,
+  'A viewer must never display overlapping image controls.');
 assert.match(xhsImageDarkModeRuntime, /result\.kind === 'photo'[\s\S]*retireRecord\(record\)[\s\S]*intersectionObserver\?\.unobserve/,
   'Completed feed photographs must release their record and intersection observation.');
 assert.match(xhsImageDarkModeRuntime, /requestIdleCallback\(run, \{ timeout: 600 \}\)[\s\S]*schedulePump\(\(this\.queue\[0\]\?\.priority \?\? 0\) < 0\)/,

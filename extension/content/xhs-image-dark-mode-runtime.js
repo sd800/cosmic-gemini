@@ -536,7 +536,10 @@
       if (!(image instanceof HTMLImageElement) || this.isAvatar(image)) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
-      if (image.closest('#noteContainer .media-container, .note-slider, .swiper-slide')) return true;
+      if (this.viewerImageContext(image)) return true;
+      // Viewer banners, badges and other overlays may also contain XHS-hosted
+      // images. They are not slides and must never receive analysis or controls.
+      if (image.closest?.('#noteContainer')) return false;
       const xhsSource = /(?:^|\.)xhscdn\.com(?:[/:]|$)/i.test(source);
       const identifiedPostCover = image.hasAttribute?.('data-xhs-img')
         || image.getAttribute?.('elementtiming') === 'card-exposed'
@@ -1338,6 +1341,9 @@
       if (!this.controlLayer || record.button || !this.viewerForImage(record.image)) return;
       const button = document.createElement('button');
       button.type = 'button';
+      // Keep newly discovered controls out of the hit-testing layer until their
+      // owning slide has been selected and positioned on the next frame.
+      button.style.display = 'none';
       button.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
@@ -1424,14 +1430,25 @@
       if (this.controlRecords.size) this.scheduleControlPositions();
     }
 
-    viewerForImage(image) {
+    viewerImageContext(image) {
       const viewer = image?.closest?.('#noteContainer');
-      return viewer?.querySelector?.('.note-slider, .media-container') ? viewer : null;
+      if (!viewer?.querySelector?.('.note-slider, .media-container')) return null;
+      const slide = image.closest?.('.swiper-slide') || null;
+      const mediaRoot = image.closest?.('.note-slider-img, .img-container') || null;
+      if (!mediaRoot || (!slide && !mediaRoot.matches?.('.note-slider-img'))) return null;
+      const primaryImage = mediaRoot.querySelector?.(
+        ':scope > img, :scope > picture > img, .note-slider-img > img, .note-slider-img > picture > img'
+      );
+      if (primaryImage && primaryImage !== image) return null;
+      return { viewer, slide, mediaRoot };
+    }
+
+    viewerForImage(image) {
+      return this.viewerImageContext(image)?.viewer || null;
     }
 
     visualTarget(image) {
-      if (!this.viewerForImage(image)) return image;
-      return image.closest?.('.swiper-slide') || image;
+      return this.viewerImageContext(image)?.slide || image;
     }
 
     controlPlacement(record) {
@@ -1462,11 +1479,16 @@
       if (this.positionFrame || !this.processing || !this.controlRecords.size) return;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
+        const positionedViewers = new Set();
         for (const record of this.controlRecords) {
           if (!record.button || !record.image.isConnected) continue;
-          const placement = this.showImageControl ? this.controlPlacement(record) : null;
+          const viewer = this.viewerForImage(record.image);
+          const placement = this.showImageControl && viewer && !positionedViewers.has(viewer)
+            ? this.controlPlacement(record)
+            : null;
           record.button.style.display = placement ? 'grid' : 'none';
           if (!placement) continue;
+          positionedViewers.add(viewer);
           record.button.style.left = `${placement.left}px`;
           record.button.style.top = `${placement.top}px`;
         }

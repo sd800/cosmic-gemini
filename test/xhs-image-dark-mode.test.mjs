@@ -344,6 +344,47 @@ test('per-image controls are created only for images in an expanded post viewer'
   assert.equal(created, 1);
 });
 
+test('viewer overlays and banners are not treated as slide media', async () => {
+  class FakeImage {}
+  const runtime = await runtimeFixture({}, { HTMLImageElement: FakeImage });
+  const viewer = { querySelector: () => ({}) };
+  const slide = {};
+  const mediaRoot = {
+    matches: selector => selector === '.note-slider-img',
+    querySelector: () => slideImage
+  };
+  const slideImage = Object.assign(new FakeImage(), {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/example/slide.webp',
+    closest(selector) {
+      if (selector === '#noteContainer') return viewer;
+      if (selector === '.swiper-slide') return slide;
+      if (selector === '.note-slider-img, .img-container') return mediaRoot;
+      return null;
+    }
+  });
+  const overlayImage = Object.assign(new FakeImage(), {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/example/viewer-badge.webp',
+    clientWidth: 320,
+    clientHeight: 180,
+    closest(selector) { return selector === '#noteContainer' ? viewer : null; }
+  });
+  const nestedOverlayImage = Object.assign(new FakeImage(), {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/example/slide-notice.webp',
+    closest(selector) {
+      if (selector === '#noteContainer') return viewer;
+      if (selector === '.swiper-slide') return slide;
+      if (selector === '.note-slider-img, .img-container') return mediaRoot;
+      return null;
+    }
+  });
+  assert.equal(runtime.isContentImage(slideImage), true);
+  assert.equal(runtime.viewerForImage(slideImage), viewer);
+  assert.equal(runtime.isContentImage(overlayImage), false);
+  assert.equal(runtime.viewerForImage(overlayImage), null);
+  assert.equal(runtime.isContentImage(nestedOverlayImage), false);
+  assert.equal(runtime.viewerForImage(nestedOverlayImage), null);
+});
+
 test('the active expanded image control is positioned immediately left of the page count', async () => {
   const runtime = await runtimeFixture({}, { innerWidth: 1200, innerHeight: 800 });
   const fraction = { getBoundingClientRect: () => ({ left: 930, right: 974, top: 48, width: 44, height: 24 }) };
@@ -355,10 +396,12 @@ test('the active expanded image control is positioned immediately left of the pa
     }
   };
   const slide = { classList: { contains: name => name === 'swiper-slide-active' } };
+  const mediaRoot = { matches: () => true, querySelector: () => image };
   const image = {
     closest(selector) {
       if (selector === '#noteContainer') return viewer;
       if (selector === '.swiper-slide') return slide;
+      if (selector === '.note-slider-img, .img-container') return mediaRoot;
       return null;
     },
     getBoundingClientRect: () => ({ left: 250, top: 30, right: 980, bottom: 760 })
@@ -773,6 +816,7 @@ test('control positioning visits only records that own viewer controls', async (
   });
   runtime.processing = true;
   let placements = 0;
+  runtime.viewerForImage = () => ({});
   runtime.controlPlacement = () => { placements += 1; return null; };
   const passive = { image: { isConnected: true }, button: null };
   const controlled = {
@@ -785,6 +829,25 @@ test('control positioning visits only records that own viewer controls', async (
   runtime.scheduleControlPositions();
   frame();
   assert.equal(placements, 1);
+});
+
+test('only one image control is displayed for a viewer at a time', async () => {
+  let frame = null;
+  const runtime = await runtimeFixture({}, {
+    requestAnimationFrame(callback) { frame = callback; return 1; }
+  });
+  runtime.processing = true;
+  const viewer = {};
+  runtime.viewerForImage = () => viewer;
+  runtime.controlPlacement = () => ({ left: 100, top: 40 });
+  const first = { image: { isConnected: true }, button: { style: {} } };
+  const second = { image: { isConnected: true }, button: { style: {} } };
+  runtime.controlRecords.add(first);
+  runtime.controlRecords.add(second);
+  runtime.scheduleControlPositions();
+  frame();
+  assert.equal(first.button.style.display, 'grid');
+  assert.equal(second.button.style.display, 'none');
 });
 
 test('feed scrolling has no viewport listener until an expanded-view control needs positioning', async () => {
@@ -805,6 +868,7 @@ test('expanded images transform the slide background and image as one visual sur
   const imageClasses = new Set();
   const slideClasses = new Set();
   const viewer = { querySelector: () => ({}) };
+  const mediaRoot = { matches: () => true, querySelector: () => image };
   const slide = {
     classList: {
       toggle(name, active) { active ? slideClasses.add(name) : slideClasses.delete(name); },
@@ -816,6 +880,7 @@ test('expanded images transform the slide background and image as one visual sur
     closest(selector) {
       if (selector === '#noteContainer') return viewer;
       if (selector === '.swiper-slide') return slide;
+      if (selector === '.note-slider-img, .img-container') return mediaRoot;
       return null;
     },
     classList: {

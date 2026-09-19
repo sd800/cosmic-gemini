@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.9');
+assert.equal(manifest.version, '8.11.10');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -418,6 +418,8 @@ assert.match(xhsImageDarkModeRuntime, /note-detail-follow-btn/);
 assert.match(xhsImageDarkModeRuntime, /edgeShare >= 0\.42[\s\S]*surfaceShare >= 0\.72[\s\S]*largestForegroundShare <= 0\.16/);
 assert.match(xhsImageDarkModeRuntime, /strongestPanelShare[\s\S]*splitToneLayout[\s\S]*lightPanelShare >= 0\.72[\s\S]*darkPanelShare >= 0\.48/,
   'XHS Image Dark Mode must recognize stable split-tone document panels.');
+assert.match(xhsImageDarkModeRuntime, /vividCard[\s\S]*Math\.abs\(value - backgroundLuminance\) >= 0\.22[\s\S]*foregroundComponents\.count >= 5[\s\S]*largestForegroundShare <= 0\.08/,
+  'Vivid XHS text cards must recognize both light and dark text while rejecting large photo subjects.');
 assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult\.kind !== 'photo'/,
   'Negative feed-cover classifications must not suppress independent viewer analysis.');
 assert.match(chineseResponseClaude, /content\/chinese-response-claude-bridge\.js[\s\S]*content\/chinese-response-claude-runtime\.js/);

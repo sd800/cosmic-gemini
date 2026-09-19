@@ -1281,7 +1281,11 @@
           foregroundMask[pixel] = 1;
           foregroundCount += 1;
           if (splitToneLayout
-            || (grayCard ? value >= backgroundLuminance + 0.22 : value <= backgroundLuminance - 0.22)) {
+            || (grayCard
+              ? value >= backgroundLuminance + 0.22
+              : vividCard
+                ? Math.abs(value - backgroundLuminance) >= 0.22
+                : value <= backgroundLuminance - 0.22)) {
             contrastForegroundCount += 1;
           }
         }
@@ -1316,7 +1320,7 @@
         && largestForegroundShare <= 0.006;
       const textLikeForeground = regularTextForeground || sparseTextForeground;
       const vividTextStructure = !vividCard
-        || (foregroundComponents.count >= 3 && largestForegroundShare <= 0.12);
+        || (foregroundComponents.count >= 5 && largestForegroundShare <= 0.08);
       const annotationTextStructure = !annotatedCard
         || (foregroundComponents.count >= 5 && largestForegroundShare <= 0.12);
       const transparentTextStructure = transparencyShare < 0.1
@@ -1332,6 +1336,7 @@
         splitToneLayout,
         frameEdgeShare: frame?.edgeShare || 0,
         foregroundShare,
+        contrastForegroundShare,
         sparseTextForeground,
         backgroundLuminance,
         annotationShare,

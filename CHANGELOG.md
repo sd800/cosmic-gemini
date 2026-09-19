@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.10 — 2026-09-19
+
+- Improved XHS Image Dark Mode recognition for bright text on uniform vivid-color cards while preserving isolated bright photographic subjects.
+
 ## 8.11.9 — 2026-09-18
 
 - Changed the XHS Image Dark Mode post-level press-and-hold action to hide the image control after pausing the open post. Its feed cover also returns to the original display, and reopening the same post keeps it paused. User profile pages now provide a separate switch that can pause image analysis and adjustment for every post on that profile.

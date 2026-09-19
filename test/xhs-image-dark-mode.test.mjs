@@ -200,6 +200,34 @@ test('XHS Image Dark Mode recognizes text on a vivid uniform reading surface', a
   assert.equal(result.foregroundComponentCount >= 3, true);
 });
 
+test('XHS Image Dark Mode recognizes light text on a vivid orange reading surface', async () => {
+  const runtime = await runtimeFixture();
+  const orangeTextCard = pixels((x, y) => {
+    const text = [17, 25, 33, 41].some(row => y >= row && y <= row + 1
+      && x >= 7 && x <= 56 && x % 9 !== 0);
+    const smallHeading = x >= 25 && x <= 42 && y >= 4 && y <= 5 && x % 4 !== 0;
+    const quote = y >= 50 && y <= 57
+      && ((x >= 39 && x <= 43) || (x >= 48 && x <= 52))
+      && (y <= 54 || x % 3 === 0);
+    if (text || smallHeading) return [253, 250, 245];
+    if (quote) return [247, 137, 225];
+    return [255, 126, 76];
+  });
+  const result = runtime.classifySample(orangeTextCard, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+  assert.equal(result.contrastForegroundShare >= 0.006, true);
+  assert.equal(result.foregroundComponentCount >= 5, true);
+});
+
+test('an isolated bright subject on a vivid surface remains photographic content', async () => {
+  const runtime = await runtimeFixture();
+  const vividSubject = pixels((x, y) => {
+    const subject = (x - 32) ** 2 + (y - 30) ** 2 <= 9 ** 2;
+    return subject ? [250, 248, 242] : [255, 126, 76];
+  });
+  assert.equal(runtime.classifySample(vividSubject, 64, 64).kind, 'photo');
+});
+
 test('a vivid photographic layout is not treated as a text card', async () => {
   const runtime = await runtimeFixture();
   const vividLandscape = pixels((x, y) => {

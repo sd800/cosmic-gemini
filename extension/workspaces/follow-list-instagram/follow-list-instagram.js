@@ -47,14 +47,16 @@ function controls() {
   $('#readingProgress').hidden = !snapshot?.profile || (!loading && snapshot?.status !== 'complete');
   for (const kind of ['following', 'followers']) {
     const started = kind === 'following' || snapshot?.phase === 'followers' || snapshot?.status === 'complete';
+    const complete = snapshot?.status === 'complete' || (kind === 'following' && snapshot?.phase === 'followers');
     $('#' + kind + 'ProgressRow').hidden = !started;
     const total = snapshot?.profile?.[kind] || 0;
     const read = snapshot?.counts?.[kind] || 0;
     const progress = $('#' + kind + 'Progress');
-    progress.max = Math.max(1, total);
-    progress.value = total > 0 ? Math.min(total, read) : 1;
-    $('#' + kind + 'Count').textContent = `${read} / ${total}`;
-    $('#' + kind + 'Percent').textContent = (total > 0 ? Math.floor(Math.min(1, read / total) * 100) : 100) + '%';
+    progress.max = complete ? 1 : Math.max(1, total);
+    progress.value = complete ? 1 : total > 0 ? Math.min(total, read) : 0;
+    $('#' + kind + 'Count').textContent = complete ? String(read) : `${read} / ${total}`;
+    $('#' + kind + 'Percent').textContent = (complete ? 100
+      : total > 0 ? Math.floor(Math.min(1, read / total) * 100) : 0) + '%';
   }
 }
 function render() {

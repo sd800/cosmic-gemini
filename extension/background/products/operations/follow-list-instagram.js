@@ -6,7 +6,7 @@ const PANEL = INSTAGRAM_PANEL_PATH;
 const MAX_ACCOUNTS = 20000;
 const REQUEST_GAP = 2000;
 const MAX_INCOMPLETE_RETRIES = 2;
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_PREFIX = 'followListInstagram:result:';
 const CACHE_INDEX = 'followListInstagram:resultIndex';
 const MAX_CACHED_RESULTS = 8;
@@ -40,13 +40,13 @@ export function createFollowListInstagramProduct(platform) {
     try {
       const value = (await chrome.storage.session.get(cacheKey(username)))[cacheKey(username)];
       if (value?.version !== CACHE_VERSION || value.username !== username
-        || value.followingCount !== profile.following || value.followersCount !== profile.followers
+        || value.profileFollowingCount !== profile.following || value.profileFollowersCount !== profile.followers
         || !Array.isArray(value.following) || !Array.isArray(value.followers)
-        || value.following.length !== profile.following || value.followers.length !== profile.followers
+        || value.following.length !== value.followingCount || value.followers.length !== value.followersCount
         || !value.following.every(validAccount) || !value.followers.every(validAccount)) return null;
       const following = new Map(value.following.map(account => [account.id, account]));
       const followers = new Map(value.followers.map(account => [account.id, account]));
-      if (following.size !== profile.following || followers.size !== profile.followers) return null;
+      if (following.size !== value.followingCount || followers.size !== value.followersCount) return null;
       return { following, followers };
     } catch { return null; }
   }
@@ -64,6 +64,7 @@ export function createFollowListInstagramProduct(platform) {
         await chrome.storage.session.set({
           [key]: {
             version: CACHE_VERSION, username,
+            profileFollowingCount: session.profile.following, profileFollowersCount: session.profile.followers,
             followingCount: session.following.size, followersCount: session.followers.size,
             following: [...session.following.values()], followers: [...session.followers.values()],
             completedAt: Date.now()
@@ -221,22 +222,24 @@ export function createFollowListInstagramProduct(platform) {
     if (session.status !== 'loading') return snapshot(session);
     try {
       const kind = session.phase;
-      const result = await request(session, { operation: 'list', kind, expected: session.profile[kind] });
+      const result = await request(session, { operation: 'list', kind });
       if (!Array.isArray(result.users) || typeof result.done !== 'boolean') throw new Error('igIncomplete');
       const list = session[kind];
       for (const account of result.users) list.set(account.id, account);
       session.pages += 1;
       if (list.size > MAX_ACCOUNTS || session.pages > 5000) throw new Error('igTooLarge');
       if (result.done) {
-        if (list.size !== session.profile[kind]) throw new Error('igIncomplete');
         if (kind === 'following') {
           session.phase = 'followers';
         } else {
           const freshResult = await request(session, { operation: 'profile' });
           const fresh = freshResult.profile;
           session.ownerId = freshResult.ownProfile === true ? fresh.id : '';
-          if (fresh.id !== session.profile.id || fresh.followers !== session.followers.size
-            || fresh.following !== session.following.size) throw new Error('igIncomplete');
+          if (fresh.id !== session.profile.id
+            || ![fresh.followers, fresh.following].every(value => Number.isSafeInteger(value) && value >= 0)) {
+            throw new Error('igIncomplete');
+          }
+          session.profile = fresh;
           session.status = 'complete';
           await writeCachedResult(session);
         }

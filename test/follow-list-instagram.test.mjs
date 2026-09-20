@@ -10,6 +10,16 @@ const profile = (following = 2, followers = 2, ownProfile = true) => ({ profile:
 const base = 'chrome-extension://test/';
 const panel = base + 'workspaces/follow-list-instagram/follow-list-instagram.html?sourceTab=7';
 const turns = async () => { for (let i = 0; i < 150; i++) await Promise.resolve(); };
+async function readDomUntilDone(input, env, limit = 30) {
+  const users = new Map();
+  for (let attempt = 0; attempt < limit; attempt += 1) {
+    const result = await instagramDomRead(input, env);
+    if (result.error) return result;
+    for (const account of result.users) users.set(account.id, account);
+    if (result.done) return { ...result, users: [...users.values()] };
+  }
+  assert.fail('Instagram DOM reader did not reach a stable bottom');
+}
 function harness(replies, sessionStore = new Map()) {
   let url = 'https://www.instagram.com/example/';
   const calls = []; let now = 0; const originalNow = Date.now;
@@ -71,8 +81,23 @@ test('Instagram background analysis reads complete lists and only allows confirm
   } finally { h.cleanup(); }
 });
 
-test('Instagram retries an incomplete read from fresh counts but never exposes a partial comparison', async () => {
-  const recovered = harness([profile(), { users: [account(2)], done: true }, profile(),
+test('Instagram accepts stable list completion when the displayed profile counts lag', async () => {
+  const h = harness([profile(2, 2), { users: [account(2)], done: true },
+    { users: [account(3)], done: true }, profile(2, 2)]);
+  try {
+    const initial = await h.send('UI_IG_ATTACH'); await turns();
+    const state = await h.send('UI_IG_STATE', { runId: initial.runId });
+    assert.equal(state.status, 'complete');
+    assert.deepEqual(state.counts, { following: 1, followers: 1 });
+    assert.equal(h.calls.filter(call => call.operation === 'list').length, 2);
+    const cached = [...h.sessionStore.entries()].find(([key]) => key.startsWith('followListInstagram:result:'))?.[1];
+    assert.equal(cached.profileFollowingCount, 2);
+    assert.equal(cached.followingCount, 1);
+  } finally { h.cleanup(); }
+});
+
+test('Instagram retries an incomplete DOM read but never exposes a partial comparison', async () => {
+  const recovered = harness([profile(), { error: 'igIncomplete' }, profile(),
     { users: [account(2), account(3)], done: true }, { users: [account(3), account(4)], done: true }, profile()]);
   try {
     const initial = await recovered.send('UI_IG_ATTACH'); await turns();
@@ -81,8 +106,8 @@ test('Instagram retries an incomplete read from fresh counts but never exposes a
     assert.equal(recovered.calls.filter(call => call.operation === 'list').length, 3);
   } finally { recovered.cleanup(); }
 
-  const incomplete = harness([profile(), { users: [account(2)], done: true }, profile(),
-    { users: [account(2)], done: true }, profile(), { users: [account(2)], done: true }]);
+  const incomplete = harness([profile(), { error: 'igIncomplete' }, profile(),
+    { error: 'igIncomplete' }, profile(), { error: 'igIncomplete' }]);
   try {
     const initial = await incomplete.send('UI_IG_ATTACH'); await turns();
     const state = await incomplete.send('UI_IG_STATE', { runId: initial.runId });
@@ -315,7 +340,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     querySelectorAll: () => [], getAttribute: () => null, ...props });
   const links = [];
   const rows = node({ querySelectorAll: selector => selector === 'a[href]' ? links : [] });
-  let closed = false, scrolled = false, mounted = false;
+  let closed = false, scrolled = false, mounted = false, verificationWaits = 0;
   const close = node({ click() { closed = true; mounted = false; }, querySelector: () => ({}) });
   const header = node({ querySelectorAll: () => [close] });
   const heading = node({ parentElement: header });
@@ -339,8 +364,12 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   rows.querySelector = () => links[0];
   const suggestion = node({ querySelectorAll: () => [node({ textContent: 'unrelated', getAttribute: () => '/unrelated/' })] });
   scroller.children = [wrapper, suggestion];
-  Object.defineProperty(scroller, 'scrollTop', { get: () => 0, set: value => { scrolled = value > 0; } });
-  const count = node({ textContent: '5' });
+  let scrollTop = 0;
+  Object.defineProperty(scroller, 'scrollTop', { get: () => scrollTop, set: value => {
+    scrollTop = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, Number(value) || 0));
+    scrolled ||= scrollTop > 0;
+  } });
+  const count = node({ textContent: '6' });
   const countLink = node({ querySelectorAll: () => [count], click() { mounted = true; } });
   const main = node({ querySelector: () => countLink,
     querySelectorAll: selector => selector === 'h1,h2' ? [{ textContent: 'example' }] : [] });
@@ -350,26 +379,29 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY }),
     setTimeout(callback, delay) {
       if (delay === 1200 && scrolled && links.length === 3) { add(4); add(5, 'visible_5'); }
+      if (delay === 80) verificationWaits += 1;
       callback();
     }
   };
-  const result = await instagramDomRead({ operation: 'list', runId: 'test', username: 'example', kind: 'following', expected: 5 }, env);
+  const result = await readDomUntilDone({ operation: 'list', runId: 'test', username: 'example',
+    kind: 'following' }, env);
   assert.equal(result.error, undefined);
   assert.equal(scrolled, true);
   assert.equal(result.done, true);
-  assert.equal(result.users.length, 5);
+  assert.equal(result.users.length, 5, 'stable bottom completion does not require the stale displayed count of six');
   assert.equal(result.users[0].name, '自定义名称 1');
   const separated = result.users.find(account => account.username === 'visible_5');
   assert.equal(separated?.id, 'visible_5', 'the visible handler is authoritative for account identity');
   assert.equal(separated?.href, 'https://www.instagram.com/destination_5/', 'the link remains only the click destination');
   assert.equal(result.users.some(account => account.username === 'destination_5'), false);
   assert.equal(result.users.some(account => account.username === 'unrelated'), false);
+  assert.equal(verificationWaits, 0, 'retained rows are read directly from the loaded DOM without a sweep');
   assert.equal(closed, true);
   await instagramDomRead({ operation: 'cancel', runId: 'test' }, env);
   assert.equal(env.__cosmicGeminiInstagramLists, undefined);
 });
 
-test('Instagram DOM near-complete verification sweeps back through the list and recovers a skipped row', async () => {
+test('Instagram DOM rapidly remounts virtualized rows and recovers a skipped account before bottom completion', async () => {
   const node = (props = {}) => ({ isConnected: true, children: [], clientHeight: 0, scrollHeight: 0,
     overflowY: 'visible', textContent: '', getClientRects: () => [{}], querySelector: () => null,
     querySelectorAll: () => [], getAttribute: () => null, matches: () => false,
@@ -414,6 +446,7 @@ test('Instagram DOM near-complete verification sweeps back through the list and 
     },
     querySelectorAll: selector => selector === 'h1,h2' ? [{ textContent: 'example' }] : []
   });
+  let verificationWaits = 0;
   const env = {
     location: new URL('https://www.instagram.com/example/'),
     document: { querySelector: selector => selector === 'main' ? main : null,
@@ -421,14 +454,18 @@ test('Instagram DOM near-complete verification sweeps back through the list and 
     getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY }),
     setTimeout(callback, delay) {
       if (delay === 1200 && scrollTop > 0) attachRows(bottom);
-      if (delay === 800 && scrollTop === 0) attachRows(topWithSkipped);
+      if (delay === 80) {
+        verificationWaits += 1;
+        if (scrollTop === 0) attachRows(topWithSkipped);
+      }
       callback();
     }
   };
-  const result = await instagramDomRead({ operation: 'list', runId: 'verification-test', username: 'example',
-    kind: 'following', expected: 5 }, env);
+  const result = await readDomUntilDone({ operation: 'list', runId: 'verification-test', username: 'example',
+    kind: 'following' }, env);
   assert.equal(result.done, true);
   assert.deepEqual(result.users.map(account => account.id).sort(),
     ['account_1', 'account_2', 'account_3', 'account_4', 'account_5']);
+  assert.equal(verificationWaits > 0, true, 'virtualized rows receive the fast remount sweep');
   assert.equal(mounted, false);
 });

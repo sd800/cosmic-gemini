@@ -9,8 +9,9 @@ export async function instagramDomRead(input, environment = globalThis) {
   const GROWTH_TIMEOUT = 90000;
   const NUDGE_AFTER = 20000;
   const MAX_NUDGES = 4;
-  const VERIFY_MILESTONES = [.25, .5, .75, .9, .97];
   const MAX_VERIFY_STEPS = 1200;
+  const VERIFY_SETTLE = 80;
+  const BOTTOM_CONFIRMATIONS = 2;
   const RESERVED_PATHS = new Set(['accounts', 'about', 'ads', 'api', 'challenge', 'developer', 'direct',
     'directory', 'emails', 'explore', 'legal', 'nametag', 'p', 'privacy', 'push', 'reel', 'reels',
     'sessions', 'stories', 'terms', 'web', 'your_activity']);
@@ -222,14 +223,13 @@ export async function instagramDomRead(input, environment = globalThis) {
       }
     }
     if (input.operation !== 'list' || !['followers', 'following'].includes(input.kind)) throw new Error('igUnavailable');
-    const expected = current.profile[input.kind];
-    if (expected !== input.expected) throw new Error('igIncomplete');
-    if (!expected) return { users: [], done: true };
+    const estimate = current.profile[input.kind];
+    if (!estimate) return { users: [], done: true };
     if (state.kind !== input.kind) {
       close(state);
       if (activeDialogs().length) throw new Error('igCloseDialog');
       state.kind = input.kind; state.seen.clear(); state.lastGrowth = Date.now(); state.nudges = 0;
-      state.milestones = new Set(); state.verification = null; state.verificationDoneFor = -1;
+      state.verification = null; state.fullSweepComplete = false; state.bottomProbe = null;
       state.list = null; state.scroller = null;
       current.links[input.kind].click();
       const deadline = Date.now() + 30000;
@@ -287,7 +287,7 @@ export async function instagramDomRead(input, environment = globalThis) {
           state.list = state.list.firstElementChild;
         }
       }
-      if (!state.list?.isConnected) return;
+      if (!state.list?.isConnected) { state.lastMountedCount = 0; return 0; }
       const identities = new Map();
       for (const link of state.list.querySelectorAll('a[href]')) {
         const destination = profileDestination(link);
@@ -296,12 +296,14 @@ export async function instagramDomRead(input, environment = globalThis) {
         const id = username.toLowerCase();
         if (!identities.has(id)) identities.set(id, { link, username, href: destination.href });
       }
+      state.lastMountedCount = identities.size;
       for (const [id, identity] of identities) {
         if (state.seen.has(id)) continue;
         state.seen.add(id);
         users.push({ id, username: identity.username, name: displayName(identity.link), href: identity.href });
       }
       if (users.length) { state.lastGrowth = Date.now(); state.nudges = 0; }
+      return identities.size;
     };
     const atBottom = scroller => scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
     const verificationStep = async scroller => {
@@ -311,9 +313,11 @@ export async function instagramDomRead(input, environment = globalThis) {
         scroller.scrollTop = 0;
       } else {
         const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-        scroller.scrollTop = Math.min(maximum, scroller.scrollTop + Math.max(120, scroller.clientHeight * .55));
+        scroller.scrollTop = Math.min(maximum, scroller.scrollTop + Math.max(180, scroller.clientHeight * .8));
       }
-      await wait(800);
+      // All pages have already been loaded. This pass only gives the virtual
+      // list enough time to remount each overlapping viewport for collection.
+      await wait(VERIFY_SETTLE);
       collect();
       verification.steps += 1;
       if (atBottom(scroller)) {
@@ -322,7 +326,7 @@ export async function instagramDomRead(input, environment = globalThis) {
       } else verification.bottomStable = 0;
       verification.lastHeight = scroller.scrollHeight;
       if (verification.bottomStable >= 1 || verification.steps >= MAX_VERIFY_STEPS) {
-        state.verificationDoneFor = state.seen.size;
+        state.fullSweepComplete = true;
         state.verification = null;
       }
     };
@@ -331,52 +335,52 @@ export async function instagramDomRead(input, environment = globalThis) {
       await wait(300); collect(); state.closeButton ||= findClose(dialog);
     }
     if (!state.scroller || !state.closeButton) throw new Error('igUnavailable');
-    if (state.seen.size > expected) throw new Error('igIncomplete');
-    if (state.seen.size < expected) {
-      const scroller = state.scroller;
-      if (state.verification) {
-        await verificationStep(scroller);
+    const scroller = state.scroller;
+    state.nudges ||= 0;
+    if (state.verification) {
+      await verificationStep(scroller);
+    } else {
+      scroller.scrollTop = Math.min(scroller.scrollHeight,
+        scroller.scrollTop + Math.max(150, scroller.clientHeight * .65));
+      await wait(1200);
+      if (!visible(dialog)) throw new Error('igStopped');
+      collect();
+    }
+    let bottom = atBottom(scroller);
+    // The displayed profile count is only an estimate. If it disagrees with
+    // the rows found at the bottom, a retained DOM already contains everything
+    // and needs no movement. Only a virtualized DOM needs one fast remount sweep.
+    if (bottom && !state.fullSweepComplete && state.seen.size !== estimate) {
+      if (state.lastMountedCount >= state.seen.size) {
+        state.fullSweepComplete = true;
       } else {
-        state.milestones ||= new Set();
-        state.nudges ||= 0;
-        if (!Number.isInteger(state.verificationDoneFor)) state.verificationDoneFor = -1;
-        const progress = state.seen.size / expected;
-        const reached = VERIFY_MILESTONES.filter(value => progress >= value && !state.milestones.has(value));
-        if (reached.length && scroller.scrollTop > 0) {
-          reached.forEach(value => state.milestones.add(value));
-          scroller.scrollTop = Math.max(0, scroller.scrollTop - scroller.clientHeight * .7);
-          await wait(650);
-          collect();
-        }
-        scroller.scrollTop = Math.min(scroller.scrollHeight,
-          scroller.scrollTop + Math.max(150, scroller.clientHeight * .65));
-        await wait(1200);
-        if (!visible(dialog)) throw new Error('igStopped');
+        state.verification = { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
+        state.bottomProbe = null;
+        await verificationStep(scroller);
+        bottom = atBottom(scroller) && !state.verification;
+      }
+    }
+    if (bottom) {
+      const signature = `${state.seen.size}:${scroller.scrollHeight}`;
+      state.bottomProbe = state.bottomProbe?.signature === signature
+        ? { signature, confirmations: state.bottomProbe.confirmations + 1 }
+        : { signature, confirmations: 1 };
+    } else {
+      state.bottomProbe = null;
+      const stalledFor = Date.now() - state.lastGrowth;
+      if (!state.verification && stalledFor >= NUDGE_AFTER && state.nudges < MAX_NUDGES) {
+        state.nudges += 1;
+        // Virtualized lists occasionally stop requesting rows before the end.
+        // Move near the latest bottom and allow Instagram to mount another batch.
+        scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight * 1.35);
+        await wait(500 + state.nudges * 250);
+        scroller.scrollTop = scroller.scrollHeight;
+        await wait(1200 + state.nudges * 400);
         collect();
-        const deficit = expected - state.seen.size;
-        const verificationRange = Math.max(2, Math.ceil(expected * .01));
-        if (deficit > 0 && deficit <= verificationRange && atBottom(scroller)
-          && state.verificationDoneFor !== state.seen.size) {
-          state.verification = { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
-          await verificationStep(scroller);
-        }
-        const stalledFor = Date.now() - state.lastGrowth;
-        if (!state.verification && stalledFor >= NUDGE_AFTER && state.nudges < MAX_NUDGES) {
-          state.nudges += 1;
-          // Virtualized lists occasionally stop requesting rows while parked at
-          // the bottom. Move slightly upward, then back down after a longer
-          // settle so Instagram has another opportunity to mount the next batch.
-          scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight * 1.35);
-          await wait(500 + state.nudges * 250);
-          scroller.scrollTop = scroller.scrollHeight;
-          await wait(1200 + state.nudges * 400);
-          collect();
-        }
       }
       if (!state.verification && Date.now() - state.lastGrowth > GROWTH_TIMEOUT) throw new Error('igIncomplete');
     }
-    if (state.seen.size > expected) throw new Error('igIncomplete');
-    const done = state.seen.size === expected;
+    const done = (state.bottomProbe?.confirmations || 0) >= BOTTOM_CONFIRMATIONS;
     if (done) close(state);
     return { users, done };
   } catch (error) {

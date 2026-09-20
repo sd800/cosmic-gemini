@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.8 — 2026-09-20
+
+- Changed Instagram list completion to follow the stable physical end of each loaded list instead of requiring an exact match with Instagram's displayed account count. A mismatched list is checked directly when its rows remain in the DOM; only a virtualized list receives one fast, overlapping remount sweep. Completed progress no longer remains at 99% when the displayed count is stale.
+
 ## 8.12.7 — 2026-09-20
 
 - Updated Following/Follower List Check for Instagram to use each account's visible user handler for display, deduplication, and list comparison. The account link is now retained separately for side-panel navigation, including when its path differs from the visible handler.

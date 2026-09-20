@@ -9,13 +9,22 @@ const profile = (following = 2, followers = 2, ownProfile = true) => ({ profile:
 const base = 'chrome-extension://test/';
 const panel = base + 'workspaces/follow-list-instagram/follow-list-instagram.html?sourceTab=7';
 const turns = async () => { for (let i = 0; i < 150; i++) await Promise.resolve(); };
-function harness(replies) {
+function harness(replies, sessionStore = new Map()) {
   let url = 'https://www.instagram.com/example/';
   const calls = []; let now = 0; const originalNow = Date.now;
   Date.now = () => (now += 5000);
   globalThis.chrome = {
     runtime: { getURL: path => base + path },
     tabs: { get: async () => ({ id: 7, url, incognito: false }) },
+    storage: { session: {
+      async get(keys) {
+        if (keys === null) return Object.fromEntries(sessionStore);
+        const wanted = Array.isArray(keys) ? keys : [keys];
+        return Object.fromEntries(wanted.filter(key => sessionStore.has(key)).map(key => [key, sessionStore.get(key)]));
+      },
+      async set(values) { for (const [key, value] of Object.entries(values)) sessionStore.set(key, structuredClone(value)); },
+      async remove(keys) { for (const key of Array.isArray(keys) ? keys : [keys]) sessionStore.delete(key); }
+    } },
     scripting: { executeScript: async options => {
       const input = options.args[0]; calls.push(input);
       if (input.operation === 'cancel') return [{ result: { ok: true } }];
@@ -25,7 +34,7 @@ function harness(replies) {
   };
   const product = createFollowListInstagramProduct({ isIncognitoContext: () => false });
   const send = (type, extra = {}, sender = panel) => product.handleMessage({ type, tabId: 7, ...extra }, { sender: { url: sender } });
-  return { product, send, calls, navigate: value => { url = value; }, cleanup: () => { Date.now = originalNow; } };
+  return { product, send, calls, sessionStore, navigate: value => { url = value; }, cleanup: () => { Date.now = originalNow; } };
 }
 const completeReplies = own => [profile(2, 2, own), { users: [account(2)], done: false }, { users: [account(2), account(3)], done: true }, { users: [account(3), account(4)], done: true }, profile(2, 2, own)];
 
@@ -58,17 +67,66 @@ test('Instagram background analysis reads complete lists and only allows confirm
   } finally { h.cleanup(); }
 });
 
-test('Instagram incomplete lists and access errors never become false non-follower results', async () => {
-  for (const result of [{ users: [account(2)], done: true }, { error: 'igAccessDenied' }]) {
-    const h = harness([profile(), result]);
-    try {
-      const initial = await h.send('UI_IG_ATTACH'); await turns();
-      const state = await h.send('UI_IG_STATE', { runId: initial.runId });
-      assert.equal(state.status, 'error'); assert.equal(state.groups, null);
-      assert.equal(state.error, result.error || 'igIncomplete');
-      assert.equal(h.calls.filter(c => c.operation === 'list').length, 1);
-    } finally { h.cleanup(); }
-  }
+test('Instagram retries an incomplete read from fresh counts but never exposes a partial comparison', async () => {
+  const recovered = harness([profile(), { users: [account(2)], done: true }, profile(),
+    { users: [account(2), account(3)], done: true }, { users: [account(3), account(4)], done: true }, profile()]);
+  try {
+    const initial = await recovered.send('UI_IG_ATTACH'); await turns();
+    const state = await recovered.send('UI_IG_STATE', { runId: initial.runId });
+    assert.equal(state.status, 'complete');
+    assert.equal(recovered.calls.filter(call => call.operation === 'list').length, 3);
+  } finally { recovered.cleanup(); }
+
+  const incomplete = harness([profile(), { users: [account(2)], done: true }, profile(),
+    { users: [account(2)], done: true }, profile(), { users: [account(2)], done: true }]);
+  try {
+    const initial = await incomplete.send('UI_IG_ATTACH'); await turns();
+    const state = await incomplete.send('UI_IG_STATE', { runId: initial.runId });
+    assert.equal(state.status, 'error'); assert.equal(state.groups, null); assert.equal(state.error, 'igIncomplete');
+    assert.equal(incomplete.calls.filter(call => call.operation === 'list').length, 3);
+  } finally { incomplete.cleanup(); }
+
+  const denied = harness([profile(), { error: 'igAccessDenied' }]);
+  try {
+    const initial = await denied.send('UI_IG_ATTACH'); await turns();
+    const state = await denied.send('UI_IG_STATE', { runId: initial.runId });
+    assert.equal(state.status, 'error'); assert.equal(state.groups, null); assert.equal(state.error, 'igAccessDenied');
+    assert.equal(denied.calls.filter(call => call.operation === 'list').length, 1);
+  } finally { denied.cleanup(); }
+});
+
+test('Instagram restores validated complete results for the browser session and supports scoped clearing', async () => {
+  const replies = [...completeReplies(false), profile(2, 2, true)];
+  const h = harness(replies);
+  try {
+    const initial = await h.send('UI_IG_ATTACH'); await turns();
+    let state = await h.send('UI_IG_STATE', { runId: initial.runId });
+    assert.equal(state.status, 'complete');
+    assert.equal([...h.sessionStore.keys()].some(key => key.startsWith('followListInstagram:result:')), true);
+    h.navigate('https://www.instagram.com/another/');
+    await h.product.handleTabUpdated(7, { url: 'https://www.instagram.com/another/' });
+    h.navigate('https://www.instagram.com/example/');
+    state = await h.send('UI_IG_ATTACH');
+    assert.equal(state.status, 'complete');
+    assert.equal(state.ownProfile, true, 'own-profile authority is freshly checked instead of restored from cache');
+    assert.equal(h.calls.filter(call => call.operation === 'list').length, 3, 'restoring does not reread either list');
+    assert.deepEqual(await h.send('UI_IG_CLEAR_CURRENT', { runId: state.runId }), { cleared: true });
+    assert.equal([...h.sessionStore.keys()].some(key => key.startsWith('followListInstagram:result:')), false);
+  } finally { h.cleanup(); }
+});
+
+test('Instagram can clear every completed browser-session result without touching other session data', async () => {
+  const h = harness(completeReplies(false));
+  try {
+    const initial = await h.send('UI_IG_ATTACH'); await turns();
+    const state = await h.send('UI_IG_STATE', { runId: initial.runId });
+    h.sessionStore.set('followListInstagram:result:another', { version: 1 });
+    h.sessionStore.set('unrelated', { keep: true });
+    assert.deepEqual(await h.send('UI_IG_CLEAR_ALL', { runId: state.runId }), { cleared: true });
+    assert.equal([...h.sessionStore.keys()].some(key => key.startsWith('followListInstagram:result')), false);
+    assert.deepEqual(h.sessionStore.get('unrelated'), { keep: true });
+    await assert.rejects(h.send('UI_IG_STATE', { runId: state.runId }), /igSessionEnded/);
+  } finally { h.cleanup(); }
 });
 
 test('Instagram panel closure leaves reading active and reopening attaches to the same run', async () => {
@@ -287,7 +345,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     document: { querySelector: () => main, querySelectorAll: () => mounted ? [dialog] : [] },
     getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY }),
     setTimeout(callback, delay) {
-      if (delay === 900 && scrolled && links.length === 3) { add(4); add(5); }
+      if (delay === 1200 && scrolled && links.length === 3) { add(4); add(5); }
       callback();
     }
   };

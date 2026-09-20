@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.3 — 2026-09-20
+
+- Kept completed Following/Follower List Check for Instagram results in browser-session memory, so reopening a profile can restore a validated result until the browser exits. Added controls beneath completed results to clear the current profile or all Instagram list results.
+- Made slow Instagram list reads more resilient. The reader now waits longer, nudges a stalled virtualized list, and can restart twice from freshly checked profile counts before reporting an incomplete result; partial comparisons remain hidden.
+
 ## 8.12.2 — 2026-09-20
 
 - Reworked own-profile unfollowing in Following/Follower List Check for Instagram to use Instagram’s visible Following list, exact username search, and native confirmation control instead of an internal request endpoint. Existing own-profile, explicit-confirmation, and relationship checks remain in place, and an uncertain write is never repeated automatically.

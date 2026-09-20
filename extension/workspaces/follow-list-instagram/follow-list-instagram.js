@@ -41,6 +41,8 @@ function errorStatus(error) {
 function controls() {
   $('#stop').hidden = !loading;
   $('#refresh').disabled = loading || writing;
+  $('#clearCurrent').disabled = loading || writing;
+  $('#clearAll').disabled = loading || writing;
   $('#results').hidden = snapshot?.status !== 'complete';
   $('#readingProgress').hidden = !snapshot?.profile || (!loading && snapshot?.status !== 'complete');
   for (const kind of ['following', 'followers']) {
@@ -143,8 +145,22 @@ function stop(key = 'igStopped', notify = true) {
   status(key); render();
   if (notify) void message('UI_IG_STOP', { runId }).catch(() => {});
 }
+async function clearResults(type, key) {
+  if (loading || writing || snapshot?.status !== 'complete') return;
+  const ticket = ++generation;
+  writing = true; render();
+  try {
+    await message(type);
+    if (ticket !== generation) return;
+    snapshot = null; uncertain.clear(); page = 0; dismissedRun = '';
+    status(key);
+  } catch (error) { if (ticket === generation) errorStatus(error); }
+  finally { writing = false; if (ticket === generation) render(); }
+}
 $('#refresh').addEventListener('click', () => void begin());
 $('#stop').addEventListener('click', () => stop());
+$('#clearCurrent').addEventListener('click', () => void clearResults('UI_IG_CLEAR_CURRENT', 'igClearedCurrent'));
+$('#clearAll').addEventListener('click', () => void clearResults('UI_IG_CLEAR_ALL', 'igClearedAll'));
 $('#search').addEventListener('input', () => { page = 0; render(); });
 $('#previous').addEventListener('click', () => { page -= 1; render(); });
 $('#next').addEventListener('click', () => { page += 1; render(); });

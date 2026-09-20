@@ -36,6 +36,9 @@ p { line-height: 1.6; font-size: 13px; }
 #accounts small { display: block; color: var(--muted); margin-top: 3px; }
 #accounts button { flex: 0 0 auto; font-size: 12px; }
 #pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.result-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.result-actions button { font-size: 12px; }
+.result-actions button:last-child { color: var(--danger); }
 .note { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 22px; }
 dialog { border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-width: calc(100vw - 40px); background: var(--surface); color: var(--text); }
 dialog::backdrop { background: #0008; }

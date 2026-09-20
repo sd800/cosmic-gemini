@@ -5,12 +5,96 @@ import { instagramDomRead } from '../../../content/follow-list-instagram-dom.js'
 const PANEL = INSTAGRAM_PANEL_PATH;
 const MAX_ACCOUNTS = 20000;
 const REQUEST_GAP = 2000;
+const MAX_INCOMPLETE_RETRIES = 2;
+const CACHE_VERSION = 1;
+const CACHE_PREFIX = 'followListInstagram:result:';
+const CACHE_INDEX = 'followListInstagram:resultIndex';
+const MAX_CACHED_RESULTS = 8;
 
 export function createFollowListInstagramProduct(platform) {
   const sessions = new Map();
   const busyTabs = new Set();
   const ports = new Map();
   const pendingStarts = new Map();
+  let cacheWrites = Promise.resolve();
+
+  const cacheKey = username => CACHE_PREFIX + String(username || '').toLowerCase();
+  const validAccount = account => account && typeof account.id === 'string' && account.id
+    && typeof account.username === 'string' && /^[a-zA-Z0-9._]{1,30}$/.test(account.username)
+    && typeof account.name === 'string';
+
+  function queueCacheWrite(task) {
+    const next = cacheWrites.catch(() => {}).then(task);
+    cacheWrites = next.catch(() => {});
+    return next;
+  }
+
+  async function readCachedResult(username, profile) {
+    try {
+      const value = (await chrome.storage.session.get(cacheKey(username)))[cacheKey(username)];
+      if (value?.version !== CACHE_VERSION || value.username !== username
+        || value.followingCount !== profile.following || value.followersCount !== profile.followers
+        || !Array.isArray(value.following) || !Array.isArray(value.followers)
+        || value.following.length !== profile.following || value.followers.length !== profile.followers
+        || !value.following.every(validAccount) || !value.followers.every(validAccount)) return null;
+      const following = new Map(value.following.map(account => [account.id, account]));
+      const followers = new Map(value.followers.map(account => [account.id, account]));
+      if (following.size !== profile.following || followers.size !== profile.followers) return null;
+      return { following, followers };
+    } catch { return null; }
+  }
+
+  async function writeCachedResult(session) {
+    if (session.status !== 'complete' || !session.profile) return;
+    const username = session.username;
+    const key = cacheKey(username);
+    await queueCacheWrite(async () => {
+      try {
+        const stored = await chrome.storage.session.get(CACHE_INDEX);
+        const previous = Array.isArray(stored[CACHE_INDEX]) ? stored[CACHE_INDEX] : [];
+        const index = [username, ...previous.filter(value => value !== username)].slice(0, MAX_CACHED_RESULTS);
+        const evicted = previous.filter(value => !index.includes(value)).map(cacheKey);
+        await chrome.storage.session.set({
+          [key]: {
+            version: CACHE_VERSION, username,
+            followingCount: session.following.size, followersCount: session.followers.size,
+            following: [...session.following.values()], followers: [...session.followers.values()],
+            completedAt: Date.now()
+          },
+          [CACHE_INDEX]: index
+        });
+        if (evicted.length) await chrome.storage.session.remove(evicted);
+      } catch {}
+    });
+  }
+
+  async function clearCachedResult(username) {
+    await queueCacheWrite(async () => {
+      try {
+        const stored = await chrome.storage.session.get(CACHE_INDEX);
+        const previous = Array.isArray(stored[CACHE_INDEX]) ? stored[CACHE_INDEX] : [];
+        const index = previous.filter(value => value !== username);
+        await chrome.storage.session.remove(cacheKey(username));
+        if (index.length) await chrome.storage.session.set({ [CACHE_INDEX]: index });
+        else await chrome.storage.session.remove(CACHE_INDEX);
+      } catch {}
+    });
+  }
+
+  async function clearAllCachedResults() {
+    await queueCacheWrite(async () => {
+      try {
+        const stored = await chrome.storage.session.get(null);
+        const keys = Object.keys(stored).filter(key => key === CACHE_INDEX || key.startsWith(CACHE_PREFIX));
+        if (keys.length) await chrome.storage.session.remove(keys);
+      } catch {}
+    });
+  }
+
+  async function clearReader(session) {
+    await chrome.scripting.executeScript({ target: { tabId: session.tabId, frameIds: [0] }, world: 'ISOLATED',
+      func: instagramDomRead, args: [{ operation: 'cancel', runId: session.runId }] }).catch(() => {});
+  }
 
   async function source(tabId, username) {
     if (!Number.isInteger(tabId)) throw new Error('igPageChanged');
@@ -60,25 +144,23 @@ export function createFollowListInstagramProduct(platform) {
     if (session.status !== 'complete') session.status = 'stopped';
     publish(session);
     if (remove) sessions.delete(tabId);
-    await Promise.allSettled([instagramDomRead].map(func =>
-      chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, world: 'ISOLATED',
-        func, args: [{ operation: 'cancel', runId: session.runId }] })));
+    await clearReader(session);
     return snapshot(session);
   }
 
-  async function begin(tabId) {
+  async function begin(tabId, reuseCache = false) {
     const pending = { cancelled: false };
     pendingStarts.set(tabId, pending);
     try {
       const route = await source(tabId);
       if (pending.cancelled) throw new Error('igStopped');
       await stop(tabId, true, false);
-      // Result sets stay in memory and are bounded, never written to persistent storage.
+      // Active reads stay tab-bound. Only fully validated results enter session storage.
       if (sessions.size >= 8) await stop(sessions.keys().next().value, true);
       if (pending.cancelled) throw new Error('igStopped');
       const session = { tabId, username: route.username, runId: crypto.randomUUID(),
         revision: 0, status: 'loading', phase: 'following', following: new Map(), followers: new Map(),
-        lastRequest: 0, stopped: false, pages: 0 };
+        lastRequest: 0, stopped: false, pages: 0, incompleteRetries: 0 };
       sessions.set(tabId, session);
       try {
         const result = await request(session, { operation: 'profile' });
@@ -87,16 +169,45 @@ export function createFollowListInstagramProduct(platform) {
         if (session.profile?.username !== route.username) throw new Error('igPageChanged');
         if (![session.profile.followers, session.profile.following].every(value => Number.isSafeInteger(value) && value >= 0)) throw new Error('igIncomplete');
         if (Math.max(session.profile.followers, session.profile.following) > MAX_ACCOUNTS) throw new Error('igTooLarge');
+        if (reuseCache) {
+          const cached = await readCachedResult(route.username, session.profile);
+          if (cached) {
+            session.following = cached.following;
+            session.followers = cached.followers;
+            session.phase = 'followers';
+            session.status = 'complete';
+          }
+        }
       } catch (error) {
         session.status = 'error';
         session.error = error.message;
       }
       session.revision += 1;
       if (session.status === 'loading') void pump(session);
+      else await clearReader(session);
       return snapshot(session);
     } finally {
       if (pendingStarts.get(tabId) === pending) pendingStarts.delete(tabId);
     }
+  }
+
+  async function recoverIncomplete(session) {
+    if (session.incompleteRetries >= MAX_INCOMPLETE_RETRIES) return false;
+    session.incompleteRetries += 1;
+    await clearReader(session);
+    const result = await request(session, { operation: 'profile' });
+    const fresh = result.profile;
+    if (fresh?.id !== session.profile?.id || fresh.username !== session.username
+      || ![fresh.followers, fresh.following].every(value => Number.isSafeInteger(value) && value >= 0)) return false;
+    if (Math.max(fresh.followers, fresh.following) > MAX_ACCOUNTS) throw new Error('igTooLarge');
+    session.profile = fresh;
+    session.ownerId = result.ownProfile === true ? fresh.id : '';
+    session.following.clear();
+    session.followers.clear();
+    session.phase = 'following';
+    session.pages = 0;
+    session.error = '';
+    return true;
   }
 
   async function next(session) {
@@ -120,9 +231,15 @@ export function createFollowListInstagramProduct(platform) {
           if (fresh.id !== session.profile.id || fresh.followers !== session.followers.size
             || fresh.following !== session.following.size) throw new Error('igIncomplete');
           session.status = 'complete';
+          await writeCachedResult(session);
         }
       }
     } catch (error) {
+      if (!session.stopped && error.message === 'igIncomplete') {
+        try {
+          if (await recoverIncomplete(session)) return snapshot(session);
+        } catch (recoveryError) { error = recoveryError; }
+      }
       session.status = session.stopped ? 'stopped' : 'error';
       session.error = session.stopped ? '' : error.message;
     }
@@ -140,8 +257,7 @@ export function createFollowListInstagramProduct(platform) {
       await next(session);
       publish(session);
     }
-    await chrome.scripting.executeScript({ target: { tabId: session.tabId, frameIds: [0] }, world: 'ISOLATED',
-      func: instagramDomRead, args: [{ operation: 'cancel', runId: session.runId }] }).catch(() => {});
+    await clearReader(session);
   }
 
   return Object.freeze({
@@ -160,16 +276,27 @@ export function createFollowListInstagramProduct(platform) {
       if (busyTabs.has(tabId)) throw new Error('igBusy');
       busyTabs.add(tabId);
       try {
-        if (message.type === 'UI_IG_BEGIN') return await begin(tabId);
+        if (message.type === 'UI_IG_BEGIN') return await begin(tabId, false);
         if (message.type === 'UI_IG_ATTACH') {
           const existing = sessions.get(tabId);
           if (existing) { await source(tabId, existing.username); return snapshot(existing); }
-          return await begin(tabId);
+          return await begin(tabId, true);
         }
         const session = sessions.get(tabId);
         if (!session || session.runId !== message.runId) throw new Error('igSessionEnded');
         await source(tabId, session.username);
         if (message.type === 'UI_IG_STATE') return snapshot(session);
+        if (message.type === 'UI_IG_CLEAR_CURRENT') {
+          if (session.status !== 'complete') throw new Error('igSessionEnded');
+          await clearCachedResult(session.username);
+          await stop(tabId, true);
+          return { cleared: true };
+        }
+        if (message.type === 'UI_IG_CLEAR_ALL') {
+          await Promise.allSettled([...sessions.keys()].map(id => stop(id, true)));
+          await clearAllCachedResults();
+          return { cleared: true };
+        }
         if (message.type === 'UI_IG_UNFOLLOW') {
           if (session.status !== 'complete' || session.stopped || session.ownerId !== session.profile.id
             || message.confirmed !== true) throw new Error('igOwnProfileOnly');
@@ -186,6 +313,7 @@ export function createFollowListInstagramProduct(platform) {
           if (result.unfollowed !== true) throw new Error('igUnfollowUncertain');
           session.following.delete(target.id);
           session.profile.following = session.following.size;
+          void writeCachedResult(session);
           publish(session);
           return snapshot(session);
         }
@@ -214,6 +342,7 @@ export function createFollowListInstagramProduct(platform) {
     async reset() {
       for (const pending of pendingStarts.values()) pending.cancelled = true;
       await Promise.allSettled([...sessions.keys()].map(tabId => stop(tabId, true)));
+      await clearAllCachedResults();
     }
   });
 }

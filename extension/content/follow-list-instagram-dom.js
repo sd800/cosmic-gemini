@@ -5,6 +5,10 @@ export async function instagramDomRead(input, environment = globalThis) {
   const getComputedStyle = element => environment.getComputedStyle(element);
   const pause = ms => new Promise(resolve => environment.setTimeout(resolve, ms));
   const KEY = '__cosmicGeminiInstagramLists';
+  const SCROLLER_DISCOVERY_TIMEOUT = 60000;
+  const GROWTH_TIMEOUT = 90000;
+  const NUDGE_AFTER = 20000;
+  const MAX_NUDGES = 4;
   const all = environment[KEY] ||= new Map();
   const visible = element => Boolean(element?.isConnected && element.getClientRects().length
     && getComputedStyle(element).visibility !== 'hidden');
@@ -211,7 +215,7 @@ export async function instagramDomRead(input, environment = globalThis) {
     if (state.kind !== input.kind) {
       close(state);
       if (activeDialogs().length) throw new Error('igCloseDialog');
-      state.kind = input.kind; state.seen.clear(); state.lastGrowth = Date.now();
+      state.kind = input.kind; state.seen.clear(); state.lastGrowth = Date.now(); state.nudges = 0;
       state.list = null; state.scroller = null;
       current.links[input.kind].click();
       const deadline = Date.now() + 30000;
@@ -268,19 +272,33 @@ export async function instagramDomRead(input, environment = globalThis) {
         state.seen.add(username.toLowerCase());
         users.push({ id: username.toLowerCase(), username, name: displayName(link) });
       }
-      if (users.length) state.lastGrowth = Date.now();
+      if (users.length) { state.lastGrowth = Date.now(); state.nudges = 0; }
     };
     collect();
-    while (!state.scroller && Date.now() - state.lastGrowth < 30000) { await wait(300); collect(); state.closeButton ||= findClose(dialog); }
+    while (!state.scroller && Date.now() - state.lastGrowth < SCROLLER_DISCOVERY_TIMEOUT) {
+      await wait(300); collect(); state.closeButton ||= findClose(dialog);
+    }
     if (!state.scroller || !state.closeButton) throw new Error('igUnavailable');
     if (state.seen.size > expected) throw new Error('igIncomplete');
     if (state.seen.size < expected) {
       const scroller = state.scroller;
       scroller.scrollTop = Math.min(scroller.scrollHeight, scroller.scrollTop + Math.max(150, scroller.clientHeight * .85));
-      await wait(900);
+      await wait(1200);
       if (!visible(dialog)) throw new Error('igStopped');
       collect();
-      if (Date.now() - state.lastGrowth > 30000) throw new Error('igIncomplete');
+      const stalledFor = Date.now() - state.lastGrowth;
+      if (stalledFor >= NUDGE_AFTER && state.nudges < MAX_NUDGES) {
+        state.nudges += 1;
+        // Virtualized lists occasionally stop requesting rows while parked at
+        // the bottom. Move slightly upward, then back down after a longer
+        // settle so Instagram has another opportunity to mount the next batch.
+        scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight * 1.35);
+        await wait(500 + state.nudges * 250);
+        scroller.scrollTop = scroller.scrollHeight;
+        await wait(1200 + state.nudges * 400);
+        collect();
+      }
+      if (Date.now() - state.lastGrowth > GROWTH_TIMEOUT) throw new Error('igIncomplete');
     }
     if (state.seen.size > expected) throw new Error('igIncomplete');
     const done = state.seen.size === expected;

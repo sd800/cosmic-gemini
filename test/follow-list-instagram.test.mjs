@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { instagramRoute, compareInstagramLists } from '../extension/core/follow-list-instagram.js';
+import { instagramProfileUrl, instagramRoute, compareInstagramLists } from '../extension/core/follow-list-instagram.js';
 import { instagramDomRead } from '../extension/content/follow-list-instagram-dom.js';
 import { createFollowListInstagramProduct } from '../extension/background/products/operations/follow-list-instagram.js';
 
 const account = (id, verified = false) => ({ id: `account_${id}`, username: `account_${id}`, name: `名称 ${id}`,
-  href: `https://www.instagram.com/destination_${id}/`, verified });
+  verified });
 const profile = (following = 2, followers = 2, ownProfile = true) => ({ profile: { id: 'example', username: 'example', following, followers }, ownProfile });
 const base = 'chrome-extension://test/';
 const panel = base + 'workspaces/follow-list-instagram/follow-list-instagram.html?sourceTab=7';
@@ -53,6 +53,13 @@ test('Instagram profile routing ignores interface language and rejects unrelated
   for (const value of ['https://www.instagram.com/Example/?hl=zh-cn', 'https://instagram.com/example/tagged/', 'https://www.instagram.com/example/reels/']) assert.equal(instagramRoute(value).username, 'example');
   for (const path of ['', 'p/ABC/', 'reel/ABC/', 'direct/inbox/', 'accounts/', 'example/p/ABC/']) assert.equal(instagramRoute('https://www.instagram.com/' + path).username, '');
   for (const value of ['https://instagram.com.evil.test/example/', 'http://instagram.com/example/', 'https://api.instagram.com/example/', 'invalid']) assert.equal(instagramRoute(value).supported, false);
+});
+
+test('Instagram profile links are derived only from validated handlers', () => {
+  assert.equal(instagramProfileUrl('Visible.Handler_1'), 'https://www.instagram.com/Visible.Handler_1/');
+  for (const value of ['', 'accounts', 'name/other', 'name?query', 'name Verified']) {
+    assert.equal(instagramProfileUrl(value), '');
+  }
 });
 
 test('Instagram comparison deduplicates accounts and separates all three relationship groups', () => {
@@ -276,16 +283,16 @@ function unfollowDomHarness({ own = true, dangerColor = 'rgb(238, 81, 94)', acti
   const listHeading = node('h1', { textContent: '关注', attributes: { role: 'heading' } });
   const header = node('div'); header.append(listHeading, closeButton);
   const search = node('input', { type: 'text', value: '', dispatchEvent() {} });
-  const avatarLink = node('a', { attributes: { href: '/destination_2/' } }); avatarLink.append(node('img'));
+  const avatarLink = node('a', { attributes: { href: '/account_2/' } }); avatarLink.append(node('img'));
   const avatarButton = node('button'); avatarButton.append(avatarLink);
-  const targetLink = node('a', { attributes: { href: '/destination_2/' }, textContent: 'account_2' });
+  const targetLink = node('a', { attributes: { href: '/account_2/' }, textContent: 'account_2' });
   const identity = node('div'); identity.append(targetLink);
   const action = node('button', { textContent: '已关注', backgroundColor: actionBackground,
     click() { actionClicks += 1; confirmOpen = true; } });
   const row = node('div'); row.append(avatarButton, identity, action);
   const listDialog = node('div', { attributes: { role: 'dialog' } }); listDialog.append(header, search, row);
 
-  const confirmLink = node('a', { attributes: { href: '/destination_2/' } }); confirmLink.append(node('img'));
+  const confirmLink = node('a', { attributes: { href: '/account_2/' } }); confirmLink.append(node('img'));
   const danger = node('button', { textContent: '取消关注', color: dangerColor, click() {
     confirmClicks += 1; confirmOpen = false; unfollowed = true; targetLink.isConnected = false;
     followingCount.textContent = '1';
@@ -354,8 +361,8 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     children: [rows], firstElementChild: rows, querySelectorAll: () => links });
   rows.parentElement = wrapper;
   rows.children = [node(), node(), node()];
-  const add = (id, username = `account_${id}`, destination = `destination_${id}`, verified = false) => {
-    const link = node({ textContent: username + (verified ? 'Verified' : ''), innerText: username,
+  const add = (id, visibleText = `account_${id}`, destination = visibleText, verified = false) => {
+    const link = node({ textContent: visibleText + (verified ? 'Verified' : ''), innerText: visibleText,
       getAttribute: () => `/${destination}/` });
     const name = node({ textContent: `自定义名称 ${id}`, contains: () => false, matches: () => true });
     const hiddenVerificationLabel = node({ textContent: 'Verified', contains: () => false, matches: () => true,
@@ -366,9 +373,14 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     });
     link.parentElement = node({ parentElement: rows, children: [link, hiddenVerificationLabel, name],
       querySelectorAll: selector => selector === 'svg' && verified ? [badge] : [] });
+    if (verified) {
+      const avatar = node({ textContent: '', getAttribute: () => `/${destination}/` });
+      avatar.parentElement = node({ parentElement: rows, children: [avatar], querySelectorAll: () => [] });
+      links.push(avatar);
+    }
     links.push(link); return link;
   };
-  add(1); add(2, 'account_2', 'destination_2', true); add(3);
+  add(1); add(2, 'account_2', 'account_2', true); add(3);
   rows.querySelector = () => links[0];
   const suggestion = node({ querySelectorAll: () => [node({ textContent: 'unrelated', getAttribute: () => '/unrelated/' })] });
   scroller.children = [wrapper, suggestion];
@@ -386,7 +398,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     document: { querySelector: () => main, querySelectorAll: () => mounted ? [dialog] : [] },
     getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY }),
     setTimeout(callback, delay) {
-      if (delay === 1200 && scrolled && links.length === 3) { add(4); add(5, 'visible_5'); }
+      if (delay === 1200 && scrolled && links.length === 4) { add(4); add(5, 'different_visible_text', 'account_5'); }
       if (delay === 80) verificationWaits += 1;
       callback();
     }
@@ -398,10 +410,9 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   assert.equal(result.done, true);
   assert.equal(result.users.length, 5, 'stable bottom completion does not require the stale displayed count of six');
   assert.equal(result.users[0].name, '自定义名称 1');
-  const separated = result.users.find(account => account.username === 'visible_5');
-  assert.equal(separated?.id, 'visible_5', 'the visible handler is authoritative for account identity');
-  assert.equal(separated?.href, 'https://www.instagram.com/destination_5/', 'the link remains only the click destination');
-  assert.equal(result.users.some(account => account.username === 'destination_5'), false);
+  const separated = result.users.find(account => account.username === 'account_5');
+  assert.equal(separated?.id, 'account_5', 'the validated profile path is authoritative for account identity');
+  assert.equal(Object.hasOwn(separated, 'href'), false, 'scan results do not duplicate a destination derived from the handler');
   assert.equal(result.users.some(account => account.username === 'unrelated'), false);
   assert.equal(result.users.find(account => account.username === 'account_2')?.verified, true);
   assert.equal(result.users.find(account => account.username === 'account_3')?.verified, false);
@@ -445,7 +456,7 @@ test('Instagram DOM rapidly remounts virtualized rows and recovers a skipped acc
     querySelectorAll: selector => selector === 'a[href]' ? links : [] });
   header.parentElement = dialog; scroller.parentElement = dialog;
   const followerCount = node({ textContent: '0' });
-  const followingCount = node({ textContent: '5' });
+  const followingCount = node({ textContent: '4' });
   const followerLink = node({ querySelectorAll: () => [followerCount] });
   const followingLink = node({ querySelectorAll: () => [followingCount], click() { mounted = true; } });
   const main = node({
@@ -476,6 +487,7 @@ test('Instagram DOM rapidly remounts virtualized rows and recovers a skipped acc
   assert.equal(result.done, true);
   assert.deepEqual(result.users.map(account => account.id).sort(),
     ['account_1', 'account_2', 'account_3', 'account_4', 'account_5']);
-  assert.equal(verificationWaits > 0, true, 'virtualized rows receive the fast remount sweep');
+  assert.equal(verificationWaits > 0, true,
+    'virtualized rows receive the fast remount sweep even when the displayed count is stale but already matched');
   assert.equal(mounted, false);
 });

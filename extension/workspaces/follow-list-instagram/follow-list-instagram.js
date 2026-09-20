@@ -1,5 +1,5 @@
 import { loadLocale } from '../../core/locale.js';
-import { instagramRoute } from '../../core/follow-list-instagram.js';
+import { instagramProfileUrl, instagramRoute } from '../../core/follow-list-instagram.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
 import { icon, send } from '../../shared/ui.js';
 
@@ -82,7 +82,7 @@ function render() {
   for (const account of accounts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)) {
     const row = document.createElement('li');
     const link = document.createElement('a');
-    link.href = account.href;
+    link.href = instagramProfileUrl(account.username);
     link.target = '_blank'; link.rel = 'noopener noreferrer';
     const handle = document.createElement('span'); handle.className = 'account-handle';
     const username = document.createElement('strong'); username.textContent = '@' + account.username;

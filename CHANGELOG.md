@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.15 — 2026-09-20
+
+- Simplified Instagram account results to extract one validated user handler directly from each profile destination and derive the side-panel link from it. Virtualized lists now receive a final full audit even when Instagram’s displayed count is stale, reducing missed accounts and incorrect relationship classifications.
+
 ## 8.12.13 — 2026-09-20
 
 - Corrected Instagram verified-account handlers by reading only their painted text, and clarified the current-profile scan-data action in the side panel.

@@ -1,12 +1,12 @@
 import { FEATURE_IDS } from '../../../core/config.js';
-import { INSTAGRAM_PANEL_PATH, instagramRoute, compareInstagramLists } from '../../../core/follow-list-instagram.js';
+import { INSTAGRAM_PANEL_PATH, instagramProfileUrl, instagramRoute, compareInstagramLists } from '../../../core/follow-list-instagram.js';
 import { instagramDomRead } from '../../../content/follow-list-instagram-dom.js';
 
 const PANEL = INSTAGRAM_PANEL_PATH;
 const MAX_ACCOUNTS = 20000;
 const REQUEST_GAP = 2000;
 const MAX_INCOMPLETE_RETRIES = 2;
-const CACHE_VERSION = 6;
+const CACHE_VERSION = 7;
 const CACHE_PREFIX = 'followListInstagram:result:';
 const CACHE_INDEX = 'followListInstagram:resultIndex';
 const MAX_CACHED_RESULTS = 8;
@@ -22,14 +22,9 @@ export function createFollowListInstagramProduct(platform) {
   const validAccount = account => account && typeof account.id === 'string' && account.id
     && typeof account.username === 'string' && /^[a-zA-Z0-9._]{1,30}$/.test(account.username)
     && account.id === account.username.toLowerCase() && typeof account.name === 'string'
-    && typeof account.verified === 'boolean'
-    && (() => {
-      try {
-        const url = new URL(account.href);
-        return url.protocol === 'https:' && ['www.instagram.com', 'instagram.com'].includes(url.hostname)
-          && /^[a-zA-Z0-9._]{1,30}$/.test(url.pathname.replace(/^\/+|\/+$/g, ''));
-      } catch { return false; }
-    })();
+    && typeof account.verified === 'boolean' && Boolean(instagramProfileUrl(account.username));
+  const normalizedAccount = account => ({ id: account.id, username: account.username,
+    name: account.name, verified: account.verified });
 
   function queueCacheWrite(task) {
     const next = cacheWrites.catch(() => {}).then(task);
@@ -226,7 +221,10 @@ export function createFollowListInstagramProduct(platform) {
       const result = await request(session, { operation: 'list', kind });
       if (!Array.isArray(result.users) || typeof result.done !== 'boolean') throw new Error('igIncomplete');
       const list = session[kind];
-      for (const account of result.users) list.set(account.id, account);
+      for (const account of result.users) {
+        if (!validAccount(account)) throw new Error('igIncomplete');
+        list.set(account.id, normalizedAccount(account));
+      }
       session.pages += 1;
       if (list.size > MAX_ACCOUNTS || session.pages > 5000) throw new Error('igTooLarge');
       if (result.done) {

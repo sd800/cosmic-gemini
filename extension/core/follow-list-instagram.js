@@ -14,6 +14,12 @@ export function instagramRoute(value) {
   } catch { return { supported: false, username: '' }; }
 }
 
+export function instagramProfileUrl(username) {
+  const value = String(username || '');
+  return /^[a-zA-Z0-9._]{1,30}$/.test(value) && !RESERVED.has(value.toLowerCase())
+    ? `https://www.instagram.com/${value}/` : '';
+}
+
 export function compareInstagramLists(following, followers) {
   const outbound = new Map(following.map(account => [account.id, account]));
   const inbound = new Map(followers.map(account => [account.id, account]));

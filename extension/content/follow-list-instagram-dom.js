@@ -46,19 +46,8 @@ export async function instagramDomRead(input, environment = globalThis) {
       const name = url.pathname.replace(/^\/|\/$/g, '');
       if (url.origin !== location.origin || !/^[a-zA-Z0-9._]{1,30}$/.test(name)
         || RESERVED_PATHS.has(name.toLowerCase())) return null;
-      return { href: url.href, key: url.origin + '/' + name.toLowerCase() + '/' };
+      return { href: url.href, key: url.origin + '/' + name.toLowerCase() + '/', username: name };
     } catch { return null; }
-  };
-  const visibleHandlerFromLink = link => {
-    // innerText represents what Instagram actually paints and excludes SVG
-    // titles and visually hidden accessibility labels such as verification text.
-    // The href remains only the destination and never determines the identity.
-    const painted = typeof link?.innerText === 'string' ? link.innerText : link?.textContent;
-    for (const part of String(painted || '').normalize('NFKC').split(/\s+/)) {
-      const value = part.replace(/^@/, '');
-      if (/^[a-zA-Z0-9._]{1,30}$/.test(value)) return value;
-    }
-    return '';
   };
   const numeric = text => {
     const value = String(text || '').normalize('NFKC').replace(/[٠-٩۰-۹]/g, char => String(char.charCodeAt(0) % 16));
@@ -176,7 +165,7 @@ export async function instagramDomRead(input, environment = globalThis) {
         while (!targetLink && Date.now() < resultDeadline) {
           await wait(200);
           targetLink = [...state.dialog.querySelectorAll('a[href]')].find(link =>
-            visibleHandlerFromLink(link).toLowerCase() === target && profileDestination(link));
+            profileDestination(link)?.username.toLowerCase() === target);
         }
         if (!targetLink) throw new Error('igRelationshipChanged');
         const selectedDestination = profileDestination(targetLink);
@@ -331,17 +320,20 @@ export async function instagramDomRead(input, environment = globalThis) {
       const identities = new Map();
       for (const link of state.list.querySelectorAll('a[href]')) {
         const destination = profileDestination(link);
-        const username = visibleHandlerFromLink(link);
-        if (!destination || !username) continue;
+        if (!destination) continue;
+        const username = destination.username;
         const id = username.toLowerCase();
-        if (!identities.has(id)) identities.set(id, { link, username, href: destination.href,
-          verified: verifiedAccount(link) });
+        const verified = verifiedAccount(link);
+        const score = Number(Boolean(String(link.textContent || '').trim())) + Number(verified) * 2;
+        if (!identities.has(id) || score > identities.get(id).score) {
+          identities.set(id, { link, username, verified, score });
+        }
       }
       state.lastMountedCount = identities.size;
       for (const [id, identity] of identities) {
         if (state.seen.has(id)) continue;
         state.seen.add(id);
-        users.push({ id, username: identity.username, name: displayName(identity.link), href: identity.href,
+        users.push({ id, username: identity.username, name: displayName(identity.link),
           verified: identity.verified });
       }
       if (users.length) { state.lastGrowth = Date.now(); state.nudges = 0; }
@@ -389,10 +381,10 @@ export async function instagramDomRead(input, environment = globalThis) {
       collect();
     }
     let bottom = atBottom(scroller);
-    // The displayed profile count is only an estimate. If it disagrees with
-    // the rows found at the bottom, a retained DOM already contains everything
-    // and needs no movement. Only a virtualized DOM needs one fast remount sweep.
-    if (bottom && !state.fullSweepComplete && state.seen.size !== estimate) {
+    // The displayed profile count is only an estimate and can be stale while
+    // relationships change. Always audit a virtualized list once at the end;
+    // a retained DOM already exposes every loaded row and needs no movement.
+    if (bottom && !state.fullSweepComplete) {
       if (state.lastMountedCount >= state.seen.size) {
         state.fullSweepComplete = true;
       } else {

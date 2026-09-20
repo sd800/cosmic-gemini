@@ -19,10 +19,15 @@ class FakeMedia extends SimpleEventTarget {
     this.paused = 0;
     this.removed = false;
     this.attributes = new Set();
+    this.currentSrc = '';
+    this.src = '';
+    this.rect = { width: 0, height: 0 };
   }
   play() { this.played += 1; return Promise.resolve(); }
   pause() { this.paused += 1; }
   hasAttribute(name) { return this.attributes.has(name); }
+  getAttribute(name) { return name === 'src' ? this.src : ''; }
+  getBoundingClientRect() { return this.rect; }
   removeAttribute(name) { this.attributes.delete(name); }
   remove() { this.removed = true; this.isConnected = false; }
 }
@@ -33,6 +38,7 @@ class FakeCustomEvent { constructor(type, init = {}) { this.type = type; this.de
 class FakeAudioContext { constructor() { this.resumed = 0; this.suspended = 0; } resume() { this.resumed += 1; return Promise.resolve(); } suspend() { this.suspended += 1; return Promise.resolve(); } }
 
 test('No Autoplay blocks automatic media, preserves direct play, and keeps video blocked when audio is allowed', async () => {
+  let now = 100;
   const window = new SimpleEventTarget();
   const alreadyPlayingAudio = new FakeAudio();
   alreadyPlayingAudio.paused = false;
@@ -47,19 +53,20 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
     AudioContext: FakeAudioContext, webkitAudioContext: undefined,
     MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
     WeakMap, Map, Set, Symbol, JSON, Reflect, Number, String, Math, Object, Promise,
-    performance: { now: () => 100 }, crypto: { getRandomValues: values => { values.fill(8); return values; } }
+    performance: { now: () => now }, crypto: { getRandomValues: values => { values.fill(8); return values; } }
   };
   vm.createContext(context);
   const source = await readFile(new URL('../extension/content/no-autoplay-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
+  const assertBlocked = media => assert.rejects(media.play(), error => error?.name === 'NotAllowedError');
   assert.equal(context.HTMLMediaElement.prototype.play, runtime.originalPlay);
   assert.equal(context.AudioContext, FakeAudioContext);
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: false } }) });
   assert.equal(alreadyPlayingAudio.paused, 1);
 
   const audio = new FakeAudio();
-  await audio.play();
+  await assertBlocked(audio);
   assert.equal(audio.played, 0);
   assert.equal(audio.paused, 1);
 
@@ -68,7 +75,7 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
 
   navigator.userActivation.isActive = true;
   const activationOnlyVideo = new FakeVideo();
-  await activationOnlyVideo.play();
+  await assertBlocked(activationOnlyVideo);
   assert.equal(activationOnlyVideo.played, 0);
   const activationOnlyContext = new context.AudioContext();
   assert.equal(activationOnlyContext.suspended, 1);
@@ -81,7 +88,7 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
 
   runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', target: {}, composedPath: () => [{}] });
   const unrelatedClickVideo = new FakeVideo();
-  await unrelatedClickVideo.play();
+  await assertBlocked(unrelatedClickVideo);
   assert.equal(unrelatedClickVideo.played, 0);
 
   const playControl = {
@@ -95,7 +102,28 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   await customControlVideo.play();
   assert.equal(customControlVideo.played, 1);
 
-  context.performance.now = () => 2201;
+  now = 2501;
+  const hiddenMedia = new FakeVideo();
+  hiddenMedia.currentSrc = 'blob:hidden';
+  const associatedVideo = new FakeVideo();
+  associatedVideo.currentSrc = 'blob:visible';
+  associatedVideo.rect = { width: 840, height: 473 };
+  const controls = { querySelectorAll: () => [hiddenMedia] };
+  const player = { querySelectorAll: () => [hiddenMedia, associatedVideo] };
+  runtime.onUserIntent({
+    isTrusted: true,
+    type: 'pointerdown',
+    target: playControl,
+    composedPath: () => [playControl, controls, player]
+  });
+  now = 5002;
+  await associatedVideo.play();
+  assert.equal(associatedVideo.played, 1);
+  await assertBlocked(hiddenMedia);
+  const otherPlayerVideo = new FakeVideo();
+  await assertBlocked(otherPlayerVideo);
+
+  now = 20000;
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard', audioAllowed: true } }) });
   assert.equal(intentionalVideo.paused, 0);
   assert.equal(webAudio.resumed, 1);
@@ -103,13 +131,13 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   await allowedAudio.play();
   assert.equal(allowedAudio.played, 1);
   const blockedVideo = new FakeVideo();
-  await blockedVideo.play();
+  await assertBlocked(blockedVideo);
   assert.equal(blockedVideo.played, 0);
 
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced', audioAllowed: true } }) });
   navigator.userActivation.isActive = true;
   const enhancedVideo = new FakeVideo();
-  await enhancedVideo.play();
+  await assertBlocked(enhancedVideo);
   assert.equal(enhancedVideo.removed, true);
 
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false, mode: 'standard', audioAllowed: false } }) });

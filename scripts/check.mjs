@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.18');
+assert.equal(manifest.version, '8.11.19');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -374,6 +374,10 @@ assert.doesNotMatch(noAutoplay, /topFrameOnly|context\.frameId === 0/,
 assert.match(noAutoplayRuntime, /querySelectorAll\('video,audio'\)[\s\S]*media\.paused === false/,
   'No Autoplay must catch media that began playing before its configuration arrived.');
 assert.match(noAutoplayRuntime, /isPlaybackControl[\s\S]*hasRecentPlaybackIntent/);
+assert.match(noAutoplayRuntime, /associatePlaybackIntent[\s\S]*ASSOCIATED_MEDIA_INTENT_MS[\s\S]*playerIntent/,
+  'No Autoplay must preserve explicit playback intent for media associated with a custom player control.');
+assert.match(noAutoplayRuntime, /blockedPlayPromise[\s\S]*Promise\.reject\(error\)[\s\S]*denial\.catch/,
+  'Blocked media play requests must not report a false success to custom players.');
 assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
   'Ordinary page interaction must not be treated as playback intent.');
 assert.match(mailtoCapture, /content\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture-runtime\.js/);

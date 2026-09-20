@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.19 — 2026-09-20
+
+- Improved No Autoplay compatibility with custom media players. Explicit play controls now grant a bounded playback intent to media in the same player, including playback that finishes setting up asynchronously, while blocked script-initiated play no longer reports a false success that can leave a player stuck.
+
 ## 8.11.18 — 2026-09-20
 
 - Reduced the sustained cost of XHS Image Dark Mode on long feeds and expanded posts. New content now uses localized registration, full record cleanup is scheduled only after DOM removals, and comment-preview plus profile-control state uses dedicated indexes and URL caching instead of repeated scans or rewrites. Image sampling size, look-ahead range, and recognition rules remain unchanged.

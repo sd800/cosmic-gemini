@@ -5,6 +5,9 @@
   const DISPOSE = 'cosmic-gemini:no-autoplay:dispose';
   const INTERVENED = 'cosmic-gemini:no-autoplay:intervened';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.no-autoplay.runtime');
+  const CONTROL_INTENT_MS = 2000;
+  const ASSOCIATED_MEDIA_INTENT_MS = 15000;
+  const MAX_ASSOCIATION_PATH_DEPTH = 10;
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -29,6 +32,7 @@
       this.userIntentUntil = -1;
       this.observer = null;
       this.mediaIntent = new WeakMap();
+      this.playerIntent = new WeakMap();
       this.pendingAudio = new Set();
       this.pendingVideo = new Set();
       this.pendingContexts = new Set();
@@ -113,7 +117,7 @@
           return Reflect.apply(runtime.originalPlay, this, []);
         }
         runtime.blockMedia(this);
-        return Promise.resolve();
+        return runtime.blockedPlayPromise();
       };
       HTMLMediaElement.prototype.play = this.patchedPlay;
     }
@@ -165,6 +169,7 @@
     installBehaviorHooks() {
       if (this.behaviorHooksInstalled) return;
       window.addEventListener('pointerdown', this.onUserIntent, true);
+      window.addEventListener('click', this.onUserIntent, true);
       window.addEventListener('keydown', this.onUserIntent, true);
       window.addEventListener('play', this.onPlay, true);
       this.patchMediaPlay();
@@ -175,6 +180,7 @@
     removeBehaviorHooks() {
       if (!this.behaviorHooksInstalled) return;
       window.removeEventListener('pointerdown', this.onUserIntent, true);
+      window.removeEventListener('click', this.onUserIntent, true);
       window.removeEventListener('keydown', this.onUserIntent, true);
       window.removeEventListener('play', this.onPlay, true);
       try {
@@ -191,6 +197,7 @@
       this.behaviorHooksInstalled = false;
       this.userIntentUntil = -1;
       this.mediaIntent = new WeakMap();
+      this.playerIntent = new WeakMap();
     }
 
     onUserIntent(event) {
@@ -199,13 +206,44 @@
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
       for (const node of path) {
         if (node instanceof HTMLMediaElement) {
-          this.mediaIntent.set(node, performance.now() + 2000);
+          this.mediaIntent.set(node, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
           return;
         }
       }
       if (path.some(node => this.isPlaybackControl(node))) {
-        this.userIntentUntil = performance.now() + 2000;
+        const now = performance.now();
+        this.userIntentUntil = now + CONTROL_INTENT_MS;
+        this.associatePlaybackIntent(path, now + ASSOCIATED_MEDIA_INTENT_MS);
       }
+    }
+
+    associatePlaybackIntent(path, deadline) {
+      for (const node of path.slice(0, MAX_ASSOCIATION_PATH_DEPTH)) {
+        if (!node || typeof node.querySelectorAll !== 'function') continue;
+        let candidates;
+        try {
+          candidates = Array.from(node.querySelectorAll('video,audio')).filter(media => this.isVisibleMedia(media));
+        } catch {
+          continue;
+        }
+        if (!candidates.length) continue;
+        this.playerIntent.set(node, deadline);
+        for (const media of candidates) this.mediaIntent.set(media, deadline);
+        return;
+      }
+    }
+
+    isVisibleMedia(media) {
+      if (!(media instanceof HTMLMediaElement) || media.isConnected === false) return false;
+      if (typeof media.getBoundingClientRect === 'function') {
+        try {
+          const rect = media.getBoundingClientRect();
+          return Number(rect?.width) >= 16 && Number(rect?.height) >= 16;
+        } catch {
+          return false;
+        }
+      }
+      return !!(media.currentSrc || media.src || media.getAttribute?.('src'));
     }
 
     isPlaybackControl(node) {
@@ -232,7 +270,27 @@
 
     hasUserIntent(media) {
       if (this.hasRecentPlaybackIntent()) return true;
-      return (this.mediaIntent.get(media) || -1) > performance.now();
+      const now = performance.now();
+      if ((this.mediaIntent.get(media) || -1) > now) return true;
+      let node = media;
+      for (let depth = 0; node && depth < MAX_ASSOCIATION_PATH_DEPTH; depth += 1) {
+        if ((this.playerIntent.get(node) || -1) > now) return true;
+        node = node.parentElement || node.parentNode || node.host || null;
+      }
+      return false;
+    }
+
+    blockedPlayPromise() {
+      const message = 'The play() request was prevented because it was not initiated by a media playback control.';
+      let error;
+      try { error = new DOMException(message, 'NotAllowedError'); }
+      catch {
+        error = new Error(message);
+        error.name = 'NotAllowedError';
+      }
+      const denial = Promise.reject(error);
+      void denial.catch(() => {});
+      return denial;
     }
 
     shouldBlockMedia(media) {

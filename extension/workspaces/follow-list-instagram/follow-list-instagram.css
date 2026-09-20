@@ -38,7 +38,7 @@ p { line-height: 1.6; font-size: 13px; }
 .verified-account svg { width: 13px; height: 13px; }
 .verified-account circle { fill: currentColor; }
 .verified-account path { fill: none; stroke: white; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-#accounts small { display: block; color: var(--muted); margin-top: 3px; }
+#accounts small { display: block; color: var(--muted); margin-top: 3px; font-size: inherit; }
 #accounts button { flex: 0 0 auto; font-size: 12px; }
 #pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .result-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }

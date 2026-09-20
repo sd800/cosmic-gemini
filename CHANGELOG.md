@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.10 — 2026-09-20
+
+- Matched each Instagram account's display-name font size to its user handler in the side panel while retaining the secondary color and separate line.
+
 ## 8.12.9 — 2026-09-20
 
 - Following/Follower List Check for Instagram now recognizes the compact blue verification mark beside an account while reading page lists and displays a small blue check after that account's visible user handler in the side panel.

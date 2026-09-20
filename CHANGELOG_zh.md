@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.12.10 — 2026-09-20
+
+- 将 Instagram 账号在侧边栏中的自定义显示名称字号调整为与 user handler 相同，同时保留次要文字颜色和独立分行布局。
+
 ## 8.12.9 — 2026-09-20
 
 - Following/Follower List Check for Instagram 现会在读取网页列表时识别账号旁的小型蓝色验证标记，并在侧边栏对应账号的可见 user handler 后显示一个蓝色勾。

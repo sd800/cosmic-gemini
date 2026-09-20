@@ -2,7 +2,7 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
-## 8.11.20 — 2026-09-20
+## 8.12.1 — 2026-09-20
 
 - Added Following/Follower List Check for Instagram to Satellites, with a contextual IG± popup button and a side panel for comparing following and follower lists. Each list shows its own progress bar once reading begins. Reading works independently of interface language, continues when the panel is closed, and shows comparisons only after both lists are complete. Own-profile results allow individually confirmed unfollows after checking the signed-in account and current relationship.
 - Fixed side-panel switching so Image Download reopens its own workspace and does not close another tool’s panel during cleanup.

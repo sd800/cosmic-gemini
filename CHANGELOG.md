@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.18 — 2026-09-20
+
+- Reduced the sustained cost of XHS Image Dark Mode on long feeds and expanded posts. New content now uses localized registration, full record cleanup is scheduled only after DOM removals, and comment-preview plus profile-control state uses dedicated indexes and URL caching instead of repeated scans or rewrites. Image sampling size, look-ahead range, and recognition rules remain unchanged.
+
 ## 8.11.17 — 2026-09-20
 
 - Improved XHS Image Dark Mode control reliability by isolating complete pointer gestures from Xiaohongshu carousel handlers. Hidden preview layers can no longer retain an overlapping control, and only the active visible comment preview may suppress the post image control.

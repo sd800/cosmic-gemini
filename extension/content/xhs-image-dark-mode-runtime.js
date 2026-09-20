@@ -123,6 +123,7 @@
       this.records = new Map();
       this.intervenedRecords = new Set();
       this.controlRecords = new Set();
+      this.commentPreviewRecords = new Set();
       this.postOverrides = new Map();
       this.disabledProfileKeys = new Set();
       this.commentImageKeys = new Set();
@@ -155,6 +156,8 @@
       this.controlHost = null;
       this.controlLayer = null;
       this.profileControl = null;
+      this.profileControlKey = '';
+      this.profileControlUrl = '';
       this.controlViewportListening = false;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
@@ -490,7 +493,6 @@
       });
       document.addEventListener('click', this.onPostActivation, true);
       this.collectImages(document);
-      this.scheduleCleanup();
     }
 
     stopProcessing() {
@@ -525,12 +527,15 @@
       this.intervenedRecords.clear();
       this.syncInterventionStatus();
       this.controlRecords.clear();
+      this.commentPreviewRecords.clear();
       this.commentImageKeys.clear();
       this.commentPreviewImages = new WeakSet();
       this.pendingCommentPreview = null;
       for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
       this.commentPreviewProbeTimers.clear();
       this.profileControl = null;
+      this.profileControlKey = '';
+      this.profileControlUrl = '';
       this.controlHost?.remove();
       this.controlHost = null;
       this.controlLayer = null;
@@ -742,11 +747,14 @@
       return 'preview';
     }
 
-    isContentImage(image) {
+    isContentImage(image, knownCommentKind) {
       if (!(image instanceof HTMLImageElement) || this.isAvatar(image)) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
-      if (this.commentImageKind(image)) return true;
+      const commentKind = knownCommentKind === undefined
+        ? this.commentImageKind(image)
+        : knownCommentKind;
+      if (commentKind) return true;
       if (this.viewerImageContext(image)) return true;
       // Viewer banners, badges and other overlays may also contain XHS-hosted
       // images. They are not slides and must never receive analysis or controls.
@@ -769,7 +777,19 @@
       // Register inline comment sources before examining preview copies. The
       // preview can be inserted earlier in DOM order than its originating
       // thumbnail, and its classes are not a stable public interface.
-      for (const image of images) this.rememberCommentImage(image);
+      const rootInsideModal = root.matches?.('#noteContainer, .note-container')
+        || root.closest?.('#noteContainer, .note-container');
+      const containedModal = rootInsideModal
+        ? null
+        : root.querySelector?.('#noteContainer, .note-container');
+      let commentImages = [];
+      if (rootInsideModal) commentImages = images;
+      else if (containedModal) commentImages = containedModal.querySelectorAll?.('img') || [];
+      else if (Array.prototype.some.call(
+        images,
+        image => !!image.closest?.('#noteContainer, .note-container')
+      )) commentImages = images;
+      for (const image of commentImages) this.rememberCommentImage(image);
       for (const image of images) this.observeImage(image);
       const modal = root.matches?.('#noteContainer, .note-container')
         ? root
@@ -806,14 +826,19 @@
       return target.closest?.('picture')?.querySelector?.('img') || null;
     }
 
-    createRecord(image) {
+    createRecord(
+      image,
+      commentKind = this.commentImageKind(image),
+      profileKey = this.profileKeyForImage(image, commentKind)
+    ) {
       const record = {
         image,
         source: '',
         button: null,
         darkened: true,
         result: null,
-        profileKey: this.profileKeyForImage(image),
+        commentKind,
+        profileKey,
         requestKey: this.imageRequestKey(image),
         loadSource: '',
         loadPriority: Number.POSITIVE_INFINITY,
@@ -821,19 +846,35 @@
         loadHandler: null
       };
       this.records.set(image, record);
+      if (commentKind === 'preview') this.commentPreviewRecords.add(record);
       this.intersectionObserver?.observe(image);
       return record;
     }
 
+    recordCommentKind(record) {
+      if (!record) return '';
+      if (typeof record.commentKind === 'string') return record.commentKind;
+      const commentKind = this.commentImageKind(record.image);
+      record.commentKind = commentKind;
+      if (commentKind === 'preview') this.commentPreviewRecords.add(record);
+      return commentKind;
+    }
+
     observeImage(image) {
-      if (!this.isContentImage(image)) return;
       const commentKind = this.commentImageKind(image);
+      if (!this.isContentImage(image, commentKind)) return;
       let record = this.records.get(image);
-      if (record && !commentKind) {
-        record.profileKey = this.currentProfileKey() || record.profileKey;
+      if (record) {
+        record.commentKind = commentKind;
+        if (commentKind === 'preview') this.commentPreviewRecords.add(record);
+        else this.commentPreviewRecords.delete(record);
+        if (!commentKind) record.profileKey = this.currentProfileKey() || record.profileKey;
       }
-      if (this.profileProcessingDisabled(record || image)) return;
-      if (!record) record = this.createRecord(image);
+      if (!record) {
+        const profileKey = this.profileKeyForImage(image, commentKind);
+        if (profileKey && this.disabledProfileKeys.has(profileKey)) return;
+        record = this.createRecord(image, commentKind, profileKey);
+      } else if (this.profileProcessingDisabled(record)) return;
       if (commentKind === 'preview') this.resizeObserver?.observe(image);
       if (this.applyCachedResult(record)) return;
       const viewerPriority = this.viewerForImage(image) ? -20 : null;
@@ -869,7 +910,7 @@
       const root = modal?.querySelector?.('.xhs-slider-container, .note-slider') || null;
       if (!root || root === this.viewerRoot) return;
       for (const record of [...this.controlRecords]) {
-        if (root.contains?.(record.image) || this.commentImageKind(record.image) === 'preview') continue;
+        if (root.contains?.(record.image) || record.commentKind === 'preview') continue;
         this.removeControl(record);
         if (record.result?.kind === 'photo') {
           this.clearVisual(record);
@@ -937,19 +978,26 @@
     }
 
     onPageMutations(mutations) {
+      let needsCleanup = false;
       for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
           const image = this.imageForMutation(mutation.target);
           if (!image) continue;
+          const commentKind = this.commentImageKind(image);
           let record = this.records.get(image);
           if (!record) {
-            if (!this.isContentImage(image)) continue;
-            record = this.createRecord(image);
+            if (!this.isContentImage(image, commentKind)) continue;
+            const profileKey = this.profileKeyForImage(image, commentKind);
+            if (profileKey && this.disabledProfileKeys.has(profileKey)) continue;
+            record = this.createRecord(image, commentKind, profileKey);
             const priority = this.viewerForImage(image) ? -20 : 0;
             this.waitForImageLoad(record, priority);
             continue;
           }
-          if (!this.commentImageKind(image)) {
+          record.commentKind = commentKind;
+          if (commentKind === 'preview') this.commentPreviewRecords.add(record);
+          else this.commentPreviewRecords.delete(record);
+          if (!commentKind) {
             record.profileKey = this.currentProfileKey() || record.profileKey;
           }
           const requestKey = this.imageRequestKey(image);
@@ -969,13 +1017,14 @@
           }
           continue;
         }
-        for (const node of mutation.addedNodes) {
+        if (mutation.removedNodes?.length) needsCleanup = true;
+        for (const node of mutation.addedNodes || []) {
           if (node.nodeType === Node.ELEMENT_NODE) this.collectImages(node);
         }
       }
       if (this.controlRecords.size) this.scheduleControlPositions();
       this.syncProfileControl();
-      this.scheduleCleanup();
+      if (needsCleanup) this.scheduleCleanup();
     }
 
     insertTask(task) {
@@ -998,11 +1047,11 @@
     }
 
     queueImage(image, priority = 0) {
-      if (!this.processing || !this.isContentImage(image)) return;
       const record = this.records.get(image);
-      if (this.profileProcessingDisabled(record || image)) return;
+      if (!this.processing || !record || !this.isContentImage(image, record.commentKind)) return;
+      if (this.profileProcessingDisabled(record)) return;
       const source = image.currentSrc || image.src || '';
-      if (!record || !source || (record.source === source && record.result)) return;
+      if (!source || (record.source === source && record.result)) return;
       if (record.loadSource) return;
       if (!image.complete || !image.naturalWidth) {
         this.waitForImageLoad(record, priority);
@@ -1106,7 +1155,9 @@
       while (this.processing && this.running < 2 && this.queue.length) {
         const task = this.queue.shift();
         this.queued.delete(task.image);
-        if (!task.image.isConnected || !this.isContentImage(task.image)) continue;
+        const record = this.records.get(task.image);
+        if (!record || !task.image.isConnected
+          || !this.isContentImage(task.image, record.commentKind)) continue;
         const generation = this.processingGeneration;
         this.running += 1;
         void this.analyze(task.image, generation).finally(() => {
@@ -1633,12 +1684,13 @@
       if (!this.processing || !record.image.isConnected || !record.result) return;
       this.intersectionObserver?.unobserve?.(record.image);
       this.clearVisual(record, false);
-      const override = this.postOverride(record);
+      const commentKind = this.recordCommentKind(record);
+      const commentPreview = commentKind === 'preview';
+      const override = commentKind ? null : this.postOverride(record);
       record.darkened = this.profileProcessingDisabled(record)
         ? false
         : override?.darkened ?? this.automaticDarkened(record);
       const viewer = this.viewerForImage(record.image);
-      const commentPreview = this.commentImageKind(record.image) === 'preview';
       if (viewer || commentPreview) this.createControl(record);
       this.updateRecordVisual(record, false);
       if (viewer || commentPreview) this.scheduleControlPositions();
@@ -1651,7 +1703,7 @@
     }
 
     createControl(record) {
-      const commentPreview = this.commentImageKind(record.image) === 'preview';
+      const commentPreview = this.recordCommentKind(record) === 'preview';
       if (!this.controlLayer || record.button
         || (!commentPreview && !this.viewerForImage(record.image))) return;
       const button = document.createElement('button');
@@ -1694,8 +1746,11 @@
       return this.profileId(location.href);
     }
 
-    profileKeyForImage(image) {
-      if (this.commentImageKind(image)) return '';
+    profileKeyForImage(image, knownCommentKind) {
+      const commentKind = knownCommentKind === undefined
+        ? this.commentImageKind(image)
+        : knownCommentKind;
+      if (commentKind) return '';
       const currentProfileKey = this.currentProfileKey();
       if (currentProfileKey) return currentProfileKey;
       const postKey = this.viewerForImage(image) ? this.viewerPostKey(image) : '';
@@ -1704,7 +1759,11 @@
 
     profileProcessingDisabled(recordOrImage) {
       const image = recordOrImage?.image || recordOrImage;
-      const profileKey = recordOrImage?.profileKey || this.profileKeyForImage(image);
+      const hasStoredProfileKey = !!recordOrImage && typeof recordOrImage === 'object'
+        && Object.prototype.hasOwnProperty.call(recordOrImage, 'profileKey');
+      const profileKey = hasStoredProfileKey
+        ? recordOrImage.profileKey
+        : this.profileKeyForImage(image);
       return !!profileKey && this.disabledProfileKeys.has(profileKey);
     }
 
@@ -1736,12 +1795,21 @@
 
     syncProfileControl() {
       if (!this.controlLayer) return;
+      const currentUrl = String(location.href || '');
+      const controlMatchesCurrentPage = currentUrl === this.profileControlUrl
+        && ((this.profileControlKey && this.profileControl?.isConnected !== false)
+          || (!this.profileControlKey && !this.profileControl));
+      if (controlMatchesCurrentPage) return;
+      this.profileControlUrl = currentUrl;
       const profileKey = this.currentProfileKey();
       if (!profileKey) {
         this.profileControl?.remove();
         this.profileControl = null;
+        this.profileControlKey = '';
         return;
       }
+      if (this.profileControl?.isConnected === false) this.profileControl = null;
+      if (this.profileControl && this.profileControlKey === profileKey) return;
       if (!this.profileControl) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -1754,12 +1822,13 @@
         this.controlLayer.append(button);
         this.profileControl = button;
       }
+      this.profileControlKey = profileKey;
       this.updateProfileControl();
     }
 
     updateProfileControl() {
       if (!this.profileControl) return;
-      const disabled = this.disabledProfileKeys.has(this.currentProfileKey());
+      const disabled = this.disabledProfileKeys.has(this.profileControlKey || this.currentProfileKey());
       const label = disabled ? COPY[this.locale].profileDisabled : COPY[this.locale].profileEnabled;
       this.profileControl.style.opacity = String(this.controlOpacity);
       this.profileControl.innerHTML = disabled ? POST_DISABLED_ICON : PROFILE_ENABLED_ICON;
@@ -1886,7 +1955,7 @@
       }
       button.addEventListener('click', event => {
         shield(event);
-        if (!record.result || this.commentImageKind(record.image) !== 'preview') return;
+        if (!record.result || this.recordCommentKind(record) !== 'preview') return;
         record.darkened = !record.darkened;
         this.updateRecordVisual(record);
       });
@@ -1939,7 +2008,7 @@
       const copy = COPY[this.locale];
       record.button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
       record.button.style.opacity = String(this.controlOpacity);
-      if (this.commentImageKind(record.image) === 'preview') {
+      if (this.recordCommentKind(record) === 'preview') {
         const label = record.darkened ? copy.commentDark : copy.commentLight;
         record.button.innerHTML = record.darkened ? LIGHT_ICON : DARK_ICON;
         record.button.title = label;
@@ -2011,7 +2080,7 @@
     }
 
     controlPlacement(record) {
-      if (this.commentImageKind(record.image) === 'preview') {
+      if (this.recordCommentKind(record) === 'preview') {
         const rect = this.visibleImageRect(record.image, 120);
         if (!rect) return null;
         return {
@@ -2043,9 +2112,9 @@
     }
 
     activeCommentPreviewRecord() {
-      for (const record of [...this.records.values()].reverse()) {
+      for (const record of [...this.commentPreviewRecords].reverse()) {
         const image = record.image;
-        if (!image?.isConnected || this.commentImageKind(image) !== 'preview') continue;
+        if (!image?.isConnected || this.recordCommentKind(record) !== 'preview') continue;
         if (this.visibleImageRect(image, 120)) return record;
       }
       return null;
@@ -2068,7 +2137,7 @@
             record.button.style.display = 'none';
             continue;
           }
-          const classifiedCommentPreview = this.commentImageKind(record.image) === 'preview';
+          const classifiedCommentPreview = this.recordCommentKind(record) === 'preview';
           const commentPreview = classifiedCommentPreview && record === activeCommentPreview;
           const viewer = this.viewerForImage(record.image);
           const owner = commentPreview ? record.image : classifiedCommentPreview ? null : viewer;
@@ -2123,6 +2192,7 @@
       if (record.loadHandler) record.image?.removeEventListener?.('load', record.loadHandler);
       record.loadHandler = null;
       record.loadGeneration = (record.loadGeneration || 0) + 1;
+      this.commentPreviewRecords.delete(record);
       this.records.delete(record.image);
     }
 
@@ -2133,6 +2203,7 @@
         for (const [image, record] of this.records) {
           if (image.isConnected) continue;
           this.clearRecord(record);
+          this.commentPreviewRecords.delete(record);
           this.records.delete(image);
         }
         this.queue = this.queue.filter(task => {

@@ -606,6 +606,7 @@ test('per-image controls are created for expanded post images and comment previe
   assert.equal(created, 1);
   runtime.viewerForImage = () => null;
   runtime.commentImageKind = () => 'preview';
+  record.commentKind = 'preview';
   runtime.applyResult(record);
   assert.equal(created, 2);
 });
@@ -817,9 +818,15 @@ test('a comment preview shows its own control while the post image control stays
   };
   const viewer = {};
   const mainImage = { isConnected: true };
-  const controlled = { image: mainImage, button: { style: {} } };
-  const previewControl = { image: preview, result: { kind: 'photo' }, button: { style: {} } };
+  const controlled = { image: mainImage, commentKind: '', button: { style: {} } };
+  const previewControl = {
+    image: preview,
+    commentKind: 'preview',
+    result: { kind: 'photo' },
+    button: { style: {} }
+  };
   runtime.records.set(preview, previewControl);
+  runtime.commentPreviewRecords.add(previewControl);
   runtime.viewerForImage = image => image === mainImage ? viewer : null;
   runtime.controlPlacement = record => record.image === preview
     ? { left: 850, top: 70 }
@@ -1316,6 +1323,108 @@ test('control positioning visits only records that own viewer controls', async (
   runtime.scheduleControlPositions();
   frame();
   assert.equal(placements, 1);
+});
+
+test('feed additions do not schedule a full record cleanup until nodes are removed', async () => {
+  const runtime = await runtimeFixture({}, { Node: { ELEMENT_NODE: 1 } });
+  runtime.processing = true;
+  runtime.collectImages = () => {};
+  let cleanups = 0;
+  runtime.scheduleCleanup = () => { cleanups += 1; };
+  runtime.onPageMutations([{
+    type: 'childList',
+    addedNodes: [{ nodeType: 1 }],
+    removedNodes: []
+  }]);
+  assert.equal(cleanups, 0);
+  runtime.onPageMutations([{
+    type: 'childList',
+    addedNodes: [],
+    removedNodes: [{}]
+  }]);
+  assert.equal(cleanups, 1);
+});
+
+test('comment pre-registration stays scoped to expanded post content', async () => {
+  class FakeImage {}
+  const runtime = await runtimeFixture({}, { HTMLImageElement: FakeImage });
+  runtime.processing = true;
+  const image = Object.assign(new FakeImage(), { closest: () => null });
+  let remembered = 0;
+  runtime.rememberCommentImage = () => { remembered += 1; };
+  runtime.observeImage = () => {};
+  const root = {
+    matches: () => false,
+    closest: () => null,
+    querySelector: () => null,
+    querySelectorAll: selector => selector === 'img' ? [image] : []
+  };
+  runtime.collectImages(root);
+  assert.equal(remembered, 0);
+  root.matches = selector => selector === '#noteContainer, .note-container';
+  runtime.collectImages(root);
+  assert.equal(remembered, 1);
+});
+
+test('image registration computes comment context only once', async () => {
+  class FakeImage {}
+  const runtime = await runtimeFixture({}, { HTMLImageElement: FakeImage, URL });
+  runtime.processing = true;
+  runtime.applyCachedResult = () => true;
+  let classifications = 0;
+  runtime.commentImageKind = () => { classifications += 1; return ''; };
+  const image = Object.assign(new FakeImage(), {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/feed/performance-cover',
+    src: 'https://sns-webpic-qc.xhscdn.com/feed/performance-cover',
+    srcset: '',
+    sizes: '',
+    closest: () => null,
+    hasAttribute: name => name === 'data-xhs-img',
+    getAttribute(name) { return name === 'src' ? this.src : ''; }
+  });
+  runtime.observeImage(image);
+  assert.equal(classifications, 1);
+  assert.equal(runtime.records.get(image)?.commentKind, '');
+});
+
+test('comment-preview lookup uses its dedicated record index', async () => {
+  const runtime = await runtimeFixture();
+  runtime.commentImageKind = () => { throw new Error('all image records must not be reclassified'); };
+  runtime.visibleImageRect = () => ({ width: 320, height: 320 });
+  for (let index = 0; index < 3; index += 1) {
+    const image = { isConnected: true };
+    runtime.records.set(image, { image, commentKind: '' });
+  }
+  const preview = { image: { isConnected: true }, commentKind: 'preview' };
+  runtime.records.set(preview.image, preview);
+  runtime.commentPreviewRecords.add(preview);
+  assert.equal(runtime.activeCommentPreviewRecord(), preview);
+});
+
+test('profile controls are not rewritten for unrelated mutations on the same profile', async () => {
+  const location = {
+    hostname: 'www.xiaohongshu.com',
+    href: 'https://www.xiaohongshu.com/user/profile/profile-one'
+  };
+  const runtime = await runtimeFixture({}, { URL, location });
+  runtime.controlLayer = {};
+  runtime.profileControl = { isConnected: true };
+  runtime.profileControlKey = 'profile-one';
+  runtime.profileControlUrl = location.href;
+  let updates = 0;
+  runtime.updateProfileControl = () => { updates += 1; };
+  runtime.syncProfileControl();
+  assert.equal(updates, 0);
+  location.href = 'https://www.xiaohongshu.com/user/profile/profile-two';
+  runtime.syncProfileControl();
+  assert.equal(updates, 1);
+  assert.equal(runtime.profileControlKey, 'profile-two');
+});
+
+test('records with an empty stored profile key avoid repeated profile discovery', async () => {
+  const runtime = await runtimeFixture();
+  runtime.profileKeyForImage = () => { throw new Error('stored record metadata should be used'); };
+  assert.equal(runtime.profileProcessingDisabled({ image: {}, profileKey: '' }), false);
 });
 
 test('only one image control is displayed for a viewer at a time', async () => {

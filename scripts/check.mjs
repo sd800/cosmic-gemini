@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.17');
+assert.equal(manifest.version, '8.11.18');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -465,6 +465,14 @@ assert.match(xhsImageDarkModeRuntime, /touch-action: none[\s\S]*const shield = e
   'XHS image controls must isolate their complete pointer gesture from page carousel handlers.');
 assert.match(xhsImageDarkModeRuntime, /checkVisibility[\s\S]*activeCommentPreviewRecord[\s\S]*record === activeCommentPreview/,
   'Only the actually visible comment preview may own a control or suppress the post control.');
+assert.match(xhsImageDarkModeRuntime, /commentPreviewRecords[\s\S]*activeCommentPreviewRecord\(\)[\s\S]*this\.commentPreviewRecords/,
+  'XHS Image Dark Mode must index comment previews instead of rescanning every image record during control positioning.');
+assert.match(xhsImageDarkModeRuntime, /mutation\.removedNodes\?\.length[\s\S]*needsCleanup[\s\S]*if \(needsCleanup\) this\.scheduleCleanup\(\)/,
+  'XHS Image Dark Mode must reserve full record cleanup for DOM removals.');
+assert.match(xhsImageDarkModeRuntime, /profileControlUrl[\s\S]*controlMatchesCurrentPage[\s\S]*if \(controlMatchesCurrentPage\) return/,
+  'XHS Image Dark Mode must avoid rewriting an unchanged profile control on unrelated mutations.');
+assert.match(xhsImageDarkModeRuntime, /isContentImage\(image, knownCommentKind\)[\s\S]*knownCommentKind === undefined/,
+  'XHS Image Dark Mode must reuse comment classification within the image-registration hot path.');
 assert.match(xhsImageDarkModeRuntime, /prioritizeModal[\s\S]*filter\(image => this\.viewerImageContext\(image\)\)/,
   'Opening a post must not eagerly analyze its entire comment image list.');
 assert.match(xhsImageDarkModeRuntime, /currentProfileKey[\s\S]*disabledProfileKeys[\s\S]*toggleProfileDisabled[\s\S]*removeQueuedImage[\s\S]*collectImages\(document\)/,

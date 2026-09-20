@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.15 — 2026-09-20
+
+- Fixed XHS Image Dark Mode handling for opened comment images when their preview uses a different resource or reuses an existing page element. Comment previews are now analyzed independently and provide their own light-or-dark control while the post image control stays hidden.
+
 ## 8.11.13 — 2026-09-20
 
 - Added XHS Image Dark Mode support for comment images after their post is opened. Comment images remain viewport-driven, and opening a comment image preview now hides the post image control until the preview closes.

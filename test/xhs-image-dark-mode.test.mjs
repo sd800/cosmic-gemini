@@ -564,7 +564,7 @@ test('a short click restores automatic recognition for the complete post', async
   assert.equal(restored, 1);
 });
 
-test('per-image controls are created only for images in an expanded post viewer', async () => {
+test('per-image controls are created for expanded post images and comment previews only', async () => {
   const runtime = await runtimeFixture();
   runtime.processing = true;
   runtime.clearVisual = () => {};
@@ -580,6 +580,10 @@ test('per-image controls are created only for images in an expanded post viewer'
   runtime.viewerForImage = () => ({});
   runtime.applyResult(record);
   assert.equal(created, 1);
+  runtime.viewerForImage = () => null;
+  runtime.commentImageKind = () => 'preview';
+  runtime.applyResult(record);
+  assert.equal(created, 2);
 });
 
 test('viewer overlays and banners are not treated as slide media', async () => {
@@ -687,7 +691,85 @@ test('comment preview copies are recognized even when they precede the thumbnail
   assert.equal(runtime.isContentImage(preview), true);
 });
 
-test('post image controls hide while a comment image preview is open', async () => {
+test('clicking a comment thumbnail associates a preview even when its resource URL changes', async () => {
+  class FakeImage {}
+  let images = [];
+  const document = {
+    querySelectorAll(selector) { return selector === 'img' ? images : []; }
+  };
+  const runtime = await runtimeFixture(document, {
+    HTMLImageElement: FakeImage,
+    URL,
+    innerWidth: 1200,
+    innerHeight: 800,
+    setTimeout() { return 1; },
+    clearTimeout() {}
+  });
+  runtime.processing = true;
+  const note = { querySelector: () => ({}) };
+  const thumbnail = Object.assign(new FakeImage(), {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/comment/thumb-source!nc_n_webp_mw_1',
+    clientWidth: 150,
+    clientHeight: 150,
+    getBoundingClientRect: () => ({ left: 730, right: 880, top: 230, bottom: 380, width: 150, height: 150 }),
+    closest(selector) {
+      if (selector === '[data-comment-id], [class*="comment"], [id*="comment"]') return {};
+      if (selector === '#noteContainer, .note-container' || selector === '#noteContainer') return note;
+      return null;
+    }
+  });
+  const preview = Object.assign(new FakeImage(), {
+    currentSrc: 'blob:https://www.xiaohongshu.com/a-different-preview-resource',
+    clientWidth: 640,
+    clientHeight: 640,
+    getBoundingClientRect: () => ({ left: 260, right: 900, top: 70, bottom: 710, width: 640, height: 640 }),
+    closest(selector) { return selector.includes('[data-note-id]') ? {} : null; }
+  });
+  images = [thumbnail];
+  const thumbnailOverlay = {
+    querySelectorAll(selector) { return selector === 'img' ? [thumbnail] : []; }
+  };
+  runtime.onPostActivation({
+    clientX: 800,
+    clientY: 300,
+    composedPath: () => [thumbnailOverlay]
+  });
+  assert.equal(runtime.findPendingCommentPreview(), null);
+  images = [thumbnail, preview];
+  const observed = [];
+  runtime.observeImage = image => { observed.push(image); };
+  runtime.scheduleControlPositions = () => {};
+  assert.equal(runtime.findPendingCommentPreview(), preview);
+  assert.deepEqual(observed, [preview]);
+  assert.equal(runtime.commentImageKind(preview), 'preview');
+  assert.equal(runtime.isContentImage(preview), true);
+});
+
+test('a comment preview control toggles only that preview between dark and light display', async () => {
+  const runtime = await runtimeFixture();
+  const button = new SimpleEventTarget();
+  const image = {};
+  const record = { image, result: { kind: 'light-theme' }, darkened: true };
+  runtime.commentImageKind = candidate => candidate === image ? 'preview' : '';
+  let updates = 0;
+  runtime.updateRecordVisual = updated => {
+    assert.equal(updated, record);
+    updates += 1;
+  };
+  runtime.bindCommentControl(button, record);
+  const click = () => button.dispatchEvent({
+    type: 'click',
+    preventDefault() {},
+    stopPropagation() {}
+  });
+  click();
+  assert.equal(record.darkened, false);
+  click();
+  assert.equal(record.darkened, true);
+  assert.equal(updates, 2);
+});
+
+test('a comment preview shows its own control while the post image control stays hidden', async () => {
   let frame = null;
   const runtime = await runtimeFixture({}, {
     URL,
@@ -712,16 +794,37 @@ test('post image controls hide while a comment image preview is open', async () 
   const viewer = {};
   const mainImage = { isConnected: true };
   const controlled = { image: mainImage, button: { style: {} } };
+  const previewControl = { image: preview, button: { style: {} } };
   runtime.viewerForImage = image => image === mainImage ? viewer : null;
-  runtime.controlPlacement = () => ({ left: 100, top: 40 });
+  runtime.controlPlacement = record => record.image === preview
+    ? { left: 850, top: 70 }
+    : { left: 100, top: 40 };
   runtime.controlRecords.add(controlled);
+  runtime.controlRecords.add(previewControl);
   runtime.scheduleControlPositions();
   frame();
   assert.equal(controlled.button.style.display, 'none');
+  assert.equal(previewControl.button.style.display, 'grid');
   preview.isConnected = false;
   runtime.scheduleControlPositions();
   frame();
   assert.equal(controlled.button.style.display, 'grid');
+});
+
+test('a comment preview control is positioned inside the preview image corner', async () => {
+  const runtime = await runtimeFixture({}, { URL, innerWidth: 1200, innerHeight: 800 });
+  const source = 'https://sns-webpic-qc.xhscdn.com/comment/control-preview!nd_dft_wlteh_webp_3';
+  runtime.commentImageKeys.add(runtime.cacheKey(source));
+  const image = {
+    currentSrc: source,
+    clientWidth: 640,
+    clientHeight: 640,
+    closest() { return null; },
+    getBoundingClientRect: () => ({ left: 250, right: 890, top: 60, bottom: 700, width: 640, height: 640 })
+  };
+  const placement = runtime.controlPlacement({ image });
+  assert.equal(placement.left, 853);
+  assert.equal(placement.top, 70);
 });
 
 test('the active expanded image control is positioned immediately left of the page count', async () => {

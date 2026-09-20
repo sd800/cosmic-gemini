@@ -21,6 +21,8 @@
       clickAutomatic: 'Click to restore automatic recognition for this post',
       holdDark: 'Press and hold to show every image in this post in dark mode',
       holdLight: 'Press and hold to show every image in this post in light mode',
+      commentDark: 'This comment image uses dark mode. Click to show it in light mode',
+      commentLight: 'This comment image uses light mode. Click to show it in dark mode',
       profileEnabled: 'XHS Image Dark Mode is on for this profile. Click to turn it off for all posts',
       profileDisabled: 'XHS Image Dark Mode is off for this profile. Click to turn it on',
       separator: '. '
@@ -32,6 +34,8 @@
       clickAutomatic: '单击可恢复这篇笔记的自动识别',
       holdDark: '长按可将这篇笔记的全部图片切换为深色模式',
       holdLight: '长按可将这篇笔记的全部图片切换为浅色模式',
+      commentDark: '这张评论图片正在使用深色模式，单击可切换为浅色模式',
+      commentLight: '这张评论图片正在使用浅色模式，单击可切换为深色模式',
       profileEnabled: 'XHS Image Dark Mode 已在这个用户主页中开启，点击可暂停处理全部笔记',
       profileDisabled: 'XHS Image Dark Mode 已在这个用户主页中暂停，点击可恢复处理',
       separator: '。'
@@ -122,6 +126,9 @@
       this.postOverrides = new Map();
       this.disabledProfileKeys = new Set();
       this.commentImageKeys = new Set();
+      this.commentPreviewImages = new WeakSet();
+      this.pendingCommentPreview = null;
+      this.commentPreviewProbeTimers = new Set();
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
@@ -519,6 +526,10 @@
       this.syncInterventionStatus();
       this.controlRecords.clear();
       this.commentImageKeys.clear();
+      this.commentPreviewImages = new WeakSet();
+      this.pendingCommentPreview = null;
+      for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
+      this.commentPreviewProbeTimers.clear();
       this.profileControl = null;
       this.controlHost?.remove();
       this.controlHost = null;
@@ -598,18 +609,133 @@
       return key;
     }
 
+    commentPreviewCandidate(image) {
+      if (!image || this.isAvatar(image) || this.viewerImageContext(image)) return false;
+      const source = image.currentSrc || image.src || '';
+      if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
+      if (image.closest?.(
+        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"], section.note-item, a.cover'
+      )) return false;
+      const rect = image.getBoundingClientRect?.();
+      const width = rect?.width || image.clientWidth || image.naturalWidth;
+      const height = rect?.height || image.clientHeight || image.naturalHeight;
+      if (width < 120 || height < 120 || width * height < 20_000) return false;
+      const viewportHeight = Number(globalThis.innerHeight) || Number.POSITIVE_INFINITY;
+      const viewportWidth = Number(globalThis.innerWidth) || Number.POSITIVE_INFINITY;
+      return !rect || (rect.bottom > 0 && rect.top < viewportHeight
+        && rect.right > 0 && rect.left < viewportWidth);
+    }
+
+    markCommentPreview(image) {
+      if (!this.commentPreviewCandidate(image)) return false;
+      this.commentPreviewImages.add(image);
+      const key = this.cacheKey(image.currentSrc || image.src || '');
+      if (key) {
+        this.commentImageKeys.delete(key);
+        this.commentImageKeys.add(key);
+        while (this.commentImageKeys.size > CACHE_LIMIT) {
+          this.commentImageKeys.delete(this.commentImageKeys.values().next().value);
+        }
+      }
+      this.pendingCommentPreview = null;
+      for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
+      this.commentPreviewProbeTimers.clear();
+      return true;
+    }
+
+    findPendingCommentPreview() {
+      const pending = this.pendingCommentPreview;
+      if (!pending || Date.now() >= pending.expiresAt) {
+        this.pendingCommentPreview = null;
+        return null;
+      }
+      let best = null;
+      let bestScore = -1;
+      for (const image of document.querySelectorAll?.('img') || []) {
+        if (!this.commentPreviewCandidate(image)) continue;
+        const key = this.cacheKey(image.currentSrc || image.src || '');
+        const rect = image.getBoundingClientRect?.();
+        const width = rect?.width || image.clientWidth || image.naturalWidth || 0;
+        const height = rect?.height || image.clientHeight || image.naturalHeight || 0;
+        const sameImage = image === pending.thumbnail;
+        const sameSource = !!pending.sourceKey && key === pending.sourceKey;
+        const newlyAdded = !pending.knownImages.has(image);
+        const expanded = width * height > pending.thumbnailArea * 2.25;
+        if (sameImage && !expanded) continue;
+        if (!sameImage && !sameSource && !newlyAdded && !expanded) continue;
+        const score = (sameImage ? 1_000_000 : 0)
+          + (sameSource ? 500_000 : 0)
+          + (newlyAdded ? 250_000 : 0)
+          + width * height;
+        if (score > bestScore) {
+          best = image;
+          bestScore = score;
+        }
+      }
+      if (!best || !this.markCommentPreview(best)) return null;
+      this.observeImage(best);
+      const record = this.records.get(best);
+      if (record?.result) {
+        this.createControl(record);
+        this.updateRecordVisual(record);
+      } else {
+        this.waitForImageLoad(record, -20);
+      }
+      this.scheduleControlPositions();
+      return best;
+    }
+
+    armCommentPreview(thumbnail) {
+      const rect = thumbnail.getBoundingClientRect?.();
+      const width = rect?.width || thumbnail.clientWidth || thumbnail.naturalWidth || 0;
+      const height = rect?.height || thumbnail.clientHeight || thumbnail.naturalHeight || 0;
+      this.pendingCommentPreview = {
+        thumbnail,
+        sourceKey: this.cacheKey(thumbnail.currentSrc || thumbnail.src || ''),
+        knownImages: new WeakSet(document.querySelectorAll?.('img') || []),
+        thumbnailArea: Math.max(1, width * height),
+        expiresAt: Date.now() + 2_500
+      };
+      for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
+      this.commentPreviewProbeTimers.clear();
+      for (const delay of [0, 80, 240, 600, 1_200, 2_600]) {
+        const timer = setTimeout(() => {
+          this.commentPreviewProbeTimers.delete(timer);
+          if (this.processing) this.findPendingCommentPreview();
+        }, delay);
+        timer?.unref?.();
+        this.commentPreviewProbeTimers.add(timer);
+      }
+    }
+
     commentImageKind(image) {
+      if (this.commentPreviewImages.has(image) && this.commentPreviewCandidate(image)) return 'preview';
       const inlineKey = this.rememberCommentImage(image);
       if (inlineKey) return 'inline';
+      if (this.pendingCommentPreview && this.commentPreviewCandidate(image)) {
+        const pending = this.pendingCommentPreview;
+        const key = this.cacheKey(image.currentSrc || image.src || '');
+        const rect = image.getBoundingClientRect?.();
+        const width = rect?.width || image.clientWidth || image.naturalWidth || 0;
+        const height = rect?.height || image.clientHeight || image.naturalHeight || 0;
+        const sameImageExpanded = image === pending.thumbnail
+          && width * height > pending.thumbnailArea * 2.25;
+        const sameSourceCopy = image !== pending.thumbnail && key === pending.sourceKey;
+        if (sameImageExpanded || sameSourceCopy || !pending.knownImages.has(image)) {
+          if (this.markCommentPreview(image)) return 'preview';
+        }
+      }
       if (!this.isXhsImageSource(image) || this.viewerImageContext(image)) return '';
       const key = this.cacheKey(image.currentSrc || image.src || '');
       if (!key || !this.commentImageKeys.has(key)) return '';
       if (image.closest?.(
-        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"], section.note-item, [data-note-id], a.cover'
+        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"], section.note-item, a.cover'
       )) return '';
       const width = image.clientWidth || image.naturalWidth;
       const height = image.clientHeight || image.naturalHeight;
-      return width >= 120 && height >= 120 && width * height >= 20_000 ? 'preview' : '';
+      if (width < 120 || height < 120 || width * height < 20_000) return '';
+      this.commentPreviewImages.add(image);
+      return 'preview';
     }
 
     isContentImage(image) {
@@ -739,7 +865,7 @@
       const root = modal?.querySelector?.('.xhs-slider-container, .note-slider') || null;
       if (!root || root === this.viewerRoot) return;
       for (const record of [...this.controlRecords]) {
-        if (root.contains?.(record.image)) continue;
+        if (root.contains?.(record.image) || this.commentImageKind(record.image) === 'preview') continue;
         this.removeControl(record);
         if (record.result?.kind === 'photo') {
           this.clearVisual(record);
@@ -769,7 +895,25 @@
 
     onPostActivation(event) {
       if (this.controlRecords.size) this.scheduleControlPositions();
-      const anchor = event.composedPath?.().find(node => node?.matches?.(
+      const path = event.composedPath?.() || [];
+      let commentImage = path.find(node => this.inlineCommentImage(node));
+      if (!commentImage) {
+        const x = Number(event.clientX);
+        const y = Number(event.clientY);
+        const hasPoint = Number.isFinite(x) && Number.isFinite(y);
+        outer: for (const node of path) {
+          for (const image of node?.querySelectorAll?.('img') || []) {
+            if (!this.inlineCommentImage(image)) continue;
+            const rect = image.getBoundingClientRect?.();
+            if (hasPoint && rect
+              && (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom)) continue;
+            commentImage = image;
+            break outer;
+          }
+        }
+      }
+      if (commentImage) this.armCommentPreview(commentImage);
+      const anchor = path.find(node => node?.matches?.(
         'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
       ));
       const id = this.noteId(anchor?.href || anchor?.getAttribute?.('href'));
@@ -1489,11 +1633,12 @@
         ? false
         : override?.darkened ?? this.automaticDarkened(record);
       const viewer = this.viewerForImage(record.image);
-      if (viewer) this.createControl(record);
+      const commentPreview = this.commentImageKind(record.image) === 'preview';
+      if (viewer || commentPreview) this.createControl(record);
       this.updateRecordVisual(record, false);
-      if (viewer) this.scheduleControlPositions();
+      if (viewer || commentPreview) this.scheduleControlPositions();
       else if (record.result.kind === 'photo' && !override
-        && this.commentImageKind(record.image) !== 'preview') {
+        && !commentPreview) {
         this.clearVisual(record, false);
         this.retireRecord(record);
       }
@@ -1501,13 +1646,16 @@
     }
 
     createControl(record) {
-      if (!this.controlLayer || record.button || !this.viewerForImage(record.image)) return;
+      const commentPreview = this.commentImageKind(record.image) === 'preview';
+      if (!this.controlLayer || record.button
+        || (!commentPreview && !this.viewerForImage(record.image))) return;
       const button = document.createElement('button');
       button.type = 'button';
       // Keep newly discovered controls out of the hit-testing layer until their
       // owning slide has been selected and positioned on the next frame.
       button.style.display = 'none';
-      this.bindControlGestures(button, record);
+      if (commentPreview) this.bindCommentControl(button, record);
+      else this.bindControlGestures(button, record);
       this.controlLayer.append(button);
       record.button = button;
       this.controlRecords.add(record);
@@ -1715,6 +1863,16 @@
       });
     }
 
+    bindCommentControl(button, record) {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!record.result || this.commentImageKind(record.image) !== 'preview') return;
+        record.darkened = !record.darkened;
+        this.updateRecordVisual(record);
+      });
+    }
+
     startControlPositionTracking() {
       if (this.controlViewportListening) return;
       this.controlViewportListening = true;
@@ -1760,9 +1918,16 @@
     updateControl(record) {
       if (!record.button) return;
       const copy = COPY[this.locale];
-      const override = this.postOverride(record);
       record.button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
       record.button.style.opacity = String(this.controlOpacity);
+      if (this.commentImageKind(record.image) === 'preview') {
+        const label = record.darkened ? copy.commentDark : copy.commentLight;
+        record.button.innerHTML = record.darkened ? LIGHT_ICON : DARK_ICON;
+        record.button.title = label;
+        record.button.setAttribute('aria-label', label);
+        return;
+      }
+      const override = this.postOverride(record);
       const state = override
         ? override.darkened ? copy.postDark : copy.postLight
         : copy.postAutomatic;
@@ -1814,6 +1979,17 @@
     }
 
     controlPlacement(record) {
+      if (this.commentImageKind(record.image) === 'preview') {
+        const rect = record.image.getBoundingClientRect?.();
+        if (!rect || rect.width < 120 || rect.height < 120) return null;
+        const visible = rect.bottom > 0 && rect.top < innerHeight
+          && rect.right > 0 && rect.left < innerWidth;
+        if (!visible) return null;
+        return {
+          left: Math.max(4, Math.min(innerWidth - CONTROL_SIZE - 4, rect.right - CONTROL_SIZE - 10)),
+          top: Math.max(4, Math.min(innerHeight - CONTROL_SIZE - 4, rect.top + 10))
+        };
+      }
       const viewer = this.viewerForImage(record.image);
       if (!viewer) return null;
       const slide = record.image.closest?.('.swiper-slide');
@@ -1852,18 +2028,20 @@
       if (this.positionFrame || !this.processing || !this.controlRecords.size) return;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
-        const positionedViewers = new Set();
+        const positionedOwners = new Set();
         const commentPreviewOpen = this.hasOpenCommentPreview();
         for (const record of this.controlRecords) {
           if (!record.button || !record.image.isConnected) continue;
+          const commentPreview = this.commentImageKind(record.image) === 'preview';
           const viewer = this.viewerForImage(record.image);
-          const placement = this.showImageControl && !commentPreviewOpen
-            && viewer && !positionedViewers.has(viewer)
+          const owner = commentPreview ? record.image : viewer;
+          const placement = this.showImageControl && (commentPreview || !commentPreviewOpen)
+            && owner && !positionedOwners.has(owner)
             ? this.controlPlacement(record)
             : null;
           record.button.style.display = placement ? 'grid' : 'none';
           if (!placement) continue;
-          positionedViewers.add(viewer);
+          positionedOwners.add(owner);
           record.button.style.left = `${placement.left}px`;
           record.button.style.top = `${placement.top}px`;
         }

@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.13');
+assert.equal(manifest.version, '8.11.15');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -449,14 +449,16 @@ assert.match(xhsImageDarkModeRuntime, /controlRecords[\s\S]*createControl[\s\S]*
   'Only expanded-view controls may participate in resize and scroll positioning.');
 assert.match(xhsImageDarkModeRuntime, /viewerImageContext\(image\)[\s\S]*image\.closest\?\.\('#noteContainer'\)[\s\S]*return false[\s\S]*note-slider-img, \.img-container[\s\S]*primaryImage !== image/,
   'Viewer overlays must not be analyzed as post media.');
-assert.match(xhsImageDarkModeRuntime, /const positionedViewers = new Set\(\)[\s\S]*!positionedViewers\.has\(viewer\)[\s\S]*positionedViewers\.add\(viewer\)/,
+assert.match(xhsImageDarkModeRuntime, /const positionedOwners = new Set\(\)[\s\S]*!positionedOwners\.has\(owner\)[\s\S]*positionedOwners\.add\(owner\)/,
   'A viewer must never display overlapping image controls.');
 assert.match(xhsImageDarkModeRuntime, /togglePostOverride[\s\S]*postOverrides\.set\(postKey, darkened\)[\s\S]*applyPostMode\(postKey, darkened\)[\s\S]*restorePostAutomatic[\s\S]*postOverrides\.delete\(postKey\)/,
   'Long presses must alternate a stable post-wide display mode, while clicks restore automatic recognition.');
 assert.match(xhsImageDarkModeRuntime, /recordsForPost\(postKey\)[\s\S]*viewerPostKey\(record\.image\) === postKey[\s\S]*document\.querySelectorAll\?\.\([\s\S]*record\.button\.hidden = !this\.showImageControl \|\| this\.profileProcessingDisabled\(record\)/,
   'Post-wide overrides must include matching feed covers without hiding the image control.');
-assert.match(xhsImageDarkModeRuntime, /inlineCommentImage[\s\S]*#noteContainer, \.note-container[\s\S]*commentImageKeys[\s\S]*hasOpenCommentPreview[\s\S]*!commentPreviewOpen/,
-  'Comment images must remain expanded-post-only and their preview must suppress the post image control.');
+assert.match(xhsImageDarkModeRuntime, /inlineCommentImage[\s\S]*#noteContainer, \.note-container[\s\S]*armCommentPreview[\s\S]*pendingCommentPreview[\s\S]*markCommentPreview[\s\S]*hasOpenCommentPreview/,
+  'Comment images must remain expanded-post-only and preview association must survive resource URL changes.');
+assert.match(xhsImageDarkModeRuntime, /bindCommentControl[\s\S]*record\.darkened = !record\.darkened[\s\S]*commentPreview \|\| !commentPreviewOpen/,
+  'Comment previews must own a single-image control while suppressing the post image control.');
 assert.match(xhsImageDarkModeRuntime, /prioritizeModal[\s\S]*filter\(image => this\.viewerImageContext\(image\)\)/,
   'Opening a post must not eagerly analyze its entire comment image list.');
 assert.match(xhsImageDarkModeRuntime, /currentProfileKey[\s\S]*disabledProfileKeys[\s\S]*toggleProfileDisabled[\s\S]*removeQueuedImage[\s\S]*collectImages\(document\)/,

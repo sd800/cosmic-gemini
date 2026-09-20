@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.11 — 2026-09-19
+
+- Expanded XHS Image Dark Mode recognition to chat screenshots with repeated bright dialogue surfaces while preserving photographs with a single bright subject.
+
 ## 8.11.10 — 2026-09-19
 
 - Improved XHS Image Dark Mode recognition for bright text on uniform vivid-color cards while preserving isolated bright photographic subjects.

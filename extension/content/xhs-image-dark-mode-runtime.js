@@ -1231,6 +1231,42 @@
           }
         }
       }
+      const conversationSurfaceCandidates = lightBackground
+        ? colorsByShare.filter(color => {
+          if (color.key === lightBackground.key
+            || color.share < 0.025 || color.share > 0.38
+            || color.value < 0.54 || color.chroma < 0.16 || color.chroma > 0.75) return false;
+          const dr = (color.r - lightBackground.r) / 255;
+          const dg = (color.g - lightBackground.g) / 255;
+          const db = (color.b - lightBackground.b) / 255;
+          return dr * dr + dg * dg + db * db >= 0.025;
+        }).slice(0, 3)
+        : [];
+      const conversationSurfaceShare = conversationSurfaceCandidates
+        .reduce((total, color) => total + color.share, 0);
+      let conversationLayout = false;
+      let conversationSurfaceComponents = { count: 0, largestShare: 0 };
+      if (conversationSurfaceShare >= 0.06 && conversationSurfaceShare <= 0.4) {
+        const conversationMask = new Uint8Array(pixelCount);
+        for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+          const offset = pixel * 4;
+          const alpha = data[offset + 3] / 255;
+          const color = {
+            r: Math.round(data[offset] * alpha + 255 * (1 - alpha)),
+            g: Math.round(data[offset + 1] * alpha + 255 * (1 - alpha)),
+            b: Math.round(data[offset + 2] * alpha + 255 * (1 - alpha))
+          };
+          if (conversationSurfaceCandidates.some(surface => {
+            const dr = (color.r - surface.r) / 255;
+            const dg = (color.g - surface.g) / 255;
+            const db = (color.b - surface.b) / 255;
+            return dr * dr + dg * dg + db * db <= 0.045;
+          })) conversationMask[pixel] = 1;
+        }
+        conversationSurfaceComponents = this.componentStats(conversationMask, width, height, opaque);
+        conversationLayout = conversationSurfaceComponents.count >= 3
+          && conversationSurfaceComponents.largestShare <= 0.16;
+      }
       const surfacePalette = grayCard
         ? colorsByShare.filter(color => color.share >= 0.02
           && color.chroma <= 0.18 && Math.abs(color.value - backgroundLuminance) <= 0.16).slice(0, 4)
@@ -1244,6 +1280,11 @@
               && Math.abs(color.value - backgroundLuminance) <= 0.22;
           }).slice(0, 6)
           : [...lightSurfaces];
+      if (conversationLayout) {
+        for (const surface of conversationSurfaceCandidates) {
+          if (!surfacePalette.some(existing => existing.key === surface.key)) surfacePalette.push(surface);
+        }
+      }
       if (annotatedCard) {
         for (const annotation of annotationSurfaces) {
           if (!surfacePalette.some(surface => surface.key === annotation.key)) surfacePalette.push(annotation);
@@ -1323,10 +1364,13 @@
         || (foregroundComponents.count >= 5 && largestForegroundShare <= 0.08);
       const annotationTextStructure = !annotatedCard
         || (foregroundComponents.count >= 5 && largestForegroundShare <= 0.12);
+      const conversationTextStructure = !conversationLayout
+        || (foregroundComponents.count >= 5 && largestForegroundShare <= 0.08);
       const transparentTextStructure = transparencyShare < 0.1
         || (foregroundComponents.count >= 3 && largestForegroundShare <= 0.12);
       return {
-        kind: textLikeForeground && vividTextStructure && annotationTextStructure && transparentTextStructure
+        kind: textLikeForeground && vividTextStructure && annotationTextStructure
+          && conversationTextStructure && transparentTextStructure
           && (uniformLightSurface || uniformGraySurface || uniformVividSurface)
           ? grayCard ? 'gray-theme' : 'light-theme'
           : 'photo',
@@ -1340,6 +1384,9 @@
         sparseTextForeground,
         backgroundLuminance,
         annotationShare,
+        conversationLayout,
+        conversationSurfaceShare,
+        conversationSurfaceComponentCount: conversationSurfaceComponents.count,
         transparencyShare,
         largestForegroundShare,
         foregroundComponentCount: foregroundComponents.count

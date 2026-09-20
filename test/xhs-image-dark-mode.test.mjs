@@ -219,6 +219,46 @@ test('XHS Image Dark Mode recognizes light text on a vivid orange reading surfac
   assert.equal(result.foregroundComponentCount >= 5, true);
 });
 
+test('XHS Image Dark Mode recognizes repeated bright chat bubbles as reading surfaces', async () => {
+  const runtime = await runtimeFixture();
+  const bubbles = [
+    [29, 2, 62, 13],
+    [24, 17, 58, 28],
+    [30, 32, 62, 43],
+    [22, 47, 58, 59]
+  ];
+  const chatScreenshot = pixels((x, y) => {
+    const bubble = bubbles.find(([left, top, right, bottom]) => (
+      x >= left && x <= right && y >= top && y <= bottom
+    ));
+    const whiteBubble = x >= 2 && x <= 24 && y >= 34 && y <= 45;
+    const textArea = bubble || (whiteBubble ? [2, 34, 24, 45] : null);
+    const text = textArea
+      && y >= textArea[1] + 4 && y <= textArea[1] + 7
+      && x >= textArea[0] + 4 && x <= textArea[2] - 3
+      && x % 5 !== 0;
+    if (text) return [24, 27, 25];
+    if (bubble) return [143, 236, 94];
+    if (whiteBubble) return [255, 255, 255];
+    return [238, 238, 238];
+  });
+  const result = runtime.classifySample(chatScreenshot, 64, 64);
+  assert.equal(result.kind, 'light-theme', JSON.stringify(result));
+  assert.equal(result.conversationLayout, true);
+});
+
+test('a single bright object on a pale surface is not treated as a chat layout', async () => {
+  const runtime = await runtimeFixture();
+  const productPhoto = pixels((x, y) => {
+    const object = x >= 18 && x <= 49 && y >= 10 && y <= 55;
+    if (!object) return [238, 238, 238];
+    return [143 + (x % 5) * 4, 220 + (y % 7) * 3, 82 + ((x + y) % 6) * 5];
+  });
+  const result = runtime.classifySample(productPhoto, 64, 64);
+  assert.equal(result.kind, 'photo', JSON.stringify(result));
+  assert.equal(result.conversationLayout, false);
+});
+
 test('an isolated bright subject on a vivid surface remains photographic content', async () => {
   const runtime = await runtimeFixture();
   const vividSubject = pixels((x, y) => {

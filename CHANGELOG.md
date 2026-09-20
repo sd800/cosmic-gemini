@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.5 — 2026-09-20
+
+- Refined the settings guidance and privacy description for Following/Follower List Check for Instagram.
+
 ## 8.12.3 — 2026-09-20
 
 - Kept completed Following/Follower List Check for Instagram results in browser-session memory, so reopening a profile can restore a validated result until the browser exits. Added controls beneath completed results to clear the current profile or all Instagram list results.

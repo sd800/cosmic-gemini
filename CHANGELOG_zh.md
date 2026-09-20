@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.12.5 — 2026-09-20
+
+- 调整 Following/Follower List Check for Instagram 在设置页面中的使用说明和隐私说明表述。
+
 ## 8.12.3 — 2026-09-20
 
 - 将 Following/Follower List Check for Instagram 的完整结果保留于本次浏览器会话内存，再次打开同一主页时可恢复经校验的结果，直至退出浏览器。完成结果底部新增清除当前主页数据和清除所有 Instagram 列表识别数据的操作。

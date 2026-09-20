@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.17 — 2026-09-20
+
+- Improved XHS Image Dark Mode control reliability by isolating complete pointer gestures from Xiaohongshu carousel handlers. Hidden preview layers can no longer retain an overlapping control, and only the active visible comment preview may suppress the post image control.
+
 ## 8.11.16 — 2026-09-20
 
 - Fixed a detached XHS comment-preview control temporarily intercepting input intended for the restored post image control. Comment-thumbnail click detection is now also limited to the relevant comment container.

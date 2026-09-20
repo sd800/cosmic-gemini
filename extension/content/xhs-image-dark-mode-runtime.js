@@ -561,7 +561,7 @@
       style.textContent = `
         :host { all: initial; }
         .layer { position: fixed; inset: 0; pointer-events: none; }
-        button { position: absolute; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; transition: opacity 120ms ease, background-color 120ms ease; }
+        button { position: absolute; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; transition: opacity 120ms ease, background-color 120ms ease; }
         button.profile-control { position: fixed; top: 88px; right: 24px; }
         button:hover, button:focus-visible { opacity: 1 !important; background: rgba(20,24,30,.96); }
         button[hidden] { display: none !important; }
@@ -613,6 +613,10 @@
       if (!image || this.isAvatar(image) || this.viewerImageContext(image)) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
+      try {
+        if (typeof image.checkVisibility === 'function'
+          && !image.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+      } catch {}
       if (image.closest?.(
         'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"], section.note-item, a.cover'
       )) return false;
@@ -1832,7 +1836,12 @@
         if (timer) clearTimeout(timer);
         timer = 0;
       };
+      const shield = event => {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+      };
       button.addEventListener('pointerdown', event => {
+        shield(event);
         if (event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
         cancel();
         startX = Number(event.clientX) || 0;
@@ -1845,17 +1854,20 @@
         }, LONG_PRESS_MS);
       });
       button.addEventListener('pointermove', event => {
+        shield(event);
         if (!timer) return;
         const distance = Math.hypot((Number(event.clientX) || 0) - startX, (Number(event.clientY) || 0) - startY);
         if (distance > LONG_PRESS_MOVE_TOLERANCE) cancel();
       });
-      button.addEventListener('pointerup', cancel);
-      button.addEventListener('pointercancel', cancel);
-      button.addEventListener('lostpointercapture', cancel);
-      button.addEventListener('contextmenu', event => event.preventDefault());
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+        button.addEventListener(type, event => {
+          shield(event);
+          cancel();
+        });
+      }
+      button.addEventListener('contextmenu', shield);
       button.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
+        shield(event);
         if (Date.now() < suppressClickUntil) {
           suppressClickUntil = 0;
           return;
@@ -1865,9 +1877,15 @@
     }
 
     bindCommentControl(button, record) {
+      const shield = event => {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+      };
+      for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'contextmenu']) {
+        button.addEventListener(type, shield);
+      }
       button.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
+        shield(event);
         if (!record.result || this.commentImageKind(record.image) !== 'preview') return;
         record.darkened = !record.darkened;
         this.updateRecordVisual(record);
@@ -1979,13 +1997,23 @@
       return this.viewerImageContext(image)?.slide || image;
     }
 
+    visibleImageRect(image, minimumSize = 1) {
+      if (!image || image.isConnected === false) return null;
+      try {
+        if (typeof image.checkVisibility === 'function'
+          && !image.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return null;
+      } catch {}
+      const rect = image.getBoundingClientRect?.();
+      if (!rect || rect.width < minimumSize || rect.height < minimumSize) return null;
+      const visible = rect.bottom > 0 && rect.top < innerHeight
+        && rect.right > 0 && rect.left < innerWidth;
+      return visible ? rect : null;
+    }
+
     controlPlacement(record) {
       if (this.commentImageKind(record.image) === 'preview') {
-        const rect = record.image.getBoundingClientRect?.();
-        if (!rect || rect.width < 120 || rect.height < 120) return null;
-        const visible = rect.bottom > 0 && rect.top < innerHeight
-          && rect.right > 0 && rect.left < innerWidth;
-        if (!visible) return null;
+        const rect = this.visibleImageRect(record.image, 120);
+        if (!rect) return null;
         return {
           left: Math.max(4, Math.min(innerWidth - CONTROL_SIZE - 4, rect.right - CONTROL_SIZE - 10)),
           top: Math.max(4, Math.min(innerHeight - CONTROL_SIZE - 4, rect.top + 10))
@@ -2014,15 +2042,17 @@
       };
     }
 
-    hasOpenCommentPreview() {
-      for (const record of this.records.values()) {
+    activeCommentPreviewRecord() {
+      for (const record of [...this.records.values()].reverse()) {
         const image = record.image;
         if (!image?.isConnected || this.commentImageKind(image) !== 'preview') continue;
-        const rect = image.getBoundingClientRect?.();
-        if (!rect || rect.width < 120 || rect.height < 120) continue;
-        if (rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth) return true;
+        if (this.visibleImageRect(image, 120)) return record;
       }
-      return false;
+      return null;
+    }
+
+    hasOpenCommentPreview() {
+      return !!this.activeCommentPreviewRecord();
     }
 
     scheduleControlPositions() {
@@ -2030,16 +2060,18 @@
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
         const positionedOwners = new Set();
-        const commentPreviewOpen = this.hasOpenCommentPreview();
+        const activeCommentPreview = this.activeCommentPreviewRecord();
+        const commentPreviewOpen = !!activeCommentPreview;
         for (const record of this.controlRecords) {
           if (!record.button) continue;
           if (!record.image.isConnected) {
             record.button.style.display = 'none';
             continue;
           }
-          const commentPreview = this.commentImageKind(record.image) === 'preview';
+          const classifiedCommentPreview = this.commentImageKind(record.image) === 'preview';
+          const commentPreview = classifiedCommentPreview && record === activeCommentPreview;
           const viewer = this.viewerForImage(record.image);
-          const owner = commentPreview ? record.image : viewer;
+          const owner = commentPreview ? record.image : classifiedCommentPreview ? null : viewer;
           const placement = this.showImageControl && (commentPreview || !commentPreviewOpen)
             && owner && !positionedOwners.has(owner)
             ? this.controlPlacement(record)

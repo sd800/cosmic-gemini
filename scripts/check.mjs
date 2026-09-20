@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.16');
+assert.equal(manifest.version, '8.11.17');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -461,6 +461,10 @@ assert.match(xhsImageDarkModeRuntime, /bindCommentControl[\s\S]*record\.darkened
   'Comment previews must own a single-image control while suppressing the post image control.');
 assert.match(xhsImageDarkModeRuntime, /if \(!record\.image\.isConnected\) \{[\s\S]*record\.button\.style\.display = 'none'/,
   'A detached comment preview control must leave the hit-testing layer immediately.');
+assert.match(xhsImageDarkModeRuntime, /touch-action: none[\s\S]*const shield = event =>[\s\S]*event\.stopPropagation/,
+  'XHS image controls must isolate their complete pointer gesture from page carousel handlers.');
+assert.match(xhsImageDarkModeRuntime, /checkVisibility[\s\S]*activeCommentPreviewRecord[\s\S]*record === activeCommentPreview/,
+  'Only the actually visible comment preview may own a control or suppress the post control.');
 assert.match(xhsImageDarkModeRuntime, /prioritizeModal[\s\S]*filter\(image => this\.viewerImageContext\(image\)\)/,
   'Opening a post must not eagerly analyze its entire comment image list.');
 assert.match(xhsImageDarkModeRuntime, /currentProfileKey[\s\S]*disabledProfileKeys[\s\S]*toggleProfileDisabled[\s\S]*removeQueuedImage[\s\S]*collectImages\(document\)/,

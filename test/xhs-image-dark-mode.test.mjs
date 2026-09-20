@@ -564,6 +564,30 @@ test('a short click restores automatic recognition for the complete post', async
   assert.equal(restored, 1);
 });
 
+test('image controls isolate their complete pointer gesture from page carousel handlers', async () => {
+  const runtime = await runtimeFixture({}, {
+    setTimeout() { return 1; },
+    clearTimeout() {}
+  });
+  const button = new SimpleEventTarget();
+  runtime.bindControlGestures(button, { darkened: true });
+  for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'contextmenu', 'click']) {
+    let prevented = 0;
+    let stopped = 0;
+    button.dispatchEvent({
+      type,
+      isPrimary: true,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      preventDefault() { prevented += 1; },
+      stopPropagation() { stopped += 1; }
+    });
+    assert.equal(prevented > 0, true, type);
+    assert.equal(stopped > 0, true, type);
+  }
+});
+
 test('per-image controls are created for expanded post images and comment previews only', async () => {
   const runtime = await runtimeFixture();
   runtime.processing = true;
@@ -791,11 +815,11 @@ test('a comment preview shows its own control while the post image control stays
       return { left: 250, right: 890, top: 60, bottom: 700, width: 640, height: 640 };
     }
   };
-  runtime.records.set(preview, { image: preview, result: { kind: 'photo' } });
   const viewer = {};
   const mainImage = { isConnected: true };
   const controlled = { image: mainImage, button: { style: {} } };
-  const previewControl = { image: preview, button: { style: {} } };
+  const previewControl = { image: preview, result: { kind: 'photo' }, button: { style: {} } };
+  runtime.records.set(preview, previewControl);
   runtime.viewerForImage = image => image === mainImage ? viewer : null;
   runtime.controlPlacement = record => record.image === preview
     ? { left: 850, top: 70 }
@@ -807,6 +831,12 @@ test('a comment preview shows its own control while the post image control stays
   assert.equal(controlled.button.style.display, 'none');
   assert.equal(previewControl.button.style.display, 'grid');
   preview.isConnected = false;
+  runtime.scheduleControlPositions();
+  frame();
+  assert.equal(controlled.button.style.display, 'grid');
+  assert.equal(previewControl.button.style.display, 'none');
+  preview.isConnected = true;
+  preview.checkVisibility = () => false;
   runtime.scheduleControlPositions();
   frame();
   assert.equal(controlled.button.style.display, 'grid');

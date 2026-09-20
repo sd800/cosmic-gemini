@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.9 — 2026-09-20
+
+- Following/Follower List Check for Instagram now recognizes the compact blue verification mark beside an account while reading page lists and displays a small blue check after that account's visible user handler in the side panel.
+
 ## 8.12.8 — 2026-09-20
 
 - Changed Instagram list completion to follow the stable physical end of each loaded list instead of requiring an exact match with Instagram's displayed account count. A mismatched list is checked directly when its rows remain in the DOM; only a virtualized list receives one fast, overlapping remount sweep. Completed progress no longer remains at 99% when the displayed count is stale.

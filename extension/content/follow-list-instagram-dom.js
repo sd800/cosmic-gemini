@@ -261,6 +261,31 @@ export async function instagramDomRead(input, environment = globalThis) {
       }
       return '';
     };
+    const verifiedAccount = link => {
+      // Keep the search inside the username branch so blue action icons elsewhere
+      // in the row cannot be mistaken for Instagram's compact verification mark.
+      let branch = link;
+      for (let parent = link.parentElement; parent && parent !== state.list; parent = parent.parentElement) {
+        if (parent.querySelector('button,[role="button"],input')) break;
+        branch = parent;
+      }
+      return [...branch.querySelectorAll('svg')].some(svg => {
+        const rect = svg.getBoundingClientRect?.() || {};
+        const width = Number.parseFloat(svg.getAttribute('width')) || rect.width || 0;
+        const height = Number.parseFloat(svg.getAttribute('height')) || rect.height || 0;
+        if (width < 7 || height < 7 || width > 24 || height > 24) return false;
+        const colored = [svg, ...svg.querySelectorAll('[fill]')].some(node => {
+          const style = getComputedStyle(node);
+          return [node.getAttribute('fill'), style.fill, style.color].some(value => {
+            const channels = colorChannels(value);
+            return channels?.length === 3 && channels[0] <= 80 && channels[1] >= 90
+              && channels[2] >= 180 && channels[1] >= channels[0] + 55
+              && channels[2] >= channels[1] + 45;
+          });
+        });
+        return colored;
+      });
+    };
     const collect = () => {
       if (!state.scroller) {
         const anchor = [...dialog.querySelectorAll('a[href]')].find(link => profileDestination(link));
@@ -294,13 +319,15 @@ export async function instagramDomRead(input, environment = globalThis) {
         const username = visibleHandlerFromLink(link);
         if (!destination || !username) continue;
         const id = username.toLowerCase();
-        if (!identities.has(id)) identities.set(id, { link, username, href: destination.href });
+        if (!identities.has(id)) identities.set(id, { link, username, href: destination.href,
+          verified: verifiedAccount(link) });
       }
       state.lastMountedCount = identities.size;
       for (const [id, identity] of identities) {
         if (state.seen.has(id)) continue;
         state.seen.add(id);
-        users.push({ id, username: identity.username, name: displayName(identity.link), href: identity.href });
+        users.push({ id, username: identity.username, name: displayName(identity.link), href: identity.href,
+          verified: identity.verified });
       }
       if (users.length) { state.lastGrowth = Date.now(); state.nudges = 0; }
       return identities.size;

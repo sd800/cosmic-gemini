@@ -4,8 +4,8 @@ import { instagramRoute, compareInstagramLists } from '../extension/core/follow-
 import { instagramDomRead } from '../extension/content/follow-list-instagram-dom.js';
 import { createFollowListInstagramProduct } from '../extension/background/products/operations/follow-list-instagram.js';
 
-const account = id => ({ id: `account_${id}`, username: `account_${id}`, name: `名称 ${id}`,
-  href: `https://www.instagram.com/destination_${id}/` });
+const account = (id, verified = false) => ({ id: `account_${id}`, username: `account_${id}`, name: `名称 ${id}`,
+  href: `https://www.instagram.com/destination_${id}/`, verified });
 const profile = (following = 2, followers = 2, ownProfile = true) => ({ profile: { id: 'example', username: 'example', following, followers }, ownProfile });
 const base = 'chrome-extension://test/';
 const panel = base + 'workspaces/follow-list-instagram/follow-list-instagram.html?sourceTab=7';
@@ -353,14 +353,19 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     children: [rows], firstElementChild: rows, querySelectorAll: () => links });
   rows.parentElement = wrapper;
   rows.children = [node(), node(), node()];
-  const add = (id, username = `account_${id}`, destination = `destination_${id}`) => {
+  const add = (id, username = `account_${id}`, destination = `destination_${id}`, verified = false) => {
     const link = node({ textContent: username,
       getAttribute: () => `/${destination}/` });
     const name = node({ textContent: `自定义名称 ${id}`, contains: () => false, matches: () => true });
-    link.parentElement = node({ parentElement: rows, children: [link, name] });
+    const badge = node({
+      getAttribute: attribute => ({ fill: 'rgb(0, 149, 246)', width: '12', height: '12' })[attribute] ?? null,
+      querySelectorAll: () => []
+    });
+    link.parentElement = node({ parentElement: rows, children: [link, name],
+      querySelectorAll: selector => selector === 'svg' && verified ? [badge] : [] });
     links.push(link); return link;
   };
-  add(1); add(2); add(3);
+  add(1); add(2, 'account_2', 'destination_2', true); add(3);
   rows.querySelector = () => links[0];
   const suggestion = node({ querySelectorAll: () => [node({ textContent: 'unrelated', getAttribute: () => '/unrelated/' })] });
   scroller.children = [wrapper, suggestion];
@@ -395,6 +400,8 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   assert.equal(separated?.href, 'https://www.instagram.com/destination_5/', 'the link remains only the click destination');
   assert.equal(result.users.some(account => account.username === 'destination_5'), false);
   assert.equal(result.users.some(account => account.username === 'unrelated'), false);
+  assert.equal(result.users.find(account => account.username === 'account_2')?.verified, true);
+  assert.equal(result.users.find(account => account.username === 'account_3')?.verified, false);
   assert.equal(verificationWaits, 0, 'retained rows are read directly from the loaded DOM without a sweep');
   assert.equal(closed, true);
   await instagramDomRead({ operation: 'cancel', runId: 'test' }, env);

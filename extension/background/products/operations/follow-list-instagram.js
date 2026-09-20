@@ -6,7 +6,7 @@ const PANEL = INSTAGRAM_PANEL_PATH;
 const MAX_ACCOUNTS = 20000;
 const REQUEST_GAP = 2000;
 const MAX_INCOMPLETE_RETRIES = 2;
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const CACHE_PREFIX = 'followListInstagram:result:';
 const CACHE_INDEX = 'followListInstagram:resultIndex';
 const MAX_CACHED_RESULTS = 8;
@@ -22,6 +22,7 @@ export function createFollowListInstagramProduct(platform) {
   const validAccount = account => account && typeof account.id === 'string' && account.id
     && typeof account.username === 'string' && /^[a-zA-Z0-9._]{1,30}$/.test(account.username)
     && account.id === account.username.toLowerCase() && typeof account.name === 'string'
+    && typeof account.verified === 'boolean'
     && (() => {
       try {
         const url = new URL(account.href);

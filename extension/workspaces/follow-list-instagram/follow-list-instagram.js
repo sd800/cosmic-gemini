@@ -84,8 +84,17 @@ function render() {
     const link = document.createElement('a');
     link.href = account.href;
     link.target = '_blank'; link.rel = 'noopener noreferrer';
+    const handle = document.createElement('span'); handle.className = 'account-handle';
     const username = document.createElement('strong'); username.textContent = '@' + account.username;
-    link.append(username);
+    handle.append(username);
+    if (account.verified) {
+      const verified = document.createElement('span'); verified.className = 'verified-account';
+      verified.setAttribute('role', 'img'); verified.setAttribute('aria-label', t('igVerifiedAccount'));
+      verified.title = t('igVerifiedAccount');
+      verified.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m4.6 8.1 2.1 2.1 4.7-4.8"/></svg>';
+      handle.append(verified);
+    }
+    link.append(handle);
     if (account.name) {
       const name = document.createElement('small'); name.textContent = account.name;
       link.append(name);

@@ -902,6 +902,7 @@
         const y = Number(event.clientY);
         const hasPoint = Number.isFinite(x) && Number.isFinite(y);
         outer: for (const node of path) {
+          if (!node?.matches?.('[data-comment-id], [class*="comment"], [id*="comment"]')) continue;
           for (const image of node?.querySelectorAll?.('img') || []) {
             if (!this.inlineCommentImage(image)) continue;
             const rect = image.getBoundingClientRect?.();
@@ -2031,7 +2032,11 @@
         const positionedOwners = new Set();
         const commentPreviewOpen = this.hasOpenCommentPreview();
         for (const record of this.controlRecords) {
-          if (!record.button || !record.image.isConnected) continue;
+          if (!record.button) continue;
+          if (!record.image.isConnected) {
+            record.button.style.display = 'none';
+            continue;
+          }
           const commentPreview = this.commentImageKind(record.image) === 'preview';
           const viewer = this.viewerForImage(record.image);
           const owner = commentPreview ? record.image : viewer;

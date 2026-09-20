@@ -727,6 +727,7 @@ test('clicking a comment thumbnail associates a preview even when its resource U
   });
   images = [thumbnail];
   const thumbnailOverlay = {
+    matches(selector) { return selector.includes('comment'); },
     querySelectorAll(selector) { return selector === 'img' ? [thumbnail] : []; }
   };
   runtime.onPostActivation({
@@ -809,6 +810,20 @@ test('a comment preview shows its own control while the post image control stays
   runtime.scheduleControlPositions();
   frame();
   assert.equal(controlled.button.style.display, 'grid');
+  assert.equal(previewControl.button.style.display, 'none');
+});
+
+test('ordinary control clicks never search the complete page for comment images', async () => {
+  const runtime = await runtimeFixture();
+  const ordinaryAncestor = {
+    matches() { return false; },
+    querySelectorAll() { throw new Error('ordinary ancestors must not be scanned'); }
+  };
+  runtime.onPostActivation({
+    clientX: 100,
+    clientY: 40,
+    composedPath: () => [ordinaryAncestor]
+  });
 });
 
 test('a comment preview control is positioned inside the preview image corner', async () => {

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.16 — 2026-09-20
+
+- Fixed a detached XHS comment-preview control temporarily intercepting input intended for the restored post image control. Comment-thumbnail click detection is now also limited to the relevant comment container.
+
 ## 8.11.15 — 2026-09-20
 
 - Fixed XHS Image Dark Mode handling for opened comment images when their preview uses a different resource or reuses an existing page element. Comment previews are now analyzed independently and provide their own light-or-dark control while the post image control stays hidden.

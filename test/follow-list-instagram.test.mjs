@@ -4,7 +4,8 @@ import { instagramRoute, compareInstagramLists } from '../extension/core/follow-
 import { instagramDomRead } from '../extension/content/follow-list-instagram-dom.js';
 import { createFollowListInstagramProduct } from '../extension/background/products/operations/follow-list-instagram.js';
 
-const account = id => ({ id: `account_${id}`, username: `account_${id}`, name: `名称 ${id}` });
+const account = id => ({ id: `account_${id}`, username: `account_${id}`, name: `名称 ${id}`,
+  href: `https://www.instagram.com/destination_${id}/` });
 const profile = (following = 2, followers = 2, ownProfile = true) => ({ profile: { id: 'example', username: 'example', following, followers }, ownProfile });
 const base = 'chrome-extension://test/';
 const panel = base + 'workspaces/follow-list-instagram/follow-list-instagram.html?sourceTab=7';
@@ -63,7 +64,10 @@ test('Instagram background analysis reads complete lists and only allows confirm
     await assert.rejects(h.send('UI_IG_UNFOLLOW', { runId: state.runId, targetId: 'account_3', confirmed: true }), /igRelationshipChanged/);
     state = await h.send('UI_IG_UNFOLLOW', { runId: state.runId, targetId: 'account_2', confirmed: true });
     assert.equal(state.groups.notFollowingBack.length, 0);
-    assert.equal(h.calls.filter(c => c.operation === 'unfollow').length, 1);
+    const writes = h.calls.filter(c => c.operation === 'unfollow');
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].targetUsername, 'account_2');
+    assert.equal('targetHref' in writes[0], false, 'the stored account link is not reused as account identity');
   } finally { h.cleanup(); }
 });
 
@@ -246,16 +250,16 @@ function unfollowDomHarness({ own = true, dangerColor = 'rgb(238, 81, 94)', acti
   const listHeading = node('h1', { textContent: '关注', attributes: { role: 'heading' } });
   const header = node('div'); header.append(listHeading, closeButton);
   const search = node('input', { type: 'text', value: '', dispatchEvent() {} });
-  const avatarLink = node('a', { attributes: { href: '/account_2/' } }); avatarLink.append(node('img'));
+  const avatarLink = node('a', { attributes: { href: '/destination_2/' } }); avatarLink.append(node('img'));
   const avatarButton = node('button'); avatarButton.append(avatarLink);
-  const targetLink = node('a', { attributes: { href: '/account_2/' }, textContent: 'account_2' });
+  const targetLink = node('a', { attributes: { href: '/destination_2/' }, textContent: 'account_2' });
   const identity = node('div'); identity.append(targetLink);
   const action = node('button', { textContent: '已关注', backgroundColor: actionBackground,
     click() { actionClicks += 1; confirmOpen = true; } });
   const row = node('div'); row.append(avatarButton, identity, action);
   const listDialog = node('div', { attributes: { role: 'dialog' } }); listDialog.append(header, search, row);
 
-  const confirmLink = node('a', { attributes: { href: '/account_2/' } }); confirmLink.append(node('img'));
+  const confirmLink = node('a', { attributes: { href: '/destination_2/' } }); confirmLink.append(node('img'));
   const danger = node('button', { textContent: '取消关注', color: dangerColor, click() {
     confirmClicks += 1; confirmOpen = false; unfollowed = true; targetLink.isConnected = false;
     followingCount.textContent = '1';
@@ -324,9 +328,9 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     children: [rows], firstElementChild: rows, querySelectorAll: () => links });
   rows.parentElement = wrapper;
   rows.children = [node(), node(), node()];
-  const add = (id, text = true) => {
-    const link = node({ textContent: text ? `account_${id}` : '',
-      getAttribute: () => `/account_${id}/` });
+  const add = (id, username = `account_${id}`, destination = `destination_${id}`) => {
+    const link = node({ textContent: username,
+      getAttribute: () => `/${destination}/` });
     const name = node({ textContent: `自定义名称 ${id}`, contains: () => false, matches: () => true });
     link.parentElement = node({ parentElement: rows, children: [link, name] });
     links.push(link); return link;
@@ -345,7 +349,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     document: { querySelector: () => main, querySelectorAll: () => mounted ? [dialog] : [] },
     getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY }),
     setTimeout(callback, delay) {
-      if (delay === 1200 && scrolled && links.length === 3) { add(4); add(5, false); }
+      if (delay === 1200 && scrolled && links.length === 3) { add(4); add(5, 'visible_5'); }
       callback();
     }
   };
@@ -355,7 +359,10 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   assert.equal(result.done, true);
   assert.equal(result.users.length, 5);
   assert.equal(result.users[0].name, '自定义名称 1');
-  assert.equal(result.users.some(account => account.username === 'account_5'), true, 'the href handler is authoritative even without matching link text');
+  const separated = result.users.find(account => account.username === 'visible_5');
+  assert.equal(separated?.id, 'visible_5', 'the visible handler is authoritative for account identity');
+  assert.equal(separated?.href, 'https://www.instagram.com/destination_5/', 'the link remains only the click destination');
+  assert.equal(result.users.some(account => account.username === 'destination_5'), false);
   assert.equal(result.users.some(account => account.username === 'unrelated'), false);
   assert.equal(closed, true);
   await instagramDomRead({ operation: 'cancel', runId: 'test' }, env);

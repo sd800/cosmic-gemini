@@ -80,7 +80,7 @@ function render() {
   for (const account of accounts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)) {
     const row = document.createElement('li');
     const link = document.createElement('a');
-    link.href = 'https://www.instagram.com/' + encodeURIComponent(account.username) + '/';
+    link.href = account.href;
     link.target = '_blank'; link.rel = 'noopener noreferrer';
     const username = document.createElement('strong'); username.textContent = '@' + account.username;
     link.append(username);

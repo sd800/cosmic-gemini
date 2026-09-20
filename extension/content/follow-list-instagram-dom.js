@@ -37,17 +37,21 @@ export async function instagramDomRead(input, environment = globalThis) {
     state = { cancelled: false, kind: '', seen: new Set(), lastGrowth: Date.now() }; all.set(input.runId, state); }
   const check = () => { if (state.cancelled) throw new Error('igStopped'); if (!matches()) throw new Error('igPageChanged'); };
   const wait = async ms => { await pause(ms); check(); };
-  const usernameFromLink = link => {
+  const profileDestination = source => {
     try {
-      const url = new URL(link.getAttribute('href'), location.href);
+      const href = typeof source === 'string' ? source : source?.getAttribute('href');
+      if (!href) return null;
+      const url = new URL(href, location.href);
       const name = url.pathname.replace(/^\/|\/$/g, '');
-      return url.origin === location.origin && /^[a-zA-Z0-9._]{1,30}$/.test(name)
-        && !RESERVED_PATHS.has(name.toLowerCase()) ? name : '';
-    } catch { return ''; }
+      if (url.origin !== location.origin || !/^[a-zA-Z0-9._]{1,30}$/.test(name)
+        || RESERVED_PATHS.has(name.toLowerCase())) return null;
+      return { href: url.href, key: url.origin + '/' + name.toLowerCase() + '/' };
+    } catch { return null; }
   };
-  const preferredIdentityLink = (links, username) => links.find(link =>
-    link.textContent.trim().normalize('NFKC').toLowerCase() === username.toLowerCase())
-    || links.find(link => link.textContent.trim()) || links[0];
+  const visibleHandlerFromLink = link => {
+    const value = String(link?.textContent || '').trim().normalize('NFKC').replace(/^@/, '');
+    return /^[a-zA-Z0-9._]{1,30}$/.test(value) ? value : '';
+  };
   const numeric = text => {
     const value = String(text || '').normalize('NFKC').replace(/[٠-٩۰-۹]/g, char => String(char.charCodeAt(0) % 16));
     if (!/^\s*\d[\d\s,.\u066c]*\s*$/.test(value)) return null;
@@ -96,13 +100,11 @@ export async function instagramDomRead(input, environment = globalThis) {
     return null;
   };
   const activeDialogs = () => [...document.querySelectorAll('[role="dialog"]')].filter(visible);
-  const exactProfileLink = (root, username) => [...root.querySelectorAll('a[href]')].find(link => {
-    try {
-      const url = new URL(link.getAttribute('href'), location.href);
-      return url.origin === location.origin
-        && url.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() === username.toLowerCase();
-    } catch { return false; }
-  });
+  const exactProfileLink = (root, href) => {
+    const expected = profileDestination(href);
+    return expected && [...root.querySelectorAll('a[href]')]
+      .find(link => profileDestination(link)?.key === expected.key);
+  };
   const setInput = (input, value) => {
     const prototype = environment.HTMLInputElement?.prototype || Object.getPrototypeOf(input);
     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
@@ -165,10 +167,11 @@ export async function instagramDomRead(input, environment = globalThis) {
         let targetLink = null;
         while (!targetLink && Date.now() < resultDeadline) {
           await wait(200);
-          targetLink = preferredIdentityLink([...state.dialog.querySelectorAll('a[href]')]
-            .filter(link => usernameFromLink(link).toLowerCase() === target), target);
+          targetLink = [...state.dialog.querySelectorAll('a[href]')].find(link =>
+            visibleHandlerFromLink(link).toLowerCase() === target && profileDestination(link));
         }
         if (!targetLink) throw new Error('igRelationshipChanged');
+        const selectedDestination = profileDestination(targetLink);
         const action = rowAction(targetLink, state.dialog);
         if (!action) throw new Error('igUnavailable');
         // Instagram's blue action is Follow. Never let a stale list turn an
@@ -182,7 +185,9 @@ export async function instagramDomRead(input, environment = globalThis) {
           if (dialogs.length > 2) throw new Error('igUnavailable');
           state.confirmDialog = dialogs.find(dialog => dialog !== state.dialog) || null;
         }
-        if (!state.confirmDialog || !exactProfileLink(state.confirmDialog, target)) throw new Error('igRelationshipChanged');
+        if (!state.confirmDialog || !exactProfileLink(state.confirmDialog, selectedDestination.href)) {
+          throw new Error('igRelationshipChanged');
+        }
         const buttons = [...state.confirmDialog.querySelectorAll('button')].filter(button => visible(button) && !button.disabled);
         const dangerous = buttons.filter(redDominant);
         const neutral = buttons.filter(button => !redDominant(button));
@@ -258,7 +263,7 @@ export async function instagramDomRead(input, environment = globalThis) {
     };
     const collect = () => {
       if (!state.scroller) {
-        const anchor = [...dialog.querySelectorAll('a[href]')].find(link => usernameFromLink(link));
+        const anchor = [...dialog.querySelectorAll('a[href]')].find(link => profileDestination(link));
         let fallback = null;
         for (let node = anchor?.parentElement; node && node !== dialog; node = node.parentElement) {
           if (!/auto|scroll/.test(getComputedStyle(node).overflowY) || node.clientHeight <= 50) continue;
@@ -270,13 +275,14 @@ export async function instagramDomRead(input, environment = globalThis) {
         state.scroller ||= fallback; // A short, already complete list need not overflow.
         if (state.scroller) {
           // Freeze the primary account block; never include a later suggested-accounts section.
-          state.list = [...state.scroller.children].find(node => [...node.querySelectorAll('a[href]')].some(link => usernameFromLink(link)));
+          state.list = [...state.scroller.children]
+            .find(node => [...node.querySelectorAll('a[href]')].some(link => profileDestination(link)));
           while (state.list?.children.length === 1 && state.list.firstElementChild.querySelector('a[href]')) state.list = state.list.firstElementChild;
         }
       }
       if (state.scroller && !state.list?.isConnected) {
         state.list = [...state.scroller.children]
-          .find(node => [...node.querySelectorAll('a[href]')].some(link => usernameFromLink(link))) || null;
+          .find(node => [...node.querySelectorAll('a[href]')].some(link => profileDestination(link))) || null;
         while (state.list?.children.length === 1 && state.list.firstElementChild.querySelector('a[href]')) {
           state.list = state.list.firstElementChild;
         }
@@ -284,17 +290,16 @@ export async function instagramDomRead(input, environment = globalThis) {
       if (!state.list?.isConnected) return;
       const identities = new Map();
       for (const link of state.list.querySelectorAll('a[href]')) {
-        const username = usernameFromLink(link);
-        if (!username) continue;
+        const destination = profileDestination(link);
+        const username = visibleHandlerFromLink(link);
+        if (!destination || !username) continue;
         const id = username.toLowerCase();
-        if (!identities.has(id)) identities.set(id, []);
-        identities.get(id).push(link);
+        if (!identities.has(id)) identities.set(id, { link, username, href: destination.href });
       }
-      for (const [id, links] of identities) {
+      for (const [id, identity] of identities) {
         if (state.seen.has(id)) continue;
-        const link = preferredIdentityLink(links, id);
         state.seen.add(id);
-        users.push({ id, username: usernameFromLink(link), name: displayName(link) });
+        users.push({ id, username: identity.username, name: displayName(identity.link), href: identity.href });
       }
       if (users.length) { state.lastGrowth = Date.now(); state.nudges = 0; }
     };

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.7 — 2026-09-20
+
+- Updated Following/Follower List Check for Instagram to use each account's visible user handler for display, deduplication, and list comparison. The account link is now retained separately for side-panel navigation, including when its path differs from the visible handler.
+
 ## 8.12.6 — 2026-09-20
 
 - Fixed Instagram list checks that could remain one account short at 99%. Account identity now follows Instagram’s profile-link handler directly, scrolling uses overlapping checkpoints, and a near-complete virtualized list receives a finer full verification sweep before incomplete-data recovery begins.

@@ -6,7 +6,7 @@ const PANEL = INSTAGRAM_PANEL_PATH;
 const MAX_ACCOUNTS = 20000;
 const REQUEST_GAP = 2000;
 const MAX_INCOMPLETE_RETRIES = 2;
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_PREFIX = 'followListInstagram:result:';
 const CACHE_INDEX = 'followListInstagram:resultIndex';
 const MAX_CACHED_RESULTS = 8;
@@ -21,7 +21,14 @@ export function createFollowListInstagramProduct(platform) {
   const cacheKey = username => CACHE_PREFIX + String(username || '').toLowerCase();
   const validAccount = account => account && typeof account.id === 'string' && account.id
     && typeof account.username === 'string' && /^[a-zA-Z0-9._]{1,30}$/.test(account.username)
-    && typeof account.name === 'string';
+    && account.id === account.username.toLowerCase() && typeof account.name === 'string'
+    && (() => {
+      try {
+        const url = new URL(account.href);
+        return url.protocol === 'https:' && ['www.instagram.com', 'instagram.com'].includes(url.hostname)
+          && /^[a-zA-Z0-9._]{1,30}$/.test(url.pathname.replace(/^\/+|\/+$/g, ''));
+      } catch { return false; }
+    })();
 
   function queueCacheWrite(task) {
     const next = cacheWrites.catch(() => {}).then(task);

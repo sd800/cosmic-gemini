@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.12.7 — 2026-09-20
+
+- 调整 Following/Follower List Check for Instagram，账号显示、去重及列表对比现统一采用页面上可见的 user handler。账号链接改为单独保留，供侧边栏点击账号时跳转，包括链接路径与可见 handler 不一致的情况。
+
 ## 8.12.6 — 2026-09-20
 
 - 修复 Instagram 列表检查可能始终少一个账号并停留在 99% 的问题。账号身份改为直接采用 Instagram 账号链接中的 user handler；滚动读取增加重叠检查点，并在虚拟列表接近完成时进行一次更细步长的完整复核，再决定是否进入列表不完整恢复流程。

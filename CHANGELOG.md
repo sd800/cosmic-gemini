@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.13 — 2026-09-20
+
+- Corrected Instagram verified-account handlers by reading only their painted text, and clarified the current-profile scan-data action in the side panel.
+
 ## 8.12.12 — 2026-09-20
 
 - Removed the remaining verification text from Instagram account rows, prevented hidden verification labels from being collected as display names, and placed verified accounts at the end of the not-following-back list.

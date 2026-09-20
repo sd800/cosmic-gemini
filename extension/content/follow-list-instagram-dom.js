@@ -50,8 +50,15 @@ export async function instagramDomRead(input, environment = globalThis) {
     } catch { return null; }
   };
   const visibleHandlerFromLink = link => {
-    const value = String(link?.textContent || '').trim().normalize('NFKC').replace(/^@/, '');
-    return /^[a-zA-Z0-9._]{1,30}$/.test(value) ? value : '';
+    // innerText represents what Instagram actually paints and excludes SVG
+    // titles and visually hidden accessibility labels such as verification text.
+    // The href remains only the destination and never determines the identity.
+    const painted = typeof link?.innerText === 'string' ? link.innerText : link?.textContent;
+    for (const part of String(painted || '').normalize('NFKC').split(/\s+/)) {
+      const value = part.replace(/^@/, '');
+      if (/^[a-zA-Z0-9._]{1,30}$/.test(value)) return value;
+    }
+    return '';
   };
   const numeric = text => {
     const value = String(text || '').normalize('NFKC').replace(/[٠-٩۰-۹]/g, char => String(char.charCodeAt(0) % 16));

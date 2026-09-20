@@ -355,7 +355,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   rows.parentElement = wrapper;
   rows.children = [node(), node(), node()];
   const add = (id, username = `account_${id}`, destination = `destination_${id}`, verified = false) => {
-    const link = node({ textContent: username,
+    const link = node({ textContent: username + (verified ? 'Verified' : ''), innerText: username,
       getAttribute: () => `/${destination}/` });
     const name = node({ textContent: `自定义名称 ${id}`, contains: () => false, matches: () => true });
     const hiddenVerificationLabel = node({ textContent: 'Verified', contains: () => false, matches: () => true,

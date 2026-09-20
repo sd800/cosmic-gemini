@@ -395,7 +395,7 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     igListChanged: "列表搜索内容在读取期间发生了变化。请清空搜索内容后重新检查。",
     followListInstagramName: "Following/Follower List Check for Instagram",
     followListInstagramDescription: "在侧边栏中对比 Instagram 用户主页的关注与粉丝列表，查看未回关、互相关注以及尚未关注的粉丝。在自己的主页上，还可以逐个确认取消关注未回关的账号。",
-    followListInstagramHelp: "打开 Instagram 用户主页后，点击插件控制窗口中的 IG± 即可开始。收起侧边栏后仍会继续读取，重新打开即可查看进度或结果；点击“停止”可结束检查。",
+    followListInstagramHelp: "打开 Instagram 用户主页后，点击插件控制窗口中的 IG± 图标按钮即可开始。收起侧边栏后仍会继续读取，重新打开即可查看进度或结果；点击“停止”可结束检查。",
     followListInstagramPrivacy: "本功能读取当前标签页中 Instagram 显示的列表，并在本地对比。完整结果仅保留于本次浏览器会话，退出浏览器后即会清除，不会上传或持久保存。",
     igAccessHelp: "无需登录即可打开本工具，但 Instagram 可能要求登录或限制列表访问。只有完整读取两份列表后才会显示对比结果。",
     igRefresh: "重新检查",

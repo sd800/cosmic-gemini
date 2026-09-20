@@ -9,6 +9,11 @@ export async function instagramDomRead(input, environment = globalThis) {
   const GROWTH_TIMEOUT = 90000;
   const NUDGE_AFTER = 20000;
   const MAX_NUDGES = 4;
+  const VERIFY_MILESTONES = [.25, .5, .75, .9, .97];
+  const MAX_VERIFY_STEPS = 1200;
+  const RESERVED_PATHS = new Set(['accounts', 'about', 'ads', 'api', 'challenge', 'developer', 'direct',
+    'directory', 'emails', 'explore', 'legal', 'nametag', 'p', 'privacy', 'push', 'reel', 'reels',
+    'sessions', 'stories', 'terms', 'web', 'your_activity']);
   const all = environment[KEY] ||= new Map();
   const visible = element => Boolean(element?.isConnected && element.getClientRects().length
     && getComputedStyle(element).visibility !== 'hidden');
@@ -37,9 +42,12 @@ export async function instagramDomRead(input, environment = globalThis) {
       const url = new URL(link.getAttribute('href'), location.href);
       const name = url.pathname.replace(/^\/|\/$/g, '');
       return url.origin === location.origin && /^[a-zA-Z0-9._]{1,30}$/.test(name)
-        && link.textContent.trim().toLowerCase() === name.toLowerCase() ? name : '';
+        && !RESERVED_PATHS.has(name.toLowerCase()) ? name : '';
     } catch { return ''; }
   };
+  const preferredIdentityLink = (links, username) => links.find(link =>
+    link.textContent.trim().normalize('NFKC').toLowerCase() === username.toLowerCase())
+    || links.find(link => link.textContent.trim()) || links[0];
   const numeric = text => {
     const value = String(text || '').normalize('NFKC').replace(/[٠-٩۰-۹]/g, char => String(char.charCodeAt(0) % 16));
     if (!/^\s*\d[\d\s,.\u066c]*\s*$/.test(value)) return null;
@@ -157,8 +165,8 @@ export async function instagramDomRead(input, environment = globalThis) {
         let targetLink = null;
         while (!targetLink && Date.now() < resultDeadline) {
           await wait(200);
-          targetLink = [...state.dialog.querySelectorAll('a[href]')]
-            .find(link => usernameFromLink(link).toLowerCase() === target);
+          targetLink = preferredIdentityLink([...state.dialog.querySelectorAll('a[href]')]
+            .filter(link => usernameFromLink(link).toLowerCase() === target), target);
         }
         if (!targetLink) throw new Error('igRelationshipChanged');
         const action = rowAction(targetLink, state.dialog);
@@ -216,6 +224,7 @@ export async function instagramDomRead(input, environment = globalThis) {
       close(state);
       if (activeDialogs().length) throw new Error('igCloseDialog');
       state.kind = input.kind; state.seen.clear(); state.lastGrowth = Date.now(); state.nudges = 0;
+      state.milestones = new Set(); state.verification = null; state.verificationDoneFor = -1;
       state.list = null; state.scroller = null;
       current.links[input.kind].click();
       const deadline = Date.now() + 30000;
@@ -265,14 +274,52 @@ export async function instagramDomRead(input, environment = globalThis) {
           while (state.list?.children.length === 1 && state.list.firstElementChild.querySelector('a[href]')) state.list = state.list.firstElementChild;
         }
       }
+      if (state.scroller && !state.list?.isConnected) {
+        state.list = [...state.scroller.children]
+          .find(node => [...node.querySelectorAll('a[href]')].some(link => usernameFromLink(link))) || null;
+        while (state.list?.children.length === 1 && state.list.firstElementChild.querySelector('a[href]')) {
+          state.list = state.list.firstElementChild;
+        }
+      }
       if (!state.list?.isConnected) return;
+      const identities = new Map();
       for (const link of state.list.querySelectorAll('a[href]')) {
         const username = usernameFromLink(link);
-        if (!username || state.seen.has(username.toLowerCase())) continue;
-        state.seen.add(username.toLowerCase());
-        users.push({ id: username.toLowerCase(), username, name: displayName(link) });
+        if (!username) continue;
+        const id = username.toLowerCase();
+        if (!identities.has(id)) identities.set(id, []);
+        identities.get(id).push(link);
+      }
+      for (const [id, links] of identities) {
+        if (state.seen.has(id)) continue;
+        const link = preferredIdentityLink(links, id);
+        state.seen.add(id);
+        users.push({ id, username: usernameFromLink(link), name: displayName(link) });
       }
       if (users.length) { state.lastGrowth = Date.now(); state.nudges = 0; }
+    };
+    const atBottom = scroller => scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+    const verificationStep = async scroller => {
+      const verification = state.verification ||= { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
+      if (!verification.initialized) {
+        verification.initialized = true;
+        scroller.scrollTop = 0;
+      } else {
+        const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        scroller.scrollTop = Math.min(maximum, scroller.scrollTop + Math.max(120, scroller.clientHeight * .55));
+      }
+      await wait(800);
+      collect();
+      verification.steps += 1;
+      if (atBottom(scroller)) {
+        verification.bottomStable = verification.lastHeight === scroller.scrollHeight
+          ? verification.bottomStable + 1 : 0;
+      } else verification.bottomStable = 0;
+      verification.lastHeight = scroller.scrollHeight;
+      if (verification.bottomStable >= 1 || verification.steps >= MAX_VERIFY_STEPS) {
+        state.verificationDoneFor = state.seen.size;
+        state.verification = null;
+      }
     };
     collect();
     while (!state.scroller && Date.now() - state.lastGrowth < SCROLLER_DISCOVERY_TIMEOUT) {
@@ -282,23 +329,46 @@ export async function instagramDomRead(input, environment = globalThis) {
     if (state.seen.size > expected) throw new Error('igIncomplete');
     if (state.seen.size < expected) {
       const scroller = state.scroller;
-      scroller.scrollTop = Math.min(scroller.scrollHeight, scroller.scrollTop + Math.max(150, scroller.clientHeight * .85));
-      await wait(1200);
-      if (!visible(dialog)) throw new Error('igStopped');
-      collect();
-      const stalledFor = Date.now() - state.lastGrowth;
-      if (stalledFor >= NUDGE_AFTER && state.nudges < MAX_NUDGES) {
-        state.nudges += 1;
-        // Virtualized lists occasionally stop requesting rows while parked at
-        // the bottom. Move slightly upward, then back down after a longer
-        // settle so Instagram has another opportunity to mount the next batch.
-        scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight * 1.35);
-        await wait(500 + state.nudges * 250);
-        scroller.scrollTop = scroller.scrollHeight;
-        await wait(1200 + state.nudges * 400);
+      if (state.verification) {
+        await verificationStep(scroller);
+      } else {
+        state.milestones ||= new Set();
+        state.nudges ||= 0;
+        if (!Number.isInteger(state.verificationDoneFor)) state.verificationDoneFor = -1;
+        const progress = state.seen.size / expected;
+        const reached = VERIFY_MILESTONES.filter(value => progress >= value && !state.milestones.has(value));
+        if (reached.length && scroller.scrollTop > 0) {
+          reached.forEach(value => state.milestones.add(value));
+          scroller.scrollTop = Math.max(0, scroller.scrollTop - scroller.clientHeight * .7);
+          await wait(650);
+          collect();
+        }
+        scroller.scrollTop = Math.min(scroller.scrollHeight,
+          scroller.scrollTop + Math.max(150, scroller.clientHeight * .65));
+        await wait(1200);
+        if (!visible(dialog)) throw new Error('igStopped');
         collect();
+        const deficit = expected - state.seen.size;
+        const verificationRange = Math.max(2, Math.ceil(expected * .01));
+        if (deficit > 0 && deficit <= verificationRange && atBottom(scroller)
+          && state.verificationDoneFor !== state.seen.size) {
+          state.verification = { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
+          await verificationStep(scroller);
+        }
+        const stalledFor = Date.now() - state.lastGrowth;
+        if (!state.verification && stalledFor >= NUDGE_AFTER && state.nudges < MAX_NUDGES) {
+          state.nudges += 1;
+          // Virtualized lists occasionally stop requesting rows while parked at
+          // the bottom. Move slightly upward, then back down after a longer
+          // settle so Instagram has another opportunity to mount the next batch.
+          scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight * 1.35);
+          await wait(500 + state.nudges * 250);
+          scroller.scrollTop = scroller.scrollHeight;
+          await wait(1200 + state.nudges * 400);
+          collect();
+        }
       }
-      if (Date.now() - state.lastGrowth > GROWTH_TIMEOUT) throw new Error('igIncomplete');
+      if (!state.verification && Date.now() - state.lastGrowth > GROWTH_TIMEOUT) throw new Error('igIncomplete');
     }
     if (state.seen.size > expected) throw new Error('igIncomplete');
     const done = state.seen.size === expected;

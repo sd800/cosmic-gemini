@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.6 — 2026-09-20
+
+- Fixed Instagram list checks that could remain one account short at 99%. Account identity now follows Instagram’s profile-link handler directly, scrolling uses overlapping checkpoints, and a near-complete virtualized list receives a finer full verification sweep before incomplete-data recovery begins.
+- Refined the Simplified Chinese IG± start instruction in Satellites.
+
 ## 8.12.5 — 2026-09-20
 
 - Refined the settings guidance and privacy description for Following/Follower List Check for Instagram.

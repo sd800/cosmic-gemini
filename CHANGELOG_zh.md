@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 8.12.6 — 2026-09-20
+
+- 修复 Instagram 列表检查可能始终少一个账号并停留在 99% 的问题。账号身份改为直接采用 Instagram 账号链接中的 user handler；滚动读取增加重叠检查点，并在虚拟列表接近完成时进行一次更细步长的完整复核，再决定是否进入列表不完整恢复流程。
+- 调整 Satellites 中 IG± 启动说明的简体中文表述。
+
 ## 8.12.5 — 2026-09-20
 
 - 调整 Following/Follower List Check for Instagram 在设置页面中的使用说明和隐私说明表述。

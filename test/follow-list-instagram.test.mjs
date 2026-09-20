@@ -324,8 +324,8 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     children: [rows], firstElementChild: rows, querySelectorAll: () => links });
   rows.parentElement = wrapper;
   rows.children = [node(), node(), node()];
-  const add = id => {
-    const link = node({ textContent: `account_${id}`,
+  const add = (id, text = true) => {
+    const link = node({ textContent: text ? `account_${id}` : '',
       getAttribute: () => `/account_${id}/` });
     const name = node({ textContent: `自定义名称 ${id}`, contains: () => false, matches: () => true });
     link.parentElement = node({ parentElement: rows, children: [link, name] });
@@ -345,7 +345,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     document: { querySelector: () => main, querySelectorAll: () => mounted ? [dialog] : [] },
     getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY }),
     setTimeout(callback, delay) {
-      if (delay === 1200 && scrolled && links.length === 3) { add(4); add(5); }
+      if (delay === 1200 && scrolled && links.length === 3) { add(4); add(5, false); }
       callback();
     }
   };
@@ -355,8 +355,73 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   assert.equal(result.done, true);
   assert.equal(result.users.length, 5);
   assert.equal(result.users[0].name, '自定义名称 1');
+  assert.equal(result.users.some(account => account.username === 'account_5'), true, 'the href handler is authoritative even without matching link text');
   assert.equal(result.users.some(account => account.username === 'unrelated'), false);
   assert.equal(closed, true);
   await instagramDomRead({ operation: 'cancel', runId: 'test' }, env);
   assert.equal(env.__cosmicGeminiInstagramLists, undefined);
+});
+
+test('Instagram DOM near-complete verification sweeps back through the list and recovers a skipped row', async () => {
+  const node = (props = {}) => ({ isConnected: true, children: [], clientHeight: 0, scrollHeight: 0,
+    overflowY: 'visible', textContent: '', getClientRects: () => [{}], querySelector: () => null,
+    querySelectorAll: () => [], getAttribute: () => null, matches: () => false,
+    contains(child) { return this === child || this.children.some(item => item.contains?.(child)); }, ...props });
+  const accountLink = id => {
+    const link = node({ textContent: `account_${id}`, getAttribute: () => `/account_${id}/` });
+    link.parentElement = null;
+    return link;
+  };
+  const top = [accountLink(1), accountLink(2)];
+  const topWithSkipped = [accountLink(1), accountLink(2), accountLink(3)];
+  const bottom = [accountLink(4), accountLink(5)];
+  let links = top;
+  const rows = node({ children: [node(), node()], querySelectorAll: selector => selector === 'a[href]' ? links : [],
+    querySelector: selector => selector === 'a[href]' ? links[0] : null });
+  const attachRows = values => { links = values; for (const link of links) link.parentElement = rows; };
+  attachRows(top);
+  let scrollTop = 0;
+  const scroller = node({ clientHeight: 300, scrollHeight: 450, overflowY: 'scroll', children: [rows],
+    querySelectorAll: selector => selector === 'a[href]' ? links : [] });
+  rows.parentElement = scroller;
+  Object.defineProperty(scroller, 'scrollTop', {
+    get: () => scrollTop,
+    set: value => { scrollTop = Math.max(0, Math.min(150, Number(value) || 0)); }
+  });
+  const close = node({ click() { mounted = false; }, querySelector: () => ({}) });
+  const header = node({ querySelectorAll: selector => selector === 'button' ? [close] : [] });
+  const dialogHeading = node({ parentElement: header });
+  let mounted = false;
+  const dialog = node({ querySelector: selector => selector.includes('heading') ? dialogHeading : null,
+    querySelectorAll: selector => selector === 'a[href]' ? links : [] });
+  header.parentElement = dialog; scroller.parentElement = dialog;
+  const followerCount = node({ textContent: '0' });
+  const followingCount = node({ textContent: '5' });
+  const followerLink = node({ querySelectorAll: () => [followerCount] });
+  const followingLink = node({ querySelectorAll: () => [followingCount], click() { mounted = true; } });
+  const main = node({
+    querySelector(selector) {
+      if (selector.includes('/followers/')) return followerLink;
+      if (selector.includes('/following/')) return followingLink;
+      return null;
+    },
+    querySelectorAll: selector => selector === 'h1,h2' ? [{ textContent: 'example' }] : []
+  });
+  const env = {
+    location: new URL('https://www.instagram.com/example/'),
+    document: { querySelector: selector => selector === 'main' ? main : null,
+      querySelectorAll: selector => selector === '[role="dialog"]' && mounted ? [dialog] : [] },
+    getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY }),
+    setTimeout(callback, delay) {
+      if (delay === 1200 && scrollTop > 0) attachRows(bottom);
+      if (delay === 800 && scrollTop === 0) attachRows(topWithSkipped);
+      callback();
+    }
+  };
+  const result = await instagramDomRead({ operation: 'list', runId: 'verification-test', username: 'example',
+    kind: 'following', expected: 5 }, env);
+  assert.equal(result.done, true);
+  assert.deepEqual(result.users.map(account => account.id).sort(),
+    ['account_1', 'account_2', 'account_3', 'account_4', 'account_5']);
+  assert.equal(mounted, false);
 });

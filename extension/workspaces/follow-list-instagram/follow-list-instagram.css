@@ -35,7 +35,7 @@ p { line-height: 1.6; font-size: 13px; }
 #accounts a:hover strong { color: var(--blue); text-decoration: underline; }
 .account-handle { display: inline-flex; align-items: baseline; max-width: 100%; }
 .verified-account { display: inline-block; flex: 0 0 auto; margin-left: 6px; color: #0095f6; font-size: .95em; font-weight: 800; line-height: 1; }
-#accounts small { display: block; color: var(--muted); margin-top: 3px; font-size: inherit; }
+#accounts small { display: block; min-height: 1.2em; color: var(--muted); margin-top: 3px; font-size: inherit; line-height: 1.2; }
 #accounts button { flex: 0 0 auto; font-size: 12px; }
 #pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .result-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }

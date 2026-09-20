@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.16 — 2026-09-20
+
+- Reserved a consistent display-name line for every Instagram account in the side panel, including accounts without a custom display name.
+
 ## 8.12.15 — 2026-09-20
 
 - Simplified Instagram account results to extract one validated user handler directly from each profile destination and derive the side-panel link from it. Virtualized lists now receive a final full audit even when Instagram’s displayed count is stale, reducing missed accounts and incorrect relationship classifications.

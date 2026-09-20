@@ -94,10 +94,9 @@ function render() {
       handle.append(verified);
     }
     link.append(handle);
-    if (account.name) {
-      const name = document.createElement('small'); name.textContent = account.name;
-      link.append(name);
-    }
+    const name = document.createElement('small'); name.className = 'account-name';
+    name.textContent = account.name || '';
+    link.append(name);
     row.append(link);
     if (snapshot.ownProfile && category === 'notFollowingBack') {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'danger';

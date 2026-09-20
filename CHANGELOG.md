@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.11 — 2026-09-20
+
+- Replaced the Instagram side-panel verification badge with a spaced blue text check mark and removed its visible hover label.
+
 ## 8.12.10 — 2026-09-20
 
 - Matched each Instagram account's display-name font size to its user handler in the side panel while retaining the secondary color and separate line.

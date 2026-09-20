@@ -90,8 +90,7 @@ function render() {
     if (account.verified) {
       const verified = document.createElement('span'); verified.className = 'verified-account';
       verified.setAttribute('role', 'img'); verified.setAttribute('aria-label', t('igVerifiedAccount'));
-      verified.title = t('igVerifiedAccount');
-      verified.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m4.6 8.1 2.1 2.1 4.7-4.8"/></svg>';
+      verified.textContent = '✓';
       handle.append(verified);
     }
     link.append(handle);

@@ -33,11 +33,8 @@ p { line-height: 1.6; font-size: 13px; }
 #accounts li { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 #accounts a { min-width: 0; flex: 1; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
 #accounts a:hover strong { color: var(--blue); text-decoration: underline; }
-.account-handle { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
-.verified-account { display: inline-flex; flex: 0 0 auto; color: #0095f6; }
-.verified-account svg { width: 13px; height: 13px; }
-.verified-account circle { fill: currentColor; }
-.verified-account path { fill: none; stroke: white; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.account-handle { display: inline-flex; align-items: baseline; max-width: 100%; }
+.verified-account { display: inline-block; flex: 0 0 auto; margin-left: 6px; color: #0095f6; font-size: .95em; font-weight: 800; line-height: 1; }
 #accounts small { display: block; color: var(--muted); margin-top: 3px; font-size: inherit; }
 #accounts button { flex: 0 0 auto; font-size: 12px; }
 #pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }

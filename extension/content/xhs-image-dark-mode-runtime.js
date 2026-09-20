@@ -121,6 +121,7 @@
       this.controlRecords = new Set();
       this.postOverrides = new Map();
       this.disabledProfileKeys = new Set();
+      this.commentImageKeys = new Set();
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
@@ -517,6 +518,7 @@
       this.intervenedRecords.clear();
       this.syncInterventionStatus();
       this.controlRecords.clear();
+      this.commentImageKeys.clear();
       this.profileControl = null;
       this.controlHost?.remove();
       this.controlHost = null;
@@ -569,15 +571,57 @@
         || /sns-avatar/i.test(image.currentSrc || image.src || '');
     }
 
+    isXhsImageSource(image) {
+      return /(?:^|\.)xhscdn\.com(?:[/:]|$)/i.test(image?.currentSrc || image?.src || '');
+    }
+
+    inlineCommentImage(image) {
+      if (!this.isXhsImageSource(image)) return false;
+      const commentRoot = image.closest?.('[data-comment-id], [class*="comment"], [id*="comment"]');
+      const noteRoot = image.closest?.('#noteContainer, .note-container');
+      if (!commentRoot || !noteRoot || this.viewerImageContext(image)) return false;
+      const width = image.clientWidth || image.naturalWidth;
+      const height = image.clientHeight || image.naturalHeight;
+      return width >= 48 && height >= 48;
+    }
+
+    rememberCommentImage(image) {
+      if (!this.inlineCommentImage(image)) return '';
+      const key = this.cacheKey(image.currentSrc || image.src || '');
+      if (key) {
+        this.commentImageKeys.delete(key);
+        this.commentImageKeys.add(key);
+        while (this.commentImageKeys.size > CACHE_LIMIT) {
+          this.commentImageKeys.delete(this.commentImageKeys.values().next().value);
+        }
+      }
+      return key;
+    }
+
+    commentImageKind(image) {
+      const inlineKey = this.rememberCommentImage(image);
+      if (inlineKey) return 'inline';
+      if (!this.isXhsImageSource(image) || this.viewerImageContext(image)) return '';
+      const key = this.cacheKey(image.currentSrc || image.src || '');
+      if (!key || !this.commentImageKeys.has(key)) return '';
+      if (image.closest?.(
+        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"], section.note-item, [data-note-id], a.cover'
+      )) return '';
+      const width = image.clientWidth || image.naturalWidth;
+      const height = image.clientHeight || image.naturalHeight;
+      return width >= 120 && height >= 120 && width * height >= 20_000 ? 'preview' : '';
+    }
+
     isContentImage(image) {
       if (!(image instanceof HTMLImageElement) || this.isAvatar(image)) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
+      if (this.commentImageKind(image)) return true;
       if (this.viewerImageContext(image)) return true;
       // Viewer banners, badges and other overlays may also contain XHS-hosted
       // images. They are not slides and must never receive analysis or controls.
       if (image.closest?.('#noteContainer')) return false;
-      const xhsSource = /(?:^|\.)xhscdn\.com(?:[/:]|$)/i.test(source);
+      const xhsSource = this.isXhsImageSource(image);
       const identifiedPostCover = image.hasAttribute?.('data-xhs-img')
         || image.getAttribute?.('elementtiming') === 'card-exposed'
         || !!image.closest?.('section.note-item, [data-note-id], a.cover');
@@ -592,6 +636,10 @@
     collectImages(root) {
       if (!this.processing) return;
       const images = root instanceof HTMLImageElement ? [root] : root.querySelectorAll?.('img') || [];
+      // Register inline comment sources before examining preview copies. The
+      // preview can be inserted earlier in DOM order than its originating
+      // thumbnail, and its classes are not a stable public interface.
+      for (const image of images) this.rememberCommentImage(image);
       for (const image of images) this.observeImage(image);
       const modal = root.matches?.('#noteContainer, .note-container')
         ? root
@@ -649,10 +697,14 @@
 
     observeImage(image) {
       if (!this.isContentImage(image)) return;
+      const commentKind = this.commentImageKind(image);
       let record = this.records.get(image);
-      if (record) record.profileKey = this.currentProfileKey() || record.profileKey;
+      if (record && !commentKind) {
+        record.profileKey = this.currentProfileKey() || record.profileKey;
+      }
       if (this.profileProcessingDisabled(record || image)) return;
       if (!record) record = this.createRecord(image);
+      if (commentKind === 'preview') this.resizeObserver?.observe(image);
       if (this.applyCachedResult(record)) return;
       const viewerPriority = this.viewerForImage(image) ? -20 : null;
       if (viewerPriority !== null) {
@@ -664,7 +716,10 @@
 
     prioritizeModal(modal) {
       this.observeViewer(modal);
-      const images = [...modal.querySelectorAll('img')].filter(image => this.isContentImage(image));
+      // Only the post carousel is urgent. Comment images remain governed by
+      // IntersectionObserver so a long comment thread is never scanned ahead.
+      const images = [...modal.querySelectorAll('img')]
+        .filter(image => this.viewerImageContext(image));
       for (const image of images) {
         this.observeImage(image);
         const record = this.records.get(image);
@@ -713,6 +768,7 @@
     }
 
     onPostActivation(event) {
+      if (this.controlRecords.size) this.scheduleControlPositions();
       const anchor = event.composedPath?.().find(node => node?.matches?.(
         'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
       ));
@@ -744,7 +800,9 @@
             this.waitForImageLoad(record, priority);
             continue;
           }
-          record.profileKey = this.currentProfileKey() || record.profileKey;
+          if (!this.commentImageKind(image)) {
+            record.profileKey = this.currentProfileKey() || record.profileKey;
+          }
           const requestKey = this.imageRequestKey(image);
           if (record && record.requestKey !== requestKey) {
             const currentSource = image.currentSrc || image.src || '';
@@ -1434,7 +1492,8 @@
       if (viewer) this.createControl(record);
       this.updateRecordVisual(record, false);
       if (viewer) this.scheduleControlPositions();
-      else if (record.result.kind === 'photo' && !override) {
+      else if (record.result.kind === 'photo' && !override
+        && this.commentImageKind(record.image) !== 'preview') {
         this.clearVisual(record, false);
         this.retireRecord(record);
       }
@@ -1464,6 +1523,7 @@
     }
 
     viewerPostKey(image) {
+      if (this.commentImageKind(image)) return '';
       const noteKey = this.noteCacheKey(image);
       const match = /^note:([^:]+):/.exec(noteKey);
       return match?.[1] || this.noteId(location.href) || this.openingPostId || '';
@@ -1482,6 +1542,7 @@
     }
 
     profileKeyForImage(image) {
+      if (this.commentImageKind(image)) return '';
       const currentProfileKey = this.currentProfileKey();
       if (currentProfileKey) return currentProfileKey;
       const postKey = this.viewerForImage(image) ? this.viewerPostKey(image) : '';
@@ -1776,15 +1837,28 @@
       };
     }
 
+    hasOpenCommentPreview() {
+      for (const record of this.records.values()) {
+        const image = record.image;
+        if (!image?.isConnected || this.commentImageKind(image) !== 'preview') continue;
+        const rect = image.getBoundingClientRect?.();
+        if (!rect || rect.width < 120 || rect.height < 120) continue;
+        if (rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth) return true;
+      }
+      return false;
+    }
+
     scheduleControlPositions() {
       if (this.positionFrame || !this.processing || !this.controlRecords.size) return;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
         const positionedViewers = new Set();
+        const commentPreviewOpen = this.hasOpenCommentPreview();
         for (const record of this.controlRecords) {
           if (!record.button || !record.image.isConnected) continue;
           const viewer = this.viewerForImage(record.image);
-          const placement = this.showImageControl && viewer && !positionedViewers.has(viewer)
+          const placement = this.showImageControl && !commentPreviewOpen
+            && viewer && !positionedViewers.has(viewer)
             ? this.controlPlacement(record)
             : null;
           record.button.style.display = placement ? 'grid' : 'none';

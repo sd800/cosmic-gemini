@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.13 — 2026-09-20
+
+- Added XHS Image Dark Mode support for comment images after their post is opened. Comment images remain viewport-driven, and opening a comment image preview now hides the post image control until the preview closes.
+
 ## 8.11.12 — 2026-09-20
 
 - Changed the XHS Image Dark Mode image control so a press and hold alternates the complete post between forced dark and light display. A click now restores automatic recognition for every image in that post, including its feed cover and images loaded later.

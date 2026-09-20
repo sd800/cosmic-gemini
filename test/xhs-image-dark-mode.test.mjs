@@ -623,6 +623,107 @@ test('viewer overlays and banners are not treated as slide media', async () => {
   assert.equal(runtime.viewerForImage(nestedOverlayImage), null);
 });
 
+test('comment images become eligible only inside an expanded post', async () => {
+  class FakeImage {}
+  const runtime = await runtimeFixture({}, {
+    HTMLImageElement: FakeImage,
+    URL,
+    location: {
+      hostname: 'www.xiaohongshu.com',
+      href: 'https://www.xiaohongshu.com/user/profile/profile-1'
+    }
+  });
+  const note = { querySelector: () => ({}) };
+  const comment = {};
+  const image = Object.assign(new FakeImage(), {
+    currentSrc: 'https://sns-webpic-qc.xhscdn.com/comment/comment-image!nc_n_webp_mw_1',
+    clientWidth: 96,
+    clientHeight: 96,
+    closest(selector) {
+      if (selector === '[data-comment-id], [class*="comment"], [id*="comment"]') return comment;
+      if (selector === '#noteContainer, .note-container' || selector === '#noteContainer') return note;
+      return null;
+    }
+  });
+  assert.equal(runtime.isContentImage(image), true);
+  assert.equal(runtime.commentImageKind(image), 'inline');
+  assert.equal(runtime.viewerForImage(image), null);
+  assert.equal(runtime.viewerPostKey(image), '');
+  assert.equal(runtime.profileKeyForImage(image), '');
+  image.closest = () => null;
+  assert.equal(runtime.isContentImage(image), false);
+});
+
+test('comment preview copies are recognized even when they precede the thumbnail in DOM order', async () => {
+  class FakeImage {}
+  const runtime = await runtimeFixture({}, { HTMLImageElement: FakeImage, URL });
+  runtime.processing = true;
+  const source = 'https://sns-webpic-qc.xhscdn.com/comment/shared-image!nc_n_webp_mw_1';
+  const note = { querySelector: () => ({}) };
+  const thumbnail = Object.assign(new FakeImage(), {
+    currentSrc: source,
+    clientWidth: 88,
+    clientHeight: 88,
+    closest(selector) {
+      if (selector === '[data-comment-id], [class*="comment"], [id*="comment"]') return {};
+      if (selector === '#noteContainer, .note-container' || selector === '#noteContainer') return note;
+      return null;
+    }
+  });
+  const preview = Object.assign(new FakeImage(), {
+    currentSrc: source.replace('!nc_n_webp_mw_1', '!nd_dft_wlteh_webp_3'),
+    clientWidth: 720,
+    clientHeight: 720,
+    closest() { return null; }
+  });
+  const observed = [];
+  runtime.observeImage = image => { observed.push(runtime.commentImageKind(image)); };
+  runtime.collectImages({
+    querySelectorAll(selector) { return selector === 'img' ? [preview, thumbnail] : []; },
+    matches() { return false; },
+    querySelector() { return null; }
+  });
+  assert.deepEqual(observed, ['preview', 'inline']);
+  assert.equal(runtime.isContentImage(preview), true);
+});
+
+test('post image controls hide while a comment image preview is open', async () => {
+  let frame = null;
+  const runtime = await runtimeFixture({}, {
+    URL,
+    innerWidth: 1200,
+    innerHeight: 800,
+    requestAnimationFrame(callback) { frame = callback; return 1; }
+  });
+  runtime.processing = true;
+  const source = 'https://sns-webpic-qc.xhscdn.com/comment/preview-image!nc_n_webp_mw_1';
+  runtime.commentImageKeys.add(runtime.cacheKey(source));
+  const preview = {
+    currentSrc: source,
+    clientWidth: 640,
+    clientHeight: 640,
+    isConnected: true,
+    closest() { return null; },
+    getBoundingClientRect() {
+      return { left: 250, right: 890, top: 60, bottom: 700, width: 640, height: 640 };
+    }
+  };
+  runtime.records.set(preview, { image: preview, result: { kind: 'photo' } });
+  const viewer = {};
+  const mainImage = { isConnected: true };
+  const controlled = { image: mainImage, button: { style: {} } };
+  runtime.viewerForImage = image => image === mainImage ? viewer : null;
+  runtime.controlPlacement = () => ({ left: 100, top: 40 });
+  runtime.controlRecords.add(controlled);
+  runtime.scheduleControlPositions();
+  frame();
+  assert.equal(controlled.button.style.display, 'none');
+  preview.isConnected = false;
+  runtime.scheduleControlPositions();
+  frame();
+  assert.equal(controlled.button.style.display, 'grid');
+});
+
 test('the active expanded image control is positioned immediately left of the page count', async () => {
   const runtime = await runtimeFixture({}, { innerWidth: 1200, innerHeight: 800 });
   const fraction = { getBoundingClientRect: () => ({ left: 930, right: 974, top: 48, width: 44, height: 24 }) };

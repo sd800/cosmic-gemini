@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.12');
+assert.equal(manifest.version, '8.11.13');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -455,6 +455,10 @@ assert.match(xhsImageDarkModeRuntime, /togglePostOverride[\s\S]*postOverrides\.s
   'Long presses must alternate a stable post-wide display mode, while clicks restore automatic recognition.');
 assert.match(xhsImageDarkModeRuntime, /recordsForPost\(postKey\)[\s\S]*viewerPostKey\(record\.image\) === postKey[\s\S]*document\.querySelectorAll\?\.\([\s\S]*record\.button\.hidden = !this\.showImageControl \|\| this\.profileProcessingDisabled\(record\)/,
   'Post-wide overrides must include matching feed covers without hiding the image control.');
+assert.match(xhsImageDarkModeRuntime, /inlineCommentImage[\s\S]*#noteContainer, \.note-container[\s\S]*commentImageKeys[\s\S]*hasOpenCommentPreview[\s\S]*!commentPreviewOpen/,
+  'Comment images must remain expanded-post-only and their preview must suppress the post image control.');
+assert.match(xhsImageDarkModeRuntime, /prioritizeModal[\s\S]*filter\(image => this\.viewerImageContext\(image\)\)/,
+  'Opening a post must not eagerly analyze its entire comment image list.');
 assert.match(xhsImageDarkModeRuntime, /currentProfileKey[\s\S]*disabledProfileKeys[\s\S]*toggleProfileDisabled[\s\S]*removeQueuedImage[\s\S]*collectImages\(document\)/,
   'Profile controls must stop pending analysis and resume image discovery for only the current profile.');
 assert.match(xhsImageDarkModeRuntime, /result\.kind === 'photo'[\s\S]*retireRecord\(record\)[\s\S]*intersectionObserver\?\.unobserve/,

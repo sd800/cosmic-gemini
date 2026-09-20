@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.12 — 2026-09-20
+
+- Removed the remaining verification text from Instagram account rows, prevented hidden verification labels from being collected as display names, and placed verified accounts at the end of the not-following-back list.
+
 ## 8.12.11 — 2026-09-20
 
 - Replaced the Instagram side-panel verification badge with a spaced blue text check mark and removed its visible hover label.

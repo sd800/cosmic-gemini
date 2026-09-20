@@ -17,8 +17,13 @@ export function instagramRoute(value) {
 export function compareInstagramLists(following, followers) {
   const outbound = new Map(following.map(account => [account.id, account]));
   const inbound = new Map(followers.map(account => [account.id, account]));
+  const verifiedLast = accounts => accounts
+    .map((account, position) => ({ account, position }))
+    .sort((left, right) => Number(left.account.verified) - Number(right.account.verified)
+      || left.position - right.position)
+    .map(entry => entry.account);
   return {
-    notFollowingBack: [...outbound.values()].filter(account => !inbound.has(account.id)),
+    notFollowingBack: verifiedLast([...outbound.values()].filter(account => !inbound.has(account.id))),
     mutual: [...outbound.values()].filter(account => inbound.has(account.id)),
     followersOnly: [...inbound.values()].filter(account => !outbound.has(account.id))
   };

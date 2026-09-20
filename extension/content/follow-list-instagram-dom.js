@@ -249,12 +249,20 @@ export async function instagramDomRead(input, environment = globalThis) {
     const users = [];
     const displayName = link => {
       // The name is a separate text line beside the username branch, not the
-      // action button or an avatar's accessible label. Never match translated words.
+      // action button, an avatar's accessible label, or a visually hidden
+      // verification label. Never match translated words.
       for (let node = link.parentElement; node && node !== state.list; node = node.parentElement) {
         if (node.querySelector('button,[role="button"],input')) break;
         for (const sibling of node.children) {
           if (sibling === link || sibling.contains(link) || !sibling.matches('span[dir="auto"]')) continue;
           if (sibling.querySelector('a,button,svg,[role="button"]')) continue;
+          if (!visible(sibling)) continue;
+          const rect = sibling.getBoundingClientRect?.();
+          if (rect && rect.width <= 2 && rect.height <= 2) continue;
+          const style = getComputedStyle(sibling);
+          if (style.display === 'none' || style.opacity === '0'
+            || /rect\(\s*0(?:px)?[, ]+\s*0(?:px)?[, ]+\s*0(?:px)?[, ]+\s*0(?:px)?\s*\)/.test(style.clip || '')
+            || /inset\(\s*50%\s*\)/.test(style.clipPath || '')) continue;
           const name = sibling.textContent.trim();
           if (name) return name.slice(0, 256);
         }

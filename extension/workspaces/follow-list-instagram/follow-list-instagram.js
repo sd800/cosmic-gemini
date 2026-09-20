@@ -89,7 +89,7 @@ function render() {
     handle.append(username);
     if (account.verified) {
       const verified = document.createElement('span'); verified.className = 'verified-account';
-      verified.setAttribute('role', 'img'); verified.setAttribute('aria-label', t('igVerifiedAccount'));
+      verified.setAttribute('aria-hidden', 'true');
       verified.textContent = '✓';
       handle.append(verified);
     }

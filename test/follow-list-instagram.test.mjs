@@ -56,9 +56,10 @@ test('Instagram profile routing ignores interface language and rejects unrelated
 });
 
 test('Instagram comparison deduplicates accounts and separates all three relationship groups', () => {
-  const groups = compareInstagramLists([account(2), account(2), account(3)], [account(3), account(4)]);
+  const groups = compareInstagramLists([account(2, true), account(5), account(2, true), account(6, true), account(3)],
+    [account(3), account(4)]);
   assert.deepEqual(Object.fromEntries(Object.entries(groups).map(([key, list]) => [key, list.map(a => a.id)])), {
-    notFollowingBack: ['account_2'], mutual: ['account_3'], followersOnly: ['account_4']
+    notFollowingBack: ['account_5', 'account_2', 'account_6'], mutual: ['account_3'], followersOnly: ['account_4']
   });
 });
 
@@ -357,11 +358,13 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     const link = node({ textContent: username,
       getAttribute: () => `/${destination}/` });
     const name = node({ textContent: `自定义名称 ${id}`, contains: () => false, matches: () => true });
+    const hiddenVerificationLabel = node({ textContent: 'Verified', contains: () => false, matches: () => true,
+      getClientRects: () => [] });
     const badge = node({
       getAttribute: attribute => ({ fill: 'rgb(0, 149, 246)', width: '12', height: '12' })[attribute] ?? null,
       querySelectorAll: () => []
     });
-    link.parentElement = node({ parentElement: rows, children: [link, name],
+    link.parentElement = node({ parentElement: rows, children: [link, hiddenVerificationLabel, name],
       querySelectorAll: selector => selector === 'svg' && verified ? [badge] : [] });
     links.push(link); return link;
   };

@@ -379,7 +379,7 @@ test('large foreground regions prevent light-background portraits from being tra
   assert.equal(result.largestForegroundShare > 0.16, true);
 });
 
-test('each transformed image can switch independently between dark and light', async () => {
+test('image rendering follows its resolved dark-or-light state', async () => {
   const runtime = await runtimeFixture();
   const classes = new Set();
   const record = {
@@ -394,7 +394,7 @@ test('each transformed image can switch independently between dark and light', a
   assert.equal(classes.has('cg-xhs-image-dark-mode'), false);
 });
 
-test('a post-wide long press disables adaptation in the viewer and its feed cover', async () => {
+test('a post-wide long press alternates every image between light and dark modes', async () => {
   const runtime = await runtimeFixture();
   const viewer = {};
   const otherViewer = {};
@@ -416,9 +416,11 @@ test('a post-wide long press disables adaptation in the viewer and its feed cove
   runtime.updateRecordVisual = () => {};
   runtime.syncInterventionStatus = () => {};
 
-  runtime.toggleViewerDisabled(light);
+  runtime.togglePostOverride(light);
   assert.deepEqual([light.darkened, gray.darkened, photo.darkened, feedCover.darkened], [false, false, false, false]);
   assert.equal(unrelated.darkened, true);
+  assert.equal(runtime.postOverride(light)?.postKey, 'post-1');
+  assert.equal(runtime.postOverride(light)?.darkened, false);
   const lateImage = makeRecord(viewer, 'light-theme', true);
   lateImage.image.isConnected = true;
   runtime.records.set(lateImage.image, lateImage);
@@ -429,27 +431,41 @@ test('a post-wide long press disables adaptation in the viewer and its feed cove
   runtime.applyResult(lateImage);
   assert.equal(lateImage.darkened, false);
 
+  runtime.togglePostOverride(light);
+  assert.deepEqual([light.darkened, gray.darkened, photo.darkened, feedCover.darkened, lateImage.darkened], [true, true, true, true, true]);
+  const latePhoto = makeRecord(viewer, 'photo', false);
+  latePhoto.image.isConnected = true;
+  runtime.records.set(latePhoto.image, latePhoto);
+  runtime.applyResult(latePhoto);
+  assert.equal(latePhoto.darkened, true);
+
   const reopenedViewer = {};
   const reopenedImage = makeRecord(reopenedViewer, 'light-theme', true);
   reopenedImage.image.postKey = 'post-1';
-  assert.equal(runtime.viewerDisabledState(reopenedImage)?.postKey, 'post-1');
+  assert.equal(runtime.postOverride(reopenedImage)?.postKey, 'post-1');
+  assert.equal(runtime.postOverride(reopenedImage)?.darkened, true);
 
-  runtime.toggleViewerDisabled(light);
-  assert.deepEqual([light.darkened, gray.darkened, photo.darkened, feedCover.darkened, lateImage.darkened], [true, true, false, true, true]);
-  assert.equal(runtime.viewerDisabledState(light), null);
+  runtime.restorePostAutomatic(light);
+  assert.deepEqual(
+    [light.darkened, gray.darkened, photo.darkened, feedCover.darkened, lateImage.darkened, latePhoto.darkened],
+    [true, true, false, true, true, false]
+  );
+  assert.equal(runtime.postOverride(light), null);
 });
 
-test('the per-image control hides after adaptation is disabled for its post', async () => {
+test('the image control remains visible while a post-wide mode is active', async () => {
   const runtime = await runtimeFixture();
   runtime.showImageControl = true;
-  runtime.viewerDisabledState = () => ({ postKey: 'post-1' });
+  runtime.postOverride = () => ({ postKey: 'post-1', darkened: true });
   const button = {
     hidden: false,
     style: {},
-    setAttribute() {}
+    setAttribute() {},
+    innerHTML: '',
+    title: ''
   };
-  runtime.updateControl({ button, darkened: false });
-  assert.equal(button.hidden, true);
+  runtime.updateControl({ button, darkened: true });
+  assert.equal(button.hidden, false);
 });
 
 test('a profile switch pauses classification and restores every post cover on that profile', async () => {
@@ -507,9 +523,8 @@ test('holding the image control suppresses its following short-click action', as
   const record = { darkened: true };
   let held = 0;
   let clicked = 0;
-  runtime.toggleViewerDisabled = () => { held += 1; };
-  runtime.viewerDisabledState = () => null;
-  runtime.updateRecordVisual = () => { clicked += 1; };
+  runtime.togglePostOverride = () => { held += 1; };
+  runtime.restorePostAutomatic = () => { clicked += 1; };
   runtime.bindControlGestures(button, record);
   const event = type => ({
     type,
@@ -530,16 +545,15 @@ test('holding the image control suppresses its following short-click action', as
   assert.equal(record.darkened, true);
   button.dispatchEvent(event('click'));
   assert.equal(clicked, 1);
-  assert.equal(record.darkened, false);
+  assert.equal(record.darkened, true);
 });
 
-test('short clicks stay inactive while XHS Image Dark Mode is disabled for the post', async () => {
+test('a short click restores automatic recognition for the complete post', async () => {
   const runtime = await runtimeFixture();
   const button = new SimpleEventTarget();
   const record = { darkened: false };
-  let updated = 0;
-  runtime.viewerDisabledState = () => ({ postKey: 'post-1' });
-  runtime.updateRecordVisual = () => { updated += 1; };
+  let restored = 0;
+  runtime.restorePostAutomatic = () => { restored += 1; };
   runtime.bindControlGestures(button, record);
   button.dispatchEvent({
     type: 'click',
@@ -547,7 +561,7 @@ test('short clicks stay inactive while XHS Image Dark Mode is disabled for the p
     stopPropagation() {}
   });
   assert.equal(record.darkened, false);
-  assert.equal(updated, 0);
+  assert.equal(restored, 1);
 });
 
 test('per-image controls are created only for images in an expanded post viewer', async () => {

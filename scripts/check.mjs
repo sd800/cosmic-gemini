@@ -29,7 +29,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.11.11');
+assert.equal(manifest.version, '8.11.12');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -451,10 +451,10 @@ assert.match(xhsImageDarkModeRuntime, /viewerImageContext\(image\)[\s\S]*image\.
   'Viewer overlays must not be analyzed as post media.');
 assert.match(xhsImageDarkModeRuntime, /const positionedViewers = new Set\(\)[\s\S]*!positionedViewers\.has\(viewer\)[\s\S]*positionedViewers\.add\(viewer\)/,
   'A viewer must never display overlapping image controls.');
-assert.match(xhsImageDarkModeRuntime, /toggleViewerDisabled[\s\S]*disabledPostKeys\.add\(postKey\)[\s\S]*viewerPostKey\(related\.image\) !== postKey/,
-  'Long-press image controls must disable the complete post through its stable post identity.');
-assert.match(xhsImageDarkModeRuntime, /record\.button\.hidden = !this\.showImageControl \|\| disabled \|\| this\.profileProcessingDisabled\(record\)/,
-  'A post-level pause must hide its image control.');
+assert.match(xhsImageDarkModeRuntime, /togglePostOverride[\s\S]*postOverrides\.set\(postKey, darkened\)[\s\S]*applyPostMode\(postKey, darkened\)[\s\S]*restorePostAutomatic[\s\S]*postOverrides\.delete\(postKey\)/,
+  'Long presses must alternate a stable post-wide display mode, while clicks restore automatic recognition.');
+assert.match(xhsImageDarkModeRuntime, /recordsForPost\(postKey\)[\s\S]*viewerPostKey\(record\.image\) === postKey[\s\S]*document\.querySelectorAll\?\.\([\s\S]*record\.button\.hidden = !this\.showImageControl \|\| this\.profileProcessingDisabled\(record\)/,
+  'Post-wide overrides must include matching feed covers without hiding the image control.');
 assert.match(xhsImageDarkModeRuntime, /currentProfileKey[\s\S]*disabledProfileKeys[\s\S]*toggleProfileDisabled[\s\S]*removeQueuedImage[\s\S]*collectImages\(document\)/,
   'Profile controls must stop pending analysis and resume image discovery for only the current profile.');
 assert.match(xhsImageDarkModeRuntime, /result\.kind === 'photo'[\s\S]*retireRecord\(record\)[\s\S]*intersectionObserver\?\.unobserve/,

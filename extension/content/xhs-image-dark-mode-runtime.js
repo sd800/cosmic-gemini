@@ -15,21 +15,23 @@
   const LONG_PRESS_MOVE_TOLERANCE = 8;
   const COPY = Object.freeze({
     'en-US': Object.freeze({
-      showLight: 'Show light image',
-      showDark: 'Show dark image',
-      postDisabled: 'XHS Image Dark Mode is off for this post',
-      holdDisable: 'Press and hold to turn off XHS Image Dark Mode for this post',
-      holdRestore: 'Press and hold to restore XHS Image Dark Mode for this post',
+      postAutomatic: 'Automatic recognition is active for this post',
+      postDark: 'Every image in this post uses dark mode',
+      postLight: 'Every image in this post uses light mode',
+      clickAutomatic: 'Click to restore automatic recognition for this post',
+      holdDark: 'Press and hold to show every image in this post in dark mode',
+      holdLight: 'Press and hold to show every image in this post in light mode',
       profileEnabled: 'XHS Image Dark Mode is on for this profile. Click to turn it off for all posts',
       profileDisabled: 'XHS Image Dark Mode is off for this profile. Click to turn it on',
       separator: '. '
     }),
     'zh-CN': Object.freeze({
-      showLight: '显示浅色图片',
-      showDark: '显示深色图片',
-      postDisabled: 'XHS Image Dark Mode 已暂停处理这篇笔记',
-      holdDisable: '长按可暂停 XHS Image Dark Mode 对这篇笔记的处理',
-      holdRestore: '长按可恢复 XHS Image Dark Mode 对这篇笔记的处理',
+      postAutomatic: '这篇笔记正在使用自动识别',
+      postDark: '这篇笔记的全部图片均使用深色模式',
+      postLight: '这篇笔记的全部图片均使用浅色模式',
+      clickAutomatic: '单击可恢复这篇笔记的自动识别',
+      holdDark: '长按可将这篇笔记的全部图片切换为深色模式',
+      holdLight: '长按可将这篇笔记的全部图片切换为浅色模式',
       profileEnabled: 'XHS Image Dark Mode 已在这个用户主页中开启，点击可暂停处理全部笔记',
       profileDisabled: 'XHS Image Dark Mode 已在这个用户主页中暂停，点击可恢复处理',
       separator: '。'
@@ -117,8 +119,7 @@
       this.records = new Map();
       this.intervenedRecords = new Set();
       this.controlRecords = new Set();
-      this.disabledViewers = new WeakMap();
-      this.disabledPostKeys = new Set();
+      this.postOverrides = new Map();
       this.disabledProfileKeys = new Set();
       this.cache = new Map();
       this.queue = [];
@@ -216,7 +217,7 @@
       window.removeEventListener('pageshow', this.onThemeChange, true);
       window.removeEventListener('load', this.onThemeChange, true);
       this.stopProcessing();
-      this.disabledPostKeys.clear();
+      this.postOverrides.clear();
       this.disabledProfileKeys.clear();
       this.reportStatus();
     }
@@ -516,7 +517,6 @@
       this.intervenedRecords.clear();
       this.syncInterventionStatus();
       this.controlRecords.clear();
-      this.disabledViewers = new WeakMap();
       this.profileControl = null;
       this.controlHost?.remove();
       this.controlHost = null;
@@ -1426,14 +1426,15 @@
       if (!this.processing || !record.image.isConnected || !record.result) return;
       this.intersectionObserver?.unobserve?.(record.image);
       this.clearVisual(record, false);
-      record.darkened = this.postDisabledState(record) || this.profileProcessingDisabled(record)
+      const override = this.postOverride(record);
+      record.darkened = this.profileProcessingDisabled(record)
         ? false
-        : this.automaticDarkened(record);
+        : override?.darkened ?? this.automaticDarkened(record);
       const viewer = this.viewerForImage(record.image);
       if (viewer) this.createControl(record);
       this.updateRecordVisual(record, false);
       if (viewer) this.scheduleControlPositions();
-      else if (record.result.kind === 'photo') {
+      else if (record.result.kind === 'photo' && !override) {
         this.clearVisual(record, false);
         this.retireRecord(record);
       }
@@ -1507,7 +1508,7 @@
           record.darkened = false;
           this.updateRecordVisual(record, false);
         } else if (record.result) {
-          record.darkened = this.postDisabledState(record) ? false : this.automaticDarkened(record);
+          record.darkened = this.postOverride(record)?.darkened ?? this.automaticDarkened(record);
           this.updateRecordVisual(record, false);
         } else {
           this.intersectionObserver?.observe?.(record.image);
@@ -1552,36 +1553,64 @@
       this.profileControl.setAttribute('aria-label', label);
     }
 
-    viewerDisabledState(record) {
-      return this.postDisabledState(record);
-    }
-
-    postDisabledState(record) {
+    postOverride(record) {
       const postKey = this.viewerPostKey(record?.image);
-      if (!postKey || !this.disabledPostKeys.has(postKey)) return null;
-      return { postKey };
+      if (!postKey || !this.postOverrides.has(postKey)) return null;
+      return { postKey, darkened: this.postOverrides.get(postKey) };
     }
 
-    toggleViewerDisabled(record) {
+    recordsForPost(postKey) {
+      const matches = new Set();
+      for (const record of this.records.values()) {
+        if (this.viewerPostKey(record.image) === postKey) matches.add(record);
+      }
+      const anchors = document.querySelectorAll?.(
+        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
+      ) || [];
+      for (const anchor of anchors) {
+        if (this.noteId(anchor.href || anchor.getAttribute?.('href')) !== postKey) continue;
+        const images = anchor.matches?.('img') ? [anchor] : anchor.querySelectorAll?.('img') || [];
+        for (const image of images) {
+          if (!image.isConnected || !this.isContentImage(image)) continue;
+          this.observeImage(image);
+          const related = this.records.get(image);
+          if (related) matches.add(related);
+        }
+      }
+      return matches;
+    }
+
+    applyPostMode(postKey, darkened) {
+      for (const related of this.recordsForPost(postKey)) {
+        related.darkened = this.profileProcessingDisabled(related)
+          ? false
+          : (typeof darkened === 'boolean' ? darkened : this.automaticDarkened(related));
+        this.updateRecordVisual(related, false);
+        if (typeof darkened !== 'boolean' && related.result?.kind === 'photo'
+          && !this.viewerForImage(related.image)) {
+          this.clearVisual(related, false);
+          this.retireRecord(related);
+        }
+      }
+      this.syncInterventionStatus();
+    }
+
+    togglePostOverride(record) {
       const viewer = this.viewerForImage(record?.image);
       if (!viewer || !record?.result || this.profileProcessingDisabled(record)) return;
       const postKey = this.viewerPostKey(record.image);
       if (!postKey) return;
-      const disabled = this.disabledPostKeys.has(postKey);
-      if (disabled) {
-        this.disabledPostKeys.delete(postKey);
-        this.disabledViewers.delete(viewer);
-      } else {
-        this.disabledPostKeys.add(postKey);
-        this.disabledViewers.set(viewer, { postKey });
-      }
-      const nextDisabled = !disabled;
-      for (const related of this.records.values()) {
-        if (!related.result || this.viewerPostKey(related.image) !== postKey) continue;
-        related.darkened = nextDisabled ? false : this.automaticDarkened(related);
-        this.updateRecordVisual(related, false);
-      }
-      this.syncInterventionStatus();
+      const existing = this.postOverride(record);
+      const darkened = existing ? !existing.darkened : !record.darkened;
+      this.postOverrides.set(postKey, darkened);
+      this.applyPostMode(postKey, darkened);
+    }
+
+    restorePostAutomatic(record) {
+      const postKey = this.viewerPostKey(record?.image);
+      if (!postKey) return;
+      this.postOverrides.delete(postKey);
+      this.applyPostMode(postKey, null);
     }
 
     bindControlGestures(button, record) {
@@ -1602,7 +1631,7 @@
         timer = setTimeout(() => {
           timer = 0;
           suppressClickUntil = Date.now() + 1_000;
-          this.toggleViewerDisabled(record);
+          this.togglePostOverride(record);
         }, LONG_PRESS_MS);
       });
       button.addEventListener('pointermove', event => {
@@ -1621,9 +1650,7 @@
           suppressClickUntil = 0;
           return;
         }
-        if (this.viewerDisabledState(record)) return;
-        record.darkened = !record.darkened;
-        this.updateRecordVisual(record);
+        this.restorePostAutomatic(record);
       });
     }
 
@@ -1672,12 +1699,17 @@
     updateControl(record) {
       if (!record.button) return;
       const copy = COPY[this.locale];
-      const disabled = !!this.viewerDisabledState(record);
-      record.button.hidden = !this.showImageControl || disabled || this.profileProcessingDisabled(record);
+      const override = this.postOverride(record);
+      record.button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
       record.button.style.opacity = String(this.controlOpacity);
-      const label = disabled ? copy.postDisabled : record.darkened ? copy.showLight : copy.showDark;
-      const fullLabel = `${label}${copy.separator}${disabled ? copy.holdRestore : copy.holdDisable}`;
-      record.button.innerHTML = disabled ? POST_DISABLED_ICON : record.darkened ? LIGHT_ICON : DARK_ICON;
+      const state = override
+        ? override.darkened ? copy.postDark : copy.postLight
+        : copy.postAutomatic;
+      const holdAction = record.darkened ? copy.holdLight : copy.holdDark;
+      const fullLabel = override
+        ? `${state}${copy.separator}${copy.clickAutomatic}${copy.separator}${holdAction}`
+        : `${state}${copy.separator}${holdAction}`;
+      record.button.innerHTML = record.darkened ? LIGHT_ICON : DARK_ICON;
       record.button.title = fullLabel;
       record.button.setAttribute('aria-label', fullLabel);
     }

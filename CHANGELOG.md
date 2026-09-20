@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.12 — 2026-09-20
+
+- Changed the XHS Image Dark Mode image control so a press and hold alternates the complete post between forced dark and light display. A click now restores automatic recognition for every image in that post, including its feed cover and images loaded later.
+
 ## 8.11.11 — 2026-09-19
 
 - Expanded XHS Image Dark Mode recognition to chat screenshots with repeated bright dialogue surfaces while preserving photographs with a single bright subject.

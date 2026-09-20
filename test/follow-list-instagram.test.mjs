@@ -1,13 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import vm from 'node:vm';
 import { instagramRoute, compareInstagramLists } from '../extension/core/follow-list-instagram.js';
-import { instagramPageRequest } from '../extension/content/follow-list-instagram-request.js';
 import { instagramDomRead } from '../extension/content/follow-list-instagram-dom.js';
 import { createFollowListInstagramProduct } from '../extension/background/products/operations/follow-list-instagram.js';
 
 const account = id => ({ id: `account_${id}`, username: `account_${id}`, name: `名称 ${id}` });
-const raw = (id, username = `account_${id}`) => ({ pk: String(id), username });
 const profile = (following = 2, followers = 2, ownProfile = true) => ({ profile: { id: 'example', username: 'example', following, followers }, ownProfile });
 const base = 'chrome-extension://test/';
 const panel = base + 'workspaces/follow-list-instagram/follow-list-instagram.html?sourceTab=7';
@@ -138,39 +135,116 @@ test('Instagram does not replay ambiguous unfollow writes from the same results'
   } finally { h.cleanup(); }
 });
 
-function pageHarness(replies, cookie = 'csrftoken=test-csrf; ds_user_id=1') {
-  const calls = [];
-  const context = vm.createContext({ URL, URLSearchParams, AbortController, setTimeout, clearTimeout,
-    location: new URL('https://www.instagram.com/example/?hl=ja'), document: { cookie },
-    fetch: async (url, options) => {
-      calls.push({ url, options }); const value = replies.shift(); assert.ok(value, 'No unexpected requests');
-      return { status: value.http || 200, ok: !value.http, json: async () => value };
+function unfollowDomHarness({ own = true, dangerColor = 'rgb(238, 81, 94)', actionBackground = 'rgb(31, 34, 35)' } = {}) {
+  let listOpen = false, confirmOpen = false, unfollowed = false, actionClicks = 0, confirmClicks = 0;
+  const matches = (element, selector) => selector.split(',').some(rawSelector => {
+    const value = rawSelector.trim();
+    const tag = value.match(/^[a-z][a-z0-9]*/i)?.[0]?.toUpperCase();
+    if (tag && element.tagName !== tag) return false;
+    if (value === '[role="heading"]') return element.attributes.role === 'heading';
+    if (value === '[role="button"]') return element.attributes.role === 'button';
+    const attribute = value.match(/\[([^=*\]]+)(?:([*]?=)"([^"]*)")?\]/);
+    if (attribute) {
+      const actual = element.getAttribute(attribute[1]);
+      if (actual === null) return false;
+      if (attribute[2] === '=' && actual !== attribute[3]) return false;
+      if (attribute[2] === '*=' && !actual.includes(attribute[3])) return false;
     }
+    return !tag && !attribute ? false : true;
   });
-  const run = vm.runInContext(`(${instagramPageRequest.toString()})`, context);
-  return { run: extra => run({ username: 'example', runId: 'run', operation: 'unfollow', targetUsername: 'account_2', confirmed: true, ...extra }), calls };
+  const node = (tag = 'div', props = {}) => {
+    const element = {
+      tagName: tag.toUpperCase(), attributes: {}, children: [], parentElement: null,
+      isConnected: true, disabled: false, type: '', textContent: '', color: 'rgb(30, 30, 30)',
+      backgroundColor: 'rgba(0, 0, 0, 0)',
+      append(...children) { for (const child of children) { child.parentElement = this; this.children.push(child); } },
+      get firstElementChild() { return this.children[0] || null; },
+      getClientRects() { return this.isConnected ? [{}] : []; },
+      getAttribute(name) { return this.attributes[name] ?? null; },
+      contains(child) { return this === child || this.children.some(item => item.contains(child)); },
+      querySelectorAll(selector) {
+        const result = [];
+        for (const child of this.children) {
+          if (matches(child, selector)) result.push(child);
+          result.push(...child.querySelectorAll(selector));
+        }
+        return result;
+      },
+      querySelector(selector) { return this.querySelectorAll(selector)[0] || null; },
+      dispatchEvent() {}, click() {}, ...props
+    };
+    return element;
+  };
+  const span = text => node('span', { textContent: String(text) });
+  const followerLink = node('a', { attributes: { href: '/example/followers/' } }); followerLink.append(span('3'));
+  const followingCount = span('2');
+  const followingLink = node('a', { attributes: { href: '/example/following/' }, click() { listOpen = true; } });
+  followingLink.append(followingCount);
+  const heading = node('h1', { textContent: 'example' });
+  const edit = node('a', { attributes: { href: '/accounts/edit/' }, href: 'https://www.instagram.com/accounts/edit/' });
+  const main = node('main'); main.append(heading, followerLink, followingLink, ...(own ? [edit] : []));
+
+  const closeButton = node('button', { click() { listOpen = false; } }); closeButton.append(node('svg'));
+  const listHeading = node('h1', { textContent: '关注', attributes: { role: 'heading' } });
+  const header = node('div'); header.append(listHeading, closeButton);
+  const search = node('input', { type: 'text', value: '', dispatchEvent() {} });
+  const avatarLink = node('a', { attributes: { href: '/account_2/' } }); avatarLink.append(node('img'));
+  const avatarButton = node('button'); avatarButton.append(avatarLink);
+  const targetLink = node('a', { attributes: { href: '/account_2/' }, textContent: 'account_2' });
+  const identity = node('div'); identity.append(targetLink);
+  const action = node('button', { textContent: '已关注', backgroundColor: actionBackground,
+    click() { actionClicks += 1; confirmOpen = true; } });
+  const row = node('div'); row.append(avatarButton, identity, action);
+  const listDialog = node('div', { attributes: { role: 'dialog' } }); listDialog.append(header, search, row);
+
+  const confirmLink = node('a', { attributes: { href: '/account_2/' } }); confirmLink.append(node('img'));
+  const danger = node('button', { textContent: '取消关注', color: dangerColor, click() {
+    confirmClicks += 1; confirmOpen = false; unfollowed = true; targetLink.isConnected = false;
+    followingCount.textContent = '1';
+  } });
+  const cancel = node('button', { textContent: '取消', click() { confirmOpen = false; } });
+  const confirmDialog = node('div', { attributes: { role: 'dialog' } }); confirmDialog.append(confirmLink, danger, cancel);
+  const env = {
+    location: new URL('https://www.instagram.com/example/'),
+    document: {
+      querySelector: selector => selector === 'main' ? main : null,
+      querySelectorAll: selector => selector === '[role="dialog"]'
+        ? [listOpen ? listDialog : null, confirmOpen ? confirmDialog : null].filter(Boolean) : []
+    },
+    getComputedStyle: element => ({ visibility: 'visible', overflowY: element.overflowY,
+      color: element.color, backgroundColor: element.backgroundColor }),
+    setTimeout(callback) { callback(); },
+    Event: class { constructor(type) { this.type = type; } }
+  };
+  return {
+    env,
+    run: extra => instagramDomRead({ operation: 'unfollow', runId: 'unfollow-test', username: 'example',
+      targetUsername: 'account_2', confirmed: true, ...extra }, env),
+    effects: () => ({ actionClicks, confirmClicks, unfollowed, listOpen, confirmOpen })
+  };
 }
 
-test('Instagram unfollow checks the authenticated viewer, selected username and live relationship before one mutation', async () => {
-  const h = pageHarness([{ status: 'ok', user: raw(1, 'example') }, { status: 'ok', data: { user: raw(2) } }, { status: 'ok', following: true, followed_by: false }, { status: 'ok' }, { status: 'ok', following: false, followed_by: false }]);
-  assert.equal((await h.run()).unfollowed, true);
-  const writes = h.calls.filter(c => c.options.method === 'POST'); assert.equal(writes.length, 1);
-  assert.match(writes[0].url, /\/web\/friendships\/2\/unfollow\/$/);
-  assert.equal(writes[0].options.headers['X-CSRFToken'], 'test-csrf');
-  assert.ok(h.calls.every(c => c.options.credentials === 'include' && new URL(c.url).origin === 'https://www.instagram.com'));
-  for (const identity of [raw(99, 'example'), raw(1, 'different')]) {
-    const switched = pageHarness([{ status: 'ok', user: identity }]);
-    assert.equal((await switched.run()).error, 'igOwnProfileOnly'); assert.equal(switched.calls.length, 1);
-  }
-  const mutual = pageHarness([{ status: 'ok', user: raw(1, 'example') }, { status: 'ok', data: { user: raw(2) } }, { status: 'ok', following: true, followed_by: true }]);
-  assert.equal((await mutual.run()).error, 'igRelationshipChanged');
-  assert.equal(mutual.calls.filter(c => c.options.method === 'POST').length, 0);
+test('Instagram unfollow uses the visible Following search and native confirmation without translated labels', async () => {
+  const h = unfollowDomHarness();
+  assert.deepEqual(await instagramDomRead({ operation: 'profile', runId: 'profile-test', username: 'example' }, h.env), {
+    profile: { id: 'example', username: 'example', name: '', followers: 3, following: 2 }, ownProfile: true
+  });
+  await instagramDomRead({ operation: 'cancel', runId: 'profile-test' }, h.env);
+  assert.deepEqual(await h.run(), { unfollowed: true });
+  assert.deepEqual(h.effects(), { actionClicks: 1, confirmClicks: 1, unfollowed: true, listOpen: false, confirmOpen: false });
+  assert.equal(h.env.__cosmicGeminiInstagramLists, undefined);
 });
 
-test('Instagram respects login, rate-limit and challenge responses without repeated requests', async () => {
-  for (const [reply, error] of [[{ http: 401 }, 'igLoginRequired'], [{ http: 429 }, 'igRateLimited'], [{ status: 'fail', challenge: {} }, 'igAccessDenied']]) {
-    const h = pageHarness([reply]); assert.equal((await h.run()).error, error); assert.equal(h.calls.length, 1);
-  }
+test('Instagram DOM unfollow refuses other profiles and ambiguous confirmation controls before writing', async () => {
+  const other = unfollowDomHarness({ own: false });
+  assert.equal((await other.run()).error, 'igOwnProfileOnly');
+  assert.equal(other.effects().confirmClicks, 0);
+  const ambiguous = unfollowDomHarness({ dangerColor: 'rgb(30, 30, 30)' });
+  assert.equal((await ambiguous.run()).error, 'igUnavailable');
+  assert.equal(ambiguous.effects().confirmClicks, 0);
+  const reversed = unfollowDomHarness({ actionBackground: 'rgb(0, 149, 246)' });
+  assert.equal((await reversed.run()).error, 'igRelationshipChanged');
+  assert.equal(reversed.effects().actionClicks, 0);
 });
 
 test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads later rows and excludes suggestions', async () => {

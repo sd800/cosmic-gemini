@@ -1,7 +1,6 @@
 import { FEATURE_IDS } from '../../../core/config.js';
 import { INSTAGRAM_PANEL_PATH, instagramRoute, compareInstagramLists } from '../../../core/follow-list-instagram.js';
 import { instagramDomRead } from '../../../content/follow-list-instagram-dom.js';
-import { instagramPageRequest } from '../../../content/follow-list-instagram-request.js';
 
 const PANEL = INSTAGRAM_PANEL_PATH;
 const MAX_ACCOUNTS = 20000;
@@ -43,7 +42,7 @@ export function createFollowListInstagramProduct(platform) {
     session.lastRequest = Date.now();
     const [entry] = await chrome.scripting.executeScript({
       target: { tabId: session.tabId, frameIds: [0] }, world: 'ISOLATED',
-      func: input.operation === 'unfollow' ? instagramPageRequest : instagramDomRead,
+      func: instagramDomRead,
       args: [{ ...input, runId: session.runId, username: session.username }]
     });
     if (sessions.get(session.tabId) !== session || session.stopped) throw new Error('igStopped');
@@ -61,7 +60,7 @@ export function createFollowListInstagramProduct(platform) {
     if (session.status !== 'complete') session.status = 'stopped';
     publish(session);
     if (remove) sessions.delete(tabId);
-    await Promise.allSettled([instagramDomRead, instagramPageRequest].map(func =>
+    await Promise.allSettled([instagramDomRead].map(func =>
       chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, world: 'ISOLATED',
         func, args: [{ operation: 'cancel', runId: session.runId }] })));
     return snapshot(session);
@@ -181,7 +180,7 @@ export function createFollowListInstagramProduct(platform) {
           try {
             result = await request(session, { operation: 'unfollow', targetUsername: target.username, confirmed: true });
           } catch (error) {
-            (session.uncertain ||= new Set()).add(target.id);
+            if (error.message === 'igUnfollowUncertain') (session.uncertain ||= new Set()).add(target.id);
             throw error;
           }
           if (result.unfollowed !== true) throw new Error('igUnfollowUncertain');

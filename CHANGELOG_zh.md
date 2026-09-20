@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 8.12.2 — 2026-09-20
+
+- 重做 Following/Follower List Check for Instagram 在本人主页上的取消关注流程，改为使用 Instagram 页面中可见的关注列表、精确用户名搜索及原生确认控件，不再依赖内部请求接口。原有的本人主页、明确确认及关注关系校验继续保留；结果不确定的写入不会自动重复。
+- 在 Satellites 中将该功能标记为“点击时”。Instagram 检查运行期间打开插件控制窗口，不再把其侧边栏切换成 Image Download；读取控制窗口状态也不再占用任何产品的工作区。
+
 ## 8.12.1 — 2026-09-20
 
 - 在 Satellites 中新增 Following/Follower List Check for Instagram，通过 Instagram 网页上的 IG± 控制窗口按钮打开侧边栏，对比关注与粉丝列表。两份列表在各自开始读取后显示独立进度条。列表读取不依赖界面语言，收起侧边栏后仍继续进行，仅在完整读取两份列表后显示对比结果。在自己的主页上，可逐个确认取消关注，执行前会核实登录账号及当前关注关系。

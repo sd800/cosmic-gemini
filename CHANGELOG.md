@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.2 — 2026-09-20
+
+- Reworked own-profile unfollowing in Following/Follower List Check for Instagram to use Instagram’s visible Following list, exact username search, and native confirmation control instead of an internal request endpoint. Existing own-profile, explicit-confirmation, and relationship checks remain in place, and an uncertain write is never repeated automatically.
+- Marked the feature as “On click” in Satellites. Opening the extension popup while an Instagram check is running no longer replaces its side panel with Image Download; popup state reads no longer claim a product workspace.
+
 ## 8.12.1 — 2026-09-20
 
 - Added Following/Follower List Check for Instagram to Satellites, with a contextual IG± popup button and a side panel for comparing following and follower lists. Each list shows its own progress bar once reading begins. Reading works independently of interface language, continues when the panel is closed, and shows comparisons only after both lists are complete. Own-profile results allow individually confirmed unfollows after checking the signed-in account and current relationship.

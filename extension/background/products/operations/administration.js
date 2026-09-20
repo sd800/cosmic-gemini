@@ -21,7 +21,9 @@ export function createAdministrationProduct(platform) {
           throw new Error('The active page can only be read from the popup.');
         }
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const state = await context.collectPageState(tab?.url || '', tab?.id, { prepareWorkspace: true, includePreferences: true });
+        // Reading popup state must not claim the tab's side panel for Image Download.
+        // Each workspace claims it only after the user explicitly opens that product.
+        const state = await context.collectPageState(tab?.url || '', tab?.id, { prepareWorkspace: false, includePreferences: true });
         return {
           tab: tab ? { id: tab.id, windowId: tab.windowId, url: tab.url || '', title: tab.title || '' } : null,
           state

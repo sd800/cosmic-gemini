@@ -176,11 +176,10 @@ function renderContextualProducts() {
       button.innerHTML = icon('followListInstagram');
       label(button, t('followListInstagramName'));
       button.addEventListener('click', () => void perform(async () => {
-        // Issue both UI calls inside the click gesture; data access still goes through Central.
+        // Configure first so an old workspace can never flash before this panel.
         const tabId = currentTab?.id;
-        const configured = chrome.sidePanel.setOptions({ tabId, path: `${INSTAGRAM_PANEL_PATH}?sourceTab=${tabId}`, enabled: true });
-        const opened = chrome.sidePanel.open({ tabId });
-        await Promise.all([configured, opened]);
+        await chrome.sidePanel.setOptions({ tabId, path: `${INSTAGRAM_PANEL_PATH}?sourceTab=${tabId}`, enabled: true });
+        await chrome.sidePanel.open({ tabId });
         window.close();
       }));
       actions.append(button); row.append(actions); container.append(row);

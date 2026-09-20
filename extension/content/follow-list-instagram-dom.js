@@ -9,8 +9,9 @@ export async function instagramDomRead(input, environment = globalThis) {
   const visible = element => Boolean(element?.isConnected && element.getClientRects().length
     && getComputedStyle(element).visibility !== 'hidden');
   const close = state => {
+    if (state?.confirmDialog && visible(state.confirmDialog) && state.confirmCancel?.isConnected) state.confirmCancel.click();
     if (state?.dialog && visible(state.dialog) && state.closeButton?.isConnected) state.closeButton.click();
-    if (state) { state.dialog = null; state.closeButton = null; }
+    if (state) { state.confirmDialog = null; state.confirmCancel = null; state.dialog = null; state.closeButton = null; }
   };
   if (input.operation === 'cancel') {
     const state = all.get(input.runId);
@@ -83,10 +84,126 @@ export async function instagramDomRead(input, environment = globalThis) {
     return null;
   };
   const activeDialogs = () => [...document.querySelectorAll('[role="dialog"]')].filter(visible);
+  const exactProfileLink = (root, username) => [...root.querySelectorAll('a[href]')].find(link => {
+    try {
+      const url = new URL(link.getAttribute('href'), location.href);
+      return url.origin === location.origin
+        && url.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() === username.toLowerCase();
+    } catch { return false; }
+  });
+  const setInput = (input, value) => {
+    const prototype = environment.HTMLInputElement?.prototype || Object.getPrototypeOf(input);
+    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+    if (setter) setter.call(input, value);
+    else input.value = value;
+    const EventConstructor = environment.Event || Event;
+    input.dispatchEvent(new EventConstructor('input', { bubbles: true }));
+    input.dispatchEvent(new EventConstructor('change', { bubbles: true }));
+  };
+  const colorChannels = value => String(value || '').match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  const redDominant = button => {
+    const channels = colorChannels(getComputedStyle(button).color);
+    return channels?.length === 3 && channels[0] >= channels[1] + 55 && channels[0] >= channels[2] + 35;
+  };
+  const blueAction = button => {
+    const style = getComputedStyle(button);
+    return [style.backgroundColor, style.color].some(value => {
+      const channels = colorChannels(value);
+      return channels?.length === 3 && channels[2] >= channels[0] + 80 && channels[2] >= channels[1] + 45;
+    });
+  };
+  const rowAction = (link, dialog) => {
+    for (let node = link.parentElement; node && node !== dialog; node = node.parentElement) {
+      const buttons = [...node.querySelectorAll('button')].filter(button => visible(button) && !button.disabled
+        && !button.contains(link) && !button.querySelector('a[href],img,svg'));
+      if (buttons.length === 1) return buttons[0];
+      if (buttons.length > 1) return null;
+    }
+    return null;
+  };
   try {
     check();
     const current = profile();
     if (input.operation === 'profile') return { profile: current.profile, ownProfile: current.ownProfile };
+    if (input.operation === 'unfollow') {
+      let writeStarted = false;
+      try {
+        const target = String(input.targetUsername || '').toLowerCase();
+        if (input.confirmed !== true || !/^[a-z0-9._]{1,30}$/.test(target) || target === input.username) {
+          throw new Error('igRelationshipChanged');
+        }
+        if (!current.ownProfile) throw new Error('igOwnProfileOnly');
+        if (activeDialogs().length) throw new Error('igCloseDialog');
+        state.kind = 'unfollow';
+        current.links.following.click();
+        const listDeadline = Date.now() + 30000;
+        while (!state.dialog && Date.now() < listDeadline) {
+          await wait(200);
+          const dialogs = activeDialogs();
+          if (dialogs.length > 1) throw new Error('igCloseDialog');
+          state.dialog = dialogs[0] || null;
+        }
+        if (!state.dialog) throw new Error('igUnavailable');
+        state.closeButton = findClose(state.dialog);
+        const search = [...state.dialog.querySelectorAll('input')]
+          .find(element => visible(element) && element.type !== 'password');
+        if (!search || !state.closeButton) throw new Error('igUnavailable');
+        setInput(search, target);
+        const resultDeadline = Date.now() + 15000;
+        let targetLink = null;
+        while (!targetLink && Date.now() < resultDeadline) {
+          await wait(200);
+          targetLink = [...state.dialog.querySelectorAll('a[href]')]
+            .find(link => usernameFromLink(link).toLowerCase() === target);
+        }
+        if (!targetLink) throw new Error('igRelationshipChanged');
+        const action = rowAction(targetLink, state.dialog);
+        if (!action) throw new Error('igUnavailable');
+        // Instagram's blue action is Follow. Never let a stale list turn an
+        // intended unfollow into the opposite relationship change.
+        if (blueAction(action)) throw new Error('igRelationshipChanged');
+        action.click();
+        const confirmDeadline = Date.now() + 10000;
+        while (!state.confirmDialog && Date.now() < confirmDeadline) {
+          await wait(150);
+          const dialogs = activeDialogs();
+          if (dialogs.length > 2) throw new Error('igUnavailable');
+          state.confirmDialog = dialogs.find(dialog => dialog !== state.dialog) || null;
+        }
+        if (!state.confirmDialog || !exactProfileLink(state.confirmDialog, target)) throw new Error('igRelationshipChanged');
+        const buttons = [...state.confirmDialog.querySelectorAll('button')].filter(button => visible(button) && !button.disabled);
+        const dangerous = buttons.filter(redDominant);
+        const neutral = buttons.filter(button => !redDominant(button));
+        if (buttons.length !== 2 || dangerous.length !== 1 || neutral.length !== 1) throw new Error('igUnavailable');
+        state.confirmCancel = neutral[0];
+        writeStarted = true;
+        dangerous[0].click();
+        const verifyDeadline = Date.now() + 15000;
+        while (Date.now() < verifyDeadline) {
+          await wait(200);
+          if (!visible(targetLink)) {
+            close(state);
+            all.delete(input.runId);
+            if (!all.size) delete environment[KEY];
+            return { unfollowed: true };
+          }
+          const updated = profile().profile.following;
+          if (updated === current.profile.following - 1) {
+            close(state);
+            all.delete(input.runId);
+            if (!all.size) delete environment[KEY];
+            return { unfollowed: true };
+          }
+        }
+        throw new Error('igUnfollowUncertain');
+      } catch (error) {
+        close(state);
+        all.delete(input.runId);
+        if (!all.size) delete environment[KEY];
+        return { error: writeStarted ? 'igUnfollowUncertain'
+          : /^ig[A-Z]/.test(error.message || '') ? error.message : 'igUnavailable' };
+      }
+    }
     if (input.operation !== 'list' || !['followers', 'following'].includes(input.kind)) throw new Error('igUnavailable');
     const expected = current.profile[input.kind];
     if (expected !== input.expected) throw new Error('igIncomplete');

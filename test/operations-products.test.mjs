@@ -24,6 +24,7 @@ test('popup cache receives saved preferences separately from effective state', a
     async collectPageState(url, tabId, options) {
       assert.equal(tabId, 11);
       assert.equal(url, 'https://example.com/');
+      assert.equal(options.prepareWorkspace, false);
       return { mailtoCapture: { enabled: false, status: 'unavailable' },
         ...(options.includePreferences ? { preferences } : {}) };
     }

@@ -1,3 +1,4 @@
+import { INSTAGRAM_PANEL_PATH } from '../core/follow-list-instagram.js';
 import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { candidateQuality, formatMediaDuration, groupVideoCandidates, knownVideoFileSize } from '../core/video-download.js';
@@ -16,7 +17,8 @@ const productKey = {
 };
 const contextualProducts = Object.freeze([
   Object.freeze({ id: 'xhsImageDarkMode', hostname: 'www.xiaohongshu.com' }),
-  Object.freeze({ id: 'chineseResponseClaude', hostname: 'claude.ai' })
+  Object.freeze({ id: 'chineseResponseClaude', hostname: 'claude.ai' }),
+  Object.freeze({ id: 'followListInstagram', hostname: 'www.instagram.com', alternateHostname: 'instagram.com' })
 ]);
 let state;
 let t;
@@ -156,10 +158,34 @@ function renderContextualProducts() {
   const container = document.querySelector('#contextual-feature-list');
   let hostname = '';
   try { hostname = new URL(currentTab?.url || '').hostname.toLowerCase().replace(/\.$/, ''); } catch {}
-  const available = contextualProducts.filter(entry => entry.hostname === hostname);
+  const available = contextualProducts.filter(entry => entry.hostname === hostname || entry.alternateHostname === hostname);
   container.replaceChildren();
   container.hidden = available.length === 0;
   for (const entry of available) {
+    if (entry.id === 'followListInstagram') {
+      const row = document.createElement('section');
+      row.className = 'feature-row';
+      const actions = document.createElement('nav');
+      actions.className = 'launcher-actions contextual-actions';
+      actions.setAttribute('aria-label', t('followListInstagramName'));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'feature-status primary-product';
+      button.dataset.state = 'off';
+      button.disabled = state[entry.id]?.supported !== true;
+      button.innerHTML = icon('followListInstagram');
+      label(button, t('followListInstagramName'));
+      button.addEventListener('click', () => void perform(async () => {
+        // Issue both UI calls inside the click gesture; data access still goes through Central.
+        const tabId = currentTab?.id;
+        const configured = chrome.sidePanel.setOptions({ tabId, path: `${INSTAGRAM_PANEL_PATH}?sourceTab=${tabId}`, enabled: true });
+        const opened = chrome.sidePanel.open({ tabId });
+        await Promise.all([configured, opened]);
+        window.close();
+      }));
+      actions.append(button); row.append(actions); container.append(row);
+      continue;
+    }
     const feature = state[entry.id];
     const isXhs = entry.id === 'xhsImageDarkMode';
     const operating = isXhs

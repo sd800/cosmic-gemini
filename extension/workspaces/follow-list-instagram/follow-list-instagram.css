@@ -1,0 +1,46 @@
+body { margin: 0; min-width: 260px; background: var(--surface); color: var(--text); }
+header { display: flex; align-items: center; gap: 12px; padding: 22px 18px 16px; border-bottom: 1px solid var(--line); }
+header h1 { margin: 0; font-size: 17px; line-height: 1.4; }
+#mark { color: var(--blue); flex: 0 0 32px; }
+#mark svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+main { padding: 18px; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#profile { margin-right: auto; overflow-wrap: anywhere; }
+button { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+button:hover { background: var(--surface-raised); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+#stop, .danger { color: var(--danger); }
+p { line-height: 1.6; font-size: 13px; }
+#status { margin: 16px 0; white-space: pre-line; }
+#status[data-error="true"] { color: var(--danger); }
+#readingProgress { display: grid; gap: 14px; margin: 0 0 18px; }
+.progress-heading { display: flex; align-items: baseline; gap: 8px; font-size: 12px; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+.progress-heading label { margin-right: auto; }
+.progress-heading span { color: var(--muted); }
+.progress-heading span:last-child { min-width: 3.5ch; text-align: right; }
+.progress-row progress { display: block; appearance: none; width: 100%; height: 7px; border: 0; border-radius: 8px; overflow: hidden; accent-color: var(--blue); }
+.progress-row progress::-webkit-progress-bar { background: var(--line); border-radius: 8px; }
+.progress-row progress::-webkit-progress-value { background: var(--blue); border-radius: 8px; transition: width .2s ease; }
+@media (prefers-reduced-motion: reduce) { .progress-row progress::-webkit-progress-value { transition: none; } }
+#categories { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+#categories button { min-width: 0; font-size: 12px; padding: 10px 4px; }
+#categories span { display: block; font-size: 18px; font-weight: 650; margin-top: 5px; }
+#categories button[aria-pressed="true"] { color: var(--blue); background: var(--blue-soft); border-color: var(--blue); }
+#explanation, .note, #empty { color: var(--muted); }
+#search { box-sizing: border-box; width: 100%; border: 1px solid var(--line); background: var(--surface-raised); color: var(--text); border-radius: 8px; padding: 10px; font: inherit; }
+#accounts { padding: 0; margin: 14px 0; list-style: none; }
+#accounts li { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+#accounts a { min-width: 0; flex: 1; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+#accounts a:hover strong { color: var(--blue); text-decoration: underline; }
+#accounts small { display: block; color: var(--muted); margin-top: 3px; }
+#accounts button { flex: 0 0 auto; font-size: 12px; }
+#pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.note { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 22px; }
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-width: calc(100vw - 40px); background: var(--surface); color: var(--text); }
+dialog::backdrop { background: #0008; }
+dialog h2 { margin: 0; font-size: 18px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+[hidden] { display: none !important; }
+
+@media (prefers-color-scheme: dark) { body { --danger: #ffb4ab; } }

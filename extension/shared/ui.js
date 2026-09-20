@@ -1,5 +1,6 @@
 export function icon(name) {
   const paths = {
+    followListInstagram: '<g stroke-width="1.7"><path d="M2 7h3M3.5 7v10M2 17h3M14 8.5a4.5 5 0 1 0 0 7v-3h-3.5M17 10h5M19.5 7.5v5M17 16h5"/></g>',
     power: '<path d="M12 2v10M5.7 5.7a8 8 0 1 0 12.6 0"/>',
     bolt: '<path d="m13 2-8 11h7l-1 9 8-12h-7z"/>',
     nativeScroll: '<path d="M12 3v18M7.5 7.5 12 3l4.5 4.5M7.5 16.5 12 21l4.5-4.5"/>',

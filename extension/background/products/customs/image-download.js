@@ -417,9 +417,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       await chrome.storage.session.remove(imageSessionKey(tabId));
       await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false);
       preparedImageSidePanels.delete(tabId);
-      if (!options.preserveWorkspace && current?.workspaceMode === 'sidePanel' && chrome.sidePanel?.setOptions) {
-        await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
-      }
+      if (!options.preserveWorkspace && current?.workspaceMode === 'sidePanel') await disableImageSidePanel(tabId);
       await offscreen.maybeClose();
       return true;
     });
@@ -427,6 +425,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
 
   async function closeImageWorkspaceSidePanel(tabId) {
     if (!Number.isInteger(tabId)) return { closed: false, native: false };
+    if (!await ownsImageSidePanel(tabId)) return { closed: false, native: false };
     let native = false;
     if (typeof chrome.sidePanel?.close === 'function') {
       try {
@@ -542,9 +541,19 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     if (!Number.isInteger(tabId)) throw new Error('The source tab is unavailable.');
     if (!chrome.sidePanel?.setOptions || !chrome.sidePanel?.open) throw new Error('Side Panel is unavailable.');
     const path = imageSidePanelPath(tabId);
-    if (preparedImageSidePanels.get(tabId) === path) return;
+    if (preparedImageSidePanels.get(tabId) === path
+      && (await chrome.sidePanel.getOptions?.({ tabId }))?.path === path) return;
     await chrome.sidePanel.setOptions({ tabId, path, enabled: true });
     preparedImageSidePanels.set(tabId, path);
+  }
+
+  async function ownsImageSidePanel(tabId) {
+    try { return (await chrome.sidePanel?.getOptions?.({ tabId }))?.path === imageSidePanelPath(tabId); }
+    catch { return false; }
+  }
+
+  async function disableImageSidePanel(tabId) {
+    if (await ownsImageSidePanel(tabId)) await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
   }
   
   async function openImageWorkspacePage(tabId) {
@@ -569,17 +578,14 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   
   async function openImageWorkspaceSidePanel(tabId) {
     if (!chrome.sidePanel?.setOptions || !chrome.sidePanel?.open) throw new Error('Side Panel is unavailable.');
-    const path = imageSidePanelPath(tabId);
-    if (preparedImageSidePanels.get(tabId) !== path) await prepareImageWorkspaceSidePanel(tabId);
+    await prepareImageWorkspaceSidePanel(tabId);
     await chrome.sidePanel.open({ tabId });
   }
   
   async function openImageWorkspace(tabId, preferredMode = 'sidePanel') {
     if (preferredMode === 'page') {
       preparedImageSidePanels.delete(tabId);
-      if (chrome.sidePanel?.setOptions) {
-        await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
-      }
+      await disableImageSidePanel(tabId);
       return { mode: 'page', workspaceTabId: await openImageWorkspacePage(tabId) };
     }
     await openImageWorkspaceSidePanel(tabId);
@@ -826,9 +832,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       } catch (error) {
         if (workspace.mode === 'page' && Number.isInteger(workspace.workspaceTabId)) {
           await chrome.tabs.remove(workspace.workspaceTabId).catch(() => {});
-        } else if (chrome.sidePanel?.setOptions) {
-          await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
-        }
+        } else await disableImageSidePanel(tabId);
         throw error;
       }
       return { active: true, ...workspace };
@@ -946,7 +950,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       clearPageScan(tabId);
       await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId)).catch(() => {});
       await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false).catch(() => {});
-      if (chrome.sidePanel?.setOptions) await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+      await disableImageSidePanel(tabId);
     }));
     preparedImageSidePanels.clear();
   }

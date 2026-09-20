@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Following/Follower List Check for Instagram</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <link rel="stylesheet" href="follow-list-instagram.css">
+</head>
+<body>
+  <header><span id="mark" aria-hidden="true"></span><h1 data-i18n="followListInstagramName"></h1></header>
+  <main>
+    <div class="toolbar"><strong id="profile"></strong><button id="refresh" type="button" data-i18n="igRefresh"></button><button id="stop" type="button" data-i18n="igStop" hidden></button></div>
+    <p id="status" role="status" aria-live="polite"></p>
+    <div id="readingProgress" hidden>
+      <div id="followingProgressRow" class="progress-row" hidden><div class="progress-heading"><label for="followingProgress" data-i18n="igFollowing"></label><span id="followingCount"></span><span id="followingPercent" aria-hidden="true"></span></div><progress id="followingProgress" max="1" value="0"></progress></div>
+      <div id="followersProgressRow" class="progress-row" hidden><div class="progress-heading"><label for="followersProgress" data-i18n="igFollowers"></label><span id="followersCount"></span><span id="followersPercent" aria-hidden="true"></span></div><progress id="followersProgress" max="1" value="0"></progress></div>
+    </div>
+    <section id="results" hidden>
+      <div id="categories" role="group" data-i18n-label="igCategories"></div>
+      <p id="explanation"></p>
+      <label class="sr-only" for="search" data-i18n="igSearch"></label><input id="search" type="search" data-i18n-placeholder="igSearch" autocomplete="off">
+      <ul id="accounts"></ul>
+      <p id="empty" data-i18n="igEmpty" hidden></p>
+      <nav id="pagination"><button id="previous" type="button" data-i18n="igPrevious"></button><span id="page"></span><button id="next" type="button" data-i18n="igNext"></button></nav>
+    </section>
+    <p class="note" data-i18n="igAccessHelp"></p>
+  </main>
+  <dialog id="confirm">
+    <form method="dialog"><h2 data-i18n="igUnfollow"></h2><p id="confirmText"></p><div class="dialog-actions"><button value="cancel" data-i18n="igCancel"></button><button class="danger" id="confirmUnfollow" value="confirm" data-i18n="igUnfollow"></button></div></form>
+  </dialog>
+  <script type="module" src="follow-list-instagram.js"></script>
+</body>
+</html>

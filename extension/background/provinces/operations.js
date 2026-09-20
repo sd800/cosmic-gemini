@@ -7,6 +7,7 @@ import { createChineseResponseClaudeProduct } from '../products/operations/chine
 import { createSatellitesProduct } from '../products/operations/satellites.js';
 import { createPageDisplayProduct } from '../products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../products/operations/xhs-image-dark-mode.js';
+import { createFollowListInstagramProduct } from '../products/operations/follow-list-instagram.js';
 import { defineProvince } from './interface.js';
 
 export function createOperationsProvince(platform) {
@@ -17,6 +18,7 @@ export function createOperationsProvince(platform) {
   const pageDisplay = createPageDisplayProduct(host, platform);
   const xhsImageDarkMode = createXhsImageDarkModeProduct(host, platform);
   const chineseResponseClaude = createChineseResponseClaudeProduct(host, platform);
+  const followListInstagram = createFollowListInstagramProduct(platform);
   const administration = createAdministrationProduct(platform);
   const products = {
     [anyCopy.id]: anyCopy,
@@ -25,6 +27,7 @@ export function createOperationsProvince(platform) {
     [pageDisplay.id]: pageDisplay,
     [xhsImageDarkMode.id]: xhsImageDarkMode,
     [chineseResponseClaude.id]: chineseResponseClaude,
+    [followListInstagram.id]: followListInstagram,
     [administration.id]: administration
   };
 
@@ -93,15 +96,17 @@ export function createOperationsProvince(platform) {
       return product(productId).sync(context, context.settings);
     },
     handleMessage,
-    handleConnect(port) { return platform.connectCentralUi(port); },
+    handleConnect(port) { return followListInstagram.connect(port) || platform.connectCentralUi(port); },
     handleTabCreated(tab) { return chineseResponseClaude.handleTabCreated(tab); },
     async handleTabUpdated(tabId, change, tab) {
       if (change.status === 'loading') {
         await platform.clearTabActivity(tabId);
       }
+      await followListInstagram.handleTabUpdated(tabId, change);
       await chineseResponseClaude.handleTabUpdated(tabId, change, tab);
     },
     async handleTabRemoved(tabId) {
+      await followListInstagram.removeTab(tabId);
       await anyCopy.removeTab(tabId);
       await anyCopyEnhanced.removeTab(tabId);
       await xhsImageDarkMode.removeTab(tabId);
@@ -119,7 +124,7 @@ export function createOperationsProvince(platform) {
       return satellites.handleStorageChanged(changes, areaName);
     },
     async reset() {
-      await Promise.allSettled([satellites.reset(), chineseResponseClaude.reset()]);
+      await Promise.allSettled([satellites.reset(), chineseResponseClaude.reset(), followListInstagram.reset()]);
     }
   });
 }

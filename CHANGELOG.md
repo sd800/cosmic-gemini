@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.11.20 — 2026-09-20
+
+- Added Following/Follower List Check for Instagram to Satellites, with a contextual IG± popup button and a side panel for comparing following and follower lists. Each list shows its own progress bar once reading begins. Reading works independently of interface language, continues when the panel is closed, and shows comparisons only after both lists are complete. Own-profile results allow individually confirmed unfollows after checking the signed-in account and current relationship.
+- Fixed side-panel switching so Image Download reopens its own workspace and does not close another tool’s panel during cleanup.
+
 ## 8.11.19 — 2026-09-20
 
 - Improved No Autoplay compatibility with custom media players. Explicit play controls now grant a bounded playback intent to media in the same player, including playback that finishes setting up asynchronously, while blocked script-initiated play no longer reports a false success that can leave a player stuck.

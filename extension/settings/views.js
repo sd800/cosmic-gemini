@@ -222,6 +222,10 @@ export function viewFor(featureId) {
           <div class="satellite-control"><label class="switch"><input id="chineseResponseClaudeEnabled" type="checkbox"><span></span><b class="sr-only">Chinese Response Display Optimization for Claude</b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="chineseResponseClaudePrivacy"></p></div>
+      </section>
+      <section class="card satellite-card" data-product="follow-list-instagram">
+        <div class="section-heading"><div><h1 data-i18n="followListInstagramName"></h1><p data-i18n="followListInstagramDescription"></p><p data-i18n="followListInstagramHelp"></p></div></div>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="followListInstagramPrivacy"></p></div>
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
   };

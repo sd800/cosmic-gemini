@@ -27,3 +27,5 @@ import '../test/keyed-task-queue.test.mjs';
 import '../test/message-source.test.mjs';
 import '../test/page-runtime-host.test.mjs';
 import '../test/central-page.test.mjs';
+
+import '../test/follow-list-instagram.test.mjs';

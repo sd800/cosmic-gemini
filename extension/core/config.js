@@ -11,6 +11,7 @@ export const FEATURE_IDS = Object.freeze({
   PAGE_DISPLAY: 'pageDisplay',
   XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
+  FOLLOW_LIST_INSTAGRAM: 'followListInstagram',
   MAILTO_CAPTURE: 'mailtoCapture',
   WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
   CLIPBOARD_PROTECT: 'clipboardProtect',
@@ -31,6 +32,7 @@ export const FEATURE_SLOTS = Object.freeze({
   CHINESE_RESPONSE_CLAUDE: 36,
   WEBSITE_KNOWLEDGE_CONTROL: 37,
   CLIPBOARD_PROTECT: 38,
+  FOLLOW_LIST_INSTAGRAM: 39,
   IMAGE_DOWNLOAD: 40,
   VIDEO_DOWNLOAD: 50
 });

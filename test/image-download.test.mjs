@@ -12,6 +12,7 @@ import {
   sanitizeImageFilename
 } from '../extension/core/image-download.js';
 import { imagePageQuickDiscovery } from '../extension/core/image-page.js';
+import { createImageDownloadProduct } from '../extension/background/products/customs/image-download.js';
 
 test('responsive variants form one family and prefer the strongest original candidate', () => {
   const groups = groupImageCandidates([
@@ -64,6 +65,32 @@ test('image layouts distinguish square, wide, tall, and unknown dimensions', () 
   assert.equal(imageLayout(1600, 900), 'wide');
   assert.equal(imageLayout(900, 1600), 'tall');
   assert.equal(imageLayout(0, 0), 'unknown');
+});
+
+test('Image Download reclaims its side-panel path and never closes another product’s panel', async () => {
+  const previous = globalThis.chrome;
+  let options = {}, configured = 0, closed = 0;
+  globalThis.chrome = { sidePanel: {
+    setOptions: async value => { configured += 1; options = { ...options, ...value }; },
+    getOptions: async () => options,
+    open: async () => {}, close: async () => { closed += 1; }
+  } };
+  try {
+    const product = createImageDownloadProduct({}, {}, {});
+    await product.prepareWorkspace(7);
+    const imagePath = options.path;
+    await product.prepareWorkspace(7);
+    assert.equal(configured, 1);
+    options = { ...options, path: 'workspaces/other-tool/panel.html' };
+    assert.equal((await product.handleMessage({ type: 'UI_IMAGE_CLOSE_SIDE_PANEL', tabId: 7 }, { sender: {} })).closed, false);
+    assert.equal(closed, 0);
+    assert.equal(options.enabled, true);
+    await product.prepareWorkspace(7);
+    assert.equal(options.path, imagePath);
+    assert.equal(configured, 2);
+    assert.equal((await product.handleMessage({ type: 'UI_IMAGE_CLOSE_SIDE_PANEL', tabId: 7 }, { sender: {} })).closed, true);
+    assert.equal(closed, 1);
+  } finally { globalThis.chrome = previous; }
 });
 
 test('quick page discovery returns direct image sources before source enrichment', () => {

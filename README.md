@@ -98,6 +98,14 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 Claude can render Chinese replies with half-width punctuation and omit spaces around embedded Latin text, numbers, or related symbols. Chinese Response Display Optimization for Claude replaces those displayed marks and adds consistent spaces at these boundaries. Code, links, formulas, and editable text remain unchanged; only the text displayed in your browser is adjusted. An independently controlled option also keeps selected browser identity signals consistent for Claude use in the United States.
 
+#### Following/Follower List Check for Instagram
+
+Compare a profile’s following and follower lists to see accounts that have not followed back, mutual follows, and followers the profile does not follow. Open an Instagram profile and select **IG±** in the popup to start reading its lists in a side panel. On your own signed-in profile, you can confirm and unfollow individual accounts that have not followed you back.
+
+Each list shows its own progress once reading begins. Results show usernames with display names on a separate line, and can be searched by either. Reading continues when the side panel is closed. Reopen it to see progress or results, or choose **Stop** to end the check.
+
+Instagram may require sign-in or limit list access; comparison appears only after both lists have been read completely. Results are compared locally and kept only in memory until you leave the profile or close its source tab.
+
 ## Features
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes

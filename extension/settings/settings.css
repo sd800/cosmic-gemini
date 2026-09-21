@@ -124,6 +124,10 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .satellite-category-heading { display: flex; margin: 4px 2px -6px; color: var(--muted); font-size: 16px; font-weight: 700; line-height: 22px; align-items: center; gap: 12px; }
 .satellite-category-heading::after { height: 1px; flex: 1 1 auto; background: var(--line); content: ''; }
 .satellite-card .section-heading > div:first-child { min-width: 0; }
+.satellite-title { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; color: var(--text); }
+.satellite-title h1 { margin: 0; color: currentColor; }
+.satellite-feature-icon { --icon-surface: var(--surface-raised); display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: var(--surface-raised); color: var(--blue); }
+.satellite-feature-icon svg { width: 19px; height: 19px; }
 .satellite-card .section-heading p { max-width: 620px; }
 .satellite-card .section-heading .satellite-description-paragraph + .satellite-description-paragraph { margin-top: 10px; }
 .satellite-card .section-heading .satellite-experimental-note { margin-top: 7px; }

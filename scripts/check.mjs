@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.1');
+assert.equal(manifest.version, '8.13.2');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -212,9 +212,15 @@ assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCapt
 assert.match(satellitesSettings, /data-feature-id="accessControl" data-list-section="blockedDomains"[\s\S]*id="accessControlEnabled"[\s\S]*id="accessControlOptions"/);
 assert.match(settingsSource, /normalizeAccessControlDomain[\s\S]*featureId: 'accessControl'/);
 assert.match(settingsStyle, /\.access-control-rule-scope \{[^}]*color: var\(--muted\)[^}]*font-size: 12px/);
-assert.match(readme, /### Satellites - General features[\s\S]*#### Access Control[\s\S]*### Satellites - Site-specific features/);
+assert.match(readme, /### Satellites – General features[\s\S]*#### Access Control[\s\S]*### Satellites – Site-specific features/);
 assert.match(readmeZh, /### Satellites - 通用功能[\s\S]*#### Access Control[\s\S]*### Satellites - 网站专用功能/);
 assert.match(settingsStyle, /\.satellite-category-heading \{[^}]*font-size: 16px[^}]*font-weight: 700[^}]*\}[\s\S]*\.satellite-category-heading::after/);
+for (const iconName of ['mailtoCapture', 'clipboardProtect', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin']) {
+  assert.match(satellitesSettings, new RegExp(`class="satellite-feature-icon" data-section-icon="${iconName}"`));
+  assert.match(sharedUi, new RegExp(`\\b${iconName}:`));
+  assert.match(settingsPreload, new RegExp(`\\b${iconName}:`));
+}
+assert.doesNotMatch(satellitesSettings, /satellite-feature-icon[^>]+data-section-icon="(?:chineseResponseClaude|followListInstagram)"/);
 assert.match(satellitesSettings, /chineseResponseClaudeDescription[\s\S]*class="satellite-inline-checkbox"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*claudeBrowserIdentityHelp[\s\S]*chineseResponseClaudeEnabled/);
 assert.doesNotMatch(satellitesSettings, /claudeBrowserIdentityHeading|class="switch"><input id="claudeBrowserIdentityEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);

@@ -60,7 +60,7 @@ Adjust webpage colors without changing their content, layout, or controls. Page 
 
 Page Display has one master switch. Turning it off restores affected pages and makes its child settings unavailable without discarding their saved selections.
 
-### Satellites - General features
+### Satellites – General features
 
 Satellites contains optional tools that do not need permanent rows in the popup.
 
@@ -90,7 +90,7 @@ Each supported site has its own narrowly scoped policy. These policies target on
 
 The current managed-site choices cover Tencent News and Zhihu.
 
-### Satellites - Site-specific features
+### Satellites – Site-specific features
 
 #### XHS Image Dark Mode
 

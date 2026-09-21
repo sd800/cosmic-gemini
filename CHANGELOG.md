@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.2 — 2026-09-21
+
+- Added distinct feature icons to the Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Ad Marshal, XHS Image Dark Mode, and Bili Daily Login cards in Satellites, while keeping the two remaining site-specific cards text-only for now.
+- Refined the English README’s Satellites group headings with en dashes.
+
 ## 8.13.1 — 2026-09-21
 
 - Added Access Control under Standing Province, with a master switch and local domain rules that block a listed domain and all of its subdomains after the matching page is reloaded or opened again. Clipboard Protect now follows Mailto Capture, and both README editions organize Satellites into General features and Site-specific features.

@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 8.13.2 — 2026-09-21
+
+- 为 Satellites 中的 Mailto Capture、Clipboard Protect、Access Control、Website Knowledge Control、Ad Marshal、XHS Image Dark Mode 和 Bili Daily Login 卡片添加各自的功能图标；其余两项网站专用功能暂时保持纯文字标题。
+- 将英文 README 中的 Satellites 分组标题改用半字线。
+
 ## 8.13.1 — 2026-09-21
 
 - 在 Standing Province 下新增 Access Control，通过总开关和本地域名规则阻止访问所列域名及其所有子域名；规则在匹配页面刷新或再次打开后生效。Clipboard Protect 现紧随 Mailto Capture，中英文 README 也将 Satellites 整理为“通用功能”和“网站专用功能”。

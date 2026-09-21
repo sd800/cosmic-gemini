@@ -148,21 +148,21 @@ export function viewFor(featureId) {
       <h2 class="satellite-category-heading" data-i18n="satellitesGeneralFeatures"></h2>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="mailtoCaptureName"></h1><p data-i18n="mailtoCaptureDescription"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="mailtoCapture" aria-hidden="true"></span><h1 data-i18n="mailtoCaptureName"></h1></div><p data-i18n="mailtoCaptureDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="mailtoCaptureEnabled" type="checkbox" checked><span></span><b class="sr-only">Mailto Capture</b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="mailtoCapturePrivacy"></p></div>
       </section>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="clipboardProtectName"></h1><p data-i18n="clipboardProtectDescription"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="clipboardProtect" aria-hidden="true"></span><h1 data-i18n="clipboardProtectName"></h1></div><p data-i18n="clipboardProtectDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="clipboardProtectEnabled" type="checkbox"><span></span><b class="sr-only">Clipboard Protect</b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="clipboardProtectPrivacy"></p></div>
       </section>
       <section class="card satellite-card access-control-card" data-feature-id="accessControl" data-list-section="blockedDomains" data-empty-key="accessControlEmptyDomains">
         <div class="section-heading">
-          <div><h1 data-i18n="accessControlName"></h1><p data-i18n="accessControlDescription"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="accessControl" aria-hidden="true"></span><h1 data-i18n="accessControlName"></h1></div><p data-i18n="accessControlDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="accessControlEnabled" type="checkbox"><span></span><b class="sr-only">Access Control</b></label></div>
         </div>
         <fieldset id="accessControlOptions" class="access-control-options" disabled>
@@ -178,7 +178,7 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card knowledge-card">
         <div class="section-heading">
-          <div><h1 data-i18n="websiteKnowledgeName"></h1><p data-i18n="websiteKnowledgeDescription"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="websiteKnowledgeControl" aria-hidden="true"></span><h1 data-i18n="websiteKnowledgeName"></h1></div><p data-i18n="websiteKnowledgeDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="websiteKnowledgeEnabled" type="checkbox"><span></span><b class="sr-only">Website Knowledge Control</b></label></div>
         </div>
         <fieldset id="websiteKnowledgeOptions" class="knowledge-options" disabled>
@@ -199,7 +199,7 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="adMarshal" aria-hidden="true"></span><h1 data-i18n="adMarshalName"></h1></div><p data-i18n="adMarshalDescription"></p></div>
         </div>
         <fieldset class="ad-marshal-sites">
           <legend data-i18n="adMarshalManagedSitesHeading"></legend>
@@ -213,7 +213,7 @@ export function viewFor(featureId) {
       <h2 class="satellite-category-heading" data-i18n="satellitesSiteSpecificFeatures"></h2>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">
-          <div><h1 data-i18n="xhsImageDarkModeSettingsName"></h1><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeAnalysisDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeCommentImagesDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeControlsDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsImageDarkMode" aria-hidden="true"></span><h1 data-i18n="xhsImageDarkModeSettingsName"></h1></div><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeAnalysisDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeCommentImagesDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeControlsDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
           <div class="satellite-control"><label class="switch"><input id="xhsImageDarkModeEnabled" type="checkbox"><span></span><b class="sr-only">XHS Image Dark Mode</b></label></div>
         </div>
         <div class="preference-list satellite-preferences">
@@ -225,7 +225,7 @@ export function viewFor(featureId) {
       </section>
       <section class="card satellite-card">
         <div class="section-heading">
-          <div><h1 data-i18n="biliDailyLoginName"></h1><p data-i18n="biliDailyLoginDescription"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="biliDailyLogin" aria-hidden="true"></span><h1 data-i18n="biliDailyLoginName"></h1></div><p data-i18n="biliDailyLoginDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="biliDailyLoginPrivacy"></p></div>

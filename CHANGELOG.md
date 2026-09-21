@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.13 — 2026-09-21
+
+- Added automatic wildcard completion for leading-dot domains and multi-label entries from the shared `etld` reference in website-rule inputs, while excluding single-label top-level domains.
+
 ## 8.13.12 — 2026-09-21
 
 - Refined the internal classification of selected shared eTLD reference rules.

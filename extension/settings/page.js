@@ -1,6 +1,7 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress, normalizeAccessControlDomain, normalizeRule } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
+import { normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
@@ -699,7 +700,7 @@ function bindView() {
         return;
       }
       let rule;
-      try { rule = normalizeRule(input.value); }
+      try { rule = normalizeWebsiteRuleInput(input.value); }
       catch { message.textContent = t('invalidRule'); return; }
       void update(behaviorCard, async () => {
         await savePreference(featureId, { type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value });
@@ -741,9 +742,10 @@ function bindView() {
       }
       let rule;
       try {
+        const normalizedInput = normalizeWebsiteRuleInput(input.value);
         rule = sectionFeatureId === 'accessControl'
-          ? normalizeAccessControlDomain(input.value)
-          : normalizeRule(input.value);
+          ? normalizeAccessControlDomain(normalizedInput)
+          : normalizedInput;
       } catch {
         message.textContent = t(sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
         return;

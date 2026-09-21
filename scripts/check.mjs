@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.12');
+assert.equal(manifest.version, '8.13.13');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -214,6 +214,8 @@ assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disa
 assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*adMarshalName[\s\S]*id="adMarshalTencentNews"[\s\S]*satellitesSiteSpecificFeatures[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"/);
 assert.match(satellitesSettings, /data-feature-id="accessControl" data-list-section="blockedDomains"[\s\S]*id="accessControlEnabled"[\s\S]*id="accessControlOptions"/);
 assert.match(settingsSource, /normalizeAccessControlDomain[\s\S]*featureId: 'accessControl'/);
+assert.match(settingsSource, /normalizeWebsiteRuleInput\(input\.value\)/,
+  'Settings website-rule forms must apply shared input completion.');
 assert.match(settingsStyle, /\.access-control-rule-scope \{[^}]*color: var\(--muted\)[^}]*font-size: 12px/);
 assert.match(readme, /### Satellites – General features[\s\S]*#### Access Control[\s\S]*### Satellites – Site-specific features/);
 assert.match(readmeZh, /### Satellites - 通用功能[\s\S]*#### Access Control[\s\S]*### Satellites - 网站专用功能/);

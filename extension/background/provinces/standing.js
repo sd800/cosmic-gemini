@@ -112,31 +112,32 @@ export function createStandingProvince(platform) {
       return settings.noAutoplay;
     }
     if (message.type === 'UI_SET_AD_MARSHAL_SITE') return governed.handleMessage(message, context);
-    if (message.type === 'UI_ALPHABETIZE_RULES') {
+    if (message.type === 'UI_ALPHABETIZE_RULES' || message.type === 'UI_CLEAR_RULES') {
       if (!String(context.sender.url || '').startsWith(chrome.runtime.getURL('settings/'))) {
-        throw new Error('Domain rules can be reordered only from Settings.');
+        throw new Error('Domain rules can be managed only from Settings.');
       }
+      const revise = rules => message.type === 'UI_CLEAR_RULES' ? [] : alphabetized(rules);
       if (message.listName === 'behaviorRules'
         && [FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(governed.id)) {
         const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
           ...feature,
-          inactiveRules: alphabetized(feature.inactiveRules),
-          standardRules: alphabetized(feature.standardRules),
-          enhancedRules: alphabetized(feature.enhancedRules)
+          inactiveRules: revise(feature.inactiveRules),
+          standardRules: revise(feature.standardRules),
+          enhancedRules: revise(feature.enhancedRules)
         })));
         return settings[governed.id];
       }
       if (governed.id === FEATURE_IDS.NATIVE_SCROLL && message.listName === 'whitelistRules') {
         const settings = await platform.mutateSettings(current => ({
           ...current,
-          nsna: { ...current.nsna, whitelistRules: alphabetized(current.nsna.whitelistRules) }
+          nsna: { ...current.nsna, whitelistRules: revise(current.nsna.whitelistRules) }
         }));
         return settings.nsna;
       }
       if (governed.id === FEATURE_IDS.NO_AUTOPLAY && message.listName === 'permanentAudioAllowRules') {
         const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
           ...feature,
-          permanentAudioAllowRules: alphabetized(feature.permanentAudioAllowRules)
+          permanentAudioAllowRules: revise(feature.permanentAudioAllowRules)
         })));
         return settings[governed.id];
       }

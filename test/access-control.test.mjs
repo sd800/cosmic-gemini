@@ -90,6 +90,13 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
     'docs.example.com', 'example.com', 'media.example', 'a-later.example'
   ]);
 
+  const cleared = await product.handleMessage({
+    type: 'UI_CLEAR_RULES', listName: 'blockedDomains'
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  assert.deepEqual(cleared.blockedDomains, []);
+  await product.reconcile();
+  assert.deepEqual(installed, []);
+
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false }, {
     sender: { url: 'chrome-extension://test/settings/satellites.html' }
   });

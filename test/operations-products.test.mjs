@@ -346,6 +346,29 @@ test('user-maintained domain lists retain addition order without timestamps', as
   assert.deepEqual(settings.nsna.whitelistRules, ['a.example', 'm.example', 'z.example', later]);
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, ['a.example', 'm.example', 'z.example', later]);
   assert.deepEqual(settings.anyCopy.siteRules, ['a.example', 'm.example', 'z.example', later]);
+
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_SET_BEHAVIOR_RULE', rule: 'inactive.example', behavior: 'inactive'
+  }, context);
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_SET_BEHAVIOR_RULE', rule: 'enhanced.example', behavior: 'enhanced'
+  }, context);
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_CLEAR_RULES', listName: 'behaviorRules'
+  }, context);
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_CLEAR_RULES', listName: 'whitelistRules'
+  }, context);
+  await standing.handleMessage('noAutoplay', {
+    type: 'UI_CLEAR_RULES', listName: 'permanentAudioAllowRules'
+  }, context);
+  await anyCopy.handleMessage({ type: 'UI_CLEAR_RULES', listName: 'siteRules' }, context);
+  assert.deepEqual(settings.nativeScroll.inactiveRules, []);
+  assert.deepEqual(settings.nativeScroll.standardRules, []);
+  assert.deepEqual(settings.nativeScroll.enhancedRules, []);
+  assert.deepEqual(settings.nsna.whitelistRules, []);
+  assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
+  assert.deepEqual(settings.anyCopy.siteRules, []);
 });
 
 test('shared whitelist edits work from every Settings entry after in-page navigation', async () => {

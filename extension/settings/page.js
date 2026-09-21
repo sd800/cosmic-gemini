@@ -447,6 +447,10 @@ function isRuleOrderReset(value) {
   return String(value || '').trim().toLowerCase() === 'reset';
 }
 
+function isRuleListClean(value) {
+  return String(value || '').trim().toLowerCase() === 'clean';
+}
+
 async function update(section, task, controls = [], errorKey = 'settingsSaveFailed') {
   const actionable = controls.filter(Boolean);
   if (actionable.some(control => pendingControls.has(control))) return;
@@ -679,10 +683,20 @@ function bindView() {
       });
       if (clearInput) input.value = '';
     }, [input, select, submit], 'ruleSaveFailed');
+    const clearRules = () => update(behaviorCard, async () => {
+      await savePreference(featureId, {
+        type: 'UI_CLEAR_RULES', featureId, listName: 'behaviorRules'
+      });
+      input.value = '';
+    }, [input, select, submit], 'ruleSaveFailed');
     bindEmptyRuleSort(submit, input, alphabetize);
     form.addEventListener('submit', event => {
       event.preventDefault();
       if (isRuleOrderReset(input.value)) { void alphabetize(true); return; }
+      if (isRuleListClean(input.value)) {
+        if (confirm(t('clearDomainRulesConfirm'))) void clearRules();
+        return;
+      }
       let rule;
       try { rule = normalizeRule(input.value); }
       catch { message.textContent = t('invalidRule'); return; }
@@ -708,10 +722,22 @@ function bindView() {
       });
       if (clearInput) input.value = '';
     }, [input, submit], 'ruleSaveFailed');
+    const clearRules = () => update(section, async () => {
+      await savePreference(sectionFeatureId, {
+        type: 'UI_CLEAR_RULES',
+        featureId: sectionFeatureId === 'nsna' ? 'nativeScroll' : sectionFeatureId,
+        listName
+      });
+      input.value = '';
+    }, [input, submit], 'ruleSaveFailed');
     bindEmptyRuleSort(submit, input, alphabetize);
     form.addEventListener('submit', event => {
       event.preventDefault();
       if (isRuleOrderReset(input.value)) { void alphabetize(true); return; }
+      if (isRuleListClean(input.value)) {
+        if (confirm(t('clearDomainRulesConfirm'))) void clearRules();
+        return;
+      }
       let rule;
       try {
         rule = sectionFeatureId === 'accessControl'

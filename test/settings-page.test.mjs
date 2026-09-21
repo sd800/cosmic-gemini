@@ -147,7 +147,7 @@ function controller(feature = 'satellites') {
     .replace(/^import .*;\n/gm, '');
   vm.runInContext(source.slice(0, source.indexOf("\nfor (const link of document.querySelectorAll('[data-feature-link]')) {")) + `
     globalThis.controller = { render, renderList, renderBehaviorList, update, savePreference,
-      bindEmptyRuleSort, isRuleOrderReset,
+      bindEmptyRuleSort, isRuleOrderReset, isRuleListClean,
       async hydrate(snapshot) { await settingsState.read(async () => snapshot); states = settingsState.value; },
       pendingControls, listSignatures };
   `, context);
@@ -182,6 +182,14 @@ test('the reset rule command accepts Add or Enter input without becoming a domai
   assert.equal(api.isRuleOrderReset('  RESET  '), true);
   assert.equal(api.isRuleOrderReset('reset.example'), false);
   assert.equal(api.isRuleOrderReset(''), false);
+});
+
+test('the clean rule command is reserved for confirmed card clearing', () => {
+  const { api } = controller();
+  assert.equal(api.isRuleListClean('clean'), true);
+  assert.equal(api.isRuleListClean('  CLEAN  '), true);
+  assert.equal(api.isRuleListClean('clean.example'), false);
+  assert.equal(api.isRuleListClean(''), false);
 });
 
 test('unchanged settings refreshes preserve rule controls and pending removals', async () => {

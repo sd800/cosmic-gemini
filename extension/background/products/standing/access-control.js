@@ -95,13 +95,15 @@ export function createAccessControlProduct(platform) {
         void reconcile(settings).catch(() => false);
         return settings.accessControl;
       }
-      if (message.type === 'UI_ALPHABETIZE_RULES' && message.listName === 'blockedDomains') {
+      if (['UI_ALPHABETIZE_RULES', 'UI_CLEAR_RULES'].includes(message.type)
+        && message.listName === 'blockedDomains') {
         const settings = await platform.mutateSettings(current => ({
           ...current,
           accessControl: {
             ...current.accessControl,
-            blockedDomains: [...(current.accessControl.blockedDomains || [])]
-              .sort((a, b) => a.localeCompare(b))
+            blockedDomains: message.type === 'UI_CLEAR_RULES'
+              ? []
+              : [...(current.accessControl.blockedDomains || [])].sort((a, b) => a.localeCompare(b))
           }
         }));
         void reconcile(settings).catch(() => false);

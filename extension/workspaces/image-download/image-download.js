@@ -34,8 +34,6 @@ let scanActionGeneration = 0;
 let downloadPending = false;
 let workspaceClosing = false;
 const pendingControls = new WeakSet();
-// Preserve the presentation hook while recommendation labeling is not shown in the UI.
-const recommendationPresentationEnabled = false;
 
 function setWorkspaceVisible(visible) {
   if (workspaceClosing) return;
@@ -261,14 +259,6 @@ function createCard(group, index) {
     scheduleMetadataFlush();
   });
   preview.append(image, checkbox);
-  if (recommendationPresentationEnabled
-    && candidate.id === group.recommended.id
-    && !failedCandidates.has(candidate.id)) {
-    const badge = document.createElement('span');
-    badge.className = 'recommended-badge';
-    badge.textContent = t('recommendedOriginal');
-    preview.append(badge);
-  }
 
   const body = document.createElement('div');
   body.className = 'image-card-body';
@@ -286,9 +276,7 @@ function createCard(group, index) {
   for (const item of group.candidates) {
     const option = document.createElement('option');
     option.value = item.id;
-    option.textContent = recommendationPresentationEnabled && item.id === group.recommended.id
-      ? `${t('recommendedOriginal')} · ${candidateLabel(item)}`
-      : candidateLabel(item) || t('alternateImage');
+    option.textContent = candidateLabel(item) || t('alternateImage');
     variants.append(option);
   }
   variants.value = candidate.id;

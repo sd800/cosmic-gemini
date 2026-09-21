@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.25 — 2026-09-21
+
+- Removed frozen popup presentation code, including the permanently hidden main wordmark and the inactive Image Download recommendation-label hook, and deleted unused shared icon definitions. The visible Video Download panel identity remains unchanged.
+
 ## 8.12.23 — 2026-09-20
 
 - Changed Instagram unfollow actions to open Instagram’s native confirmation without choosing either option. After the user acts, or when the account was already unfollowed elsewhere, a fresh Following search must confirm the account is absent before the side panel marks it as Unfollowed.

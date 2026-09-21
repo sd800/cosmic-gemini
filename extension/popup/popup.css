@@ -1,10 +1,7 @@
 body { width: 152px; }
 body[data-view="video"] { width: 386px; }
 .popup-shell { display: grid; gap: 10px; padding: 12px; }
-.identity { display: grid; grid-template-columns: 32px minmax(0, 1fr) 34px; align-items: center; gap: 10px; min-width: 0; }
-.identity[hidden] { display: none; }
-.identity strong { overflow: hidden; font-size: 15px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
-html[lang="en-US"] .identity strong, html[lang="en-US"] .video-panel-wordmark strong { letter-spacing: .018em; }
+html[lang="en-US"] .video-panel-wordmark strong { letter-spacing: .018em; }
 .feature-list { display: grid; gap: 4px; }
 .contextual-feature-list[hidden] { display: none; }
 .contextual-feature-list { display: grid; gap: 4px; }

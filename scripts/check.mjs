@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.12.23');
+assert.equal(manifest.version, '8.12.25');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -169,6 +169,7 @@ for (const [name, featureId] of Object.entries({
 
 const popupHtml = await source('popup', 'index.html');
 const popupSource = await source('popup', 'popup.js');
+const sharedUi = await source('shared', 'ui.js');
 assert.match(popupHtml, /id="nativeScroll-status"[\s\S]*id="nativeScroll-enhanced"[\s\S]*id="noAutoplay-status"[\s\S]*id="noAutoplay-enhanced"[\s\S]*id="anyCopy-status"[\s\S]*id="anyCopyEnhanced-status"[\s\S]*id="imageDownload-status"[\s\S]*id="videoDownload-status"[\s\S]*id="reduceWhitePoint-status"[\s\S]*id="greyscale-status"[\s\S]*id="all-settings"/);
 assert.equal([...popupHtml.matchAll(/class="feature-row/g)].length, 5);
 assert.match(popupSource, /type: 'UI_GET_ACTIVE_PAGE_STATE'/);
@@ -604,7 +605,13 @@ assert.match(satellites, /if \(ownsDailySchedule\) return settings\.satellites/)
 assert.match(settingsSource, /disabledByDefaultInIncognito/);
 assert.match(popupStyle, /#video-stop, #video-stop:hover \{ background: transparent; color: var\(--danger\); \}/);
 assert.match(imageDownloadStyle, /#stop, #stop:hover \{ background: transparent; color: var\(--danger\); \}/);
-assert.match(imageWorkspace, /const recommendationPresentationEnabled = false/);
+assert.doesNotMatch(popupHtml, /class="identity"\s+hidden/);
+assert.doesNotMatch(popupStyle, /^\.identity(?:\s|\[|\{|\.)/m);
+assert.doesNotMatch(imageWorkspace, /recommendationPresentationEnabled|recommendedOriginal|recommended-badge/);
+assert.doesNotMatch(imageDownloadStyle, /\.recommended-badge\b/);
+for (const removedIcon of ['power', 'siteAdd', 'siteRemove', 'siteCovered', 'settings']) {
+  assert.doesNotMatch(sharedUi, new RegExp(`\\n\\s*${removedIcon}:`));
+}
 assert.match(settingsSource, /helpPanel\.hidden = false/);
 assert.doesNotMatch(settingsSource, /helpPanel\.hidden = incognitoContext/);
 

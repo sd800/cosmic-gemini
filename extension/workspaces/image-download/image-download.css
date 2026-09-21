@@ -49,7 +49,6 @@ body { min-width: 760px; min-height: 100vh; background: var(--surface-raised); }
 .image-preview-failed img { display: none; }
 .image-preview-failed::after { content: "×"; color: var(--muted); font-size: 28px; font-weight: 300; }
 .image-select { position: absolute; z-index: 2; top: 10px; left: 10px; width: 18px; height: 18px; accent-color: var(--blue); }
-.recommended-badge { position: absolute; z-index: 2; right: 9px; bottom: 9px; padding: 5px 7px; border-radius: 7px; background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--success); box-shadow: 0 1px 4px color-mix(in srgb, black 18%, transparent); font-size: 9px; font-weight: 750; backdrop-filter: blur(8px); }
 .image-card-body { display: grid; padding: 10px; gap: 8px; }
 .image-card-title { overflow: hidden; font-size: 12px; font-weight: 690; text-overflow: ellipsis; white-space: nowrap; }
 .image-metadata { color: var(--muted); font-size: 10px; line-height: 1.45; }

@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.10');
+assert.equal(manifest.version, '8.13.11');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -217,6 +217,10 @@ assert.match(settingsSource, /normalizeAccessControlDomain[\s\S]*featureId: 'acc
 assert.match(settingsStyle, /\.access-control-rule-scope \{[^}]*color: var\(--muted\)[^}]*font-size: 12px/);
 assert.match(readme, /### Satellites – General features[\s\S]*#### Access Control[\s\S]*### Satellites – Site-specific features/);
 assert.match(readmeZh, /### Satellites - 通用功能[\s\S]*#### Access Control[\s\S]*### Satellites - 网站专用功能/);
+assert.doesNotMatch(readme, /PSL PRIVATE DOMAINS-sector geographic eTLD rules/i,
+  'README must not expose the internal geographic eTLD category.');
+assert.doesNotMatch(readmeZh, /PSL PRIVATE DOMAINS-sector geographic eTLD rules/i,
+  'Chinese README must not expose the internal geographic eTLD category.');
 assert.match(settingsStyle, /\.satellite-category-heading \{[^}]*font-size: 16px[^}]*font-weight: 700[^}]*\}[\s\S]*\.satellite-category-heading::after/);
 for (const iconName of ['mailtoCapture', 'clipboardProtect', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin']) {
   assert.match(satellitesSettings, new RegExp(`class="satellite-feature-icon" data-section-icon="${iconName}"`));

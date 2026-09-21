@@ -8,8 +8,9 @@ export const etldMetadata = Object.freeze({
   "commit": "645b36c9a51ff0b3718df0ba02f6570aa6921632",
   "sha256": "aea6abb04edb8c7b4703aab645c28e1ade40a703f72d8608d7d6320b3413fc37",
   "icannRuleCount": 6950,
-  "privateExceptionRuleCount": 103,
-  "ruleCount": 7053,
+  "privateExceptionRuleCount": 105,
+  "pslPrivateDomainsSectorGeographicEtldRuleCount": 10,
+  "ruleCount": 7055,
   "privateGroups": [
     "CentralNic",
     "Cloudflare, Inc.",
@@ -17,10 +18,6 @@ export const etldMetadata = Object.freeze({
     "EU.org",
     "GitHub, Inc.",
     "GitLab, Inc."
-  ],
-  "geographicPrivateTlds": [
-    "krd",
-    "scot"
   ]
 });
 
@@ -7072,6 +7069,8 @@ export const etld = Object.freeze([
   "gitlab.io",
   "co.krd",
   "edu.krd",
+  "user.party.eus",
+  "ddns.berlin",
   "co.scot",
   "me.scot",
   "org.scot",

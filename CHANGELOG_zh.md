@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.13.11 — 2026-09-21
+
+- 对共享列表中的 PSL PRIVATE DOMAINS-sector geographic eTLD rules 完成通用化与覆盖补全，且暂不接入任何产品决策。
+
 ## 8.13.10 — 2026-09-21
 
 - 新增共享的 `etld` 参考列表，取自当前 Public Suffix List 的 ICANN 区段，并保留部分指定的 PRIVATE 规则，供后续功能使用。

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.11 — 2026-09-21
+
+- Generalized and completed the shared coverage of PSL PRIVATE DOMAINS-sector geographic eTLD rules without connecting the reference to a product decision.
+
 ## 8.13.10 — 2026-09-21
 
 - Added a shared `etld` reference from the current Public Suffix List ICANN section, together with selected PRIVATE rules reserved for future features.

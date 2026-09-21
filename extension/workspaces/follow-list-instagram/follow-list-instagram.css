@@ -44,10 +44,6 @@ p { line-height: 1.6; font-size: 13px; }
 .result-actions button { font-size: 12px; }
 .result-actions button:last-child { color: var(--danger); }
 .note { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 22px; }
-dialog { border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-width: calc(100vw - 40px); background: var(--surface); color: var(--text); }
-dialog::backdrop { background: #0008; }
-dialog h2 { margin: 0; font-size: 18px; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
 [hidden] { display: none !important; }
 
 @media (prefers-color-scheme: dark) { body { --danger: #ffb4ab; } }

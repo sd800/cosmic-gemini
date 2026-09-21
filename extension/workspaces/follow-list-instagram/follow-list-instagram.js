@@ -20,16 +20,16 @@ let writing = false;
 let category = 'notFollowingBack';
 let page = 0;
 let sourceUsername = '';
-let target = null;
 let port;
 let heartbeat;
 let closing = false;
 let dismissedRun = '';
-const uncertain = new Set();
+let pollingUnfollow = false;
 const PAGE_SIZE = 60;
 const keys = { notFollowingBack: 'igNotFollowingBack', mutual: 'igMutual', followersOnly: 'igFollowersOnly' };
 const details = { notFollowingBack: 'igNotFollowingBackHelp', mutual: 'igMutualHelp', followersOnly: 'igFollowersOnlyHelp' };
 const message = (type, extra = {}) => send({ type, featureId: 'followListInstagram', tabId, runId: snapshot?.runId, ...extra });
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 function status(key, values = {}, error = false) {
   $('#status').textContent = t(key, values);
   $('#status').dataset.error = String(error);
@@ -100,14 +100,29 @@ function render() {
     row.append(link);
     if (snapshot.ownProfile && category === 'notFollowingBack') {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'danger';
-      button.textContent = t('igUnfollow'); button.disabled = uncertain.has(account.id);
+      const unfollowed = snapshot.unfollowedIds?.includes(account.id) === true;
+      const pending = snapshot.pendingUnfollowId === account.id;
+      button.textContent = t(unfollowed ? 'igUnfollowedAction' : 'igUnfollow');
+      button.disabled = unfollowed || pending;
       button.setAttribute('aria-disabled', String(writing || button.disabled));
       button.setAttribute('aria-label', t('igUnfollowAccount', { username: account.username }));
-      button.addEventListener('click', () => {
-        if (writing) return;
-        target = account;
-        $('#confirmText').textContent = t('igConfirmUnfollow', { username: account.username });
-        $('#confirm').showModal();
+      button.addEventListener('click', async () => {
+        if (writing || button.disabled) return;
+        writing = true;
+        const ticket = generation;
+        render(); status('igOpeningUnfollowConfirmation', { username: account.username });
+        try {
+          const result = await message('UI_IG_OPEN_UNFOLLOW_CONFIRMATION', { targetId: account.id });
+          if (ticket !== generation) return;
+          snapshot = result.state;
+          if (result.result === 'unfollowed') status('igUnfollowVerified', { username: account.username });
+          else {
+            status('igConfirmOnInstagram', { username: account.username });
+            void pollUnfollowConfirmation();
+          }
+        } catch (error) {
+          if (ticket === generation) errorStatus(error);
+        } finally { writing = false; if (ticket === generation) render(); }
       });
       row.append(button);
     }
@@ -119,21 +134,58 @@ function render() {
   $('#previous').disabled = page === 0;
   $('#next').disabled = page + 1 === pages;
 }
+function accountFor(id) {
+  if (!id || !snapshot?.groups) return null;
+  for (const accounts of Object.values(snapshot.groups)) {
+    const account = accounts.find(value => value.id === id);
+    if (account) return account;
+  }
+  return null;
+}
+async function pollUnfollowConfirmation() {
+  if (pollingUnfollow || !snapshot?.pendingUnfollowId) return;
+  pollingUnfollow = true;
+  const ticket = generation;
+  try {
+    while (ticket === generation && snapshot?.pendingUnfollowId) {
+      const targetId = snapshot.pendingUnfollowId;
+      const account = accountFor(targetId);
+      await pause(1000);
+      if (ticket !== generation || snapshot?.pendingUnfollowId !== targetId) break;
+      const result = await message('UI_IG_CHECK_UNFOLLOW_CONFIRMATION', { targetId });
+      if (ticket !== generation) break;
+      snapshot = result.state;
+      render();
+      if (result.result === 'waiting') status('igConfirmOnInstagram', { username: account?.username || targetId });
+      else if (result.result === 'unfollowed') status('igUnfollowVerified', { username: account?.username || targetId });
+      else status('igUnfollowUnchanged', { username: account?.username || targetId });
+    }
+  } catch (error) {
+    if (ticket === generation) errorStatus(error);
+  } finally {
+    pollingUnfollow = false;
+    if (ticket === generation) render();
+  }
+}
 function receive(value) {
   if (!value || value.runId === dismissedRun || (snapshot?.runId === value.runId && snapshot.revision > value.revision)) return;
   snapshot = value;
   loading = value.status === 'loading';
   if (loading) status('igProgress');
+  else if (value.status === 'complete' && value.pendingUnfollowId) {
+    status('igConfirmOnInstagram', { username: accountFor(value.pendingUnfollowId)?.username || value.pendingUnfollowId });
+  }
   else if (value.status === 'complete') status('igComplete');
   else if (value.status === 'error') errorStatus(new Error(value.error));
   else status('igStopped');
   render();
+  if (!writing && !attaching && value.pendingUnfollowId) void pollUnfollowConfirmation();
 }
 let attaching = false;
 async function begin(restart = true) {
   if (loading || writing || attaching) return;
   const ticket = ++generation;
-  snapshot = null; uncertain.clear(); page = 0;
+  snapshot = null; page = 0;
   dismissedRun = '';
   loading = true; attaching = true; render(); status('igReadingProfile');
   try {
@@ -145,14 +197,16 @@ async function begin(restart = true) {
     const result = await message(restart ? 'UI_IG_BEGIN' : 'UI_IG_ATTACH');
     if (ticket === generation) receive(result);
   } catch (error) { if (ticket === generation) { loading = false; errorStatus(error); render(); } }
-  finally { attaching = false; }
+  finally {
+    attaching = false;
+    if (ticket === generation && snapshot?.pendingUnfollowId) void pollUnfollowConfirmation();
+  }
 }
 function stop(key = 'igStopped', notify = true) {
   generation += 1; loading = false;
   const runId = snapshot?.runId;
   dismissedRun = runId || '';
   snapshot = null;
-  if ($('#confirm').open) $('#confirm').close('cancel');
   status(key); render();
   if (notify) void message('UI_IG_STOP', { runId }).catch(() => {});
 }
@@ -163,7 +217,7 @@ async function clearResults(type, key) {
   try {
     await message(type);
     if (ticket !== generation) return;
-    snapshot = null; uncertain.clear(); page = 0; dismissedRun = '';
+    snapshot = null; page = 0; dismissedRun = '';
     status(key);
   } catch (error) { if (ticket === generation) errorStatus(error); }
   finally { writing = false; if (ticket === generation) render(); }
@@ -175,19 +229,6 @@ $('#clearAll').addEventListener('click', () => void clearResults('UI_IG_CLEAR_AL
 $('#search').addEventListener('input', () => { page = 0; render(); });
 $('#previous').addEventListener('click', () => { page -= 1; render(); });
 $('#next').addEventListener('click', () => { page += 1; render(); });
-$('#confirm').addEventListener('close', async () => {
-  if ($('#confirm').returnValue !== 'confirm' || !target || writing || snapshot?.status !== 'complete') return;
-  const account = target; target = null; writing = true;
-  const ticket = generation;
-  render(); status('igUnfollowing', { username: account.username });
-  try {
-    const result = await message('UI_IG_UNFOLLOW', { targetId: account.id, confirmed: true });
-    if (ticket === generation) { snapshot = result; status('igUnfollowed', { username: account.username }); }
-  } catch (error) {
-    if (error?.message === 'igUnfollowUncertain') uncertain.add(account.id);
-    if (ticket === generation) errorStatus(error);
-  } finally { writing = false; if (ticket === generation) render(); }
-});
 chrome.tabs.onUpdated.addListener((id, change) => {
   if (id === tabId && (change.status === 'loading' || (change.url && instagramRoute(change.url).username !== sourceUsername))) stop('igPageChanged');
 });

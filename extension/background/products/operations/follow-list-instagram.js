@@ -115,7 +115,8 @@ export function createFollowListInstagramProduct(platform) {
       runId: session.runId, revision: session.revision, profile: session.profile, status: session.status,
       error: session.error || '', ownProfile: session.ownerId === session.profile?.id,
       counts: { following: session.following.size, followers: session.followers.size },
-      phase: session.phase,
+      phase: session.phase, pendingUnfollowId: session.pendingUnfollowId || '',
+      unfollowedIds: [...(session.unfollowedIds || [])],
       groups: session.status === 'complete'
         ? compareInstagramLists([...session.following.values()], [...session.followers.values()]) : null
     };
@@ -164,7 +165,8 @@ export function createFollowListInstagramProduct(platform) {
       if (pending.cancelled) throw new Error('igStopped');
       const session = { tabId, username: route.username, runId: crypto.randomUUID(),
         revision: 0, status: 'loading', phase: 'following', following: new Map(), followers: new Map(),
-        lastRequest: 0, stopped: false, pages: 0, incompleteRetries: 0 };
+        lastRequest: 0, stopped: false, pages: 0, incompleteRetries: 0,
+        pendingUnfollowId: '', unfollowedIds: new Set() };
       sessions.set(tabId, session);
       try {
         const result = await request(session, { operation: 'profile' });
@@ -306,25 +308,49 @@ export function createFollowListInstagramProduct(platform) {
           await clearAllCachedResults();
           return { cleared: true };
         }
-        if (message.type === 'UI_IG_UNFOLLOW') {
-          if (session.status !== 'complete' || session.stopped || session.ownerId !== session.profile.id
-            || message.confirmed !== true) throw new Error('igOwnProfileOnly');
+        if (message.type === 'UI_IG_OPEN_UNFOLLOW_CONFIRMATION') {
+          if (session.status !== 'complete' || session.stopped || session.ownerId !== session.profile.id) {
+            throw new Error('igOwnProfileOnly');
+          }
           const target = session.following.get(String(message.targetId));
           if (!target || session.followers.has(target.id)) throw new Error('igRelationshipChanged');
-          let result;
-          if (session.uncertain?.has(target.id)) throw new Error('igUnfollowUncertain');
+          if (session.unfollowedIds.has(target.id)) {
+            return { state: snapshot(session), result: 'unfollowed' };
+          }
+          if (session.pendingUnfollowId) throw new Error('igBusy');
+          const result = await request(session, {
+            operation: 'openUnfollowConfirmation', targetUsername: target.username
+          });
+          if (result.alreadyUnfollowed === true) {
+            session.unfollowedIds.add(target.id);
+            publish(session);
+            return { state: snapshot(session), result: 'unfollowed' };
+          }
+          if (result.confirmationOpened !== true) throw new Error('igUnavailable');
+          session.pendingUnfollowId = target.id;
+          publish(session);
+          return { state: snapshot(session), result: 'waiting' };
+        }
+        if (message.type === 'UI_IG_CHECK_UNFOLLOW_CONFIRMATION') {
+          if (session.status !== 'complete' || session.stopped || session.ownerId !== session.profile.id) {
+            throw new Error('igOwnProfileOnly');
+          }
+          const target = session.following.get(String(message.targetId));
+          if (!target || session.pendingUnfollowId !== target.id) throw new Error('igRelationshipChanged');
           try {
-            result = await request(session, { operation: 'unfollow', targetUsername: target.username, confirmed: true });
+            const result = await request(session, {
+              operation: 'checkUnfollowConfirmation', targetUsername: target.username
+            });
+            if (result.waiting === true) return { state: snapshot(session), result: 'waiting' };
+            session.pendingUnfollowId = '';
+            if (result.unfollowed === true) session.unfollowedIds.add(target.id);
+            publish(session);
+            return { state: snapshot(session), result: result.unfollowed === true ? 'unfollowed' : 'unchanged' };
           } catch (error) {
-            if (error.message === 'igUnfollowUncertain') (session.uncertain ||= new Set()).add(target.id);
+            session.pendingUnfollowId = '';
+            publish(session);
             throw error;
           }
-          if (result.unfollowed !== true) throw new Error('igUnfollowUncertain');
-          session.following.delete(target.id);
-          session.profile.following = session.following.size;
-          void writeCachedResult(session);
-          publish(session);
-          return snapshot(session);
         }
         throw new Error('igUnavailable');
       } finally { busyTabs.delete(tabId); }

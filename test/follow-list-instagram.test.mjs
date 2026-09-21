@@ -70,22 +70,40 @@ test('Instagram comparison deduplicates accounts and separates all three relatio
   });
 });
 
-test('Instagram background analysis reads complete lists and only allows confirmed own-profile non-mutual unfollows', async () => {
-  const h = harness([...completeReplies(true), { unfollowed: true }]);
+test('Instagram opens its native confirmation and marks only verified own-profile unfollows', async () => {
+  const h = harness([...completeReplies(true), { confirmationOpened: true }, { unfollowed: true }]);
   try {
     const initial = await h.send('UI_IG_ATTACH'); assert.equal(initial.groups, null);
     await turns();
     let state = await h.send('UI_IG_STATE', { runId: initial.runId });
     assert.equal(state.status, 'complete'); assert.equal(state.ownProfile, true);
     assert.equal(state.groups.mutual[0].id, 'account_3');
-    await assert.rejects(h.send('UI_IG_UNFOLLOW', { runId: state.runId, targetId: 'account_2' }), /igOwnProfileOnly/);
-    await assert.rejects(h.send('UI_IG_UNFOLLOW', { runId: state.runId, targetId: 'account_3', confirmed: true }), /igRelationshipChanged/);
-    state = await h.send('UI_IG_UNFOLLOW', { runId: state.runId, targetId: 'account_2', confirmed: true });
-    assert.equal(state.groups.notFollowingBack.length, 0);
-    const writes = h.calls.filter(c => c.operation === 'unfollow');
-    assert.equal(writes.length, 1);
-    assert.equal(writes[0].targetUsername, 'account_2');
-    assert.equal('targetHref' in writes[0], false, 'the stored account link is not reused as account identity');
+    await assert.rejects(h.send('UI_IG_OPEN_UNFOLLOW_CONFIRMATION', { runId: state.runId, targetId: 'account_3' }), /igRelationshipChanged/);
+    let result = await h.send('UI_IG_OPEN_UNFOLLOW_CONFIRMATION', { runId: state.runId, targetId: 'account_2' });
+    assert.equal(result.result, 'waiting');
+    assert.equal(result.state.pendingUnfollowId, 'account_2');
+    result = await h.send('UI_IG_CHECK_UNFOLLOW_CONFIRMATION', { runId: state.runId, targetId: 'account_2' });
+    assert.equal(result.result, 'unfollowed');
+    assert.deepEqual(result.state.unfollowedIds, ['account_2']);
+    assert.equal(result.state.groups.notFollowingBack.length, 1, 'the completed scan remains visible until checked again');
+    const actions = h.calls.filter(c => ['openUnfollowConfirmation', 'checkUnfollowConfirmation'].includes(c.operation));
+    assert.deepEqual(actions.map(action => action.operation), ['openUnfollowConfirmation', 'checkUnfollowConfirmation']);
+    assert.equal(actions[0].targetUsername, 'account_2');
+    assert.equal('targetHref' in actions[0], false, 'the stored account link is not reused as account identity');
+  } finally { h.cleanup(); }
+});
+
+test('Instagram marks a stale scan as unfollowed when a fresh Following search finds no account', async () => {
+  const h = harness([...completeReplies(true), { alreadyUnfollowed: true }]);
+  try {
+    const initial = await h.send('UI_IG_ATTACH'); await turns();
+    const result = await h.send('UI_IG_OPEN_UNFOLLOW_CONFIRMATION', {
+      runId: initial.runId, targetId: 'account_2'
+    });
+    assert.equal(result.result, 'unfollowed');
+    assert.equal(result.state.pendingUnfollowId, '');
+    assert.deepEqual(result.state.unfollowedIds, ['account_2']);
+    assert.equal(h.calls.filter(call => call.operation === 'checkUnfollowConfirmation').length, 0);
   } finally { h.cleanup(); }
 });
 
@@ -217,21 +235,25 @@ test('Instagram panel commands reject wrong senders and never authorize unfollow
     await assert.rejects(h.send('UI_IG_BEGIN', {}, panel.replace('sourceTab=7', 'sourceTab=8')), /igPageChanged/);
     await assert.rejects(h.send('UI_IG_BEGIN', {}, base + 'popup/index.html'), /igUnavailable/);
     const initial = await h.send('UI_IG_ATTACH'); await turns();
-    await assert.rejects(h.send('UI_IG_UNFOLLOW', { runId: initial.runId, targetId: 'account_2', confirmed: true }), /igOwnProfileOnly/);
+    await assert.rejects(h.send('UI_IG_OPEN_UNFOLLOW_CONFIRMATION', { runId: initial.runId, targetId: 'account_2' }), /igOwnProfileOnly/);
   } finally { h.cleanup(); }
 });
 
-test('Instagram does not replay ambiguous unfollow writes from the same results', async () => {
-  const h = harness([...completeReplies(true), { error: 'igUnfollowUncertain' }]);
+test('Instagram clears a pending native confirmation when relationship verification is inconclusive', async () => {
+  const h = harness([...completeReplies(true), { confirmationOpened: true }, { error: 'igUnfollowUncertain' }]);
   try {
     const initial = await h.send('UI_IG_ATTACH'); await turns();
-    for (let i = 0; i < 2; i++) await assert.rejects(h.send('UI_IG_UNFOLLOW', { runId: initial.runId, targetId: 'account_2', confirmed: true }), /igUnfollowUncertain/);
-    assert.equal(h.calls.filter(c => c.operation === 'unfollow').length, 1);
+    await h.send('UI_IG_OPEN_UNFOLLOW_CONFIRMATION', { runId: initial.runId, targetId: 'account_2' });
+    await assert.rejects(h.send('UI_IG_CHECK_UNFOLLOW_CONFIRMATION', { runId: initial.runId, targetId: 'account_2' }), /igUnfollowUncertain/);
+    const state = await h.send('UI_IG_STATE', { runId: initial.runId });
+    assert.equal(state.pendingUnfollowId, '');
+    assert.deepEqual(state.unfollowedIds, []);
   } finally { h.cleanup(); }
 });
 
 function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', cancelColor = 'rgb(30, 30, 30)',
-  actionBackground = 'rgb(31, 34, 35)', extraConfirmButton = false, removeTarget = true } = {}) {
+  actionBackground = 'rgb(31, 34, 35)', extraConfirmButton = false, removeTarget = true,
+  targetPresent = true } = {}) {
   let listOpen = false, confirmOpen = false, unfollowed = false, actionClicks = 0, confirmClicks = 0, followingOpens = 0;
   const matches = (element, selector) => selector.split(',').some(rawSelector => {
     const value = rawSelector.trim();
@@ -292,9 +314,9 @@ function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', can
     if (unrelatedLink) unrelatedLink.isConnected = !this.value;
   } });
   unrelatedLink = node('a', { attributes: { href: '/other_account/' }, textContent: 'other_account' });
-  const avatarLink = node('a', { attributes: { href: '/account_2/' } }); avatarLink.append(node('img'));
+  const avatarLink = node('a', { attributes: { href: '/account_2/' }, isConnected: targetPresent }); avatarLink.append(node('img'));
   const avatarButton = node('button'); avatarButton.append(avatarLink);
-  const targetLink = node('a', { attributes: { href: '/account_2/' }, textContent: 'account_2' });
+  const targetLink = node('a', { attributes: { href: '/account_2/' }, textContent: 'account_2', isConnected: targetPresent });
   const identity = node('div'); identity.append(targetLink);
   const action = node('button', { textContent: '已关注', backgroundColor: actionBackground,
     click() { actionClicks += 1; confirmOpen = true; } });
@@ -327,40 +349,50 @@ function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', can
   };
   return {
     env,
-    run: extra => instagramDomRead({ operation: 'unfollow', runId: 'unfollow-test', username: 'example',
-      targetUsername: 'account_2', confirmed: true, ...extra }, env),
+    open: extra => instagramDomRead({ operation: 'openUnfollowConfirmation', runId: 'unfollow-test', username: 'example',
+      targetUsername: 'account_2', ...extra }, env),
+    check: extra => instagramDomRead({ operation: 'checkUnfollowConfirmation', runId: 'unfollow-test', username: 'example',
+      targetUsername: 'account_2', ...extra }, env),
+    choose: choice => choice === 'unfollow' ? confirm.click() : cancel.click(),
     effects: () => ({ actionClicks, confirmClicks, unfollowed, followingOpens, listOpen, confirmOpen })
   };
 }
 
-test('Instagram unfollow uses the visible Following search and native confirmation without translated labels', async () => {
-  // Appearance rewriting can make Cancel red and the requested action neutral;
-  // native dialog order, not computed color, remains authoritative.
+test('Instagram leaves both native confirmation choices to the user and verifies a completed unfollow', async () => {
   const h = unfollowDomHarness({ confirmColor: 'rgb(30, 30, 30)', cancelColor: 'rgb(238, 81, 94)' });
   assert.deepEqual(await instagramDomRead({ operation: 'profile', runId: 'profile-test', username: 'example' }, h.env), {
     profile: { id: 'example', username: 'example', name: '', followers: 3, following: 2 }, ownProfile: true
   });
   await instagramDomRead({ operation: 'cancel', runId: 'profile-test' }, h.env);
-  assert.deepEqual(await h.run(), { unfollowed: true });
+  assert.deepEqual(await h.open(), { confirmationOpened: true });
+  assert.deepEqual(h.effects(), { actionClicks: 1, confirmClicks: 0, unfollowed: false,
+    followingOpens: 1, listOpen: true, confirmOpen: true });
+  h.choose('unfollow');
+  assert.deepEqual(await h.check(), { unfollowed: true });
   assert.deepEqual(h.effects(), { actionClicks: 1, confirmClicks: 1, unfollowed: true,
     followingOpens: 2, listOpen: false, confirmOpen: false });
   assert.equal(h.env.__cosmicGeminiInstagramLists, undefined);
 });
 
-test('Instagram DOM unfollow refuses other profiles and ambiguous confirmation controls before writing', async () => {
+test('Instagram refuses unsafe native confirmation paths and recognizes an already-removed relationship', async () => {
   const other = unfollowDomHarness({ own: false });
-  assert.equal((await other.run()).error, 'igOwnProfileOnly');
+  assert.equal((await other.open()).error, 'igOwnProfileOnly');
   assert.equal(other.effects().confirmClicks, 0);
   const ambiguous = unfollowDomHarness({ extraConfirmButton: true });
-  assert.equal((await ambiguous.run()).error, 'igUnavailable');
+  assert.equal((await ambiguous.open()).error, 'igUnavailable');
   assert.equal(ambiguous.effects().confirmClicks, 0);
   const reversed = unfollowDomHarness({ actionBackground: 'rgb(0, 149, 246)' });
-  assert.equal((await reversed.run()).error, 'igRelationshipChanged');
+  assert.equal((await reversed.open()).error, 'igRelationshipChanged');
   assert.equal(reversed.effects().actionClicks, 0);
-  const unchanged = unfollowDomHarness({ removeTarget: false });
-  assert.equal((await unchanged.run()).error, 'igRelationshipChanged',
-    'a changed profile count cannot confirm unfollow while a fresh Following search still finds the account');
-  assert.equal(unchanged.effects().followingOpens, 2);
+  const absent = unfollowDomHarness({ targetPresent: false });
+  assert.deepEqual(await absent.open(), { alreadyUnfollowed: true });
+  assert.deepEqual(absent.effects(), { actionClicks: 0, confirmClicks: 0, unfollowed: false,
+    followingOpens: 1, listOpen: false, confirmOpen: false });
+  const cancelled = unfollowDomHarness();
+  assert.deepEqual(await cancelled.open(), { confirmationOpened: true });
+  cancelled.choose('cancel');
+  assert.deepEqual(await cancelled.check(), { unfollowed: false });
+  assert.equal(cancelled.effects().confirmClicks, 0);
 });
 
 test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads later rows and excludes suggestions', async () => {

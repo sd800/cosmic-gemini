@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.23 — 2026-09-20
+
+- Changed Instagram unfollow actions to open Instagram’s native confirmation without choosing either option. After the user acts, or when the account was already unfollowed elsewhere, a fresh Following search must confirm the account is absent before the side panel marks it as Unfollowed.
+
 ## 8.12.22 — 2026-09-20
 
 - Restored Page Display on pages with strict content security policies by applying Reduce White Point and Greyscale through Chrome's protected user-origin stylesheet path, while retaining inversion-aware brightness reduction and clean restoration.

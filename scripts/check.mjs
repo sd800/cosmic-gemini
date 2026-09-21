@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.12.22');
+assert.equal(manifest.version, '8.12.23');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -272,6 +272,10 @@ const pageDisplayRuntime = await source('content', 'page-display-runtime.js');
 const pageDisplayStyles = await source('content', 'page-display.css');
 const xhsImageDarkMode = await source('background', 'products', 'operations', 'xhs-image-dark-mode.js');
 const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode-runtime.js');
+const followListInstagram = await source('background', 'products', 'operations', 'follow-list-instagram.js');
+const followListInstagramDom = await source('content', 'follow-list-instagram-dom.js');
+const followListInstagramWorkspace = await source('workspaces', 'follow-list-instagram', 'follow-list-instagram.js');
+const followListInstagramHtml = await source('workspaces', 'follow-list-instagram', 'follow-list-instagram.html');
 const chineseResponseClaude = await source('background', 'products', 'operations', 'chinese-response-claude.js');
 const chineseResponseClaudeBridge = await source('content', 'chinese-response-claude-bridge.js');
 const chineseResponseClaudeRuntime = await source('content', 'chinese-response-claude-runtime.js');
@@ -280,6 +284,17 @@ const imageDownload = await source('background', 'products', 'customs', 'image-d
 const videoDownload = await source('background', 'products', 'customs', 'video-download.js');
 const videoScanner = await source('content', 'video-download-scanner.js');
 const imageWorkspace = await source('workspaces', 'image-download', 'image-download.js');
+
+assert.match(followListInstagram, /UI_IG_OPEN_UNFOLLOW_CONFIRMATION/);
+assert.match(followListInstagram, /UI_IG_CHECK_UNFOLLOW_CONFIRMATION/);
+assert.doesNotMatch(followListInstagram, /UI_IG_UNFOLLOW/,
+  'Instagram unfollowing must remain inside Instagram’s native confirmation.');
+assert.match(followListInstagramDom, /return \{ confirmationOpened: true \}/);
+assert.doesNotMatch(followListInstagramDom, /confirmAction\.click\(\)/,
+  'The Instagram reader must never choose the native confirmation action for the user.');
+assert.match(followListInstagramWorkspace, /igUnfollowedAction/);
+assert.doesNotMatch(followListInstagramHtml, /<dialog\b/,
+  'The Instagram workspace must not add a second unfollow confirmation dialog.');
 
 assert.match(imageDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);
 assert.match(videoDownload, /scanState: active \? downloadScanState\(session\) : 'paused'/);

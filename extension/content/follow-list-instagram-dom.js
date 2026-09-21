@@ -145,19 +145,27 @@ export async function instagramDomRead(input, environment = globalThis) {
         if (!current.ownProfile) throw new Error('igOwnProfileOnly');
         if (activeDialogs().length) throw new Error('igCloseDialog');
         state.kind = 'unfollow';
-        current.links.following.click();
-        const listDeadline = Date.now() + 30000;
-        while (!state.dialog && Date.now() < listDeadline) {
-          await wait(200);
-          const dialogs = activeDialogs();
-          if (dialogs.length > 1) throw new Error('igCloseDialog');
-          state.dialog = dialogs[0] || null;
-        }
-        if (!state.dialog) throw new Error('igUnavailable');
-        state.closeButton = findClose(state.dialog);
-        const search = [...state.dialog.querySelectorAll('input')]
-          .find(element => visible(element) && element.type !== 'password');
-        if (!search || !state.closeButton) throw new Error('igUnavailable');
+        const openFollowingSearch = async () => {
+          state.dialog = null;
+          state.closeButton = null;
+          current.links.following.click();
+          const listDeadline = Date.now() + 30000;
+          while (!state.dialog && Date.now() < listDeadline) {
+            await wait(200);
+            const dialogs = activeDialogs();
+            if (dialogs.length > 1) throw new Error('igCloseDialog');
+            state.dialog = dialogs[0] || null;
+          }
+          if (!state.dialog) throw new Error('igUnavailable');
+          state.closeButton = findClose(state.dialog);
+          const input = [...state.dialog.querySelectorAll('input')]
+            .find(element => visible(element) && element.type !== 'password');
+          if (!input || !state.closeButton) throw new Error('igUnavailable');
+          return input;
+        };
+        const visibleAccountIds = root => new Set([...root.querySelectorAll('a[href]')]
+          .filter(visible).map(link => profileDestination(link)?.username.toLowerCase()).filter(Boolean));
+        const search = await openFollowingSearch();
         setInput(search, target);
         const resultDeadline = Date.now() + 15000;
         let targetLink = null;
@@ -187,23 +195,52 @@ export async function instagramDomRead(input, environment = globalThis) {
         const buttons = [...state.confirmDialog.querySelectorAll('button')].filter(button => visible(button) && !button.disabled);
         if (buttons.length !== 2) throw new Error('igUnavailable');
         // Instagram's native relationship dialog places the requested action
-        // before its cancellation control. Color is not authoritative because
-        // site themes and page-wide appearance extensions can rewrite it.
+        // first and Cancel second. Color is not authoritative because site
+        // themes and appearance extensions can rewrite it.
         const [confirmAction, cancelAction] = buttons;
         state.confirmCancel = cancelAction;
         writeStarted = true;
         confirmAction.click();
-        const verifyDeadline = Date.now() + 15000;
-        while (Date.now() < verifyDeadline) {
-          await wait(200);
-          if (!visible(targetLink)) {
-            close(state);
-            all.delete(input.runId);
-            if (!all.size) delete environment[KEY];
-            return { unfollowed: true };
-          }
-          const updated = profile().profile.following;
-          if (updated === current.profile.following - 1) {
+        const confirmDeadlineAfterClick = Date.now() + 10000;
+        while (visible(state.confirmDialog) && Date.now() < confirmDeadlineAfterClick) await wait(150);
+        if (visible(state.confirmDialog)) throw new Error('igUnfollowUncertain');
+        state.confirmDialog = null;
+        state.confirmCancel = null;
+        if (visible(state.dialog) && state.closeButton?.isConnected) state.closeButton.click();
+        const closeDeadline = Date.now() + 10000;
+        while (activeDialogs().length && Date.now() < closeDeadline) await wait(150);
+        if (activeDialogs().length) throw new Error('igUnfollowUncertain');
+        state.dialog = null;
+        state.closeButton = null;
+
+        // Only a fresh Following search that settles without the target can
+        // confirm success. A detached old row or a changed profile count is
+        // insufficient because both can update before the relationship write.
+        const verificationSearch = await openFollowingSearch();
+        let initialIds = visibleAccountIds(state.dialog);
+        const initialListDeadline = Date.now() + 15000;
+        while (!initialIds.size && Date.now() < initialListDeadline) {
+          await wait(250);
+          initialIds = visibleAccountIds(state.dialog);
+        }
+        if (!initialIds.size && current.profile.following > 1) throw new Error('igUnfollowUncertain');
+        const beforeSearch = [...initialIds].sort().join('\n');
+        setInput(verificationSearch, target);
+        let previousSignature = '';
+        let stablePolls = 0;
+        const verifyDeadline = Date.now() + 20000;
+        for (let poll = 0; Date.now() < verifyDeadline; poll += 1) {
+          await wait(250);
+          if (!visible(state.dialog) || verificationSearch.value !== target) throw new Error('igUnfollowUncertain');
+          const ids = visibleAccountIds(state.dialog);
+          const signature = [...ids].sort().join('\n');
+          stablePolls = signature === previousSignature ? stablePolls + 1 : 0;
+          previousSignature = signature;
+          const busy = [...state.dialog.querySelectorAll('[role="progressbar"],[aria-busy="true"]')].some(visible);
+          if (poll >= 19 && stablePolls >= 3 && !busy) {
+            if (ids.has(target)) throw new Error('igRelationshipChanged');
+            // An unchanged nonempty list means the search has not applied yet.
+            if (signature === beforeSearch && signature) continue;
             close(state);
             all.delete(input.runId);
             if (!all.size) delete environment[KEY];
@@ -215,8 +252,8 @@ export async function instagramDomRead(input, environment = globalThis) {
         close(state);
         all.delete(input.runId);
         if (!all.size) delete environment[KEY];
-        return { error: writeStarted ? 'igUnfollowUncertain'
-          : /^ig[A-Z]/.test(error.message || '') ? error.message : 'igUnavailable' };
+        const code = /^ig[A-Z]/.test(error.message || '') ? error.message : 'igUnavailable';
+        return { error: writeStarted && code !== 'igRelationshipChanged' ? 'igUnfollowUncertain' : code };
       }
     }
     if (input.operation !== 'list' || !['followers', 'following'].includes(input.kind)) throw new Error('igUnavailable');

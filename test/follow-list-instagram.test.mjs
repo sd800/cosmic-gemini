@@ -231,8 +231,8 @@ test('Instagram does not replay ambiguous unfollow writes from the same results'
 });
 
 function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', cancelColor = 'rgb(30, 30, 30)',
-  actionBackground = 'rgb(31, 34, 35)', extraConfirmButton = false } = {}) {
-  let listOpen = false, confirmOpen = false, unfollowed = false, actionClicks = 0, confirmClicks = 0;
+  actionBackground = 'rgb(31, 34, 35)', extraConfirmButton = false, removeTarget = true } = {}) {
+  let listOpen = false, confirmOpen = false, unfollowed = false, actionClicks = 0, confirmClicks = 0, followingOpens = 0;
   const matches = (element, selector) => selector.split(',').some(rawSelector => {
     const value = rawSelector.trim();
     const tag = value.match(/^[a-z][a-z0-9]*/i)?.[0]?.toUpperCase();
@@ -274,7 +274,12 @@ function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', can
   const span = text => node('span', { textContent: String(text) });
   const followerLink = node('a', { attributes: { href: '/example/followers/' } }); followerLink.append(span('3'));
   const followingCount = span('2');
-  const followingLink = node('a', { attributes: { href: '/example/following/' }, click() { listOpen = true; } });
+  let search, unrelatedLink;
+  const followingLink = node('a', { attributes: { href: '/example/following/' }, click() {
+    followingOpens += 1; listOpen = true;
+    if (search) search.value = '';
+    if (unrelatedLink) unrelatedLink.isConnected = true;
+  } });
   followingLink.append(followingCount);
   const heading = node('h1', { textContent: 'example' });
   const edit = node('a', { attributes: { href: '/accounts/edit/' }, href: 'https://www.instagram.com/accounts/edit/' });
@@ -283,7 +288,10 @@ function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', can
   const closeButton = node('button', { click() { listOpen = false; } }); closeButton.append(node('svg'));
   const listHeading = node('h1', { textContent: '关注', attributes: { role: 'heading' } });
   const header = node('div'); header.append(listHeading, closeButton);
-  const search = node('input', { type: 'text', value: '', dispatchEvent() {} });
+  search = node('input', { type: 'text', value: '', dispatchEvent() {
+    if (unrelatedLink) unrelatedLink.isConnected = !this.value;
+  } });
+  unrelatedLink = node('a', { attributes: { href: '/other_account/' }, textContent: 'other_account' });
   const avatarLink = node('a', { attributes: { href: '/account_2/' } }); avatarLink.append(node('img'));
   const avatarButton = node('button'); avatarButton.append(avatarLink);
   const targetLink = node('a', { attributes: { href: '/account_2/' }, textContent: 'account_2' });
@@ -291,14 +299,18 @@ function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', can
   const action = node('button', { textContent: '已关注', backgroundColor: actionBackground,
     click() { actionClicks += 1; confirmOpen = true; } });
   const row = node('div'); row.append(avatarButton, identity, action);
-  const listDialog = node('div', { attributes: { role: 'dialog' } }); listDialog.append(header, search, row);
+  const listDialog = node('div', { attributes: { role: 'dialog' } });
+  listDialog.append(header, search, row, unrelatedLink);
 
   const confirmLink = node('a', { attributes: { href: '/account_2/' } }); confirmLink.append(node('img'));
   const confirm = node('button', { textContent: '取消关注', color: confirmColor, click() {
-    confirmClicks += 1; confirmOpen = false; unfollowed = true; targetLink.isConnected = false;
+    confirmClicks += 1; confirmOpen = false; confirmDialog.isConnected = false; unfollowed = removeTarget;
+    if (removeTarget) { targetLink.isConnected = false; avatarLink.isConnected = false; }
     followingCount.textContent = '1';
   } });
-  const cancel = node('button', { textContent: '取消', color: cancelColor, click() { confirmOpen = false; } });
+  const cancel = node('button', { textContent: '取消', color: cancelColor, click() {
+    confirmOpen = false; confirmDialog.isConnected = false;
+  } });
   const confirmDialog = node('div', { attributes: { role: 'dialog' } });
   confirmDialog.append(confirmLink, confirm, cancel, ...(extraConfirmButton ? [node('button')] : []));
   const env = {
@@ -317,7 +329,7 @@ function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', can
     env,
     run: extra => instagramDomRead({ operation: 'unfollow', runId: 'unfollow-test', username: 'example',
       targetUsername: 'account_2', confirmed: true, ...extra }, env),
-    effects: () => ({ actionClicks, confirmClicks, unfollowed, listOpen, confirmOpen })
+    effects: () => ({ actionClicks, confirmClicks, unfollowed, followingOpens, listOpen, confirmOpen })
   };
 }
 
@@ -330,7 +342,8 @@ test('Instagram unfollow uses the visible Following search and native confirmati
   });
   await instagramDomRead({ operation: 'cancel', runId: 'profile-test' }, h.env);
   assert.deepEqual(await h.run(), { unfollowed: true });
-  assert.deepEqual(h.effects(), { actionClicks: 1, confirmClicks: 1, unfollowed: true, listOpen: false, confirmOpen: false });
+  assert.deepEqual(h.effects(), { actionClicks: 1, confirmClicks: 1, unfollowed: true,
+    followingOpens: 2, listOpen: false, confirmOpen: false });
   assert.equal(h.env.__cosmicGeminiInstagramLists, undefined);
 });
 
@@ -344,6 +357,10 @@ test('Instagram DOM unfollow refuses other profiles and ambiguous confirmation c
   const reversed = unfollowDomHarness({ actionBackground: 'rgb(0, 149, 246)' });
   assert.equal((await reversed.run()).error, 'igRelationshipChanged');
   assert.equal(reversed.effects().actionClicks, 0);
+  const unchanged = unfollowDomHarness({ removeTarget: false });
+  assert.equal((await unchanged.run()).error, 'igRelationshipChanged',
+    'a changed profile count cannot confirm unfollow while a fresh Following search still finds the account');
+  assert.equal(unchanged.effects().followingOpens, 2);
 });
 
 test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads later rows and excludes suggestions', async () => {

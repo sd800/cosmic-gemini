@@ -11,6 +11,8 @@ button:hover { background: var(--surface-raised); }
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 #stop, .danger { color: var(--danger); }
+.danger[aria-disabled="true"] { cursor: progress; }
+.danger:disabled { opacity: 1; cursor: not-allowed; }
 p { line-height: 1.6; font-size: 13px; }
 #status { margin: 16px 0; white-space: pre-line; }
 #status[data-error="true"] { color: var(--danger); }

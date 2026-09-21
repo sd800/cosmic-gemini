@@ -100,9 +100,11 @@ function render() {
     row.append(link);
     if (snapshot.ownProfile && category === 'notFollowingBack') {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'danger';
-      button.textContent = t('igUnfollow'); button.disabled = writing || uncertain.has(account.id);
+      button.textContent = t('igUnfollow'); button.disabled = uncertain.has(account.id);
+      button.setAttribute('aria-disabled', String(writing || button.disabled));
       button.setAttribute('aria-label', t('igUnfollowAccount', { username: account.username }));
       button.addEventListener('click', () => {
+        if (writing) return;
         target = account;
         $('#confirmText').textContent = t('igConfirmUnfollow', { username: account.username });
         $('#confirm').showModal();
@@ -182,7 +184,7 @@ $('#confirm').addEventListener('close', async () => {
     const result = await message('UI_IG_UNFOLLOW', { targetId: account.id, confirmed: true });
     if (ticket === generation) { snapshot = result; status('igUnfollowed', { username: account.username }); }
   } catch (error) {
-    uncertain.add(account.id);
+    if (error?.message === 'igUnfollowUncertain') uncertain.add(account.id);
     if (ticket === generation) errorStatus(error);
   } finally { writing = false; if (ticket === generation) render(); }
 });

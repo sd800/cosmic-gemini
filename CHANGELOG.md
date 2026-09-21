@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.21 — 2026-09-20
+
+- Made Instagram unfollow completion depend exclusively on reopening Following and confirming that a stable fresh search no longer returns the account. Temporary row removal and profile-count changes no longer mark the action complete, and failed confirmation remains retryable.
+
 ## 8.12.20 — 2026-09-20
 
 - Corrected Instagram unfollow confirmation so page themes cannot make the tool select Cancel by changing button colors; the native confirmation structure is now used while post-action relationship verification remains required.

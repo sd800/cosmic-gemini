@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.15 — 2026-09-21
+
+- Split the exact-host and wildcard guidance below No Autoplay's audio website rules into separate lines for consistency.
+
 ## 8.13.13 — 2026-09-21
 
 - Added automatic wildcard completion for leading-dot domains and multi-label entries from the shared `etld` reference in website-rule inputs, while excluding single-label top-level domains.

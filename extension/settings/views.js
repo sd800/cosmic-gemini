@@ -68,7 +68,7 @@ const audioAllowSection = () => `
       <span class="switch"><input id="audioAutoplayAllSites" type="checkbox"><span></span></span>
     </label>
     ${rulePanel('permanentAudioAllowRules', 'audioAllowedSitesHeading', 'audioAllowedSitesHelp')}
-    <p class="caption group-caption" data-i18n="exactRuleHelp"></p>
+    <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
   </section>`;
 
 const anyCopyRuleSection = (featureId, headingKey, helpKey, emptyKey) => `

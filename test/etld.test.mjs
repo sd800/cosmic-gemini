@@ -15,12 +15,11 @@ test('etld contains ICANN, provider, and PSL PRIVATE DOMAINS-sector geographic e
   assert.deepEqual(etldMetadata.privateGroups, [
     'CentralNic',
     'Cloudflare, Inc.',
-    'Coordination Center for TLD RU and XN--P1AI',
     'EU.org',
     'GitHub, Inc.',
     'GitLab, Inc.'
   ]);
-  assert.equal(etldMetadata.pslPrivateDomainsSectorGeographicEtldRuleCount, 10);
+  assert.equal(etldMetadata.pslPrivateDomainsSectorGeographicEtldRuleCount, 15);
 
   for (const rule of ['com', 'co.uk', '*.ck', '!www.ck', '公司.cn', '中国']) {
     assert.ok(etld.includes(rule), `missing ICANN rule ${rule}`);
@@ -30,7 +29,6 @@ test('etld contains ICANN, provider, and PSL PRIVATE DOMAINS-sector geographic e
     'gitlab.io',
     'cloudflare.app', 'cf-ipfs.com', 'pages.dev', 'workers.dev', 'cdn.cloudflare.net',
     'br.com', 'uk.com', 'com.de', 'gb.net', 'ae.org',
-    'ac.ru', 'edu.ru', 'gov.ru', 'int.ru', 'mil.ru',
     'eu.org', 'asso.eu.org', 'de.eu.org', 'jp.eu.org', 'uk.eu.org', 'us.eu.org'
   ]) {
     assert.ok(etld.includes(rule), `missing selected PRIVATE rule ${rule}`);

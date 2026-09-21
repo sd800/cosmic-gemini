@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.12 — 2026-09-21
+
+- Refined the internal classification of selected shared eTLD reference rules.
+
 ## 8.13.11 — 2026-09-21
 
 - Generalized and completed the shared coverage of PSL PRIVATE DOMAINS-sector geographic eTLD rules without connecting the reference to a product decision.

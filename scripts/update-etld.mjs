@@ -7,7 +7,6 @@ const SOURCE_URL = 'https://publicsuffix.org/list/public_suffix_list.dat';
 const PRIVATE_GROUPS = Object.freeze([
   'CentralNic',
   'Cloudflare, Inc.',
-  'Coordination Center for TLD RU and XN--P1AI',
   'EU.org',
   'GitHub, Inc.',
   'GitLab, Inc.'
@@ -15,6 +14,9 @@ const PRIVATE_GROUPS = Object.freeze([
 // Broad category reference for PSL PRIVATE DOMAINS-sector geographic eTLD rules.
 // Category source: https://geotld.group/geotld/
 // Keep this as a category, rather than selecting geographic namespaces for individual regions.
+const PSL_PRIVATE_DOMAINS_SECTOR_GEOGRAPHIC_ETLD_GROUPS = Object.freeze([
+  'Coordination Center for TLD RU and XN--P1AI'
+]);
 const PSL_PRIVATE_DOMAINS_SECTOR_GEOGRAPHIC_ETLD_TLDS = Object.freeze([
   'abudhabi', 'africa', 'alsace', 'amsterdam', 'arab', 'barcelona', 'bayern', 'berlin',
   'boston', 'brussels', 'budapest', 'bzh', 'capetown', 'cat', 'cologne', 'corsica',
@@ -68,8 +70,12 @@ const icannSection = section(text, '// ===BEGIN ICANN DOMAINS===', '// ===END IC
 const privateSection = section(text, '// ===BEGIN PRIVATE DOMAINS===', '// ===END PRIVATE DOMAINS===');
 const icannRules = rules(icannSection);
 const selectedPrivateRules = PRIVATE_GROUPS.flatMap(group => privateGroupRules(privateSection, group));
-const pslPrivateDomainsSectorGeographicEtldRules = rules(privateSection)
-  .filter(rule => PSL_PRIVATE_DOMAINS_SECTOR_GEOGRAPHIC_ETLD_TLDS.includes(finalLabel(rule)));
+const pslPrivateDomainsSectorGeographicEtldRules = [...new Set([
+  ...PSL_PRIVATE_DOMAINS_SECTOR_GEOGRAPHIC_ETLD_GROUPS
+    .flatMap(group => privateGroupRules(privateSection, group)),
+  ...rules(privateSection)
+    .filter(rule => PSL_PRIVATE_DOMAINS_SECTOR_GEOGRAPHIC_ETLD_TLDS.includes(finalLabel(rule)))
+])];
 const privateRules = [...new Set([...selectedPrivateRules, ...pslPrivateDomainsSectorGeographicEtldRules])];
 const etld = [...new Set([...icannRules, ...privateRules])];
 const version = text.match(/^\/\/ VERSION:\s*(.+)$/m)?.[1] || '';

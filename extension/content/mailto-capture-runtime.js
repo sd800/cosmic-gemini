@@ -6,7 +6,6 @@
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
   const NANP_KEY = Symbol.for('cosmic-gemini.mailto-capture.nanp');
   const CAPTURED_LINK = /^(?:mailto|tel|sms):/i;
-  const NANP_LOCATION_LABEL = 'Area code location';
   const COPY = Object.freeze({
     'en-US': Object.freeze({
       title: 'Email link',
@@ -338,6 +337,28 @@
       return lines.join('\n');
     }
 
+    displayTelephoneNumber(value) {
+      const raw = String(value || '').trim();
+      const parameterAt = raw.indexOf(';');
+      const primary = parameterAt < 0 ? raw : raw.slice(0, parameterAt);
+      const parameters = parameterAt < 0 ? [] : raw.slice(parameterAt + 1).split(';').filter(Boolean);
+      if (primary.startsWith('+') && !primary.startsWith('+1')) return raw;
+      const digits = primary.replace(/\D/g, '');
+      let national;
+      let international = false;
+      if (digits.length === 11 && digits.startsWith('1')) {
+        national = digits.slice(1);
+        international = true;
+      } else if (digits.length === 10 && nanpLocation(raw)) national = digits;
+      else return raw;
+      let display = `${international ? '+1 ' : ''}(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`;
+      for (const parameter of parameters) {
+        const extension = /^ext=(.+)$/i.exec(parameter);
+        display += extension ? ` ext. ${extension[1]}` : `;${parameter}`;
+      }
+      return display;
+    }
+
     show(anchor, href, parsed = null) {
       const capture = parsed || this.parseLink(href);
       if (!capture) return;
@@ -375,7 +396,7 @@
         *{box-sizing:border-box;letter-spacing:normal}
         .popover{position:relative;width:min(324px,calc(100vw - 20px));max-height:min(460px,calc(100vh - 20px));overflow:auto;border:1px solid var(--mc-line);border-radius:12px;background:var(--mc-bg);color:var(--mc-text);box-shadow:0 10px 26px rgba(0,0,0,.2);padding:10px 13px 13px}
         .heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 7px}.heading strong{font-size:14px;line-height:1.2;font-weight:700}.close{display:inline-flex;align-items:center;justify-content:center;align-self:baseline;width:22px;height:20px;min-height:20px;border:0;border-radius:50%;background:transparent;color:var(--mc-muted);padding:0;font-size:18px;line-height:1;cursor:pointer}.close:hover{background:var(--mc-raised)}
-        .details{display:grid;gap:8px}.field{display:grid;gap:2px}.field span{color:var(--mc-muted);font-size:12px;font-weight:650;text-transform:none}.value{max-height:104px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;border-radius:7px;background:var(--mc-raised);padding:7px 9px;color:var(--mc-text);font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}
+        .details{display:grid;gap:8px}.field{display:grid;gap:2px}.field span{color:var(--mc-muted);font-size:12px;font-weight:650;text-transform:none}.value{max-height:104px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;border-radius:7px;background:var(--mc-raised);padding:7px 9px;color:var(--mc-text);font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}.phone-value{display:grid;gap:7px}.phone-entry{display:grid;gap:1px}.phone-entry+.phone-entry{border-top:1px solid var(--mc-line);padding-top:6px}.phone-location{color:var(--mc-muted);font-size:11px;line-height:1.35}
         .other{display:grid;gap:6px}.other-row{display:grid;grid-template-columns:minmax(72px,auto) 1fr;gap:8px;align-items:start}.other-row b{color:var(--mc-muted);font-size:12px;overflow-wrap:anywhere}.other-row div{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
         .actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}button{min-height:33px;border:1px solid var(--mc-line);border-radius:8px;background:var(--mc-bg);color:var(--mc-text);padding:0 10px;font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}button:hover{background:var(--mc-raised)}button.primary{border-color:var(--mc-blue);background:var(--mc-blue);color:var(--mc-on-blue)}button.primary:hover{filter:brightness(.96)}
         .status{margin:7px 0 0;color:var(--mc-muted);font-size:11px}.status:empty{display:none}
@@ -402,16 +423,18 @@
       const details = document.createElement('div');
       details.className = 'details';
       if (telephone) {
-        this.appendField(details, labels.phoneNumber, this.capture.number);
-        if (this.capture.location) this.appendField(details, NANP_LOCATION_LABEL, this.capture.location);
+        this.appendTelephoneField(details, labels.phoneNumber, [{
+          number: this.capture.number,
+          location: this.capture.location
+        }]);
       } else if (textMessage) {
-        this.appendField(details, labels.to, this.capture.numberText || labels.noAddress);
-        if (this.capture.locations.length) {
-          const locations = this.capture.locations.map(item => this.capture.recipients.length === 1
-            ? item.location
-            : `${item.number} — ${item.location}`);
-          this.appendField(details, NANP_LOCATION_LABEL, locations.join('\n'));
-        }
+        if (this.capture.recipients.length) {
+          const locations = new Map(this.capture.locations.map(item => [item.number, item.location]));
+          this.appendTelephoneField(details, labels.to, this.capture.recipients.map(number => ({
+            number,
+            location: locations.get(number) || ''
+          })));
+        } else this.appendField(details, labels.to, labels.noAddress);
         if (this.capture.body) this.appendField(details, labels.message, this.capture.body);
         if (this.capture.otherFields.length) this.appendOtherFields(details, labels);
       } else {
@@ -459,6 +482,32 @@
       const value = document.createElement('div');
       value.className = 'value';
       value.textContent = valueText;
+      field.append(label, value);
+      parent.append(field);
+    }
+
+    appendTelephoneField(parent, labelText, entries) {
+      const field = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      const value = document.createElement('div');
+      value.className = 'value phone-value';
+      for (const item of entries) {
+        const entry = document.createElement('div');
+        entry.className = 'phone-entry';
+        const number = document.createElement('div');
+        number.className = 'phone-number';
+        number.textContent = this.displayTelephoneNumber(item.number);
+        entry.append(number);
+        if (item.location) {
+          const location = document.createElement('div');
+          location.className = 'phone-location';
+          location.textContent = item.location;
+          entry.append(location);
+        }
+        value.append(entry);
+      }
       field.append(label, value);
       parent.append(field);
     }

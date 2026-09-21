@@ -515,7 +515,7 @@
     if (!parts) return '';
     const [area, exchange] = parts;
     const region = areas.get(area);
-    if (!region) return 'North American Numbering Plan (area code not identified)';
+    if (!region) return '';
     const locality = exactLocality(area, exchange);
     return locality ? `${locality}, ${region}` : region;
   }

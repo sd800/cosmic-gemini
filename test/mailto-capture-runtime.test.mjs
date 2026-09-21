@@ -25,6 +25,16 @@ class FakeCustomEvent {
   constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.target = null; }
 }
 
+class FakeElement {
+  constructor(tagName) {
+    this.tagName = tagName;
+    this.className = '';
+    this.textContent = '';
+    this.children = [];
+  }
+  append(...children) { this.children.push(...children); }
+}
+
 async function runtimeFixture() {
   const window = new SimpleEventTarget();
   const context = {
@@ -101,7 +111,7 @@ test('Mailto Capture preserves telephone targets and rejects empty tel links', a
   assert.equal(runtime.parseTel('tel:'), null);
 });
 
-test('Mailto Capture resolves North American locations offline and leaves other numbering plans unlabelled', async () => {
+test('Mailto Capture resolves recognized North American locations and omits unidentified results', async () => {
   const { context } = await runtimeFixture();
   const nanp = context[Symbol.for('cosmic-gemini.mailto-capture.nanp')];
   assert.equal(nanp.lookup('+1 416 555 0100'), 'Toronto, Ontario, Canada');
@@ -109,8 +119,38 @@ test('Mailto Capture resolves North American locations offline and leaves other 
   assert.equal(nanp.lookup('+1 907 211 0100'), 'Alaska, USA');
   assert.equal(nanp.lookup('312-555-0100'), 'Chicago, Illinois, USA');
   assert.equal(nanp.lookup('1-800-555-0100'), 'Toll-Free, North American Numbering Plan');
-  assert.equal(nanp.lookup('+1 211 555 0100'), 'North American Numbering Plan (area code not identified)');
+  assert.equal(nanp.lookup('+1 211 555 0100'), '');
   assert.equal(nanp.lookup('+44 20 7946 0958'), '');
+});
+
+test('Mailto Capture standardizes NANP display without changing copied dialing targets', async () => {
+  const { runtime } = await runtimeFixture();
+  assert.equal(runtime.displayTelephoneNumber('13125550100'), '+1 (312) 555-0100');
+  assert.equal(runtime.displayTelephoneNumber('+1 312 555 0100'), '+1 (312) 555-0100');
+  assert.equal(runtime.displayTelephoneNumber('3125550100'), '(312) 555-0100');
+  assert.equal(runtime.displayTelephoneNumber('+13125550100;ext=204'), '+1 (312) 555-0100 ext. 204');
+  assert.equal(runtime.displayTelephoneNumber('2115550100'), '2115550100');
+  assert.equal(runtime.displayTelephoneNumber('+44-20-7946-0958'), '+44-20-7946-0958');
+  assert.equal(runtime.messageText(runtime.parseTel('tel:+13125550100;ext=204')), '+13125550100;ext=204');
+});
+
+test('Mailto Capture places recognized locations beneath their telephone numbers without a separate field', async () => {
+  const { context, runtime } = await runtimeFixture();
+  context.document.createElement = tagName => new FakeElement(tagName);
+  const parent = new FakeElement('div');
+  runtime.appendTelephoneField(parent, 'Phone number', [
+    { number: '+1-312-555-0100', location: 'Chicago, Illinois, USA' },
+    { number: '+44-20-7946-0958', location: '' }
+  ]);
+
+  assert.equal(parent.children.length, 1);
+  const [field] = parent.children;
+  assert.equal(field.children[0].textContent, 'Phone number');
+  assert.equal(field.children[1].className, 'value phone-value');
+  assert.deepEqual(field.children[1].children.map(entry => entry.children.map(child => child.textContent)), [
+    ['+1 (312) 555-0100', 'Chicago, Illinois, USA'],
+    ['+44-20-7946-0958']
+  ]);
 });
 
 test('Mailto Capture preserves text-message recipients, body, and extension fields', async () => {

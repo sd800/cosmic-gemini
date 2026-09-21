@@ -66,7 +66,7 @@ Satellites contains optional tools that do not need permanent rows in the popup.
 
 #### Mailto Capture
 
-Stop mailto links from opening your system mail app before you can inspect them. Mailto Capture intercepts each link and shows its recipients, CC and BCC addresses, subject, message, and other included fields in a compact page popover for copying. It also supports external protocol links using `tel:` and `sms:`, formats recognized international telephone numbers for their numbering plan, and identifies their country or region. Chinese fixed-line numbers additionally show the recognized area-code location, while mobile numbers remain at country level. Mexican numbers show their one-digit numbering zone.
+Stop mailto links from opening your system mail app before you can inspect them. Mailto Capture intercepts each link and shows its recipients, CC and BCC addresses, subject, message, and other included fields in a compact page popover for copying. It also supports external protocol links using `tel:` and `sms:`, formats recognized international telephone numbers for their numbering plan, and identifies their country or region. NANP locations remain in English; other international locations follow the interface language. Chinese fixed-line numbers additionally show the recognized area-code location, while mobile numbers remain at country level. Mexican numbers show their official one-digit directional zone.
 
 #### Clipboard Protect
 

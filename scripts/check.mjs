@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.27');
+assert.equal(manifest.version, '8.13.28');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -445,10 +445,10 @@ assert.doesNotMatch(mailtoCaptureRuntime, /NANP_LOCATION_LABEL|Area code locatio
   'Mailto Capture must not render numbering-plan locations as a separate labeled field.');
 assert.match(mailtoCaptureRuntime, /\.phone-location\{color:var\(--mc-muted\)\}/,
   'Mailto Capture must distinguish inline locations by color without reducing their type size.');
-assert.match(mailtoCaptureRuntime, /\.phone-location>\.phone-location-tail\{[^}]*white-space:nowrap/,
+assert.match(mailtoCaptureRuntime, /\.phone-location>\.phone-location-nowrap\{[^}]*white-space:nowrap/,
   'Mailto Capture must keep selected location suffixes together during natural wrapping.');
-assert.match(mailtoCaptureRuntime, /appendLocationText[\s\S]*countrySuffix = ', USA'[\s\S]*numberingPlanSuffix = 'North American Numbering Plan'[\s\S]*phone-location-tail/,
-  'Mailto Capture must isolate final US and numbering-plan suffixes as inline wrapping units.');
+assert.match(mailtoCaptureRuntime, /appendLocationText[\s\S]*text\.startsWith\('中国 '\)[\s\S]*countrySuffix = ', USA'[\s\S]*chinaSuffix = ', China'[\s\S]*numberingPlanSuffix = 'North American Numbering Plan'[\s\S]*phone-location-nowrap/,
+  'Mailto Capture must isolate US and China location units during natural wrapping.');
 assert.match(mailtoCaptureRuntime, /appendTelephoneField[\s\S]*if \(item\.location\)/,
   'Mailto Capture must place only recognized locations beneath their telephone numbers.');
 assert.match(mailtoCaptureRuntime, /displayTelephoneNumber[\s\S]*\+1 [\s\S]*ext\./,
@@ -459,9 +459,9 @@ assert.ok(Buffer.byteLength(mailtoCaptureNanp, 'utf8') < 500_000,
   'Mailto Capture numbering-plan data must remain compact enough for ordinary page injection.');
 assert.match(mailtoCapturePhone, /libphonenumber-js 1\.13\.13 \/ Google libphonenumber 9\.0\.39/,
   'Mailto Capture international metadata must identify its pinned upstream versions.');
-assert.match(mailtoCapturePhone, /function internationalNational[\s\S]*function chinaLocation/,
-  'Mailto Capture must format international numbers and keep China fixed-line geocoding separate from mobile numbers.');
-assert.ok(Buffer.byteLength(mailtoCapturePhone, 'utf8') < 80_000,
+assert.match(mailtoCapturePhone, /function internationalNational[\s\S]*function chinaLocation[\s\S]*function mexicoLocation/,
+  'Mailto Capture must format international numbers and retain localized China and Mexico location rules.');
+assert.ok(Buffer.byteLength(mailtoCapturePhone, 'utf8') < 90_000,
   'Mailto Capture international formatting and China fixed-line data must remain precompiled and compact.');
 assert.doesNotMatch(mailtoCaptureNanp, /United States/,
   'Mailto Capture area-code results must use the compact USA country label.');

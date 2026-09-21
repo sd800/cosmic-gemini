@@ -83,8 +83,8 @@
     catch { return ''; }
   }
 
-  function telephoneLocation(value) {
-    try { return globalThis[PHONE_KEY]?.inspect(value)?.location || nanpLocation(value); }
+  function telephoneLocation(value, locale) {
+    try { return globalThis[PHONE_KEY]?.inspect(value, locale)?.location || nanpLocation(value); }
     catch { return nanpLocation(value); }
   }
 
@@ -275,7 +275,7 @@
       if (!/^tel:/i.test(raw)) return null;
       const content = raw.slice(raw.indexOf(':') + 1).split('#', 1)[0];
       const number = decodeMailtoPart(content).trim();
-      return number ? { kind: 'tel', href: raw, number, location: telephoneLocation(number) } : null;
+      return number ? { kind: 'tel', href: raw, number, location: telephoneLocation(number, this.locale) } : null;
     }
 
     parseSms(href) {
@@ -313,7 +313,7 @@
         otherFields,
         numberText: recipients.join(', '),
         locations: recipients
-          .map(number => ({ number, location: telephoneLocation(number) }))
+          .map(number => ({ number, location: telephoneLocation(number, this.locale) }))
           .filter(item => item.location),
         simpleNumberOnly: recipients.length > 0 && !body && !otherFields.length
       };
@@ -407,7 +407,7 @@
         *{box-sizing:border-box;letter-spacing:normal}
         .popover{position:relative;width:min(324px,calc(100vw - 20px));max-height:min(460px,calc(100vh - 20px));overflow:auto;border:1px solid var(--mc-line);border-radius:12px;background:var(--mc-bg);color:var(--mc-text);box-shadow:0 10px 26px rgba(0,0,0,.2);padding:10px 13px 13px}
         .heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 7px}.heading strong{font-size:14px;line-height:1.2;font-weight:700}.close{display:inline-flex;align-items:center;justify-content:center;align-self:baseline;width:22px;height:20px;min-height:20px;border:0;border-radius:50%;background:transparent;color:var(--mc-muted);padding:0;font-size:18px;line-height:1;cursor:pointer}.close:hover{background:var(--mc-raised)}
-        .details{display:grid;gap:8px}.field{display:grid;gap:2px}.field span{color:var(--mc-muted);font-size:12px;font-weight:650;text-transform:none}.value{max-height:104px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;border-radius:7px;background:var(--mc-raised);padding:7px 9px;color:var(--mc-text);font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}.phone-value{display:grid;gap:7px}.phone-entry{display:grid;gap:1px}.phone-entry+.phone-entry{border-top:1px solid var(--mc-line);padding-top:6px}.phone-location{color:var(--mc-muted)}.phone-location>.phone-location-tail{color:inherit;font:inherit;text-transform:none;white-space:nowrap}
+        .details{display:grid;gap:8px}.field{display:grid;gap:2px}.field span{color:var(--mc-muted);font-size:12px;font-weight:650;text-transform:none}.value{max-height:104px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;border-radius:7px;background:var(--mc-raised);padding:7px 9px;color:var(--mc-text);font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}.phone-value{display:grid;gap:7px}.phone-entry{display:grid;gap:1px}.phone-entry+.phone-entry{border-top:1px solid var(--mc-line);padding-top:6px}.phone-location{color:var(--mc-muted)}.phone-location>.phone-location-nowrap{color:inherit;font:inherit;text-transform:none;white-space:nowrap}
         .other{display:grid;gap:6px}.other-row{display:grid;grid-template-columns:minmax(72px,auto) 1fr;gap:8px;align-items:start}.other-row b{color:var(--mc-muted);font-size:12px;overflow-wrap:anywhere}.other-row div{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
         .actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}button{min-height:33px;border:1px solid var(--mc-line);border-radius:8px;background:var(--mc-bg);color:var(--mc-text);padding:0 10px;font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}button:hover{background:var(--mc-raised)}button.primary{border-color:var(--mc-blue);background:var(--mc-blue);color:var(--mc-on-blue)}button.primary:hover{filter:brightness(.96)}
         .status{margin:7px 0 0;color:var(--mc-muted);font-size:11px}.status:empty{display:none}
@@ -525,21 +525,39 @@
 
     appendLocationText(element, value) {
       const text = String(value || '');
+      if (text === '中国' || text.startsWith('中国 ')) {
+        const parts = text.split(' ');
+        const fixed = document.createElement('span');
+        fixed.className = 'phone-location-nowrap';
+        fixed.textContent = parts.slice(0, 2).join(' ');
+        element.append(fixed);
+        if (parts.length > 2) element.append(` ${parts.slice(2).join(' ')}`);
+        return;
+      }
       const countrySuffix = ', USA';
+      const chinaSuffix = ', China';
       const numberingPlanSuffix = 'North American Numbering Plan';
       const countryAt = text.endsWith(countrySuffix) ? text.length - countrySuffix.length : -1;
+      const chinaAt = text.endsWith(chinaSuffix) ? text.length - chinaSuffix.length : -1;
       const numberingPlanAt = text.endsWith(numberingPlanSuffix)
         ? text.length - numberingPlanSuffix.length
         : -1;
-      if (countryAt < 0 && numberingPlanAt < 0) {
+      if (countryAt < 0 && chinaAt < 0 && numberingPlanAt < 0) {
         element.textContent = text;
         return;
       }
       const tail = document.createElement('span');
-      tail.className = 'phone-location-tail';
+      tail.className = 'phone-location-nowrap';
       if (numberingPlanAt >= 0) {
         element.textContent = text.slice(0, numberingPlanAt);
         tail.textContent = numberingPlanSuffix;
+      } else if (chinaAt >= 0) {
+        const provinceAt = text.lastIndexOf(', ', chinaAt - 1);
+        if (provinceAt < 0) tail.textContent = text;
+        else {
+          element.textContent = text.slice(0, provinceAt + 2);
+          tail.textContent = text.slice(provinceAt + 2);
+        }
       } else {
         const regionAt = text.lastIndexOf(', ', countryAt - 1);
         if (regionAt < 0) tail.textContent = text;

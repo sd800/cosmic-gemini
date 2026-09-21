@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.28 — 2026-09-21
+
+- Replaced Mexico's numeric telephone-zone labels with the official directional names for Zones 2 through 9, localized to the interface language.
+- Kept NANP location output in English while localizing other international country, region, and service names into standardized Simplified Chinese when the interface uses Chinese. Chinese fixed lines now use compact country, province-level region, and locality names without administrative suffixes.
+- Kept the province-level region and country together in English China locations, and the country and province-level region together in Chinese China locations, while allowing the locality to wrap naturally.
+
 ## 8.13.27 — 2026-09-21
 
 - Refined Mailto Capture location wrapping so a long city or metropolitan-area name can wrap naturally while the final state and `USA` remain together, without forcing that suffix onto a new line when it still fits.

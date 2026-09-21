@@ -150,10 +150,29 @@ test('Mailto Capture recognizes and formats compact international telephone refe
   });
   assert.deepEqual(JSON.parse(JSON.stringify(phone.inspect('+52 55 1234 5678'))), {
     display: '+52 55 1234 5678',
-    location: 'Zone 5, Mexico'
+    location: 'Center, Mexico'
   });
+  assert.equal(phone.inspect('+44 20 7946 0958', 'zh-CN').location, '英国');
+  assert.equal(phone.inspect('+86 571 1234 5678', 'zh-CN').location, '中国 浙江 杭州');
+  assert.equal(phone.inspect('+86 28 1234 5678', 'zh-CN').location, '中国 四川 成都/资阳/眉山');
+  assert.equal(phone.inspect('+86 29 1234 5678', 'zh-CN').location, '中国 陕西 西安/咸阳');
+  assert.equal(phone.inspect('+86 131 2345 6789', 'zh-CN').location, '中国');
+  assert.equal(phone.inspect('+52 55 1234 5678', 'zh-CN').location, '墨西哥 中部');
+  assert.deepEqual(
+    ['2', '3', '4', '5', '6', '7', '8', '9'].map(digit => (
+      phone.inspect(`+52 ${digit}12 345 6789`).location
+    )),
+    ['East, Mexico', 'West, Mexico', 'North, Mexico', 'Center, Mexico',
+      'Northwest, Mexico', 'Southwest, Mexico', 'Northeast, Mexico', 'Southeast, Mexico']
+  );
   assert.equal(runtime.parseTel('tel:+44-20-7946-0958').location, 'United Kingdom');
   assert.equal(runtime.parseSms('sms:+86-10-1234-5678').locations[0].location, 'Beijing, China');
+  runtime.onConfigure({
+    detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } })
+  });
+  assert.equal(runtime.parseTel('tel:+44-20-7946-0958').location, '英国');
+  assert.equal(runtime.parseSms('sms:+86-571-1234-5678').locations[0].location, '中国 浙江 杭州');
+  assert.equal(runtime.parseTel('tel:+1-312-555-0100').location, 'Chicago, Illinois, USA');
 });
 
 test('Mailto Capture standardizes NANP display without changing copied dialing targets', async () => {
@@ -177,6 +196,8 @@ test('Mailto Capture places recognized locations beneath their telephone numbers
     { number: '+1-907-211-0100', location: 'Alaska, USA' },
     { number: '+1-800-555-0100', location: 'Toll-Free, North American Numbering Plan' },
     { number: '+1-416-555-0100', location: 'Toronto, Ontario, Canada' },
+    { number: '+86-571-1234-5678', location: 'Hangzhou, Zhejiang, China' },
+    { number: '+86-571-1234-5678', location: '中国 浙江 杭州' },
     { number: '+44-20-7946-0958', location: '' }
   ]);
 
@@ -189,11 +210,13 @@ test('Mailto Capture places recognized locations beneath their telephone numbers
     ['+1 (907) 211-0100', 'Alaska, USA'],
     ['+1 (800) 555-0100', 'Toll-Free, North American Numbering Plan'],
     ['+1 (416) 555-0100', 'Toronto, Ontario, Canada'],
+    ['+86 571 1234 5678', 'Hangzhou, Zhejiang, China'],
+    ['+86 571 1234 5678', '中国 浙江 杭州'],
     ['+44 20 7946 0958']
   ]);
   const longUsLocation = field.children[1].children[0].children[1];
   assert.equal(longUsLocation.textContent, 'Chicago-Naperville-Elgin metropolitan area, ');
-  assert.equal(longUsLocation.children[0].className, 'phone-location-tail');
+  assert.equal(longUsLocation.children[0].className, 'phone-location-nowrap');
   assert.equal(longUsLocation.children[0].textContent, 'Illinois, USA');
   const stateOnlyLocation = field.children[1].children[1].children[1];
   assert.equal(stateOnlyLocation.textContent, '');
@@ -202,6 +225,12 @@ test('Mailto Capture places recognized locations beneath their telephone numbers
   assert.equal(numberingPlanLocation.textContent, 'Toll-Free, ');
   assert.equal(numberingPlanLocation.children[0].textContent, 'North American Numbering Plan');
   assert.equal(field.children[1].children[3].children[1].children.length, 0);
+  const englishChinaLocation = field.children[1].children[4].children[1];
+  assert.equal(englishChinaLocation.textContent, 'Hangzhou, ');
+  assert.equal(englishChinaLocation.children[0].textContent, 'Zhejiang, China');
+  const chineseChinaLocation = field.children[1].children[5].children[1];
+  assert.equal(chineseChinaLocation.children[0].textContent, '中国 浙江');
+  assert.equal(chineseChinaLocation.children[1], ' 杭州');
 });
 
 test('Mailto Capture preserves text-message recipients, body, and extension fields', async () => {

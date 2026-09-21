@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.13.23 — 2026-09-21
+
+- 将 Mailto Capture 仅英文显示的区号归属结果中的 `United States` 缩写为 `USA`。
+
 ## 8.13.22 — 2026-09-21
 
 - 优化 Mailto Capture 仅英文显示的 `Area code location` 字段并改用紧凑的离线混合索引：能够可靠定位城市或都会区时仅使用三位区号，覆盖范围较大的区号则使用预编译 NPA-NXX 明细；没有精确已分配前缀时保留区域级回退。

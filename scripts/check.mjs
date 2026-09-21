@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.22');
+assert.equal(manifest.version, '8.13.23');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -446,6 +446,8 @@ assert.match(mailtoCaptureNanp, /Three-digit area results are used whenever reli
   'Mailto Capture must retain its precompiled hybrid NPA and NPA-NXX location index.');
 assert.ok(Buffer.byteLength(mailtoCaptureNanp, 'utf8') < 500_000,
   'Mailto Capture numbering-plan data must remain compact enough for ordinary page injection.');
+assert.doesNotMatch(mailtoCaptureNanp, /United States/,
+  'Mailto Capture area-code results must use the compact USA country label.');
 assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
 assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
 assert.match(mailtoCaptureRuntime, /\^sms:[\s\S]*recipients[\s\S]*body[\s\S]*otherFields/);

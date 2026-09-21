@@ -95,7 +95,7 @@ test('Mailto Capture preserves telephone targets and rejects empty tel links', a
   const parsed = runtime.parseTel('TEL:%2B1-312-555-0100;ext=204#ignored');
   assert.equal(parsed.kind, 'tel');
   assert.equal(parsed.number, '+1-312-555-0100;ext=204');
-  assert.equal(parsed.location, 'Chicago, Illinois, United States');
+  assert.equal(parsed.location, 'Chicago, Illinois, USA');
   assert.equal(runtime.messageText(parsed), '+1-312-555-0100;ext=204');
   assert.equal(runtime.parseLink('tel:+44-20-7946-0958').kind, 'tel');
   assert.equal(runtime.parseTel('tel:'), null);
@@ -105,9 +105,9 @@ test('Mailto Capture resolves North American locations offline and leaves other 
   const { context } = await runtimeFixture();
   const nanp = context[Symbol.for('cosmic-gemini.mailto-capture.nanp')];
   assert.equal(nanp.lookup('+1 416 555 0100'), 'Toronto, Ontario, Canada');
-  assert.equal(nanp.lookup('+1 907 200 0100'), 'Valdez, Alaska, United States');
-  assert.equal(nanp.lookup('+1 907 211 0100'), 'Alaska, United States');
-  assert.equal(nanp.lookup('312-555-0100'), 'Chicago, Illinois, United States');
+  assert.equal(nanp.lookup('+1 907 200 0100'), 'Valdez, Alaska, USA');
+  assert.equal(nanp.lookup('+1 907 211 0100'), 'Alaska, USA');
+  assert.equal(nanp.lookup('312-555-0100'), 'Chicago, Illinois, USA');
   assert.equal(nanp.lookup('1-800-555-0100'), 'Toll-Free, North American Numbering Plan');
   assert.equal(nanp.lookup('+1 211 555 0100'), 'North American Numbering Plan (area code not identified)');
   assert.equal(nanp.lookup('+44 20 7946 0958'), '');
@@ -120,7 +120,7 @@ test('Mailto Capture preserves text-message recipients, body, and extension fiel
   assert.deepEqual([...parsed.recipients], ['+1-312-555-0100', '+44-20-7946-0958']);
   assert.equal(parsed.body, 'Meet at 6?');
   assert.deepEqual(JSON.parse(JSON.stringify(parsed.locations)), [
-    { number: '+1-312-555-0100', location: 'Chicago, Illinois, United States' }
+    { number: '+1-312-555-0100', location: 'Chicago, Illinois, USA' }
   ]);
   assert.deepEqual(JSON.parse(JSON.stringify(parsed.otherFields)), [{ name: 'service', values: ['center'] }]);
   assert.equal(runtime.messageText(parsed), [

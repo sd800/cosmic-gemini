@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.31 — 2026-09-21
+
+- Renamed the contextual input panel's alias section to `Site aliases`, placed it after `Shortcuts`, and now hides the complete section whenever the current website-rule input has no aliases. Clicking outside the panel closes it.
+
 ## 8.13.30 — 2026-09-21
 
 - Added contextual help to every website-rule input in Settings. Entering `?` or `？` now opens a localized panel describing the current field's accepted entries and shortcuts without saving the help token as a rule.

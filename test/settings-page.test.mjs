@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createSettingsState } from '../extension/settings/state.js';
+import { ACCESS_CONTROL_ALIAS_GROUPS } from '../extension/core/website-rule-input.js';
 import { PRODUCT_META, featureFromPath, viewFor } from '../extension/settings/views.js';
 
 function settingsRegion(html, pattern, label) {
@@ -122,6 +123,7 @@ class Element {
   addEventListener(type, listener) { this.events[type] = listener; }
   setAttribute() {}
   showModal() { this.open = true; }
+  close() { this.open = false; }
 }
 
 function controller(feature = 'satellites') {
@@ -141,7 +143,7 @@ function controller(feature = 'satellites') {
     document, chrome: {}, location: { pathname: '' },
     featureFromPath: () => feature, translator: () => key => key,
     isIpAddress: value => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || /^\[[0-9a-f:]+\]$/i.test(value),
-    createSettingsState, saveSettingsViewCache() {}, icon: () => '',
+    ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, saveSettingsViewCache() {}, icon: () => '',
     send: message => transport(message),
     retryRead: task => task(), setTimeout: task => { timers.push(task); return timers.length; }, clearTimeout() {}
   });
@@ -206,7 +208,23 @@ test('a question mark opens contextual help without becoming a website rule', ()
   assert.equal(input.value, '');
   assert.equal(input.dataset.ruleInputHelpBound, 'true');
   assert.equal(typeof input.events.input, 'function');
-  assert.equal(body.children.find(child => child.tagName === 'DIALOG')?.open, true);
+  const dialog = body.children.find(child => child.tagName === 'DIALOG');
+  assert.equal(dialog?.open, true);
+  const aliasSection = dialog.querySelector('.rule-input-help-aliases');
+  const shortcuts = dialog.querySelector('.rule-input-help-commands');
+  assert.equal(aliasSection.hidden, true, 'ordinary rule inputs hide the empty alias section');
+  assert.ok(shortcuts.parent.children.indexOf(shortcuts) < shortcuts.parent.children.indexOf(aliasSection));
+  dialog.events.click({ target: dialog });
+  assert.equal(dialog.open, false, 'clicking the backdrop closes contextual help');
+
+  const accessSection = new Element('section');
+  accessSection.dataset.featureId = 'accessControl';
+  const accessInput = new Element('input');
+  accessInput.closest = selector => selector === '[data-list-section]' ? accessSection : null;
+  api.bindRuleInputHelp(accessInput);
+  accessInput.value = '?';
+  accessInput.events.input();
+  assert.equal(aliasSection.hidden, false, 'Access Control exposes its site aliases');
 });
 
 test('unchanged settings refreshes preserve rule controls and pending removals', async () => {

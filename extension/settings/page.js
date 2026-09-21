@@ -505,8 +505,11 @@ function ensureRuleInputHelpPanel() {
   close.type = 'submit';
   close.value = 'close';
   actions.append(close);
-  form.append(heading, intro, behavior, rulesHeading, rules, aliasesSection, shortcutsHeading, shortcuts, actions);
+  form.append(heading, intro, behavior, rulesHeading, rules, shortcutsHeading, shortcuts, aliasesSection, actions);
   dialog.append(form);
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) dialog.close();
+  });
   document.body.append(dialog);
   ruleInputHelpPanel = {
     dialog, heading, intro, behavior, rulesHeading, rules,
@@ -521,6 +524,7 @@ function openRuleInputHelp(input) {
   const section = input.closest('[data-list-section]');
   const accessControl = section?.dataset.featureId === 'accessControl';
   const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
+  const aliasGroups = accessControl ? ACCESS_CONTROL_ALIAS_GROUPS : [];
   panel.heading.textContent = t(accessControl ? 'accessControlInputHelpHeading' : 'ruleInputHelpHeading');
   panel.intro.textContent = t(accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
   panel.behavior.hidden = !behaviorEditor;
@@ -530,11 +534,11 @@ function openRuleInputHelp(input) {
     ? [helpTextItem('accessControlInputDomainHelp'), helpTextItem('accessControlInputIpHelp')]
     : [helpTextItem('ruleInputExactHelp'), helpTextItem('ruleInputWildcardHelp')]),
   helpTextItem('ruleInputExpansionHelp'));
-  panel.aliasesSection.hidden = !accessControl;
+  panel.aliasesSection.hidden = aliasGroups.length === 0;
   panel.aliasesHeading.textContent = t('accessControlInputAliasesHeading');
   panel.aliases.replaceChildren();
-  if (accessControl) {
-    for (const group of ACCESS_CONTROL_ALIAS_GROUPS) {
+  if (aliasGroups.length) {
+    for (const group of aliasGroups) {
       const aliases = document.createElement('dt');
       const domain = document.createElement('dd');
       aliases.textContent = group.aliases.join(' / ');

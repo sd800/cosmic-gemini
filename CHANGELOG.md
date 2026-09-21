@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.27 — 2026-09-21
+
+- Matched the Satellites category-heading type size to the feature-card headings while retaining the visual group dividers.
+
 ## 8.12.26 — 2026-09-21
 
 - Organized Satellites into General features and Site-specific features. Ad Marshal now appears directly below Clipboard Protect at the end of the General features group.

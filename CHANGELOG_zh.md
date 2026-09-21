@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.12.27 — 2026-09-21
+
+- 将 Satellites 分类标题的字号调整为与功能卡片标题一致，同时保留分组分隔线。
+
 ## 8.12.26 — 2026-09-21
 
 - 将 Satellites 设置页划分为“通用功能”和“网站专用功能”；Ad Marshal 现位于 Clipboard Protect 正下方，并作为“通用功能”分组的最后一项。

@@ -121,6 +121,7 @@ class Element {
   contains(node) { return this === node || this.children.some(child => child.contains(node)); }
   addEventListener(type, listener) { this.events[type] = listener; }
   setAttribute() {}
+  showModal() { this.open = true; }
 }
 
 function controller(feature = 'satellites') {
@@ -148,11 +149,11 @@ function controller(feature = 'satellites') {
     .replace(/^import .*;\n/gm, '');
   vm.runInContext(source.slice(0, source.indexOf("\nfor (const link of document.querySelectorAll('[data-feature-link]')) {")) + `
     globalThis.controller = { render, renderList, renderBehaviorList, update, savePreference,
-      bindEmptyRuleSort, isRuleOrderReset, isRuleListClean,
+      bindEmptyRuleSort, bindRuleInputHelp, isRuleOrderReset, isRuleListClean, isRuleInputHelpRequest,
       async hydrate(snapshot) { await settingsState.read(async () => snapshot); states = settingsState.value; },
       pendingControls, listSignatures };
   `, context);
-  return { api: context.controller, nodes, groups, timers, setTransport: task => { transport = task; } };
+  return { api: context.controller, body, nodes, groups, timers, setTransport: task => { transport = task; } };
 }
 
 test('an empty rule input exposes alphabetizing only through a completed long press', () => {
@@ -191,6 +192,21 @@ test('the clean rule command is reserved for confirmed card clearing', () => {
   assert.equal(api.isRuleListClean('  CLEAN  '), true);
   assert.equal(api.isRuleListClean('clean.example'), false);
   assert.equal(api.isRuleListClean(''), false);
+});
+
+test('a question mark opens contextual help without becoming a website rule', () => {
+  const { api, body } = controller();
+  const input = new Element('input');
+  input.closest = () => null;
+  api.bindRuleInputHelp(input);
+  assert.equal(api.isRuleInputHelpRequest(' ? '), true);
+  assert.equal(api.isRuleInputHelpRequest(' ？ '), true);
+  input.value = '？';
+  input.events.input();
+  assert.equal(input.value, '');
+  assert.equal(input.dataset.ruleInputHelpBound, 'true');
+  assert.equal(typeof input.events.input, 'function');
+  assert.equal(body.children.find(child => child.tagName === 'DIALOG')?.open, true);
 });
 
 test('unchanged settings refreshes preserve rule controls and pending removals', async () => {

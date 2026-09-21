@@ -121,6 +121,20 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .settings-dialog .danger-button { border-color: transparent; background: var(--danger); color: white; }
 .settings-dialog button:disabled { cursor: default; opacity: .55; }
+.rule-input-help-dialog { width: min(560px, calc(100% - 32px)); }
+.rule-input-help-dialog form { display: grid; gap: 13px; }
+.rule-input-help-dialog h2, .rule-input-help-dialog h3, .rule-input-help-dialog p { margin: 0; }
+.rule-input-help-dialog h3 { font-size: 13px; }
+.rule-input-help-dialog .rule-input-help-note { border-left: 2px solid var(--blue); padding-left: 10px; font-size: 12px; }
+.rule-input-help-list { display: grid; gap: 7px; padding: 0 0 0 18px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.rule-input-help-commands { padding: 0; list-style: none; }
+.rule-input-help-commands li { display: grid; grid-template-columns: minmax(48px, auto) 1fr; align-items: baseline; gap: 10px; }
+.rule-input-help-commands code, .rule-input-help-aliases dt { color: var(--text); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rule-input-help-aliases { display: grid; gap: 8px; }
+.rule-input-help-aliases dl { display: grid; grid-template-columns: minmax(150px, auto) 1fr; gap: 6px 12px; margin: 0; }
+.rule-input-help-aliases dt, .rule-input-help-aliases dd { margin: 0; }
+.rule-input-help-aliases dd { color: var(--muted); font-size: 12px; }
+.rule-input-help-dialog .dialog-actions { margin-top: 2px; }
 .help p:last-child { margin-bottom: 0; }
 .help hr { height: 1px; border: 0; background: var(--line); margin: 20px 0; }
 .satellite-card .section-heading { gap: 28px; }

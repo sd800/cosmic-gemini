@@ -1,18 +1,16 @@
 import { normalizeAccessControlDomain, normalizeRule } from './config.js';
 import { etld } from './etld.js';
 
-const ACCESS_CONTROL_ALIASES = Object.freeze({
-  xhs: 'xiaohongshu.com',
-  xiaohongshu: 'xiaohongshu.com',
-  dy: 'douyin.com',
-  douyin: 'douyin.com',
-  bili: 'bilibili.com',
-  bilibili: 'bilibili.com',
-  bzhan: 'bilibili.com',
-  ins: 'instagram.com',
-  ig: 'instagram.com',
-  instagram: 'instagram.com'
-});
+export const ACCESS_CONTROL_ALIAS_GROUPS = Object.freeze([
+  Object.freeze({ aliases: Object.freeze(['xhs', 'xiaohongshu']), domain: 'xiaohongshu.com' }),
+  Object.freeze({ aliases: Object.freeze(['dy', 'douyin']), domain: 'douyin.com' }),
+  Object.freeze({ aliases: Object.freeze(['bili', 'bilibili', 'bzhan']), domain: 'bilibili.com' }),
+  Object.freeze({ aliases: Object.freeze(['ins', 'ig', 'instagram']), domain: 'instagram.com' })
+]);
+
+const ACCESS_CONTROL_ALIASES = Object.freeze(Object.fromEntries(
+  ACCESS_CONTROL_ALIAS_GROUPS.flatMap(group => group.aliases.map(alias => [alias, group.domain]))
+));
 
 function canonicalMultiLabelRule(rule) {
   if (rule.startsWith('*.') || rule.startsWith('!')) return '';

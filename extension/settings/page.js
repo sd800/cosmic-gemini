@@ -1,7 +1,7 @@
 import { loadLocale } from '../core/locale.js';
 import { isIpAddress } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { normalizeAccessControlRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
+import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
@@ -44,6 +44,7 @@ let settingsUiReconnectAttempts = 0;
 let pageClosing = false;
 let localeSaving = false;
 let localeGeneration = 0;
+let ruleInputHelpPanel = null;
 
 function state() {
   return (states?.preferences || states)?.[featureId] || null;
@@ -75,6 +76,9 @@ function applyLocale() {
   for (const link of document.querySelectorAll('[data-feature-link]')) {
     link.title = t(titles[link.dataset.featureLink]);
     link.setAttribute('aria-label', link.title);
+  }
+  if (ruleInputHelpPanel?.dialog.open && ruleInputHelpPanel.input?.isConnected) {
+    openRuleInputHelp(ruleInputHelpPanel.input);
   }
 }
 
@@ -453,6 +457,112 @@ function isRuleListClean(value) {
   return String(value || '').trim().toLowerCase() === 'clean';
 }
 
+function isRuleInputHelpRequest(value) {
+  return ['?', '？'].includes(String(value || '').trim());
+}
+
+function helpTextItem(key) {
+  const item = document.createElement('li');
+  item.textContent = t(key);
+  return item;
+}
+
+function helpCommandItem(command, key) {
+  const item = document.createElement('li');
+  const code = document.createElement('code');
+  const description = document.createElement('span');
+  code.textContent = command;
+  description.textContent = t(key);
+  item.append(code, description);
+  return item;
+}
+
+function ensureRuleInputHelpPanel() {
+  if (ruleInputHelpPanel?.dialog?.isConnected) return ruleInputHelpPanel;
+  const dialog = document.createElement('dialog');
+  dialog.id = 'rule-input-help-dialog';
+  dialog.className = 'settings-dialog rule-input-help-dialog';
+  const form = document.createElement('form');
+  form.method = 'dialog';
+  const heading = document.createElement('h2');
+  const intro = document.createElement('p');
+  const behavior = document.createElement('p');
+  behavior.className = 'rule-input-help-note';
+  const rulesHeading = document.createElement('h3');
+  const rules = document.createElement('ul');
+  rules.className = 'rule-input-help-list';
+  const aliasesSection = document.createElement('section');
+  aliasesSection.className = 'rule-input-help-aliases';
+  const aliasesHeading = document.createElement('h3');
+  const aliases = document.createElement('dl');
+  aliasesSection.append(aliasesHeading, aliases);
+  const shortcutsHeading = document.createElement('h3');
+  const shortcuts = document.createElement('ul');
+  shortcuts.className = 'rule-input-help-list rule-input-help-commands';
+  const actions = document.createElement('div');
+  actions.className = 'dialog-actions';
+  const close = document.createElement('button');
+  close.type = 'submit';
+  close.value = 'close';
+  actions.append(close);
+  form.append(heading, intro, behavior, rulesHeading, rules, aliasesSection, shortcutsHeading, shortcuts, actions);
+  dialog.append(form);
+  document.body.append(dialog);
+  ruleInputHelpPanel = {
+    dialog, heading, intro, behavior, rulesHeading, rules,
+    aliasesSection, aliasesHeading, aliases, shortcutsHeading, shortcuts, close
+  };
+  return ruleInputHelpPanel;
+}
+
+function openRuleInputHelp(input) {
+  const panel = ensureRuleInputHelpPanel();
+  panel.input = input;
+  const section = input.closest('[data-list-section]');
+  const accessControl = section?.dataset.featureId === 'accessControl';
+  const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
+  panel.heading.textContent = t(accessControl ? 'accessControlInputHelpHeading' : 'ruleInputHelpHeading');
+  panel.intro.textContent = t(accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
+  panel.behavior.hidden = !behaviorEditor;
+  panel.behavior.textContent = behaviorEditor ? t('ruleInputBehaviorHelp') : '';
+  panel.rulesHeading.textContent = t('ruleInputRulesHeading');
+  panel.rules.replaceChildren(...(accessControl
+    ? [helpTextItem('accessControlInputDomainHelp'), helpTextItem('accessControlInputIpHelp')]
+    : [helpTextItem('ruleInputExactHelp'), helpTextItem('ruleInputWildcardHelp')]),
+  helpTextItem('ruleInputExpansionHelp'));
+  panel.aliasesSection.hidden = !accessControl;
+  panel.aliasesHeading.textContent = t('accessControlInputAliasesHeading');
+  panel.aliases.replaceChildren();
+  if (accessControl) {
+    for (const group of ACCESS_CONTROL_ALIAS_GROUPS) {
+      const aliases = document.createElement('dt');
+      const domain = document.createElement('dd');
+      aliases.textContent = group.aliases.join(' / ');
+      domain.textContent = group.domain;
+      panel.aliases.append(aliases, domain);
+    }
+  }
+  panel.shortcutsHeading.textContent = t('ruleInputShortcutsHeading');
+  panel.shortcuts.replaceChildren(
+    helpCommandItem('reset', 'ruleInputResetHelp'),
+    helpCommandItem('clean', 'ruleInputCleanHelp'),
+    helpCommandItem(t('add'), 'ruleInputLongPressHelp'),
+    helpCommandItem('? / ？', 'ruleInputQuestionHelp')
+  );
+  panel.close.textContent = t('close');
+  if (!panel.dialog.open) panel.dialog.showModal();
+}
+
+function bindRuleInputHelp(input) {
+  if (input.dataset.ruleInputHelpBound === 'true') return;
+  input.dataset.ruleInputHelpBound = 'true';
+  input.addEventListener('input', () => {
+    if (!isRuleInputHelpRequest(input.value)) return;
+    input.value = '';
+    openRuleInputHelp(input);
+  });
+}
+
 async function update(section, task, controls = [], errorKey = 'settingsSaveFailed') {
   const actionable = controls.filter(Boolean);
   if (actionable.some(control => pendingControls.has(control))) return;
@@ -479,6 +589,7 @@ async function update(section, task, controls = [], errorKey = 'settingsSaveFail
 }
 
 function bindView() {
+  for (const input of document.querySelectorAll('input[type="text"]')) bindRuleInputHelp(input);
   const enabled = document.querySelector('#enabled');
   if (enabled) {
     const enabledFeatureId = featureId;

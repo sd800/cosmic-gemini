@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.30 — 2026-09-21
+
+- Added contextual help to every website-rule input in Settings. Entering `?` or `？` now opens a localized panel describing the current field's accepted entries and shortcuts without saving the help token as a rule.
+
 ## 8.13.29 — 2026-09-21
 
 - Added concise input aliases for selected services in Access Control. Each alias resolves to the service's root domain and retains the existing coverage of all subdomains without adding extra background rules.

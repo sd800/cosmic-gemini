@@ -47,6 +47,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
   assert.deepEqual(settings.mailtoCapture, { enabled: true });
+  assert.deepEqual(settings.accessControl, { enabled: false, blockedDomains: [] });
   assert.deepEqual(settings.pageDisplay, {
     enabled: false,
     reduceWhitePoint: { enabled: false, reduction: 0.25 },

@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.12.27');
+assert.equal(manifest.version, '8.13.1');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -195,6 +195,8 @@ const popupStyle = await source('popup', 'popup.css');
 const imageDownloadStyle = await source('workspaces', 'image-download', 'image-download.css');
 const satellitesSettings = await source('settings', 'satellites.html');
 const pageDisplaySettings = await source('settings', 'page-display.html');
+const readme = await readFile(join(project, 'README.md'), 'utf8');
+const readmeZh = await readFile(join(project, 'README_zh.md'), 'utf8');
 assert.match(settingsStyle, /--switch-blue: #0b57d0/);
 assert.match(settingsStyle, /prefers-color-scheme: dark[\s\S]*--switch-blue: #276cd9/);
 assert.match(settingsStyle, /\.switch input:checked \+ span \{ background: var\(--switch-blue\); \}/);
@@ -206,7 +208,12 @@ assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*adMarshalName[\s\S]*id="adMarshalTencentNews"[\s\S]*satellitesSiteSpecificFeatures[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"/);
+assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*adMarshalName[\s\S]*id="adMarshalTencentNews"[\s\S]*satellitesSiteSpecificFeatures[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"/);
+assert.match(satellitesSettings, /data-feature-id="accessControl" data-list-section="blockedDomains"[\s\S]*id="accessControlEnabled"[\s\S]*id="accessControlOptions"/);
+assert.match(settingsSource, /normalizeAccessControlDomain[\s\S]*featureId: 'accessControl'/);
+assert.match(settingsStyle, /\.access-control-rule-scope \{[^}]*color: var\(--muted\)[^}]*font-size: 12px/);
+assert.match(readme, /### Satellites - General features[\s\S]*#### Access Control[\s\S]*### Satellites - Site-specific features/);
+assert.match(readmeZh, /### Satellites - 通用功能[\s\S]*#### Access Control[\s\S]*### Satellites - 网站专用功能/);
 assert.match(settingsStyle, /\.satellite-category-heading \{[^}]*font-size: 16px[^}]*font-weight: 700[^}]*\}[\s\S]*\.satellite-category-heading::after/);
 assert.match(satellitesSettings, /chineseResponseClaudeDescription[\s\S]*class="satellite-inline-checkbox"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*claudeBrowserIdentityHelp[\s\S]*chineseResponseClaudeEnabled/);
 assert.doesNotMatch(satellitesSettings, /claudeBrowserIdentityHeading|class="switch"><input id="claudeBrowserIdentityEnabled"/);
@@ -218,6 +225,7 @@ assert.match(pageDisplaySettings, /page-display-feature-heading[\s\S]*greyscaleN
 assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZhihu"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
 assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
+assert.match(satellitesSettings, /xhsImageDarkModeDescription[\s\S]*xhsImageDarkModeAnalysisDescription[\s\S]*xhsImageDarkModeCommentImagesDescription[\s\S]*xhsImageDarkModeControlsDescription[\s\S]*experimentalFeature/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);
@@ -263,6 +271,7 @@ const noAutoplay = await source('background', 'products', 'standing', 'no-autopl
 const noAutoplayRuntime = await source('content', 'no-autoplay-runtime.js');
 const mailtoCapture = await source('background', 'products', 'standing', 'mailto-capture.js');
 const mailtoCaptureRuntime = await source('content', 'mailto-capture-runtime.js');
+const accessControl = await source('background', 'products', 'standing', 'access-control.js');
 const adMarshal = await source('background', 'products', 'standing', 'ad-marshal.js');
 const adMarshalRuntime = await source('content', 'ad-marshal-runtime.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
@@ -361,7 +370,14 @@ for (const [id, province] of [['standing', standing], ['operations', operations]
   assert.match(province, new RegExp(`id: '${id}'`));
   assert.match(province, /products/);
 }
-assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct[\s\S]*createMailtoCaptureProduct[\s\S]*createAdMarshalProduct/);
+assert.match(standing, /createNativeScrollProduct[\s\S]*createNoAutoplayProduct[\s\S]*createMailtoCaptureProduct/);
+assert.match(standing, /createAccessControlProduct/);
+assert.match(standing, /createAdMarshalProduct/);
+assert.match(central, /FEATURE_IDS\.CLIPBOARD_PROTECT[\s\S]*FEATURE_IDS\.ACCESS_CONTROL[\s\S]*FEATURE_IDS\.WEBSITE_KNOWLEDGE_CONTROL/);
+assert.match(accessControl, /getSessionRules[\s\S]*updateSessionRules/);
+assert.match(accessControl, /urlFilter: `\|\|\$\{domain\}\^`[\s\S]*'main_frame', 'sub_frame'/);
+assert.doesNotMatch(accessControl, /chrome\.tabs\.(?:reload|update)|scripting\.executeScript/,
+  'Access Control must change future navigations without rewriting or reloading an open page.');
 assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /restorationTask[\s\S]*if \(restorationTask\) return restorationTask/,

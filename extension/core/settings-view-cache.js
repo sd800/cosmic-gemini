@@ -1,4 +1,4 @@
-import { normalizeWebsiteKnowledge } from './config.js';
+import { normalizeAccessControlDomain, normalizeWebsiteKnowledge } from './config.js';
 
 export const SETTINGS_VIEW_CACHE_KEY = 'cosmicGeminiSettingsViewCache';
 
@@ -8,7 +8,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 33,
+    version: 35,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -33,6 +33,12 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
+    accessControl: {
+      enabled: states.accessControl?.enabled === true,
+      blockedDomains: [...new Set(rules(states.accessControl?.blockedDomains).flatMap(entry => {
+        try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
+      }))].sort((a, b) => a.localeCompare(b))
+    },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(states.websiteKnowledgeControl),
     pageDisplay: {
       enabled: states.pageDisplay?.enabled === true,

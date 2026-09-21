@@ -7,7 +7,8 @@
     enhancedRules: 'emptyEnhancedSites',
     standardRules: 'emptyStandardSites',
     permanentAudioAllowRules: 'emptyAudioAllow',
-    whitelistRules: 'emptySharedWhitelist'
+    whitelistRules: 'emptySharedWhitelist',
+    blockedDomains: 'accessControlEmptyDomains'
   };
   const iconPaths = {
     nativeScroll: '<path d="M12 3v18M7.5 7.5 12 3l4.5 4.5M7.5 16.5 12 21l4.5-4.5"/>',
@@ -101,6 +102,11 @@
   }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = !incognitoContext && cached.clipboardProtect?.enabled === true;
+  const accessControlEnabled = document.querySelector('#accessControlEnabled');
+  if (accessControlEnabled) {
+    accessControlEnabled.checked = cached.accessControl?.enabled === true;
+    document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
+  }
   const knowledge = cached.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
   if (knowledgeEnabled) {
@@ -253,7 +259,17 @@
       remove.innerHTML = icon('trash');
       remove.title = translate('removeRule', { rule });
       remove.setAttribute('aria-label', remove.title);
-      item.append(code, remove);
+      if (section.dataset.featureId === 'accessControl') {
+        const label = document.createElement('span');
+        label.className = 'access-control-rule-label';
+        const scope = document.createElement('span');
+        scope.className = 'access-control-rule-scope';
+        scope.textContent = translate('accessControlSubdomainsSuffix');
+        label.append(code, scope);
+        item.append(label, remove);
+      } else {
+        item.append(code, remove);
+      }
       list.append(item);
     }
   }

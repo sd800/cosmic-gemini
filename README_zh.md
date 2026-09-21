@@ -60,7 +60,7 @@ Video Download 会查找当前标签页中可以下载的媒体，并直接打�
 
 Page Display 设有总开关。关闭后，受影响的网页会恢复原样，子功能设置会暂时停用，但已经保存的选择不会丢失。
 
-### Satellites
+### Satellites - 通用功能
 
 Satellites 收纳无需长期占用控制窗口的小功能。
 
@@ -68,23 +68,19 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 拦截邮件链接，避免误触时直接打开系统邮件应用。Mailto Capture 会先在网页内显示简洁的内容预览，列出收件人、抄送与密送地址、主题、正文及链接附带的其他信息，供您按需复制。
 
+#### Clipboard Protect
+
+保护您选中并复制的原文，阻止网站在复制时擅自夹带链接、署名或推广文字，并尽量保留原有格式。Clipboard Protect 不读取剪贴板中的原有数据，不记录或上传复制内容，默认关闭，可在 Satellites 中独立开启。富文本编辑器、在线表格等可编辑区域仍使用网站自身的复制方式；没有选中文字时，网页上的普通复制按钮也按原样工作。Any Copy 在当前网页生效时拥有优先权，Clipboard Protect 会在该网页自动保持停用。
+
+#### Access Control
+
+阻止访问所选域名及其任意层级的子域名。Access Control 默认关闭，设有一个总开关。输入 `example.com` 这样的普通域名后，保存的规则会同时覆盖 `example.com` 及其所有子域名。规则修订会在匹配页面刷新或再次打开后生效。
+
 #### Website Knowledge Control
 
 自行设置向网站提供的语言与地区格式、时区和隐私偏好信息。Website Knowledge Control 默认关闭。开启总开关后，可分别勾选要调整的项目。“语言与地区格式”是一个合并选项，由一次选择统一调整网络请求、浏览器语言信息及默认 Intl 格式，默认使用 `en-US`。时区需另行勾选，默认候选值为纽约，并遵循当地夏令时规则。Global Privacy Control 默认勾选，用于向网站表明请勿出售或共享您的个人数据。
 
 未勾选的项目保持原样，这些调整也不会修改系统设置。每个页面会沿用载入时获取到的浏览器信息；修改或关闭设置后，新状态将在页面下次载入时生效。
-
-#### Clipboard Protect
-
-保护您选中并复制的原文，阻止网站在复制时擅自夹带链接、署名或推广文字，并尽量保留原有格式。Clipboard Protect 不读取剪贴板中的原有数据，不记录或上传复制内容，默认关闭，可在 Satellites 中独立开启。富文本编辑器、在线表格等可编辑区域仍使用网站自身的复制方式；没有选中文字时，网页上的普通复制按钮也按原样工作。Any Copy 在当前网页生效时拥有优先权，Clipboard Protect 会在该网页自动保持停用。
-
-#### XHS Image Dark Mode
-
-调暗小红书网页版在页面深色模式下仍然刺眼的文字图片。XHS Image Dark Mode 会分析图片的低分辨率样本，将浅色文字卡片切换为深色显示，把均匀的灰底文字卡片进一步压暗为黑色背景，并识别由稳定浅色与深色区域组成的文字版式。带有彩色边框的文字卡片也能识别，照片和图文混合图片则会保持原样。评论区图片只会在所属笔记展开后纳入处理，并在接近可视区域时识别；打开评论图片后，会提供独立的单图浅色／深色切换按钮。展开笔记后，长按页码旁的按钮可在整篇笔记强制深色与强制浅色之间切换，单击则恢复自动识别；瀑布流封面及稍后载入的图片也会遵循相同的整篇设置。用户主页另有开关，可暂停识别和调整该主页中的全部笔记。
-
-#### Bili Daily Login
-
-哔哩哔哩每天会向完成每日登录的账号发放一枚硬币。若要持续领取，原本需要您记得每天完成登录。Bili Daily Login 会在 Chrome 可以运行时于后台自动完成这项任务，帮助当前账号领取当日硬币。
 
 #### Ad Marshal
 
@@ -93,6 +89,24 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 每个受支持的网站都有独立且范围明确的专用规则。这些规则只处理已经确认的广告与遥测组件，不会干预正常页面内容、账号登录或安全验证。
 
 目前可选的管制网站包括腾讯新闻和知乎。
+
+### Satellites - 网站专用功能
+
+#### XHS Image Dark Mode
+
+调暗小红书网页版在页面深色模式下仍然刺眼的文字图片。
+
+该功能会分析图片的低分辨率样本，将浅色文字卡片切换为深色显示，把均匀的灰底文字卡片进一步压暗为黑色背景，并识别由稳定浅色与深色区域组成的文字版式。带有彩色边框的文字卡片也能识别，照片和图文混合图片则会保持原样。
+
+评论区图片只会在所属笔记展开后纳入处理，并在接近可视区域时识别；打开评论图片后，会提供独立的浅色／深色切换按钮。
+
+展开笔记后，长按笔记图片按钮可在整篇笔记强制深色与强制浅色之间切换，单击则恢复自动识别。在用户主页中，另有开关可暂停识别和调整该主页的全部笔记。
+
+这是一项实验性功能。
+
+#### Bili Daily Login
+
+哔哩哔哩每天会向完成每日登录的账号发放一枚硬币。若要持续领取，原本需要您记得每天完成登录。Bili Daily Login 会在 Chrome 可以运行时于后台自动完成这项任务，帮助当前账号领取当日硬币。
 
 #### Chinese Response Display Optimization for Claude
 
@@ -160,7 +174,7 @@ Reduce White Point 与 Greyscale 是全局开关。在控制窗口中开启其�
 
 **全部设置**位于底部的独立一行并靠右显示。紧凑的主控制窗口会暂时隐藏 Cosmic Gemini 名称。全部设置可进入各项功能的设置页面，也可以将全部设置和网站规则恢复为默认状态。
 
-全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启。Website Knowledge Control、Page Display 及其两项显示调整、XHS Image Dark Mode、Chinese Response Display Optimization for Claude、Bili Daily Login 和 Ad Marshal 的全部网站均默认关闭。Ad Marshal 允许单独选择每一组管制网站。
+全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启。Clipboard Protect、Access Control、Website Knowledge Control、Page Display 及其两项显示调整、XHS Image Dark Mode、Chinese Response Display Optimization for Claude、Bili Daily Login 和 Ad Marshal 的全部网站均默认关闭。Ad Marshal 允许单独选择每一组管制网站。
 
 访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Mode 的动态开关。功能开启但尚未检测到页面深色模式时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终启用图片处理、隐藏仅在展开笔记后显示的图片切换按钮，或调整按钮透明度。
 
@@ -204,11 +218,11 @@ No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问�
 
 ## 隐私
 
-Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Website Knowledge Control、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
+Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Clipboard Protect、Access Control、Website Knowledge Control、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 
-Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 仅在页面内调整回复显示与浏览器标识的一致性，不会另行发送或留存回复内容及标识信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
+Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。Access Control 只使用本地浏览器网络规则，不记录访问尝试。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 仅在页面内调整回复显示与浏览器标识的一致性，不会另行发送或留存回复内容及标识信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
 
 开启 Bili Daily Login 后，后台日程仅在电脑已唤醒且 Chrome 正在运行时调用哔哩哔哩账号服务。它会直接使用 Chrome 中已有的登录状态，不会读取或保存您的哔哩哔哩密码。
 

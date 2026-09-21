@@ -1,5 +1,5 @@
 import { loadLocale } from '../core/locale.js';
-import { normalizeRule } from '../core/config.js';
+import { normalizeAccessControlDomain, normalizeRule } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
@@ -15,7 +15,8 @@ const emptyKey = {
   enhancedRules: 'emptyEnhancedSites',
   standardRules: 'emptyStandardSites',
   permanentAudioAllowRules: 'emptyAudioAllow',
-  whitelistRules: 'emptySharedWhitelist'
+  whitelistRules: 'emptySharedWhitelist',
+  blockedDomains: 'accessControlEmptyDomains'
 };
 const behaviorByList = Object.freeze({
   inactiveRules: 'inactive',
@@ -107,7 +108,17 @@ function renderList(section) {
         ? { type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule }
         : { type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule }
     ), [remove]));
-    item.append(code, remove);
+    if (section.dataset.featureId === 'accessControl') {
+      const label = document.createElement('span');
+      label.className = 'access-control-rule-label';
+      const scope = document.createElement('span');
+      scope.className = 'access-control-rule-scope';
+      scope.textContent = t('accessControlSubdomainsSuffix');
+      label.append(code, scope);
+      item.append(label, remove);
+    } else {
+      item.append(code, remove);
+    }
     list.append(item);
   }
 }
@@ -197,6 +208,12 @@ function render() {
   }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
+  const accessControl = (states?.preferences || states)?.accessControl;
+  const accessControlEnabled = document.querySelector('#accessControlEnabled');
+  if (accessControlEnabled) {
+    accessControlEnabled.checked = accessControl?.enabled === true;
+    document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
+  }
   const knowledge = (states?.preferences || states)?.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
   if (knowledgeEnabled) {
@@ -442,6 +459,14 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const accessControlEnabled = document.querySelector('#accessControlEnabled');
+  if (accessControlEnabled) accessControlEnabled.addEventListener('change', () => {
+    const options = document.querySelector('#accessControlOptions');
+    if (options) options.disabled = !accessControlEnabled.checked;
+    void update(null, () => savePreference('accessControl', {
+      type: 'UI_SET_ENABLED', featureId: 'accessControl', enabled: accessControlEnabled.checked
+    }), [accessControlEnabled]);
+  });
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
   if (knowledgeEnabled) {
     const zoneSelect = document.querySelector('#websiteKnowledgeTimeZoneValue');
@@ -622,8 +647,14 @@ function bindView() {
     form.addEventListener('submit', event => {
       event.preventDefault();
       let rule;
-      try { rule = normalizeRule(input.value); }
-      catch { message.textContent = t('invalidRule'); return; }
+      try {
+        rule = sectionFeatureId === 'accessControl'
+          ? normalizeAccessControlDomain(input.value)
+          : normalizeRule(input.value);
+      } catch {
+        message.textContent = t(sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
+        return;
+      }
       if ((sectionState(section)?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
       void update(section, async () => {
         await savePreference(sectionFeatureId, sectionFeatureId === 'nsna'

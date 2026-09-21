@@ -13,6 +13,7 @@ export const FEATURE_IDS = Object.freeze({
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   FOLLOW_LIST_INSTAGRAM: 'followListInstagram',
   MAILTO_CAPTURE: 'mailtoCapture',
+  ACCESS_CONTROL: 'accessControl',
   WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
   CLIPBOARD_PROTECT: 'clipboardProtect',
   AD_MARSHAL: 'adMarshal',
@@ -26,6 +27,7 @@ export const FEATURE_SLOTS = Object.freeze({
   ANY_COPY: 30,
   ANY_COPY_ENHANCED: 31,
   MAILTO_CAPTURE: 32,
+  ACCESS_CONTROL: 41,
   PAGE_DISPLAY: 33,
   XHS_IMAGE_DARK_MODE: 34,
   AD_MARSHAL: 35,
@@ -56,7 +58,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 33,
+  version: 35,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -73,6 +75,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
+  accessControl: Object.freeze({
+    enabled: false,
+    blockedDomains: Object.freeze([])
+  }),
   websiteKnowledgeControl: Object.freeze({
     enabled: false,
     languages: Object.freeze({ enabled: true, value: 'en-US' }),
@@ -176,6 +182,13 @@ export function normalizeRule(value) {
   return wildcard ? '*.' + hostname : hostname;
 }
 
+export function normalizeAccessControlDomain(value) {
+  const rule = normalizeRule(value);
+  const domain = rule.startsWith('*.') ? rule.slice(2) : rule;
+  if (domain === 'localhost' || IPV4_ADDRESS.test(domain)) throw new Error('Enter a website domain.');
+  return domain;
+}
+
 function normalizeRules(value) {
   const rules = [];
   for (const entry of Array.isArray(value) ? value : []) {
@@ -254,7 +267,7 @@ export function websiteKnowledgeControlState(settings, url) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 33,
+    version: 35,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -267,6 +280,13 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
+    accessControl: {
+      enabled: value.accessControl?.enabled === true,
+      blockedDomains: [...new Set((Array.isArray(value.accessControl?.blockedDomains)
+        ? value.accessControl.blockedDomains : []).flatMap(entry => {
+        try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
+      }))].sort((a, b) => a.localeCompare(b))
+    },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(value.websiteKnowledgeControl),
     pageDisplay: {
       enabled: value.pageDisplay?.enabled === true,

@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 8.13.1 — 2026-09-21
+
+- 在 Standing Province 下新增 Access Control，通过总开关和本地域名规则阻止访问所列域名及其所有子域名；规则在匹配页面刷新或再次打开后生效。Clipboard Protect 现紧随 Mailto Capture，中英文 README 也将 Satellites 整理为“通用功能”和“网站专用功能”。
+- 将 XHS Image Dark Mode 的功能说明按用途、图片分析、评论区图片和操作方式重新分段，并同步调整中英文界面与 README。
+
 ## 8.12.27 — 2026-09-21
 
 - 将 Satellites 分类标题的字号调整为与功能卡片标题一致，同时保留分组分隔线。

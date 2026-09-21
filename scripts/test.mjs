@@ -4,6 +4,7 @@ import '../test/native-scroll-runtime.test.mjs';
 import '../test/no-autoplay-runtime.test.mjs';
 import '../test/mailto-capture-runtime.test.mjs';
 import '../test/clipboard-protect-runtime.test.mjs';
+import '../test/access-control.test.mjs';
 import '../test/chinese-response-claude-runtime.test.mjs';
 import '../test/website-knowledge-control.test.mjs';
 import '../test/page-display-runtime.test.mjs';

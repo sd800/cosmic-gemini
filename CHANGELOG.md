@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.1 — 2026-09-21
+
+- Added Access Control under Standing Province, with a master switch and local domain rules that block a listed domain and all of its subdomains after the matching page is reloaded or opened again. Clipboard Protect now follows Mailto Capture, and both README editions organize Satellites into General features and Site-specific features.
+- Reorganized the XHS Image Dark Mode explanation into separate purpose, image analysis, comment-image, and control paragraphs in both interface languages and README editions.
+
 ## 8.12.27 — 2026-09-21
 
 - Matched the Satellites category-heading type size to the feature-card headings while retaining the visual group dividers.

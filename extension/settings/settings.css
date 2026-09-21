@@ -125,8 +125,15 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .satellite-category-heading::after { height: 1px; flex: 1 1 auto; background: var(--line); content: ''; }
 .satellite-card .section-heading > div:first-child { min-width: 0; }
 .satellite-card .section-heading p { max-width: 620px; }
+.satellite-card .section-heading .satellite-description-paragraph + .satellite-description-paragraph { margin-top: 10px; }
 .satellite-card .section-heading .satellite-experimental-note { margin-top: 7px; }
 .satellite-control { display: flex; min-height: 24px; flex: 0 0 auto; align-items: center; }
+.access-control-options { padding: 17px 0 0; margin: 18px 0 0; border: 0; border-top: 1px solid var(--line); }
+.access-control-options:disabled { opacity: .64; }
+.access-control-options .rule-list { margin-bottom: 0; }
+.access-control-rule-label { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; }
+.access-control-rule-label code { max-width: 100%; }
+.access-control-rule-scope { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .satellite-preferences { margin-top: 18px; }
 .satellite-preferences .preference-row { gap: 28px; }
 .satellite-preferences .preference-row > span:first-child { min-width: 0; }

@@ -7,6 +7,7 @@ import {
 } from '../../core/config.js';
 import { createPageRuntimeHost } from '../features/page-runtime-host.js';
 import { createAdMarshalProduct } from '../products/standing/ad-marshal.js';
+import { createAccessControlProduct } from '../products/standing/access-control.js';
 import { createWebsiteKnowledgeControlProduct } from '../products/standing/website-knowledge-control.js';
 import { createClipboardProtectProduct } from '../products/standing/clipboard-protect.js';
 import { createMailtoCaptureProduct } from '../products/standing/mailto-capture.js';
@@ -40,6 +41,7 @@ export function createStandingProvince(platform) {
   const noAutoplay = createNoAutoplayProduct(host);
   const mailtoCapture = createMailtoCaptureProduct(host, platform);
   const clipboardProtect = createClipboardProtectProduct(host, platform);
+  const accessControl = createAccessControlProduct(platform);
   const adMarshal = createAdMarshalProduct(host, platform);
   const websiteKnowledgeControl = createWebsiteKnowledgeControlProduct(host, platform);
   const products = {
@@ -47,6 +49,7 @@ export function createStandingProvince(platform) {
     [noAutoplay.id]: noAutoplay,
     [mailtoCapture.id]: mailtoCapture,
     [clipboardProtect.id]: clipboardProtect,
+    [accessControl.id]: accessControl,
     [websiteKnowledgeControl.id]: websiteKnowledgeControl,
     [adMarshal.id]: adMarshal
   };
@@ -90,7 +93,9 @@ export function createStandingProvince(platform) {
       if (message.active !== true) await platform.setFeatureActivity(senderTabId, governed.id, false);
       return { updated: true };
     }
-    if ([websiteKnowledgeControl.id, clipboardProtect.id].includes(governed?.id)) return governed.handleMessage(message, context);
+    if ([websiteKnowledgeControl.id, clipboardProtect.id, accessControl.id].includes(governed?.id)) {
+      return governed.handleMessage(message, context);
+    }
     if (message.type === 'UI_SET_ENABLED') {
       const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
         ...feature,
@@ -179,7 +184,7 @@ export function createStandingProvince(platform) {
     products,
     async initialize() {
       await platform.ensureSettings();
-      await Promise.allSettled([adMarshal.reconcile(), websiteKnowledgeControl.initialize()]);
+      await Promise.allSettled([adMarshal.reconcile(), accessControl.reconcile(), websiteKnowledgeControl.initialize()]);
     },
     async getProductState(productId, context) {
       return product(productId).state(
@@ -200,8 +205,12 @@ export function createStandingProvince(platform) {
     handleTabRemoved(tabId) { return Promise.allSettled([adMarshal.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId)]); },
     handleStorageChanged(changes, areaName) {
       mailtoCapture.handleStorageChanged(changes, areaName);
-      return Promise.allSettled([adMarshal.handleStorageChanged(changes, areaName), websiteKnowledgeControl.handleStorageChanged(changes, areaName)]);
+      return Promise.allSettled([
+        adMarshal.handleStorageChanged(changes, areaName),
+        accessControl.handleStorageChanged(changes, areaName),
+        websiteKnowledgeControl.handleStorageChanged(changes, areaName)
+      ]);
     },
-    reset() { return Promise.allSettled([adMarshal.reset(), websiteKnowledgeControl.reset()]); }
+    reset() { return Promise.allSettled([adMarshal.reset(), accessControl.reset(), websiteKnowledgeControl.reset()]); }
   });
 }

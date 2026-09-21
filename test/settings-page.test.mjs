@@ -172,6 +172,36 @@ test('unchanged settings refreshes preserve rule controls and pending removals',
   assert.equal(list.children[0].className, 'empty');
 });
 
+test('Access Control renders its saved authorization and explains every domain rule at the same list level', async () => {
+  const { api, nodes } = controller();
+  const master = new Element('input');
+  const options = new Element('fieldset');
+  nodes.set('#accessControlEnabled', master);
+  nodes.set('#accessControlOptions', options);
+  await api.hydrate({ preferences: { satellites: {}, accessControl: {
+    enabled: false, blockedDomains: ['example.com']
+  } } });
+  api.render();
+  assert.equal(master.checked, false);
+  assert.equal(options.disabled, true);
+
+  const section = new Element();
+  section.dataset.listSection = 'blockedDomains';
+  section.dataset.featureId = 'accessControl';
+  const list = new Element('ul', 'rule-list');
+  section.append(list);
+  api.renderList(section);
+  assert.equal(list.children[0].children[0].children[0].textContent, 'example.com');
+  assert.equal(list.children[0].children[0].children[1].textContent, 'accessControlSubdomainsSuffix');
+
+  await api.hydrate({ preferences: { satellites: {}, accessControl: {
+    enabled: true, blockedDomains: ['example.com']
+  } } });
+  api.render();
+  assert.equal(master.checked, true);
+  assert.equal(options.disabled, false);
+});
+
 test('Clipboard Protect settings follow the saved switch regardless of current page support', async () => {
   const { api, nodes, setTransport } = controller();
   const card = new Element('section', 'card');

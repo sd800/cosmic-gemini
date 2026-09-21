@@ -60,7 +60,7 @@ Adjust webpage colors without changing their content, layout, or controls. Page 
 
 Page Display has one master switch. Turning it off restores affected pages and makes its child settings unavailable without discarding their saved selections.
 
-### Satellites
+### Satellites - General features
 
 Satellites contains optional tools that do not need permanent rows in the popup.
 
@@ -68,23 +68,19 @@ Satellites contains optional tools that do not need permanent rows in the popup.
 
 Stop mailto links from opening your system mail app before you can inspect them. Mailto Capture intercepts each link and shows its recipients, CC and BCC addresses, subject, message, and other included fields in a compact page popover for copying.
 
+#### Clipboard Protect
+
+Keep selected text free of content a website adds during copying, such as links, credits, and promotional messages. Clipboard Protect preserves the selected text and available formatting, with no clipboard reading, logging, or uploads. It is off by default and has one independent switch in Satellites. Editable areas, including rich-text editors and spreadsheet grids, keep their own copy handling. Normal copy buttons with no selected text also keep their existing behavior. When Any Copy is active on the current page, it takes priority and Clipboard Protect remains inactive there.
+
+#### Access Control
+
+Block visits to selected domains and every level of their subdomains. Access Control is off by default and uses one master switch. Enter a plain domain such as `example.com`; the saved rule covers both `example.com` and all of its subdomains. Rule changes take effect when a matching page is reloaded or opened again.
+
 #### Website Knowledge Control
 
 Control the language and regional format, time zone, and privacy preference sent to websites. Website Knowledge Control is off by default. Enable its master switch, then select the categories to adjust. Language and regional formats is one combined choice that applies to requests, browser language information, and default Intl formatting; it defaults to `en-US`. The optional time-zone setting defaults to New York and follows daylight saving time. Global Privacy Control is selected by default and asks websites not to sell or share your personal data.
 
 Unselected categories keep their original values. These adjustments do not change your system settings. Each page keeps the browser information it received when it loaded, so changed or disabled settings take effect when that page next loads.
-
-#### Clipboard Protect
-
-Keep selected text free of content a website adds during copying, such as links, credits, and promotional messages. Clipboard Protect preserves the selected text and available formatting, with no clipboard reading, logging, or uploads. It is off by default and has one independent switch in Satellites. Editable areas, including rich-text editors and spreadsheet grids, keep their own copy handling. Normal copy buttons with no selected text also keep their existing behavior. When Any Copy is active on the current page, it takes priority and Clipboard Protect remains inactive there.
-
-#### XHS Image Dark Mode
-
-Make bright text images easier to view when a page-wide dark mode is active on Xiaohongshu. XHS Image Dark Mode analyzes reduced samples, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged. Comment images are considered only after their post is opened and are processed near the viewport; opening one provides a separate single-image light-or-dark control. In an expanded post, press and hold the control beside the page count to alternate the complete post between forced dark and light display; click it to restore automatic recognition. The matching feed cover and images loaded later follow the same post-wide mode. User profile pages provide a separate switch that can pause analysis and adjustment for all posts on that profile.
-
-#### Bili Daily Login
-
-Bilibili gives every signed-in account one coin for completing its daily login. Receiving that coin otherwise depends on remembering to check in every day. Bili Daily Login handles the recurring check-in in the background while Chrome is available, allowing the daily coin to be credited automatically.
 
 #### Ad Marshal
 
@@ -93,6 +89,24 @@ Stop persistent advertising, reporting, and tracking components from repeatedly 
 Each supported site has its own narrowly scoped policy. These policies target only confirmed advertising and telemetry components without interfering with ordinary page content, sign-in, or account security.
 
 The current managed-site choices cover Tencent News and Zhihu.
+
+### Satellites - Site-specific features
+
+#### XHS Image Dark Mode
+
+Make bright text images easier to view when a page-wide dark mode is active on Xiaohongshu.
+
+The feature analyzes reduced image samples, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged.
+
+Comment images are considered only after their post is opened and are processed near the viewport. Opening a comment image provides a separate light-or-dark control.
+
+In an expanded post, press and hold the post image button to alternate the complete post between forced dark and forced light display; click it to restore automatic recognition. On a user profile, a separate control can pause analysis and adjustment for every post on that profile.
+
+This is an experimental feature.
+
+#### Bili Daily Login
+
+Bilibili gives every signed-in account one coin for completing its daily login. Receiving that coin otherwise depends on remembering to check in every day. Bili Daily Login handles the recurring check-in in the background while Chrome is available, allowing the daily coin to be credited automatically.
 
 #### Chinese Response Display Optimization for Claude
 
@@ -160,7 +174,7 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
-All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Mailto Capture is on by default in ordinary windows, while Website Knowledge Control, Page Display, both of its visual adjustments, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Mailto Capture is on by default in ordinary windows, while Clipboard Protect, Access Control, Website Knowledge Control, Page Display, both of its visual adjustments, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
 
 On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can keep image adjustment always on, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
 
@@ -204,11 +218,11 @@ Audio autoplay is blocked by default without interrupting you with a page prompt
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Website Knowledge Control, Page Display, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, and Ad Marshal run locally. Website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Page Display, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, and Ad Marshal run locally. Website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 
-Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Chinese Response Display Optimization for Claude applies its reply-display and browser-identity consistency adjustments within the page without separately sending or retaining reply content or identity information. Bili Daily Login does not inspect whether or when you open Bilibili.
+Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Access Control applies local browser network rules without recording attempted visits. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Chinese Response Display Optimization for Claude applies its reply-display and browser-identity consistency adjustments within the page without separately sending or retaining reply content or identity information. Bili Daily Login does not inspect whether or when you open Bilibili.
 
 When Bili Daily Login is enabled, its background schedule contacts only Bilibili account services while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 

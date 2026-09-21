@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.19 — 2026-09-20
+
+- Prevented completed Instagram list scans from looping when virtualized rows keep changing the list's pixel height; completion now follows a stable account set at the actual bottom.
+
 ## 8.12.18 — 2026-09-20
 
 - Strengthened Instagram list coverage with two complete overlapping audits and adaptive viewport settling, so slower virtual-list remounts are collected before scanning advances.

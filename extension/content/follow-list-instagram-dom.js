@@ -359,7 +359,7 @@ export async function instagramDomRead(input, environment = globalThis) {
     };
     const verificationStep = async scroller => {
       const verification = state.verification ||= {
-        initialized: false, pass: 0, steps: 0, bottomStable: 0, lastHeight: -1
+        initialized: false, pass: 0, steps: 0
       };
       const previous = collect();
       if (!verification.initialized) {
@@ -376,16 +376,9 @@ export async function instagramDomRead(input, environment = globalThis) {
       await settleViewport(previous);
       verification.steps += 1;
       if (atBottom(scroller)) {
-        verification.bottomStable = verification.lastHeight === scroller.scrollHeight
-          ? verification.bottomStable + 1 : 0;
-      } else verification.bottomStable = 0;
-      verification.lastHeight = scroller.scrollHeight;
-      if (verification.bottomStable >= 1) {
         if (verification.pass + 1 < VERIFY_PASSES) {
           verification.pass += 1;
           verification.initialized = false;
-          verification.bottomStable = 0;
-          verification.lastHeight = -1;
         } else {
           state.fullSweepComplete = true;
           state.verification = null;
@@ -417,13 +410,15 @@ export async function instagramDomRead(input, environment = globalThis) {
     // The displayed profile count and apparent DOM retention are both only
     // hints. Every list receives two complete overlapping top-to-bottom audits.
     if (bottom && !state.fullSweepComplete) {
-      state.verification = { initialized: false, pass: 0, steps: 0, bottomStable: 0, lastHeight: -1 };
+      state.verification = { initialized: false, pass: 0, steps: 0 };
       state.bottomProbe = null;
       await verificationBurst(scroller);
       bottom = atBottom(scroller) && !state.verification;
     }
     if (bottom) {
-      const signature = `${state.seen.size}:${scroller.scrollHeight}`;
+      // Virtualized rows can change their pixel height at rest. Completion is
+      // governed by reaching the real bottom with an unchanged account set.
+      const signature = String(state.seen.size);
       state.bottomProbe = state.bottomProbe?.signature === signature
         ? { signature, confirmations: state.bottomProbe.confirmations + 1 }
         : { signature, confirmations: 1 };

@@ -348,7 +348,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     querySelectorAll: () => [], getAttribute: () => null, ...props });
   const links = [];
   const rows = node({ querySelectorAll: selector => selector === 'a[href]' ? links : [] });
-  let closed = false, scrolled = false, mounted = false, verificationWaits = 0;
+  let closed = false, scrolled = false, mounted = false, verificationWaits = 0, bottomHeightChanges = 0;
   const close = node({ click() { closed = true; mounted = false; }, querySelector: () => ({}) });
   const header = node({ querySelectorAll: () => [close] });
   const heading = node({ parentElement: header });
@@ -400,6 +400,12 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
     setTimeout(callback, delay) {
       if (delay === 1200 && scrolled && links.length === 4) { add(4); add(5, 'different_visible_text', 'account_5'); }
       if (delay === 80) verificationWaits += 1;
+      if (verificationWaits > 0 && (delay === 80 || delay === 1200)
+        && scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) {
+        scroller.scrollHeight += 1;
+        scrollTop += 1;
+        bottomHeightChanges += 1;
+      }
       callback();
     }
   };
@@ -417,6 +423,8 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   assert.equal(result.users.find(account => account.username === 'account_2')?.verified, true);
   assert.equal(result.users.find(account => account.username === 'account_3')?.verified, false);
   assert.equal(verificationWaits > 0, true, 'retained rows receive the same complete fast audit as virtualized rows');
+  assert.equal(bottomHeightChanges > 1, true,
+    'bottom completion tolerates virtual-row pixel-height changes after the account set is stable');
   assert.equal(closed, true);
   await instagramDomRead({ operation: 'cancel', runId: 'test' }, env);
   assert.equal(env.__cosmicGeminiInstagramLists, undefined);

@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.17 — 2026-09-20
+
+- Applied the complete fast Instagram list audit to every scan, regardless of displayed counts or apparent DOM retention, and batched its overlapping top-to-bottom passes to reduce missed accounts without repeated background scheduling delays.
+- Kept extension validation stable when macOS regenerates Finder metadata files inside the source tree.
+
 ## 8.12.16 — 2026-09-20
 
 - Reserved a consistent display-name line for every Instagram account in the side panel, including accounts without a custom display name.

@@ -9,7 +9,8 @@ export async function instagramDomRead(input, environment = globalThis) {
   const GROWTH_TIMEOUT = 90000;
   const NUDGE_AFTER = 20000;
   const MAX_NUDGES = 4;
-  const MAX_VERIFY_STEPS = 1200;
+  const MAX_VERIFY_STEPS = 5000;
+  const VERIFY_BURST_STEPS = 32;
   const VERIFY_SETTLE = 80;
   const BOTTOM_CONFIRMATIONS = 2;
   const RESERVED_PATHS = new Set(['accounts', 'about', 'ads', 'api', 'challenge', 'developer', 'direct',
@@ -316,7 +317,7 @@ export async function instagramDomRead(input, environment = globalThis) {
           state.list = state.list.firstElementChild;
         }
       }
-      if (!state.list?.isConnected) { state.lastMountedCount = 0; return 0; }
+      if (!state.list?.isConnected) return 0;
       const identities = new Map();
       for (const link of state.list.querySelectorAll('a[href]')) {
         const destination = profileDestination(link);
@@ -329,7 +330,6 @@ export async function instagramDomRead(input, environment = globalThis) {
           identities.set(id, { link, username, verified, score });
         }
       }
-      state.lastMountedCount = identities.size;
       for (const [id, identity] of identities) {
         if (state.seen.has(id)) continue;
         state.seen.add(id);
@@ -359,9 +359,14 @@ export async function instagramDomRead(input, environment = globalThis) {
           ? verification.bottomStable + 1 : 0;
       } else verification.bottomStable = 0;
       verification.lastHeight = scroller.scrollHeight;
-      if (verification.bottomStable >= 1 || verification.steps >= MAX_VERIFY_STEPS) {
+      if (verification.bottomStable >= 1) {
         state.fullSweepComplete = true;
         state.verification = null;
+      } else if (verification.steps >= MAX_VERIFY_STEPS) throw new Error('igIncomplete');
+    };
+    const verificationBurst = async scroller => {
+      for (let step = 0; state.verification && step < VERIFY_BURST_STEPS; step += 1) {
+        await verificationStep(scroller);
       }
     };
     collect();
@@ -372,7 +377,7 @@ export async function instagramDomRead(input, environment = globalThis) {
     const scroller = state.scroller;
     state.nudges ||= 0;
     if (state.verification) {
-      await verificationStep(scroller);
+      await verificationBurst(scroller);
     } else {
       scroller.scrollTop = Math.min(scroller.scrollHeight,
         scroller.scrollTop + Math.max(150, scroller.clientHeight * .65));
@@ -381,18 +386,13 @@ export async function instagramDomRead(input, environment = globalThis) {
       collect();
     }
     let bottom = atBottom(scroller);
-    // The displayed profile count is only an estimate and can be stale while
-    // relationships change. Always audit a virtualized list once at the end;
-    // a retained DOM already exposes every loaded row and needs no movement.
+    // The displayed profile count and apparent DOM retention are both only
+    // hints. Every list receives one complete overlapping top-to-bottom audit.
     if (bottom && !state.fullSweepComplete) {
-      if (state.lastMountedCount >= state.seen.size) {
-        state.fullSweepComplete = true;
-      } else {
-        state.verification = { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
-        state.bottomProbe = null;
-        await verificationStep(scroller);
-        bottom = atBottom(scroller) && !state.verification;
-      }
+      state.verification = { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
+      state.bottomProbe = null;
+      await verificationBurst(scroller);
+      bottom = atBottom(scroller) && !state.verification;
     }
     if (bottom) {
       const signature = `${state.seen.size}:${scroller.scrollHeight}`;

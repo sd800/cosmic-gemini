@@ -416,7 +416,7 @@ test('Instagram DOM reading skips non-scrolling auto-overflow wrappers, reads la
   assert.equal(result.users.some(account => account.username === 'unrelated'), false);
   assert.equal(result.users.find(account => account.username === 'account_2')?.verified, true);
   assert.equal(result.users.find(account => account.username === 'account_3')?.verified, false);
-  assert.equal(verificationWaits, 0, 'retained rows are read directly from the loaded DOM without a sweep');
+  assert.equal(verificationWaits > 0, true, 'retained rows receive the same complete fast audit as virtualized rows');
   assert.equal(closed, true);
   await instagramDomRead({ operation: 'cancel', runId: 'test' }, env);
   assert.equal(env.__cosmicGeminiInstagramLists, undefined);

@@ -7,10 +7,14 @@ import { runInNewContext } from 'node:vm';
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const extension = join(project, 'extension');
+const ignoredPlatformEntries = new Set(['.DS_Store']);
+
+const isIgnoredPlatformEntry = name => ignoredPlatformEntries.has(name) || name.startsWith('._');
 
 async function filesBelow(directory) {
   const result = [];
   for (const name of await readdir(directory)) {
+    if (isIgnoredPlatformEntry(name)) continue;
     const path = join(directory, name);
     if ((await stat(path)).isDirectory()) result.push(...await filesBelow(path));
     else result.push(path);
@@ -29,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.12.16');
+assert.equal(manifest.version, '8.12.17');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -68,7 +72,10 @@ assert.deepEqual(manifest.web_accessible_resources, [{
 }]);
 
 const extensionRootEntries = await readdir(extension, { withFileTypes: true });
-assert.deepEqual(extensionRootEntries.filter(entry => entry.isFile()).map(entry => entry.name).sort(), ['manifest.json']);
+assert.deepEqual(extensionRootEntries
+  .filter(entry => entry.isFile() && !isIgnoredPlatformEntry(entry.name))
+  .map(entry => entry.name)
+  .sort(), ['manifest.json']);
 
 for (const size of [16, 32, 48, 128]) {
   assert.equal(manifest.icons[String(size)], `icons/icon-${size}.png`);

@@ -4,10 +4,13 @@
   const CONFIGURE = 'cosmic-gemini:mailto-capture:configure';
   const DISPOSE = 'cosmic-gemini:mailto-capture:dispose';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
+  const CAPTURED_LINK = /^(?:mailto|tel):/i;
   const COPY = Object.freeze({
     'en-US': Object.freeze({
       title: 'Email link',
+      telephoneTitle: 'Telephone link',
       to: 'To',
+      phoneNumber: 'Phone number',
       cc: 'CC',
       bcc: 'BCC',
       subject: 'Subject',
@@ -15,15 +18,19 @@
       other: 'Other fields',
       noAddress: 'No recipient specified',
       copyAddress: 'Copy address',
+      copyPhoneNumber: 'Copy number',
       copyMessage: 'Copy message',
       close: 'Close',
       addressCopied: 'Address copied',
+      phoneNumberCopied: 'Number copied',
       messageCopied: 'Message copied',
       copyFailed: 'Could not copy'
     }),
     'zh-CN': Object.freeze({
       title: '邮件链接',
+      telephoneTitle: '电话链接',
       to: '收件人',
+      phoneNumber: '电话号码',
       cc: '抄送',
       bcc: '密送',
       subject: '主题',
@@ -31,9 +38,11 @@
       other: '其他信息',
       noAddress: '未指定收件人',
       copyAddress: '复制地址',
+      copyPhoneNumber: '复制号码',
       copyMessage: '复制邮件内容',
       close: '关闭',
       addressCopied: '已复制地址',
+      phoneNumberCopied: '已复制号码',
       messageCopied: '已复制邮件内容',
       copyFailed: '无法复制'
     })
@@ -74,7 +83,7 @@
       this.host = null;
       this.shadow = null;
       this.anchor = null;
-      this.mailto = null;
+      this.capture = null;
       this.closingHost = null;
       this.closingAnimation = null;
       this.closeSequence = 0;
@@ -104,7 +113,7 @@
       this.locale = nextLocale;
       if (nextActive && !this.active) this.enable();
       else if (!nextActive && this.active) this.disable();
-      else if (nextActive && localeChanged && this.mailto) this.render();
+      else if (nextActive && localeChanged && this.capture) this.render();
     }
 
     onDispose(event) {
@@ -143,7 +152,7 @@
     anchorFromEvent(event) {
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
       return path.find(node => typeof node?.getAttribute === 'function'
-        && /^mailto:/i.test(node.getAttribute('href')?.trim() || '')) || null;
+        && CAPTURED_LINK.test(node.getAttribute('href')?.trim() || '')) || null;
     }
 
     onActivate(event) {
@@ -152,11 +161,13 @@
       if (event.type === 'auxclick' && Number(event.button) !== 1) return;
       const anchor = this.anchorFromEvent(event);
       const href = anchor?.getAttribute('href')?.trim() || '';
-      if (!/^mailto:/i.test(href)) return;
+      if (!CAPTURED_LINK.test(href)) return;
+      const capture = this.parseLink(href);
+      if (!capture) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      this.show(anchor, href);
+      this.show(anchor, href, capture);
     }
 
     onPointerDown(event) {
@@ -221,6 +232,7 @@
         .map(field => ({ name: field.name, values: field.values.filter(value => value !== '') }))
         .filter(field => field.values.length);
       return {
+        kind: 'mailto',
         href: raw,
         to: recipientValues,
         cc,
@@ -238,33 +250,47 @@
       };
     }
 
-    messageText(mailto = this.mailto) {
-      if (!mailto) return '';
+    parseTel(href) {
+      const raw = String(href || '').trim();
+      if (!/^tel:/i.test(raw)) return null;
+      const content = raw.slice(raw.indexOf(':') + 1).split('#', 1)[0];
+      const number = decodeMailtoPart(content).trim();
+      return number ? { kind: 'tel', href: raw, number } : null;
+    }
+
+    parseLink(href) {
+      return this.parseMailto(href) || this.parseTel(href);
+    }
+
+    messageText(capture = this.capture) {
+      if (!capture) return '';
+      if (capture.kind === 'tel') return capture.number;
       const labels = COPY[this.locale];
       const lines = [];
-      if (mailto.to.length) lines.push(`${labels.to}: ${mailto.to.join(', ')}`);
-      if (mailto.cc.length) lines.push(`${labels.cc}: ${mailto.cc.join(', ')}`);
-      if (mailto.bcc.length) lines.push(`${labels.bcc}: ${mailto.bcc.join(', ')}`);
-      if (mailto.subject) lines.push(`${labels.subject}: ${mailto.subject}`);
-      for (const field of mailto.otherFields) lines.push(`${field.name}: ${field.values.join(', ')}`);
-      if (mailto.body) lines.push('', mailto.body);
+      if (capture.to.length) lines.push(`${labels.to}: ${capture.to.join(', ')}`);
+      if (capture.cc.length) lines.push(`${labels.cc}: ${capture.cc.join(', ')}`);
+      if (capture.bcc.length) lines.push(`${labels.bcc}: ${capture.bcc.join(', ')}`);
+      if (capture.subject) lines.push(`${labels.subject}: ${capture.subject}`);
+      for (const field of capture.otherFields) lines.push(`${field.name}: ${field.values.join(', ')}`);
+      if (capture.body) lines.push('', capture.body);
       return lines.join('\n');
     }
 
-    show(anchor, href) {
-      const mailto = this.parseMailto(href);
-      if (!mailto) return;
+    show(anchor, href, parsed = null) {
+      const capture = parsed || this.parseLink(href);
+      if (!capture) return;
       this.finishClosing();
       this.close(false, true);
       this.anchor = anchor;
-      this.mailto = mailto;
+      this.capture = capture;
       this.render();
     }
 
     render() {
-      if (!this.anchor || !this.mailto) return;
+      if (!this.anchor || !this.capture) return;
       this.host?.remove();
       const labels = COPY[this.locale];
+      const telephone = this.capture.kind === 'tel';
       const host = document.createElement('div');
       host.dataset.cosmicGeminiMailtoCapture = '';
       host.style.setProperty('all', 'initial', 'important');
@@ -293,11 +319,11 @@
       const popover = document.createElement('section');
       popover.className = 'popover';
       popover.setAttribute('role', 'dialog');
-      popover.setAttribute('aria-label', labels.title);
+      popover.setAttribute('aria-label', telephone ? labels.telephoneTitle : labels.title);
       const heading = document.createElement('div');
       heading.className = 'heading';
       const title = document.createElement('strong');
-      title.textContent = labels.title;
+      title.textContent = telephone ? labels.telephoneTitle : labels.title;
       const close = document.createElement('button');
       close.className = 'close';
       close.type = 'button';
@@ -309,18 +335,24 @@
 
       const details = document.createElement('div');
       details.className = 'details';
-      this.appendField(details, labels.to, this.mailto.addressText || labels.noAddress);
-      if (this.mailto.cc.length) this.appendField(details, labels.cc, this.mailto.cc.join(', '));
-      if (this.mailto.bcc.length) this.appendField(details, labels.bcc, this.mailto.bcc.join(', '));
-      if (this.mailto.subject) this.appendField(details, labels.subject, this.mailto.subject);
-      if (this.mailto.body) this.appendField(details, labels.message, this.mailto.body);
-      if (this.mailto.otherFields.length) this.appendOtherFields(details, labels);
+      if (telephone) {
+        this.appendField(details, labels.phoneNumber, this.capture.number);
+      } else {
+        this.appendField(details, labels.to, this.capture.addressText || labels.noAddress);
+        if (this.capture.cc.length) this.appendField(details, labels.cc, this.capture.cc.join(', '));
+        if (this.capture.bcc.length) this.appendField(details, labels.bcc, this.capture.bcc.join(', '));
+        if (this.capture.subject) this.appendField(details, labels.subject, this.capture.subject);
+        if (this.capture.body) this.appendField(details, labels.message, this.capture.body);
+        if (this.capture.otherFields.length) this.appendOtherFields(details, labels);
+      }
 
       const actions = document.createElement('div');
       actions.className = 'actions';
       let primaryAction = null;
-      if (this.mailto.simpleAddressOnly) {
-        primaryAction = this.action(labels.copyAddress, 'primary', () => this.copy(this.mailto.addressText, labels.addressCopied));
+      if (telephone) {
+        primaryAction = this.action(labels.copyPhoneNumber, 'primary', () => this.copy(this.capture.number, labels.phoneNumberCopied));
+      } else if (this.capture.simpleAddressOnly) {
+        primaryAction = this.action(labels.copyAddress, 'primary', () => this.copy(this.capture.addressText, labels.addressCopied));
       } else {
         primaryAction = this.action(labels.copyMessage, 'primary', () => this.copy(this.messageText(), labels.messageCopied));
         primaryAction.disabled = !this.messageText();
@@ -356,7 +388,7 @@
       label.textContent = labels.other;
       const value = document.createElement('div');
       value.className = 'value other';
-      for (const item of this.mailto.otherFields) {
+      for (const item of this.capture.otherFields) {
         const row = document.createElement('div');
         row.className = 'other-row';
         const name = document.createElement('b');
@@ -436,7 +468,7 @@
       this.host = null;
       this.shadow = null;
       this.anchor = null;
-      this.mailto = null;
+      this.capture = null;
       if (!host) return;
       const restore = () => {
         if (restoreFocus && anchor?.isConnected) anchor.focus({ preventScroll: true });

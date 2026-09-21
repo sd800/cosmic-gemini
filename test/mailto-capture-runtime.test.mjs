@@ -87,7 +87,17 @@ test('Mailto Capture preserves recipients, message fields, repeated values, and 
   assert.equal(simple.addressText, 'hello@example.com');
 });
 
-test('Mailto Capture intercepts trusted mailto activation and releases every listener when disabled', async () => {
+test('Mailto Capture preserves telephone targets and rejects empty tel links', async () => {
+  const { runtime } = await runtimeFixture();
+  const parsed = runtime.parseTel('TEL:%2B1-312-555-0100;ext=204#ignored');
+  assert.equal(parsed.kind, 'tel');
+  assert.equal(parsed.number, '+1-312-555-0100;ext=204');
+  assert.equal(runtime.messageText(parsed), '+1-312-555-0100;ext=204');
+  assert.equal(runtime.parseLink('tel:+44-20-7946-0958').kind, 'tel');
+  assert.equal(runtime.parseTel('tel:'), null);
+});
+
+test('Mailto Capture intercepts trusted mailto and tel activation and releases every listener when disabled', async () => {
   const { context, runtime } = await runtimeFixture();
   runtime.onConfigure({
     detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } })
@@ -107,6 +117,18 @@ test('Mailto Capture intercepts trusted mailto activation and releases every lis
   });
   assert.deepEqual(shown, { target: anchor, href: anchor.href });
   assert.deepEqual(stopped, ['default', 'propagation', 'immediate']);
+  const phone = new FakeAnchor('tel:+1-312-555-0100');
+  runtime.onActivate({
+    type: 'click',
+    button: 0,
+    isTrusted: true,
+    composedPath: () => [phone],
+    preventDefault: () => stopped.push('tel-default'),
+    stopPropagation: () => stopped.push('tel-propagation'),
+    stopImmediatePropagation: () => stopped.push('tel-immediate')
+  });
+  assert.deepEqual(shown, { target: phone, href: phone.href });
+  assert.deepEqual(stopped.slice(-3), ['tel-default', 'tel-propagation', 'tel-immediate']);
   assert.equal(runtime.locale, 'zh-CN');
   assert.equal(context.window.listeners.get('click').includes(runtime.onActivate), true);
 
@@ -160,7 +182,7 @@ test('Mailto Capture reverses its entrance motion before removing the popover', 
   };
   runtime.shadow = { querySelector: () => popover };
   runtime.anchor = { isConnected: true, focus() { focused = true; } };
-  runtime.mailto = {};
+  runtime.capture = {};
 
   runtime.close(true);
   assert.equal(runtime.host, null, 'the closing popover stops receiving runtime actions immediately');
@@ -191,7 +213,7 @@ test('Mailto Capture clears a closing popover before opening another without res
   runtime.host = { style: { setProperty() {} }, remove() { removed += 1; } };
   runtime.shadow = { querySelector: () => ({ animate: () => animation }) };
   runtime.anchor = { isConnected: true, focus() { focused += 1; } };
-  runtime.mailto = {};
+  runtime.capture = {};
   runtime.close(true);
   runtime.finishClosing();
   await Promise.resolve();

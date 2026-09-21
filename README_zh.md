@@ -66,7 +66,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Mailto Capture
 
-拦截邮件链接，避免误触时直接打开系统邮件应用。Mailto Capture 会先在网页内显示简洁的内容预览，列出收件人、抄送与密送地址、主题、正文及链接附带的其他信息，供您按需复制。
+拦截 mailto 与 tel 链接，避免误触时直接打开系统邮件或拨号应用。Mailto Capture 会先在网页内显示简洁的内容预览，列出邮件收件人与字段或电话号码，供您按需复制。
 
 #### Clipboard Protect
 
@@ -222,7 +222,7 @@ Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download�
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 
-Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址或邮件信息。Access Control 只使用本地浏览器网络规则，不记录访问尝试。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 仅在页面内调整回复显示与浏览器标识的一致性，不会另行发送或留存回复内容及标识信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
+Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址、电话号码或邮件信息。Access Control 只使用本地浏览器网络规则，不记录访问尝试。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 仅在页面内调整回复显示与浏览器标识的一致性，不会另行发送或留存回复内容及标识信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
 
 开启 Bili Daily Login 后，后台日程仅在电脑已唤醒且 Chrome 正在运行时调用哔哩哔哩账号服务。它会直接使用 Chrome 中已有的登录状态，不会读取或保存您的哔哩哔哩密码。
 

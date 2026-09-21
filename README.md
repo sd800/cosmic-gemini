@@ -66,7 +66,7 @@ Satellites contains optional tools that do not need permanent rows in the popup.
 
 #### Mailto Capture
 
-Stop mailto links from opening your system mail app before you can inspect them. Mailto Capture intercepts each link and shows its recipients, CC and BCC addresses, subject, message, and other included fields in a compact page popover for copying.
+Stop mailto and tel links from opening system apps before you can inspect them. Mailto Capture shows email recipients and fields or a telephone number in a compact page popover for copying.
 
 #### Clipboard Protect
 
@@ -222,7 +222,7 @@ Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video D
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 
-Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the addresses or message fields it previews. Access Control applies local browser network rules without recording attempted visits. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Chinese Response Display Optimization for Claude applies its reply-display and browser-identity consistency adjustments within the page without separately sending or retaining reply content or identity information. Bili Daily Login does not inspect whether or when you open Bilibili.
+Cosmic Gemini does not keep browsing history or an activity log or use analytics. Mailto Capture does not store the email addresses, telephone numbers, or message fields it previews. Access Control applies local browser network rules without recording attempted visits. Page Display applies its local visual adjustments without reading or retaining page content. XHS Image Dark Mode analyzes reduced-resolution image samples on the device and keeps only a bounded in-memory result cache while the page is open. Chinese Response Display Optimization for Claude applies its reply-display and browser-identity consistency adjustments within the page without separately sending or retaining reply content or identity information. Bili Daily Login does not inspect whether or when you open Bilibili.
 
 When Bili Daily Login is enabled, its background schedule contacts only Bilibili account services while Chrome and the computer are running. It uses the account already signed in to Chrome and never reads or stores your Bilibili password.
 

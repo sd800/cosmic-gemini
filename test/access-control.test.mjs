@@ -74,6 +74,22 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
     '||media.example^', '||docs.example.com^', '||example.com^'
   ]);
 
+  const alphabetized = await product.handleMessage({
+    type: 'UI_ALPHABETIZE_RULES', listName: 'blockedDomains'
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  assert.deepEqual(alphabetized.blockedDomains, ['docs.example.com', 'example.com', 'media.example']);
+  await product.reconcile();
+  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), [
+    '||docs.example.com^', '||example.com^', '||media.example^'
+  ]);
+
+  const appended = await product.handleMessage({
+    type: 'UI_ADD_RULE', listName: 'blockedDomains', rule: 'a-later.example'
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  assert.deepEqual(appended.blockedDomains, [
+    'docs.example.com', 'example.com', 'media.example', 'a-later.example'
+  ]);
+
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false }, {
     sender: { url: 'chrome-extension://test/settings/satellites.html' }
   });

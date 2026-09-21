@@ -7,6 +7,8 @@ import { createSettingsState } from './state.js';
 import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
 
 const root = document.documentElement;
+const LONG_PRESS_MS = 550;
+const LONG_PRESS_MOVE_TOLERANCE = 8;
 const incognitoContext = chrome.extension?.inIncognitoContext === true;
 const primary = document.querySelector('.primary');
 const helpPanel = document.querySelector('.help');
@@ -399,6 +401,52 @@ function actionMessage(section, controls) {
   return message;
 }
 
+function bindEmptyRuleSort(button, input, sort) {
+  let timer = 0;
+  let startX = 0;
+  let startY = 0;
+  let suppressClickUntil = 0;
+  const cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = 0;
+  };
+  button.addEventListener('pointerdown', event => {
+    cancel();
+    suppressClickUntil = 0;
+    if (input.value.trim() || event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
+    startX = Number(event.clientX) || 0;
+    startY = Number(event.clientY) || 0;
+    try { button.setPointerCapture?.(event.pointerId); } catch {}
+    timer = setTimeout(() => {
+      timer = 0;
+      if (input.value.trim()) return;
+      suppressClickUntil = Date.now() + 1_000;
+      void sort();
+    }, LONG_PRESS_MS);
+  });
+  button.addEventListener('pointermove', event => {
+    if (!timer) return;
+    const distance = Math.hypot((Number(event.clientX) || 0) - startX, (Number(event.clientY) || 0) - startY);
+    if (distance > LONG_PRESS_MOVE_TOLERANCE) cancel();
+  });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    button.addEventListener(type, cancel);
+  }
+  button.addEventListener('contextmenu', event => {
+    if (timer || Date.now() < suppressClickUntil) event.preventDefault();
+  });
+  button.addEventListener('click', event => {
+    if (Date.now() >= suppressClickUntil) return;
+    suppressClickUntil = 0;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+}
+
+function isRuleOrderReset(value) {
+  return String(value || '').trim().toLowerCase() === 'reset';
+}
+
 async function update(section, task, controls = [], errorKey = 'settingsSaveFailed') {
   const actionable = controls.filter(Boolean);
   if (actionable.some(control => pendingControls.has(control))) return;
@@ -625,8 +673,16 @@ function bindView() {
     const select = form.querySelector('select');
     const submit = form.querySelector('button[type="submit"]');
     const message = behaviorCard.querySelector('.form-message');
+    const alphabetize = (clearInput = false) => update(behaviorCard, async () => {
+      await savePreference(featureId, {
+        type: 'UI_ALPHABETIZE_RULES', featureId, listName: 'behaviorRules'
+      });
+      if (clearInput) input.value = '';
+    }, [input, select, submit], 'ruleSaveFailed');
+    bindEmptyRuleSort(submit, input, alphabetize);
     form.addEventListener('submit', event => {
       event.preventDefault();
+      if (isRuleOrderReset(input.value)) { void alphabetize(true); return; }
       let rule;
       try { rule = normalizeRule(input.value); }
       catch { message.textContent = t('invalidRule'); return; }
@@ -644,8 +700,18 @@ function bindView() {
     const message = section.querySelector('.form-message');
     const listName = section.dataset.listSection;
     const sectionFeatureId = section.dataset.featureId || featureId;
+    const alphabetize = (clearInput = false) => update(section, async () => {
+      await savePreference(sectionFeatureId, {
+        type: 'UI_ALPHABETIZE_RULES',
+        featureId: sectionFeatureId === 'nsna' ? 'nativeScroll' : sectionFeatureId,
+        listName
+      });
+      if (clearInput) input.value = '';
+    }, [input, submit], 'ruleSaveFailed');
+    bindEmptyRuleSort(submit, input, alphabetize);
     form.addEventListener('submit', event => {
       event.preventDefault();
+      if (isRuleOrderReset(input.value)) { void alphabetize(true); return; }
       let rule;
       try {
         rule = sectionFeatureId === 'accessControl'

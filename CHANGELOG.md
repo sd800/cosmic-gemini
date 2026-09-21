@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.7 — 2026-09-21
+
+- Added empty-input long-press and `reset` input actions to alphabetize user-maintained domain lists while keeping later additions at the end.
+
 ## 8.13.6 — 2026-09-21
 
 - Kept every user-maintained domain list in the order its entries were added, without storing timestamps.

@@ -19,6 +19,7 @@ const WEBSITE_BEHAVIORS = new Set(['inactive', 'standard', 'enhanced']);
 
 function withoutRule(rules, rule) { return rules.filter(item => item !== rule); }
 function withRule(rules, rule) { return rules.includes(rule) ? rules : [...rules, rule]; }
+function alphabetized(rules) { return [...rules].sort((a, b) => a.localeCompare(b)); }
 function withoutBehaviorRule(feature, rule) {
   return {
     ...feature,
@@ -111,6 +112,36 @@ export function createStandingProvince(platform) {
       return settings.noAutoplay;
     }
     if (message.type === 'UI_SET_AD_MARSHAL_SITE') return governed.handleMessage(message, context);
+    if (message.type === 'UI_ALPHABETIZE_RULES') {
+      if (!String(context.sender.url || '').startsWith(chrome.runtime.getURL('settings/'))) {
+        throw new Error('Domain rules can be reordered only from Settings.');
+      }
+      if (message.listName === 'behaviorRules'
+        && [FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(governed.id)) {
+        const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
+          ...feature,
+          inactiveRules: alphabetized(feature.inactiveRules),
+          standardRules: alphabetized(feature.standardRules),
+          enhancedRules: alphabetized(feature.enhancedRules)
+        })));
+        return settings[governed.id];
+      }
+      if (governed.id === FEATURE_IDS.NATIVE_SCROLL && message.listName === 'whitelistRules') {
+        const settings = await platform.mutateSettings(current => ({
+          ...current,
+          nsna: { ...current.nsna, whitelistRules: alphabetized(current.nsna.whitelistRules) }
+        }));
+        return settings.nsna;
+      }
+      if (governed.id === FEATURE_IDS.NO_AUTOPLAY && message.listName === 'permanentAudioAllowRules') {
+        const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
+          ...feature,
+          permanentAudioAllowRules: alphabetized(feature.permanentAudioAllowRules)
+        })));
+        return settings[governed.id];
+      }
+      throw new Error('Unknown Standing Province domain list.');
+    }
     if (message.type === 'UI_TOGGLE_PAGE_FEATURE') {
       const hostname = await currentPageHostname(message);
       const settings = await platform.mutateSettings(current => {

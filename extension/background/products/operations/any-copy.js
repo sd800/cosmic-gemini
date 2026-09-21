@@ -62,6 +62,17 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
           return product.state(await platform.readSettings(), tab.url || '', tabId, directives);
         });
       }
+      if (message.type === 'UI_ALPHABETIZE_RULES') {
+        if (message.listName !== 'siteRules'
+          || !String(context.sender?.url || '').startsWith(chrome.runtime.getURL('settings/'))) {
+          throw new Error('Any Copy rules can be reordered only from Settings.');
+        }
+        const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({
+          ...feature,
+          siteRules: [...feature.siteRules].sort((a, b) => a.localeCompare(b))
+        })));
+        return settings[product.id];
+      }
       let hostname = normalizeRule(message.rule || message.hostname || '');
       if (message.type === 'UI_TOGGLE_SITE_FEATURE' || message.expectedHostname) {
         const tabId = Number(message.tabId);

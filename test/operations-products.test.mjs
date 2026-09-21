@@ -313,6 +313,39 @@ test('user-maintained domain lists retain addition order without timestamps', as
     type: 'UI_ADD_NSNA_WHITELIST_RULE', rule: 'a.example'
   }, context);
   assert.deepEqual(settings.nsna.whitelistRules, ['z.example', 'm.example', 'a.example']);
+
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_ALPHABETIZE_RULES', listName: 'behaviorRules'
+  }, context);
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_ALPHABETIZE_RULES', listName: 'whitelistRules'
+  }, context);
+  await standing.handleMessage('noAutoplay', {
+    type: 'UI_ALPHABETIZE_RULES', listName: 'permanentAudioAllowRules'
+  }, context);
+  await anyCopy.handleMessage({
+    type: 'UI_ALPHABETIZE_RULES', listName: 'siteRules'
+  }, context);
+  assert.deepEqual(settings.nativeScroll.standardRules, ['a.example', 'm.example', 'z.example']);
+  assert.deepEqual(settings.nsna.whitelistRules, ['a.example', 'm.example', 'z.example']);
+  assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, ['a.example', 'm.example', 'z.example']);
+  assert.deepEqual(settings.anyCopy.siteRules, ['a.example', 'm.example', 'z.example']);
+
+  const later = 'b.example';
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_SET_BEHAVIOR_RULE', rule: later, behavior: 'standard'
+  }, context);
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_ADD_NSNA_WHITELIST_RULE', rule: later
+  }, context);
+  await standing.handleMessage('noAutoplay', {
+    type: 'UI_ADD_RULE', listName: 'permanentAudioAllowRules', rule: later
+  }, context);
+  await anyCopy.handleMessage({ type: 'UI_ADD_RULE', listName: 'siteRules', rule: later }, context);
+  assert.deepEqual(settings.nativeScroll.standardRules, ['a.example', 'm.example', 'z.example', later]);
+  assert.deepEqual(settings.nsna.whitelistRules, ['a.example', 'm.example', 'z.example', later]);
+  assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, ['a.example', 'm.example', 'z.example', later]);
+  assert.deepEqual(settings.anyCopy.siteRules, ['a.example', 'm.example', 'z.example', later]);
 });
 
 test('shared whitelist edits work from every Settings entry after in-page navigation', async () => {

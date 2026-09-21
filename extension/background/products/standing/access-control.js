@@ -95,6 +95,18 @@ export function createAccessControlProduct(platform) {
         void reconcile(settings).catch(() => false);
         return settings.accessControl;
       }
+      if (message.type === 'UI_ALPHABETIZE_RULES' && message.listName === 'blockedDomains') {
+        const settings = await platform.mutateSettings(current => ({
+          ...current,
+          accessControl: {
+            ...current.accessControl,
+            blockedDomains: [...(current.accessControl.blockedDomains || [])]
+              .sort((a, b) => a.localeCompare(b))
+          }
+        }));
+        void reconcile(settings).catch(() => false);
+        return settings.accessControl;
+      }
       if (!['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type) || message.listName !== 'blockedDomains') {
         throw new Error('Access Control does not support this command.');
       }

@@ -147,11 +147,42 @@ function controller(feature = 'satellites') {
     .replace(/^import .*;\n/gm, '');
   vm.runInContext(source.slice(0, source.indexOf("\nfor (const link of document.querySelectorAll('[data-feature-link]')) {")) + `
     globalThis.controller = { render, renderList, renderBehaviorList, update, savePreference,
+      bindEmptyRuleSort, isRuleOrderReset,
       async hydrate(snapshot) { await settingsState.read(async () => snapshot); states = settingsState.value; },
       pendingControls, listSignatures };
   `, context);
   return { api: context.controller, nodes, groups, timers, setTransport: task => { transport = task; } };
 }
+
+test('an empty rule input exposes alphabetizing only through a completed long press', () => {
+  const { api, timers } = controller();
+  const input = new Element('input');
+  const button = new Element('button');
+  let sorts = 0;
+  api.bindEmptyRuleSort(button, input, () => { sorts += 1; });
+
+  button.events.pointerdown({ button: 0, isPrimary: true, clientX: 10, clientY: 10, pointerId: 1 });
+  assert.equal(timers.length, 1);
+  assert.equal(sorts, 0);
+  timers[0]();
+  assert.equal(sorts, 1);
+
+  let prevented = false;
+  button.events.click({ preventDefault() { prevented = true; }, stopPropagation() {} });
+  assert.equal(prevented, true, 'the submit click following a long press is suppressed');
+
+  input.value = 'later.example';
+  button.events.pointerdown({ button: 0, isPrimary: true, clientX: 10, clientY: 10, pointerId: 2 });
+  assert.equal(timers.length, 1, 'a non-empty input keeps the ordinary Add behavior');
+});
+
+test('the reset rule command accepts Add or Enter input without becoming a domain', () => {
+  const { api } = controller();
+  assert.equal(api.isRuleOrderReset('reset'), true);
+  assert.equal(api.isRuleOrderReset('  RESET  '), true);
+  assert.equal(api.isRuleOrderReset('reset.example'), false);
+  assert.equal(api.isRuleOrderReset(''), false);
+});
 
 test('unchanged settings refreshes preserve rule controls and pending removals', async () => {
   const { api } = controller('nativeScroll');

@@ -115,10 +115,6 @@ export async function instagramDomRead(input, environment = globalThis) {
     input.dispatchEvent(new EventConstructor('change', { bubbles: true }));
   };
   const colorChannels = value => String(value || '').match(/[\d.]+/g)?.slice(0, 3).map(Number);
-  const redDominant = button => {
-    const channels = colorChannels(getComputedStyle(button).color);
-    return channels?.length === 3 && channels[0] >= channels[1] + 55 && channels[0] >= channels[2] + 35;
-  };
   const blueAction = button => {
     const style = getComputedStyle(button);
     return [style.backgroundColor, style.color].some(value => {
@@ -189,12 +185,14 @@ export async function instagramDomRead(input, environment = globalThis) {
           throw new Error('igRelationshipChanged');
         }
         const buttons = [...state.confirmDialog.querySelectorAll('button')].filter(button => visible(button) && !button.disabled);
-        const dangerous = buttons.filter(redDominant);
-        const neutral = buttons.filter(button => !redDominant(button));
-        if (buttons.length !== 2 || dangerous.length !== 1 || neutral.length !== 1) throw new Error('igUnavailable');
-        state.confirmCancel = neutral[0];
+        if (buttons.length !== 2) throw new Error('igUnavailable');
+        // Instagram's native relationship dialog places the requested action
+        // before its cancellation control. Color is not authoritative because
+        // site themes and page-wide appearance extensions can rewrite it.
+        const [confirmAction, cancelAction] = buttons;
+        state.confirmCancel = cancelAction;
         writeStarted = true;
-        dangerous[0].click();
+        confirmAction.click();
         const verifyDeadline = Date.now() + 15000;
         while (Date.now() < verifyDeadline) {
           await wait(200);

@@ -230,7 +230,8 @@ test('Instagram does not replay ambiguous unfollow writes from the same results'
   } finally { h.cleanup(); }
 });
 
-function unfollowDomHarness({ own = true, dangerColor = 'rgb(238, 81, 94)', actionBackground = 'rgb(31, 34, 35)' } = {}) {
+function unfollowDomHarness({ own = true, confirmColor = 'rgb(238, 81, 94)', cancelColor = 'rgb(30, 30, 30)',
+  actionBackground = 'rgb(31, 34, 35)', extraConfirmButton = false } = {}) {
   let listOpen = false, confirmOpen = false, unfollowed = false, actionClicks = 0, confirmClicks = 0;
   const matches = (element, selector) => selector.split(',').some(rawSelector => {
     const value = rawSelector.trim();
@@ -293,12 +294,13 @@ function unfollowDomHarness({ own = true, dangerColor = 'rgb(238, 81, 94)', acti
   const listDialog = node('div', { attributes: { role: 'dialog' } }); listDialog.append(header, search, row);
 
   const confirmLink = node('a', { attributes: { href: '/account_2/' } }); confirmLink.append(node('img'));
-  const danger = node('button', { textContent: '取消关注', color: dangerColor, click() {
+  const confirm = node('button', { textContent: '取消关注', color: confirmColor, click() {
     confirmClicks += 1; confirmOpen = false; unfollowed = true; targetLink.isConnected = false;
     followingCount.textContent = '1';
   } });
-  const cancel = node('button', { textContent: '取消', click() { confirmOpen = false; } });
-  const confirmDialog = node('div', { attributes: { role: 'dialog' } }); confirmDialog.append(confirmLink, danger, cancel);
+  const cancel = node('button', { textContent: '取消', color: cancelColor, click() { confirmOpen = false; } });
+  const confirmDialog = node('div', { attributes: { role: 'dialog' } });
+  confirmDialog.append(confirmLink, confirm, cancel, ...(extraConfirmButton ? [node('button')] : []));
   const env = {
     location: new URL('https://www.instagram.com/example/'),
     document: {
@@ -320,7 +322,9 @@ function unfollowDomHarness({ own = true, dangerColor = 'rgb(238, 81, 94)', acti
 }
 
 test('Instagram unfollow uses the visible Following search and native confirmation without translated labels', async () => {
-  const h = unfollowDomHarness();
+  // Appearance rewriting can make Cancel red and the requested action neutral;
+  // native dialog order, not computed color, remains authoritative.
+  const h = unfollowDomHarness({ confirmColor: 'rgb(30, 30, 30)', cancelColor: 'rgb(238, 81, 94)' });
   assert.deepEqual(await instagramDomRead({ operation: 'profile', runId: 'profile-test', username: 'example' }, h.env), {
     profile: { id: 'example', username: 'example', name: '', followers: 3, following: 2 }, ownProfile: true
   });
@@ -334,7 +338,7 @@ test('Instagram DOM unfollow refuses other profiles and ambiguous confirmation c
   const other = unfollowDomHarness({ own: false });
   assert.equal((await other.run()).error, 'igOwnProfileOnly');
   assert.equal(other.effects().confirmClicks, 0);
-  const ambiguous = unfollowDomHarness({ dangerColor: 'rgb(30, 30, 30)' });
+  const ambiguous = unfollowDomHarness({ extraConfirmButton: true });
   assert.equal((await ambiguous.run()).error, 'igUnavailable');
   assert.equal(ambiguous.effects().confirmClicks, 0);
   const reversed = unfollowDomHarness({ actionBackground: 'rgb(0, 149, 246)' });

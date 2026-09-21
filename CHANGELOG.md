@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.20 — 2026-09-20
+
+- Corrected Instagram unfollow confirmation so page themes cannot make the tool select Cancel by changing button colors; the native confirmation structure is now used while post-action relationship verification remains required.
+
 ## 8.12.19 — 2026-09-20
 
 - Prevented completed Instagram list scans from looping when virtualized rows keep changing the list's pixel height; completion now follows a stable account set at the actual bottom.

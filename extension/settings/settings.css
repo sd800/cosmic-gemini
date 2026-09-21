@@ -63,10 +63,10 @@ p.last { margin-bottom: 0; }
 .behavior-rule-controls { display: flex; align-items: center; gap: 5px; }
 .behavior-rule-select { width: min(100%, 162px); height: 31px; flex: 1 1 auto; padding: 0 7px; font-size: 11px; }
 .behavior-rule-help { padding-top: 13px; margin-top: 14px; border-top: 1px solid var(--line); }
-.behavior-rule-help span { display: block; }
-.behavior-rule-help span + span { margin-top: 3px; }
-.adaptive-rule-help span { display: inline; }
+.behavior-rule-help span, .adaptive-rule-help span { display: inline; }
+html[lang="en-US"] .behavior-rule-help span,
 html[lang="en-US"] .adaptive-rule-help span { display: block; }
+html[lang="en-US"] .behavior-rule-help span + span,
 html[lang="en-US"] .adaptive-rule-help span + span { margin-top: 3px; }
 .audio-rule-card > .preference-row { margin-top: 14px; }
 .audio-rule-card > .rule-panel { padding: 18px 0 0; margin-top: 4px; border-top: 1px solid var(--line); }

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.17 — 2026-09-21
+
+- Applied the language-aware exact-host and wildcard guidance layout consistently across all website-rule sections.
+
 ## 8.13.16 — 2026-09-21
 
 - Refined Any Copy's website-rule guidance so English always separates exact-host and wildcard explanations, while Chinese wraps only when needed.

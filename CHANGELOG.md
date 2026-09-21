@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.19 — 2026-09-21
+
+- Clarified in Ad Marshal settings that Zhihu support covers `zhihu.com` and subdomains.
+
 ## 8.13.18 — 2026-09-21
 
 - Refined the Simplified Chinese wording for Claude browser identity consistency.

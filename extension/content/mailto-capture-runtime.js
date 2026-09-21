@@ -4,11 +4,14 @@
   const CONFIGURE = 'cosmic-gemini:mailto-capture:configure';
   const DISPOSE = 'cosmic-gemini:mailto-capture:dispose';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
-  const CAPTURED_LINK = /^(?:mailto|tel):/i;
+  const NANP_KEY = Symbol.for('cosmic-gemini.mailto-capture.nanp');
+  const CAPTURED_LINK = /^(?:mailto|tel|sms):/i;
+  const NANP_LOCATION_LABEL = 'North American location';
   const COPY = Object.freeze({
     'en-US': Object.freeze({
       title: 'Email link',
       telephoneTitle: 'Telephone link',
+      textMessageTitle: 'Text message link',
       to: 'To',
       phoneNumber: 'Phone number',
       cc: 'CC',
@@ -19,16 +22,19 @@
       noAddress: 'No recipient specified',
       copyAddress: 'Copy address',
       copyPhoneNumber: 'Copy number',
+      copyTextMessage: 'Copy text message',
       copyMessage: 'Copy message',
       close: 'Close',
       addressCopied: 'Address copied',
       phoneNumberCopied: 'Number copied',
+      textMessageCopied: 'Text message copied',
       messageCopied: 'Message copied',
       copyFailed: 'Could not copy'
     }),
     'zh-CN': Object.freeze({
       title: '邮件链接',
       telephoneTitle: '电话链接',
+      textMessageTitle: '短信链接',
       to: '收件人',
       phoneNumber: '电话号码',
       cc: '抄送',
@@ -39,10 +45,12 @@
       noAddress: '未指定收件人',
       copyAddress: '复制地址',
       copyPhoneNumber: '复制号码',
+      copyTextMessage: '复制短信内容',
       copyMessage: '复制邮件内容',
       close: '关闭',
       addressCopied: '已复制地址',
       phoneNumberCopied: '已复制号码',
+      textMessageCopied: '已复制短信内容',
       messageCopied: '已复制邮件内容',
       copyFailed: '无法复制'
     })
@@ -68,6 +76,11 @@
     return values.flatMap(value => String(value || '').split(','))
       .map(value => value.trim())
       .filter(Boolean);
+  }
+
+  function nanpLocation(value) {
+    try { return globalThis[NANP_KEY]?.lookup(value) || ''; }
+    catch { return ''; }
   }
 
   if (globalThis[RUNTIME_KEY]) {
@@ -123,6 +136,7 @@
       window.removeEventListener(DISPOSE, this.onDispose, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
       try { delete globalThis[RUNTIME_KEY]; } catch {}
+      try { delete globalThis[NANP_KEY]; } catch {}
     }
 
     enable() {
@@ -255,17 +269,65 @@
       if (!/^tel:/i.test(raw)) return null;
       const content = raw.slice(raw.indexOf(':') + 1).split('#', 1)[0];
       const number = decodeMailtoPart(content).trim();
-      return number ? { kind: 'tel', href: raw, number } : null;
+      return number ? { kind: 'tel', href: raw, number, location: nanpLocation(number) } : null;
+    }
+
+    parseSms(href) {
+      const raw = String(href || '').trim();
+      if (!/^sms:/i.test(raw)) return null;
+      const content = raw.slice(raw.indexOf(':') + 1).split('#', 1)[0];
+      const queryAt = content.indexOf('?');
+      const recipientPart = queryAt < 0 ? content : content.slice(0, queryAt);
+      const query = queryAt < 0 ? '' : content.slice(queryAt + 1);
+      const recipients = addressValues([decodeMailtoPart(recipientPart)]);
+      const fields = new Map();
+      for (const pair of query.split('&')) {
+        if (!pair) continue;
+        const equalsAt = pair.indexOf('=');
+        const rawName = equalsAt < 0 ? pair : pair.slice(0, equalsAt);
+        const rawValue = equalsAt < 0 ? '' : pair.slice(equalsAt + 1);
+        const name = decodeMailtoPart(rawName).trim();
+        if (!name) continue;
+        const key = name.toLowerCase();
+        const entry = fields.get(key) || { name, values: [] };
+        entry.values.push(normalizeLineBreaks(decodeMailtoPart(rawValue)));
+        fields.set(key, entry);
+      }
+      const body = (fields.get('body')?.values || []).join('\n\n');
+      fields.delete('body');
+      const otherFields = [...fields.values()]
+        .map(field => ({ name: field.name, values: field.values.filter(value => value !== '') }))
+        .filter(field => field.values.length);
+      if (!recipients.length && !body && !otherFields.length) return null;
+      return {
+        kind: 'sms',
+        href: raw,
+        recipients,
+        body,
+        otherFields,
+        numberText: recipients.join(', '),
+        locations: recipients
+          .map(number => ({ number, location: nanpLocation(number) }))
+          .filter(item => item.location),
+        simpleNumberOnly: recipients.length > 0 && !body && !otherFields.length
+      };
     }
 
     parseLink(href) {
-      return this.parseMailto(href) || this.parseTel(href);
+      return this.parseMailto(href) || this.parseTel(href) || this.parseSms(href);
     }
 
     messageText(capture = this.capture) {
       if (!capture) return '';
       if (capture.kind === 'tel') return capture.number;
       const labels = COPY[this.locale];
+      if (capture.kind === 'sms') {
+        const lines = [];
+        if (capture.recipients.length) lines.push(`${labels.to}: ${capture.numberText}`);
+        for (const field of capture.otherFields) lines.push(`${field.name}: ${field.values.join(', ')}`);
+        if (capture.body) lines.push('', capture.body);
+        return lines.join('\n');
+      }
       const lines = [];
       if (capture.to.length) lines.push(`${labels.to}: ${capture.to.join(', ')}`);
       if (capture.cc.length) lines.push(`${labels.cc}: ${capture.cc.join(', ')}`);
@@ -291,6 +353,10 @@
       this.host?.remove();
       const labels = COPY[this.locale];
       const telephone = this.capture.kind === 'tel';
+      const textMessage = this.capture.kind === 'sms';
+      const dialogTitle = telephone
+        ? labels.telephoneTitle
+        : textMessage ? labels.textMessageTitle : labels.title;
       const host = document.createElement('div');
       host.dataset.cosmicGeminiMailtoCapture = '';
       host.style.setProperty('all', 'initial', 'important');
@@ -319,11 +385,11 @@
       const popover = document.createElement('section');
       popover.className = 'popover';
       popover.setAttribute('role', 'dialog');
-      popover.setAttribute('aria-label', telephone ? labels.telephoneTitle : labels.title);
+      popover.setAttribute('aria-label', dialogTitle);
       const heading = document.createElement('div');
       heading.className = 'heading';
       const title = document.createElement('strong');
-      title.textContent = telephone ? labels.telephoneTitle : labels.title;
+      title.textContent = dialogTitle;
       const close = document.createElement('button');
       close.className = 'close';
       close.type = 'button';
@@ -337,6 +403,17 @@
       details.className = 'details';
       if (telephone) {
         this.appendField(details, labels.phoneNumber, this.capture.number);
+        if (this.capture.location) this.appendField(details, NANP_LOCATION_LABEL, this.capture.location);
+      } else if (textMessage) {
+        this.appendField(details, labels.to, this.capture.numberText || labels.noAddress);
+        if (this.capture.locations.length) {
+          const locations = this.capture.locations.map(item => this.capture.recipients.length === 1
+            ? item.location
+            : `${item.number} — ${item.location}`);
+          this.appendField(details, NANP_LOCATION_LABEL, locations.join('\n'));
+        }
+        if (this.capture.body) this.appendField(details, labels.message, this.capture.body);
+        if (this.capture.otherFields.length) this.appendOtherFields(details, labels);
       } else {
         this.appendField(details, labels.to, this.capture.addressText || labels.noAddress);
         if (this.capture.cc.length) this.appendField(details, labels.cc, this.capture.cc.join(', '));
@@ -351,6 +428,11 @@
       let primaryAction = null;
       if (telephone) {
         primaryAction = this.action(labels.copyPhoneNumber, 'primary', () => this.copy(this.capture.number, labels.phoneNumberCopied));
+      } else if (textMessage && this.capture.simpleNumberOnly) {
+        primaryAction = this.action(labels.copyPhoneNumber, 'primary', () => this.copy(this.capture.numberText, labels.phoneNumberCopied));
+      } else if (textMessage) {
+        primaryAction = this.action(labels.copyTextMessage, 'primary', () => this.copy(this.messageText(), labels.textMessageCopied));
+        primaryAction.disabled = !this.messageText();
       } else if (this.capture.simpleAddressOnly) {
         primaryAction = this.action(labels.copyAddress, 'primary', () => this.copy(this.capture.addressText, labels.addressCopied));
       } else {

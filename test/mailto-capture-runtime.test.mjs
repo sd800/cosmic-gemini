@@ -51,6 +51,8 @@ async function runtimeFixture() {
     crypto: { getRandomValues: values => { values.fill(9); return values; } }
   };
   vm.createContext(context);
+  const nanpSource = await readFile(new URL('../extension/content/mailto-capture-nanp.js', import.meta.url), 'utf8');
+  vm.runInContext(nanpSource, context);
   const source = await readFile(new URL('../extension/content/mailto-capture-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   return { context, runtime: context[Symbol.for('cosmic-gemini.mailto-capture.runtime')] };
@@ -92,12 +94,44 @@ test('Mailto Capture preserves telephone targets and rejects empty tel links', a
   const parsed = runtime.parseTel('TEL:%2B1-312-555-0100;ext=204#ignored');
   assert.equal(parsed.kind, 'tel');
   assert.equal(parsed.number, '+1-312-555-0100;ext=204');
+  assert.equal(parsed.location, 'Illinois, United States');
   assert.equal(runtime.messageText(parsed), '+1-312-555-0100;ext=204');
   assert.equal(runtime.parseLink('tel:+44-20-7946-0958').kind, 'tel');
   assert.equal(runtime.parseTel('tel:'), null);
 });
 
-test('Mailto Capture intercepts trusted mailto and tel activation and releases every listener when disabled', async () => {
+test('Mailto Capture resolves North American locations offline and leaves other numbering plans unlabelled', async () => {
+  const { context } = await runtimeFixture();
+  const nanp = context[Symbol.for('cosmic-gemini.mailto-capture.nanp')];
+  assert.equal(nanp.lookup('+1 416 555 0100'), 'Ontario, Canada');
+  assert.equal(nanp.lookup('1-800-555-0100'), 'Toll-Free, North American Numbering Plan');
+  assert.equal(nanp.lookup('+1 211 555 0100'), 'North American Numbering Plan (area code not identified)');
+  assert.equal(nanp.lookup('+44 20 7946 0958'), '');
+});
+
+test('Mailto Capture preserves text-message recipients, body, and extension fields', async () => {
+  const { runtime } = await runtimeFixture();
+  const parsed = runtime.parseSms('SMS:%2B1-312-555-0100,+44-20-7946-0958?body=Meet%20at%206%3F&service=center');
+  assert.equal(parsed.kind, 'sms');
+  assert.deepEqual([...parsed.recipients], ['+1-312-555-0100', '+44-20-7946-0958']);
+  assert.equal(parsed.body, 'Meet at 6?');
+  assert.deepEqual(JSON.parse(JSON.stringify(parsed.locations)), [
+    { number: '+1-312-555-0100', location: 'Illinois, United States' }
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(parsed.otherFields)), [{ name: 'service', values: ['center'] }]);
+  assert.equal(runtime.messageText(parsed), [
+    'To: +1-312-555-0100, +44-20-7946-0958',
+    'service: center',
+    '',
+    'Meet at 6?'
+  ].join('\n'));
+  assert.equal(parsed.simpleNumberOnly, false);
+  assert.equal(runtime.parseSms('sms:+1-312-555-0100').simpleNumberOnly, true);
+  assert.equal(runtime.parseLink('sms:?body=Hello').kind, 'sms');
+  assert.equal(runtime.parseSms('sms:'), null);
+});
+
+test('Mailto Capture intercepts trusted mailto, tel, and sms activation and releases every listener when disabled', async () => {
   const { context, runtime } = await runtimeFixture();
   runtime.onConfigure({
     detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } })
@@ -129,6 +163,18 @@ test('Mailto Capture intercepts trusted mailto and tel activation and releases e
   });
   assert.deepEqual(shown, { target: phone, href: phone.href });
   assert.deepEqual(stopped.slice(-3), ['tel-default', 'tel-propagation', 'tel-immediate']);
+  const textMessage = new FakeAnchor('sms:+1-312-555-0100?body=Hello');
+  runtime.onActivate({
+    type: 'click',
+    button: 0,
+    isTrusted: true,
+    composedPath: () => [textMessage],
+    preventDefault: () => stopped.push('sms-default'),
+    stopPropagation: () => stopped.push('sms-propagation'),
+    stopImmediatePropagation: () => stopped.push('sms-immediate')
+  });
+  assert.deepEqual(shown, { target: textMessage, href: textMessage.href });
+  assert.deepEqual(stopped.slice(-3), ['sms-default', 'sms-propagation', 'sms-immediate']);
   assert.equal(runtime.locale, 'zh-CN');
   assert.equal(context.window.listeners.get('click').includes(runtime.onActivate), true);
 
@@ -136,6 +182,7 @@ test('Mailto Capture intercepts trusted mailto and tel activation and releases e
   assert.equal(context.window.listeners.get('click').includes(runtime.onActivate), false);
   runtime.onDispose({ detail: runtime.token });
   assert.equal(context[Symbol.for('cosmic-gemini.mailto-capture.runtime')], undefined);
+  assert.equal(context[Symbol.for('cosmic-gemini.mailto-capture.nanp')], undefined);
 });
 
 test('Mailto Capture closes only for outside activation or Escape', async () => {

@@ -15,6 +15,7 @@ export function createMailtoCaptureProduct(pageRuntimeHost, platform) {
   const product = Object.freeze({
     id: FEATURE_IDS.MAILTO_CAPTURE,
     bridge: 'content/mailto-capture-bridge.js',
+    runtimeDependencies: ['content/mailto-capture-nanp.js'],
     runtime: 'content/mailto-capture-runtime.js',
     async state(settings, url) {
       const state = mailtoCaptureState(settings, url);

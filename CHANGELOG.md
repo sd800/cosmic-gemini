@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.21 — 2026-09-21
+
+- Extended Mailto Capture to preview and copy `sms:` recipients and message content, added English-only offline location details for North American numbers, and restored the original feature description with a separate note for supported external protocol links.
+
 ## 8.13.20 — 2026-09-21
 
 - Extended Mailto Capture to intercept `tel:` links, preview telephone numbers locally, and copy the complete dialing target without opening a system app.

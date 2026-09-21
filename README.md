@@ -66,7 +66,7 @@ Satellites contains optional tools that do not need permanent rows in the popup.
 
 #### Mailto Capture
 
-Stop mailto and tel links from opening system apps before you can inspect them. Mailto Capture shows email recipients and fields or a telephone number in a compact page popover for copying.
+Stop mailto links from opening your system mail app before you can inspect them. Mailto Capture intercepts each link and shows its recipients, CC and BCC addresses, subject, message, and other included fields in a compact page popover for copying. It also supports external protocol links using `tel:` and `sms:`.
 
 #### Clipboard Protect
 

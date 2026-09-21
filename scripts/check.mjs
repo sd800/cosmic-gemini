@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.20');
+assert.equal(manifest.version, '8.13.21');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -437,8 +437,11 @@ assert.match(noAutoplayRuntime, /blockedPlayPromise[\s\S]*Promise\.reject\(error
 assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
   'Ordinary page interaction must not be treated as playback intent.');
 assert.match(mailtoCapture, /content\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture-runtime\.js/);
+assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture-nanp\.js/,
+  'Mailto Capture must load its offline NANP location reference before the page runtime.');
 assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
 assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
+assert.match(mailtoCaptureRuntime, /\^sms:[\s\S]*recipients[\s\S]*body[\s\S]*otherFields/);
 assert.match(mailtoCaptureRuntime, /onPointerDown[\s\S]*path\.includes\(this\.host\)[\s\S]*this\.close\(\)/);
 assert.match(mailtoCaptureRuntime, /event\.key === 'Escape'[\s\S]*this\.close\(true\)/);
 assert.match(anyCopy, /UI_TOGGLE_COORDINATED_TAB_FEATURE[\s\S]*COORDINATED_PAUSE_PREFIX/,

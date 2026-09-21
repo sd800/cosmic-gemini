@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.25');
+assert.equal(manifest.version, '8.13.26');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -442,8 +442,8 @@ assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture-n
   'Mailto Capture must load its offline NANP location reference before the page runtime.');
 assert.doesNotMatch(mailtoCaptureRuntime, /NANP_LOCATION_LABEL|Area code location/,
   'Mailto Capture must not render numbering-plan locations as a separate labeled field.');
-assert.match(mailtoCaptureRuntime, /\.phone-location\{/,
-  'Mailto Capture must style inline numbering-plan locations as subordinate text.');
+assert.match(mailtoCaptureRuntime, /\.phone-location\{color:var\(--mc-muted\)\}/,
+  'Mailto Capture must distinguish inline locations by color without reducing their type size.');
 assert.match(mailtoCaptureRuntime, /appendTelephoneField[\s\S]*if \(item\.location\)/,
   'Mailto Capture must place only recognized locations beneath their telephone numbers.');
 assert.match(mailtoCaptureRuntime, /displayTelephoneNumber[\s\S]*\+1 [\s\S]*ext\./,

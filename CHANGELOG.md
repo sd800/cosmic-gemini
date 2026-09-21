@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.26 — 2026-09-21
+
+- Matched Mailto Capture's inline area-code location text size to its corresponding telephone number while retaining the subdued color.
+
 ## 8.13.25 — 2026-09-21
 
 - Standardized NANP telephone-number formatting in the Mailto Capture popover, moved each recognized area-code location directly beneath its number, and removed the separate location field; unrecognized numbers now show no location or error text.

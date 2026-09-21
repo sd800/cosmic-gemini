@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.10 — 2026-09-21
+
+- Added a shared `etld` reference from the current Public Suffix List ICANN section, together with selected PRIVATE rules reserved for future features.
+
 ## 8.13.9 — 2026-09-21
 
 - Added exact IPv4 and IPv6 support to user-maintained website rules, including Access Control, with matching across ports.

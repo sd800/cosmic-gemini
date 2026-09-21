@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.13.10 — 2026-09-21
+
+- 新增共享的 `etld` 参考列表，取自当前 Public Suffix List 的 ICANN 区段，并保留部分指定的 PRIVATE 规则，供后续功能使用。
+
 ## 8.13.9 — 2026-09-21
 
 - 用户维护的网站规则现支持精确的 IPv4 和 IPv6 地址（包括 Access Control），并可跨端口匹配。

@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.26');
+assert.equal(manifest.version, '8.13.27');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -287,6 +287,7 @@ const noAutoplayRuntime = await source('content', 'no-autoplay-runtime.js');
 const mailtoCapture = await source('background', 'products', 'standing', 'mailto-capture.js');
 const mailtoCaptureRuntime = await source('content', 'mailto-capture-runtime.js');
 const mailtoCaptureNanp = await source('content', 'mailto-capture-nanp.js');
+const mailtoCapturePhone = await source('content', 'mailto-capture-phone.js');
 const accessControl = await source('background', 'products', 'standing', 'access-control.js');
 const adMarshal = await source('background', 'products', 'standing', 'ad-marshal.js');
 const adMarshalRuntime = await source('content', 'ad-marshal-runtime.js');
@@ -438,12 +439,16 @@ assert.match(noAutoplayRuntime, /blockedPlayPromise[\s\S]*Promise\.reject\(error
 assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
   'Ordinary page interaction must not be treated as playback intent.');
 assert.match(mailtoCapture, /content\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture-runtime\.js/);
-assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture-nanp\.js/,
-  'Mailto Capture must load its offline NANP location reference before the page runtime.');
+assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture-nanp\.js[\s\S]*content\/mailto-capture-phone\.js/,
+  'Mailto Capture must load its compact offline telephone references before the page runtime.');
 assert.doesNotMatch(mailtoCaptureRuntime, /NANP_LOCATION_LABEL|Area code location/,
   'Mailto Capture must not render numbering-plan locations as a separate labeled field.');
 assert.match(mailtoCaptureRuntime, /\.phone-location\{color:var\(--mc-muted\)\}/,
   'Mailto Capture must distinguish inline locations by color without reducing their type size.');
+assert.match(mailtoCaptureRuntime, /\.phone-location>\.phone-location-tail\{[^}]*white-space:nowrap/,
+  'Mailto Capture must keep selected location suffixes together during natural wrapping.');
+assert.match(mailtoCaptureRuntime, /appendLocationText[\s\S]*countrySuffix = ', USA'[\s\S]*numberingPlanSuffix = 'North American Numbering Plan'[\s\S]*phone-location-tail/,
+  'Mailto Capture must isolate final US and numbering-plan suffixes as inline wrapping units.');
 assert.match(mailtoCaptureRuntime, /appendTelephoneField[\s\S]*if \(item\.location\)/,
   'Mailto Capture must place only recognized locations beneath their telephone numbers.');
 assert.match(mailtoCaptureRuntime, /displayTelephoneNumber[\s\S]*\+1 [\s\S]*ext\./,
@@ -452,8 +457,16 @@ assert.match(mailtoCaptureNanp, /Three-digit area results are used whenever reli
   'Mailto Capture must retain its precompiled hybrid NPA and NPA-NXX location index.');
 assert.ok(Buffer.byteLength(mailtoCaptureNanp, 'utf8') < 500_000,
   'Mailto Capture numbering-plan data must remain compact enough for ordinary page injection.');
+assert.match(mailtoCapturePhone, /libphonenumber-js 1\.13\.13 \/ Google libphonenumber 9\.0\.39/,
+  'Mailto Capture international metadata must identify its pinned upstream versions.');
+assert.match(mailtoCapturePhone, /function internationalNational[\s\S]*function chinaLocation/,
+  'Mailto Capture must format international numbers and keep China fixed-line geocoding separate from mobile numbers.');
+assert.ok(Buffer.byteLength(mailtoCapturePhone, 'utf8') < 80_000,
+  'Mailto Capture international formatting and China fixed-line data must remain precompiled and compact.');
 assert.doesNotMatch(mailtoCaptureNanp, /United States/,
   'Mailto Capture area-code results must use the compact USA country label.');
+assert.doesNotMatch(mailtoCaptureNanp, /U\.S\. Government/,
+  'Mailto Capture must use the consistent USA Government label.');
 assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
 assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
 assert.match(mailtoCaptureRuntime, /\^sms:[\s\S]*recipients[\s\S]*body[\s\S]*otherFields/);

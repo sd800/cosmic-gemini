@@ -127,7 +127,7 @@
     ["Trinidad and Tobago", "868"],
     ["Turks and Caicos Islands", "649"],
     ["Twin Cities, Minnesota, USA", "612"],
-    ["U.S. Government", "710"],
+    ["USA Government", "710"],
     ["U.S. Virgin Islands", "340"],
     ["Utah, USA", "385,435,801"],
     ["Vermont, USA", "802"],

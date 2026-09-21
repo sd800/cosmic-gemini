@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.27 — 2026-09-21
+
+- Refined Mailto Capture location wrapping so a long city or metropolitan-area name can wrap naturally while the final state and `USA` remain together, without forcing that suffix onto a new line when it still fits.
+- Added a compact precompiled international telephone reference to Mailto Capture, providing country or region identification and numbering-plan display formatting; Chinese fixed lines additionally resolve their area-code location without bundling mobile-prefix geocoding, and Mexican numbers show their one-digit numbering zone.
+- Kept the North American Numbering Plan label together during natural wrapping, standardized the government-service label, and added quotation marks around the `tel:` and `sms:` identifiers in settings.
+
 ## 8.13.26 — 2026-09-21
 
 - Matched Mailto Capture's inline area-code location text size to its corresponding telephone number while retaining the subdued color.

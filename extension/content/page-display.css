@@ -1,0 +1,50 @@
+[data-cosmic-gemini-page-display] {
+  all: initial !important;
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+  contain: strict !important;
+  background-color: transparent !important;
+}
+
+[data-cosmic-gemini-page-display][data-greyscale="true"] {
+  -webkit-backdrop-filter: grayscale(1) !important;
+  backdrop-filter: grayscale(1) !important;
+  /* Keep a real composited surface even when Reduce White Point is off. */
+  background-color: rgb(0 0 0 / 0.001) !important;
+}
+
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="10"] { background-color: rgb(0 0 0 / 0.10) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="15"] { background-color: rgb(0 0 0 / 0.15) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="20"] { background-color: rgb(0 0 0 / 0.20) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="25"] { background-color: rgb(0 0 0 / 0.25) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="30"] { background-color: rgb(0 0 0 / 0.30) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="35"] { background-color: rgb(0 0 0 / 0.35) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="40"] { background-color: rgb(0 0 0 / 0.40) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="45"] { background-color: rgb(0 0 0 / 0.45) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="50"] { background-color: rgb(0 0 0 / 0.50) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="55"] { background-color: rgb(0 0 0 / 0.55) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="60"] { background-color: rgb(0 0 0 / 0.60) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="65"] { background-color: rgb(0 0 0 / 0.65) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="70"] { background-color: rgb(0 0 0 / 0.70) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="75"] { background-color: rgb(0 0 0 / 0.75) !important; }
+[data-cosmic-gemini-page-display][data-shade="dark"][data-reduction="80"] { background-color: rgb(0 0 0 / 0.80) !important; }
+
+/* A white surface becomes black after an ancestor page-wide inversion. */
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="10"] { background-color: rgb(255 255 255 / 0.10) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="15"] { background-color: rgb(255 255 255 / 0.15) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="20"] { background-color: rgb(255 255 255 / 0.20) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="25"] { background-color: rgb(255 255 255 / 0.25) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="30"] { background-color: rgb(255 255 255 / 0.30) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="35"] { background-color: rgb(255 255 255 / 0.35) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="40"] { background-color: rgb(255 255 255 / 0.40) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="45"] { background-color: rgb(255 255 255 / 0.45) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="50"] { background-color: rgb(255 255 255 / 0.50) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="55"] { background-color: rgb(255 255 255 / 0.55) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="60"] { background-color: rgb(255 255 255 / 0.60) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="65"] { background-color: rgb(255 255 255 / 0.65) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="70"] { background-color: rgb(255 255 255 / 0.70) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="75"] { background-color: rgb(255 255 255 / 0.75) !important; }
+[data-cosmic-gemini-page-display][data-shade="light"][data-reduction="80"] { background-color: rgb(255 255 255 / 0.80) !important; }

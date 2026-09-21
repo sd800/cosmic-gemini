@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.22 — 2026-09-20
+
+- Restored Page Display on pages with strict content security policies by applying Reduce White Point and Greyscale through Chrome's protected user-origin stylesheet path, while retaining inversion-aware brightness reduction and clean restoration.
+
 ## 8.12.21 — 2026-09-20
 
 - Made Instagram unfollow completion depend exclusively on reopening Following and confirming that a stable fresh search no longer returns the account. Temporary row removal and profile-count changes no longer mark the action complete, and failed confirmation remains retryable.

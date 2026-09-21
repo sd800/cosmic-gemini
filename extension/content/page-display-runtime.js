@@ -4,6 +4,7 @@
   const CONFIGURE = 'cosmic-gemini:page-display:configure';
   const DISPOSE = 'cosmic-gemini:page-display:dispose';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.page-display.runtime');
+  const OVERLAY_ATTRIBUTE = 'data-cosmic-gemini-page-display';
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -15,6 +16,10 @@
   function normalizedReduction(value) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.min(0.8, Math.max(0.1, number)) : 0.25;
+  }
+
+  function reductionStep(value) {
+    return String(Math.round(normalizedReduction(value) * 20) * 5);
   }
 
   function invertSlope(filter) {
@@ -41,7 +46,6 @@
       this.token = randomToken();
       this.active = false;
       this.host = null;
-      this.shade = null;
       this.appearanceObserver = null;
       this.appearanceTargets = new WeakSet();
       this.appearanceRefreshQueued = false;
@@ -78,21 +82,11 @@
       if (this.host) return;
       const host = document.createElement('div');
       host.setAttribute('aria-hidden', 'true');
-      host.style.cssText = [
-        'all:initial',
-        'display:block',
-        'position:fixed',
-        'inset:0',
-        'z-index:2147483647',
-        'pointer-events:none',
-        'background:transparent'
-      ].join(';');
-      const shadow = host.attachShadow({ mode: 'closed' });
-      const shade = document.createElement('div');
-      shade.style.cssText = 'position:absolute;inset:0;background:#000;pointer-events:none';
-      shadow.append(shade);
+      host.setAttribute(OVERLAY_ATTRIBUTE, '');
+      host.setAttribute('data-greyscale', 'false');
+      host.setAttribute('data-reduction', '0');
+      host.setAttribute('data-shade', 'dark');
       this.host = host;
-      this.shade = shade;
     }
 
     shadeIsInsideInversion() {
@@ -105,8 +99,8 @@
 
     refreshShadeColor() {
       this.appearanceRefreshQueued = false;
-      if (!this.active || !this.shade) return;
-      this.shade.style.backgroundColor = this.shadeIsInsideInversion() ? '#fff' : '#000';
+      if (!this.active || !this.host) return;
+      this.host.setAttribute('data-shade', this.shadeIsInsideInversion() ? 'light' : 'dark');
     }
 
     scheduleAppearanceRefresh() {
@@ -185,14 +179,10 @@
       this.active = true;
       this.mount();
       if (this.host) {
-        const value = greyscale ? 'grayscale(1)' : 'none';
-        this.host.style.backdropFilter = value;
-        this.host.style.webkitBackdropFilter = value;
-      }
-      if (this.shade) {
-        this.shade.style.opacity = reduceWhitePoint
-          ? String(normalizedReduction(config.reduceWhitePoint?.reduction))
-          : '0';
+        this.host.setAttribute('data-greyscale', String(greyscale));
+        this.host.setAttribute('data-reduction', reduceWhitePoint
+          ? reductionStep(config.reduceWhitePoint?.reduction)
+          : '0');
       }
       if (reduceWhitePoint) this.startAppearanceTracking();
       else this.stopAppearanceTracking();
@@ -208,7 +198,6 @@
       this.stopAppearanceTracking();
       this.host?.remove();
       this.host = null;
-      this.shade = null;
     }
   }
 

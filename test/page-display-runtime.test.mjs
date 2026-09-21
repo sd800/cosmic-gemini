@@ -89,28 +89,28 @@ test('Page Display combines passive visual layers and restores the page when bot
   });
   const host = runtime.host;
   assert.equal(host.parentNode, document.documentElement);
-  assert.match(host.style.cssText, /position:fixed/);
-  assert.match(host.style.cssText, /pointer-events:none/);
-  assert.equal(runtime.shade.style.opacity, '0.35');
-  assert.equal(runtime.shade.style.backgroundColor, '#000');
-  assert.equal(runtime.host.style.backdropFilter, 'none');
+  assert.equal(host.attributes.get('data-cosmic-gemini-page-display'), '');
+  assert.equal(host.attributes.get('data-reduction'), '35');
+  assert.equal(host.attributes.get('data-shade'), 'dark');
+  assert.equal(host.attributes.get('data-greyscale'), 'false');
+  assert.deepEqual(host.style, {});
   assert.equal(document.listeners.get('fullscreenchange').length, 1);
   assert.equal(FakeMutationObserver.instances.length, 1);
 
   document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';
   FakeMutationObserver.instances[0].callback([{ type: 'attributes', target: document.documentElement }]);
   await Promise.resolve();
-  assert.equal(runtime.shade.style.backgroundColor, '#fff');
+  assert.equal(host.attributes.get('data-shade'), 'light');
 
   document.documentElement.style.filter = 'invert(80%)';
   FakeMutationObserver.instances[0].callback([{ type: 'attributes', target: document.documentElement }]);
   await Promise.resolve();
-  assert.equal(runtime.shade.style.backgroundColor, '#fff');
+  assert.equal(host.attributes.get('data-shade'), 'light');
 
   document.documentElement.style.filter = 'invert(1) invert(1)';
   FakeMutationObserver.instances[0].callback([{ type: 'attributes', target: document.documentElement }]);
   await Promise.resolve();
-  assert.equal(runtime.shade.style.backgroundColor, '#000');
+  assert.equal(host.attributes.get('data-shade'), 'dark');
 
   runtime.onConfigure({
     detail: JSON.stringify({
@@ -124,10 +124,9 @@ test('Page Display combines passive visual layers and restores the page when bot
   });
   assert.equal(runtime.host, host);
   assert.equal(document.documentElement.children.length, 1);
-  assert.equal(runtime.shade.style.opacity, '0');
+  assert.equal(runtime.host.attributes.get('data-reduction'), '0');
   assert.equal(FakeMutationObserver.instances[0].disconnected, true);
-  assert.equal(runtime.host.style.backdropFilter, 'grayscale(1)');
-  assert.equal(runtime.host.style.webkitBackdropFilter, 'grayscale(1)');
+  assert.equal(runtime.host.attributes.get('data-greyscale'), 'true');
 
   const fullscreen = new FakeElement('section');
   document.fullscreenElement = fullscreen;

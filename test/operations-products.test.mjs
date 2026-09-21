@@ -725,8 +725,8 @@ test('Page Display master authorization gates its independent top-frame visual f
   const syncs = [];
   let refreshes = 0;
   const product = createPageDisplayProduct({
-    async sync(descriptor, context, active) {
-      syncs.push({ id: descriptor.id, frameId: context.frameId, active });
+    async sync(descriptor, context, active, styleFiles) {
+      syncs.push({ id: descriptor.id, frameId: context.frameId, active, styleFiles });
     }
   }, {
     async mutateSettings(update, refresh) {
@@ -825,14 +825,14 @@ test('Page Display master authorization gates its independent top-frame visual f
     topUrl: 'https://example.com/'
   }, settings), false);
   assert.equal(refreshes, 7);
-  assert.deepEqual(syncs.map(({ frameId, active }) => ({ frameId, active })), [
-    { frameId: 0, active: false },
-    { frameId: 0, active: true },
-    { frameId: 0, active: false },
-    { frameId: 0, active: true },
-    { frameId: 3, active: false },
-    { frameId: 0, active: false },
-    { frameId: 0, active: true },
-    { frameId: 0, active: false }
+  assert.deepEqual(syncs.map(({ frameId, active, styleFiles }) => ({ frameId, active, styleFiles })), [
+    { frameId: 0, active: false, styleFiles: [] },
+    { frameId: 0, active: true, styleFiles: ['content/page-display.css'] },
+    { frameId: 0, active: false, styleFiles: [] },
+    { frameId: 0, active: true, styleFiles: ['content/page-display.css'] },
+    { frameId: 3, active: false, styleFiles: [] },
+    { frameId: 0, active: false, styleFiles: [] },
+    { frameId: 0, active: true, styleFiles: ['content/page-display.css'] },
+    { frameId: 0, active: false, styleFiles: [] }
   ]);
 });

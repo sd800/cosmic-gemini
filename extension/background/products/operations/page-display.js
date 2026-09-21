@@ -34,16 +34,18 @@ function updatePageDisplaySetting(feature, name, value) {
 }
 
 export function createPageDisplayProduct(pageRuntimeHost, platform) {
+  const pageStyleFiles = Object.freeze(['content/page-display.css']);
   const product = Object.freeze({
     id: FEATURE_IDS.PAGE_DISPLAY,
     bridge: 'content/page-display-bridge.js',
     runtime: 'content/page-display-runtime.js',
+    pageStyleFiles,
     awaitConfiguration: true,
     state(settings, url) { return pageDisplayState(settings, url); },
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);
       const active = context.frameId === 0 && state.active;
-      await pageRuntimeHost.sync(product, context, active);
+      await pageRuntimeHost.sync(product, context, active, active ? pageStyleFiles : []);
       return active;
     },
     async handleMessage(message) {

@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.12.21');
+assert.equal(manifest.version, '8.12.22');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -269,6 +269,7 @@ const satellites = await source('background', 'products', 'operations', 'satelli
 const pageDisplay = await source('background', 'products', 'operations', 'page-display.js');
 const pageDisplayBridge = await source('content', 'page-display-bridge.js');
 const pageDisplayRuntime = await source('content', 'page-display-runtime.js');
+const pageDisplayStyles = await source('content', 'page-display.css');
 const xhsImageDarkMode = await source('background', 'products', 'operations', 'xhs-image-dark-mode.js');
 const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode-runtime.js');
 const chineseResponseClaude = await source('background', 'products', 'operations', 'chinese-response-claude.js');
@@ -402,17 +403,22 @@ assert.match(mailtoCaptureRuntime, /\.status:empty\{display:none\}/);
 assert.match(mailtoCaptureRuntime, /\.heading\{[^}]*align-items:baseline[^}]*\}[\s\S]*\.close\{[^}]*align-self:baseline/);
 assert.doesNotMatch(mailtoCaptureRuntime, /MutationObserver|setInterval|location\.(?:href|assign|replace)|document\.createElement\(['"]a['"]\)|Open mail app/);
 assert.match(pageDisplay, /content\/page-display-bridge\.js[\s\S]*content\/page-display-runtime\.js/);
+assert.match(pageDisplay, /pageStyleFiles[\s\S]*content\/page-display\.css[\s\S]*pageRuntimeHost\.sync/,
+  'Page Display must inject its visual layer at Chrome USER origin so page CSP cannot disable it.');
 assert.match(pageDisplay, /context\.frameId === 0[\s\S]*pageRuntimeHost\.sync/);
 assert.match(pageDisplayBridge, /CG_PAGE_STATE'[\s\S]*featureId: 'pageDisplay'/);
 assert.match(pageDisplayBridge, /sendResponse\(\{ disposed: true \}\)/);
 assert.doesNotMatch(pageDisplayBridge, /chrome\.storage/);
-assert.match(pageDisplayRuntime, /attachShadow\(\{ mode: 'closed'/);
-assert.match(pageDisplayRuntime, /position:fixed[\s\S]*inset:0[\s\S]*pointer-events:none/);
-assert.match(pageDisplayRuntime, /grayscale\(1\)/);
+assert.doesNotMatch(pageDisplayRuntime, /\.style\.|style\.cssText|setAttribute\(['"]style/,
+  'Page Display runtime must not depend on inline styles that strict page CSP can block.');
+assert.match(pageDisplayStyles, /position:\s*fixed\s*!important[\s\S]*inset:\s*0\s*!important[\s\S]*pointer-events:\s*none\s*!important/);
+assert.match(pageDisplayStyles, /backdrop-filter:\s*grayscale\(1\)\s*!important/);
 assert.match(pageDisplayRuntime, /document\.fullscreenElement[\s\S]*fullscreenchange/);
-assert.match(pageDisplayRuntime, /this\.host\?\.remove\(\)[\s\S]*this\.shade = null/);
-assert.match(pageDisplayRuntime, /invertSlope[\s\S]*shadeIsInsideInversion[\s\S]*backgroundColor[\s\S]*'#fff'[\s\S]*'#000'/,
+assert.match(pageDisplayRuntime, /this\.host\?\.remove\(\)[\s\S]*this\.host = null/);
+assert.match(pageDisplayRuntime, /invertSlope[\s\S]*shadeIsInsideInversion[\s\S]*data-shade[\s\S]*'light'[\s\S]*'dark'/,
   'Reduce White Point must compensate when an ancestor filter inverts its compositing layer.');
+assert.match(pageDisplayStyles, /data-shade="dark"[\s\S]*rgb\(0 0 0 \/[\s\S]*data-shade="light"[\s\S]*rgb\(255 255 255 \//,
+  'Reduce White Point must provide both ordinary and inversion-compensated USER-origin shades.');
 assert.match(pageDisplayRuntime, /observeAppearanceTarget\(document\.documentElement[\s\S]*observeAppearanceTarget\(document\.body[\s\S]*observeAppearanceTarget\(document\.head/,
   'Reduce White Point appearance tracking must stay scoped to theme-bearing page surfaces.');
 assert.match(pageDisplayRuntime, /if \(reduceWhitePoint\) this\.startAppearanceTracking\(\)[\s\S]*else this\.stopAppearanceTracking\(\)/);

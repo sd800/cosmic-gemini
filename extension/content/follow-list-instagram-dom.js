@@ -9,9 +9,11 @@ export async function instagramDomRead(input, environment = globalThis) {
   const GROWTH_TIMEOUT = 90000;
   const NUDGE_AFTER = 20000;
   const MAX_NUDGES = 4;
-  const MAX_VERIFY_STEPS = 5000;
-  const VERIFY_BURST_STEPS = 32;
+  const MAX_VERIFY_STEPS = 20000;
+  const VERIFY_BURST_STEPS = 12;
+  const VERIFY_PASSES = 2;
   const VERIFY_SETTLE = 80;
+  const VERIFY_SETTLE_POLLS = 6;
   const BOTTOM_CONFIRMATIONS = 2;
   const RESERVED_PATHS = new Set(['accounts', 'about', 'ads', 'api', 'challenge', 'developer', 'direct',
     'directory', 'emails', 'explore', 'legal', 'nametag', 'p', 'privacy', 'push', 'reel', 'reels',
@@ -317,7 +319,7 @@ export async function instagramDomRead(input, environment = globalThis) {
           state.list = state.list.firstElementChild;
         }
       }
-      if (!state.list?.isConnected) return 0;
+      if (!state.list?.isConnected) return { count: 0, signature: '' };
       const identities = new Map();
       for (const link of state.list.querySelectorAll('a[href]')) {
         const destination = profileDestination(link);
@@ -337,22 +339,41 @@ export async function instagramDomRead(input, environment = globalThis) {
           verified: identity.verified });
       }
       if (users.length) { state.lastGrowth = Date.now(); state.nudges = 0; }
-      return identities.size;
+      return { count: identities.size, signature: [...identities.keys()].sort().join('\n') };
     };
     const atBottom = scroller => scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+    const settleViewport = async previous => {
+      let current = collect();
+      let stable = 0;
+      for (let poll = 0; poll < VERIFY_SETTLE_POLLS; poll += 1) {
+        await wait(VERIFY_SETTLE);
+        const next = collect();
+        stable = next.signature === current.signature ? stable + 1 : 0;
+        current = next;
+        // A retained DOM can settle immediately. Virtualized rows must either
+        // replace the preceding viewport or remain unchanged through two polls.
+        const retained = current.count >= state.seen.size;
+        if (stable >= 1 && (current.signature !== previous.signature || retained || poll >= 1)) break;
+      }
+      return current;
+    };
     const verificationStep = async scroller => {
-      const verification = state.verification ||= { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
+      const verification = state.verification ||= {
+        initialized: false, pass: 0, steps: 0, bottomStable: 0, lastHeight: -1
+      };
+      const previous = collect();
       if (!verification.initialized) {
         verification.initialized = true;
         scroller.scrollTop = 0;
       } else {
         const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-        scroller.scrollTop = Math.min(maximum, scroller.scrollTop + Math.max(180, scroller.clientHeight * .8));
+        scroller.scrollTop = Math.min(maximum,
+          scroller.scrollTop + Math.max(90, scroller.clientHeight * .45));
       }
-      // All pages have already been loaded. This pass only gives the virtual
-      // list enough time to remount each overlapping viewport for collection.
-      await wait(VERIFY_SETTLE);
-      collect();
+      // Each overlapping viewport is sampled until its mounted identities
+      // settle. This prevents a slower React remount from being skipped while
+      // the scrollbar has already moved on to the next position.
+      await settleViewport(previous);
       verification.steps += 1;
       if (atBottom(scroller)) {
         verification.bottomStable = verification.lastHeight === scroller.scrollHeight
@@ -360,8 +381,15 @@ export async function instagramDomRead(input, environment = globalThis) {
       } else verification.bottomStable = 0;
       verification.lastHeight = scroller.scrollHeight;
       if (verification.bottomStable >= 1) {
-        state.fullSweepComplete = true;
-        state.verification = null;
+        if (verification.pass + 1 < VERIFY_PASSES) {
+          verification.pass += 1;
+          verification.initialized = false;
+          verification.bottomStable = 0;
+          verification.lastHeight = -1;
+        } else {
+          state.fullSweepComplete = true;
+          state.verification = null;
+        }
       } else if (verification.steps >= MAX_VERIFY_STEPS) throw new Error('igIncomplete');
     };
     const verificationBurst = async scroller => {
@@ -387,9 +415,9 @@ export async function instagramDomRead(input, environment = globalThis) {
     }
     let bottom = atBottom(scroller);
     // The displayed profile count and apparent DOM retention are both only
-    // hints. Every list receives one complete overlapping top-to-bottom audit.
+    // hints. Every list receives two complete overlapping top-to-bottom audits.
     if (bottom && !state.fullSweepComplete) {
-      state.verification = { initialized: false, steps: 0, bottomStable: 0, lastHeight: -1 };
+      state.verification = { initialized: false, pass: 0, steps: 0, bottomStable: 0, lastHeight: -1 };
       state.bottomProbe = null;
       await verificationBurst(scroller);
       bottom = atBottom(scroller) && !state.verification;

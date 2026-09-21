@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.18 — 2026-09-20
+
+- Strengthened Instagram list coverage with two complete overlapping audits and adaptive viewport settling, so slower virtual-list remounts are collected before scanning advances.
+
 ## 8.12.17 — 2026-09-20
 
 - Applied the complete fast Instagram list audit to every scan, regardless of displayed counts or apparent DOM retention, and batched its overlapping top-to-bottom passes to reduce missed accounts without repeated background scheduling delays.

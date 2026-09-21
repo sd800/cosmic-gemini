@@ -467,7 +467,7 @@ test('Instagram DOM rapidly remounts virtualized rows and recovers a skipped acc
     },
     querySelectorAll: selector => selector === 'h1,h2' ? [{ textContent: 'example' }] : []
   });
-  let verificationWaits = 0;
+  let verificationWaits = 0, verificationTopPasses = 0, verificationWasAtTop = false;
   const env = {
     location: new URL('https://www.instagram.com/example/'),
     document: { querySelector: selector => selector === 'main' ? main : null,
@@ -477,7 +477,12 @@ test('Instagram DOM rapidly remounts virtualized rows and recovers a skipped acc
       if (delay === 1200 && scrollTop > 0) attachRows(bottom);
       if (delay === 80) {
         verificationWaits += 1;
-        if (scrollTop === 0) attachRows(topWithSkipped);
+        const atTop = scrollTop === 0;
+        if (atTop && !verificationWasAtTop) verificationTopPasses += 1;
+        verificationWasAtTop = atTop;
+        // Simulate a slower React remount: the missing visible row does not
+        // reach the DOM on the first settling tick after the viewport moves.
+        if (scrollTop === 0 && verificationWaits >= 2) attachRows(topWithSkipped);
       }
       callback();
     }
@@ -487,7 +492,8 @@ test('Instagram DOM rapidly remounts virtualized rows and recovers a skipped acc
   assert.equal(result.done, true);
   assert.deepEqual(result.users.map(account => account.id).sort(),
     ['account_1', 'account_2', 'account_3', 'account_4', 'account_5']);
-  assert.equal(verificationWaits > 0, true,
-    'virtualized rows receive the fast remount sweep even when the displayed count is stale but already matched');
+  assert.equal(verificationWaits > 1, true,
+    'virtualized rows are sampled until a delayed remount settles, then audited again with overlapping viewports');
+  assert.equal(verificationTopPasses, 2, 'every list receives two complete top-to-bottom audits');
   assert.equal(mounted, false);
 });

@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.21');
+assert.equal(manifest.version, '8.13.22');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -286,6 +286,7 @@ const noAutoplay = await source('background', 'products', 'standing', 'no-autopl
 const noAutoplayRuntime = await source('content', 'no-autoplay-runtime.js');
 const mailtoCapture = await source('background', 'products', 'standing', 'mailto-capture.js');
 const mailtoCaptureRuntime = await source('content', 'mailto-capture-runtime.js');
+const mailtoCaptureNanp = await source('content', 'mailto-capture-nanp.js');
 const accessControl = await source('background', 'products', 'standing', 'access-control.js');
 const adMarshal = await source('background', 'products', 'standing', 'ad-marshal.js');
 const adMarshalRuntime = await source('content', 'ad-marshal-runtime.js');
@@ -439,6 +440,12 @@ assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
 assert.match(mailtoCapture, /content\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture-runtime\.js/);
 assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture-nanp\.js/,
   'Mailto Capture must load its offline NANP location reference before the page runtime.');
+assert.match(mailtoCaptureRuntime, /const NANP_LOCATION_LABEL = 'Area code location'/,
+  'Mailto Capture must identify its English-only numbering-plan field precisely.');
+assert.match(mailtoCaptureNanp, /Three-digit area results are used whenever reliable[\s\S]*const detail = Object\.freeze[\s\S]*function exactLocality/,
+  'Mailto Capture must retain its precompiled hybrid NPA and NPA-NXX location index.');
+assert.ok(Buffer.byteLength(mailtoCaptureNanp, 'utf8') < 500_000,
+  'Mailto Capture numbering-plan data must remain compact enough for ordinary page injection.');
 assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
 assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
 assert.match(mailtoCaptureRuntime, /\^sms:[\s\S]*recipients[\s\S]*body[\s\S]*otherFields/);

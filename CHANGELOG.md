@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.22 — 2026-09-21
+
+- Refined Mailto Capture's English-only `Area code location` field with a compact offline hybrid reference: reliable city or metropolitan-area results use the three-digit area code, while broader area codes use precompiled NPA-NXX detail and retain regional fallbacks when no exact assigned prefix is available.
+
 ## 8.13.21 — 2026-09-21
 
 - Extended Mailto Capture to preview and copy `sms:` recipients and message content, added English-only offline location details for North American numbers, and restored the original feature description with a separate note for supported external protocol links.

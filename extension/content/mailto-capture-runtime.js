@@ -6,7 +6,7 @@
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
   const NANP_KEY = Symbol.for('cosmic-gemini.mailto-capture.nanp');
   const CAPTURED_LINK = /^(?:mailto|tel|sms):/i;
-  const NANP_LOCATION_LABEL = 'North American location';
+  const NANP_LOCATION_LABEL = 'Area code location';
   const COPY = Object.freeze({
     'en-US': Object.freeze({
       title: 'Email link',

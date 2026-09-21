@@ -74,7 +74,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Access Control
 
-阻止访问所选域名及其任意层级的子域名。Access Control 默认关闭，设有一个总开关。输入 `example.com` 这样的普通域名后，保存的规则会同时覆盖 `example.com` 及其所有子域名。规则修订会在匹配页面刷新或再次打开后生效。
+阻止访问所选域名及其任意层级的子域名，以及指定的 IPv4 或 IPv6 地址。Access Control 默认关闭，设有一个总开关。输入 `example.com` 这样的普通域名会同时覆盖该域名及其所有子域名；IP 地址规则则会在所有端口上精确匹配该地址。规则修订会在匹配页面刷新或再次打开后生效。
 
 #### Website Knowledge Control
 
@@ -130,7 +130,7 @@ Instagram 可能要求登录或限制列表访问；只有完整读取两份列�
 - Satellites 中的可选功能各自提供简明设置和隐私说明
 - 可调节的白点降低功能会在本地覆盖普通网页的显示
 - 按需调整小红书中的明亮文字卡片，包括带有彩色边框的卡片，同时保持普通照片原样
-- 支持 `example.com` 这样的精确主机名，以及 `*.example.com` 这样的通配规则
+- 支持 `example.com` 这样的精确主机名、`192.0.2.1` 这样的精确 IP 地址，以及 `*.example.com` 这样的域名通配规则
 - 在五行极简控制窗口中成对管理当前页面，全部设置位于底部的独立一行
 - 各项功能拥有独立设置页面，并提供带完整重置功能的全部设置导航页。页面之间可以直接切换，首次显示时也会直接使用已选语言
 - 提供自然的 en-US 与 zh-CN 界面，并自动适配系统的浅色或深色外观
@@ -158,7 +158,7 @@ Instagram 可能要求登录或限制列表访问；只有完整读取两份列�
 
 Native Scroll 与 No Autoplay 的控制按钮只调整当前网站，不会改变全局默认状态。即使全局设置已关闭，也可以为当前网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。
 
-Any Copy 会为当前网站启用并保存对应的主机名规则。Any Copy 强力模式只作用于当前标签页，手动关闭或关闭标签页后即会结束。两项功能可以同时运行，关闭其中一项不会改变另一项。
+Any Copy 会为当前网站启用并保存对应的主机名或 IP 地址规则。Any Copy 强力模式只作用于当前标签页，手动关闭或关闭标签页后即会结束。两项功能可以同时运行，关闭其中一项不会改变另一项。
 
 Reduce White Point 与 Greyscale 是全局开关。在控制窗口中开启其中一项时，如果 Page Display 总开关尚未开启，插件也会同时开启 Page Display。
 
@@ -200,7 +200,7 @@ Native Scroll 或 No Autoplay 在页面中实际执行拦截后，当前使用�
 
 ### 网站规则
 
-`example.com` 仅匹配该主机名。`*.example.com` 同时匹配根域名及其所有子域名。控制窗口会保存当前网站的精确规则，设置页面还可以添加通配规则。
+`example.com` 或 IP 地址仅匹配相应主机。`*.example.com` 同时匹配根域名及其所有子域名。控制窗口会保存当前网站的精确规则，设置页面还可以添加域名通配规则。
 
 Native Scroll 与 No Autoplay 各自拥有一个全局默认状态，以及三种网站行为：始终停用、始终使用标准模式和始终使用强力模式。没有匹配规则的网站会遵循全局默认状态。即使全局默认状态为关闭，标准模式和强力模式规则仍会让符合规则的网站保持启用。
 
@@ -214,11 +214,11 @@ Any Copy 单独保存网站启用规则。Any Copy 强力模式不使用网站�
 
 ### 声音自动播放
 
-No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问框。您可以在设置中允许所有网站自动播放音频元素和 Web Audio，也可以为指定网站添加主机名规则。这些权限不会放行自动播放的视频。
+No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问框。您可以在设置中允许所有网站自动播放音频元素和 Web Audio，也可以为指定网站添加主机名或 IP 地址规则。这些权限不会放行自动播放的视频。
 
 ## 隐私
 
-Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Clipboard Protect、Access Control、Website Knowledge Control、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
+Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Clipboard Protect、Access Control、Website Knowledge Control、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名或 IP 地址，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 

@@ -154,15 +154,43 @@ export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
 const IPV4_ADDRESS = /^\d{1,3}(?:\.\d{1,3}){3}$/;
 const HOST_LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
 
+function canonicalIpv4(value) {
+  if (!IPV4_ADDRESS.test(value)) return '';
+  const parts = value.split('.');
+  if (parts.some(part => Number(part) > 255 || (part.length > 1 && part.startsWith('0')))) {
+    throw new Error('Enter a valid IP address.');
+  }
+  return parts.map(part => String(Number(part))).join('.');
+}
+
+function canonicalIpv6(value) {
+  const usesBrackets = value.startsWith('[') || value.endsWith(']');
+  if (usesBrackets && !(value.startsWith('[') && value.endsWith(']'))) {
+    throw new Error('Enter a valid IP address.');
+  }
+  const address = usesBrackets ? value.slice(1, -1) : value;
+  if (!address.includes(':') || !/^[0-9a-f:.]+$/.test(address)) return '';
+  try {
+    const hostname = new URL(`http://[${address}]/`).hostname.toLowerCase();
+    if (!hostname.startsWith('[') || !hostname.endsWith(']')) throw new Error();
+    return hostname;
+  } catch { throw new Error('Enter a valid IP address.'); }
+}
+
+function isIpHostname(value) {
+  return IPV4_ADDRESS.test(value) || (value.startsWith('[') && value.endsWith(']'));
+}
+
 function canonicalHostname(value) {
   if (typeof value !== 'string') throw new Error('Enter a hostname or wildcard rule.');
   const raw = value.trim().toLowerCase().replace(/\.$/, '');
-  if (!raw || /[/:\\?#@%\s]/.test(raw)) throw new Error('Use a hostname without a path, port, or query.');
+  if (!raw || /[/\\?#@%\s]/.test(raw)) throw new Error('Use a hostname without a path, port, or query.');
   if (raw === 'localhost') return raw;
-  if (IPV4_ADDRESS.test(raw)) {
-    if (raw.split('.').some(part => Number(part) > 255)) throw new Error('Enter a valid IP address.');
-    return raw;
-  }
+  const ipv4 = canonicalIpv4(raw);
+  if (ipv4) return ipv4;
+  const ipv6 = canonicalIpv6(raw);
+  if (ipv6) return ipv6;
+  if (raw.includes(':') || raw.includes('[') || raw.includes(']')) throw new Error('Use a hostname without a port.');
   let hostname;
   try { hostname = new URL('http://' + raw).hostname.toLowerCase().replace(/\.$/, ''); }
   catch { throw new Error('Enter a valid hostname.'); }
@@ -178,14 +206,19 @@ export function normalizeRule(value) {
   const wildcard = raw.startsWith('*.');
   if (raw.includes('*') && !wildcard) throw new Error('Place the wildcard only at the beginning, as in *.example.com.');
   const hostname = canonicalHostname(wildcard ? raw.slice(2) : raw);
-  if (wildcard && (hostname === 'localhost' || IPV4_ADDRESS.test(hostname))) throw new Error('Wildcards require a domain name.');
+  if (wildcard && (hostname === 'localhost' || isIpHostname(hostname))) throw new Error('Wildcards require a domain name.');
   return wildcard ? '*.' + hostname : hostname;
+}
+
+export function isIpAddress(value) {
+  try { return isIpHostname(canonicalHostname(value)); }
+  catch { return false; }
 }
 
 export function normalizeAccessControlDomain(value) {
   const rule = normalizeRule(value);
   const domain = rule.startsWith('*.') ? rule.slice(2) : rule;
-  if (domain === 'localhost' || IPV4_ADDRESS.test(domain)) throw new Error('Enter a website domain.');
+  if (domain === 'localhost') throw new Error('Enter a website domain or IP address.');
   return domain;
 }
 

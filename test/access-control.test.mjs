@@ -8,18 +8,22 @@ import {
 } from '../extension/core/config.js';
 import { createAccessControlProduct } from '../extension/background/products/standing/access-control.js';
 
-test('Access Control starts disabled and stores one canonical domain for the root and its subdomains', () => {
+test('Access Control starts disabled and stores canonical domains and exact IP addresses', () => {
   assert.deepEqual(DEFAULT_SETTINGS.accessControl, { enabled: false, blockedDomains: [] });
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.accessControl, { enabled: false, blockedDomains: [] });
   assert.equal(normalizeAccessControlDomain('Example.COM'), 'example.com');
   assert.equal(normalizeAccessControlDomain('*.Example.COM'), 'example.com');
+  assert.equal(normalizeAccessControlDomain('192.0.2.1'), '192.0.2.1');
+  assert.equal(normalizeAccessControlDomain('2001:0db8::1'), '[2001:db8::1]');
   assert.throws(() => normalizeAccessControlDomain('https://example.com/path'));
   assert.throws(() => normalizeAccessControlDomain('localhost'));
-  assert.throws(() => normalizeAccessControlDomain('127.0.0.1'));
   assert.deepEqual(normalizeSettings({ accessControl: {
     enabled: true,
-    blockedDomains: ['z.example', '*.Example.com', 'z.example', 'bad/path', 'a.example']
-  } }).accessControl, { enabled: true, blockedDomains: ['z.example', 'example.com', 'a.example'] });
+    blockedDomains: ['z.example', '*.Example.com', 'z.example', 'bad/path', 'a.example', '192.0.2.1', '2001:db8::1']
+  } }).accessControl, {
+    enabled: true,
+    blockedDomains: ['z.example', 'example.com', 'a.example', '192.0.2.1', '[2001:db8::1]']
+  });
 });
 
 test('Access Control installs root-and-subdomain navigation blocks and removes them when disabled', async () => {
@@ -89,6 +93,20 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
   assert.deepEqual(appended.blockedDomains, [
     'docs.example.com', 'example.com', 'media.example', 'a-later.example'
   ]);
+
+  await product.handleMessage({
+    type: 'UI_ADD_RULE', listName: 'blockedDomains', rule: '192.0.2.1'
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  await product.handleMessage({
+    type: 'UI_ADD_RULE', listName: 'blockedDomains', rule: '2001:0db8::1'
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  await product.reconcile();
+  assert.equal(installed.at(-2).condition.urlFilter, undefined);
+  assert.equal(new RegExp(installed.at(-2).condition.regexFilter).test('http://192.0.2.1:8080/path'), true);
+  assert.equal(new RegExp(installed.at(-2).condition.regexFilter).test('http://x.192.0.2.1/path'), false);
+  assert.equal(installed.at(-1).condition.urlFilter, undefined);
+  assert.match(installed.at(-1).condition.regexFilter, /2001:db8::1/);
+  assert.equal(new RegExp(installed.at(-1).condition.regexFilter).test('https://[2001:db8::1]:8443/path'), true);
 
   const cleared = await product.handleMessage({
     type: 'UI_CLEAR_RULES', listName: 'blockedDomains'

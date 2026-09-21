@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.9 — 2026-09-21
+
+- Added exact IPv4 and IPv6 support to user-maintained website rules, including Access Control, with matching across ports.
+
 ## 8.13.8 — 2026-09-21
 
 - Added a confirmed `clean` input action for clearing every domain entry managed by a rule card.

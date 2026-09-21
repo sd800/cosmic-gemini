@@ -139,6 +139,7 @@ function controller(feature = 'satellites') {
   const context = vm.createContext({
     document, chrome: {}, location: { pathname: '' },
     featureFromPath: () => feature, translator: () => key => key,
+    isIpAddress: value => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || /^\[[0-9a-f:]+\]$/i.test(value),
     createSettingsState, saveSettingsViewCache() {}, icon: () => '',
     send: message => transport(message),
     retryRead: task => task(), setTimeout: task => { timers.push(task); return timers.length; }, clearTimeout() {}
@@ -211,14 +212,14 @@ test('unchanged settings refreshes preserve rule controls and pending removals',
   assert.equal(list.children[0].className, 'empty');
 });
 
-test('Access Control renders its saved authorization and explains every domain rule at the same list level', async () => {
+test('Access Control renders saved domains and IP addresses at the same list level', async () => {
   const { api, nodes } = controller();
   const master = new Element('input');
   const options = new Element('fieldset');
   nodes.set('#accessControlEnabled', master);
   nodes.set('#accessControlOptions', options);
   await api.hydrate({ preferences: { satellites: {}, accessControl: {
-    enabled: false, blockedDomains: ['example.com']
+    enabled: false, blockedDomains: ['example.com', '192.0.2.1']
   } } });
   api.render();
   assert.equal(master.checked, false);
@@ -232,6 +233,7 @@ test('Access Control renders its saved authorization and explains every domain r
   api.renderList(section);
   assert.equal(list.children[0].children[0].children[0].textContent, 'example.com');
   assert.equal(list.children[0].children[0].children[1].textContent, 'accessControlSubdomainsSuffix');
+  assert.equal(list.children[1].children[0].children.length, 1, 'an IP rule has no subdomain suffix');
 
   await api.hydrate({ preferences: { satellites: {}, accessControl: {
     enabled: true, blockedDomains: ['example.com']

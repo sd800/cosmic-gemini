@@ -46,6 +46,8 @@
     return value;
   };
   const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${iconPaths[name] || ''}</svg>`;
+  const isIpRule = rule => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(rule)
+    || (rule.startsWith('[') && rule.endsWith(']'));
 
   root.lang = locale;
   for (const element of document.querySelectorAll('[data-i18n]')) {
@@ -272,7 +274,8 @@
         const scope = document.createElement('span');
         scope.className = 'access-control-rule-scope';
         scope.textContent = translate('accessControlSubdomainsSuffix');
-        label.append(code, scope);
+        label.append(code);
+        if (!isIpRule(rule)) label.append(scope);
         item.append(label, remove);
       } else {
         item.append(code, remove);

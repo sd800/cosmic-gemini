@@ -1,5 +1,5 @@
 import { loadLocale } from '../core/locale.js';
-import { normalizeAccessControlDomain, normalizeRule } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain, normalizeRule } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
@@ -116,7 +116,8 @@ function renderList(section) {
       const scope = document.createElement('span');
       scope.className = 'access-control-rule-scope';
       scope.textContent = t('accessControlSubdomainsSuffix');
-      label.append(code, scope);
+      label.append(code);
+      if (!isIpAddress(rule)) label.append(scope);
       item.append(label, remove);
     } else {
       item.append(code, remove);

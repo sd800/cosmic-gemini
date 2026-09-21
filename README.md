@@ -74,7 +74,7 @@ Keep selected text free of content a website adds during copying, such as links,
 
 #### Access Control
 
-Block visits to selected domains and every level of their subdomains. Access Control is off by default and uses one master switch. Enter a plain domain such as `example.com`; the saved rule covers both `example.com` and all of its subdomains. Rule changes take effect when a matching page is reloaded or opened again.
+Block visits to selected domains, every level of their subdomains, and exact IPv4 or IPv6 addresses. Access Control is off by default and uses one master switch. Entering a plain domain such as `example.com` covers both that domain and all of its subdomains; an IP entry covers that exact address on every port. Rule changes take effect when a matching page is reloaded or opened again.
 
 #### Website Knowledge Control
 
@@ -130,7 +130,7 @@ Instagram may require sign-in or limit list access; comparison appears only afte
 - Optional Satellites with their own concise settings and privacy details
 - Adjustable white-point reduction that applies locally across ordinary webpages
 - A contextual Xiaohongshu image reader that adapts bright text cards, including cards with colored frames, without changing ordinary photographs
-- Exact-host and wildcard rules such as `example.com` and `*.example.com`
+- Exact-host, exact-IP, and wildcard domain rules such as `example.com`, `192.0.2.1`, and `*.example.com`
 - A compact five-row popup with paired controls and All Settings on its own bottom row
 - Separate settings pages, an All Settings hub with a complete reset action, direct product switching, and stable first-frame localization
 - Natural en-US and zh-CN interfaces with system-aware light and dark themes
@@ -158,7 +158,7 @@ The popup uses five compact rows, with two related controls in each row.
 
 Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 
-Any Copy is enabled for the current website and stores the corresponding hostname rule. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
+Any Copy is enabled for the current website and stores the corresponding hostname or IP-address rule. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
 
 Reduce White Point and Greyscale are global controls. Enabling either one from the popup also enables the Page Display master switch when needed.
 
@@ -200,7 +200,7 @@ The Cosmic Gemini mark in the browser toolbar remains unchanged. Activity contin
 
 ### Website rules
 
-`example.com` matches that hostname only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save exact current-site overrides, while Settings also accepts wildcard rules.
+`example.com` or an IP address matches that host only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save exact current-site overrides, while Settings also accepts wildcard domain rules.
 
 Native Scroll and No Autoplay each have a global default plus three website behaviors: Always inactive, Always use Standard mode, and Always use Enhanced mode. A website without a matching rule follows the global default. Standard and Enhanced rules keep their matching websites active even when that default is off.
 
@@ -214,11 +214,11 @@ Any Copy keeps its own website activation list. Any Copy Enhanced uses no websit
 
 ### Audio autoplay
 
-Audio autoplay is blocked by default without interrupting you with a page prompt. In No Autoplay settings, you can allow audio elements and Web Audio on all sites or add hostname rules for selected websites. These permissions do not allow autoplaying video.
+Audio autoplay is blocked by default without interrupting you with a page prompt. In No Autoplay settings, you can allow audio elements and Web Audio on all sites or add hostname or IP-address rules for selected websites. These permissions do not allow autoplaying video.
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Page Display, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, and Ad Marshal run locally. Website rules contain hostnames rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Page Display, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, and Ad Marshal run locally. Website rules contain hostnames or IP addresses rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 

@@ -10,6 +10,7 @@ import {
   chineseResponseClaudeState,
   featureState,
   hostnameFromUrl,
+  isIpAddress,
   mailtoCaptureState,
   matchingRule,
   normalizeRule,
@@ -112,9 +113,34 @@ test('exact and wildcard rules match their intended hostnames', () => {
 
 test('rule parser rejects URLs, ports, paths, and misplaced wildcards', () => {
   for (const input of ['https://example.com', 'example.com/path', 'example.com:443', 'example.com:80',
-    'a.*.example.com', '*.localhost', '*.127.0.0.1', 'example.com\\', '%65xample.com',
-    '0x7f.0.0.1', '-bad.example', 'bad-.example', 'a..example', 'user@example.com']) {
+    'a.*.example.com', '*.localhost', '*.127.0.0.1', '*.[2001:db8::1]', 'example.com\\', '%65xample.com',
+    '0x7f.0.0.1', '001.2.3.4', '256.1.1.1', '2001:db8::zz', '[2001:db8::1]:443',
+    '-bad.example', 'bad-.example', 'a..example', 'user@example.com']) {
     assert.throws(() => normalizeRule(input));
+  }
+});
+
+test('exact IPv4 and IPv6 rules match their host across ports', () => {
+  const ipv4 = '192.0.2.15';
+  const ipv6 = '[2001:db8::f]';
+  assert.equal(normalizeRule(ipv4), ipv4);
+  assert.equal(normalizeRule('2001:0db8:0:0:0:0:0:000f'), ipv6);
+  assert.equal(normalizeRule(ipv6), ipv6);
+  assert.equal(isIpAddress(ipv4), true);
+  assert.equal(isIpAddress(ipv6), true);
+  assert.equal(isIpAddress('example.com'), false);
+  assert.equal(ruleMatches(ipv4, ipv4), true);
+  assert.equal(ruleMatches('2001:db8::f', ipv6), true);
+  assert.equal(hostnameFromUrl(`http://${ipv4}:8080/path`), ipv4);
+  assert.equal(hostnameFromUrl(`https://${ipv6}:8443/path`), ipv6);
+
+  const settings = normalizeSettings({
+    nativeScroll: { inactiveRules: [ipv4, ipv6] },
+    anyCopy: { siteRules: [ipv4, ipv6] }
+  });
+  for (const url of [`http://${ipv4}:8080/path`, `https://${ipv6}:8443/path`]) {
+    assert.equal(featureState(settings, FEATURE_IDS.NATIVE_SCROLL, url).active, false);
+    assert.equal(anyCopyState(settings, url).active, true);
   }
 });
 

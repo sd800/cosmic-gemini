@@ -2,6 +2,7 @@ import {
   FEATURE_IDS,
   INCOGNITO_SETTINGS_KEY,
   SETTINGS_KEY,
+  isIpAddress,
   normalizeAccessControlDomain
 } from '../../../core/config.js';
 
@@ -19,12 +20,16 @@ function isOwnedRule(rule, incognito) {
 }
 
 function blockingRule(domain, id) {
+  const ipAddress = isIpAddress(domain);
+  const escapedHost = domain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return {
     id,
     priority: 100,
     action: { type: 'block' },
     condition: {
-      urlFilter: `||${domain}^`,
+      ...(ipAddress
+        ? { regexFilter: `^https?://(?:[^/@]*@)?${escapedHost}(?::\\d+)?(?:[/?#]|$)` }
+        : { urlFilter: `||${domain}^` }),
       resourceTypes: ['main_frame', 'sub_frame']
     }
   };
@@ -42,6 +47,7 @@ function rulesMatch(existing, desired) {
     return saved?.priority === rule.priority
       && saved.action?.type === 'block'
       && saved.condition?.urlFilter === rule.condition.urlFilter
+      && saved.condition?.regexFilter === rule.condition.regexFilter
       && JSON.stringify(saved.condition?.resourceTypes || []) === JSON.stringify(rule.condition.resourceTypes);
   });
 }

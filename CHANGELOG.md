@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.5 — 2026-09-21
+
+- Refined the shared trash icon with a wider, more balanced design.
+
 ## 8.13.3 — 2026-09-21
 
 - Aligned the Access Control cursor icon’s trailing stroke with its pointer tip and inner vertex.

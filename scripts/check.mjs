@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.13.3');
+assert.equal(manifest.version, '8.13.5');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -197,6 +197,9 @@ const satellitesSettings = await source('settings', 'satellites.html');
 const pageDisplaySettings = await source('settings', 'page-display.html');
 const readme = await readFile(join(project, 'README.md'), 'utf8');
 const readmeZh = await readFile(join(project, 'README_zh.md'), 'utf8');
+const trashIconPath = 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7';
+assert.ok(sharedUi.includes(trashIconPath) && settingsPreload.includes(trashIconPath),
+  'Shared and first-frame Settings rendering must use the same trash icon.');
 assert.match(settingsStyle, /--switch-blue: #0b57d0/);
 assert.match(settingsStyle, /prefers-color-scheme: dark[\s\S]*--switch-blue: #276cd9/);
 assert.match(settingsStyle, /\.switch input:checked \+ span \{ background: var\(--switch-blue\); \}/);

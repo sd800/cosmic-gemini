@@ -1,7 +1,7 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress, normalizeAccessControlDomain } from '../core/config.js';
+import { isIpAddress } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
+import { normalizeAccessControlRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
@@ -742,10 +742,9 @@ function bindView() {
       }
       let rule;
       try {
-        const normalizedInput = normalizeWebsiteRuleInput(input.value);
         rule = sectionFeatureId === 'accessControl'
-          ? normalizeAccessControlDomain(normalizedInput)
-          : normalizedInput;
+          ? normalizeAccessControlRuleInput(input.value)
+          : normalizeWebsiteRuleInput(input.value);
       } catch {
         message.textContent = t(sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
         return;

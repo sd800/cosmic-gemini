@@ -1,5 +1,18 @@
-import { normalizeRule } from './config.js';
+import { normalizeAccessControlDomain, normalizeRule } from './config.js';
 import { etld } from './etld.js';
+
+const ACCESS_CONTROL_ALIASES = Object.freeze({
+  xhs: 'xiaohongshu.com',
+  xiaohongshu: 'xiaohongshu.com',
+  dy: 'douyin.com',
+  douyin: 'douyin.com',
+  bili: 'bilibili.com',
+  bilibili: 'bilibili.com',
+  bzhan: 'bilibili.com',
+  ins: 'instagram.com',
+  ig: 'instagram.com',
+  instagram: 'instagram.com'
+});
 
 function canonicalMultiLabelRule(rule) {
   if (rule.startsWith('*.') || rule.startsWith('!')) return '';
@@ -19,4 +32,10 @@ export function normalizeWebsiteRuleInput(value) {
   const normalized = normalizeRule(raw);
   if (normalized.startsWith('*.')) return normalized;
   return MULTI_LABEL_ETLD_RULES.has(normalized) ? '*.' + normalized : normalized;
+}
+
+export function normalizeAccessControlRuleInput(value) {
+  if (typeof value !== 'string') throw new Error('Enter a website domain, IP address, or alias.');
+  const alias = ACCESS_CONTROL_ALIASES[value.trim().toLowerCase()];
+  return normalizeAccessControlDomain(normalizeWebsiteRuleInput(alias || value));
 }

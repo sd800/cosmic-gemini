@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.29 — 2026-09-21
+
+- Added concise input aliases for selected services in Access Control. Each alias resolves to the service's root domain and retains the existing coverage of all subdomains without adding extra background rules.
+
 ## 8.13.28 — 2026-09-21
 
 - Replaced Mexico's numeric telephone-zone labels with the official directional names for Zones 2 through 9, localized to the interface language.

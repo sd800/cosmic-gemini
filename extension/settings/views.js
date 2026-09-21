@@ -145,6 +145,7 @@ export function viewFor(featureId) {
         ${introTitle('satellites', 'satellitesName')}
         <p class="last" data-i18n="satellitesOverviewHelp"></p>
       </section>
+      <h2 class="satellite-category-heading" data-i18n="satellitesGeneralFeatures"></h2>
       <section class="card satellite-card">
         <div class="section-heading">
           <div><h1 data-i18n="mailtoCaptureName"></h1><p data-i18n="mailtoCaptureDescription"></p></div>
@@ -180,6 +181,20 @@ export function viewFor(featureId) {
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="clipboardProtectPrivacy"></p></div>
       </section>
+      <section class="card satellite-card">
+        <div class="section-heading">
+          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p></div>
+        </div>
+        <fieldset class="ad-marshal-sites">
+          <legend data-i18n="adMarshalManagedSitesHeading"></legend>
+          <div class="ad-marshal-site-grid">
+            <label><input id="adMarshalTencentNews" data-ad-marshal-site="tencentNews" type="checkbox"><span data-i18n="adMarshalTencentNews"></span></label>
+            <label><input id="adMarshalZhihu" data-ad-marshal-site="zhihu" type="checkbox"><span data-i18n="adMarshalZhihu"></span></label>
+          </div>
+        </fieldset>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
+      </section>
+      <h2 class="satellite-category-heading" data-i18n="satellitesSiteSpecificFeatures"></h2>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">
           <div><h1 data-i18n="xhsImageDarkModeSettingsName"></h1><p data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
@@ -198,19 +213,6 @@ export function viewFor(featureId) {
           <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="biliDailyLoginPrivacy"></p></div>
-      </section>
-      <section class="card satellite-card">
-        <div class="section-heading">
-          <div><h1 data-i18n="adMarshalName"></h1><p data-i18n="adMarshalDescription"></p></div>
-        </div>
-        <fieldset class="ad-marshal-sites">
-          <legend data-i18n="adMarshalManagedSitesHeading"></legend>
-          <div class="ad-marshal-site-grid">
-            <label><input id="adMarshalTencentNews" data-ad-marshal-site="tencentNews" type="checkbox"><span data-i18n="adMarshalTencentNews"></span></label>
-            <label><input id="adMarshalZhihu" data-ad-marshal-site="zhihu" type="checkbox"><span data-i18n="adMarshalZhihu"></span></label>
-          </div>
-        </fieldset>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
       </section>
       <section class="card satellite-card">
         <div class="section-heading">

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.12.26 — 2026-09-21
+
+- Organized Satellites into General features and Site-specific features. Ad Marshal now appears directly below Clipboard Protect at the end of the General features group.
+
 ## 8.12.25 — 2026-09-21
 
 - Removed frozen popup presentation code, including the permanently hidden main wordmark and the inactive Image Download recommendation-label hook, and deleted unused shared icon definitions. The visible Video Download panel identity remains unchanged.

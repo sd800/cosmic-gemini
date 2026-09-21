@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.12.26 — 2026-09-21
+
+- 将 Satellites 设置页划分为“通用功能”和“网站专用功能”；Ad Marshal 现位于 Clipboard Protect 正下方，并作为“通用功能”分组的最后一项。
+
 ## 8.12.25 — 2026-09-21
 
 - 清理控制窗口中冻结的展示代码，包括永久隐藏的主 wordmark 和 Image Download 已停用的“推荐”标记接口，并删除未使用的共享图标定义；当前实际显示的 Video Download 面板标识保持不变。

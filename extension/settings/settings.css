@@ -121,6 +121,8 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .help p:last-child { margin-bottom: 0; }
 .help hr { height: 1px; border: 0; background: var(--line); margin: 20px 0; }
 .satellite-card .section-heading { gap: 28px; }
+.satellite-category-heading { display: flex; margin: 4px 2px -6px; color: var(--muted); font-size: 12px; font-weight: 700; line-height: 18px; align-items: center; gap: 12px; }
+.satellite-category-heading::after { height: 1px; flex: 1 1 auto; background: var(--line); content: ''; }
 .satellite-card .section-heading > div:first-child { min-width: 0; }
 .satellite-card .section-heading p { max-width: 620px; }
 .satellite-card .section-heading .satellite-experimental-note { margin-top: 7px; }

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.18 — 2026-09-21
+
+- Refined the Simplified Chinese wording for Claude browser identity consistency.
+
 ## 8.13.17 — 2026-09-21
 
 - Applied the language-aware exact-host and wildcard guidance layout consistently across all website-rule sections.

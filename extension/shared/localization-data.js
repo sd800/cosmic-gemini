@@ -734,7 +734,7 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     mailtoCapturePrivacy: 'Mailto Capture 只在本机处理邮件链接，不会记录其中的邮箱地址或邮件内容。',
     chineseResponseClaudeName: 'Chinese Response Display Optimization for Claude',
     chineseResponseClaudeDescription: '将 Claude 中文回复中的半角标点转换为对应的全角中文标点，并在中文与英文字母、数字及相关符号之间补充空格。代码、链接、公式和可编辑文本均保持不变。',
-    claudeBrowserIdentityHelp: '针对在美国使用 Claude 的场景统一部分浏览器标识信息。',
+    claudeBrowserIdentityHelp: '针对在美国使用 Claude 的场景对浏览器标识的部分信息进行固定化。',
     chineseResponseClaudePrivacy: '本功能仅在受支持的 Claude 与 Anthropic 页面中本地运行。插件不会另行发送或留存回复文本及浏览器标识信息。',
     chineseResponseClaudeOffTitle: '开启 Chinese Response Display Optimization for Claude',
     chineseResponseClaudeOnTitle: 'Chinese Response Display Optimization for Claude 已开启，点击即可关闭',

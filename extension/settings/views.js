@@ -81,7 +81,7 @@ const anyCopyRuleSection = (featureId, headingKey, helpKey, emptyKey) => `
     </form>
     <p class="form-message" aria-live="polite"></p>
     <ul class="rule-list"></ul>
-    <p class="caption" data-i18n="exactRuleHelp"></p>
+    <p class="caption adaptive-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
   </section>`;
 
 const settingsCard = (featureId, nameKey, descriptionKey) => `

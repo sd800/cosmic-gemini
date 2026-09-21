@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.16 — 2026-09-21
+
+- Refined Any Copy's website-rule guidance so English always separates exact-host and wildcard explanations, while Chinese wraps only when needed.
+
 ## 8.13.15 — 2026-09-21
 
 - Split the exact-host and wildcard guidance below No Autoplay's audio website rules into separate lines for consistency.

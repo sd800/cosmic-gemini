@@ -65,6 +65,9 @@ p.last { margin-bottom: 0; }
 .behavior-rule-help { padding-top: 13px; margin-top: 14px; border-top: 1px solid var(--line); }
 .behavior-rule-help span { display: block; }
 .behavior-rule-help span + span { margin-top: 3px; }
+.adaptive-rule-help span { display: inline; }
+html[lang="en-US"] .adaptive-rule-help span { display: block; }
+html[lang="en-US"] .adaptive-rule-help span + span { margin-top: 3px; }
 .audio-rule-card > .preference-row { margin-top: 14px; }
 .audio-rule-card > .rule-panel { padding: 18px 0 0; margin-top: 4px; border-top: 1px solid var(--line); }
 .audio-rule-card > .rule-panel > p:first-of-type { min-height: 0; }

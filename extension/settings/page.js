@@ -216,6 +216,8 @@ function render() {
   }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
+  const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
+  if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
   const accessControl = (states?.preferences || states)?.accessControl;
   const accessControlEnabled = document.querySelector('#accessControlEnabled');
   if (accessControlEnabled) {
@@ -628,6 +630,10 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
+  if (langGoogleEnabled) langGoogleEnabled.addEventListener('change', () => void update(null, () => savePreference('langGoogle', {
+    type: 'UI_SET_ENABLED', featureId: 'langGoogle', enabled: langGoogleEnabled.checked
+  }), [langGoogleEnabled]));
   const accessControlEnabled = document.querySelector('#accessControlEnabled');
   if (accessControlEnabled) accessControlEnabled.addEventListener('change', () => {
     const options = document.querySelector('#accessControlOptions');

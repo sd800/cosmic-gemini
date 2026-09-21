@@ -11,6 +11,7 @@ import { createAccessControlProduct } from '../products/standing/access-control.
 import { createWebsiteKnowledgeControlProduct } from '../products/standing/website-knowledge-control.js';
 import { createClipboardProtectProduct } from '../products/standing/clipboard-protect.js';
 import { createMailtoCaptureProduct } from '../products/standing/mailto-capture.js';
+import { createLangGoogleProduct } from '../products/standing/lang-google.js';
 import { createNativeScrollProduct } from '../products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../products/standing/no-autoplay.js';
 import { defineProvince } from './interface.js';
@@ -41,6 +42,7 @@ export function createStandingProvince(platform) {
   const nativeScroll = createNativeScrollProduct(host);
   const noAutoplay = createNoAutoplayProduct(host);
   const mailtoCapture = createMailtoCaptureProduct(host, platform);
+  const langGoogle = createLangGoogleProduct(platform);
   const clipboardProtect = createClipboardProtectProduct(host, platform);
   const accessControl = createAccessControlProduct(platform);
   const adMarshal = createAdMarshalProduct(host, platform);
@@ -49,6 +51,7 @@ export function createStandingProvince(platform) {
     [nativeScroll.id]: nativeScroll,
     [noAutoplay.id]: noAutoplay,
     [mailtoCapture.id]: mailtoCapture,
+    [langGoogle.id]: langGoogle,
     [clipboardProtect.id]: clipboardProtect,
     [accessControl.id]: accessControl,
     [websiteKnowledgeControl.id]: websiteKnowledgeControl,
@@ -232,7 +235,8 @@ export function createStandingProvince(platform) {
     handleMessage,
     handleTabCreated(tab) { return websiteKnowledgeControl.handleTabCreated(tab); },
     handleTabUpdated(tabId, change, tab) { return Promise.allSettled([
-      adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab)
+      adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab),
+      langGoogle.handleTabUpdated(tabId, change, tab)
     ]); },
     handleTabRemoved(tabId) { return Promise.allSettled([adMarshal.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId)]); },
     handleStorageChanged(changes, areaName) {

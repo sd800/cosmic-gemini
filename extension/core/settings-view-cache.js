@@ -8,7 +8,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 35,
+    version: 36,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -33,6 +33,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
+    langGoogle: { enabled: states.langGoogle?.enabled === true },
     accessControl: {
       enabled: states.accessControl?.enabled === true,
       blockedDomains: [...new Set(rules(states.accessControl?.blockedDomains).flatMap(entry => {

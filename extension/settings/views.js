@@ -244,6 +244,13 @@ export function viewFor(featureId) {
       <section class="card satellite-card" data-product="follow-list-instagram">
         <div class="section-heading"><div><h1 data-i18n="followListInstagramName"></h1><p data-i18n="followListInstagramDescription"></p><p data-i18n="followListInstagramHelp"></p></div><span class="context-label" data-i18n="clickToEnableLabel"></span></div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="followListInstagramPrivacy"></p></div>
+      </section>
+      <section class="card satellite-card" data-product="lang-google">
+        <div class="section-heading">
+          <div><h1 data-i18n="langGoogleName"></h1><p data-i18n="langGoogleDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="langGoogleEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="langGoogleName"></b></label></div>
+        </div>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="langGooglePrivacy"></p></div>
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
   };

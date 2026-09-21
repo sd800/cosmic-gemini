@@ -120,6 +120,12 @@ Each list shows its own progress once reading begins. Results show usernames wit
 
 Instagram may require sign-in or limit list access; comparison appears only after both lists have been read completely. Results are compared locally and kept only in memory until you leave the profile or close its source tab.
 
+#### Serch Result Language Designate for Google Search
+
+Choose the languages of Google Search results with a `lang:` command in the search box. For example, `openai lang:zh` becomes a search for `openai` with `lr=lang_zh-CN`; `lang:en,ja` requests English or Japanese results. Video, image, and other search modes are preserved.
+
+Commands are case-insensitive. `zh`, `zhs`, `zh-Hans`, and Simplified Chinese regional codes map to `lang_zh-CN`. `zht`, `zh-Hant`, and Traditional Chinese regional codes map to `lang_zh-TW`. Use commas to combine any supported languages; quoted text and unsupported commands remain unchanged. The feature is off by default and appears last in Satellites. URL processing is local, with no search-history storage or additional service.
+
 ## Features
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes

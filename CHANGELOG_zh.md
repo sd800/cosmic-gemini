@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.14.1 — 2026-09-21
+
+- 新增 Serch Result Language Designate for Google Search（`lang-google`），归属 Standing Province，位于 Satellites 最后一项，默认关闭。支持将不区分大小写的 `lang:` 搜索指令转换为 Google 搜索结果语言筛选参数，支持简繁中文别名、多种语言及视频等搜索分类。
+
 ## 8.13.31 — 2026-09-21
 
 - 将上下文输入面板中的别名栏目更名为「网站别名」并移至「快捷指令」之后；当前网站规则输入框没有别名时会隐藏整个栏目，点击面板外部也会关闭面板。

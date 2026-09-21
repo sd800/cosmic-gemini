@@ -120,6 +120,12 @@ Claude 有时会在中文回复中使用半角标点，或者省略中文与英�
 
 Instagram 可能要求登录或限制列表访问；只有完整读取两份列表后才会显示对比结果。列表在本地对比，结果仅保留于内存，离开该主页或关闭来源标签页后清除。
 
+#### Serch Result Language Designate for Google Search
+
+在 Google 搜索词中添加 `lang:` 指令，指定搜索结果的语言。例如，`openai lang:zh` 会变为搜索 `openai`，并添加 `lr=lang_zh-CN`；`lang:en,ja` 会筛选英文或日文结果。视频、图片等搜索分类保持不变。
+
+指令不区分大小写。`zh`、`zhs`、`zh-Hans` 及简体中文地区代码均转换为 `lang_zh-CN`；`zht`、`zh-Hant` 及繁体中文地区代码均转换为 `lang_zh-TW`。所有支持的语言均可用英文逗号任意组合，引号中的文字和不支持的指令保持原样。本功能默认关闭，位于 Satellites 最后一项；网址仅在本机处理，不记录搜索历史，也不调用其他服务。
+
 ## 主要特性
 
 - Native Scroll 与 No Autoplay 分别提供全局默认状态和当前网站的单独设置，并支持标准模式与强力模式

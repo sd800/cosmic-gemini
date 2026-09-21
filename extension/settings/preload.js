@@ -109,6 +109,8 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
   }
+  const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
+  if (langGoogleEnabled) langGoogleEnabled.checked = !incognitoContext && cached.langGoogle?.enabled === true;
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = !incognitoContext && cached.clipboardProtect?.enabled === true;
   const accessControlEnabled = document.querySelector('#accessControlEnabled');

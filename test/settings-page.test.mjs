@@ -277,27 +277,29 @@ test('Access Control renders saved domains and IP addresses at the same list lev
   assert.equal(options.disabled, false);
 });
 
-test('Clipboard Protect settings follow the saved switch regardless of current page support', async () => {
-  const { api, nodes, setTransport } = controller();
-  const card = new Element('section', 'card');
-  const control = new Element('input');
-  card.append(control);
-  nodes.set('#clipboardProtectEnabled', control);
-  await api.hydrate({ preferences: { satellites: {}, clipboardProtect: { enabled: true } }, clipboardProtect: { enabled: false, supported: false } });
-  api.render();
-  assert.equal(control.checked, true);
-  control.checked = false;
-  setTransport(message => {
-    if (message.type === 'UI_GET') throw Error('readback unavailable');
-    assert.equal(message.featureId, 'clipboardProtect');
-    return { enabled: false };
+for (const feature of ['clipboardProtect', 'langGoogle']) {
+  test(`${feature} settings follow the saved switch regardless of current page support`, async () => {
+    const { api, nodes, setTransport } = controller();
+    const card = new Element('section', 'card');
+    const control = new Element('input');
+    card.append(control);
+    nodes.set(`#${feature}Enabled`, control);
+    await api.hydrate({ preferences: { satellites: {}, [feature]: { enabled: true } }, [feature]: { enabled: false, supported: false } });
+    api.render();
+    assert.equal(control.checked, true);
+    control.checked = false;
+    setTransport(message => {
+      if (message.type === 'UI_GET') throw Error('readback unavailable');
+      assert.equal(message.featureId, feature);
+      return { enabled: false };
+    });
+    await api.update(null, () => api.savePreference(feature, {
+      type: 'UI_SET_ENABLED', featureId: feature, enabled: false
+    }), [control]);
+    assert.equal(control.checked, false);
+    assert.equal(control.disabled, false);
   });
-  await api.update(null, () => api.savePreference('clipboardProtect', {
-    type: 'UI_SET_ENABLED', featureId: 'clipboardProtect', enabled: false
-  }), [control]);
-  assert.equal(control.checked, false);
-  assert.equal(control.disabled, false);
-});
+}
 
 test('failed behavior changes restore the saved choice without hiding later validation errors', async () => {
   const { api, groups } = controller('nativeScroll');

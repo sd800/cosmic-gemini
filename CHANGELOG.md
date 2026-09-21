@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.3 — 2026-09-21
+
+- Aligned the Access Control cursor icon’s trailing stroke with its pointer tip and inner vertex.
+
 ## 8.13.2 — 2026-09-21
 
 - Added distinct feature icons to the Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Ad Marshal, XHS Image Dark Mode, and Bili Daily Login cards in Satellites, while keeping the two remaining site-specific cards text-only for now.

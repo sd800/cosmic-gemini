@@ -21,7 +21,7 @@
     greyscale: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17Z" fill="currentColor" stroke="none"/>',
     mailtoCapture: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
     clipboardProtect: '<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 5V3h6v2M9 9h6M9 13h6M9 17h4"/>',
-    accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="m12.4 13.35 4.4 4.4"/>',
+    accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="M12.4 13.35 15.952 18.318"/>',
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',
     adMarshal: '<path d="M12 2.75 20 6v5.2c0 5.1-3.1 8.55-8 10.05-4.9-1.5-8-4.95-8-10.05V6Z"/><path d="m8.5 12 2.25 2.25L16 9"/>',
     biliDailyLogin: '<path d="m8 5-2.5-2M16 5l2.5-2"/><rect x="3" y="5" width="18" height="15.5" rx="3"/><path d="M8 12h.01M16 12h.01M8.5 16c2.1 1.15 4.9 1.15 7 0"/>',

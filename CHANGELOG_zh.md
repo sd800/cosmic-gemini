@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.13.3 — 2026-09-21
+
+- 将 Access Control 光标图标的尾线与光标尖端及内凹顶点调整至同一直线。
+
 ## 8.13.2 — 2026-09-21
 
 - 为 Satellites 中的 Mailto Capture、Clipboard Protect、Access Control、Website Knowledge Control、Ad Marshal、XHS Image Dark Mode 和 Bili Daily Login 卡片添加各自的功能图标；其余两项网站专用功能暂时保持纯文字标题。

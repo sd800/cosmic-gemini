@@ -18,8 +18,8 @@ test('Access Control starts disabled and stores one canonical domain for the roo
   assert.throws(() => normalizeAccessControlDomain('127.0.0.1'));
   assert.deepEqual(normalizeSettings({ accessControl: {
     enabled: true,
-    blockedDomains: ['*.Example.com', 'example.com', 'bad/path']
-  } }).accessControl, { enabled: true, blockedDomains: ['example.com'] });
+    blockedDomains: ['z.example', '*.Example.com', 'z.example', 'bad/path', 'a.example']
+  } }).accessControl, { enabled: true, blockedDomains: ['z.example', 'example.com', 'a.example'] });
 });
 
 test('Access Control installs root-and-subdomain navigation blocks and removes them when disabled', async () => {
@@ -56,9 +56,23 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
   const saved = await product.handleMessage({
     type: 'UI_ADD_RULE', listName: 'blockedDomains', rule: '*.docs.example.com'
   }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
-  assert.deepEqual(saved.blockedDomains, ['docs.example.com', 'example.com', 'media.example']);
+  assert.deepEqual(saved.blockedDomains, ['example.com', 'media.example', 'docs.example.com']);
   await product.reconcile();
-  assert.ok(installed.some(rule => rule.condition.urlFilter === '||docs.example.com^'));
+  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), [
+    '||example.com^', '||media.example^', '||docs.example.com^'
+  ]);
+
+  await product.handleMessage({
+    type: 'UI_DELETE_RULE', listName: 'blockedDomains', rule: 'example.com'
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  const reordered = await product.handleMessage({
+    type: 'UI_ADD_RULE', listName: 'blockedDomains', rule: 'example.com'
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  assert.deepEqual(reordered.blockedDomains, ['media.example', 'docs.example.com', 'example.com']);
+  await product.reconcile();
+  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), [
+    '||media.example^', '||docs.example.com^', '||example.com^'
+  ]);
 
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false }, {
     sender: { url: 'chrome-extension://test/settings/satellites.html' }

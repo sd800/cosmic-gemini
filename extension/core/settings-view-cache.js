@@ -37,7 +37,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.accessControl?.enabled === true,
       blockedDomains: [...new Set(rules(states.accessControl?.blockedDomains).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
-      }))].sort((a, b) => a.localeCompare(b))
+      }))]
     },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(states.websiteKnowledgeControl),
     pageDisplay: {

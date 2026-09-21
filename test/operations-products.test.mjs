@@ -273,6 +273,48 @@ test('other rule editors accept Settings navigation and keep product rules indep
   }
 });
 
+test('user-maintained domain lists retain addition order without timestamps', async () => {
+  const base = 'chrome-extension://cosmic-gemini/';
+  globalThis.chrome = { runtime: { getURL: path => base + path } };
+  let settings = normalizeSettings();
+  const platform = {
+    async mutateSettings(update) {
+      settings = normalizeSettings(update(settings));
+      return settings;
+    }
+  };
+  const standing = createStandingProvince(platform);
+  const anyCopy = createAnyCopyProduct({ sync: async () => true }, platform);
+  const context = { sender: { url: base + 'settings/all-settings.html' } };
+  const rules = ['z.example', 'a.example', 'm.example'];
+
+  for (const rule of rules) {
+    await standing.handleMessage('nativeScroll', {
+      type: 'UI_SET_BEHAVIOR_RULE', rule, behavior: 'standard'
+    }, context);
+    await standing.handleMessage('nativeScroll', {
+      type: 'UI_ADD_NSNA_WHITELIST_RULE', rule
+    }, context);
+    await standing.handleMessage('noAutoplay', {
+      type: 'UI_ADD_RULE', listName: 'permanentAudioAllowRules', rule
+    }, context);
+    await anyCopy.handleMessage({ type: 'UI_ADD_RULE', listName: 'siteRules', rule }, context);
+  }
+
+  assert.deepEqual(settings.nativeScroll.standardRules, rules);
+  assert.deepEqual(settings.nsna.whitelistRules, rules);
+  assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, rules);
+  assert.deepEqual(settings.anyCopy.siteRules, rules);
+
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule: 'a.example'
+  }, context);
+  await standing.handleMessage('nativeScroll', {
+    type: 'UI_ADD_NSNA_WHITELIST_RULE', rule: 'a.example'
+  }, context);
+  assert.deepEqual(settings.nsna.whitelistRules, ['z.example', 'm.example', 'a.example']);
+});
+
 test('shared whitelist edits work from every Settings entry after in-page navigation', async () => {
   const base = 'chrome-extension://cosmic-gemini/';
   globalThis.chrome = { runtime: { getURL: path => base + path } };

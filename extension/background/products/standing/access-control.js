@@ -31,7 +31,7 @@ function blockingRule(domain, id) {
 }
 
 function addDomain(domains, domain) {
-  return [...new Set([...domains, domain])].sort((a, b) => a.localeCompare(b));
+  return domains.includes(domain) ? domains : [...domains, domain];
 }
 
 function rulesMatch(existing, desired) {

@@ -18,7 +18,7 @@ import { defineProvince } from './interface.js';
 const WEBSITE_BEHAVIORS = new Set(['inactive', 'standard', 'enhanced']);
 
 function withoutRule(rules, rule) { return rules.filter(item => item !== rule); }
-function withRule(rules, rule) { return [...new Set([...rules, rule])].sort(); }
+function withRule(rules, rule) { return rules.includes(rule) ? rules : [...rules, rule]; }
 function withoutBehaviorRule(feature, rule) {
   return {
     ...feature,

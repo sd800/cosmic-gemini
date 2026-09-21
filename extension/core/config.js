@@ -197,7 +197,7 @@ function normalizeRules(value) {
       if (!rules.includes(rule)) rules.push(rule);
     } catch {}
   }
-  return rules.sort((a, b) => a.localeCompare(b));
+  return rules;
 }
 
 function normalizeFeature(value = {}, includeAudioRules = false) {
@@ -285,7 +285,7 @@ export function normalizeSettings(value = {}) {
       blockedDomains: [...new Set((Array.isArray(value.accessControl?.blockedDomains)
         ? value.accessControl.blockedDomains : []).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
-      }))].sort((a, b) => a.localeCompare(b))
+      }))]
     },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(value.websiteKnowledgeControl),
     pageDisplay: {

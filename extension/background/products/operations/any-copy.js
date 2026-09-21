@@ -85,7 +85,7 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
         siteRules: message.type === 'UI_DELETE_RULE'
           ? feature.siteRules.filter(rule => rule !== hostname)
           : message.type === 'UI_ADD_RULE'
-            ? [...new Set([...feature.siteRules, hostname])].sort()
+            ? (feature.siteRules.includes(hostname) ? feature.siteRules : [...feature.siteRules, hostname])
             : feature.siteRules.includes(hostname)
               ? feature.siteRules.filter(rule => rule !== hostname)
               : [...feature.siteRules, hostname]

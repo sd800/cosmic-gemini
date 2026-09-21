@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.13.6 — 2026-09-21
+
+- Kept every user-maintained domain list in the order its entries were added, without storing timestamps.
+
 ## 8.13.5 — 2026-09-21
 
 - Refined the shared trash icon with a wider, more balanced design.

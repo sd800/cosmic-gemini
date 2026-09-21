@@ -68,15 +68,15 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
 });
 
-test('website behavior rules are normalized, deduplicated, and sorted', () => {
+test('user-maintained domain rules are normalized, deduplicated, and kept in insertion order', () => {
   const settings = normalizeSettings({
     nativeScroll: { inactiveRules: ['B.example.com', '*.example.com', 'b.example.com'] },
     nsna: { whitelistRules: ['Private.example.com', '*.shared.example', 'private.example.com'] },
     noAutoplay: { enhancedRules: ['media.example.com'] },
     anyCopy: { siteRules: ['copy.example.com'] }
   });
-  assert.deepEqual(settings.nativeScroll.inactiveRules, ['*.example.com', 'b.example.com']);
-  assert.deepEqual(settings.nsna.whitelistRules, ['*.shared.example', 'private.example.com']);
+  assert.deepEqual(settings.nativeScroll.inactiveRules, ['b.example.com', '*.example.com']);
+  assert.deepEqual(settings.nsna.whitelistRules, ['private.example.com', '*.shared.example']);
   assert.deepEqual(settings.noAutoplay.enhancedRules, ['media.example.com']);
   assert.deepEqual(settings.anyCopy.siteRules, ['copy.example.com']);
 });
@@ -95,7 +95,7 @@ test('deprecated activation and mode fields are ignored', () => {
   });
   assert.equal(settings.nativeScroll.enabled, true);
   assert.deepEqual(settings.nativeScroll.inactiveRules, []);
-  assert.deepEqual(settings.nativeScroll.standardRules, ['conflict.example.com', 'standard.example.com']);
+  assert.deepEqual(settings.nativeScroll.standardRules, ['standard.example.com', 'conflict.example.com']);
   assert.deepEqual(settings.nativeScroll.enhancedRules, ['enhanced.example.com']);
 });
 
@@ -434,6 +434,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     noAutoplay: { enabled: true, audioAutoplayAllSites: true },
     anyCopy: { siteRules: ['copy.example'] },
     mailtoCapture: { enabled: false, active: true },
+    accessControl: { enabled: true, blockedDomains: ['z.example', 'a.example', 'z.example'] },
     chineseResponseClaude: { enabled: true, browserIdentityEnabled: true, active: false },
     pageDisplay: {
       enabled: true,
@@ -461,6 +462,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.deepEqual(cache.mailtoCapture, { enabled: false });
+  assert.deepEqual(cache.accessControl, { enabled: true, blockedDomains: ['z.example', 'a.example'] });
   assert.deepEqual(cache.chineseResponseClaude, { enabled: true, browserIdentityEnabled: true });
   assert.deepEqual(cache.pageDisplay, {
     enabled: true,

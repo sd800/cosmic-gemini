@@ -84,7 +84,7 @@ Unselected categories keep their original values. These adjustments do not chang
 
 #### Document Preview
 
-Preview DOCX documents in the browser before saving them. This default-off feature offers **Preview** and **Download** for supported downloads before Chrome asks for a save location. The small dialog shows the filename and the file size when known. You can remember either action for the current website session; a contextual Document Preview button in the extension popup restores asking each time.
+Preview DOCX documents in the browser before saving them. This default-off feature offers **Preview** and **Download** for supported downloads before Chrome asks for a save location. The small dialog shows the filename and the file size when Chrome already knows it. Document bytes are fetched, validated, and cached locally only after either action is chosen; dismissing an accidental prompt stores no document bytes. You can remember either action for the current website session; a contextual Document Preview button in the extension popup restores asking each time.
 
 Choose **Auto**, **Light** or **Dark** in Document Preview settings; Auto follows the browser’s appearance. A sun/moon button switches modes for previews from the same website, including its subdomains, until that website’s last tab closes or leaves. **Default** restores the settings preference. Document text and tables adapt, while embedded images and the original DOCX remain unchanged. Disabling the feature stops new captures without closing existing previews, which remain available until the website session ends.
 

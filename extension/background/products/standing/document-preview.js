@@ -1,5 +1,5 @@
 import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature } from '../../../core/config.js';
-import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCX_MIME, docxFilename, readDocumentResponse } from '../../../core/document-preview.js';
+import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCX_MIME, docxFilename, readDocumentResponse } from '../../../core/document-preview.js';
 import { documentStore } from '../../../core/document-preview-store.js';
 import { siteKey } from '../../../core/site-key.js';
 import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-appearance.js';
@@ -18,6 +18,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const cleanupAlarm = DOCUMENT_CLEANUP_ALARM_PREFIX + contextName;
   let state, initialization, queue = Promise.resolve();
   const captures = new Map();
+  const preparations = new Map();
   const downloadNames = new Map();
   const serial = task => { const result = queue.then(task); queue = result.catch(() => {}); return result; };
   const persist = () => chrome.storage.session.set({ [sessionKey]: state });
@@ -107,6 +108,48 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       || !(await tabsInContext()).some(tab => siteKey(tab.url) === doc.site)) throw Error('documentExpired');
     return doc;
   }
+  async function prepareDocument(id) {
+    const running = preparations.get(id);
+    if (running) return running;
+    const preparation = (async () => {
+      const doc = await currentDocument(id);
+      const cached = await store.get(doc.id);
+      if (doc.prepared === true && cached?.blob && cached.context === contextName && cached.epoch === state.epoch) return doc;
+      if (!(await platform.readSettings()).documentPreview?.enabled) throw Error('documentPreviewDisabled');
+      const controller = new AbortController();
+      captures.set(controller, doc.site);
+      try {
+        const response = await fetch(doc.url, {
+          credentials: 'include',
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)])
+        });
+        const buffer = await readDocumentResponse(response);
+        const blob = new Blob([buffer], { type: DOCX_MIME });
+        return serial(async () => {
+          const current = await currentDocument(doc.id);
+          const existing = await store.get(current.id);
+          if (current.prepared === true && existing?.blob && existing.context === contextName && existing.epoch === state.epoch) return current;
+          const prepared = state.documents.filter(value => value.prepared === true);
+          if (prepared.length >= 24 || prepared.reduce((sum, value) => sum + value.size, 0) + blob.size > CACHE_LIMIT) throw Error('documentCacheFull');
+          await store.put({ ...current, size: blob.size, prepared: true, blob, context: contextName, epoch: state.epoch });
+          current.size = blob.size; current.prepared = true;
+          await persist(); await scheduleCleanup();
+          return current;
+        });
+      } finally { captures.delete(controller); }
+    })();
+    preparations.set(id, preparation);
+    try { return await preparation; }
+    finally { preparations.delete(id); }
+  }
+  async function discardPending(id) {
+    return serial(async () => {
+      const doc = state.documents.find(value => value.id === id);
+      if (!doc || doc.prepared === true) return;
+      state.documents = state.documents.filter(value => value.id !== id);
+      await persist(); await scheduleCleanup();
+    });
+  }
   async function open(doc, mode = 'preview') {
     const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({ id: doc.id, mode });
     return chrome.tabs.create({ url, active: mode !== 'download' });
@@ -117,7 +160,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const t = translator(await platform.getLocale());
     const payload = {
       id: doc.id, filename: doc.filename, size: doc.size,
-      sizeLabel: new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(doc.size / 1024) + ' KiB',
+      sizeLabel: doc.size > 0 ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(doc.size / 1024) + ' KiB' : '',
       labels: { title: 'Document Preview', close: t('documentClose'), preview: t('documentPreviewAction'), download: t('documentDownloadAction'), remember: t('documentRemember'), failed: t('documentActionFailed') }
     };
     try {
@@ -128,14 +171,12 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     } catch { await open(doc, 'choose'); }
   }
 
-  // Holding filename determination has a browser deadline. Prepare a reusable,
-  // validated copy within eight seconds, then cancel before releasing suggest().
-  // If preparation fails, the original task continues with its original request.
+  // Filename determination has a browser deadline. Record only bounded request
+  // metadata here; bytes are fetched after an explicit Preview / Download choice.
   async function capture(item, suggest) {
     let released = false;
     const release = () => { if (!released) { released = true; suggest(); } };
-    const controller = new AbortController();
-    const deadline = setTimeout(() => { controller.abort(); release(); }, 10000);
+    const deadline = setTimeout(release, 8000);
     let savedDoc, cancelled = false;
     try {
       await initialize();
@@ -145,31 +186,22 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const tab = await sourceTab(request, item);
       const site = siteKey(tab?.url);
       if (!site || !!tab.incognito !== platform.isIncognitoContext() || state.choices[site] === 'download') return;
-      captures.set(controller, site);
       const url = item.finalUrl || item.url;
       if (!/^https?:\/\//i.test(url)) return;
-      const cached = state.documents.find(doc => doc.site === site && doc.url === url
-        && !(Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= Date.now()));
-      let blob = cached && (await store.get(cached.id))?.blob;
-      if (!blob) {
-        const response = await fetch(url, { credentials: 'include', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
-        const buffer = await readDocumentResponse(response);
-        blob = new Blob([buffer], { type: DOCX_MIME });
-      }
-      if (released || controller.signal.aborted) return;
+      const reportedSize = Math.max(0, Number(item.fileSize) || 0, Number(item.totalBytes) || 0);
+      if (reportedSize > DOCUMENT_LIMIT) return;
       await serial(async () => {
         const sites = await prune();
-        if (!sites.has(site) || !(await platform.readSettings()).documentPreview?.enabled || controller.signal.aborted) return;
+        if (!sites.has(site) || !(await platform.readSettings()).documentPreview?.enabled || released) return;
         const existing = state.documents.find(doc => doc.site === site && doc.url === url);
-        if (existing && await store.get(existing.id)) savedDoc = existing;
+        if (existing) savedDoc = existing;
         else {
-          if (state.documents.length >= 24 || state.documents.reduce((sum, doc) => sum + doc.size, 0) + blob.size > CACHE_LIMIT) return;
-          savedDoc = { id: crypto.randomUUID(), site, filename: docxFilename(item), size: blob.size, url, closedAt: Date.now() };
-          await store.put({ ...savedDoc, blob, context: contextName, epoch: state.epoch });
+          if (state.documents.length >= 64) return;
+          savedDoc = { id: crypto.randomUUID(), site, filename: docxFilename(item), size: reportedSize, url, prepared: false, closedAt: Date.now() };
           state.documents.push(savedDoc); await persist();
           await scheduleCleanup();
         }
-        if (released || controller.signal.aborted) return;
+        if (released) return;
         clearTimeout(deadline); // Do not release filename selection mid-cancellation.
         await chrome.downloads.cancel(item.id);
         cancelled = true;
@@ -177,7 +209,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (!cancelled) return;
       release();
       await chrome.downloads.erase({ id: item.id }).catch(() => {});
-      // Recheck after cancellation: a closed source site must not revive a cache.
+      // Recheck after cancellation: a closed source site must not revive a prompt.
       await currentDocument(savedDoc.id);
       await present(savedDoc, tab.id);
     } catch {
@@ -186,7 +218,11 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (cancelled && savedDoc) {
         try { await currentDocument(savedDoc.id); await open(savedDoc, 'choose'); } catch {}
       }
-    } finally { clearTimeout(deadline); captures.delete(controller); release(); }
+    } finally {
+      clearTimeout(deadline);
+      if (!cancelled && savedDoc && savedDoc.prepared !== true) await discardPending(savedDoc.id).catch(() => {});
+      release();
+    }
   }
 
   const product = {
@@ -243,6 +279,10 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         appearance: normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance),
         siteTheme: state.themes[doc.site] || null
       };
+      if (message.type === 'UI_DOCUMENT_PREPARE') {
+        if (!workspace) throw Error('Document preparation unavailable.');
+        return prepareDocument(doc.id);
+      }
       if (message.type === 'UI_DOCUMENT_SET_THEME') {
         if (!workspace || ![null, 'light', 'dark'].includes(message.theme)) throw Error('Unknown appearance.');
         return serial(async () => {
@@ -257,12 +297,13 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       }
       if (['CG_DOCUMENT_CHOICE', 'UI_DOCUMENT_CHOICE'].includes(message.type)) {
         if (!['preview', 'download', 'dismiss'].includes(message.action)) throw Error('Unknown action.');
-        if (message.action === 'dismiss') return { dismissed: true };
+        if (message.action === 'dismiss') { await discardPending(doc.id); return { dismissed: true }; }
+        const prepared = await prepareDocument(doc.id);
         if (message.remember) await serial(async () => {
-          await currentDocument(doc.id); state.choices[doc.site] = message.action; await persist();
+          await currentDocument(prepared.id); state.choices[prepared.site] = message.action; await persist();
         });
-        if (page) await open(doc, message.action);
-        return { action: message.action };
+        if (page) await open(prepared, message.action);
+        return { action: message.action, prepared: true, size: prepared.size };
       }
       if (message.type === 'UI_DOCUMENT_DOWNLOAD') {
         if (!workspace || !String(message.blobUrl).startsWith('blob:' + chrome.runtime.getURL(''))) throw Error('Invalid document source.');

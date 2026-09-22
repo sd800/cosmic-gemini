@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.2.3 — 2026-09-22
+
+- Deferred Document Preview’s local fetch, validation, and cache creation until the user explicitly chooses Preview or Download. Dismissing a prompt now stores no document bytes.
+- Refined the appearance setting so its explanatory text no longer activates the menu, simplified the localized description, and removed excess space below the row.
+
 ## 9.2.2 — 2026-09-22
 
 - Added an Auto / Light / Dark appearance menu to Document Preview settings. Manual preview choices now apply across the source website and its subdomains for the current website session; Default restores the settings preference.

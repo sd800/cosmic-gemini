@@ -136,27 +136,37 @@ async function choose(action) {
   const controls = [...document.querySelectorAll('#choice button')]; controls.forEach(button => button.disabled = true);
   try {
     await command('UI_DOCUMENT_CHOICE', { action, remember: document.querySelector('#remember').checked });
+    await loadPreparedDocument();
     document.querySelector('#choice').hidden = true;
     if (action === 'preview') await preview(); else await download();
   } catch { if (!expired) notices.show(t('documentActionFailed'), true); controls.forEach(button => button.disabled = false); }
 }
 document.querySelector('#preview').onclick = () => void choose('preview');
 document.querySelector('#choice-download').onclick = () => void choose('download');
-try {
+function showMetadata() {
+  defaultTheme = normalizeDocumentAppearance(metadata.appearance); siteTheme = metadata.siteTheme;
+  updateTheme();
+  document.querySelector('#filename').textContent = metadata.filename;
+  document.querySelector('#filename').title = metadata.filename;
+  document.title = metadata.filename + ' · Document Preview';
+  document.querySelector('#metadata').textContent = metadata.site + (metadata.size ? ' · ' + new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(metadata.size / 1024) + ' KiB' : '');
+}
+async function loadPreparedDocument() {
   metadata = await command('UI_DOCUMENT_GET');
+  if (!metadata.prepared) metadata = await command('UI_DOCUMENT_PREPARE');
   const cached = await documentStore.get(id);
   if (expired || !cached?.blob || cached.epoch !== metadata.epoch || cached.context !== metadata.context) throw Error();
   metadata = await command('UI_DOCUMENT_GET'); // The source may have closed during the cache read.
   if (expired) throw Error();
-  defaultTheme = normalizeDocumentAppearance(metadata.appearance); siteTheme = metadata.siteTheme;
-  updateTheme();
   blob = cached.blob;
-  document.querySelector('#filename').textContent = metadata.filename;
-  document.querySelector('#filename').title = metadata.filename;
-  document.title = metadata.filename + ' · Document Preview';
-  document.querySelector('#metadata').textContent = metadata.site + (blob.size ? ' · ' + new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(blob.size / 1024) + ' KiB' : '');
+  showMetadata();
   downloadButton.disabled = false;
+}
+try {
+  metadata = await command('UI_DOCUMENT_GET'); showMetadata();
   if (mode === 'choose') { notices.show(''); document.querySelector('#choice').hidden = false; }
-  else if (mode === 'download') await download();
-  else await preview();
+  else {
+    await loadPreparedDocument();
+    if (mode === 'download') await download(); else await preview();
+  }
 } catch { expire(); }

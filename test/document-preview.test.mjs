@@ -96,12 +96,17 @@ function environment({ enabled = true, fetchResult, method = 'GET', incognito = 
   };
   const platform = { isIncognitoContext: () => incognito, getLocale: async () => 'en-US', readSettings: async () => settings, mutateSettings: async f => settings = f(settings) };
   const product = createDocumentPreviewProduct(platform, { store, ingress });
+  const documents = () => saved['documentPreview:' + (incognito ? 'incognito' : 'regular')]?.documents || [];
+  const choose = (doc = documents().at(-1), action = 'preview', remember = false) => product.handleMessage(
+    { type: 'CG_DOCUMENT_CHOICE', id: doc.id, action, remember },
+    { sender: { url: tabs[0].url, frameId: 0, tab: tabs[0] } }
+  );
   const capture = (extra = {}) => new Promise(resolve => {
     const handled = product.handleDeterminingFilename({ id: 1, url: 'https://cdn.example.com/file', filename: 'sample.docx', state: 'in_progress', ...extra }, () => { calls.push('suggest'); resolve(); });
     if (!handled) resolve();
   });
   const settle = async () => { await new Promise(resolve => setTimeout(resolve, 10)); };
-  return { product, capture, settle, calls, files, saved, tabs, platform, store, ingress, alarms };
+  return { product, capture, settle, calls, files, saved, tabs, platform, store, ingress, alarms, documents, choose };
 }
 const originalFetch = globalThis.fetch;
 test.after(() => { globalThis.fetch = originalFetch; });
@@ -112,10 +117,16 @@ test('Document Preview is default-off and preserves unsupported and unprepared d
   assert.equal(normalizeSettings({documentPreview:{appearance:'invalid'}}).documentPreview.appearance, 'auto');
   assert.equal(settingsViewCache({documentPreview:{appearance:'dark'}}).documentPreview.appearance, 'dark');
   assert.equal(settingsViewCache({ documentPreview: { enabled: true } }).documentPreview.enabled, true);
-  for (const options of [{ enabled: false }, { method: 'POST' }, { fetchResult: () => new Response('not docx') }, { fetchResult: () => { throw Error('offline'); } }]) {
+  for (const options of [{ enabled: false }, { method: 'POST' }]) {
     const env = environment(options); await env.capture(); await env.settle();
     assert.equal(env.calls.filter(value => value === 'suggest').length, 1);
     assert.ok(!env.calls.includes('cancel'));
+    assert.equal(env.files.size, 0);
+  }
+  for (const fetchResult of [() => new Response('not docx'), () => { throw Error('offline'); }]) {
+    const env = environment({ fetchResult }); await env.capture(); await env.settle();
+    assert.equal(env.files.size, 0); assert.ok(!env.calls.includes('fetch'), 'the prompt itself never reads document bytes');
+    await assert.rejects(env.choose());
     assert.equal(env.files.size, 0);
   }
   const env = environment(); await env.capture({ byExtensionId: 'another-extension' });
@@ -124,20 +135,46 @@ test('Document Preview is default-off and preserves unsupported and unprepared d
   assert.ok(!env.calls.includes('fetch'));
 });
 
-test('a valid GET DOCX is cached and cancelled before filename determination is released', async () => {
+test('a valid GET DOCX is not fetched or cached until Preview or Download is chosen', async () => {
   const env = environment(); await env.capture(); await env.settle();
-  assert.ok(env.calls.indexOf('store') < env.calls.indexOf('cancel'));
   assert.ok(env.calls.indexOf('cancel') < env.calls.indexOf('suggest'));
+  assert.ok(!env.calls.includes('fetch')); assert.ok(!env.calls.includes('store'));
   assert.equal(env.calls.filter(value => value === 'suggest').length, 1);
   const dialog = env.calls.find(value => value[0] === 'dialog')[1];
-  assert.equal(dialog.filename, 'sample.docx'); assert.ok(dialog.size > 0);
+  assert.equal(dialog.filename, 'sample.docx'); assert.equal(dialog.size, 0);
+  assert.equal(env.files.size, 0); assert.equal(env.documents().length, 1);
+  await env.choose();
+  assert.ok(env.calls.includes('fetch')); assert.ok(env.calls.includes('store'));
   assert.equal(env.files.size, 1);
+  assert.equal(env.documents()[0].prepared, true); assert.ok(env.documents()[0].size > 0);
+});
+
+test('dismissing an accidental document prompt removes metadata without fetching or caching bytes', async () => {
+  const env = environment(); await env.capture(); await env.settle();
+  const doc = env.documents()[0];
+  await env.product.handleMessage(
+    {type:'CG_DOCUMENT_CHOICE',id:doc.id,action:'dismiss'},
+    {sender:{url:env.tabs[0].url,frameId:0,tab:env.tabs[0]}}
+  );
+  assert.deepEqual(env.documents(),[]); assert.equal(env.files.size,0);
+  assert.ok(!env.calls.includes('fetch')); assert.ok(!env.calls.includes('store'));
+  await assert.rejects(env.choose(doc),/documentExpired/);
+});
+
+test('turning Document Preview off prevents an outstanding metadata prompt from creating a cache', async () => {
+  const env = environment(); await env.capture(); await env.settle();
+  const doc = env.documents()[0];
+  await env.product.handleMessage({type:'UI_SET_ENABLED',enabled:false},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  await assert.rejects(env.choose(doc),/documentPreviewDisabled/);
+  assert.equal(env.files.size,0); assert.ok(!env.calls.includes('fetch'));
 });
 
 test('website choice spans subdomains and ends only after the last matching tab leaves', async () => {
   const env = environment(); await env.capture(); await env.settle();
-  const doc = [...env.files.values()][0];
-  await env.product.handleMessage({ type: 'CG_DOCUMENT_CHOICE', id: doc.id, action: 'download', remember: true }, { sender: { url: env.tabs[0].url, frameId: 0, tab: env.tabs[0] } });
+  const doc = env.documents()[0];
+  await env.choose(doc, 'download', true);
+  assert.equal(env.files.size,1); assert.ok(env.calls.includes('fetch'));
+  assert.match(env.calls.find(value=>value[0]==='open')[1].url,/mode=download/);
   assert.equal((await env.product.state({ documentPreview: { enabled: true } }, env.tabs[1].url)).choice, 'download');
   const fetchCount = env.calls.filter(value => value === 'fetch').length;
   await env.capture();
@@ -153,7 +190,7 @@ test('a closed target-blank download tab falls back only to its unique live refe
   globalThis.chrome.tabs.get = async () => { throw Error('No tab'); };
   await env.capture({ referrer: env.tabs[0].url }); await env.settle();
   assert.ok(env.calls.includes('cancel'));
-  assert.equal([...env.files.values()][0].site, 'example.com');
+  assert.equal(env.documents()[0].site, 'example.com'); assert.equal(env.files.size, 0);
   const ambiguous = environment();
   ambiguous.ingress.take = () => ({ method: 'GET', tabId: 99 });
   ambiguous.tabs[1].url = ambiguous.tabs[0].url;
@@ -161,17 +198,19 @@ test('a closed target-blank download tab falls back only to its unique live refe
   assert.ok(!ambiguous.calls.includes('cancel'));
 });
 
-test('closing the last source tab during preparation cannot cancel the original or resurrect its cache', async () => {
+test('closing the last source tab during deferred preparation cannot resurrect its cache', async () => {
   let complete;
   const env = environment({ fetchResult: () => new Promise(resolve => complete = resolve) });
-  const task = env.capture(); await env.settle();
+  await env.capture(); await env.settle();
+  const task = env.choose(); await env.settle();
   env.tabs.splice(0); await env.product.handleTabRemoved(1);
-  complete(new Response(sampleDocx())); await task; await env.settle();
-  assert.equal(env.files.size, 0); assert.ok(!env.calls.includes('cancel'));
+  complete(new Response(sampleDocx())); await assert.rejects(task); await env.settle();
+  assert.equal(env.files.size, 0); assert.ok(env.calls.includes('cancel'));
 });
 
 test('worker sleep preserves the website session; a new browser session removes orphaned document bytes', async () => {
   const env = environment(); await env.capture(); await env.settle();
+  await env.choose();
   const doc = [...env.files.values()][0];
   const resumed = createDocumentPreviewProduct(env.platform, env);
   await resumed.initialize(); assert.equal(env.files.size, 1);
@@ -189,6 +228,7 @@ test('worker sleep preserves the website session; a new browser session removes 
 
 test('disabling capture preserves existing previews until the last source website tab leaves', async () => {
   const env = environment(); await env.capture(); await env.settle();
+  await env.choose();
   const doc = [...env.files.values()][0];
   env.files.set('private-record', { id: 'private-record', context: 'incognito', epoch: 'private', blob: new Blob(['private']) });
   await env.product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
@@ -206,6 +246,7 @@ test('disabling capture preserves existing previews until the last source websit
 
 test('document commands reject unrelated sites and invalid workspace sources', async () => {
   const env = environment(); await env.capture(); await env.settle();
+  await env.choose();
   const doc = [...env.files.values()][0];
   await assert.rejects(env.product.handleMessage({ type: 'CG_DOCUMENT_CHOICE', id: doc.id, action: 'download' }, { sender: { url: 'https://evil.test', frameId: 0, tab: { id: 8, url: 'https://evil.test' } } }));
   await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } }));
@@ -294,6 +335,7 @@ test('document styles cannot add arbitrary CSS, and source XML declarations are 
 
 test('document appearance defaults, site overrides and resets follow the source website session', async () => {
   const env = environment(); await env.capture(); await env.settle();
+  await env.choose();
   const first = [...env.files.values()][0];
   const workspace = doc => ({sender:{url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id}});
   const get = (doc, product=env.product) => product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},workspace(doc));
@@ -304,10 +346,12 @@ test('document appearance defaults, site overrides and resets follow the source 
   assert.equal((await get(first)).appearance, 'dark'); assert.equal((await get(first)).siteTheme, 'light');
   env.tabs[0].url = 'https://docs.example.com/downloads';
   await env.capture({url:'https://cdn.example.com/second'}); await env.settle();
+  await env.choose();
   const second = [...env.files.values()][1];
   assert.equal((await get(second)).siteTheme,'light','another document on a subdomain shares the override');
   env.tabs[0].url = 'https://different.example.org/downloads';
   await env.capture({url:'https://cdn.example.org/other'}); await env.settle();
+  await env.choose();
   const other = [...env.files.values()][2];
   assert.equal((await get(other)).siteTheme,null,'a different eTLD+1 has no override');
   await setTheme(other,'dark');
@@ -330,6 +374,7 @@ test('appearance commands reject invalid callers and values, and incognito overr
   const env = environment({incognito:true});
   env.saved['documentPreview:regular'] = {themes:{'example.com':'dark'}};
   await env.capture(); await env.settle();
+  await env.choose();
   const doc = [...env.files.values()][0];
   const sender = {url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id};
   const command = {type:'UI_DOCUMENT_SET_THEME',id:doc.id,theme:'light'};
@@ -349,6 +394,7 @@ test('appearance commands reject invalid callers and values, and incognito overr
 test('closed previews expire after ten hours, with open copies and source sessions respected', async t => {
   t.mock.timers.enable({apis:['Date'],now:1800000000000});
   const env = environment(); await env.capture(); await env.settle();
+  await env.choose();
   const doc = [...env.files.values()][0], alarmName = DOCUMENT_CLEANUP_ALARM_PREFIX + 'regular';
   const preview = {id:10,incognito:false,url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id};
   const metadata = () => env.saved['documentPreview:regular'].documents.find(value => value.id === doc.id);
@@ -378,6 +424,7 @@ test('closed previews expire after ten hours, with open copies and source sessio
 test('reopening cancels a document deadline, navigation restarts it, and an earlier source exit wins', async t => {
   t.mock.timers.enable({apis:['Date'],now:1800000000000});
   const env = environment(); await env.capture(); await env.settle();
+  await env.choose();
   const doc = [...env.files.values()][0], alarmName = DOCUMENT_CLEANUP_ALARM_PREFIX + 'regular';
   const preview = {id:10,incognito:false,url:'about:blank',pendingUrl:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id};
   t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION-1);
@@ -400,9 +447,11 @@ test('reopening cancels a document deadline, navigation restarts it, and an earl
 test('each document has its own deadline and expired files cannot be revived by a late preview', async t => {
   t.mock.timers.enable({apis:['Date'],now:1800000000000});
   const env = environment(); await env.capture(); await env.settle();
+  await env.choose();
   const first = [...env.files.values()][0], alarmName = DOCUMENT_CLEANUP_ALARM_PREFIX+'regular';
   const firstDeadline = env.alarms.get(alarmName).scheduledTime;
   t.mock.timers.tick(60000); await env.capture({url:'https://cdn.example.com/second'}); await env.settle();
+  await env.choose();
   const second = [...env.files.values()][1];
   assert.equal(env.alarms.size,1); assert.equal(env.alarms.get(alarmName).scheduledTime,firstDeadline);
   t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION-60000);

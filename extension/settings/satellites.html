@@ -93,11 +93,11 @@
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="documentPreview" aria-hidden="true"></span><h1 data-i18n="documentPreviewName"></h1></div><p data-i18n="documentPreviewDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="documentPreviewEnabled" type="checkbox"><span></span><b class="sr-only">Document Preview</b></label></div>
         </div>
-        <fieldset id="documentPreviewOptions" class="knowledge-options" disabled>
+        <fieldset id="documentPreviewOptions" class="knowledge-options document-preview-options" disabled>
           <legend class="sr-only" data-i18n="documentAppearance"></legend>
           <div class="knowledge-row">
-            <label for="documentPreviewAppearance"><span><strong data-i18n="documentAppearance"></strong><small data-i18n="documentAppearanceHelp"></small></span></label>
-            <select id="documentPreviewAppearance">
+            <div class="knowledge-label"><strong id="documentPreviewAppearanceLabel" data-i18n="documentAppearance"></strong><small id="documentPreviewAppearanceHelp" data-i18n="documentAppearanceHelp"></small></div>
+            <select id="documentPreviewAppearance" aria-labelledby="documentPreviewAppearanceLabel" aria-describedby="documentPreviewAppearanceHelp">
               <option value="auto" data-i18n="documentAppearanceAuto"></option>
               <option value="light" data-i18n="documentAppearanceLight"></option>
               <option value="dark" data-i18n="documentAppearanceDark"></option>

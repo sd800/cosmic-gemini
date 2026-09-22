@@ -162,7 +162,22 @@ function renderContextualProducts() {
   container.replaceChildren();
   const blockedByAccessControl = state.accessControl?.blocked === true
     && state.accessControl?.allowTemporaryVisits === true;
-  container.hidden = !blockedByAccessControl && available.length === 0;
+  const documentChoice = state.documentPreview?.enabled && ['preview', 'download'].includes(state.documentPreview?.choice)
+    ? state.documentPreview.choice : '';
+  container.hidden = !blockedByAccessControl && !documentChoice && available.length === 0;
+  if (documentChoice) {
+    const row = document.createElement('section'); row.className = 'feature-row';
+    const actions = document.createElement('nav'); actions.className = 'launcher-actions';
+    const button = document.createElement('button'); button.type = 'button';
+    button.className = 'feature-status feature-toggle document-preview-choice';
+    button.dataset.state = 'active'; button.dataset.persistent = 'true';
+    button.innerHTML = icon('documentPreview');
+    label(button, t('documentResetChoice', { action: t(documentChoice === 'preview' ? 'documentAutoPreview' : 'documentAutoDownload') }));
+    button.addEventListener('click', () => void act(async () => {
+      await send({ type: 'UI_DOCUMENT_RESET_CHOICE', featureId: 'documentPreview', tabId: currentTab?.id });
+    }));
+    actions.append(button); row.append(actions); container.append(row);
+  }
   if (blockedByAccessControl) {
     const row = document.createElement('section');
     row.className = 'feature-row';

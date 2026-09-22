@@ -82,6 +82,14 @@ Control the language and regional format, time zone, and privacy preference sent
 
 Unselected categories keep their original values. These adjustments do not change your system settings. Each page keeps the browser information it received when it loaded, so changed or disabled settings take effect when that page next loads.
 
+#### Document Preview
+
+Preview DOCX documents in the browser before saving them. This default-off feature offers **Preview** and **Download** for supported downloads before Chrome asks for a save location. The small dialog shows the filename and the file size when known. You can remember either action for the current website session; a contextual Document Preview button in the extension popup restores asking each time.
+
+The preview follows the browser's light or dark appearance by default, including document text and tables. A sun/moon button switches modes for the current preview; **Auto** restores automatic appearance. Embedded images and the original DOCX remain unchanged. Disabling the feature stops new captures without closing existing previews, which remain available until the website session ends.
+
+Text, tables, and embedded images are rendered locally. Complex Word layouts may differ, and other Office formats are not currently supported. Previewed files can still be downloaded in their original form. Documents are temporarily cached on your device, with no upload to a conversion service. The cache and temporary choice last until the website's last tab closes or leaves; subdomains share one website session based on eTLD+1. Ordinary and incognito sessions are separate. Downloads that cannot be safely prepared for preview continue through Chrome normally.
+
 #### Ad Marshal
 
 Stop persistent advertising, reporting, and tracking components from repeatedly reconnecting on managed sites. Ad Marshal uses lightweight, site-specific rules to neutralize known loaders and request loops at the source, return local success responses to matching telemetry calls, and hide related advertising containers.

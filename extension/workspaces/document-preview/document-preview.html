@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; frame-src 'self'; object-src 'none'; connect-src 'none'">
+  <title>Document Preview · Cosmic Gemini</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <link rel="stylesheet" href="document-preview.css">
+</head>
+<body>
+  <header class="document-toolbar">
+    <div class="identity"><span id="document-icon" aria-hidden="true"></span><strong>Document Preview</strong><span class="brand">Cosmic Gemini</span></div>
+    <nav class="toolbar-actions">
+      <button id="theme-auto" type="button" data-i18n="documentThemeAuto" hidden></button>
+      <button id="theme-toggle" class="theme-toggle" type="button"></button>
+      <button id="download" class="primary-button" type="button" data-i18n="documentDownloadAction" disabled></button>
+    </nav>
+  </header>
+  <main>
+    <section class="document-info">
+      <h1 id="filename"></h1><p id="metadata"></p>
+      <p id="status" role="status" data-i18n="documentLoading"></p>
+      <p id="layout-note" hidden data-i18n="documentLayoutNote"></p>
+      <div id="choice" hidden>
+        <label><input id="remember" type="checkbox"><span data-i18n="documentRemember"></span></label>
+        <div class="choice-actions"><button id="preview" class="primary-button" type="button" data-i18n="documentPreviewAction"></button><button id="choice-download" class="secondary-button" type="button" data-i18n="documentDownloadAction"></button></div>
+      </div>
+    </section>
+    <iframe id="document" title="Document content" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" hidden></iframe>
+  </main>
+  <script type="module" src="document-preview.js"></script>
+</body>
+</html>

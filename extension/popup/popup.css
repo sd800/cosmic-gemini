@@ -19,6 +19,7 @@ html[lang="en-US"] .video-panel-wordmark strong { letter-spacing: .018em; }
 .feature-status svg { width: 21px; height: 21px; }
 .launcher-actions .feature-status svg { width: 28px; height: 28px; }
 .launcher-actions .access-control-visit svg { width: 21px; height: 21px; }
+.launcher-actions .document-preview-choice svg { width: 21px; height: 21px; }
 .launcher-actions { display: grid; grid-template-columns: repeat(2, 42px); gap: 16px; align-items: center; justify-content: center; }
 .launcher-actions .feature-status { width: 42px; height: 42px; flex: 0 0 42px; }
 .utility-control { cursor: pointer; color: var(--muted); }

@@ -11,6 +11,7 @@ import { createAccessControlProduct } from '../products/standing/access-control.
 import { createWebsiteKnowledgeControlProduct } from '../products/standing/website-knowledge-control.js';
 import { createClipboardProtectProduct } from '../products/standing/clipboard-protect.js';
 import { createMailtoCaptureProduct } from '../products/standing/mailto-capture.js';
+import { createDocumentPreviewProduct } from '../products/standing/document-preview.js';
 import { createLangGoogleProduct } from '../products/standing/lang-google.js';
 import { createNativeScrollProduct } from '../products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../products/standing/no-autoplay.js';
@@ -42,6 +43,7 @@ export function createStandingProvince(platform) {
   const nativeScroll = createNativeScrollProduct(host);
   const noAutoplay = createNoAutoplayProduct(host);
   const mailtoCapture = createMailtoCaptureProduct(host, platform);
+  const documentPreview = createDocumentPreviewProduct(platform);
   const langGoogle = createLangGoogleProduct(platform);
   const clipboardProtect = createClipboardProtectProduct(host, platform);
   const accessControl = createAccessControlProduct(platform);
@@ -51,6 +53,7 @@ export function createStandingProvince(platform) {
     [nativeScroll.id]: nativeScroll,
     [noAutoplay.id]: noAutoplay,
     [mailtoCapture.id]: mailtoCapture,
+    [documentPreview.id]: documentPreview,
     [langGoogle.id]: langGoogle,
     [clipboardProtect.id]: clipboardProtect,
     [accessControl.id]: accessControl,
@@ -97,7 +100,7 @@ export function createStandingProvince(platform) {
       if (message.active !== true) await platform.setFeatureActivity(senderTabId, governed.id, false);
       return { updated: true };
     }
-    if ([websiteKnowledgeControl.id, clipboardProtect.id, accessControl.id].includes(governed?.id)) {
+    if ([websiteKnowledgeControl.id, clipboardProtect.id, accessControl.id, documentPreview.id].includes(governed?.id)) {
       return governed.handleMessage(message, context);
     }
     if (message.type === 'UI_SET_ENABLED') {
@@ -219,7 +222,7 @@ export function createStandingProvince(platform) {
     products,
     async initialize() {
       await platform.ensureSettings();
-      await Promise.allSettled([adMarshal.reconcile(), accessControl.reconcile(), websiteKnowledgeControl.initialize()]);
+      await Promise.allSettled([adMarshal.reconcile(), accessControl.reconcile(), websiteKnowledgeControl.initialize(), documentPreview.initialize()]);
     },
     async getProductState(productId, context) {
       return product(productId).state(
@@ -233,22 +236,24 @@ export function createStandingProvince(platform) {
       return product(productId).sync(context, context.settings);
     },
     handleMessage,
+    handleDeterminingFilename: (item, suggest) => documentPreview.handleDeterminingFilename(item, suggest),
     handleTabCreated(tab) { return websiteKnowledgeControl.handleTabCreated(tab); },
     handleTabUpdated(tabId, change, tab) { return Promise.allSettled([
       adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab),
-      accessControl.handleTabUpdated(tabId, change, tab), langGoogle.handleTabUpdated(tabId, change, tab)
+      accessControl.handleTabUpdated(tabId, change, tab), langGoogle.handleTabUpdated(tabId, change, tab), documentPreview.handleTabUpdated(tabId, change, tab)
     ]); },
     handleTabRemoved(tabId) { return Promise.allSettled([
-      adMarshal.handleTabRemoved(tabId), accessControl.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId)
+      adMarshal.handleTabRemoved(tabId), accessControl.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId), documentPreview.handleTabRemoved(tabId)
     ]); },
     handleStorageChanged(changes, areaName) {
       mailtoCapture.handleStorageChanged(changes, areaName);
       return Promise.allSettled([
         adMarshal.handleStorageChanged(changes, areaName),
         accessControl.handleStorageChanged(changes, areaName),
+        documentPreview.handleStorageChanged(changes, areaName),
         websiteKnowledgeControl.handleStorageChanged(changes, areaName)
       ]);
     },
-    reset() { return Promise.allSettled([adMarshal.reset(), accessControl.reset(), websiteKnowledgeControl.reset()]); }
+    reset() { return Promise.allSettled([adMarshal.reset(), accessControl.reset(), websiteKnowledgeControl.reset(), documentPreview.reset()]); }
   });
 }

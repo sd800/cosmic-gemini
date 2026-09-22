@@ -11,7 +11,7 @@ import { createStandingProvince } from './provinces/standing.js';
 
 export const PROVINCE_PRODUCTS = Object.freeze({
   standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE,
-    FEATURE_IDS.CLIPBOARD_PROTECT, FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL, FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.LANG_GOOGLE]),
+    FEATURE_IDS.CLIPBOARD_PROTECT, FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL, FEATURE_IDS.DOCUMENT_PREVIEW, FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.LANG_GOOGLE]),
   operations: Object.freeze([
     FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.PAGE_DISPLAY, FEATURE_IDS.XHS_IMAGE_DARK_MODE,
     FEATURE_IDS.CHINESE_RESPONSE_CLAUDE, FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, 'satellites', 'administration'
@@ -26,7 +26,7 @@ const PAGE_PRODUCTS = Object.freeze([
 ]);
 const STATE_PRODUCTS = Object.freeze([
   ...PAGE_PRODUCTS,
-  FEATURE_IDS.ACCESS_CONTROL,
+  FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.DOCUMENT_PREVIEW,
   FEATURE_IDS.FOLLOW_LIST_INSTAGRAM,
   FEATURE_IDS.IMAGE_DOWNLOAD,
   FEATURE_IDS.VIDEO_DOWNLOAD,
@@ -235,7 +235,7 @@ chrome.downloads.onChanged.addListener(delta => {
   void dispatchEvent('downloadChanged', delta);
 });
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  provinces.customs.handleDeterminingFilename(item, suggest);
+  return provinces.customs.handleDeterminingFilename(item, suggest) || provinces.standing.handleDeterminingFilename(item, suggest);
 });
 chrome.alarms.onAlarm.addListener(alarm => {
   const province = alarm.name === BILI_DAILY_ALARM ? provinces.operations

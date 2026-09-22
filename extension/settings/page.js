@@ -216,6 +216,8 @@ function render() {
   }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
+  const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
+  if (documentPreviewEnabled) documentPreviewEnabled.checked = (states?.preferences || states)?.documentPreview?.enabled === true;
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
   const accessControl = (states?.preferences || states)?.accessControl;
@@ -625,6 +627,10 @@ function bindView() {
   }, biliDailyLogin => ({ biliDailyLogin })), [biliDailyLogin]));
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
+  const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
+  if (documentPreviewEnabled) documentPreviewEnabled.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
+    type: 'UI_SET_ENABLED', featureId: 'documentPreview', enabled: documentPreviewEnabled.checked
+  }), [documentPreviewEnabled]));
   if (clipboardProtectEnabled) clipboardProtectEnabled.addEventListener('change', () => void update(null, () => savePreference('clipboardProtect', {
     type: 'UI_SET_ENABLED', featureId: 'clipboardProtect', enabled: clipboardProtectEnabled.checked
   }), [clipboardProtectEnabled]));

@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.14.3');
+assert.equal(manifest.version, '9.1.1');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -133,6 +133,7 @@ const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join
 assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'background/products/customs/video-download.js'),
   join(extension, 'background/products/operations/satellites.js'),
+  join(extension, 'background/products/standing/document-preview.js'),
   join(extension, 'content/ad-marshal-runtime.js'),
   join(extension, 'content/video-download-page.js'),
   join(extension, 'core/site-video.js'),
@@ -245,7 +246,7 @@ assert.match(pageDisplaySettings, /page-display-feature-heading[\s\S]*greyscaleN
 assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZhihu"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
 assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
-assert.match(satellitesSettings, /xhsImageDarkModeDescription[\s\S]*xhsImageDarkModeAnalysisDescription[\s\S]*xhsImageDarkModeCommentImagesDescription[\s\S]*xhsImageDarkModeControlsDescription[\s\S]*experimentalFeature/);
+assert.match(satellitesSettings, /xhsImageDarkModeDescription[\s\S]*xhsImageDarkModeScopeDescription[\s\S]*xhsImageDarkModeControlsDescription[\s\S]*experimentalFeature/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);

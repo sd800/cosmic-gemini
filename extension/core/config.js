@@ -14,6 +14,7 @@ export const FEATURE_IDS = Object.freeze({
   FOLLOW_LIST_INSTAGRAM: 'followListInstagram',
   LANG_GOOGLE: 'langGoogle',
   MAILTO_CAPTURE: 'mailtoCapture',
+  DOCUMENT_PREVIEW: 'documentPreview',
   ACCESS_CONTROL: 'accessControl',
   WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
   CLIPBOARD_PROTECT: 'clipboardProtect',
@@ -29,6 +30,7 @@ export const FEATURE_SLOTS = Object.freeze({
   ANY_COPY_ENHANCED: 31,
   LANG_GOOGLE: 42,
   MAILTO_CAPTURE: 32,
+  DOCUMENT_PREVIEW: 43,
   ACCESS_CONTROL: 41,
   PAGE_DISPLAY: 33,
   XHS_IMAGE_DARK_MODE: 34,
@@ -60,7 +62,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 36,
+  version: 37,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -77,6 +79,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
+  documentPreview: Object.freeze({ enabled: false }),
   langGoogle: Object.freeze({ enabled: false }),
   accessControl: Object.freeze({
     enabled: false,
@@ -304,7 +307,7 @@ export function websiteKnowledgeControlState(settings, url) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 36,
+    version: 37,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -317,6 +320,7 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
+    documentPreview: { enabled: value.documentPreview?.enabled === true },
     langGoogle: { enabled: value.langGoogle?.enabled === true },
     accessControl: {
       enabled: value.accessControl?.enabled === true,

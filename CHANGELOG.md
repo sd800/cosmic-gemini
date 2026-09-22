@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.1.1 — 2026-09-22
+
+- Added Document Preview, a default-off Standing Province feature above Ad Marshal in Satellites. Supported DOCX downloads offer a local preview or the original download before the save-location prompt, with a document icon, bilingual controls, and file size when available.
+- Added temporary website choices and document caching shared across subdomains using eTLD+1. Both are cleared after the website's final tab closes or leaves; a contextual popup control restores asking each time.
+- Added automatic light/dark appearance and a manual toggle for the preview, including document text and tables, without changing embedded images or the original DOCX. Disabling capture keeps existing previews available until their source website session ends.
+- Simplified the bilingual settings descriptions for Document Preview and XHS Image Dark Mode, retaining the separate experimental-feature notice for XHS.
+
 ## 8.14.3 — 2026-09-22
 
 - Reduced only the Access Control one-time-visit icon in the extension popup to the standard feature-icon scale while preserving its button size and click area.

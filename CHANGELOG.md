@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.2.1 — 2026-09-22
+
+- Improved Document Preview’s reading layout and preservation of common Word formatting, including fonts, text colors, paragraph alignment and spacing, indentation, list numbering, and table column widths, borders and shading. Document colors remain readable in dark mode.
+- Added visible separators for explicit page breaks and paragraphs set to begin on a new page.
+- Added document-only zoom in 10% steps from 50% to 200%; click the percentage to return to 100% without reloading the document.
+- Made the boundary between file information and document content clearer, while keeping the compact header and larger, two-line filename.
+
 ## 9.1.3 — 2026-09-22
 
 - Increased the Document Preview filename size while keeping long names to two lines.

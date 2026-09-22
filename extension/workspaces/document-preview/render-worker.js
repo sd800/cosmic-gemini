@@ -12,6 +12,6 @@ self.onmessage = async event => {
       })
     });
     if (result.value.length > 48 * 1024 * 1024) throw Error('documentTooLarge');
-    self.postMessage({ html: result.value });
+    self.postMessage({ html: result.value, formatting: result.formatting });
   } catch { self.postMessage({ error: 'documentRenderFailed' }); }
 };

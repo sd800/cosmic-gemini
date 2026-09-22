@@ -88,6 +88,8 @@ Preview DOCX documents in the browser before saving them. This default-off featu
 
 The preview follows the browser's light or dark appearance by default, including document text and tables. A sun/moon button switches modes for the current preview; **Auto** restores automatic appearance. Embedded images and the original DOCX remain unchanged. Disabling the feature stops new captures without closing existing previews, which remain available until the website session ends.
 
+The reading layout preserves common font, paragraph, list and table formatting. Explicit page breaks appear as separator lines. Zoom controls adjust the document in 10% steps from 50% to 200%; click the percentage to return to 100%. Fonts unavailable on your device use local fallbacks; the preview does not reproduce Word’s exact pagination.
+
 Text, tables, and embedded images are rendered locally. Complex Word layouts may differ, and other Office formats are not currently supported. Previewed files can still be downloaded in their original form. Documents are temporarily cached on your device, with no upload to a conversion service. The cache and temporary choice last until the website's last tab closes or leaves; subdomains share one website session based on eTLD+1. Ordinary and incognito sessions are separate. Downloads that cannot be safely prepared for preview continue through Chrome normally.
 
 #### Ad Marshal

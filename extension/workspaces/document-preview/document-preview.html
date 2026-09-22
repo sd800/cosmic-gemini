@@ -12,21 +12,28 @@
   <header class="document-toolbar">
     <div class="identity"><span id="document-icon" aria-hidden="true"></span><strong>Document Preview</strong><span class="brand">Cosmic Gemini</span></div>
     <nav class="toolbar-actions">
+      <div id="zoom-controls" class="zoom-controls" role="group" data-i18n-aria-label="documentZoom" hidden>
+        <button id="zoom-out" type="button" data-i18n-aria-label="documentZoomOut">−</button>
+        <button id="zoom-reset" type="button" data-i18n-aria-label="documentZoomReset">100%</button>
+        <button id="zoom-in" type="button" data-i18n-aria-label="documentZoomIn">+</button>
+      </div>
       <button id="theme-auto" type="button" data-i18n="documentThemeAuto" hidden></button>
       <button id="theme-toggle" class="theme-toggle" type="button"></button>
       <button id="download" class="primary-button" type="button" data-i18n="documentDownloadAction" disabled></button>
     </nav>
   </header>
   <main>
-    <section class="document-info">
-      <h1 id="filename"></h1>
-      <div class="document-details"><p id="metadata"></p><p id="layout-note" hidden data-i18n="documentLayoutNote"></p></div>
-      <p id="status" role="status" data-i18n="documentLoading"></p>
-      <div id="choice" hidden>
-        <label><input id="remember" type="checkbox"><span data-i18n="documentRemember"></span></label>
-        <div class="choice-actions"><button id="preview" class="primary-button" type="button" data-i18n="documentPreviewAction"></button><button id="choice-download" class="secondary-button" type="button" data-i18n="documentDownloadAction"></button></div>
-      </div>
-    </section>
+    <div class="document-heading">
+      <section class="document-info">
+        <h1 id="filename"></h1>
+        <div class="document-details"><p id="metadata"></p><p id="layout-note" hidden data-i18n="documentLayoutNote"></p></div>
+        <p id="status" role="status" data-i18n="documentLoading"></p>
+        <div id="choice" hidden>
+          <label><input id="remember" type="checkbox"><span data-i18n="documentRemember"></span></label>
+          <div class="choice-actions"><button id="preview" class="primary-button" type="button" data-i18n="documentPreviewAction"></button><button id="choice-download" class="secondary-button" type="button" data-i18n="documentDownloadAction"></button></div>
+        </div>
+      </section>
+    </div>
     <iframe id="document" title="Document content" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" hidden></iframe>
   </main>
   <script type="module" src="document-preview.js"></script>

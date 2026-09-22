@@ -4,17 +4,48 @@ import { createRequire } from 'node:module';
 import { readFile, writeFile, readdir, access } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { Transform } from 'node:stream';
+import { realpathSync } from 'node:fs';
 
 const dependencies = resolve(process.argv[2] || '');
 if (!process.argv[2]) throw Error('Pass the directory containing the locked build dependencies.');
 const require = createRequire(join(dependencies, 'package.json'));
 const browserify = require('browserify'), { minify } = require('terser');
-const bundle = browserify(require.resolve('mammoth'), { standalone: 'mammoth' });
+const bundle = browserify(new URL('./document-renderer/entry.cjs', import.meta.url).pathname, { standalone: 'mammoth', paths: [join(dependencies,'node_modules')] });
+// Small, version-checked hooks carry formatting beside Mammoth's existing content
+// model. Upstream files on disk are untouched; a changed hook fails the build.
+const hooks = new Map([
+  [require.resolve('mammoth/lib/docx/docx-reader'), [
+    ['docxFile: docxFile,\n        files: files', 'docxFile: docxFile,\n        cgFormatting: options.cgFormatting,\n        files: files'],
+    ['files: options.files', 'files: options.files,\n            cgFormatting: options.cgFormatting && options.cgFormatting.forPart(filename)']
+  ]],
+  [require.resolve('mammoth/lib/docx/body-reader'), [
+    ['return handler(element);', 'return options.cgFormatting ? options.cgFormatting.wrap(element, function() { return handler(element); }) : handler(element);']
+  ]],
+  [require.resolve('mammoth/lib/document-to-html'), [
+    ['return handler(element, messages, options);', 'var nodes = handler(element, messages, options);\n            return formatting ? formatting.decorate(element, nodes) : nodes;'],
+    ['var noteNumber = 1;', 'var formatting = options.cgFormatting;\n    var noteNumber = 1;']
+  ]],
+  [require.resolve('mammoth/lib/docx/office-xml-reader'), [
+    ['function readXmlFromZipFile(docxFile, path) {', 'function readXmlFromZipFile(docxFile, path) {\n    if (docxFile.cgXmlCache && docxFile.cgXmlCache.has(path)) return promises.resolve(docxFile.cgXmlCache.get(path));'],
+    ['function read(xmlString) {', 'function read(xmlString) {\n    if (/<!DOCTYPE|<!ENTITY/i.test(xmlString)) throw new Error("Unsupported XML declaration");']
+  ]]
+]);
+const appliedHooks=new Set();
+bundle.transform(file => {
+  file = realpathSync(file);
+  let source='';
+  return new Transform({transform(chunk,_encoding,done){source+=chunk;done();},flush(done){
+    try {for(const [from,to] of hooks.get(file)||[]) {if(source.split(from).length!==2)throw Error('Renderer hook changed: '+file);source=source.replace(from,to);appliedHooks.add(file);}this.push(source);done();}catch(error){done(error);}
+  }});
+},{global:true});
 const files = new Set();
 bundle.pipeline.get('deps').on('data', row => files.add(row.file));
 const input = await new Promise((done, reject) => bundle.bundle((error, bytes) => error ? reject(error) : done(bytes.toString())));
+if(appliedHooks.size!==hooks.size)throw Error('Renderer hooks missing: '+JSON.stringify([...hooks.keys()].filter(file=>!appliedHooks.has(file)))+'; resolved files: '+JSON.stringify([...files].filter(file=>/body-reader|docx-reader|document-to-html|office-xml-reader/.test(file))));
 const packages = new Map();
 for (const file of files) {
+  if(file.startsWith(new URL('./document-renderer/',import.meta.url).pathname)) continue;
   let directory = dirname(file);
   for (;;) {
     try {

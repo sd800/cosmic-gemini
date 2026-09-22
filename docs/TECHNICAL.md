@@ -86,9 +86,17 @@ Feed images never create control nodes. After a post opens, every viewer image r
 
 ## Document Preview
 
+The local renderer supplements Mammoth’s content model with bounded formatting data from document defaults, inherited styles, direct properties, theme fonts/colors, numbering definitions and section page settings. Build-time hooks are checked against pinned upstream source; `scripts/document-renderer/` owns the adapter. Parsed main-document, styles and numbering XML are reused rather than parsed twice. Repeated styles share class IDs, with at most 8,192 style sets. No OCR, remote font download, layout polling or background page scanner is added.
+
+The sandbox renders a continuous paper-like surface with source page width/margins, local font fallbacks, paragraph spacing/indentation, common numbering formats and table grids/borders/shading. Explicit page breaks and `pageBreakBefore` produce separator lines; automatic Word pagination, section-by-section paper layouts and floating objects are not emulated. Narrow windows reduce outer paper margins. The parent file-information region has a full-width divider independent of the document’s scrolling surface.
+
+Worker output contains HTML plus formatting data, never trusted CSS. The display boundary reconstructs an allowlisted DOM and accepts only generated class names and bounded, allowlisted property values. Document-supplied style attributes, executable markup, external assets and XML DTD/entity declarations are rejected. A separate dark-mode stylesheet adapts foreground, background and border colors without re-running conversion; the original file and embedded images stay unchanged.
+
 Preview chrome and sandboxed document content use `prefers-color-scheme` and `color-scheme` to follow browser/system appearance changes live. Text, backgrounds, table borders, links and scrollbars adapt without re-parsing the document, rewriting images or modifying the cached DOCX. A bounded streaming inflate check verifies ZIP size claims in the render worker before conversion; Safe Browsing / content-policy blocked downloads retain Chrome's original handling.
 
 The preview toolbar also provides a sun/moon toggle and an Auto action. Manual appearance is per-preview memory, and Auto restores the browser preference. The parent theme variables and iframe embedding `color-scheme` change together; the opaque, script-free document follows the embedding scheme without a frame navigation, worker rerun or scroll reset.
+
+Document zoom is per-preview memory, starts at 100%, and moves in 10% steps between 50% and 200%. Clicking the percentage resets it. CSS zoom on the embedding frame scales only the document while its full-width flex viewport stays fitted. No sandbox scripts, reconversion or frame navigation are required. Controls appear only after rendering succeeds and disappear when the website session expires.
 
 Request correlation is reattached synchronously when the service worker starts, then removed as soon as saved settings confirm the product is disabled. This preserves the first request after worker sleep without leaving a listener active while the feature is off. A closed, short-lived download tab can be resolved to a unique live tab matching Chrome's recorded referrer; ambiguous matches continue as ordinary downloads.
 

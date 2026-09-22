@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deflateRawSync } from 'node:zlib';
+import { readFile } from 'node:fs/promises';
+import { runInNewContext } from 'node:vm';
+import { formattingEntries } from './fixtures/document-formatting.mjs';
+import { acceptedStyles, formatStylesheet } from '../extension/workspaces/document-preview/format-styles.js';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { inspectDocx, validateDocxContent, docxFilename, readDocumentResponse, DOCUMENT_LIMIT } from '../extension/core/document-preview.js';
@@ -219,4 +223,65 @@ test('request correlation is bounded, refuses POST and ambiguous source tabs, an
   for (const tabId of [1, 2]) listener({ requestId: String(tabId), tabId, url: 'https://example.com/a', method: 'GET' });
   assert.equal(ingress.take({ url: 'https://example.com/a' }), null);
   ingress.setEnabled(false); assert.equal(listener, null);
+});
+
+let renderer;
+async function convert(entries) {
+  if (!renderer) {
+    const context = { ArrayBuffer, Uint8Array, Uint16Array, Uint32Array, Int32Array, DataView, setTimeout, clearTimeout, console, TextDecoder };
+    runInNewContext(await readFile(new URL('../extension/vendor/mammoth/mammoth.browser.min.js', import.meta.url), 'utf8'), context);
+    renderer = context.mammoth;
+  }
+  return renderer.convertToHtml({ arrayBuffer: storedZip(entries) }, { externalFileAccess: false });
+}
+
+test('bundled DOCX renderer preserves inherited and direct formatting, table layout, numbering and page breaks', async () => {
+  const result = await convert(formattingEntries());
+  const styles = JSON.parse(JSON.stringify(result.formatting.styles));
+  const styleForText = text => {
+    const match = result.value.match(new RegExp('<span class="cg-f(\\d+)">' + text));
+    assert.ok(match, text); return styles[Number(match[1])];
+  };
+  const heading = styleForText('Document Preview');
+  assert.equal(heading['font-size'], '20pt'); assert.equal(heading['font-weight'], '700');
+  assert.equal(heading.color, '#2468ac'); assert.match(heading['font-family'], /Calibri.*宋体.*serif/);
+  const body = styleForText('保留原文');
+  assert.equal(body['font-weight'], '400', 'direct bold-off overrides the inherited style');
+  assert.equal(body['font-style'], 'italic'); assert.equal(body['font-size'], '13pt');
+  const paragraph = styles.find(style => style['text-align'] === 'justify');
+  assert.equal(paragraph['text-indent'], '2em'); assert.equal(paragraph['line-height'], '1.5');
+  assert.equal(paragraph['margin-top'], '4pt'); assert.equal(paragraph['margin-bottom'], '10pt');
+  assert.equal(styleForText('Highlight')['text-decoration-style'], 'double');
+  assert.equal(styleForText('Highlight')['background-color'], '#ffff00');
+  const markers = [...result.value.matchAll(/class="cg-list-marker[^"]*">([^<]+)<\/span>/g)].map(match => match[1].trim());
+  assert.deepEqual(markers, ['III.','III.a)','III.b)','IV.','IV.a)']);
+  assert.match(result.value, /<colgroup><col class="cg-f\d+">/);
+  assert.ok(styles.some(style => style.width === '33.333%')); assert.ok(styles.some(style => style.width === '66.667%'));
+  assert.match(result.value, /<td colspan="2"/);
+  assert.ok(styles.some(style => style['background-color'] === '#ddeeff' && style['border-top-width'] === '1pt'));
+  assert.ok(styles.some(style => style['border-bottom-style'] === 'double'));
+  assert.equal((result.value.match(/class="cg-page-break"/g) || []).length, 2);
+  assert.match(result.value, /<p class="cg-f\d+"><\/p>/, 'blank paragraphs remain visible');
+  assert.deepEqual(JSON.parse(JSON.stringify(result.formatting.page)), {width:'595.3pt',top:'72pt',bottom:'72pt',left:'60pt',right:'60pt'});
+  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))), styles, 'every generated declaration passes the independent display whitelist');
+});
+
+test('page-break-before also works without any other formatting; repeated runs share classes', async () => {
+  const entries = formattingEntries();
+  delete entries['word/styles.xml'];
+  entries['word/document.xml'] = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pageBreakBefore/></w:pPr><w:r><w:t>Break</w:t></w:r></w:p>' + '<w:p><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>Repeated</w:t></w:r></w:p>'.repeat(200) + '</w:body></w:document>';
+  const result = await convert(entries);
+  assert.match(result.value, /^<hr class="cg-page-break"/);
+  assert.equal(result.formatting.styles.length, 1);
+  assert.equal((result.value.match(/Repeated/g) || []).length, 200);
+});
+
+test('document styles cannot add arbitrary CSS, and source XML declarations are rejected', async () => {
+  const css = formatStylesheet({styles:[{'font-family':'"x";background:url(https://evil.test)',color:'#123456','background-color':'#ffffff',position:'fixed',constructor:'x',width:'url(x)','font-size':'12pt'}],page:{width:'612pt',left:'0;}body{display:none'}});
+  assert.doesNotMatch(css, /evil|url|position|constructor|display:none/);
+  assert.match(css, /font-size:12pt/); assert.match(css, /max-width:612pt/);
+  assert.match(css, /@media\(prefers-color-scheme:dark\).*background-color:#292929/);
+  const entries = formattingEntries();
+  entries['word/document.xml'] = '<!DOCTYPE document [<!ENTITY test "no">]>' + entries['word/document.xml'];
+  await assert.rejects(convert(entries), /Unsupported XML declaration/);
 });

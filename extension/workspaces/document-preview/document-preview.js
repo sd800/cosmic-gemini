@@ -11,6 +11,21 @@ document.documentElement.lang = locale; localizeDocument(t);
 document.querySelector('#document-icon').innerHTML = icon('documentPreview');
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
 const frame = document.querySelector('#document');
+const zoomControls = document.querySelector('#zoom-controls');
+const zoomOut = document.querySelector('#zoom-out'), zoomIn = document.querySelector('#zoom-in'), zoomReset = document.querySelector('#zoom-reset');
+let zoom = 100;
+function updateZoom(next) {
+  zoom = Math.max(50, Math.min(200, Math.round(next / 10) * 10));
+  // Scale only the embedding frame. Its sandbox stays script-free, and the
+  // document is neither converted again nor navigated when zoom changes.
+  frame.style.setProperty('--document-zoom', String(zoom / 100));
+  zoomReset.textContent = zoom + '%';
+  zoomOut.disabled = zoom === 50; zoomIn.disabled = zoom === 200;
+}
+zoomOut.onclick = () => updateZoom(zoom - 10);
+zoomIn.onclick = () => updateZoom(zoom + 10);
+zoomReset.onclick = () => updateZoom(100);
+for (const [button, key] of [[zoomOut, 'documentZoomOut'], [zoomIn, 'documentZoomIn'], [zoomReset, 'documentZoomReset']]) button.title = t(key);
 const themeToggle = document.querySelector('#theme-toggle'), themeAuto = document.querySelector('#theme-auto');
 const appearance = matchMedia('(prefers-color-scheme: dark)');
 let theme = 'auto';
@@ -38,6 +53,7 @@ const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', 
 function expire() {
   expired = true; blob = null; worker?.terminate(); clearTimeout(workerTimer);
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
+  zoomControls.hidden = true;
   frame.removeAttribute('srcdoc'); frame.hidden = true; status.textContent = t('documentExpired');
 }
 async function preview() {
@@ -52,9 +68,10 @@ async function preview() {
     finish(); if (expired) return;
     try {
       if (event.data.error) throw Error();
-      const safe = safeDocumentHtml(event.data.html);
+      const safe = safeDocumentHtml(event.data.html, event.data.formatting);
       if (!safe.trim()) throw Error();
-      frame.srcdoc = previewSrcdoc(safe, locale); frame.hidden = false;
+      frame.srcdoc = previewSrcdoc(safe, locale, event.data.formatting); frame.hidden = false;
+      zoomControls.hidden = false;
       status.textContent = ''; document.querySelector('#layout-note').hidden = false;
     } catch { status.textContent = t('documentRenderFailed'); }
   };

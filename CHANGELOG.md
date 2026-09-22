@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.1.3 — 2026-09-22
+
+- Increased the Document Preview filename size while keeping long names to two lines.
+
 ## 9.1.2 — 2026-09-22
 
 - Made Document Preview’s toolbar and file information more compact while retaining the existing visual style. File information remains easy to read, with long filenames wrapping to at most two lines. The document now fills the remaining window height, with responsive controls for smaller windows.

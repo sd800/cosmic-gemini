@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.1.2 — 2026-09-22
+
+- Made Document Preview’s toolbar and file information more compact while retaining the existing visual style. File information remains easy to read, with long filenames wrapping to at most two lines. The document now fills the remaining window height, with responsive controls for smaller windows.
+
 ## 9.1.1 — 2026-09-22
 
 - Added Document Preview, a default-off Standing Province feature above Ad Marshal in Satellites. Supported DOCX downloads offer a local preview or the original download before the save-location prompt, with a document icon, bilingual controls, and file size when available.

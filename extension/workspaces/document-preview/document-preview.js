@@ -105,6 +105,7 @@ try {
   if (expired) throw Error();
   blob = cached.blob;
   document.querySelector('#filename').textContent = metadata.filename;
+  document.querySelector('#filename').title = metadata.filename;
   document.title = metadata.filename + ' · Document Preview';
   document.querySelector('#metadata').textContent = metadata.site + (blob.size ? ' · ' + new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(blob.size / 1024) + ' KiB' : '');
   downloadButton.disabled = false;

@@ -116,6 +116,7 @@
   const accessControlEnabled = document.querySelector('#accessControlEnabled');
   if (accessControlEnabled) {
     accessControlEnabled.checked = cached.accessControl?.enabled === true;
+    document.querySelector('#accessControlTemporaryVisits').checked = cached.accessControl?.allowTemporaryVisits === true;
     document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
   }
   const knowledge = cached.websiteKnowledgeControl;

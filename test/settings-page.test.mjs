@@ -249,14 +249,17 @@ test('unchanged settings refreshes preserve rule controls and pending removals',
 test('Access Control renders saved domains and IP addresses at the same list level', async () => {
   const { api, nodes } = controller();
   const master = new Element('input');
+  const temporaryVisits = new Element('input');
   const options = new Element('fieldset');
   nodes.set('#accessControlEnabled', master);
+  nodes.set('#accessControlTemporaryVisits', temporaryVisits);
   nodes.set('#accessControlOptions', options);
   await api.hydrate({ preferences: { satellites: {}, accessControl: {
-    enabled: false, blockedDomains: ['example.com', '192.0.2.1']
+    enabled: false, allowTemporaryVisits: false, blockedDomains: ['example.com', '192.0.2.1']
   } } });
   api.render();
   assert.equal(master.checked, false);
+  assert.equal(temporaryVisits.checked, false);
   assert.equal(options.disabled, true);
 
   const section = new Element();
@@ -270,10 +273,11 @@ test('Access Control renders saved domains and IP addresses at the same list lev
   assert.equal(list.children[1].children[0].children.length, 1, 'an IP rule has no subdomain suffix');
 
   await api.hydrate({ preferences: { satellites: {}, accessControl: {
-    enabled: true, blockedDomains: ['example.com']
+    enabled: true, allowTemporaryVisits: true, blockedDomains: ['example.com']
   } } });
   api.render();
   assert.equal(master.checked, true);
+  assert.equal(temporaryVisits.checked, true);
   assert.equal(options.disabled, false);
 });
 

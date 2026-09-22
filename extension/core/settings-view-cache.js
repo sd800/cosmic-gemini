@@ -36,6 +36,7 @@ export function settingsViewCache(states = {}) {
     langGoogle: { enabled: states.langGoogle?.enabled === true },
     accessControl: {
       enabled: states.accessControl?.enabled === true,
+      allowTemporaryVisits: states.accessControl?.allowTemporaryVisits === true,
       blockedDomains: [...new Set(rules(states.accessControl?.blockedDomains).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
       }))]

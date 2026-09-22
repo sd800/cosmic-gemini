@@ -48,7 +48,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
   assert.deepEqual(settings.mailtoCapture, { enabled: true });
-  assert.deepEqual(settings.accessControl, { enabled: false, blockedDomains: [] });
+  assert.deepEqual(settings.accessControl, { enabled: false, allowTemporaryVisits: false, blockedDomains: [] });
   assert.deepEqual(settings.pageDisplay, {
     enabled: false,
     reduceWhitePoint: { enabled: false, reduction: 0.25 },
@@ -460,7 +460,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     noAutoplay: { enabled: true, audioAutoplayAllSites: true },
     anyCopy: { siteRules: ['copy.example'] },
     mailtoCapture: { enabled: false, active: true },
-    accessControl: { enabled: true, blockedDomains: ['z.example', 'a.example', 'z.example'] },
+    accessControl: { enabled: true, allowTemporaryVisits: true, blockedDomains: ['z.example', 'a.example', 'z.example'] },
     chineseResponseClaude: { enabled: true, browserIdentityEnabled: true, active: false },
     pageDisplay: {
       enabled: true,
@@ -488,7 +488,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.equal(cache.noAutoplay.audioAutoplayAllSites, true);
   assert.deepEqual(cache.anyCopy, { siteRules: ['copy.example'] });
   assert.deepEqual(cache.mailtoCapture, { enabled: false });
-  assert.deepEqual(cache.accessControl, { enabled: true, blockedDomains: ['z.example', 'a.example'] });
+  assert.deepEqual(cache.accessControl, { enabled: true, allowTemporaryVisits: true, blockedDomains: ['z.example', 'a.example'] });
   assert.deepEqual(cache.chineseResponseClaude, { enabled: true, browserIdentityEnabled: true });
   assert.deepEqual(cache.pageDisplay, {
     enabled: true,

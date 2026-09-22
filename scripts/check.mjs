@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.14.1');
+assert.equal(manifest.version, '8.14.2');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -213,7 +213,10 @@ assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncog
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
 assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*adMarshalName[\s\S]*id="adMarshalTencentNews"[\s\S]*satellitesSiteSpecificFeatures[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"/);
 assert.match(satellitesSettings, /data-feature-id="accessControl" data-list-section="blockedDomains"[\s\S]*id="accessControlEnabled"[\s\S]*id="accessControlOptions"/);
+assert.match(satellitesSettings, /class="rule-list"[\s\S]*id="accessControlTemporaryVisits"/,
+  'Access Control must place the one-time-visit choice below its website list.');
 assert.match(settingsSource, /normalizeAccessControlRuleInput[\s\S]*featureId: 'accessControl'/);
+assert.match(settingsSource, /UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS/);
 assert.match(settingsSource, /querySelectorAll\('input\[type="text"\]'\)[\s\S]*bindRuleInputHelp/);
 assert.match(settingsSource, /normalizeWebsiteRuleInput\(input\.value\)/,
   'Settings website-rule forms must apply shared input completion.');
@@ -394,8 +397,11 @@ assert.match(standing, /createAdMarshalProduct/);
 assert.match(central, /FEATURE_IDS\.CLIPBOARD_PROTECT[\s\S]*FEATURE_IDS\.ACCESS_CONTROL[\s\S]*FEATURE_IDS\.WEBSITE_KNOWLEDGE_CONTROL/);
 assert.match(accessControl, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(accessControl, /urlFilter: `\|\|\$\{domain\}\^`[\s\S]*'main_frame', 'sub_frame'/);
-assert.doesNotMatch(accessControl, /chrome\.tabs\.(?:reload|update)|scripting\.executeScript/,
-  'Access Control must change future navigations without rewriting or reloading an open page.');
+assert.match(accessControl, /UI_ACCESS_CONTROL_ALLOW_VISIT/);
+assert.match(accessControl, /updateSessionRules\([\s\S]*chrome\.tabs\.reload/,
+  'Access Control temporary visits must install the exception before reloading the blocked tab.');
+assert.doesNotMatch(accessControl, /chrome\.tabs\.update|scripting\.executeScript/,
+  'Access Control must not rewrite a page or replace its address.');
 assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /restorationTask[\s\S]*if \(restorationTask\) return restorationTask/,

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 8.14.2 — 2026-09-22
+
+- Access Control 新增默认不勾选的单次访问选项。勾选后，当前页面被阻止访问时，插件控制窗口会显示动态按钮，可让当前标签页临时访问匹配域名而不修改已保存的阻止列表；标签页离开该受限域名或被关闭后，临时放行自动失效。
+
 ## 8.14.1 — 2026-09-21
 
 - 新增 Serch Result Language Designate for Google Search（`lang-google`），归属 Standing Province，位于 Satellites 最后一项，默认关闭。支持将不区分大小写的 `lang:` 搜索指令转换为 Google 搜索结果语言筛选参数，支持简繁中文别名、多种语言及视频等搜索分类。

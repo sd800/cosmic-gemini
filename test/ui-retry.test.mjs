@@ -244,6 +244,73 @@ test('contextual popup controls keep authorization, operating, and intervention 
   assert.equal(container.hidden, true);
 });
 
+test('the popup offers a tab-scoped visit action only while Access Control blocks the active page', async () => {
+  class Element {
+    constructor(tag) {
+      this.tag = tag;
+      this.children = [];
+      this.dataset = {};
+      this.listeners = {};
+      this.hidden = false;
+    }
+    replaceChildren(...children) { this.children = children; }
+    append(...children) { this.children.push(...children); }
+    setAttribute(name, value) { this[name] = value; }
+    addEventListener(type, listener) { this.listeners[type] = listener; }
+  }
+  const container = new Element('div');
+  const messages = [];
+  let closed = false;
+  const context = vm.createContext({
+    URL,
+    document: {
+      querySelector(selector) {
+        assert.equal(selector, '#contextual-feature-list');
+        return container;
+      },
+      createElement: tag => new Element(tag)
+    },
+    window: { close() { closed = true; } },
+    icon: name => `<${name}>`,
+    send: async message => { messages.push(message); },
+    perform: async task => task()
+  });
+  vm.runInContext(`
+    const contextualProducts = Object.freeze([]);
+    let currentTab = { id: 27, url: 'https://blocked.example/path' };
+    let state = { accessControl: { blocked: true, allowTemporaryVisits: true, matchedRule: 'blocked.example' } };
+    const t = key => key;
+    function label(element, value) {
+      element.title = value;
+      element.setAttribute('aria-label', value);
+    }
+    ${between(popupSource, 'function renderContextualProducts(', 'function formatBytes(')}
+    renderContextualProducts();
+    globalThis.renderAccessState = next => {
+      state = { accessControl: next };
+      renderContextualProducts();
+    };
+  `, context);
+  assert.equal(container.hidden, false);
+  assert.equal(container.children.length, 1);
+  const button = container.children[0].children[0].children[0];
+  assert.equal(button.innerHTML, '<accessControl>');
+  assert.equal(button.dataset.state, 'active');
+  assert.equal(button.dataset.persistent, 'true');
+  assert.equal(button.title, 'accessControlAllowVisitTitle');
+  await button.listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(JSON.parse(JSON.stringify(messages)), [{
+    type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', featureId: 'accessControl', tabId: 27
+  }]);
+  assert.equal(closed, true);
+  context.renderAccessState({ blocked: true, allowTemporaryVisits: false });
+  assert.equal(container.hidden, true, 'the default-off preference hides the one-time visit action');
+  context.renderAccessState({ blocked: false, allowTemporaryVisits: true, temporarilyAllowed: true });
+  assert.equal(container.hidden, true);
+  assert.equal(container.children.length, 0);
+});
+
 test('a stopped image session cannot be revived by a late rescan response', async () => {
   const scan = deferred();
   const context = vm.createContext({

@@ -74,7 +74,7 @@ Keep selected text free of content a website adds during copying, such as links,
 
 #### Access Control
 
-Block visits to selected domains, every level of their subdomains, and exact IPv4 or IPv6 addresses. Access Control is off by default and uses one master switch. Entering a plain domain such as `example.com` covers both that domain and all of its subdomains; an IP entry covers that exact address on every port. Rule changes take effect when a matching page is reloaded or opened again.
+Block visits to selected domains, every level of their subdomains, and exact IPv4 or IPv6 addresses. Access Control is off by default and uses one master switch. Entering a plain domain such as `example.com` covers both that domain and all of its subdomains; an IP entry covers that exact address on every port. Rule changes take effect when a matching page is reloaded or opened again. An optional one-time-visit setting is also off by default. When selected and the current page is blocked, a contextual popup button can allow that visit in the current tab without changing the saved rule; the exception ends after the tab leaves the blocked domain or closes.
 
 #### Website Knowledge Control
 

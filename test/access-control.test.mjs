@@ -9,8 +9,8 @@ import {
 import { createAccessControlProduct } from '../extension/background/products/standing/access-control.js';
 
 test('Access Control starts disabled and stores canonical domains and exact IP addresses', () => {
-  assert.deepEqual(DEFAULT_SETTINGS.accessControl, { enabled: false, blockedDomains: [] });
-  assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.accessControl, { enabled: false, blockedDomains: [] });
+  assert.deepEqual(DEFAULT_SETTINGS.accessControl, { enabled: false, allowTemporaryVisits: false, blockedDomains: [] });
+  assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.accessControl, { enabled: false, allowTemporaryVisits: false, blockedDomains: [] });
   assert.equal(normalizeAccessControlDomain('Example.COM'), 'example.com');
   assert.equal(normalizeAccessControlDomain('*.Example.COM'), 'example.com');
   assert.equal(normalizeAccessControlDomain('192.0.2.1'), '192.0.2.1');
@@ -22,6 +22,7 @@ test('Access Control starts disabled and stores canonical domains and exact IP a
     blockedDomains: ['z.example', '*.Example.com', 'z.example', 'bad/path', 'a.example', '192.0.2.1', '2001:db8::1']
   } }).accessControl, {
     enabled: true,
+    allowTemporaryVisits: false,
     blockedDomains: ['z.example', 'example.com', 'a.example', '192.0.2.1', '[2001:db8::1]']
   });
 });
@@ -137,4 +138,96 @@ test('Access Control rejects changes outside Settings', async () => {
   await assert.rejects(product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }, {
     sender: { url: 'https://example.com/' }
   }));
+});
+
+test('Access Control can allow the blocked domain in the active tab for the current visit', async () => {
+  const tab = { id: 17, url: 'https://docs.example.com/guide' };
+  const reloaded = [];
+  let installed = [];
+  let settings = normalizeSettings({
+    accessControl: { enabled: true, allowTemporaryVisits: true, blockedDomains: ['example.com', 'elsewhere.example'] }
+  });
+  globalThis.chrome = {
+    runtime: { getURL: path => 'chrome-extension://test/' + path },
+    tabs: {
+      async query() { return [tab]; },
+      async reload(tabId) { reloaded.push(tabId); }
+    },
+    declarativeNetRequest: {
+      async getSessionRules() { return installed; },
+      async updateSessionRules(update) {
+        const removed = new Set(update.removeRuleIds || []);
+        installed = installed.filter(rule => !removed.has(rule.id)).concat(update.addRules || []);
+      }
+    }
+  };
+  const product = createAccessControlProduct({
+    isIncognitoContext: () => false,
+    readSettings: async () => settings,
+    mutateSettings: async update => (settings = normalizeSettings(update(settings)))
+  });
+  await product.reconcile();
+
+  assert.deepEqual(await product.state(settings, tab.url, tab.id), {
+    enabled: true,
+    allowTemporaryVisits: true,
+    blockedDomains: ['example.com', 'elsewhere.example'],
+    active: true,
+    supported: true,
+    matchedRule: 'example.com',
+    blocked: true,
+    temporarilyAllowed: false
+  });
+  await assert.rejects(product.handleMessage({
+    type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } }), /popup/i);
+
+  assert.deepEqual(await product.handleMessage({
+    type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id
+  }, { sender: { url: 'chrome-extension://test/popup/index.html' } }), {
+    allowed: true,
+    domain: 'example.com'
+  });
+  assert.deepEqual(reloaded, [17]);
+  const visit = installed.find(rule => rule.action.type === 'allow');
+  assert.equal(visit.id, 924001);
+  assert.equal(visit.priority, 200);
+  assert.equal(visit.condition.urlFilter, '||example.com^');
+  assert.deepEqual(visit.condition.tabIds, [17]);
+  assert.equal((await product.state(settings, tab.url, tab.id)).blocked, false);
+  assert.equal((await product.state(settings, tab.url, tab.id)).temporarilyAllowed, true);
+
+  await product.handleTabUpdated(tab.id, { url: 'https://sub.example.com/next' }, {
+    url: 'https://sub.example.com/next'
+  });
+  assert.ok(installed.some(rule => rule.action.type === 'allow'), 'the visit survives within the blocked domain');
+  await product.handleTabUpdated(tab.id, { url: 'https://allowed.example.net/' }, {
+    url: 'https://allowed.example.net/'
+  });
+  assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
+
+  tab.url = 'https://elsewhere.example/';
+  await product.handleMessage({ type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id }, {
+    sender: { url: 'chrome-extension://test/popup/index.html' }
+  });
+  assert.ok(installed.some(rule => rule.action.type === 'allow'));
+  const disabled = await product.handleMessage({
+    type: 'UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS', enabled: false
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  assert.equal(disabled.allowTemporaryVisits, false);
+  await product.reconcile();
+  assert.equal(installed.some(rule => rule.action.type === 'allow'), false, 'disabling one-time visits revokes the exception');
+  await assert.rejects(product.handleMessage({
+    type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id
+  }, { sender: { url: 'chrome-extension://test/popup/index.html' } }), /disabled/i);
+
+  await product.handleMessage({
+    type: 'UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS', enabled: true
+  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  await product.reconcile();
+  await product.handleMessage({ type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id }, {
+    sender: { url: 'chrome-extension://test/popup/index.html' }
+  });
+  await product.handleTabRemoved(tab.id);
+  assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
 });

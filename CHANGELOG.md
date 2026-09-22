@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.14.2 — 2026-09-22
+
+- Added an optional, default-off one-time-visit control to Access Control. When selected, a contextual popup button can allow the current tab to visit a blocked domain without changing the saved block list; the exception ends after that tab leaves the blocked domain or closes.
+
 ## 8.14.1 — 2026-09-21
 
 - Added Serch Result Language Designate for Google Search (`lang-google`), a default-off Standing Province feature at the end of Satellites. Case-insensitive `lang:` search commands now become Google result-language filters, supporting Simplified and Traditional Chinese aliases, multiple languages, and video or other search modes.

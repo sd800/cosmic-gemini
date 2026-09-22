@@ -160,7 +160,32 @@ function renderContextualProducts() {
   try { hostname = new URL(currentTab?.url || '').hostname.toLowerCase().replace(/\.$/, ''); } catch {}
   const available = contextualProducts.filter(entry => entry.hostname === hostname || entry.alternateHostname === hostname);
   container.replaceChildren();
-  container.hidden = available.length === 0;
+  const blockedByAccessControl = state.accessControl?.blocked === true
+    && state.accessControl?.allowTemporaryVisits === true;
+  container.hidden = !blockedByAccessControl && available.length === 0;
+  if (blockedByAccessControl) {
+    const row = document.createElement('section');
+    row.className = 'feature-row';
+    const actions = document.createElement('nav');
+    actions.className = 'launcher-actions contextual-actions';
+    actions.setAttribute('aria-label', t('accessControlName'));
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'feature-status feature-toggle primary-product';
+    button.dataset.state = 'active';
+    button.dataset.persistent = 'true';
+    button.innerHTML = icon('accessControl');
+    label(button, t('accessControlAllowVisitTitle'));
+    button.addEventListener('click', () => void perform(async () => {
+      await send({
+        type: 'UI_ACCESS_CONTROL_ALLOW_VISIT',
+        featureId: 'accessControl',
+        tabId: currentTab?.id
+      });
+      window.close();
+    }));
+    actions.append(button); row.append(actions); container.append(row);
+  }
   for (const entry of available) {
     if (entry.id === 'followListInstagram') {
       const row = document.createElement('section');

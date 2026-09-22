@@ -80,6 +80,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   langGoogle: Object.freeze({ enabled: false }),
   accessControl: Object.freeze({
     enabled: false,
+    allowTemporaryVisits: false,
     blockedDomains: Object.freeze([])
   }),
   websiteKnowledgeControl: Object.freeze({
@@ -319,6 +320,7 @@ export function normalizeSettings(value = {}) {
     langGoogle: { enabled: value.langGoogle?.enabled === true },
     accessControl: {
       enabled: value.accessControl?.enabled === true,
+      allowTemporaryVisits: value.accessControl?.allowTemporaryVisits === true,
       blockedDomains: [...new Set((Array.isArray(value.accessControl?.blockedDomains)
         ? value.accessControl.blockedDomains : []).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }

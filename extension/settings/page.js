@@ -222,6 +222,7 @@ function render() {
   const accessControlEnabled = document.querySelector('#accessControlEnabled');
   if (accessControlEnabled) {
     accessControlEnabled.checked = accessControl?.enabled === true;
+    document.querySelector('#accessControlTemporaryVisits').checked = accessControl?.allowTemporaryVisits === true;
     document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
   }
   const knowledge = (states?.preferences || states)?.websiteKnowledgeControl;
@@ -642,6 +643,12 @@ function bindView() {
       type: 'UI_SET_ENABLED', featureId: 'accessControl', enabled: accessControlEnabled.checked
     }), [accessControlEnabled]);
   });
+  const accessControlTemporaryVisits = document.querySelector('#accessControlTemporaryVisits');
+  if (accessControlTemporaryVisits) accessControlTemporaryVisits.addEventListener('change', () => void update(null, () => savePreference('accessControl', {
+    type: 'UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS',
+    featureId: 'accessControl',
+    enabled: accessControlTemporaryVisits.checked
+  }), [accessControlTemporaryVisits]));
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
   if (knowledgeEnabled) {
     const zoneSelect = document.querySelector('#websiteKnowledgeTimeZoneValue');

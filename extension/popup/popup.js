@@ -171,7 +171,7 @@ function renderContextualProducts() {
     actions.setAttribute('aria-label', t('accessControlName'));
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'feature-status feature-toggle primary-product';
+    button.className = 'feature-status feature-toggle primary-product access-control-visit';
     button.dataset.state = 'active';
     button.dataset.persistent = 'true';
     button.innerHTML = icon('accessControl');

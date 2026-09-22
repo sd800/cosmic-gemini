@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '8.14.2');
+assert.equal(manifest.version, '8.14.3');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -192,6 +192,7 @@ const settingsSource = await source('settings', 'page.js');
 const settingsPreload = await source('settings', 'preload.js');
 const settingsStyle = await source('settings', 'settings.css');
 const popupStyle = await source('popup', 'popup.css');
+assert.match(popupStyle, /\.launcher-actions \.access-control-visit svg \{ width: 21px; height: 21px; \}/);
 const imageDownloadStyle = await source('workspaces', 'image-download', 'image-download.css');
 const satellitesSettings = await source('settings', 'satellites.html');
 const pageDisplaySettings = await source('settings', 'page-display.html');

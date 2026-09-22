@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 8.14.3 — 2026-09-22
+
+- Reduced only the Access Control one-time-visit icon in the extension popup to the standard feature-icon scale while preserving its button size and click area.
+
 ## 8.14.2 — 2026-09-22
 
 - Added an optional, default-off one-time-visit control to Access Control. When selected, a contextual popup button can allow the current tab to visit a blocked domain without changing the saved block list; the exception ends after that tab leaves the blocked domain or closes.

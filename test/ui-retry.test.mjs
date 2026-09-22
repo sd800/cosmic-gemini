@@ -295,6 +295,7 @@ test('the popup offers a tab-scoped visit action only while Access Control block
   assert.equal(container.children.length, 1);
   const button = container.children[0].children[0].children[0];
   assert.equal(button.innerHTML, '<accessControl>');
+  assert.match(button.className, /(?:^|\s)access-control-visit(?:\s|$)/);
   assert.equal(button.dataset.state, 'active');
   assert.equal(button.dataset.persistent, 'true');
   assert.equal(button.title, 'accessControlAllowVisitTitle');

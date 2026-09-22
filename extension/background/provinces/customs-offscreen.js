@@ -1,3 +1,4 @@
+import { withOffscreen } from '../features/offscreen-host.js';
 export function createCustomsOffscreenCoordinator() {
   let activeAssemblies = 0;
   let activeRequests = 0;
@@ -29,27 +30,7 @@ export function createCustomsOffscreenCoordinator() {
     return operation;
   }
 
-  function ensureDocument() {
-    return queueDocumentLifecycle(async () => {
-      const path = 'offscreen/video-download.html';
-      if (typeof chrome.runtime.getContexts === 'function') {
-        const contexts = await chrome.runtime.getContexts({
-          contextTypes: ['OFFSCREEN_DOCUMENT'],
-          documentUrls: [chrome.runtime.getURL(path)]
-        });
-        if (contexts.length) return;
-      }
-      try {
-        await chrome.offscreen.createDocument({
-          url: path,
-          reasons: ['BLOBS'],
-          justification: 'Process user-requested media into local downloadable files.'
-        });
-      } catch (error) {
-        if (!String(error?.message || '').includes('single offscreen')) throw error;
-      }
-    });
-  }
+  function ensureDocument() { return withOffscreen(() => {}); }
 
   async function send(target, message, retainResultArtifact = false) {
     activeRequests += 1;
@@ -83,7 +64,11 @@ export function createCustomsOffscreenCoordinator() {
           || (key.startsWith('imageDownloadArtifact:') && session?.artifactId)
           || (key.startsWith('imageCaptureArtifact:') && session?.artifactId));
         if (hasArtifact) return;
-        await chrome.offscreen.closeDocument();
+        await withOffscreen(async () => {
+          const status = await chrome.runtime.sendMessage({ target: 'offscreen-resource-status' });
+          if (!status?.ok || status.retained || activeAssemblies || activeRequests || retainedArtifacts.size) return;
+          await chrome.offscreen.closeDocument();
+        }, false);
       } catch {}
     });
   }

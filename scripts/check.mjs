@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.2.3');
+assert.equal(manifest.version, '9.3.1');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -133,12 +133,13 @@ const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join
 assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'background/products/customs/video-download.js'),
   join(extension, 'background/products/operations/satellites.js'),
-  join(extension, 'background/products/standing/document-preview.js'),
+  join(extension, 'background/products/customs/document-preview.js'),
   join(extension, 'content/ad-marshal-runtime.js'),
   join(extension, 'content/video-download-page.js'),
   join(extension, 'core/site-video.js'),
   join(extension, 'core/twitter-video.js'),
-  join(extension, 'offscreen/video-download.js')
+  join(extension, 'offscreen/video-download.js'),
+  join(extension, 'workspaces/document-preview/document-preview.js')
 ].sort());
 assert.doesNotMatch(firstPartyJoined, /recent activity|最近活动/i);
 assert.doesNotMatch(firstPartyJoined, /sound autoplay/i);

@@ -3,14 +3,16 @@ import test from 'node:test';
 import { deflateRawSync } from 'node:zlib';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
+import { spreadsheetEntries, presentationEntries, samplePdf } from './fixtures/office-formats.mjs';
 import { formattingEntries } from './fixtures/document-formatting.mjs';
 import { acceptedStyles, formatStylesheet } from '../extension/workspaces/document-preview/format-styles.js';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
-import { inspectDocx, validateDocxContent, docxFilename, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview.js';
+import { inspectOffice, validateOfficeContent, documentFilename, documentKind, DOCUMENT_TYPES, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview.js';
 import { siteKey } from '../extension/core/site-key.js';
 import { createDocumentRequestIngress } from '../extension/background/features/document-request-ingress.js';
-import { createDocumentPreviewProduct } from '../extension/background/products/standing/document-preview.js';
+import { createDocumentPreviewProduct } from '../extension/background/products/customs/document-preview.js';
+import { createCustomsProvince } from '../extension/background/provinces/customs.js';
 import { createDocumentStatus } from '../extension/workspaces/document-preview/status.js';
 import { previewSrcdoc } from '../extension/workspaces/document-preview/sanitize.js';
 
@@ -58,32 +60,32 @@ test('Document Preview uses curated eTLD+1 rules, including IDNs, wildcards and 
 });
 
 test('DOCX preflight bounds file size, ZIP entries and inflated data and rejects other formats', async () => {
-  assert.equal(inspectDocx(sampleDocx()).entries, 3);
-  assert.throws(() => inspectDocx(new ArrayBuffer(DOCUMENT_LIMIT + 1)));
-  assert.throws(() => inspectDocx(storedZip({ text: 'Not DOCX' })));
-  assert.throws(() => inspectDocx(storedZip({ '[Content_Types].xml': '', 'word/document.xml': '', '../evil': '' })));
-  assert.throws(() => inspectDocx(storedZip({ '[Content_Types].xml': '', 'word/document.xml': '', 'word/vbaProject.bin': 'macro' })));
+  assert.equal(inspectOffice(sampleDocx()).entries, 3);
+  assert.throws(() => inspectOffice(new ArrayBuffer(DOCUMENT_LIMIT + 1)));
+  assert.throws(() => inspectOffice(storedZip({ text: 'Not DOCX' })));
+  assert.throws(() => inspectOffice(storedZip({ '[Content_Types].xml': '', 'word/document.xml': '', '../evil': '' })));
+  assert.throws(() => inspectOffice(storedZip({ '[Content_Types].xml': '', 'word/document.xml': '', 'word/vbaProject.bin': 'macro' })));
   const inflated = sampleDocx(), view = new DataView(inflated);
   const directory = view.getUint32(inflated.byteLength - 6, true);
   view.setUint32(directory + 24, 90 * 1024 * 1024, true);
-  assert.throws(() => inspectDocx(inflated));
-  assert.equal(docxFilename({ filename: '/downloads/通知.DOCX' }), '通知.DOCX');
-  assert.equal(docxFilename({ filename: 'notice.doc' }), '');
+  assert.throws(() => inspectOffice(inflated));
+  assert.equal(documentFilename({ filename: '/downloads/通知.DOCX' }), '通知.DOCX');
+  assert.equal(documentFilename({ filename: 'notice.doc' }), '');
   assert.deepEqual(await readDocumentResponse(new Response(sampleDocx())), sampleDocx());
   await assert.rejects(readDocumentResponse(new Response('login page')));
   const compressed = storedZip({ '[Content_Types].xml': 'a'.repeat(4096), 'word/document.xml': '<document/>' }, true);
-  await validateDocxContent(compressed);
+  await validateOfficeContent(compressed);
   const zippedView = new DataView(compressed);
   zippedView.setUint32(zippedView.getUint32(compressed.byteLength - 6, true) + 24, 16, true);
-  assert.doesNotThrow(() => inspectDocx(compressed), 'the directory falsely claims a small expanded entry');
-  await assert.rejects(validateDocxContent(compressed), /invalidDocx/, 'actual inflation must be bounded as well');
+  assert.doesNotThrow(() => inspectOffice(compressed), 'the directory falsely claims a small expanded entry');
+  await assert.rejects(validateOfficeContent(compressed), /invalidDocument/, 'actual inflation must be bounded as well');
 });
 
 function environment({ enabled = true, fetchResult, method = 'GET', incognito = false } = {}) {
   const saved = {}, files = new Map(), calls = [], alarms = new Map();
   const tabs = [{ id: 1, url: 'https://a.example.com/article', incognito }, { id: 2, url: 'https://b.example.com/other', incognito }];
   let settings = normalizeSettings({ documentPreview: { enabled } });
-  const store = { get: async id => files.get(id), all: async () => [...files.values()], put: async doc => { files.set(doc.id, doc); calls.push('store'); }, remove: async id => files.delete(id) };
+  const store = { get: async id => files.get(id), all: async () => [...files.values()], put: async doc => { files.set(doc.id, { ...doc, blobUrl: 'blob:chrome-extension://test/' + doc.id }); calls.push('store'); }, remove: async id => files.delete(id) };
   const ingress = { setEnabled(value) { calls.push(['enabled', value]); }, take: () => ({ method, tabId: 1 }) };
   globalThis.fetch = async () => { calls.push('fetch'); return fetchResult ? fetchResult() : new Response(sampleDocx()); };
   globalThis.chrome = {
@@ -175,7 +177,7 @@ test('website choice spans subdomains and ends only after the last matching tab 
   await env.choose(doc, 'download', true);
   assert.equal(env.files.size,1); assert.ok(env.calls.includes('fetch'));
   assert.match(env.calls.find(value=>value[0]==='open')[1].url,/mode=download/);
-  assert.equal((await env.product.state({ documentPreview: { enabled: true } }, env.tabs[1].url)).choice, 'download');
+  assert.equal((await env.product.state({ documentPreview: { enabled: true } }, env.tabs[1].id, env.tabs[1].url)).choice, 'download');
   const fetchCount = env.calls.filter(value => value === 'fetch').length;
   await env.capture();
   assert.equal(env.calls.filter(value => value === 'fetch').length, fetchCount, 'remembered Download releases the original task');
@@ -219,7 +221,7 @@ test('worker sleep preserves the website session; a new browser session removes 
   const restarted = createDocumentPreviewProduct(env.platform, env);
   await restarted.initialize(); assert.equal(env.files.size, 0);
   assert.notEqual(env.saved['documentPreview:regular'].epoch, doc.epoch);
-  env.files.set(doc.id, doc); delete env.saved['documentPreview:regular'];
+  env.files.set(doc.id, { ...doc, blobUrl: 'blob:chrome-extension://test/' + doc.id }); delete env.saved['documentPreview:regular'];
   env.store.exists = async () => true;
   await env.platform.mutateSettings(settings => ({ ...settings, documentPreview: { enabled: false } }));
   await createDocumentPreviewProduct(env.platform, env).initialize();
@@ -391,7 +393,7 @@ test('appearance commands reject invalid callers and values, and incognito overr
   assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender})).siteTheme,'light','a failed write cannot change the authoritative session preference');
 });
 
-test('closed previews expire after ten hours, with open copies and source sessions respected', async t => {
+test('closed previews expire after three hours, with open copies and source sessions respected', async t => {
   t.mock.timers.enable({apis:['Date'],now:1800000000000});
   const env = environment(); await env.capture(); await env.settle();
   await env.choose();
@@ -440,7 +442,7 @@ test('reopening cancels a document deadline, navigation restarts it, and an earl
   assert.equal(await env.product.handleAlarm({name:DOCUMENT_CLEANUP_ALARM_PREFIX+'incognito'}),false);
   assert.equal(env.alarms.get(alarmName).scheduledTime,before);
   env.tabs.splice(0,2); await env.product.handleTabRemoved(1);
-  assert.equal(env.files.size,0,'source-site closure expires bytes before the ten-hour deadline, even while capture is off');
+  assert.equal(env.files.size,0,'source-site closure expires bytes before the three-hour deadline, even while capture is off');
   assert.equal(env.alarms.size,0);
 });
 
@@ -485,4 +487,119 @@ test('dark document text uses the filename white for defaults and neutral source
   assert.match(dark, /cg-f3\{color:#[a-f0-9]{6}\}/);
   assert.doesNotMatch(dark, /cg-f3\{color:#f1f3f4\}/, 'colored source text retains its hue');
   assert.match(dark, /background-color:#292929/);
+});
+
+test('each supported suffix is validated against its own format, including MIME-only PDF filenames', async () => {
+  for (const [format,entries] of [['xlsx',spreadsheetEntries()],['pptx',presentationEntries()]]) {
+    const bytes=storedZip(entries,true);
+    assert.equal(documentFilename({filename:'/downloads/file.'+format.toUpperCase()}),'file.'+format.toUpperCase());
+    await validateOfficeContent(bytes,format);
+    assert.deepEqual(await readDocumentResponse(new Response(bytes),format),bytes);
+    assert.throws(()=>inspectOffice(bytes,'docx'));
+    assert.throws(()=>inspectOffice(storedZip({...entries,[(format==='xlsx'?'xl':'ppt')+'/vbaProject.bin']:'macro'}),format));
+  }
+  assert.equal(documentFilename({filename:'download',mime:'application/pdf'}),'download.pdf');
+  assert.equal(documentFilename({filename:'app.exe',mime:'application/pdf'}),'');
+  assert.equal(documentFilename({filename:'file.xls'}),'');
+  assert.deepEqual(await readDocumentResponse(new Response(samplePdf()),'pdf'),samplePdf());
+  await assert.rejects(readDocumentResponse(new Response('<html>login</html>'),'pdf'));
+});
+
+test('workbooks keep multiple sheets, shared/inline strings, cached values, formats and merges without executing formulas', async () => {
+  await convert(formattingEntries());
+  const result=await renderer.convertSpreadsheet(storedZip(spreadsheetEntries()));
+  assert.deepEqual(Array.from(result.parts,part=>part.name),['预算 Budget','Notes']);
+  const html=result.parts[0].html;
+  assert.match(html,/\$1,234\.50/);assert.match(html,/2023-03-15/);assert.match(html,/50\.00%/);
+  assert.match(html,/colspan="3"/);assert.match(html,/Shared string/);assert.match(html,/=1\+2/);
+  assert.doesNotMatch(html,/<script|https:\/\/tracker/);
+  assert.match(html,/&lt;script&gt;unsafe/);assert.match(result.parts[1].html,/第二张表/);
+  assert.ok(result.formatting.styles.some(style=>style['background-color']==='#ABCDEF'),'explicit RGB fills must not be replaced by a theme fallback');
+  const bad=spreadsheetEntries();bad['xl/sharedStrings.xml']='<!DOCTYPE s [<!ENTITY external SYSTEM "file:///private">]><sst/>';
+  await assert.rejects(renderer.convertSpreadsheet(storedZip(bad)));
+});
+
+test('presentation slides preserve order, static text, coordinates and formatting while ignoring remote images', async () => {
+  await convert(formattingEntries());
+  const result=await renderer.convertPresentation(storedZip(presentationEntries()));
+  assert.equal(result.parts.length,2);assert.match(result.parts[0].name,/First slide/);
+  assert.match(result.parts[1].html,/Second slide &amp; safe text/);
+  assert.ok(result.formatting.styles.some(style=>style.left==='72pt'&&style.top==='36pt'));
+  assert.ok(result.formatting.styles.some(style=>style['font-size']==='32pt'&&style['font-weight']==='700'));
+  assert.doesNotMatch(result.parts.map(part=>part.html).join(''),/<img|tracker|script|iframe/);
+  const checked=acceptedStyles(result.formatting);
+  assert.ok(checked.some(style=>style.position==='absolute'&&style.left==='72pt'));
+});
+
+test('remembered website actions apply across document formats and require no bytes before choosing', async () => {
+  for(const action of ['preview','download']) {
+    const env=environment();await env.capture();await env.settle();await env.choose(undefined,action,true);
+    const count=env.calls.filter(value=>value[0]==='dialog').length,fetches=env.calls.filter(value=>value==='fetch').length;
+    for(const format of ['xlsx','pptx','pdf'])await env.capture({url:'https://cdn.example.com/next.'+format,filename:'next.'+format});
+    await env.settle();
+    assert.equal(env.calls.filter(value=>value[0]==='dialog').length,count);
+    assert.equal(env.calls.filter(value=>value==='fetch').length,fetches);
+    if(action==='preview')assert.equal(env.documents().length,4);
+    else assert.equal(env.documents().length,1);
+  }
+});
+
+test('Office template, slideshow and macro suffixes reuse inert family renderers', async () => {
+  await convert(formattingEntries());
+  for (const format of Object.keys(DOCUMENT_TYPES).filter(value => value !== 'pdf')) {
+    const kind = documentKind(format);
+    const entries = kind === 'docx' ? formattingEntries() : kind === 'xlsx' ? spreadsheetEntries() : presentationEntries();
+    if (format.endsWith('m')) {
+      const dir = kind === 'docx' ? 'word' : kind === 'xlsx' ? 'xl' : 'ppt';
+      entries[dir + '/vbaProject.bin'] = 'THIS MACRO MUST NEVER EXECUTE';
+      entries[dir + '/activeX/activeX1.xml'] = '<not-executable/>';
+      entries[dir + '/embeddings/oleObject1.bin'] = 'EMBEDDED PROGRAM';
+    }
+    const buffer = storedZip(entries, true);
+    assert.equal(documentFilename({filename:'file.' + format.toUpperCase()}),'file.' + format.toUpperCase());
+    await validateOfficeContent(buffer, format);
+    const result = kind === 'docx' ? await renderer.convertToHtml({arrayBuffer:buffer}, {externalFileAccess:false})
+      : kind === 'xlsx' ? await renderer.convertSpreadsheet(buffer) : await renderer.convertPresentation(buffer);
+    const html = result.value || result.parts.map(part => part.html).join('');
+    assert.ok(html.length > 100, format);
+    assert.doesNotMatch(html, /THIS MACRO|not-executable|EMBEDDED PROGRAM/, format);
+  }
+});
+
+test('extension-created PDF downloads bypass interception', () => {
+  const env = environment();
+  assert.equal(env.product.handleDeterminingFilename({filename:'document.pdf',url:'https://example.com/file.pdf',byExtensionId:'mhjfbmdgcfjbbpaeojofohoefgiehjai',state:'in_progress'},()=>{throw Error('must not intercept');}),false);
+});
+
+test('Customs routes document settings, state and cleanup without starting media discovery', async () => {
+  const env = environment({enabled:false});
+  globalThis.chrome.runtime.getContexts = async () => [];
+  const observed=[];
+  const customs = createCustomsProvince(env.platform,{setTabs:ids=>observed.push(ids)});
+  const result = await customs.handleMessage('documentPreview',{type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'dark'},
+    {sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  assert.equal(result.appearance,'dark');
+  const state = await customs.getProductState('documentPreview',{settings:await env.platform.readSettings(),tabId:1,url:env.tabs[0].url});
+  assert.equal(state.enabled,false);assert.equal(state.supported,true);
+  assert.equal(await customs.handleAlarm({name:DOCUMENT_CLEANUP_ALARM_PREFIX+'regular'}),true);
+  await customs.handleTabCreated({url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id=missing'});
+  assert.deepEqual(observed,[]);assert.equal(env.files.size,0);
+});
+
+test('memory cache transfers exact bytes, rejects overflows and releases abandoned uploads', async t => {
+  const {blobCommand,hasBlobs}=await import('../extension/offscreen/blob-cache.js');
+  t.mock.timers.enable({apis:['setTimeout']});
+  blobCommand({operation:'begin',id:'partial',size:5,mime:'application/pdf',metadata:{context:'regular'}});
+  assert.equal(hasBlobs(),true);
+  assert.throws(()=>blobCommand({operation:'chunk',id:'partial',data:btoa('123456')}));
+  assert.throws(()=>blobCommand({operation:'finish',id:'partial'}));
+  t.mock.timers.tick(60001);assert.equal(hasBlobs(),false);
+  blobCommand({operation:'begin',id:'complete',size:5,mime:'application/pdf',metadata:{context:'regular'}});
+  blobCommand({operation:'chunk',id:'complete',data:btoa('123')});
+  blobCommand({operation:'chunk',id:'complete',data:btoa('45')});
+  const record=blobCommand({operation:'finish',id:'complete'});
+  assert.equal(await(await originalFetch(record.blobUrl)).text(),'12345');
+  t.mock.timers.tick(60001);assert.equal(hasBlobs(),true,'completed records follow product lifecycle, not upload timeout');
+  blobCommand({operation:'remove',id:'complete'});
+  assert.equal(hasBlobs(),false);await assert.rejects(originalFetch(record.blobUrl));
 });

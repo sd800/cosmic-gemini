@@ -851,7 +851,7 @@ async function assembleDash(message) {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+export function handleMediaMessage(message, sender, sendResponse) {
   if (message?.target === 'image-download-offscreen') {
     void (async () => {
       if (message.type === 'CG_IMAGE_FETCH') {
@@ -917,4 +917,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     cancelled: error.name === 'AbortError' || /cancell?ed/i.test(error.message)
   }));
   return true;
-});
+}

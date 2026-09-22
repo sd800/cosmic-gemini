@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; frame-src 'self'; object-src 'none'; connect-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; frame-src 'self' blob:; object-src 'self' blob:; connect-src blob:">
   <title>Document Preview · Cosmic Gemini</title>
   <link rel="stylesheet" href="../../shared/ui.css">
   <link rel="stylesheet" href="document-preview.css">
@@ -12,6 +12,7 @@
   <header class="document-toolbar">
     <div class="identity"><span id="document-icon" aria-hidden="true"></span><strong>Document Preview</strong><span class="brand">Cosmic Gemini</span></div>
     <nav class="toolbar-actions">
+      <div id="part-controls" hidden><button id="part-previous" type="button">‹</button><label id="part-label" for="document-part"></label><select id="document-part"></select><button id="part-next" type="button">›</button></div>
       <div id="zoom-controls" class="zoom-controls" role="group" data-i18n-aria-label="documentZoom" hidden>
         <button id="zoom-out" type="button" data-i18n-aria-label="documentZoomOut">−</button>
         <button id="zoom-reset" type="button" data-i18n-aria-label="documentZoomReset">100%</button>

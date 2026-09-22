@@ -1,6 +1,6 @@
 import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature } from '../../../core/config.js';
-import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCX_MIME, docxFilename, readDocumentResponse } from '../../../core/document-preview.js';
-import { documentStore } from '../../../core/document-preview-store.js';
+import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, readDocumentResponse } from '../../../core/document-preview.js';
+import { documentStore } from '../../features/document-cache.js';
 import { siteKey } from '../../../core/site-key.js';
 import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-appearance.js';
 import { translator } from '../../../shared/localization.js';
@@ -74,6 +74,12 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   }
   async function initialize() {
     if (!initialization) initialization = (async () => {
+      if (globalThis.indexedDB?.databases && (await indexedDB.databases()).some(db => db.name === 'cosmic-gemini-document-preview')) {
+        await new Promise((resolve, reject) => {
+          const deletion = indexedDB.deleteDatabase('cosmic-gemini-document-preview');
+          deletion.onsuccess = resolve; deletion.onerror = () => reject(deletion.error); deletion.onblocked = resolve;
+        });
+      }
       const saved = (await chrome.storage.session.get(sessionKey))[sessionKey];
       state = saved?.epoch && Array.isArray(saved.documents)
         ? saved : { epoch: crypto.randomUUID(), documents: [], choices: {} };
@@ -114,21 +120,23 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const preparation = (async () => {
       const doc = await currentDocument(id);
       const cached = await store.get(doc.id);
-      if (doc.prepared === true && cached?.blob && cached.context === contextName && cached.epoch === state.epoch) return doc;
+      if (doc.prepared === true && cached?.blobUrl && cached.context === contextName && cached.epoch === state.epoch) return doc;
       if (!(await platform.readSettings()).documentPreview?.enabled) throw Error('documentPreviewDisabled');
       const controller = new AbortController();
       captures.set(controller, doc.site);
       try {
         const response = await fetch(doc.url, {
           credentials: 'include',
+          cache: 'no-store',
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)])
         });
-        const buffer = await readDocumentResponse(response);
-        const blob = new Blob([buffer], { type: DOCX_MIME });
+        const buffer = await readDocumentResponse(response, doc.format);
+        const blob = new Blob([buffer], { type: DOCUMENT_TYPES[doc.format] });
         return serial(async () => {
           const current = await currentDocument(doc.id);
+          if (controller.signal.aborted) throw Error('documentPreviewDisabled');
           const existing = await store.get(current.id);
-          if (current.prepared === true && existing?.blob && existing.context === contextName && existing.epoch === state.epoch) return current;
+          if (current.prepared === true && existing?.blobUrl && existing.context === contextName && existing.epoch === state.epoch) return current;
           const prepared = state.documents.filter(value => value.prepared === true);
           if (prepared.length >= 24 || prepared.reduce((sum, value) => sum + value.size, 0) + blob.size > CACHE_LIMIT) throw Error('documentCacheFull');
           await store.put({ ...current, size: blob.size, prepared: true, blob, context: contextName, epoch: state.epoch });
@@ -197,7 +205,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         if (existing) savedDoc = existing;
         else {
           if (state.documents.length >= 64) return;
-          savedDoc = { id: crypto.randomUUID(), site, filename: docxFilename(item), size: reportedSize, url, prepared: false, closedAt: Date.now() };
+          savedDoc = { id: crypto.randomUUID(), site, filename: documentFilename(item), format: documentFormat(documentFilename(item)), size: reportedSize, url, prepared: false, closedAt: Date.now() };
           state.documents.push(savedDoc); await persist();
           await scheduleCleanup();
         }
@@ -227,7 +235,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
 
   const product = {
     id: FEATURE_IDS.DOCUMENT_PREVIEW,
-    async state(settings, url) {
+    async state(settings, _tabId, url) {
       const enabled = settings.documentPreview?.enabled === true;
       if (!enabled) return { enabled: false, active: false, supported: /^https?:\/\//i.test(url || '') };
       await initialize();
@@ -242,7 +250,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         suggest({ filename: downloadNames.get(ownSource).filename, conflictAction: 'uniquify' });
         downloadNames.delete(ownSource); return true;
       }
-      if (!docxFilename(item) || item.byExtensionId || item.state !== 'in_progress'
+      if (!documentFilename(item) || item.byExtensionId || item.state !== 'in_progress'
         || (item.danger && !['safe', 'accepted', 'allowlistedByPolicy'].includes(item.danger))) return false;
       void capture(item, suggest);
       return true;
@@ -274,14 +282,20 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const doc = await currentDocument(String(message.id || ''));
       if (page && siteKey(context.sender.tab?.url) !== doc.site) throw Error('The source website changed.');
       if (workspace && new URLSearchParams(senderUrl.split('#')[1] || '').get('id') !== doc.id) throw Error('Wrong document.');
-      if (message.type === 'UI_DOCUMENT_GET') return {
-        ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.site] || 'ask',
-        appearance: normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance),
-        siteTheme: state.themes[doc.site] || null
-      };
+      if (message.type === 'UI_DOCUMENT_GET') {
+        const cached = doc.prepared ? await store.get(doc.id) : null;
+        const prepared = !!cached?.blobUrl && cached.context === contextName && cached.epoch === state.epoch;
+        return {
+          ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.site] || 'ask',
+          appearance: normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance),
+          siteTheme: state.themes[doc.site] || null,
+          prepared, blobUrl: prepared ? cached.blobUrl : null
+        };
+      }
       if (message.type === 'UI_DOCUMENT_PREPARE') {
         if (!workspace) throw Error('Document preparation unavailable.');
-        return prepareDocument(doc.id);
+        await prepareDocument(doc.id);
+        return { prepared: true };
       }
       if (message.type === 'UI_DOCUMENT_SET_THEME') {
         if (!workspace || ![null, 'light', 'dark'].includes(message.theme)) throw Error('Unknown appearance.');

@@ -1,10 +1,10 @@
 import { loadLocale } from '../../core/locale.js';
-import { documentStore } from '../../core/document-preview-store.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
 import { icon, send } from '../../shared/ui.js';
 import { safeDocumentHtml, previewSrcdoc } from './sanitize.js';
 import { normalizeDocumentAppearance } from '../../core/document-appearance.js';
 import { createDocumentStatus } from './status.js';
+import { documentKind } from '../../core/document-preview.js';
 
 const params = new URLSearchParams(location.hash.slice(1));
 const id = params.get('id'), mode = params.get('mode');
@@ -13,8 +13,21 @@ document.documentElement.lang = locale; localizeDocument(t);
 document.querySelector('#document-icon').innerHTML = icon('documentPreview');
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
 const notices = createDocumentStatus(status);
-let metadata, blob, worker, workerTimer, expired = false, downloadPending = false;
+let metadata, blob, worker, workerTimer, pdfUrl, rendered, expired = false, downloadPending = false;
 const frame = document.querySelector('#document');
+const partControls = document.querySelector('#part-controls'), partSelect = document.querySelector('#document-part');
+const previousPart = document.querySelector('#part-previous'), nextPart = document.querySelector('#part-next');
+previousPart.setAttribute('aria-label', t('documentPreviousPart')); nextPart.setAttribute('aria-label', t('documentNextPart'));
+function showPart(index) {
+  const parts = rendered?.parts; if (!parts?.length || expired) return;
+  index = Math.max(0, Math.min(parts.length - 1, index));
+  partSelect.value = String(index); previousPart.disabled = index === 0; nextPart.disabled = index === parts.length - 1;
+  const safe = safeDocumentHtml(parts[index].html, rendered.formatting);
+  frame.srcdoc = previewSrcdoc(safe, locale, rendered.formatting);
+}
+partSelect.onchange = () => showPart(Number(partSelect.value));
+previousPart.onclick = () => showPart(Number(partSelect.value) - 1);
+nextPart.onclick = () => showPart(Number(partSelect.value) + 1);
 const zoomControls = document.querySelector('#zoom-controls');
 const zoomOut = document.querySelector('#zoom-out'), zoomIn = document.querySelector('#zoom-in'), zoomReset = document.querySelector('#zoom-reset');
 let zoom = 100;
@@ -67,15 +80,26 @@ const blobDownloads = new Map();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
 
 function expire() {
-  expired = true; blob = null; worker?.terminate(); clearTimeout(workerTimer);
+  expired = true; blob = null; rendered = null; if (pdfUrl) URL.revokeObjectURL(pdfUrl); pdfUrl = null; worker?.terminate(); clearTimeout(workerTimer);
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
-  zoomControls.hidden = true;
-  frame.removeAttribute('srcdoc'); frame.hidden = true; notices.show(t('documentExpired')); updateTheme();
+  zoomControls.hidden = true; partControls.hidden = true;
+  frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); frame.hidden = true; notices.show(t('documentExpired')); updateTheme();
 }
 async function preview() {
   if (expired) return;
   document.querySelector('#choice').hidden = true; notices.show(t('documentLoading'));
   worker?.terminate();
+  if (metadata.format === 'pdf') {
+    if (!navigator.pdfViewerEnabled) { notices.show(t('documentPdfUnavailable')); return; }
+    // The browser's native PDF viewer has its own isolated PDFium process.
+    // Only a locally validated, extension-owned PDF blob is navigated here.
+    pdfUrl = URL.createObjectURL(blob);
+    frame.removeAttribute('sandbox'); frame.removeAttribute('srcdoc');
+    frame.src = pdfUrl; frame.hidden = false;
+    zoomControls.hidden = true; partControls.hidden = true;
+    notices.show(''); document.querySelector('#layout-note').textContent = t('documentPdfNote'); document.querySelector('#layout-note').hidden = false;
+    return;
+  }
   worker = new Worker('render-worker.js');
   const finish = () => { clearTimeout(workerTimer); worker?.terminate(); worker = null; };
   workerTimer = setTimeout(() => { finish(); notices.show(t('documentRenderFailed')); }, 15000);
@@ -84,15 +108,24 @@ async function preview() {
     finish(); if (expired) return;
     try {
       if (event.data.error) throw Error();
-      const safe = safeDocumentHtml(event.data.html, event.data.formatting);
-      if (!safe.trim()) throw Error();
-      frame.srcdoc = previewSrcdoc(safe, locale, event.data.formatting); frame.hidden = false;
+      rendered = event.data;
+      if (Array.isArray(rendered.parts) && rendered.parts.length) {
+        if (rendered.parts.length > 300) throw Error();
+        partSelect.replaceChildren(...rendered.parts.map((part, index) => new Option(part.name, String(index))));
+        document.querySelector('#part-label').textContent = t(documentKind(metadata.format) === 'xlsx' ? 'documentSheet' : 'documentSlide');
+        partControls.hidden = rendered.parts.length < 2; showPart(0);
+      } else {
+        const safe = safeDocumentHtml(rendered.html, rendered.formatting);
+        if (!safe.trim()) throw Error();
+        frame.srcdoc = previewSrcdoc(safe, locale, rendered.formatting);
+      }
+      frame.hidden = false;
       zoomControls.hidden = false;
       notices.show(''); document.querySelector('#layout-note').hidden = false;
     } catch { notices.show(t('documentRenderFailed')); }
   };
   const bytes = await blob.arrayBuffer();
-  if (worker && !expired) worker.postMessage(bytes, [bytes]);
+  if (worker && !expired) worker.postMessage({ bytes, format: metadata.format }, [bytes]);
 }
 async function download() {
   if (expired || downloadPending) return;
@@ -130,7 +163,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     updateTheme();
   }
 });
-window.addEventListener('pagehide', () => { worker?.terminate(); clearTimeout(workerTimer); notices.clear(); for (const url of blobDownloads.values()) URL.revokeObjectURL(url); });
+window.addEventListener('pagehide', () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); worker?.terminate(); clearTimeout(workerTimer); notices.clear(); for (const url of blobDownloads.values()) URL.revokeObjectURL(url); });
 downloadButton.addEventListener('click', () => void download());
 async function choose(action) {
   const controls = [...document.querySelectorAll('#choice button')]; controls.forEach(button => button.disabled = true);
@@ -144,6 +177,7 @@ async function choose(action) {
 document.querySelector('#preview').onclick = () => void choose('preview');
 document.querySelector('#choice-download').onclick = () => void choose('download');
 function showMetadata() {
+  document.body.dataset.format = metadata.format;
   defaultTheme = normalizeDocumentAppearance(metadata.appearance); siteTheme = metadata.siteTheme;
   updateTheme();
   document.querySelector('#filename').textContent = metadata.filename;
@@ -153,12 +187,12 @@ function showMetadata() {
 }
 async function loadPreparedDocument() {
   metadata = await command('UI_DOCUMENT_GET');
-  if (!metadata.prepared) metadata = await command('UI_DOCUMENT_PREPARE');
-  const cached = await documentStore.get(id);
-  if (expired || !cached?.blob || cached.epoch !== metadata.epoch || cached.context !== metadata.context) throw Error();
+  if (!metadata.prepared) { await command('UI_DOCUMENT_PREPARE'); metadata = await command('UI_DOCUMENT_GET'); }
+  if (expired || !metadata.blobUrl?.startsWith('blob:' + chrome.runtime.getURL(''))) throw Error();
+  const cachedBlob = await (await fetch(metadata.blobUrl)).blob();
   metadata = await command('UI_DOCUMENT_GET'); // The source may have closed during the cache read.
   if (expired) throw Error();
-  blob = cached.blob;
+  blob = cachedBlob;
   showMetadata();
   downloadButton.disabled = false;
 }

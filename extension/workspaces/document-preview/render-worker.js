@@ -1,9 +1,12 @@
 importScripts('../../vendor/mammoth/mammoth.browser.min.js');
 self.onmessage = async event => {
   try {
-    const { validateDocxContent } = await import('../../core/document-preview.js');
-    await validateDocxContent(event.data);
-    const result = await mammoth.convertToHtml({ arrayBuffer: event.data }, {
+    const { validateOfficeContent, documentKind } = await import('../../core/document-preview.js');
+    const { bytes, format } = event.data;
+    await validateOfficeContent(bytes, format);
+    const result = documentKind(format) === 'xlsx' ? await mammoth.convertSpreadsheet(bytes)
+      : documentKind(format) === 'pptx' ? await mammoth.convertPresentation(bytes)
+      : await mammoth.convertToHtml({ arrayBuffer: bytes }, {
       externalFileAccess: false,
       includeEmbeddedStyleMap: false,
       convertImage: mammoth.images.imgElement(async image => {
@@ -11,7 +14,7 @@ self.onmessage = async event => {
         return { src: 'data:' + image.contentType + ';base64,' + await image.readAsBase64String() };
       })
     });
-    if (result.value.length > 48 * 1024 * 1024) throw Error('documentTooLarge');
-    self.postMessage({ html: result.value, formatting: result.formatting });
+    if ((result.value?.length || result.parts?.reduce((sum, part) => sum + part.html.length, 0) || 0) > 48 * 1024 * 1024) throw Error('documentTooLarge');
+    self.postMessage({ html: result.value, parts: result.parts, formatting: result.formatting });
   } catch { self.postMessage({ error: 'documentRenderFailed' }); }
 };

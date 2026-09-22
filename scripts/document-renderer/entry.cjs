@@ -8,7 +8,10 @@ const DocumentConverter = require('mammoth/lib/document-to-html').DocumentConver
 const Html = require('mammoth/lib/html');
 const {createFormatting} = require('./formatting.cjs');
 
-module.exports = {...mammoth,convertToHtml:async function(input,options) {
+module.exports = {...mammoth,
+  convertSpreadsheet: require('./spreadsheet.cjs').spreadsheet,
+  convertPresentation: require('./presentation.cjs').presentation,
+  convertToHtml:async function(input,options) {
   const zip=await unzip.openZip(input),paths=await docxReader._findPartPaths(zip);
   const directory=paths.mainDocument.slice(0,paths.mainDocument.lastIndexOf('/')+1);
   const rels=await officeXml.readXmlFromZipFile(zip,directory+'_rels/'+paths.mainDocument.slice(directory.length)+'.rels');

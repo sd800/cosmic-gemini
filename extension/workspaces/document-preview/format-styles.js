@@ -3,6 +3,8 @@
 const lengths = /^-?\d{1,4}(?:\.\d{1,3})?(?:pt|em|%)$/;
 const fonts = /^(?:"[\p{L}\p{N} ._+-]{1,80}",){1,8}(?:serif|sans-serif)$/u;
 const values = {
+  position:/^absolute$/, overflow:/^hidden$/, 'white-space':/^(?:pre-wrap|nowrap)$/,
+  transform:/^rotate\(-?\d{1,3}(?:\.\d{1,3})?deg\)$/,
   'font-family':fonts,'font-size':/^\d{1,2}(?:\.\d{1,3})?pt$/,'font-weight':/^(?:400|700)$/,
   'font-style':/^(?:normal|italic)$/,'font-variant-caps':/^(?:normal|small-caps)$/,
   'text-decoration-line':/^(?:none|underline|line-through|underline line-through)$/,
@@ -11,7 +13,7 @@ const values = {
   direction:/^(?:ltr|rtl)$/,'vertical-align':/^(?:top|middle|bottom)$/,'table-layout':/^(?:auto|fixed)$/,
   'line-height':/^(?:\d{1,3}(?:\.\d{1,3})?(?:pt)?|max\(1\.2em,\d{1,3}(?:\.\d{1,3})?pt\))$/
 };
-for(const property of ['width','min-width','height','text-indent','letter-spacing',...['top','bottom','left','right'].flatMap(side=>['margin-'+side,'padding-'+side])])values[property]=lengths;
+for(const property of ['width','min-width','height','left','top','border-radius','text-indent','letter-spacing',...['top','bottom','left','right'].flatMap(side=>['margin-'+side,'padding-'+side])])values[property]=lengths;
 for(const side of ['top','bottom','left','right']){
   values['border-'+side+'-width']=lengths;
   values['border-'+side+'-style']=/^(?:none|solid|double|dotted|dashed)$/;

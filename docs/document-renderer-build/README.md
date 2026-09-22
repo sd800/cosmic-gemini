@@ -24,3 +24,5 @@ Styles are deduplicated data, checked again by the preview’s property/value
 allowlist. Updating the parser requires rerunning the bundled-conversion tests
 in `test/document-preview.test.mjs`, as well as browser checks for light/dark
 appearance, narrow viewports, tables, embedded images and page-break separators.
+
+The same bundle includes first-party static OOXML spreadsheet and presentation readers. They reuse the existing bounded ZIP/XML dependencies; no new parsing library or Office runtime is added. Family dispatch covers document/template/macro and slideshow suffixes without evaluating VBA, formulas, ActiveX or embedded programs. Worksheet cells use cached values, and presentations render static text, tables, shapes and local raster pictures. Test package relationships, inherited slide transforms, external-resource exclusion and the macro/template variants whenever rebuilding. PDF uses Chrome’s native viewer and does not load this bundle.

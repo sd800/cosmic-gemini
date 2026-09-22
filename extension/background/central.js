@@ -11,12 +11,12 @@ import { createStandingProvince } from './provinces/standing.js';
 
 export const PROVINCE_PRODUCTS = Object.freeze({
   standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE,
-    FEATURE_IDS.CLIPBOARD_PROTECT, FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL, FEATURE_IDS.DOCUMENT_PREVIEW, FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.LANG_GOOGLE]),
+    FEATURE_IDS.CLIPBOARD_PROTECT, FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL, FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.LANG_GOOGLE]),
   operations: Object.freeze([
     FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.PAGE_DISPLAY, FEATURE_IDS.XHS_IMAGE_DARK_MODE,
     FEATURE_IDS.CHINESE_RESPONSE_CLAUDE, FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, 'satellites', 'administration'
   ]),
-  customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD])
+  customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD, FEATURE_IDS.DOCUMENT_PREVIEW])
 });
 
 const PAGE_PRODUCTS = Object.freeze([
@@ -34,14 +34,14 @@ const STATE_PRODUCTS = Object.freeze([
 ]);
 const EVENT_PROVINCES = Object.freeze({
   initialize: Object.freeze(['standing', 'operations', 'customs']),
-  tabCreated: Object.freeze(['standing', 'operations']),
+  tabCreated: Object.freeze(['standing', 'operations', 'customs']),
   tabUpdated: Object.freeze(['standing', 'operations', 'customs']),
   tabRemoved: Object.freeze(['standing', 'operations', 'customs']),
   windowCreated: Object.freeze(['operations']),
   windowRemoved: Object.freeze(['operations']),
   downloadChanged: Object.freeze(['customs']),
   headersReceived: Object.freeze(['customs']),
-  storageChanged: Object.freeze(['standing', 'operations'])
+  storageChanged: Object.freeze(['standing', 'operations', 'customs'])
 });
 
 const platform = createPlatform();
@@ -235,11 +235,11 @@ chrome.downloads.onChanged.addListener(delta => {
   void dispatchEvent('downloadChanged', delta);
 });
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  return provinces.customs.handleDeterminingFilename(item, suggest) || provinces.standing.handleDeterminingFilename(item, suggest);
+  return provinces.customs.handleDeterminingFilename(item, suggest);
 });
 chrome.alarms.onAlarm.addListener(alarm => {
   const province = alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) ? provinces.customs
-    : alarm.name.startsWith(DOCUMENT_CLEANUP_ALARM_PREFIX) ? provinces.standing : provinces.operations;
+    : alarm.name.startsWith(DOCUMENT_CLEANUP_ALARM_PREFIX) ? provinces.customs : provinces.operations;
   void province.handleAlarm(alarm).catch(() => {});
 });
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -247,7 +247,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (['video-download-offscreen', 'image-download-offscreen'].includes(message?.target)) return false;
+  if (['video-download-offscreen', 'image-download-offscreen', 'ephemeral-blob-cache', 'offscreen-resource-status'].includes(message?.target)) return false;
   void (async () => {
     if (!message || typeof message.type !== 'string') throw new Error('Invalid extension message.');
     const result = await dispatchMessage(message, sender);

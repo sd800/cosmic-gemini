@@ -1,3 +1,4 @@
+import { createDocumentPreviewProduct } from '../products/customs/document-preview.js';
 import { createImageDownloadProduct } from '../products/customs/image-download.js';
 import { createVideoDownloadProduct } from '../products/customs/video-download.js';
 import { createCustomsOffscreenCoordinator } from './customs-offscreen.js';
@@ -6,12 +7,14 @@ import { defineProvince } from './interface.js';
 
 export function createCustomsProvince(platform, responseIngress) {
   const offscreen = createCustomsOffscreenCoordinator();
+  const documentPreview = createDocumentPreviewProduct(platform);
   const observation = createCustomsObservationRegistry(responseIngress);
   const imageDownload = createImageDownloadProduct(platform, offscreen, observation);
   const videoDownload = createVideoDownloadProduct(platform, offscreen, observation);
   const products = {
     [imageDownload.id]: imageDownload,
-    [videoDownload.id]: videoDownload
+    [videoDownload.id]: videoDownload,
+    [documentPreview.id]: documentPreview
   };
   let restorationTask = null;
 
@@ -32,7 +35,7 @@ export function createCustomsProvince(platform, responseIngress) {
   return defineProvince({
     id: 'customs',
     products,
-    initialize: restoreObservation,
+    initialize: () => Promise.allSettled([restoreObservation(), documentPreview.initialize()]),
     async getProductState(productId, context) {
       const governed = product(productId);
       const state = await governed.state(context.settings, context.tabId, context.url);
@@ -48,16 +51,20 @@ export function createCustomsProvince(platform, responseIngress) {
     handleConnect(port) {
       return imageDownload.connect(port) || videoDownload.connect(port);
     },
+    handleTabCreated: tab => documentPreview.handleTabCreated(tab),
+    handleStorageChanged: (changes, area) => documentPreview.handleStorageChanged(changes, area),
     async handleTabUpdated(tabId, change, tab) {
       await Promise.allSettled([
         imageDownload.handleTabUpdated(tabId, change, tab),
-        videoDownload.handleTabUpdated(tabId, change, tab)
+        videoDownload.handleTabUpdated(tabId, change, tab),
+        documentPreview.handleTabUpdated(tabId, change, tab)
       ]);
     },
     async handleTabRemoved(tabId) {
       await Promise.allSettled([
         imageDownload.handleTabRemoved(tabId),
-        videoDownload.handleTabRemoved(tabId)
+        videoDownload.handleTabRemoved(tabId),
+        documentPreview.handleTabRemoved(tabId)
       ]);
     },
     async handleDownloadChanged(delta) {
@@ -67,7 +74,7 @@ export function createCustomsProvince(platform, responseIngress) {
       ]);
     },
     handleDeterminingFilename(item, suggest) {
-      return videoDownload.handleDeterminingFilename(item, suggest);
+      return videoDownload.handleDeterminingFilename(item, suggest) || documentPreview.handleDeterminingFilename(item, suggest);
     },
     async handleHeadersReceived(details) {
       if (observation.needsRestoration()) await restoreObservation();
@@ -76,10 +83,11 @@ export function createCustomsProvince(platform, responseIngress) {
     },
     async handleAlarm(alarm) {
       if (await imageDownload.handleAlarm(alarm)) return true;
-      return videoDownload.handleAlarm(alarm);
+      if (await videoDownload.handleAlarm(alarm)) return true;
+      return documentPreview.handleAlarm(alarm);
     },
     async reset() {
-      await Promise.allSettled([imageDownload.reset(), videoDownload.reset()]);
+      await Promise.allSettled([imageDownload.reset(), videoDownload.reset(), documentPreview.reset()]);
       await offscreen.maybeClose();
     }
   });

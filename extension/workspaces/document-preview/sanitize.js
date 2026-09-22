@@ -16,7 +16,7 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
     if (ALLOWED.has(node.localName)) {
       next = output.createElement(node.localName);
       const classes = (node.getAttribute('class') || '').split(/\s+/).filter(value => /^cg-f\d{1,4}$/.test(value)
-        ? Number(value.slice(4)) < styleCount : ['cg-numbered','cg-list-marker','cg-page-break'].includes(value));
+        ? Number(value.slice(4)) < styleCount : ['cg-numbered','cg-list-marker','cg-page-break','cg-sheet','cg-row-number','cg-hidden','cg-slide','cg-shape','cg-slide-picture','cg-slide-background'].includes(value));
       if (classes.length) next.setAttribute('class', classes.slice(0,4).join(' '));
       if (classes.includes('cg-page-break')) next.setAttribute('role', 'separator');
       if (node.localName === 'a') {
@@ -44,6 +44,7 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
 }
 
 export function previewSrcdoc(body, locale, formatting) {
+  const kind = ['xlsx', 'pptx'].includes(formatting?.kind) ? formatting.kind : 'docx';
   return `<!doctype html><html lang="${locale === 'zh-CN' ? 'zh-CN' : 'en-US'}"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>
     html{color-scheme:light dark;background:#eceef1;color:#202124;font:11pt/1.4 'Aptos','Calibri','Arial','PingFang SC','Microsoft YaHei',sans-serif;overflow-wrap:anywhere}
     body{box-sizing:border-box;width:calc(100% - 40px);max-width:612pt;min-height:calc(100vh - 40px);margin:20px auto;padding:54pt;background:white;box-shadow:0 1px 5px #0002}
@@ -54,5 +55,10 @@ export function previewSrcdoc(body, locale, formatting) {
     @media(prefers-color-scheme:dark){html{background:#202124;color:${DOCUMENT_DARK_TEXT}}body{background:#292a2d}a{color:#a8c7fa}td,th,blockquote,.cg-page-break{border-color:#5f6368}}
     ${formatStylesheet(formatting)}
     @media(max-width:700px){body{width:100%;margin:0;min-height:100vh;padding:24px 18px;box-shadow:none}}
-    </style></head><body>${body}</body></html>`;
+    body.cg-format-xlsx,body.cg-format-pptx{width:max-content;max-width:none;min-width:calc(100% - 40px);min-height:0;padding:0;background:transparent;box-shadow:none}
+    .cg-sheet{background:white}.cg-sheet table{margin:0;max-width:none;table-layout:fixed;font-size:11pt}.cg-sheet td{min-width:54pt;white-space:pre-wrap}.cg-sheet th{background:#eef0f3;text-align:center;color:#5f6368;font-size:10pt;font-weight:400;position:sticky;top:0}.cg-sheet .cg-row-number{width:32pt}.cg-hidden{display:none}
+    .cg-slide{position:relative;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 5px #0002}.cg-shape{box-sizing:border-box;line-height:1.2}.cg-shape p{margin:0 0 5pt}.cg-shape table{width:100%;margin:0}.cg-slide-picture{display:block;width:100%;height:100%;max-width:none;object-fit:contain}.cg-slide-background{position:absolute;width:100%;height:100%;max-width:none;object-fit:cover}
+    @media(prefers-color-scheme:dark){.cg-sheet{background:#292a2d}.cg-sheet th{background:#303238;color:#aeb4bc}}
+    @media(max-width:700px){body.cg-format-xlsx,body.cg-format-pptx{min-width:100%;padding:0}}
+    </style></head><body class="cg-format-${kind}">${body}</body></html>`;
 }

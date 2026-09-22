@@ -10,7 +10,7 @@ test('Customs does not close its offscreen document while a new request is start
   globalThis.chrome = {
     runtime: {
       getURL: path => `chrome-extension://test/${path}`,
-      getContexts: async () => [],
+      getContexts: async () => [{documentUrl:"chrome-extension://test/offscreen/video-download.html"}],
       getPlatformInfo: async () => { keepAliveCalls += 1; },
       sendMessage: async () => ({ ok: true, result: { ready: true } })
     },
@@ -40,7 +40,7 @@ test('Customs retains a local artifact when session storage cannot track its Chr
   const previousChrome = globalThis.chrome;
   let closeCalls = 0;
   globalThis.chrome = {
-    runtime: { getURL: path => `chrome-extension://test/${path}`, getContexts: async () => [] },
+    runtime: { sendMessage: async () => ({ok:true,retained:false}), getURL: path => `chrome-extension://test/${path}`, getContexts: async () => [{documentUrl:"chrome-extension://test/offscreen/video-download.html"}] },
     storage: { session: { get: async () => ({}) } },
     offscreen: {
       createDocument: async () => {},
@@ -64,7 +64,7 @@ test('Customs retains a newly created artifact before an offscreen request relea
   globalThis.chrome = {
     runtime: {
       getURL: path => `chrome-extension://test/${path}`,
-      getContexts: async () => [],
+      getContexts: async () => [{documentUrl:"chrome-extension://test/offscreen/video-download.html"}],
       sendMessage: async () => ({ ok: true, result: { artifactId: 'artifact-handoff', url: 'blob:test' } })
     },
     storage: { session: { get: async () => ({}) } },
@@ -89,7 +89,7 @@ test('optional offscreen cleanup does not fail a completed product action', asyn
   const previousChrome = globalThis.chrome;
   let closeCalls = 0;
   globalThis.chrome = {
-    runtime: { getURL: path => `chrome-extension://test/${path}`, getContexts: async () => [] },
+    runtime: { sendMessage: async () => ({ok:true,retained:false}), getURL: path => `chrome-extension://test/${path}`, getContexts: async () => [{documentUrl:"chrome-extension://test/offscreen/video-download.html"}] },
     storage: { session: { get: async () => { throw new Error('temporary storage failure'); } } },
     offscreen: { closeDocument: async () => { closeCalls += 1; } }
   };
@@ -98,4 +98,25 @@ test('optional offscreen cleanup does not fail a completed product action', asyn
     await coordinator.maybeClose();
     assert.equal(closeCalls, 0);
   } finally { globalThis.chrome = previousChrome; }
+});
+
+test('Customs cleanup preserves Document Preview memory until its cache is cleared', async () => {
+  const previousChrome = globalThis.chrome;
+  let retained = true, closes = 0;
+  globalThis.chrome = {
+    runtime: {
+      getURL: path => 'chrome-extension://test/' + path,
+      getContexts: async () => [{documentUrl:'chrome-extension://test/offscreen/video-download.html'}],
+      sendMessage: async message => {
+        assert.equal(message.target,'offscreen-resource-status'); return {ok:true,retained};
+      }
+    },
+    storage:{session:{get:async()=>({})}},
+    offscreen:{closeDocument:async()=>{closes++;}}
+  };
+  try {
+    const coordinator=createCustomsOffscreenCoordinator();
+    await coordinator.maybeClose();assert.equal(closes,0);
+    retained=false;await coordinator.maybeClose();assert.equal(closes,1);
+  } finally {globalThis.chrome=previousChrome;}
 });

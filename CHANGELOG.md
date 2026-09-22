@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.3.1 — 2026-09-22
+
+- Moved Document Preview under Customs Province while keeping its Settings position unchanged.
+- Expanded Document Preview to spreadsheets, slides and PDF, including Office template, slideshow and macro-enabled formats. Added worksheet and slide navigation and Chrome’s native PDF viewer.
+- Simplified the feature introduction and added a collapsed, categorized list of supported formats in Settings. Website-session choices now cover every supported format together.
+- Added bounded local Office conversion and script-free previews; macros, embedded programs, remote content and spreadsheet formula evaluation remain inactive.
+- Moved document caching to browser memory. Caches clear 3 hours after the last preview closes, when the source website session ends or when Chrome exits, whichever comes first.
+
 ## 9.2.3 — 2026-09-22
 
 - Deferred Document Preview’s local fetch, validation, and cache creation until the user explicitly chooses Preview or Download. Dismissing a prompt now stores no document bytes.

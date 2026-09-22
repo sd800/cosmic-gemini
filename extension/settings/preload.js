@@ -115,7 +115,12 @@
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = !incognitoContext && cached.clipboardProtect?.enabled === true;
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
-  if (documentPreviewEnabled) documentPreviewEnabled.checked = !incognitoContext && cached.documentPreview?.enabled === true;
+  if (documentPreviewEnabled) {
+    documentPreviewEnabled.checked = !incognitoContext && cached.documentPreview?.enabled === true;
+    document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
+    const appearance = incognitoContext ? 'auto' : cached.documentPreview?.appearance;
+    document.querySelector('#documentPreviewAppearance').value = ['auto', 'light', 'dark'].includes(appearance) ? appearance : 'auto';
+  }
   const accessControlEnabled = document.querySelector('#accessControlEnabled');
   if (accessControlEnabled) {
     accessControlEnabled.checked = cached.accessControl?.enabled === true;

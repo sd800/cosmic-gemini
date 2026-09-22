@@ -237,7 +237,8 @@ export function createStandingProvince(platform) {
     },
     handleMessage,
     handleDeterminingFilename: (item, suggest) => documentPreview.handleDeterminingFilename(item, suggest),
-    handleTabCreated(tab) { return websiteKnowledgeControl.handleTabCreated(tab); },
+    handleAlarm: alarm => documentPreview.handleAlarm(alarm),
+    handleTabCreated(tab) { return Promise.allSettled([websiteKnowledgeControl.handleTabCreated(tab), documentPreview.handleTabCreated(tab)]); },
     handleTabUpdated(tabId, change, tab) { return Promise.allSettled([
       adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab),
       accessControl.handleTabUpdated(tabId, change, tab), langGoogle.handleTabUpdated(tabId, change, tab), documentPreview.handleTabUpdated(tabId, change, tab)

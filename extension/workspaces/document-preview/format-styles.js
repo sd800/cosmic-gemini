@@ -17,9 +17,12 @@ for(const side of ['top','bottom','left','right']){
   values['border-'+side+'-style']=/^(?:none|solid|double|dotted|dashed)$/;
 }
 const colorValue=/^(?:#[a-f\d]{6}|inherit|transparent)$/i;
+export const DOCUMENT_DARK_TEXT = '#f1f3f4';
 function darkColor(value,kind) {
   if(!value.startsWith('#'))return value;
   const rgb=value.slice(1).match(/../g).map(part=>parseInt(part,16));
+  // Neutral document text uses the same white as the preview filename.
+  if(kind==='color'&&Math.max(...rgb)-Math.min(...rgb)<=12)return DOCUMENT_DARK_TEXT;
   const light=rgb.reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0)/255;
   const target=kind==='background-color'?.16:kind.startsWith('border-')?.48:.82;
   const amount=kind==='background-color'?(light>target?1-target/light:0):(light<target?(target-light)/(1-light):0);

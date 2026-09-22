@@ -217,7 +217,12 @@ function render() {
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
-  if (documentPreviewEnabled) documentPreviewEnabled.checked = (states?.preferences || states)?.documentPreview?.enabled === true;
+  if (documentPreviewEnabled) {
+    const preference = (states?.preferences || states)?.documentPreview;
+    documentPreviewEnabled.checked = preference?.enabled === true;
+    document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
+    document.querySelector('#documentPreviewAppearance').value = preference?.appearance || 'auto';
+  }
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
   const accessControl = (states?.preferences || states)?.accessControl;
@@ -333,6 +338,7 @@ function render() {
     if (xhsImageDarkModeOpacityValue) xhsImageDarkModeOpacityValue.textContent = `${xhsImageDarkModeOpacity.value}%`;
   }
   for (const control of pendingControls) control.disabled = true;
+  if (documentPreviewEnabled) document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
 }
 
 async function reload() {
@@ -628,9 +634,16 @@ function bindView() {
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
-  if (documentPreviewEnabled) documentPreviewEnabled.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
-    type: 'UI_SET_ENABLED', featureId: 'documentPreview', enabled: documentPreviewEnabled.checked
-  }), [documentPreviewEnabled]));
+  if (documentPreviewEnabled) documentPreviewEnabled.addEventListener('change', () => {
+    document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
+    void update(null, () => savePreference('documentPreview', {
+      type: 'UI_SET_ENABLED', featureId: 'documentPreview', enabled: documentPreviewEnabled.checked
+    }), [documentPreviewEnabled]);
+  });
+  const documentPreviewAppearance = document.querySelector('#documentPreviewAppearance');
+  if (documentPreviewAppearance) documentPreviewAppearance.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
+    type: 'UI_SET_DOCUMENT_APPEARANCE', featureId: 'documentPreview', appearance: documentPreviewAppearance.value
+  }), [documentPreviewAppearance]));
   if (clipboardProtectEnabled) clipboardProtectEnabled.addEventListener('change', () => void update(null, () => savePreference('clipboardProtect', {
     type: 'UI_SET_ENABLED', featureId: 'clipboardProtect', enabled: clipboardProtectEnabled.checked
   }), [clipboardProtectEnabled]));

@@ -7,10 +7,12 @@ import { formattingEntries } from './fixtures/document-formatting.mjs';
 import { acceptedStyles, formatStylesheet } from '../extension/workspaces/document-preview/format-styles.js';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
-import { inspectDocx, validateDocxContent, docxFilename, readDocumentResponse, DOCUMENT_LIMIT } from '../extension/core/document-preview.js';
+import { inspectDocx, validateDocxContent, docxFilename, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview.js';
 import { siteKey } from '../extension/core/site-key.js';
 import { createDocumentRequestIngress } from '../extension/background/features/document-request-ingress.js';
 import { createDocumentPreviewProduct } from '../extension/background/products/standing/document-preview.js';
+import { createDocumentStatus } from '../extension/workspaces/document-preview/status.js';
+import { previewSrcdoc } from '../extension/workspaces/document-preview/sanitize.js';
 
 export function storedZip(entries, compress = false) {
   let offset = 0;
@@ -77,34 +79,38 @@ test('DOCX preflight bounds file size, ZIP entries and inflated data and rejects
   await assert.rejects(validateDocxContent(compressed), /invalidDocx/, 'actual inflation must be bounded as well');
 });
 
-function environment({ enabled = true, fetchResult, method = 'GET' } = {}) {
-  const saved = {}, files = new Map(), calls = [];
-  const tabs = [{ id: 1, url: 'https://a.example.com/article', incognito: false }, { id: 2, url: 'https://b.example.com/other', incognito: false }];
+function environment({ enabled = true, fetchResult, method = 'GET', incognito = false } = {}) {
+  const saved = {}, files = new Map(), calls = [], alarms = new Map();
+  const tabs = [{ id: 1, url: 'https://a.example.com/article', incognito }, { id: 2, url: 'https://b.example.com/other', incognito }];
   let settings = normalizeSettings({ documentPreview: { enabled } });
   const store = { get: async id => files.get(id), all: async () => [...files.values()], put: async doc => { files.set(doc.id, doc); calls.push('store'); }, remove: async id => files.delete(id) };
   const ingress = { setEnabled(value) { calls.push(['enabled', value]); }, take: () => ({ method, tabId: 1 }) };
   globalThis.fetch = async () => { calls.push('fetch'); return fetchResult ? fetchResult() : new Response(sampleDocx()); };
   globalThis.chrome = {
     runtime: { id: 'test', getURL: path => 'chrome-extension://test/' + path },
+    alarms: { get: async name => alarms.get(name), create: async (name, options) => alarms.set(name, { name, scheduledTime: options.when }), clear: async name => alarms.delete(name) },
     storage: { session: { async get(key) { return { [key]: structuredClone(saved[key]) }; }, async set(value) { Object.assign(saved, structuredClone(value)); } } },
     tabs: { query: async () => tabs, get: async id => tabs.find(tab => tab.id === id), create: async value => { calls.push(['open', value]); return { id: 10 }; } },
     scripting: { executeScript: async value => { calls.push(['dialog', value.args[0]]); return [{ result: true }]; } },
     downloads: { cancel: async () => calls.push('cancel'), erase: async () => calls.push('erase'), download: async options => { calls.push(['download', options]); return 7; } }
   };
-  const platform = { isIncognitoContext: () => false, getLocale: async () => 'en-US', readSettings: async () => settings, mutateSettings: async f => settings = f(settings) };
+  const platform = { isIncognitoContext: () => incognito, getLocale: async () => 'en-US', readSettings: async () => settings, mutateSettings: async f => settings = f(settings) };
   const product = createDocumentPreviewProduct(platform, { store, ingress });
   const capture = (extra = {}) => new Promise(resolve => {
     const handled = product.handleDeterminingFilename({ id: 1, url: 'https://cdn.example.com/file', filename: 'sample.docx', state: 'in_progress', ...extra }, () => { calls.push('suggest'); resolve(); });
     if (!handled) resolve();
   });
   const settle = async () => { await new Promise(resolve => setTimeout(resolve, 10)); };
-  return { product, capture, settle, calls, files, saved, tabs, platform, store, ingress };
+  return { product, capture, settle, calls, files, saved, tabs, platform, store, ingress, alarms };
 }
 const originalFetch = globalThis.fetch;
 test.after(() => { globalThis.fetch = originalFetch; });
 
 test('Document Preview is default-off and preserves unsupported and unprepared downloads', async () => {
   assert.equal(DEFAULT_SETTINGS.documentPreview.enabled, false);
+  assert.equal(DEFAULT_SETTINGS.documentPreview.appearance, 'auto');
+  assert.equal(normalizeSettings({documentPreview:{appearance:'invalid'}}).documentPreview.appearance, 'auto');
+  assert.equal(settingsViewCache({documentPreview:{appearance:'dark'}}).documentPreview.appearance, 'dark');
   assert.equal(settingsViewCache({ documentPreview: { enabled: true } }).documentPreview.enabled, true);
   for (const options of [{ enabled: false }, { method: 'POST' }, { fetchResult: () => new Response('not docx') }, { fetchResult: () => { throw Error('offline'); } }]) {
     const env = environment(options); await env.capture(); await env.settle();
@@ -284,4 +290,150 @@ test('document styles cannot add arbitrary CSS, and source XML declarations are 
   const entries = formattingEntries();
   entries['word/document.xml'] = '<!DOCTYPE document [<!ENTITY test "no">]>' + entries['word/document.xml'];
   await assert.rejects(convert(entries), /Unsupported XML declaration/);
+});
+
+test('document appearance defaults, site overrides and resets follow the source website session', async () => {
+  const env = environment(); await env.capture(); await env.settle();
+  const first = [...env.files.values()][0];
+  const workspace = doc => ({sender:{url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id}});
+  const get = (doc, product=env.product) => product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},workspace(doc));
+  const setTheme = (doc,theme) => env.product.handleMessage({type:'UI_DOCUMENT_SET_THEME',id:doc.id,theme},workspace(doc));
+  const setDefault = appearance => env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  assert.equal((await get(first)).appearance, 'auto');
+  await setDefault('dark'); await setTheme(first,'light');
+  assert.equal((await get(first)).appearance, 'dark'); assert.equal((await get(first)).siteTheme, 'light');
+  env.tabs[0].url = 'https://docs.example.com/downloads';
+  await env.capture({url:'https://cdn.example.com/second'}); await env.settle();
+  const second = [...env.files.values()][1];
+  assert.equal((await get(second)).siteTheme,'light','another document on a subdomain shares the override');
+  env.tabs[0].url = 'https://different.example.org/downloads';
+  await env.capture({url:'https://cdn.example.org/other'}); await env.settle();
+  const other = [...env.files.values()][2];
+  assert.equal((await get(other)).siteTheme,null,'a different eTLD+1 has no override');
+  await setTheme(other,'dark');
+  const resumed = createDocumentPreviewProduct(env.platform,env);
+  assert.equal((await get(first,resumed)).siteTheme,'light','worker sleep retains the website choice');
+  await setTheme(second,null);
+  assert.equal((await get(first)).siteTheme,null); assert.equal((await get(first)).appearance,'dark');
+  await setTheme(first,'light');
+  await env.product.handleMessage({type:'UI_SET_ENABLED',enabled:false},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  assert.equal((await get(first)).siteTheme,'light','disabling new captures preserves open previews');
+  await setTheme(second,'dark');
+  env.tabs.splice(1); await env.product.handleTabRemoved(2);
+  await assert.rejects(get(first), /documentExpired/);
+  assert.deepEqual(env.saved['documentPreview:regular'].themes, {'example.org':'dark'});
+  env.tabs.splice(0); await env.product.handleTabRemoved(1);
+  assert.deepEqual(env.saved['documentPreview:regular'].themes,{});
+});
+
+test('appearance commands reject invalid callers and values, and incognito overrides stay separate', async () => {
+  const env = environment({incognito:true});
+  env.saved['documentPreview:regular'] = {themes:{'example.com':'dark'}};
+  await env.capture(); await env.settle();
+  const doc = [...env.files.values()][0];
+  const sender = {url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id};
+  const command = {type:'UI_DOCUMENT_SET_THEME',id:doc.id,theme:'light'};
+  await env.product.handleMessage(command,{sender});
+  assert.deepEqual(env.saved['documentPreview:incognito'].themes,{'example.com':'light'});
+  assert.deepEqual(env.saved['documentPreview:regular'].themes,{'example.com':'dark'});
+  await assert.rejects(env.product.handleMessage({...command,theme:'invalid'},{sender}));
+  await assert.rejects(env.product.handleMessage(command,{sender:{url:'https://example.com',frameId:0,tab:env.tabs[0]}}));
+  await assert.rejects(env.product.handleMessage(command,{sender:{url:sender.url.replace(doc.id,'other')}}));
+  await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'light'},{sender}));
+  await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'invalid'},{sender:{url:'chrome-extension://test/settings/satellites.html'}}));
+  chrome.storage.session.set = async () => { throw Error('storage unavailable'); };
+  await assert.rejects(env.product.handleMessage({...command,theme:'dark'},{sender}), /storage unavailable/);
+  assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender})).siteTheme,'light','a failed write cannot change the authoritative session preference');
+});
+
+test('closed previews expire after ten hours, with open copies and source sessions respected', async t => {
+  t.mock.timers.enable({apis:['Date'],now:1800000000000});
+  const env = environment(); await env.capture(); await env.settle();
+  const doc = [...env.files.values()][0], alarmName = DOCUMENT_CLEANUP_ALARM_PREFIX + 'regular';
+  const preview = {id:10,incognito:false,url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id};
+  const metadata = () => env.saved['documentPreview:regular'].documents.find(value => value.id === doc.id);
+  env.tabs.push(preview); await env.product.handleTabCreated(preview);
+  assert.equal(metadata().closedAt,null); assert.equal(env.alarms.size,0);
+  const copy = {...preview,id:11}; env.tabs.push(copy); await env.product.handleTabCreated(copy);
+  env.tabs.splice(env.tabs.indexOf(preview),1); await env.product.handleTabRemoved(preview.id);
+  t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION * 2);
+  await env.product.handleAlarm({name:alarmName});
+  assert.equal(env.files.size,1,'an open duplicate protects the cached file from the closed-preview deadline');
+  env.tabs.splice(env.tabs.indexOf(copy),1); await env.product.handleTabRemoved(copy.id);
+  const closedAt = Date.now(); assert.equal(metadata().closedAt,closedAt);
+  assert.equal(env.alarms.get(alarmName).scheduledTime,closedAt+DOCUMENT_CLOSED_RETENTION);
+  t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION-1);
+  await env.product.handleTabUpdated(1,{url:env.tabs[0].url});
+  assert.equal(metadata().closedAt,closedAt,'unrelated page changes cannot extend the deadline');
+  const resumed = createDocumentPreviewProduct(env.platform,env); await resumed.initialize();
+  assert.equal(env.alarms.get(alarmName).scheduledTime,closedAt+DOCUMENT_CLOSED_RETENTION,'worker restart preserves the original deadline');
+  assert.equal(env.files.size,1);
+  t.mock.timers.tick(1);
+  await resumed.handleAlarm({name:alarmName});
+  assert.equal(env.files.size,0); assert.equal(env.alarms.size,0);
+  assert.equal(env.saved['documentPreview:regular'].documents.length,0);
+  await assert.rejects(resumed.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender:{url:preview.url}}),/documentExpired/);
+});
+
+test('reopening cancels a document deadline, navigation restarts it, and an earlier source exit wins', async t => {
+  t.mock.timers.enable({apis:['Date'],now:1800000000000});
+  const env = environment(); await env.capture(); await env.settle();
+  const doc = [...env.files.values()][0], alarmName = DOCUMENT_CLEANUP_ALARM_PREFIX + 'regular';
+  const preview = {id:10,incognito:false,url:'about:blank',pendingUrl:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id};
+  t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION-1);
+  env.tabs.push(preview); await env.product.handleTabCreated(preview);
+  assert.equal(env.alarms.size,0,'pending preview URLs already cancel the countdown');
+  preview.url = preview.pendingUrl; delete preview.pendingUrl;
+  t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION*2); await env.product.handleAlarm({name:alarmName});
+  assert.equal(env.files.size,1);
+  preview.url = 'about:blank'; await env.product.handleTabUpdated(10,{url:preview.url});
+  assert.equal(env.alarms.get(alarmName).scheduledTime,Date.now()+DOCUMENT_CLOSED_RETENTION);
+  await env.product.handleMessage({type:'UI_SET_ENABLED',enabled:false},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  const before = env.alarms.get(alarmName).scheduledTime;
+  assert.equal(await env.product.handleAlarm({name:DOCUMENT_CLEANUP_ALARM_PREFIX+'incognito'}),false);
+  assert.equal(env.alarms.get(alarmName).scheduledTime,before);
+  env.tabs.splice(0,2); await env.product.handleTabRemoved(1);
+  assert.equal(env.files.size,0,'source-site closure expires bytes before the ten-hour deadline, even while capture is off');
+  assert.equal(env.alarms.size,0);
+});
+
+test('each document has its own deadline and expired files cannot be revived by a late preview', async t => {
+  t.mock.timers.enable({apis:['Date'],now:1800000000000});
+  const env = environment(); await env.capture(); await env.settle();
+  const first = [...env.files.values()][0], alarmName = DOCUMENT_CLEANUP_ALARM_PREFIX+'regular';
+  const firstDeadline = env.alarms.get(alarmName).scheduledTime;
+  t.mock.timers.tick(60000); await env.capture({url:'https://cdn.example.com/second'}); await env.settle();
+  const second = [...env.files.values()][1];
+  assert.equal(env.alarms.size,1); assert.equal(env.alarms.get(alarmName).scheduledTime,firstDeadline);
+  t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION-60000);
+  const preview = {id:10,incognito:false,url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+first.id};
+  await assert.rejects(env.product.handleMessage({type:'UI_DOCUMENT_GET',id:first.id},{sender:{url:preview.url}}),/documentExpired/,'commands also reject expired files before a delayed alarm fires');
+  env.tabs.push(preview); await env.product.handleTabCreated(preview);
+  assert.deepEqual([...env.files.keys()],[second.id]);
+  assert.equal(env.alarms.get(alarmName).scheduledTime,firstDeadline+60000);
+  t.mock.timers.tick(60000); await env.product.handleAlarm({name:alarmName});
+  assert.equal(env.files.size,0); assert.equal(env.alarms.size,0);
+});
+
+test('temporary document notices last fifteen seconds and cannot erase newer states', t => {
+  t.mock.timers.enable({apis:['setTimeout']});
+  const element = {textContent:''}, status = createDocumentStatus(element);
+  status.show('download started',true); t.mock.timers.tick(14999);
+  assert.equal(element.textContent,'download started'); t.mock.timers.tick(1); assert.equal(element.textContent,'');
+  status.show('download started',true); t.mock.timers.tick(10000); status.show('retry failed',true);
+  t.mock.timers.tick(5000); assert.equal(element.textContent,'retry failed');
+  t.mock.timers.tick(10000); assert.equal(element.textContent,'');
+  status.show('download started',true); status.show('expired'); t.mock.timers.tick(30000);
+  assert.equal(element.textContent,'expired');
+  status.show('notice',true); status.clear(); t.mock.timers.tick(30000); assert.equal(element.textContent,'notice');
+});
+
+test('dark document text uses the filename white for defaults and neutral source colors', () => {
+  assert.match(previewSrcdoc('<p>Text</p>','en-US'), /@media\(prefers-color-scheme:dark\)\{html\{background:#202124;color:#f1f3f4\}/);
+  const css = formatStylesheet({styles:[{color:'#000000'},{color:'#333333'},{color:'#ffffff'},{color:'#2468ac'},{'background-color':'#ffffff'}]});
+  const dark = css.slice(css.indexOf('@media'));
+  for(let i=0;i<3;i++)assert.ok(dark.includes('.cg-f'+i+'{color:#f1f3f4}'));
+  assert.match(dark, /cg-f3\{color:#[a-f0-9]{6}\}/);
+  assert.doesNotMatch(dark, /cg-f3\{color:#f1f3f4\}/, 'colored source text retains its hue');
+  assert.match(dark, /background-color:#292929/);
 });

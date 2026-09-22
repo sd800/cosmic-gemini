@@ -1,3 +1,5 @@
+import { normalizeDocumentAppearance } from './document-appearance.js';
+
 export const SETTINGS_KEY = 'cosmicGeminiSettings';
 export const INCOGNITO_SETTINGS_KEY = 'cosmicGeminiIncognitoSettings';
 export const INCOGNITO_LOCALE_KEY = 'cosmicGeminiIncognitoLocale';
@@ -79,7 +81,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
-  documentPreview: Object.freeze({ enabled: false }),
+  documentPreview: Object.freeze({ enabled: false, appearance: 'auto' }),
   langGoogle: Object.freeze({ enabled: false }),
   accessControl: Object.freeze({
     enabled: false,
@@ -320,7 +322,7 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
-    documentPreview: { enabled: value.documentPreview?.enabled === true },
+    documentPreview: { enabled: value.documentPreview?.enabled === true, appearance: normalizeDocumentAppearance(value.documentPreview?.appearance) },
     langGoogle: { enabled: value.langGoogle?.enabled === true },
     accessControl: {
       enabled: value.accessControl?.enabled === true,

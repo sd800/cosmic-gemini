@@ -1,7 +1,8 @@
 import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature } from '../../../core/config.js';
-import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCX_MIME, docxFilename, readDocumentResponse } from '../../../core/document-preview.js';
+import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCX_MIME, docxFilename, readDocumentResponse } from '../../../core/document-preview.js';
 import { documentStore } from '../../../core/document-preview-store.js';
 import { siteKey } from '../../../core/site-key.js';
+import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-appearance.js';
 import { translator } from '../../../shared/localization.js';
 import { showDocumentChoice } from '../../../content/document-preview-dialog.js';
 import { createDocumentRequestIngress } from '../../features/document-request-ingress.js';
@@ -14,12 +15,24 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   ingress.setEnabled(true);
   const contextName = platform.isIncognitoContext?.() ? 'incognito' : 'regular';
   const sessionKey = 'documentPreview:' + contextName;
+  const cleanupAlarm = DOCUMENT_CLEANUP_ALARM_PREFIX + contextName;
   let state, initialization, queue = Promise.resolve();
   const captures = new Map();
   const downloadNames = new Map();
   const serial = task => { const result = queue.then(task); queue = result.catch(() => {}); return result; };
   const persist = () => chrome.storage.session.set({ [sessionKey]: state });
   const tabsInContext = async () => (await chrome.tabs.query({})).filter(tab => !!tab.incognito === platform.isIncognitoContext());
+  function previewId(url) {
+    const [path, hash] = String(url || '').split('#');
+    return path === chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) ? new URLSearchParams(hash).get('id') : null;
+  }
+  async function scheduleCleanup() {
+    const deadlines = state.documents.filter(doc => Number.isFinite(doc.closedAt)).map(doc => doc.closedAt + DOCUMENT_CLOSED_RETENTION);
+    const when = deadlines.length ? Math.min(...deadlines) : null;
+    const existing = await chrome.alarms.get(cleanupAlarm);
+    if (when === null) { if (existing) await chrome.alarms.clear(cleanupAlarm); }
+    else if (existing?.scheduledTime !== when) await chrome.alarms.create(cleanupAlarm, { when });
+  }
   async function sourceTab(request, item) {
     const tab = await chrome.tabs.get(request.tabId).catch(() => null);
     const referrer = String(item.referrer || '').split('#')[0];
@@ -33,14 +46,29 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     return tab;
   }
   async function prune(clearAll = false) {
-    const sites = new Set(clearAll ? [] : (await tabsInContext()).map(tab => siteKey(tab.url)).filter(Boolean));
+    const tabs = clearAll ? [] : await tabsInContext();
+    const sites = new Set(tabs.map(tab => siteKey(tab.url)).filter(Boolean));
+    const openIds = new Set(tabs.map(tab => previewId(tab.pendingUrl || tab.url)).filter(Boolean));
+    const now = Date.now();
     for (const [controller, site] of captures) if (!sites.has(site)) controller.abort();
-    const expired = state.documents.filter(doc => !sites.has(doc.site));
+    const expired = [], retained = [];
+    let lifetimeChanged = false;
+    for (const doc of state.documents) {
+      if (!sites.has(doc.site) || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= now)) {
+        expired.push(doc); continue;
+      }
+      const closedAt = openIds.has(doc.id) ? null : (doc.closedAt ?? now);
+      if (doc.closedAt !== closedAt) { doc.closedAt = closedAt; lifetimeChanged = true; }
+      retained.push(doc);
+    }
     const choiceCount = Object.keys(state.choices).length;
-    state.documents = state.documents.filter(doc => sites.has(doc.site));
+    const themeCount = Object.keys(state.themes).length;
+    state.documents = retained;
     state.choices = Object.fromEntries(Object.entries(state.choices).filter(([site]) => sites.has(site)));
-    if (expired.length || Object.keys(state.choices).length !== choiceCount) await persist();
+    state.themes = Object.fromEntries(Object.entries(state.themes).filter(([site]) => sites.has(site)));
+    if (expired.length || lifetimeChanged || Object.keys(state.choices).length !== choiceCount || Object.keys(state.themes).length !== themeCount) await persist();
     for (const doc of expired) await store.remove(doc.id);
+    await scheduleCleanup();
     return sites;
   }
   async function initialize() {
@@ -48,6 +76,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const saved = (await chrome.storage.session.get(sessionKey))[sessionKey];
       state = saved?.epoch && Array.isArray(saved.documents)
         ? saved : { epoch: crypto.randomUUID(), documents: [], choices: {} };
+      state.themes = Object.fromEntries(Object.entries(state.themes || {}).filter(([, value]) => value === 'light' || value === 'dark'));
       const enabled = (await platform.readSettings()).documentPreview?.enabled === true;
       ingress.setEnabled(enabled);
       await prune();
@@ -74,7 +103,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   async function currentDocument(id) {
     await initialize();
     const doc = state.documents.find(value => value.id === id);
-    if (!doc || !(await tabsInContext()).some(tab => siteKey(tab.url) === doc.site)) throw Error('documentExpired');
+    if (!doc || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= Date.now())
+      || !(await tabsInContext()).some(tab => siteKey(tab.url) === doc.site)) throw Error('documentExpired');
     return doc;
   }
   async function open(doc, mode = 'preview') {
@@ -118,7 +148,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       captures.set(controller, site);
       const url = item.finalUrl || item.url;
       if (!/^https?:\/\//i.test(url)) return;
-      const cached = state.documents.find(doc => doc.site === site && doc.url === url);
+      const cached = state.documents.find(doc => doc.site === site && doc.url === url
+        && !(Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= Date.now()));
       let blob = cached && (await store.get(cached.id))?.blob;
       if (!blob) {
         const response = await fetch(url, { credentials: 'include', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
@@ -133,9 +164,10 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         if (existing && await store.get(existing.id)) savedDoc = existing;
         else {
           if (state.documents.length >= 24 || state.documents.reduce((sum, doc) => sum + doc.size, 0) + blob.size > CACHE_LIMIT) return;
-          savedDoc = { id: crypto.randomUUID(), site, filename: docxFilename(item), size: blob.size, url };
+          savedDoc = { id: crypto.randomUUID(), site, filename: docxFilename(item), size: blob.size, url, closedAt: Date.now() };
           await store.put({ ...savedDoc, blob, context: contextName, epoch: state.epoch });
           state.documents.push(savedDoc); await persist();
+          await scheduleCleanup();
         }
         if (released || controller.signal.aborted) return;
         clearTimeout(deadline); // Do not release filename selection mid-cancellation.
@@ -181,6 +213,12 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     },
     async handleMessage(message, context) {
       const senderUrl = String(context.sender?.url || '');
+      if (message.type === 'UI_SET_DOCUMENT_APPEARANCE') {
+        if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) throw Error('Settings only.');
+        if (!DOCUMENT_APPEARANCES.includes(message.appearance)) throw Error('Unknown appearance.');
+        const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({ ...feature, appearance: message.appearance })));
+        return settings.documentPreview;
+      }
       if (message.type === 'UI_SET_ENABLED') {
         if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) throw Error('Settings only.');
         const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({ ...feature, enabled: message.enabled === true })));
@@ -200,7 +238,23 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const doc = await currentDocument(String(message.id || ''));
       if (page && siteKey(context.sender.tab?.url) !== doc.site) throw Error('The source website changed.');
       if (workspace && new URLSearchParams(senderUrl.split('#')[1] || '').get('id') !== doc.id) throw Error('Wrong document.');
-      if (message.type === 'UI_DOCUMENT_GET') return { ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.site] || 'ask' };
+      if (message.type === 'UI_DOCUMENT_GET') return {
+        ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.site] || 'ask',
+        appearance: normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance),
+        siteTheme: state.themes[doc.site] || null
+      };
+      if (message.type === 'UI_DOCUMENT_SET_THEME') {
+        if (!workspace || ![null, 'light', 'dark'].includes(message.theme)) throw Error('Unknown appearance.');
+        return serial(async () => {
+          await currentDocument(doc.id);
+          const previous = { ...state.themes };
+          if (message.theme === null) delete state.themes[doc.site];
+          else state.themes[doc.site] = message.theme;
+          try { await persist(); }
+          catch (error) { state.themes = previous; throw error; }
+          return { siteTheme: state.themes[doc.site] || null };
+        });
+      }
       if (['CG_DOCUMENT_CHOICE', 'UI_DOCUMENT_CHOICE'].includes(message.type)) {
         if (!['preview', 'download', 'dismiss'].includes(message.action)) throw Error('Unknown action.');
         if (message.action === 'dismiss') return { dismissed: true };
@@ -223,8 +277,13 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       }
       throw Error('Unknown document command.');
     },
-    handleTabUpdated(_id, change) { return change.url && (state?.documents.length || Object.keys(state?.choices || {}).length || captures.size) ? reconcile() : false; },
-    handleTabRemoved() { return state?.documents.length || Object.keys(state?.choices || {}).length || captures.size ? reconcile() : false; },
+    handleTabCreated(tab) { return previewId(tab.pendingUrl || tab.url) ? reconcile() : false; },
+    async handleAlarm(alarm) {
+      if (alarm.name !== cleanupAlarm) return false;
+      await reconcile(); return true;
+    },
+    handleTabUpdated(_id, change) { return change.url && (state?.documents.length || Object.keys(state?.choices || {}).length || Object.keys(state?.themes || {}).length || captures.size) ? reconcile() : false; },
+    handleTabRemoved() { return state?.documents.length || Object.keys(state?.choices || {}).length || Object.keys(state?.themes || {}).length || captures.size ? reconcile() : false; },
     handleStorageChanged(changes, area) {
       const key = platform.isIncognitoContext() ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       const change = changes[key];

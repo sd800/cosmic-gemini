@@ -1,4 +1,5 @@
 import { normalizeAccessControlDomain, normalizeWebsiteKnowledge } from './config.js';
+import { normalizeDocumentAppearance } from './document-appearance.js';
 
 export const SETTINGS_VIEW_CACHE_KEY = 'cosmicGeminiSettingsViewCache';
 
@@ -33,7 +34,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
-    documentPreview: { enabled: states.documentPreview?.enabled === true },
+    documentPreview: { enabled: states.documentPreview?.enabled === true, appearance: normalizeDocumentAppearance(states.documentPreview?.appearance) },
     langGoogle: { enabled: states.langGoogle?.enabled === true },
     accessControl: {
       enabled: states.accessControl?.enabled === true,

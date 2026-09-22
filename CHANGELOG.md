@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.2.2 — 2026-09-22
+
+- Added an Auto / Light / Dark appearance menu to Document Preview settings. Manual preview choices now apply across the source website and its subdomains for the current website session; Default restores the settings preference.
+- Matched the default dark-mode document text to the filename’s brighter white for easier reading.
+- Made temporary file-information notices disappear after 15 seconds, while retaining loading, rendering-failure and expired-preview states.
+- Added automatic cache cleanup 10 hours after a document’s last preview closes, or when its source website session ends, whichever comes first. Reopening a preview before expiry cancels its countdown while it remains open.
+
 ## 9.2.1 — 2026-09-22
 
 - Improved Document Preview’s reading layout and preservation of common Word formatting, including fonts, text colors, paragraph alignment and spacing, indentation, list numbering, and table column widths, borders and shading. Document colors remain readable in dark mode.

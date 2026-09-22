@@ -1,6 +1,6 @@
 import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
-import { BILI_DAILY_ALARM } from '../core/bili-daily-login.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
+import { DOCUMENT_CLEANUP_ALARM_PREFIX } from '../core/document-preview.js';
 import { centralPageDirectives, syncCentralPageProducts } from './central-policy.js';
 import { validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';
@@ -238,9 +238,8 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   return provinces.customs.handleDeterminingFilename(item, suggest) || provinces.standing.handleDeterminingFilename(item, suggest);
 });
 chrome.alarms.onAlarm.addListener(alarm => {
-  const province = alarm.name === BILI_DAILY_ALARM ? provinces.operations
-    : alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) ? provinces.customs
-      : provinces.operations;
+  const province = alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) ? provinces.customs
+    : alarm.name.startsWith(DOCUMENT_CLEANUP_ALARM_PREFIX) ? provinces.standing : provinces.operations;
   void province.handleAlarm(alarm).catch(() => {});
 });
 chrome.storage.onChanged.addListener((changes, areaName) => {

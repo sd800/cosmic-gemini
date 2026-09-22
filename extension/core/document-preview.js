@@ -2,6 +2,8 @@ export const DOCUMENT_PREVIEW_PATH = 'workspaces/document-preview/document-previ
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 export const DOCUMENT_LIMIT = 24 * 1024 * 1024;
 export const CACHE_LIMIT = 64 * 1024 * 1024;
+export const DOCUMENT_CLEANUP_ALARM_PREFIX = 'documentPreviewCleanup:';
+export const DOCUMENT_CLOSED_RETENTION = 10 * 60 * 60 * 1000;
 
 export function docxFilename(item) {
   const name = String(item.filename || '').split(/[/\\]/).pop();

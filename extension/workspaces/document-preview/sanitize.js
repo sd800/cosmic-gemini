@@ -1,4 +1,4 @@
-import { acceptedStyles, formatStylesheet } from './format-styles.js';
+import { acceptedStyles, formatStylesheet, DOCUMENT_DARK_TEXT } from './format-styles.js';
 const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd'.split(' '));
 const DROP = new Set('script style iframe frame object embed form input button textarea select meta link base svg math'.split(' '));
 
@@ -51,7 +51,7 @@ export function previewSrcdoc(body, locale, formatting) {
     table{border-collapse:collapse;max-width:100%;margin:8pt 0}td,th{border:1px solid #bfc3c8;padding:4pt 6pt;vertical-align:top;font-weight:inherit}td>p:last-child,th>p:last-child{margin-bottom:0}col{max-width:100%}
     a{color:#0b57d0}pre{white-space:pre-wrap}blockquote{border-left:3px solid #ccc;padding-left:16px;margin-left:0}.cg-list-marker{display:inline-block;white-space:pre;text-align:start}
     .cg-page-break{display:block;height:0;min-height:0;border:0;border-top:1px dashed #bfc3c8;margin:22px 0;clear:both;text-indent:0}
-    @media(prefers-color-scheme:dark){html{background:#202124;color:#e8eaed}body{background:#292a2d}a{color:#a8c7fa}td,th,blockquote,.cg-page-break{border-color:#5f6368}}
+    @media(prefers-color-scheme:dark){html{background:#202124;color:${DOCUMENT_DARK_TEXT}}body{background:#292a2d}a{color:#a8c7fa}td,th,blockquote,.cg-page-break{border-color:#5f6368}}
     ${formatStylesheet(formatting)}
     @media(max-width:700px){body{width:100%;margin:0;min-height:100vh;padding:24px 18px;box-shadow:none}}
     </style></head><body>${body}</body></html>`;

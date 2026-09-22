@@ -203,6 +203,17 @@ export function viewFor(featureId) {
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="documentPreview" aria-hidden="true"></span><h1 data-i18n="documentPreviewName"></h1></div><p data-i18n="documentPreviewDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="documentPreviewEnabled" type="checkbox"><span></span><b class="sr-only">Document Preview</b></label></div>
         </div>
+        <fieldset id="documentPreviewOptions" class="knowledge-options" disabled>
+          <legend class="sr-only" data-i18n="documentAppearance"></legend>
+          <div class="knowledge-row">
+            <label for="documentPreviewAppearance"><span><strong data-i18n="documentAppearance"></strong><small data-i18n="documentAppearanceHelp"></small></span></label>
+            <select id="documentPreviewAppearance">
+              <option value="auto" data-i18n="documentAppearanceAuto"></option>
+              <option value="light" data-i18n="documentAppearanceLight"></option>
+              <option value="dark" data-i18n="documentAppearanceDark"></option>
+            </select>
+          </div>
+        </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="documentPreviewPrivacy"></p></div>
       </section>
       <section class="card satellite-card">

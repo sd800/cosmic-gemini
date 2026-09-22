@@ -1,5 +1,5 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
@@ -115,7 +115,7 @@ function renderList(section) {
         ? { type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule }
         : { type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule }
     ), [remove]));
-    if (section.dataset.featureId === 'accessControl') {
+    if (section.dataset.featureId === 'accessControl' || section.dataset.domainScope === 'subdomains') {
       const label = document.createElement('span');
       label.className = 'access-control-rule-label';
       const scope = document.createElement('span');
@@ -534,14 +534,17 @@ function openRuleInputHelp(input) {
   panel.input = input;
   const section = input.closest('[data-list-section]');
   const accessControl = section?.dataset.featureId === 'accessControl';
+  const documentWhitelist = section?.dataset.featureId === 'documentPreview';
   const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
   const aliasGroups = accessControl ? ACCESS_CONTROL_ALIAS_GROUPS : [];
   panel.heading.textContent = t(accessControl ? 'accessControlInputHelpHeading' : 'ruleInputHelpHeading');
-  panel.intro.textContent = t(accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
+  panel.intro.textContent = t(documentWhitelist ? 'documentWhitelistDescription' : accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
   panel.behavior.hidden = !behaviorEditor;
   panel.behavior.textContent = behaviorEditor ? t('ruleInputBehaviorHelp') : '';
   panel.rulesHeading.textContent = t('ruleInputRulesHeading');
-  panel.rules.replaceChildren(...(accessControl
+  panel.rules.replaceChildren(...(documentWhitelist
+    ? [helpTextItem('documentWhitelistDomainHelp'), helpTextItem('documentWhitelistIpHelp')]
+    : accessControl
     ? [helpTextItem('accessControlInputDomainHelp'), helpTextItem('accessControlInputIpHelp')]
     : [helpTextItem('ruleInputExactHelp'), helpTextItem('ruleInputWildcardHelp')]),
   helpTextItem('ruleInputExpansionHelp'));
@@ -891,7 +894,9 @@ function bindView() {
       try {
         rule = sectionFeatureId === 'accessControl'
           ? normalizeAccessControlRuleInput(input.value)
-          : normalizeWebsiteRuleInput(input.value);
+          : section.dataset.domainScope === 'subdomains'
+            ? normalizeAccessControlDomain(normalizeWebsiteRuleInput(input.value))
+            : normalizeWebsiteRuleInput(input.value);
       } catch {
         message.textContent = t(sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
         return;

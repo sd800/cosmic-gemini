@@ -1,6 +1,9 @@
 const unzip = require('mammoth/lib/unzip');
 const xml = require('mammoth/lib/xml');
 const NS = {};
+for (const name of ['office','text','style','table','presentation','manifest']) NS['urn:oasis:names:tc:opendocument:xmlns:'+name+':1.0'] = name;
+for (const [name,prefix] of [['drawing','draw'],['xsl-fo-compatible','fo'],['svg-compatible','svg'],['datastyle','number']]) NS['urn:oasis:names:tc:opendocument:xmlns:'+name+':1.0'] = prefix;
+NS['http://www.w3.org/1999/xlink'] = 'xlink';
 for (const [name, prefix] of [['spreadsheetml','s'],['presentationml','p'],['drawingml','a']]) {
   NS['http://schemas.openxmlformats.org/'+name+'/2006/main'] = prefix;
   NS['http://purl.oclc.org/ooxml/'+name+'/main'] = prefix;

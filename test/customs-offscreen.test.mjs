@@ -120,3 +120,21 @@ test('Customs cleanup preserves Document Preview memory until its cache is clear
     retained=false;await coordinator.maybeClose();assert.equal(closes,1);
   } finally {globalThis.chrome=previousChrome;}
 });
+
+test('offscreen processing accepts only Central, not content scripts or extension workspaces', async () => {
+  const {isProcessorSender} = await import('../extension/offscreen/security.js');
+  const runtime = {id:'test',getURL:path=>'chrome-extension://test/'+path};
+  assert.equal(isProcessorSender({id:'test',url:runtime.getURL('background/central.js')},runtime),true);
+  for(const sender of [null,{}, {id:'other',url:runtime.getURL('background/central.js')}, ...['settings/satellites.html','workspaces/document-preview/document-preview.html','background/central.js#fake'].map(path=>({id:'test',url:runtime.getURL(path)})),{id:'test',url:'https://example.com/'}]) {
+    assert.equal(isProcessorSender(sender,runtime),false);
+  }
+});
+
+test('media byte limits cancel oversized streams even without a trustworthy content length', async () => {
+  const {readBoundedBytes}=await import('../extension/offscreen/security.js');
+  assert.deepEqual([...await readBoundedBytes(new Response(new Uint8Array([1,2,3])),3)],[1,2,3]);
+  let cancelled=false;
+  const response=new Response(new ReadableStream({pull(controller){controller.enqueue(new Uint8Array(4));},cancel(){cancelled=true;}}),{headers:{'content-length':'1'}});
+  await assert.rejects(readBoundedBytes(response,6),/size limit/);assert.equal(cancelled,true);
+  await assert.rejects(readBoundedBytes(new Response('large',{headers:{'content-length':'999'}}),6),/size limit/);
+});

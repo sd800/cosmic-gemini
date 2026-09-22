@@ -1,11 +1,11 @@
 import { blobCommand, hasBlobs } from './blob-cache.js';
+import { isProcessorSender } from './security.js';
 let media;
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if (sender.id !== chrome.runtime.id || !String(sender.url || '').startsWith(chrome.runtime.getURL(''))) return false;
+  if (!isProcessorSender(sender, chrome.runtime)) return false;
   if (message?.target === 'ephemeral-blob-cache') {
     // Only the background product may mutate or read the cache. Web pages and
     // preview documents obtain bounded, authorized metadata through Central.
-    if (sender.url !== chrome.runtime.getURL('background/central.js')) { reply({ ok: false }); return false; }
     try { reply({ ok: true, result: blobCommand(message) }); }
     catch (error) { reply({ ok: false, error: error.message }); }
     return false;

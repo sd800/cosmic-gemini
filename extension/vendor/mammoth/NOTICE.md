@@ -4,7 +4,7 @@ Mammoth 1.12.3, BSD-2-Clause license, by Michael Williamson.
 Upstream: https://github.com/mwilliamson/mammoth.js
 Package: https://registry.npmjs.org/mammoth/-/mammoth-1.12.3.tgz
 The browser bundle is rebuilt locally from the upstream source with locked
-compatible dependencies and Cosmic Gemini’s local formatting adapter and static spreadsheet/presentation readers. Exact-match
+compatible dependencies and Cosmic Gemini’s local formatting adapter and static spreadsheet/presentation, legacy Office, RTF, OpenDocument and email readers. Exact-match
 build hooks carry formatting context through parsing and HTML conversion and reuse
 parsed XML parts. First-party adapter sources are in `scripts/document-renderer/`.
 Full runtime dependency notices are included in
@@ -14,7 +14,7 @@ Package integrity (SHA-512/base64):
 `kkv2MrSFk3f/w3uLsz4FG/91LdWp2j+qmp7AjG2v7w2xgX5YDxiaFlaWourXrXtyUR6335+9guyIlPBnhHLvKw==`
 
 Browser bundle SHA-256:
-`5197471680be938cd4ce44fde3df0071479116ef6a415a127f89ca2f7bc34d32`
+`86e5e5f291a8f9a82c5c08978f5afb48363ba554906d3a3465e5ffceb50b2b82`
 
 Build inputs: docs/document-renderer-build/package-lock.json.
 Build command: node scripts/build-document-renderer.mjs <build-directory>.

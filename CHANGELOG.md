@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.4.1 — 2026-09-22
+
+- Expanded Document Preview to `.doc/.xls/.ppt/.rtf/.odt/.ods/.odp/.eml`, including email messages under Other in the supported-format list. Legacy Word and PowerPoint files use content-oriented previews.
+- Added a loading line and status feedback as soon as Preview is selected, without percentage numbers. Refined the supported-format disclosure and removed the layout disclaimer from the document header.
+- Strengthened local parsing, static-content isolation and remote-resource blocking for document previews. PDF continues to use Chrome’s native viewer.
+- Hardened Customs Province’s processor authorization, document-cache transfers, original-file downloads and media-processing resource limits.
+- Added a Document Preview website whitelist that includes all subdomains, with ordered editing and input help. Access Control and Document Preview domain lists now use two columns except in narrow windows.
+
 ## 9.3.1 — 2026-09-22
 
 - Moved Document Preview under Customs Province while keeping its Settings position unchanged.

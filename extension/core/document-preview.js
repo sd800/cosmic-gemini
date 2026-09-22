@@ -1,5 +1,19 @@
 export const DOCUMENT_PREVIEW_PATH = 'workspaces/document-preview/document-preview.html';
+export function documentPreviewWhitelisted(url, domains = []) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/\.$/, '');
+    return domains.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+  } catch { return false; }
+}
 export const DOCUMENT_TYPES = Object.freeze({
+  doc: 'application/msword',
+  rtf: 'application/rtf',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  odp: 'application/vnd.oasis.opendocument.presentation',
+  eml: 'message/rfc822',
+  xls: 'application/vnd.ms-excel',
+  ppt: 'application/vnd.ms-powerpoint',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   docm: 'application/vnd.ms-word.document.macroEnabled.12',
   dotx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
@@ -18,7 +32,10 @@ export const DOCUMENT_TYPES = Object.freeze({
 });
 export function documentKind(format) {
   if (!Object.hasOwn(DOCUMENT_TYPES, format)) return '';
-  return format === 'pdf' ? 'pdf' : format.startsWith('do') ? 'docx' : format.startsWith('xl') ? 'xlsx' : 'pptx';
+  if (['pdf', 'eml'].includes(format)) return format;
+  if (format.startsWith('xl') || format === 'ods') return 'xlsx';
+  if (format.startsWith('pp') || format.startsWith('po') || format === 'odp') return 'pptx';
+  return 'docx';
 }
 export function documentFormat(filename) {
   const format = String(filename || '').match(/\.([a-z]+)$/i)?.[1].toLowerCase();
@@ -71,20 +88,46 @@ export function inspectOffice(buffer, format = 'docx') {
     if (new TextDecoder().decode(new Uint8Array(buffer, offset + 30, view.getUint16(offset + 26, true))) !== name) throw Error('invalidDocument');
     total += size;
     if (size > 32 * 1024 * 1024 || total > 80 * 1024 * 1024 || size > Math.max(1024 * 1024, compressed * 300)) throw Error('documentTooLarge');
-    names.add(name); files.push({ start, compressed, size, method }); at = next;
+    names.add(name); files.push({ name, start, compressed, size, method }); at = next;
   }
-  const main = { docx: 'word/document.xml', xlsx: 'xl/workbook.xml', pptx: 'ppt/presentation.xml' }[documentKind(format)];
-  if (!main || at !== end || !names.has('[Content_Types].xml') || !names.has(main)) throw Error('invalidDocument');
+  const odf = ['odt', 'ods', 'odp'].includes(format);
+  const main = odf ? 'content.xml' : { docx: 'word/document.xml', xlsx: 'xl/workbook.xml', pptx: 'ppt/presentation.xml' }[documentKind(format)];
+  if (!main || at !== end || !names.has(odf ? 'mimetype' : '[Content_Types].xml') || !names.has(main)) throw Error('invalidDocument');
   // Macro formats expose static content only: the renderers never read or run
   // VBA, ActiveX or embedded objects. Do not accept them under a non-macro name.
   if (!format.endsWith('m') && [...names].some(name => /(?:^|\/)(?:vbaProject\.bin|activeX)(?:$|\/)/i.test(name))) throw Error('invalidDocument');
+  if (odf) {
+    const mime = files.find(file => file.name === 'mimetype');
+    if (mime.method !== 0 || new TextDecoder().decode(new Uint8Array(buffer, mime.start, mime.size)) !== DOCUMENT_TYPES[format]) throw Error('invalidDocument');
+  }
   return { entries: count, expandedBytes: total, files };
 }
 
-// Validate actual inflation in bounded streaming chunks before a third-party
-// parser allocates entries. ZIP directory size claims alone are not trustworthy.
+export const isZipDocument = format => !!documentKind(format) && !['doc','xls','ppt','rtf','eml','pdf'].includes(format);
+
+export function inspectDocument(buffer, format) {
+  if (!(buffer instanceof ArrayBuffer) || !buffer.byteLength || buffer.byteLength > DOCUMENT_LIMIT || !documentKind(format)) throw Error('invalidDocument');
+  if (format === 'pdf') return inspectPdf(buffer);
+  if (isZipDocument(format)) return inspectOffice(buffer, format);
+  const bytes = new Uint8Array(buffer);
+  const start = new TextDecoder('windows-1252').decode(bytes.subarray(0, 65536));
+  if (format === 'rtf' || (format === 'doc' && /^\{\\rtf[12]/.test(start))) {
+    if (!/^\{\\rtf[12]\b/.test(start)) throw Error('invalidDocument');
+  } else if (format === 'eml') {
+    const header = start.split(/\r?\n\r?\n/, 1)[0];
+    if (!/^(?:From|To|Subject|Date|MIME-Version|Content-Type|Message-ID):/im.test(header) || /\x00/.test(header)) throw Error('invalidDocument');
+  } else if (bytes.length < 512 || ![0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1].every((v,i) => bytes[i] === v)) {
+    // Older BIFF workbooks can be streams rather than compound files.
+    if (format !== 'xls' || bytes.length < 8 || ![0x0009,0x0209,0x0409,0x0809].includes(new DataView(buffer).getUint16(0, true))) throw Error('invalidDocument');
+  }
+}
+
+// Validate actual inflation before a third-party parser allocates ZIP entries.
+// Directory size claims alone are not trustworthy.
 export async function validateOfficeContent(buffer, format = 'docx') {
-  const { files } = inspectOffice(buffer, format);
+  const inspected = inspectDocument(buffer, format);
+  if (!isZipDocument(format)) return;
+  const { files } = inspected;
   for (const file of files) {
     if (file.method === 0) continue;
     const stream = new Blob([new Uint8Array(buffer, file.start, file.compressed)]).stream()
@@ -127,6 +170,6 @@ export async function readDocumentResponse(response, format = 'docx') {
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-  if (format === 'pdf') inspectPdf(bytes.buffer); else inspectOffice(bytes.buffer, format);
+  inspectDocument(bytes.buffer, format);
   return bytes.buffer;
 }

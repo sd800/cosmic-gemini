@@ -1,5 +1,5 @@
-import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature } from '../../../core/config.js';
-import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, readDocumentResponse } from '../../../core/document-preview.js';
+import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature, normalizeAccessControlDomain } from '../../../core/config.js';
+import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, documentPreviewWhitelisted, readDocumentResponse } from '../../../core/document-preview.js';
 import { documentStore } from '../../features/document-cache.js';
 import { siteKey } from '../../../core/site-key.js';
 import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-appearance.js';
@@ -169,7 +169,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const payload = {
       id: doc.id, filename: doc.filename, size: doc.size,
       sizeLabel: doc.size > 0 ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(doc.size / 1024) + ' KiB' : '',
-      labels: { title: 'Document Preview', close: t('documentClose'), preview: t('documentPreviewAction'), download: t('documentDownloadAction'), remember: t('documentRemember'), failed: t('documentActionFailed') }
+      labels: { title: 'Document Preview', close: t('documentClose'), preview: t('documentPreviewAction'), download: t('documentDownloadAction'), remember: t('documentRemember'), failed: t('documentActionFailed'), loading: t('documentLoading') }
     };
     try {
       const tab = await chrome.tabs.get(sourceTabId);
@@ -194,13 +194,15 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const tab = await sourceTab(request, item);
       const site = siteKey(tab?.url);
       if (!site || !!tab.incognito !== platform.isIncognitoContext() || state.choices[site] === 'download') return;
+      if (documentPreviewWhitelisted(tab.url, (await platform.readSettings()).documentPreview?.whitelistDomains)) return;
       const url = item.finalUrl || item.url;
       if (!/^https?:\/\//i.test(url)) return;
       const reportedSize = Math.max(0, Number(item.fileSize) || 0, Number(item.totalBytes) || 0);
       if (reportedSize > DOCUMENT_LIMIT) return;
       await serial(async () => {
         const sites = await prune();
-        if (!sites.has(site) || !(await platform.readSettings()).documentPreview?.enabled || released) return;
+        const settings = (await platform.readSettings()).documentPreview;
+        if (!sites.has(site) || !settings?.enabled || documentPreviewWhitelisted(tab.url, settings.whitelistDomains) || released) return;
         const existing = state.documents.find(doc => doc.site === site && doc.url === url);
         if (existing) savedDoc = existing;
         else {
@@ -257,6 +259,20 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     },
     async handleMessage(message, context) {
       const senderUrl = String(context.sender?.url || '');
+      if (['UI_ADD_RULE', 'UI_DELETE_RULE', 'UI_ALPHABETIZE_RULES', 'UI_CLEAR_RULES'].includes(message.type)) {
+        if (!senderUrl.startsWith(chrome.runtime.getURL('settings/')) || message.listName !== 'whitelistDomains') throw Error('Settings only.');
+        const domain = ['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type) ? normalizeAccessControlDomain(message.rule) : '';
+        const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => {
+          const domains = feature.whitelistDomains || [];
+          if (message.type === 'UI_ADD_RULE' && domains.length >= 1000 && !domains.includes(domain)) throw Error('The whitelist has reached its limit.');
+          const whitelistDomains = message.type === 'UI_CLEAR_RULES' ? []
+            : message.type === 'UI_ALPHABETIZE_RULES' ? [...domains].sort((a, b) => a.localeCompare(b))
+            : message.type === 'UI_DELETE_RULE' ? domains.filter(value => value !== domain)
+            : domains.includes(domain) ? domains : [...domains, domain];
+          return { ...feature, whitelistDomains };
+        }));
+        return settings.documentPreview;
+      }
       if (message.type === 'UI_SET_DOCUMENT_APPEARANCE') {
         if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) throw Error('Settings only.');
         if (!DOCUMENT_APPEARANCES.includes(message.appearance)) throw Error('Unknown appearance.');
@@ -320,15 +336,18 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         return { action: message.action, prepared: true, size: prepared.size };
       }
       if (message.type === 'UI_DOCUMENT_DOWNLOAD') {
-        if (!workspace || !String(message.blobUrl).startsWith('blob:' + chrome.runtime.getURL(''))) throw Error('Invalid document source.');
+        const cached = workspace && doc.prepared ? await store.get(doc.id) : null;
+        if (!cached?.blobUrl || cached.context !== contextName || cached.epoch !== state.epoch
+          || (message.blobUrl !== undefined && message.blobUrl !== cached.blobUrl)) throw Error('Invalid document source.');
+        const url = cached.blobUrl;
         // Omit saveAs: respect Chrome's own download-location preference.
         for (const [url, value] of downloadNames) if (value.expires < Date.now()) downloadNames.delete(url);
         if (downloadNames.size >= 64) throw Error('Too many pending downloads.');
-        downloadNames.set(message.blobUrl, { filename: doc.filename, expires: Date.now() + 30000 });
+        downloadNames.set(url, { filename: doc.filename, expires: Date.now() + 30000 });
         try {
-          const downloadId = await chrome.downloads.download({ url: message.blobUrl, filename: doc.filename, conflictAction: 'uniquify' });
+          const downloadId = await chrome.downloads.download({ url, filename: doc.filename, conflictAction: 'uniquify' });
           return { downloadId };
-        } catch (error) { downloadNames.delete(message.blobUrl); throw error; }
+        } catch (error) { downloadNames.delete(url); throw error; }
       }
       throw Error('Unknown document command.');
     },

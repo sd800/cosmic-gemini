@@ -2,9 +2,17 @@ importScripts('../../vendor/mammoth/mammoth.browser.min.js');
 self.onmessage = async event => {
   try {
     const { validateOfficeContent, documentKind } = await import('../../core/document-preview.js');
-    const { bytes, format } = event.data;
+    const { bytes, format, labels } = event.data;
     await validateOfficeContent(bytes, format);
-    const result = documentKind(format) === 'xlsx' ? await mammoth.convertSpreadsheet(bytes)
+    if (format === 'xls') importScripts('../../vendor/sheetjs/xlsx.full.min.js');
+    const rtf = format === 'rtf' || (format === 'doc' && new Uint8Array(bytes)[0] === 123);
+    const result = rtf ? mammoth.convertRtf(bytes)
+      : format === 'doc' ? mammoth.convertLegacyWord(bytes)
+      : format === 'xls' ? mammoth.convertLegacySpreadsheet(bytes, XLSX)
+      : format === 'ppt' ? mammoth.convertLegacyPresentation(bytes)
+      : ['odt', 'ods', 'odp'].includes(format) ? await mammoth.convertOpenDocument(bytes, format)
+      : format === 'eml' ? await mammoth.convertEmail(bytes, labels)
+      : documentKind(format) === 'xlsx' ? await mammoth.convertSpreadsheet(bytes)
       : documentKind(format) === 'pptx' ? await mammoth.convertPresentation(bytes)
       : await mammoth.convertToHtml({ arrayBuffer: bytes }, {
       externalFileAccess: false,

@@ -29,6 +29,7 @@ export function showDocumentChoice(payload) {
       :host{color-scheme:light dark;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--bg:#fff;--text:#202124;--muted:#5f6368;--line:#dadce0;--blue:#0b57d0;--raised:#f6f8fc}
       *{box-sizing:border-box;letter-spacing:normal}dialog{position:fixed;inset:0;margin:auto;width:min(380px,calc(100vw - 28px));max-height:calc(100vh - 32px);overflow:auto;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--text);box-shadow:0 12px 38px #0003;font:inherit}dialog::backdrop{background:#0002}
       header{display:flex;align-items:center;gap:9px}header svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}strong{font-size:15px}button{font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;min-height:36px;border:1px solid var(--line);border-radius:8px;padding:8px 15px;background:var(--bg);color:var(--text)}button:hover{background:var(--raised)}button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:3px}.close{margin-left:auto;border:0;min-height:26px;padding:2px 6px;color:var(--muted);font-size:20px}.name{overflow-wrap:anywhere;white-space:pre-wrap;margin:16px 0 0;user-select:text}.size{margin:4px 0 0;color:var(--muted);font-size:12px}label{display:flex;align-items:flex-start;gap:8px;margin-top:18px;font-size:13px;color:var(--muted)}input{accent-color:var(--blue);margin:3px 0 0;flex-shrink:0}footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.primary:hover{background:var(--blue);filter:brightness(.95)}.error{color:var(--muted);font-size:12px;margin:9px 0 0}.error:empty{display:none}
+      .progress{width:min(220px,100%);height:3px;margin-top:8px;border-radius:3px;overflow:hidden;background:var(--line)}.progress span{display:block;width:38%;height:100%;background:var(--blue);animation:dp-loading 1.25s ease-in-out infinite}@keyframes dp-loading{from{transform:translateX(-100%)}to{transform:translateX(365%)}}[hidden]{display:none}@media(prefers-reduced-motion:reduce){.progress span{animation:none;width:100%;opacity:.6}}
       @media(prefers-color-scheme:dark){:host{--bg:#202124;--text:#f1f3f4;--muted:#bdc1c6;--line:#4a4d52;--blue:#4f86df;--raised:#292a2d}}
       @media(prefers-reduced-motion:no-preference){dialog{animation:dp-in 120ms ease-out}@keyframes dp-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}}
     `);
@@ -49,12 +50,16 @@ export function showDocumentChoice(payload) {
     const footer = element('footer', ''), preview = element('button', labels.preview, 'primary'), download = element('button', labels.download);
     preview.type = download.type = 'button'; footer.append(preview, download); dialog.append(footer);
     const error = element('p', '', 'error'); error.setAttribute('role', 'status'); dialog.append(error);
+    const progress = element('div', '', 'progress'); progress.hidden = true;
+    progress.setAttribute('role', 'progressbar'); progress.setAttribute('aria-label', labels.loading);
+    progress.append(element('span', '')); dialog.append(progress);
     let busy = false;
     async function choose(action) {
       if (busy) return;
       busy = true; preview.disabled = download.disabled = checkbox.disabled = true;
+      error.textContent = labels.loading; progress.hidden = false;
       try { await send(action, checkbox.checked); await close(); }
-      catch { error.textContent = labels.failed; busy = false; preview.disabled = download.disabled = checkbox.disabled = false; }
+      catch { error.textContent = labels.failed; progress.hidden = true; busy = false; preview.disabled = download.disabled = checkbox.disabled = false; }
     }
     preview.onclick = () => void choose('preview'); download.onclick = () => void choose('download');
     const cancel = () => { if (!busy) { void send('dismiss').catch(() => {}); void close(); } };

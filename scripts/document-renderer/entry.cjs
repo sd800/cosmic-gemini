@@ -9,6 +9,12 @@ const Html = require('mammoth/lib/html');
 const {createFormatting} = require('./formatting.cjs');
 
 module.exports = {...mammoth,
+  convertLegacyWord: require('./legacy-word.cjs').word,
+  convertLegacyPresentation: require('./legacy-presentation.cjs').presentation,
+  convertLegacySpreadsheet: require('./legacy-spreadsheet.cjs').spreadsheet,
+  convertRtf: require('./rtf.cjs').rtf,
+  convertOpenDocument: require('./opendocument.cjs').opendocument,
+  convertEmail: require('./email.cjs').email,
   convertSpreadsheet: require('./spreadsheet.cjs').spreadsheet,
   convertPresentation: require('./presentation.cjs').presentation,
   convertToHtml:async function(input,options) {

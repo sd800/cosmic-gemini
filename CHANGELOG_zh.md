@@ -2,6 +2,14 @@
 
 [English](CHANGELOG.md)
 
+## 9.4.1 — 2026-09-22
+
+- Document Preview 新增 `.doc/.xls/.ppt/.rtf/.odt/.ods/.odp/.eml` 支持，邮件格式归入支持列表的「其他」分类；旧版 Word 和 PowerPoint 文件以内容预览为主。
+- 点击「预览」后立即显示加载线条和状态，不显示百分比数值；微调支持格式列表的折叠标识，移除文档信息栏中的格式差异提示。
+- 加强文档的本地解析、静态内容隔离与远程资源拦截；PDF 继续使用 Chrome 原生阅读器。
+- 加固 Customs Province 的处理器授权、文档缓存传输、原文件下载及媒体处理资源限制。
+- Document Preview 新增自动包含所有子域名的网站白名单，支持有序管理与输入帮助；Access Control 和 Document Preview 的域名列表改为双列，仅在窄窗口下使用单列。
+
 ## 9.3.1 — 2026-09-22
 
 - Document Preview 转由 Customs Province 管理，设置页位置保持不变。

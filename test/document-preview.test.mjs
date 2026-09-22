@@ -70,7 +70,7 @@ test('DOCX preflight bounds file size, ZIP entries and inflated data and rejects
   view.setUint32(directory + 24, 90 * 1024 * 1024, true);
   assert.throws(() => inspectOffice(inflated));
   assert.equal(documentFilename({ filename: '/downloads/通知.DOCX' }), '通知.DOCX');
-  assert.equal(documentFilename({ filename: 'notice.doc' }), '');
+  assert.equal(documentFilename({ filename: 'notice.wps' }), '');
   assert.deepEqual(await readDocumentResponse(new Response(sampleDocx())), sampleDocx());
   await assert.rejects(readDocumentResponse(new Response('login page')));
   const compressed = storedZip({ '[Content_Types].xml': 'a'.repeat(4096), 'word/document.xml': '<document/>' }, true);
@@ -237,7 +237,7 @@ test('disabling capture preserves existing previews until the last source websit
   assert.equal(env.files.size, 2);
   const workspace = 'chrome-extension://test/workspaces/document-preview/document-preview.html#id=' + doc.id;
   assert.equal((await env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, { sender: { url: workspace } })).id, doc.id);
-  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'blob:chrome-extension://test/1234' }, { sender: { url: workspace } });
+  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: doc.blobUrl }, { sender: { url: workspace } });
   const fetches = env.calls.filter(value => value === 'fetch').length;
   await env.capture(); assert.equal(env.calls.filter(value => value === 'fetch').length, fetches);
   env.tabs.splice(0); await env.product.handleTabRemoved(1);
@@ -254,10 +254,11 @@ test('document commands reject unrelated sites and invalid workspace sources', a
   await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } }));
   const workspace = 'chrome-extension://test/workspaces/document-preview/document-preview.html#id=' + doc.id;
   await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'https://evil.test' }, { sender: { url: workspace } }));
-  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'blob:chrome-extension://test/1234' }, { sender: { url: workspace } });
+  await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'blob:chrome-extension://test/unrelated-document' }, { sender: { url: workspace } }));
+  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: doc.blobUrl }, { sender: { url: workspace } });
   assert.equal(env.calls.find(value => value[0] === 'download')[1].saveAs, undefined);
   let suggested;
-  assert.equal(env.product.handleDeterminingFilename({ byExtensionId: 'test', url: 'blob:chrome-extension://test/1234' }, value => suggested = value), true);
+  assert.equal(env.product.handleDeterminingFilename({ byExtensionId: 'test', url: doc.blobUrl }, value => suggested = value), true);
   assert.deepEqual(suggested, { filename: 'sample.docx', conflictAction: 'uniquify' });
 });
 
@@ -277,7 +278,7 @@ test('request correlation is bounded, refuses POST and ambiguous source tabs, an
 let renderer;
 async function convert(entries) {
   if (!renderer) {
-    const context = { ArrayBuffer, Uint8Array, Uint16Array, Uint32Array, Int32Array, DataView, setTimeout, clearTimeout, console, TextDecoder };
+    const context = { ArrayBuffer, Uint8Array, Uint16Array, Uint32Array, Int32Array, DataView, setTimeout, clearTimeout, console, TextDecoder, TextEncoder, Blob, ReadableStream, atob, btoa };
     runInNewContext(await readFile(new URL('../extension/vendor/mammoth/mammoth.browser.min.js', import.meta.url), 'utf8'), context);
     renderer = context.mammoth;
   }
@@ -500,7 +501,7 @@ test('each supported suffix is validated against its own format, including MIME-
   }
   assert.equal(documentFilename({filename:'download',mime:'application/pdf'}),'download.pdf');
   assert.equal(documentFilename({filename:'app.exe',mime:'application/pdf'}),'');
-  assert.equal(documentFilename({filename:'file.xls'}),'');
+  assert.equal(documentFilename({filename:'file.wps'}),'');
   assert.deepEqual(await readDocumentResponse(new Response(samplePdf()),'pdf'),samplePdf());
   await assert.rejects(readDocumentResponse(new Response('<html>login</html>'),'pdf'));
 });
@@ -546,7 +547,7 @@ test('remembered website actions apply across document formats and require no by
 
 test('Office template, slideshow and macro suffixes reuse inert family renderers', async () => {
   await convert(formattingEntries());
-  for (const format of Object.keys(DOCUMENT_TYPES).filter(value => value !== 'pdf')) {
+  for (const format of Object.keys(DOCUMENT_TYPES).filter(value => /^(?:docx|docm|dotx|dotm|xlsx|xlsm|xltx|xltm|pptx|pptm|potx|potm|ppsx|ppsm)$/.test(value))) {
     const kind = documentKind(format);
     const entries = kind === 'docx' ? formattingEntries() : kind === 'xlsx' ? spreadsheetEntries() : presentationEntries();
     if (format.endsWith('m')) {
@@ -591,15 +592,123 @@ test('memory cache transfers exact bytes, rejects overflows and releases abandon
   t.mock.timers.enable({apis:['setTimeout']});
   blobCommand({operation:'begin',id:'partial',size:5,mime:'application/pdf',metadata:{context:'regular'}});
   assert.equal(hasBlobs(),true);
-  assert.throws(()=>blobCommand({operation:'chunk',id:'partial',data:btoa('123456')}));
+  assert.throws(()=>blobCommand({operation:'chunk',id:'partial',offset:0,data:btoa('123456')}));
   assert.throws(()=>blobCommand({operation:'finish',id:'partial'}));
   t.mock.timers.tick(60001);assert.equal(hasBlobs(),false);
   blobCommand({operation:'begin',id:'complete',size:5,mime:'application/pdf',metadata:{context:'regular'}});
-  blobCommand({operation:'chunk',id:'complete',data:btoa('123')});
-  blobCommand({operation:'chunk',id:'complete',data:btoa('45')});
+  blobCommand({operation:'chunk',id:'complete',offset:0,data:btoa('123')});
+  blobCommand({operation:'chunk',id:'complete',offset:3,data:btoa('45')});
   const record=blobCommand({operation:'finish',id:'complete'});
   assert.equal(await(await originalFetch(record.blobUrl)).text(),'12345');
   t.mock.timers.tick(60001);assert.equal(hasBlobs(),true,'completed records follow product lifecycle, not upload timeout');
   blobCommand({operation:'remove',id:'complete'});
   assert.equal(hasBlobs(),false);await assert.rejects(originalFetch(record.blobUrl));
+});
+
+let legacyXlsx;
+async function extraRenderers(){
+  await convert(formattingEntries());
+  if(!legacyXlsx){const context={TextDecoder,TextEncoder,Uint8Array,Uint16Array,Int32Array,ArrayBuffer,DataView,console};runInNewContext(await readFile(new URL('../extension/vendor/sheetjs/xlsx.full.min.js',import.meta.url),'utf8'),context);legacyXlsx=context.XLSX;}
+  return legacyXlsx;
+}
+test('new formats validate real containers, reject masquerading pages and dispatch to the correct family',async()=>{
+  const XLSX=await extraRenderers();
+  const {odfEntries,rtfSample,emailSample,wordStreams,presentationStreams,cfbFile}=await import('./fixtures/additional-document-formats.mjs');
+  for(const format of ['doc','xls','ppt','rtf','odt','ods','odp','eml']){
+    assert.equal(documentFilename({filename:'Example.'+format.toUpperCase()}),'Example.'+format.toUpperCase());
+    await assert.rejects(readDocumentResponse(new Response('<html>login page</html>'),format),/invalidDocument/);
+  }
+  for(const format of ['odt','ods','odp'])await validateOfficeContent(storedZip(odfEntries(format)),format);
+  for(const format of ['doc','ppt'])await readDocumentResponse(new Response(cfbFile(XLSX,format==='doc'?wordStreams():presentationStreams())),format);
+  await readDocumentResponse(new Response(rtfSample),'rtf');await readDocumentResponse(new Response(emailSample),'eml');
+  assert.equal(documentKind('odt'),'docx');assert.equal(documentKind('ods'),'xlsx');assert.equal(documentKind('odp'),'pptx');assert.equal(documentKind('eml'),'eml');
+  const wrong=odfEntries('odt');wrong.mimetype=DOCUMENT_TYPES.ods;assert.throws(()=>inspectOffice(storedZip(wrong),'odt'));
+});
+test('legacy Word uses ordered pieces and field results; compound loops and encryption fail closed',async()=>{
+  const XLSX=await extraRenderers(),{cfbFile,wordStreams}=await import('./fixtures/additional-document-formats.mjs');
+  const stream=wordStreams(),file=cfbFile(XLSX,stream),result=renderer.convertLegacyWord(file);
+  assert.match(result.value,/Word 97 中文正文/);assert.match(result.value,/Display result/);assert.doesNotMatch(result.value,/HYPERLINK|secret/);
+  const encrypted=wordStreams();encrypted.WordDocument.writeUInt16LE(0x300,10);assert.throws(()=>renderer.convertLegacyWord(cfbFile(XLSX,encrypted)));
+  const corrupted=file.slice(0),v=new DataView(corrupted),fat=v.getUint32(76,true),directory=v.getUint32(48,true);v.setUint32((fat+1)*512+directory*4,directory,true);assert.throws(()=>renderer.convertLegacyWord(corrupted));
+  const short=wordStreams();short.WordDocument.writeUInt32LE(5000,76);assert.throws(()=>renderer.convertLegacyWord(cfbFile(XLSX,short)));
+});
+test('legacy PowerPoint retains live presentation order and excludes deleted slides',async()=>{
+  const XLSX=await extraRenderers(),{cfbFile,presentationStreams}=await import('./fixtures/additional-document-formats.mjs');
+  const result=renderer.convertLegacyPresentation(cfbFile(XLSX,presentationStreams()));
+  assert.equal(result.parts.length,2);assert.match(result.parts[0].html,/Second title.*Second shape/);assert.match(result.parts[1].html,/First title.*First shape 中文/);
+  assert.doesNotMatch(JSON.stringify(result),/DELETED SLIDE/);
+  const bad=presentationStreams();bad['Current User'].writeUInt32LE(0xffffff,16);assert.throws(()=>renderer.convertLegacyPresentation(cfbFile(XLSX,bad)));
+});
+test('XLS keeps Unicode, saved values, formatted numbers, merges and worksheet order',async()=>{
+  const XLSX=await extraRenderers(),book=XLSX.utils.book_new();
+  const sheet=XLSX.utils.aoa_to_sheet([['中文',1234.5],['Merged']]);sheet.B1.z='#,##0.00';sheet['!merges']=[{s:{r:1,c:0},e:{r:1,c:1}}];
+  XLSX.utils.book_append_sheet(book,sheet,'预算');XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['Second sheet']]),'第二张');
+  const bytes=XLSX.write(book,{bookType:'biff8',type:'array'}),array=new Uint8Array(bytes).slice().buffer;
+  const result=renderer.convertLegacySpreadsheet(array,XLSX);assert.deepEqual(Array.from(result.parts,p=>p.name),['预算','第二张']);assert.match(result.parts[0].html,/中文/);assert.match(result.parts[0].html,/1,234\.50/);assert.match(result.parts[0].html,/colspan="2"/);
+});
+test('RTF handles Unicode fallbacks, Chinese byte sequences, scoped formatting and safe field results',async()=>{
+  await extraRenderers();const {rtfSample}=await import('./fixtures/additional-document-formats.mjs');
+  const result=renderer.convertRtf(new TextEncoder().encode(rtfSample).buffer);
+  assert.equal((result.value.match(/中文/g)||[]).length,2);assert.match(result.value,/Safe field result/);assert.match(result.value,/cg-page-break/);assert.match(result.value,/<td>.*Cell one/);
+  assert.ok(result.formatting.styles.some(s=>s['font-weight']==='700'));assert.doesNotMatch(result.value,/PROGRAM|INCLUDEPICTURE|tracker/);
+  assert.throws(()=>renderer.convertRtf(new TextEncoder().encode('{\\rtf1{bad').buffer));
+});
+test('OpenDocument preserves headings, table spans and slide navigation, bounds repetition and excludes remote/active content',async()=>{
+  await extraRenderers();const {odfEntries}=await import('./fixtures/additional-document-formats.mjs');
+  const doc=await renderer.convertOpenDocument(storedZip(odfEntries('odt')),'odt');assert.match(doc.value,/开放文档/);assert.match(doc.value,/cg-page-break/);assert.ok(doc.formatting.styles.some(s=>s['font-size']==='22pt'));
+  const sheet=await renderer.convertOpenDocument(storedZip(odfEntries('ods')),'ods');assert.equal(sheet.parts.length,2);assert.match(sheet.parts[0].html,/1,200\.50/);assert.match(sheet.parts[0].html,/colspan="2"/);assert.ok(sheet.parts[0].html.length<2000,'empty repeated tail is not expanded');
+  const slides=await renderer.convertOpenDocument(storedZip(odfEntries('odp')),'odp');assert.equal(slides.parts.length,2);assert.match(slides.parts[1].html,/Second slide content/);assert.ok(slides.formatting.styles.some(s=>s.left==='56.693pt'));
+  assert.doesNotMatch(JSON.stringify([doc,sheet,slides]),/tracker|EXECUTABLE|<script/);
+  const huge=odfEntries('ods');huge['content.xml']=huge['content.xml'].replace('<table:table-row>','<table:table-row table:number-rows-repeated="999999">');await assert.rejects(renderer.convertOpenDocument(storedZip(huge),'ods'));
+  const encrypted=odfEntries('odt');encrypted['META-INF/manifest.xml']=encrypted['META-INF/manifest.xml'].replace('</manifest:manifest>','<manifest:encryption-data/></manifest:manifest>');await assert.rejects(renderer.convertOpenDocument(storedZip(encrypted),'odt'));
+  const entity=odfEntries('odt');entity['content.xml']='<!DOCTYPE a [<!ENTITY e SYSTEM "https://tracker.invalid">]>'+entity['content.xml'];await assert.rejects(renderer.convertOpenDocument(storedZip(entity),'odt'));
+});
+test('EML decodes MIME headers and multipart bodies while keeping attachments inert',async()=>{
+  await extraRenderers();const {emailSample}=await import('./fixtures/additional-document-formats.mjs');
+  const result=await renderer.convertEmail(new TextEncoder().encode(emailSample).buffer,{from:'发件人',attachments:'附件'});
+  assert.match(result.value,/邮件预览/);assert.match(result.value,/测试 &lt;author@example.test&gt;/);assert.match(result.value,/发件人/);assert.match(result.value,/HTML body/);assert.doesNotMatch(result.value,/Plain fallback/);
+  assert.match(result.value,/<li>test.exe<\/li>/);assert.doesNotMatch(result.value,/TVpOb3R|NotActualExecutable/);
+});
+
+test('document cache rejects empty chunks, replay and out-of-order uploads', async () => {
+  const {blobCommand,hasBlobs}=await import('../extension/offscreen/blob-cache.js');
+  for(const [id,offset,data] of [['empty',0,''],['order',2,btoa('a')],['encoding',0,' YQ==']]) {
+    blobCommand({operation:'begin',id,size:5});
+    assert.throws(()=>blobCommand({operation:'chunk',id,offset,data}));
+    assert.equal(hasBlobs(),false);
+  }
+  blobCommand({operation:'begin',id:'replay',size:5});
+  blobCommand({operation:'chunk',id:'replay',offset:0,data:btoa('ab')});
+  assert.throws(()=>blobCommand({operation:'chunk',id:'replay',offset:0,data:btoa('ab')}));
+  assert.equal(hasBlobs(),false);
+});
+
+test('document loading feedback has no fabricated percentage and clears on success or failure', () => {
+  const label={textContent:''},progress={hidden:true};
+  const status=createDocumentStatus(label,progress);
+  status.loading('Preparing the document…');assert.equal(progress.hidden,false);
+  status.show('Ready');assert.equal(progress.hidden,true);
+  status.loading('Preparing the document…');status.show('Could not prepare');assert.equal(progress.hidden,true);
+});
+
+test('Document Preview whitelist includes subdomains and ports, preserves order and keeps prepared previews', async () => {
+  const {documentPreviewWhitelisted}=await import('../extension/core/document-preview.js');
+  const settings=normalizeSettings({documentPreview:{whitelistDomains:['B.example.com','*.example.org','b.example.com','192.0.2.1','[2001:db8::1]','https://invalid/path']}});
+  const domains=settings.documentPreview.whitelistDomains;
+  assert.deepEqual(domains,['b.example.com','example.org','192.0.2.1','[2001:db8::1]']);
+  assert.deepEqual(settingsViewCache(settings).documentPreview.whitelistDomains,domains);
+  for(const url of ['https://b.example.com:8443','https://a.b.example.com','https://example.org','http://192.0.2.1:80','https://[2001:db8::1]:444'])assert.equal(documentPreviewWhitelisted(url,domains),true,url);
+  for(const url of ['https://notb.example.com','https://example.org.evil.test','https://example.com','invalid'])assert.equal(documentPreviewWhitelisted(url,domains),false,url);
+  const env=environment();await env.capture();await env.settle();await env.choose();
+  const doc=[...env.files.values()][0];const context={sender:{url:'chrome-extension://test/settings/satellites.html'}};
+  const command=(type,rule)=>env.product.handleMessage({type,listName:'whitelistDomains',rule},context);
+  await command('UI_ADD_RULE','z.example.net');await command('UI_ADD_RULE','*.example.com');
+  assert.deepEqual((await env.platform.readSettings()).documentPreview.whitelistDomains,['z.example.net','example.com']);
+  const before=env.calls.filter(v=>v==='cancel').length;await env.capture();await env.settle();assert.equal(env.calls.filter(v=>v==='cancel').length,before);assert.equal(env.files.size,1);
+  const workspace={sender:{url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id}};
+  assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},workspace)).prepared,true);
+  await assert.rejects(env.product.handleMessage({type:'UI_ADD_RULE',listName:'whitelistDomains',rule:'evil.test'},workspace));
+  await command('UI_ALPHABETIZE_RULES');assert.deepEqual((await env.platform.readSettings()).documentPreview.whitelistDomains,['example.com','z.example.net']);
+  await command('UI_DELETE_RULE','example.com');await env.capture();await env.settle();assert.equal(env.calls.filter(v=>v==='cancel').length,before+1);
+  await command('UI_CLEAR_RULES');assert.deepEqual((await env.platform.readSettings()).documentPreview.whitelistDomains,[]);
 });

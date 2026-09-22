@@ -27,10 +27,14 @@ export function blobCommand(message) {
   const upload = uploads.get(id);
   if (!upload) throw Error('documentExpired');
   if (operation === 'chunk') {
-    if (typeof message.data !== 'string' || message.data.length > 1400000) throw Error('documentTooLarge');
-    const raw = atob(message.data), bytes = Uint8Array.from(raw, char => char.charCodeAt(0));
-    if (upload.received + bytes.length > upload.expected) throw Error('documentTooLarge');
-    upload.chunks.push(bytes); upload.received += bytes.length; return true;
+    try {
+      if (message.offset !== upload.received || typeof message.data !== 'string' || !message.data.length
+        || message.data.length > 1398104 || message.data.length % 4 !== 0) throw Error('invalidDocument');
+      const raw = atob(message.data);
+      if (btoa(raw) !== message.data || raw.length > 1024 * 1024 || upload.received + raw.length > upload.expected) throw Error('invalidDocument');
+      const bytes = Uint8Array.from(raw, char => char.charCodeAt(0));
+      upload.chunks.push(bytes); upload.received += bytes.length; return true;
+    } catch (error) { discardUpload(id); throw error; }
   }
   if (operation === 'finish') {
     if (upload.received !== upload.expected) throw Error('invalidDocument');

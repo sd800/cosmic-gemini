@@ -34,7 +34,13 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
-    documentPreview: { enabled: states.documentPreview?.enabled === true, appearance: normalizeDocumentAppearance(states.documentPreview?.appearance) },
+    documentPreview: {
+      enabled: states.documentPreview?.enabled === true,
+      appearance: normalizeDocumentAppearance(states.documentPreview?.appearance),
+      whitelistDomains: [...new Set(rules(states.documentPreview?.whitelistDomains).flatMap(entry => {
+        try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
+      }))].slice(0, 1000)
+    },
     langGoogle: { enabled: states.langGoogle?.enabled === true },
     accessControl: {
       enabled: states.accessControl?.enabled === true,

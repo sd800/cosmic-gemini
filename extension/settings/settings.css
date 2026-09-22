@@ -252,7 +252,10 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .knowledge-card .satellite-privacy { margin-top: 0; }
 .document-preview-options + .satellite-privacy { margin-top: 0; }
 .document-formats { margin-top: 12px; padding-right: 68px; font-size: 13px; color: var(--muted); }
-.document-formats summary { cursor: pointer; color: var(--text); }
+.document-formats summary { display: flex; align-items: center; gap: .65em; cursor: pointer; color: var(--text); list-style: none; }
+.document-formats summary::-webkit-details-marker { display: none; }
+.document-formats summary::before { content: ''; flex: none; width: 0; height: 0; border-top: .28em solid transparent; border-bottom: .28em solid transparent; border-left: .4em solid currentColor; }
+.document-formats[open] summary::before { transform: rotate(90deg); }
 .document-formats dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; margin: 12px 0; }
 .document-formats dt { font-weight: 600; }.document-formats dd { margin: 0; overflow-wrap: anywhere; }
 .document-formats p { font-size: 12px; }
@@ -260,3 +263,14 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .knowledge-options:disabled .knowledge-label { opacity: .55; }
 .knowledge-options:disabled input { accent-color: var(--switch-disabled-track); }
 @media (max-width: 560px) { .knowledge-row { grid-template-columns: 1fr; gap: 10px; } }
+
+.document-whitelist{padding-top:18px;border-top:1px solid var(--line)}
+.document-whitelist>p{max-width:var(--satellite-copy-width,85%);margin:6px 0 16px;color:var(--muted)}
+.document-whitelist .rule-list{margin-bottom:0}
+
+.access-control-options .rule-list,.document-whitelist .rule-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
+.access-control-options .rule-list li,.document-whitelist .rule-list li{min-width:0}
+.access-control-options .rule-list .empty,.document-whitelist .rule-list .empty{grid-column:1/-1}
+.access-control-options .rule-list .icon-button,.document-whitelist .rule-list .icon-button{flex-shrink:0}
+#documentPreviewOptions:disabled .document-whitelist{opacity:.55}
+@media(max-width:620px){.access-control-options .rule-list,.document-whitelist .rule-list{grid-template-columns:minmax(0,1fr)}}

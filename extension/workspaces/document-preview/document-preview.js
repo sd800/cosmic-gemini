@@ -12,7 +12,7 @@ const locale = await loadLocale(), t = translator(locale);
 document.documentElement.lang = locale; localizeDocument(t);
 document.querySelector('#document-icon').innerHTML = icon('documentPreview');
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
-const notices = createDocumentStatus(status);
+const notices = createDocumentStatus(status, document.querySelector('#loading-progress'));
 let metadata, blob, worker, workerTimer, pdfUrl, rendered, expired = false, downloadPending = false;
 const frame = document.querySelector('#document');
 const partControls = document.querySelector('#part-controls'), partSelect = document.querySelector('#document-part');
@@ -76,7 +76,7 @@ themeToggle.onclick = () => {
 themeAuto.onclick = () => void setSiteTheme(null);
 appearance.addEventListener('change', updateTheme);
 updateTheme();
-const blobDownloads = new Map();
+const blobDownloads = new Set();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
 
 function expire() {
@@ -87,7 +87,7 @@ function expire() {
 }
 async function preview() {
   if (expired) return;
-  document.querySelector('#choice').hidden = true; notices.show(t('documentLoading'));
+  document.querySelector('#choice').hidden = true; notices.loading(t('documentLoading'));
   worker?.terminate();
   if (metadata.format === 'pdf') {
     if (!navigator.pdfViewerEnabled) { notices.show(t('documentPdfUnavailable')); return; }
@@ -121,28 +121,29 @@ async function preview() {
       }
       frame.hidden = false;
       zoomControls.hidden = false;
-      notices.show(''); document.querySelector('#layout-note').hidden = false;
+      notices.show('');
     } catch { notices.show(t('documentRenderFailed')); }
   };
   const bytes = await blob.arrayBuffer();
-  if (worker && !expired) worker.postMessage({ bytes, format: metadata.format }, [bytes]);
+  if (worker && !expired) worker.postMessage({ bytes, format: metadata.format, labels: {
+    from: t('documentEmailFrom'), to: t('documentEmailTo'), cc: t('documentEmailCc'),
+    date: t('documentEmailDate'), attachments: t('documentEmailAttachments'), noSubject: t('documentEmailNoSubject')
+  } }, [bytes]);
 }
 async function download() {
   if (expired || downloadPending) return;
   downloadPending = true; downloadButton.disabled = true;
-  const url = URL.createObjectURL(blob);
   try {
-    const result = await command('UI_DOCUMENT_DOWNLOAD', { blobUrl: url });
-    blobDownloads.set(result.downloadId, url);
+    const result = await command('UI_DOCUMENT_DOWNLOAD');
+    blobDownloads.add(result.downloadId);
     if (!expired) notices.show(t('documentDownloadStarted'), true);
     const [item] = await chrome.downloads.search({ id: result.downloadId });
     if (item?.state !== 'in_progress') releaseDownload(result.downloadId);
-  } catch { URL.revokeObjectURL(url); if (!expired) notices.show(t('documentActionFailed'), true); }
+  } catch { if (!expired) notices.show(t('documentActionFailed'), true); }
   finally { downloadPending = false; downloadButton.disabled = expired; }
 }
 function releaseDownload(downloadId) {
-  const url = blobDownloads.get(downloadId); if (!url) return;
-  URL.revokeObjectURL(url); blobDownloads.delete(downloadId);
+  if (!blobDownloads.delete(downloadId)) return;
   if (mode === 'download' && !blobDownloads.size) window.close();
 }
 chrome.downloads.onChanged.addListener(delta => { if (['complete', 'interrupted'].includes(delta.state?.current)) releaseDownload(delta.id); });
@@ -163,9 +164,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
     updateTheme();
   }
 });
-window.addEventListener('pagehide', () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); worker?.terminate(); clearTimeout(workerTimer); notices.clear(); for (const url of blobDownloads.values()) URL.revokeObjectURL(url); });
+window.addEventListener('pagehide', () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); worker?.terminate(); clearTimeout(workerTimer); notices.clear(); });
 downloadButton.addEventListener('click', () => void download());
 async function choose(action) {
+  notices.loading(t('documentLoading'));
   const controls = [...document.querySelectorAll('#choice button')]; controls.forEach(button => button.disabled = true);
   try {
     await command('UI_DOCUMENT_CHOICE', { action, remember: document.querySelector('#remember').checked });
@@ -186,6 +188,7 @@ function showMetadata() {
   document.querySelector('#metadata').textContent = metadata.site + (metadata.size ? ' · ' + new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(metadata.size / 1024) + ' KiB' : '');
 }
 async function loadPreparedDocument() {
+  notices.loading(t('documentLoading'));
   metadata = await command('UI_DOCUMENT_GET');
   if (!metadata.prepared) { await command('UI_DOCUMENT_PREPARE'); metadata = await command('UI_DOCUMENT_GET'); }
   if (expired || !metadata.blobUrl?.startsWith('blob:' + chrome.runtime.getURL(''))) throw Error();

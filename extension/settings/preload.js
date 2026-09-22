@@ -279,7 +279,7 @@
       remove.innerHTML = icon('trash');
       remove.title = translate('removeRule', { rule });
       remove.setAttribute('aria-label', remove.title);
-      if (section.dataset.featureId === 'accessControl') {
+      if (section.dataset.featureId === 'accessControl' || section.dataset.domainScope === 'subdomains') {
         const label = document.createElement('span');
         label.className = 'access-control-rule-label';
         const scope = document.createElement('span');

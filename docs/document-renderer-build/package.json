@@ -1,7 +1,12 @@
 {
+  "name": "cosmic-gemini-document-renderer",
+  "version": "1.0.0",
+  "private": true,
   "dependencies": {
     "browserify": "17.0.1",
     "mammoth": "1.12.3",
-    "terser": "5.44.0"
+    "postal-mime": "3.0.0",
+    "terser": "5.44.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

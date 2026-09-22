@@ -17,7 +17,7 @@ export const documentStore = Object.freeze({
           const bytes = new Uint8Array(await blob.slice(offset, offset + 1024 * 1024).arrayBuffer());
           let raw = '';
           for (let at = 0; at < bytes.length; at += 8192) raw += String.fromCharCode(...bytes.subarray(at, at + 8192));
-          await request({ operation: 'chunk', id: value.id, data: btoa(raw) });
+          await request({ operation: 'chunk', id: value.id, offset, data: btoa(raw) });
         }
         return await request({ operation: 'finish', id: value.id });
       } catch (error) { await request({ operation: 'remove', id: value.id }).catch(() => {}); throw error; }

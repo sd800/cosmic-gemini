@@ -81,7 +81,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
-  documentPreview: Object.freeze({ enabled: false, appearance: 'auto' }),
+  documentPreview: Object.freeze({ enabled: false, appearance: 'auto', whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
   accessControl: Object.freeze({
     enabled: false,
@@ -322,7 +322,13 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled !== false
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
-    documentPreview: { enabled: value.documentPreview?.enabled === true, appearance: normalizeDocumentAppearance(value.documentPreview?.appearance) },
+    documentPreview: {
+      enabled: value.documentPreview?.enabled === true,
+      appearance: normalizeDocumentAppearance(value.documentPreview?.appearance),
+      whitelistDomains: [...new Set((Array.isArray(value.documentPreview?.whitelistDomains) ? value.documentPreview.whitelistDomains : []).flatMap(entry => {
+        try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
+      }))].slice(0, 1000)
+    },
     langGoogle: { enabled: value.langGoogle?.enabled === true },
     accessControl: {
       enabled: value.accessControl?.enabled === true,

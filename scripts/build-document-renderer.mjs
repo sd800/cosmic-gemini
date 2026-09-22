@@ -1,7 +1,7 @@
 // Usage: npm ci --prefix <build-dir> --ignore-scripts, using the package files
 // in docs/document-renderer-build; then run this script with <build-dir>.
 import { createRequire } from 'node:module';
-import { readFile, writeFile, readdir, access } from 'node:fs/promises';
+import { readFile, writeFile, readdir, access, mkdir } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { Transform } from 'node:stream';
@@ -87,3 +87,13 @@ const vendor = new URL('../extension/vendor/mammoth/', import.meta.url);
 await writeFile(new URL('mammoth.browser.min.js', vendor), output);
 await writeFile(new URL('THIRD_PARTY_NOTICES.txt', vendor), notices.join('\n\n').replace(/[ \t]+$/gm, '').trim() + '\n');
 console.log(JSON.stringify({ bytes: Buffer.byteLength(output), sha256: createHash('sha256').update(output).digest('hex'), packages: [...packages.keys()].sort() }, null, 2));
+
+// SheetJS is loaded separately and only for legacy XLS; other previews do not
+// parse its bundle. The full build includes legacy character encoding tables.
+const sheetjsDir = dirname(require.resolve('xlsx'));
+const sheetjsVendor = new URL('../extension/vendor/sheetjs/', import.meta.url);
+await mkdir(sheetjsVendor, { recursive: true });
+const sheetjs = await readFile(join(sheetjsDir, 'dist/xlsx.full.min.js'));
+await writeFile(new URL('xlsx.full.min.js', sheetjsVendor), sheetjs);
+await writeFile(new URL('LICENSE', sheetjsVendor), await readFile(join(sheetjsDir, 'LICENSE')));
+await writeFile(new URL('NOTICE.md', sheetjsVendor), `# SheetJS Community Edition\n\nVersion 0.20.3. Apache-2.0. Copyright SheetJS LLC.\nSource: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz\nDocumentation: https://docs.sheetjs.com/\n\nUnmodified standalone full browser build with its legacy codepage support.\nLoaded only by the Document Preview worker for legacy Excel workbooks.\nOnly cached cell values are displayed; formulas, macros and external links never execute.\n\nSHA-256: \`${createHash('sha256').update(sheetjs).digest('hex')}\`\n`);

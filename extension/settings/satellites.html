@@ -96,10 +96,11 @@
         <details class="document-formats">
           <summary data-i18n="documentSupportedFormats"></summary>
           <dl>
-            <dt data-i18n="documentFormatsDocuments"></dt><dd>.docx/.docm/.dotx/.dotm</dd>
-            <dt data-i18n="documentFormatsSpreadsheets"></dt><dd>.xlsx/.xlsm/.xltx/.xltm</dd>
-            <dt data-i18n="documentFormatsSlides"></dt><dd>.pptx/.pptm/.potx/.potm/.ppsx/.ppsm</dd>
+            <dt data-i18n="documentFormatsDocuments"></dt><dd>.doc/.docx/.docm/.dotx/.dotm/.rtf/.odt</dd>
+            <dt data-i18n="documentFormatsSpreadsheets"></dt><dd>.xls/.xlsx/.xlsm/.xltx/.xltm/.ods</dd>
+            <dt data-i18n="documentFormatsSlides"></dt><dd>.ppt/.pptx/.pptm/.potx/.potm/.ppsx/.ppsm/.odp</dd>
             <dt>PDF</dt><dd>.pdf</dd>
+            <dt data-i18n="documentFormatsOther"></dt><dd>.eml</dd>
           </dl>
           <p data-i18n="documentFormatsSafety"></p>
         </details>
@@ -112,6 +113,16 @@
               <option value="light" data-i18n="documentAppearanceLight"></option>
               <option value="dark" data-i18n="documentAppearanceDark"></option>
             </select>
+          </div>
+          <div class="document-whitelist" data-feature-id="documentPreview" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="documentWhitelistEmpty">
+            <strong id="documentWhitelistHeading" data-i18n="documentWhitelistHeading"></strong>
+            <p data-i18n="documentWhitelistDescription"></p>
+            <form class="rule-form">
+              <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="documentWhitelistHeading" data-i18n-placeholder="accessControlDomainPlaceholder">
+              <button type="submit" class="primary-button" data-i18n="add"></button>
+            </form>
+            <p class="form-message" role="status"></p>
+            <ul class="rule-list"></ul>
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="documentPreviewPrivacy"></p></div>

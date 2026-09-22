@@ -3,6 +3,7 @@ import { findDashTracks, parseDashManifest } from '../core/dash.js';
 import { youtubeCandidates } from '../core/youtube-video.js';
 import { unwrapObfuscatedHls } from '../core/obfuscated-hls.js';
 import { imageExtension } from '../core/image-download.js';
+import { isProcessorSender, readBoundedBytes } from './security.js';
 import {
   ALL_FORMATS,
   BlobSource,
@@ -104,7 +105,7 @@ async function fetchBytes(url, pageUrl, range, requestId = '') {
   const headers = new Headers();
   if (range) headers.set('Range', `bytes=${range.start}-${range.end}`);
   const response = await mediaFetch(url, pageUrl, { headers }, requestId);
-  let bytes = new Uint8Array(await response.arrayBuffer());
+  let bytes = await readBoundedBytes(response, 128 * 1024 * 1024);
   if (range && response.status !== 206 && bytes.byteLength > range.end) {
     bytes = bytes.slice(range.start, range.end + 1);
   }
@@ -112,6 +113,7 @@ async function fetchBytes(url, pageUrl, range, requestId = '') {
 }
 
 async function decryptAes128(bytes, keyBytes, ivBytes) {
+  if (keyBytes.byteLength !== 16) throw Error('Invalid AES-128 key.');
   const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt']);
   const result = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: new Uint8Array(ivBytes) }, key, bytes);
   return new Uint8Array(result);
@@ -120,7 +122,7 @@ async function decryptAes128(bytes, keyBytes, ivBytes) {
 async function resolveHls(url, pageUrl, preferredQuality, depth = 0, requestId = '') {
   if (depth > 3) throw new Error('The HLS playlist redirects through too many master playlists.');
   const response = await mediaFetch(url, pageUrl, {}, requestId);
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readBoundedBytes(response, 8 * 1024 * 1024);
   const text = unwrapObfuscatedHls(bytes) || new TextDecoder().decode(bytes);
   const variants = parseHlsMaster(text, response.url || url);
   if (!variants.length) return { text, url: response.url || url };
@@ -191,6 +193,7 @@ async function cleanupArtifact(artifactId) {
     try { await artifact.root.removeEntry(artifact.name); } catch {}
     return;
   }
+  if (!ARTIFACT_NAME.test(String(artifactId || ''))) return;
   try {
     const root = await navigator.storage.getDirectory();
     await root.removeEntry(String(artifactId || ''));
@@ -226,16 +229,16 @@ function imageOutputMime(format) {
 }
 
 function replaceFilenameExtension(filename, extension) {
-  const base = String(filename || 'Image').replace(/\.[a-z0-9]{2,5}$/i, '');
+  const base = String(filename || 'Image').replace(/[/\\\x00-\x1f]/g, '_').replace(/^\.+/, '_').replace(/\.[a-z0-9]{2,5}$/i, '');
   return `${base}.${extension}`;
 }
 
 async function fetchImageBlob(url, pageUrl) {
   const response = await mediaFetch(url, pageUrl, { headers: { Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' } });
-  const blob = await response.blob();
-  const type = String(blob.type || response.headers.get('content-type') || '').split(';')[0].toLowerCase();
+  const bytes = await readBoundedBytes(response, 64 * 1024 * 1024);
+  const type = String(response.headers.get('content-type') || '').split(';')[0].toLowerCase();
   if (type && !type.startsWith('image/')) throw new Error('The selected address did not return an image.');
-  return new Blob([blob], { type: type || 'application/octet-stream' });
+  return new Blob([bytes], { type: type || 'application/octet-stream' });
 }
 
 async function convertImageBlob(blob, format) {
@@ -244,6 +247,7 @@ async function convertImageBlob(blob, format) {
   if (!mime) throw new Error('The selected image format is unavailable.');
   const bitmap = await createImageBitmap(blob);
   try {
+    if (bitmap.width * bitmap.height > 64 * 1024 * 1024) throw Error('Image dimensions exceed the conversion limit.');
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const context = canvas.getContext('2d', { alpha: format !== 'jpg' });
     if (!context) throw new Error('Image conversion is unavailable.');
@@ -401,6 +405,7 @@ async function createImageZip(message) {
 }
 
 async function cropImageCapture(message) {
+  if (!/^data:image\/(?:png|jpeg);base64,/i.test(message.dataUrl || '') || message.dataUrl.length > 90 * 1024 * 1024) throw Error('Invalid image capture.');
   const response = await fetch(message.dataUrl);
   const blob = await response.blob();
   const bitmap = await createImageBitmap(blob);
@@ -412,6 +417,7 @@ async function cropImageCapture(message) {
   const width = Math.max(1, Math.min(bitmap.width - x, Math.round((Number(rect.width) || 1) * scaleX)));
   const height = Math.max(1, Math.min(bitmap.height - y, Math.round((Number(rect.height) || 1) * scaleY)));
   try {
+    if (width * height > 64 * 1024 * 1024) throw Error('Image dimensions exceed the conversion limit.');
     const canvas = new OffscreenCanvas(width, height);
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Image capture is unavailable.');
@@ -541,7 +547,7 @@ async function fetchDirect(message) {
 
 async function fetchDashManifest(url, pageUrl, requestId = '') {
   const response = await mediaFetch(url, pageUrl, {}, requestId);
-  return { text: await response.text(), url: response.url || url };
+  return { text: new TextDecoder().decode(await readBoundedBytes(response, 8 * 1024 * 1024)), url: response.url || url };
 }
 
 function dashManifestForCandidate(candidate, pageUrl) {
@@ -852,6 +858,7 @@ async function assembleDash(message) {
 }
 
 export function handleMediaMessage(message, sender, sendResponse) {
+  if (!isProcessorSender(sender, chrome.runtime)) return false;
   if (message?.target === 'image-download-offscreen') {
     void (async () => {
       if (message.type === 'CG_IMAGE_FETCH') {

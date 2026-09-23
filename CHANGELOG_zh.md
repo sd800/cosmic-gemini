@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.6.11 — 2026-09-23
+
+- 将 PDF 阅读器的向左旋转图标更新为圆角方框配逆时针箭头，并统一与其他工具栏图标的尺寸和对齐。
+
 ## 9.6.10 — 2026-09-23
 
 - 将 Document Preview 图标改为 Cosmic PDF 的文档图案，保留 Cosmic Gemini 原有的图标配色和样式。

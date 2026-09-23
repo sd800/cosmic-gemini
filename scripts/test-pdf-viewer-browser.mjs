@@ -213,6 +213,7 @@ try {
   assert.equal(await frame.locator('[data-property=modified]').textContent(), '2026-02-03 10:12 (UTC-8)');
   assert.equal(await frame.locator('[data-property=pageCount]').textContent(), '80');
   assert.equal(await frame.locator('[data-property=pdfVersion]').textContent(), '1.7');
+  assert.deepEqual(await frame.locator('#properties-dialog').evaluate(n=>({width:n.getBoundingClientRect().width,height:n.getBoundingClientRect().height,font:getComputedStyle(n).fontSize})),{width:560,height:560,font:'15px'});
   const originalPageSize = await frame.locator('[data-property=pageSize]').textContent();
   assert.match(originalPageSize, /^8.5 × 11.69 in \(Page 1\)$/);
   await frame.locator('#properties-close').press('ArrowRight');
@@ -232,6 +233,14 @@ try {
   await frame.locator('#filename').click(); await frame.waitForFunction(() => !document.querySelector('#properties-status').textContent);
   await page.screenshot({path:join(folder,'properties-light-en.png')}); await frame.locator('#properties-close').click();
   await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
+  await page.setViewportSize({width:760,height:400});
+  for(let i=0;i<2;i++){
+    await frame.locator('#filename').click();await frame.waitForFunction(()=>!document.querySelector('#properties-status').textContent);
+    assert.deepEqual(await frame.locator('#properties-dialog').evaluate(n=>({overflow:n.scrollHeight>n.clientHeight,top:n.scrollTop,left:n.scrollLeft,focus:document.activeElement.id})),{overflow:true,top:0,left:0,focus:'properties-title'});
+    await frame.locator('#properties-dialog').evaluate(n=>{n.scrollTop=n.scrollHeight;});await frame.locator('#properties-close').click();
+    assert.equal(await frame.evaluate(()=>document.activeElement.id),'filename');
+  }
+  await page.setViewportSize({width:1280,height:1000});
   metrics.properties = 'filename click/keyboard, lazy cached metadata, ISO dates/offsets, safe text, original dimensions, light/dark and dismissal';
   assert.equal(await frame.evaluate(() => typeof chrome?.runtime), 'undefined');
   assert.equal(await frame.evaluate(() => !!globalThis.PDF_ATTACK), false);

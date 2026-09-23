@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.15 — 2026-09-23
+
+- Make PDF document properties more compact without reducing text size, and open overflowing dialogs at the top.
+
 ## 9.6.13 — 2026-09-23
 
 - Refine the PDF reader’s centered toolbar spacing, symmetric page indicator and zoom menu while retaining previous/next controls.

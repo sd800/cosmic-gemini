@@ -31,7 +31,10 @@ export function createProperties({ pdf, viewer, filename, byteLength, locale, te
       const run = ++generation, pageNumber = viewer.currentPageNumber;
       for (const key of fields.keys()) set(key, '');
       set('fileName', filename); set('fileSize', pdfFileSize(byteLength, locale)); set('pageCount', numbers.format(pdf.numPages));
+      // Focus the heading rather than scrolling to the bottom Close button.
       status.textContent = text.propertiesLoading; dialog.showModal();
+      document.getElementById('properties-title').focus({ preventScroll: true });
+      dialog.scrollTop = 0; dialog.scrollLeft = 0;
       const [result, page] = await Promise.all([
         metadata ||= pdf.getMetadata().catch(() => null),
         pdf.getPage(pageNumber).catch(() => null)

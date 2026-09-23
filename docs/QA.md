@@ -74,7 +74,7 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 
 ## PDF Viewer
 
-- Click or keyboard-activate the filename to check Document properties in both languages/themes and narrow windows. Test ISO dates with/without seconds, positive/negative/absent time-zone offsets, original dimensions after display rotation, safe long metadata, Escape/outside-click closure and cached reopening. Missing metadata and closure during a read must not affect the PDF.
+- Click or keyboard-activate the filename to check Document properties in both languages/themes and narrow windows. Test ISO dates with/without seconds, positive/negative/absent time-zone offsets, original dimensions after display rotation, safe long metadata, Escape/outside-click closure and cached reopening. With a short viewport, scroll properties to the bottom, close and reopen: focus returns to the heading and both scroll offsets reset to zero. Missing metadata and closure during a read must not affect the PDF.
 - Delay document bytes: the themed toolbar/local worker should initialize first, with document controls disabled. After bytes arrive, page one must paint first without a whole-document render; leave/expire during preparation to verify cleanup.
 
 - Use an independent Chrome profile; never reuse the user's browser for routine QA. Run `scripts/test-pdf-viewer-browser.mjs` with `PDF_VIEWER_CHROME` and `PDF_VIEWER_PLAYWRIGHT` pointing to the test browser/runtime. Optional `PDF_VIEWER_REAL_SAMPLE` and `PDF_VIEWER_PASSWORD_SAMPLE` add real/encrypted PDFs (test password `reader-test`).

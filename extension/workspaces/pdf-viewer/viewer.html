@@ -32,7 +32,7 @@
 <dialog id="password-dialog"><form method="dialog"><p id="password-message"></p><input id="password" type="password" autocomplete="off" data-label="password" required><div class="dialog-actions"><button value="cancel" formnovalidate data-text="cancel"></button><button value="open" data-text="open"></button></div></form></dialog>
 <dialog id="print-dialog"><form method="dialog"><p data-text="printRange"></p><label><span data-text="from"></span><input id="print-from" type="number" min="1" value="1" required></label><label><span data-text="to"></span><input id="print-to" type="number" min="1" value="1" required></label><p id="print-error" role="alert"></p><div class="dialog-actions"><button value="cancel" formnovalidate data-text="cancel"></button><button value="print" data-text="print"></button></div></form></dialog>
 <dialog id="properties-dialog" class="notranslate" translate="no" aria-labelledby="properties-title">
-  <h2 id="properties-title" data-text="properties"></h2>
+  <h2 id="properties-title" tabindex="-1" data-text="properties"></h2>
   <p id="properties-status" role="status"></p><dl id="properties-list"></dl>
   <div class="dialog-actions"><button id="properties-close" type="button" data-text="close"></button></div>
 </dialog>

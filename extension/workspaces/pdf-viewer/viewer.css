@@ -31,8 +31,10 @@ button.reader-icon{width:34px;height:34px;min-height:34px;flex:0 0 34px;padding:
 /* Keep the filename's centered single-line layout while making it accessible. */
 #filename{align-self:center;max-width:100%;min-width:0;min-height:0;padding:0 3px;font-size:15px;font-weight:700;line-height:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #filename:disabled{opacity:1}
-#properties-dialog{width:min(600px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);overflow:auto;font-size:15px}
+#properties-dialog{width:min(560px,calc(100vw - 32px));max-width:none;max-height:min(560px,calc(100dvh - 32px));overflow:auto;font-size:15px}
 #properties-dialog h2{font-size:18px;margin:0 0 18px}#properties-status:empty{display:none}
 #properties-list{display:grid;grid-template-columns:minmax(100px,145px) minmax(0,1fr);gap:10px 18px;margin:0;line-height:1.5}
 #properties-list dt{color:var(--muted)}#properties-list dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
 @media(max-width:480px){#properties-list{grid-template-columns:100px minmax(0,1fr);gap:10px 12px}}
+
+#properties-title:focus{outline:none}

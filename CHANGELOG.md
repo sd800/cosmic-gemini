@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.16 — 2026-09-23
+
+- Keep only the newest Settings tab open across All Settings and individual feature pages, automatically closing earlier Settings tabs without affecting other extension pages.
+- Place the Document Preview loading indicator to the left of Preview without shifting or enlarging the prompt.
+
 ## 9.6.15 — 2026-09-23
 
 - Make PDF document properties more compact without reducing text size, and open overflowing dialogs at the top.

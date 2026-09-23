@@ -140,7 +140,7 @@ function controller(feature = 'satellites') {
     createElement: tag => new Element(tag)
   };
   const context = vm.createContext({
-    document, chrome: {}, location: { pathname: '' },
+    document, chrome: {}, location: { pathname: '' }, performance: { timeOrigin: 100, now: () => 1 }, addEventListener() {},
     featureFromPath: () => feature, translator: () => key => key,
     isIpAddress: value => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || /^\[[0-9a-f:]+\]$/i.test(value),
     ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, saveSettingsViewCache() {}, icon: () => '',

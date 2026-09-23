@@ -1,3 +1,4 @@
+import { createSettingsSurface } from '../../features/settings-surface.js';
 import { FEATURE_IDS } from '../../../core/config.js';
 
 const SETTINGS_PATHS = Object.freeze({
@@ -12,10 +13,15 @@ const SETTINGS_PATHS = Object.freeze({
 });
 
 export function createAdministrationProduct(platform) {
+  let settingsUrls;
+  const isSettingsPage = url => typeof url === 'string' && (settingsUrls ||= new Set([...Object.values(SETTINGS_PATHS), 'settings/all-settings.html'].map(path => chrome.runtime.getURL(path)))).has(url.split(/[?#]/, 1)[0]);
+  const registerSettings = createSettingsSurface(isSettingsPage, 'administration-settings-surface');
+
   return Object.freeze({
     id: 'administration',
     async handleMessage(message, context) {
       const senderUrl = String(context.sender.url || '');
+      if (message.type === 'UI_SETTINGS_OPENED') return registerSettings(context.sender, message.openedAt);
       if (message.type === 'UI_GET_ACTIVE_PAGE_STATE') {
         if (!senderUrl.startsWith(chrome.runtime.getURL('popup/'))) {
           throw new Error('The active page can only be read from the popup.');

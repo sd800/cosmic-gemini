@@ -7,6 +7,10 @@ import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
 import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
 
+const claimSettings = openedAt => void send({ type: 'UI_SETTINGS_OPENED', openedAt }).catch(() => {});
+claimSettings(performance.timeOrigin);
+addEventListener('pageshow', event => { if (event.persisted) claimSettings(performance.timeOrigin + performance.now()); });
+
 const root = document.documentElement;
 const LONG_PRESS_MS = 550;
 const LONG_PRESS_MOVE_TOLERANCE = 8;

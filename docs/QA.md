@@ -101,3 +101,9 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 - Check direct italic/bold overrides, raised/lowered characters, contextual spacing, borderless/styled tables, image width/ratio, checkbox symbols, ruby annotations and inline/display fractions. Pass hostile MathML containing links, foreign HTML and event attributes through the sanitizer; preserve only passive math and issue no remote requests.
 - Move the source tab and switch active windows before choosing Preview. Verify placement immediately to its right in the source window; repeat with remembered choices, reused cache from another source tab and the fallback choice page.
 - The toolbar must retain `translate="no"` and `notranslate`, with no such marker on the document frame. Where browser translation is available, translate the body and verify that filename, source site and controls retain their UI language.
+
+### Settings tab replacement
+
+Open All Settings and different feature Settings pages from the popup, directly, through Duplicate and in another window. Only the newest Settings tab should remain; navigation among Settings pages and reload must keep that tab. Exercise rapid creations and an old tab navigating away before cleanup. Other extension workspaces, web pages and Settings in the other normal/incognito context must remain open.
+
+For the Document Preview choice prompt, delay the Preview response and compare dialog/button geometry before and during loading in both languages/themes and a narrow viewport. The indeterminate line must appear left of Preview with identical bounds, no percentage/status row and paused animation when idle; failure re-enables actions and shows its error.

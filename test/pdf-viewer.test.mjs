@@ -21,7 +21,7 @@ test('PDF Viewer applies read-only asset and resource boundaries', () => {
   assert.equal(stepPdfScale(stepPdfScale(1, 1), 1), 1.2);
   assert.equal(stepPdfScale(stepPdfScale(1.2, -1), -1), 1);
   assert.equal(stepPdfScale(5, 1), 5); assert.equal(stepPdfScale(.25, -1), .25);
-  for (const sampling of [2, 4, 6]) assert.equal(pdfDetailCanvasPixels(sampling), sampling ** 2 * 1024 * 1024);
+  for (const sampling of [1, 2, 3, 4, 5, 6]) assert.equal(pdfDetailCanvasPixels(sampling), sampling ** 2 * 1024 * 1024);
   for (const invalid of [undefined, 0, 8, NaN, '6']) assert.equal(pdfDetailCanvasPixels(invalid), 16 * 1024 * 1024);
   assert.equal(printRange(0, 5, 10), null); assert.equal(printRange(1, 51, 80), null);
   assert.equal(printRange(3, 2, 10), null); assert.equal(printRange(1, 11, 10), null);
@@ -40,7 +40,7 @@ test('PDF rendering lives in a network-restricted opaque sandbox without editing
   assert.match(source, /scriptingManager: null/); assert.match(source, /enableAutoLinking: false/);
   assert.doesNotMatch(source, /chrome\.|localStorage|sessionStorage|innerHTML|eval\(/);
   assert.match(source, /event.source !== parent/);
-  assert.match(source, /drawingDelay: 180/); assert.match(source, /maxCanvasPixels: PDF_LIMITS.canvasPixels/);
+  assert.match(source, /drawingDelay: 180/); assert.match(source, /maxCanvasPixels: Math.min\(PDF_LIMITS.canvasPixels, pdfDetailCanvasPixels\(sampling\)\)/);
   assert.match(source, /thumbnailCache.size <= 24/); assert.match(source, /viewer.currentPageNumber = page/);
   const host = await readFile(new URL('workspaces/pdf-viewer/host.js', root), 'utf8');
   assert.match(host, /new MessageChannel/); assert.match(host, /iframe.remove\(\)/);

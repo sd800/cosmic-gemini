@@ -39,6 +39,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.documentPreview?.enabled === true,
       appearance: normalizeDocumentAppearance(states.documentPreview?.appearance),
       pdfSampling: normalizePdfSampling(states.documentPreview?.pdfSampling),
+      pdfSharpening: states.documentPreview?.pdfSharpening === true,
       whitelistDomains: [...new Set(rules(states.documentPreview?.whitelistDomains).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
       }))].slice(0, 1000)

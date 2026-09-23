@@ -1,7 +1,7 @@
 import { PDF_LIMITS } from './model.js';
 // This host is the only connection to a product. The opaque viewer has no
 // extension APIs, storage access, document URL, or arbitrary command channel.
-export function createPdfViewer({ container, bytes, filename, locale, sampling, dark, automatic, onDownload, onTheme, onAuto, onError }) {
+export function createPdfViewer({ container, bytes, filename, locale, sampling, sharpening = false, dark, automatic, onDownload, onTheme, onAuto, onError }) {
   if (!(bytes instanceof ArrayBuffer) || !bytes.byteLength || bytes.byteLength > PDF_LIMITS.bytes) throw Error('Invalid PDF size');
   const iframe = document.createElement('iframe');
   iframe.className = 'pdf-viewer-frame'; iframe.title = 'PDF Viewer';
@@ -40,9 +40,10 @@ export function createPdfViewer({ container, bytes, filename, locale, sampling, 
     }
     else if (data.type === 'error') { clearTimeout(timeout); onError(); }
   };
-  iframe.addEventListener('load', () => { if (!closed) iframe.contentWindow.postMessage({ type: 'CG_PDF_INIT', bytes, filename, locale, sampling, dark, automatic }, '*', [channel.port2, bytes]); }, { once: true });
+  iframe.addEventListener('load', () => { if (!closed) iframe.contentWindow.postMessage({ type: 'CG_PDF_INIT', bytes, filename, locale, sampling, sharpening: sharpening === true, dark, automatic }, '*', [channel.port2, bytes]); }, { once: true });
   container.append(iframe);
   return {
+    setSharpening(value) { if (!closed) { sharpening = value === true; channel.port1.postMessage({ type: 'sharpening', enabled: sharpening }); } },
     setTheme(dark, automatic) { if (!closed) channel.port1.postMessage({ type: 'theme', dark: !!dark, automatic: !!automatic }); },
     destroy
   };

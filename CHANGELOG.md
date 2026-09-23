@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.9 — 2026-09-23
+
+- Made PDF sharpening an optional checkbox, off by default. Turning it off also removes sharpening from open readers without recreating their canvases.
+- Added 1×/3×/5× PDF sampling choices, keeping 4× as the default. The 1× option also uses a smaller page-canvas budget to reduce memory use.
+
 ## 9.6.8 — 2026-09-23
 
 - Added a PDF sampling dropdown in Document Preview settings with 2×/4×/6× options, defaulting to 4×. Changes apply only to newly opened PDF readers.

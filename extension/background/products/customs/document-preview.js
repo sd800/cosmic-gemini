@@ -279,6 +279,12 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         }));
         return settings.documentPreview;
       }
+      if (message.type === 'UI_SET_DOCUMENT_PDF_SHARPENING') {
+        if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) throw Error('Settings only.');
+        if (typeof message.pdfSharpening !== 'boolean') throw Error('Unknown PDF sharpening.');
+        const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({ ...feature, pdfSharpening: message.pdfSharpening })));
+        return settings.documentPreview;
+      }
       if (message.type === 'UI_SET_DOCUMENT_PDF_SAMPLING') {
         if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) throw Error('Settings only.');
         if (!PDF_SAMPLING_VALUES.includes(message.pdfSampling)) throw Error('Unknown PDF sampling.');
@@ -318,6 +324,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
           ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.site] || 'ask',
           appearance: normalizeDocumentAppearance(preference?.appearance),
           pdfSampling: normalizePdfSampling(preference?.pdfSampling),
+          pdfSharpening: preference?.pdfSharpening === true,
           siteTheme: state.themes[doc.site] || null,
           prepared, blobUrl: prepared ? cached.blobUrl : null
         };

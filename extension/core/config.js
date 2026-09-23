@@ -82,7 +82,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
-  documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, whitelistDomains: Object.freeze([]) }),
+  documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, pdfSharpening: false, whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
   accessControl: Object.freeze({
     enabled: false,
@@ -327,6 +327,7 @@ export function normalizeSettings(value = {}) {
       enabled: value.documentPreview?.enabled === true,
       appearance: normalizeDocumentAppearance(value.documentPreview?.appearance),
       pdfSampling: normalizePdfSampling(value.documentPreview?.pdfSampling),
+      pdfSharpening: value.documentPreview?.pdfSharpening === true,
       whitelistDomains: [...new Set((Array.isArray(value.documentPreview?.whitelistDomains) ? value.documentPreview.whitelistDomains : []).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
       }))].slice(0, 1000)

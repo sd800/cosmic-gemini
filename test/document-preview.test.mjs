@@ -117,11 +117,18 @@ test('Document Preview is default-off and preserves unsupported and unprepared d
   assert.equal(DEFAULT_SETTINGS.documentPreview.enabled, false);
   assert.equal(DEFAULT_SETTINGS.documentPreview.appearance, 'auto');
   assert.equal(DEFAULT_SETTINGS.documentPreview.pdfSampling, 4);
-  for (const value of [undefined, 0, 3, 8, '6', NaN]) {
+  assert.equal(DEFAULT_SETTINGS.documentPreview.pdfSharpening, false);
+  for (const value of [undefined, false, 'true', 1, null]) {
+    assert.equal(normalizeSettings({documentPreview:{pdfSharpening:value}}).documentPreview.pdfSharpening, false);
+    assert.equal(settingsViewCache({documentPreview:{pdfSharpening:value}}).documentPreview.pdfSharpening, false);
+  }
+  assert.equal(normalizeSettings({documentPreview:{pdfSharpening:true}}).documentPreview.pdfSharpening, true);
+  assert.equal(settingsViewCache({documentPreview:{pdfSharpening:true}}).documentPreview.pdfSharpening, true);
+  for (const value of [undefined, 0, 7, 8, '6', NaN]) {
     assert.equal(normalizeSettings({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, 4);
     assert.equal(settingsViewCache({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, 4);
   }
-  for (const value of [2, 4, 6]) {
+  for (const value of [1, 2, 3, 4, 5, 6]) {
     assert.equal(normalizeSettings({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, value);
     assert.equal(settingsViewCache({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, value);
   }
@@ -358,8 +365,15 @@ test('document appearance defaults, site overrides and resets follow the source 
   assert.equal((await get(first)).appearance, 'auto');
   const opened = await get(first);
   assert.equal(opened.pdfSampling, 4);
+  assert.equal(opened.pdfSharpening, false);
+  for (const pdfSharpening of [true, false]) {
+    const saved = await env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SHARPENING',pdfSharpening},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
+    assert.equal(saved.pdfSharpening, pdfSharpening);
+    assert.equal((await get(first)).pdfSharpening, pdfSharpening);
+    assert.equal(saved.pdfSampling, 4, 'sharpening does not change sampling');
+  }
   const setSampling = pdfSampling => env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
-  for (const value of [2, 6, 4]) {
+  for (const value of [1, 2, 3, 5, 6, 4]) {
     assert.equal((await setSampling(value)).pdfSampling, value);
     assert.equal((await get(first)).pdfSampling, value, 'new readers receive the current setting, including cached documents');
   }
@@ -410,7 +424,9 @@ test('appearance commands reject invalid callers and values, and incognito overr
   await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'light'},{sender}));
   await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'invalid'},{sender:{url:'chrome-extension://test/settings/satellites.html'}}));
   await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling:6},{sender}), /Settings only/);
-  for (const pdfSampling of ['6', 3, 0, 10, null]) await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling},{sender:{url:'chrome-extension://test/settings/satellites.html'}}), /Unknown PDF sampling/);
+  await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SHARPENING',pdfSharpening:true},{sender}), /Settings only/);
+  for (const pdfSharpening of ['true', 1, undefined, null]) await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SHARPENING',pdfSharpening},{sender:{url:'chrome-extension://test/settings/satellites.html'}}), /Unknown PDF sharpening/);
+  for (const pdfSampling of ['6', 7, 0, 10, null]) await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling},{sender:{url:'chrome-extension://test/settings/satellites.html'}}), /Unknown PDF sampling/);
   chrome.storage.session.set = async () => { throw Error('storage unavailable'); };
   await assert.rejects(env.product.handleMessage({...command,theme:'dark'},{sender}), /storage unavailable/);
   assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender})).siteTheme,'light','a failed write cannot change the authoritative session preference');
@@ -606,6 +622,9 @@ test('Customs routes document settings, state and cleanup without starting media
   const sampling = await customs.handleMessage('documentPreview',{type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling:6},
     {sender:{url:'chrome-extension://test/settings/satellites.html'}});
   assert.equal(sampling.pdfSampling,6);
+  const sharpening = await customs.handleMessage('documentPreview',{type:'UI_SET_DOCUMENT_PDF_SHARPENING',pdfSharpening:true},
+    {sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  assert.equal(sharpening.pdfSharpening,true);
   const state = await customs.getProductState('documentPreview',{settings:await env.platform.readSettings(),tabId:1,url:env.tabs[0].url});
   assert.equal(state.enabled,false);assert.equal(state.supported,true);
   assert.equal(await customs.handleAlarm({name:DOCUMENT_CLEANUP_ALARM_PREFIX+'regular'}),true);

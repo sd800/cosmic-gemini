@@ -223,6 +223,7 @@ function render() {
     document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
     document.querySelector('#documentPreviewAppearance').value = preference?.appearance || 'auto';
     document.querySelector('#documentPdfSampling').value = preference?.pdfSampling || 4;
+    document.querySelector('#documentPdfSharpening').checked = preference?.pdfSharpening === true;
   }
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
@@ -644,6 +645,10 @@ function bindView() {
       type: 'UI_SET_ENABLED', featureId: 'documentPreview', enabled: documentPreviewEnabled.checked
     }), [documentPreviewEnabled]);
   });
+  const documentPdfSharpening = document.querySelector('#documentPdfSharpening');
+  if (documentPdfSharpening) documentPdfSharpening.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
+    type: 'UI_SET_DOCUMENT_PDF_SHARPENING', featureId: 'documentPreview', pdfSharpening: documentPdfSharpening.checked
+  }), [documentPdfSharpening]));
   const documentPdfSampling = document.querySelector('#documentPdfSampling');
   if (documentPdfSampling) documentPdfSampling.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
     type: 'UI_SET_DOCUMENT_PDF_SAMPLING', featureId: 'documentPreview', pdfSampling: Number(documentPdfSampling.value)

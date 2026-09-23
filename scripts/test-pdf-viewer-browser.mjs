@@ -21,14 +21,15 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   (async()=>{
     if(message.type==='UI_GET_LOCALE')return {locale:(await chrome.storage.local.get('qaLocale')).qaLocale||'en-US'};
     if(message.type==='UI_GET')return {preferences:normalizeSettings((await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings)};
-    if(message.type==='UI_SET_DOCUMENT_PDF_SAMPLING'||message.type==='UI_SET_ENABLED'){
+    if(message.type==='UI_SET_DOCUMENT_PDF_SAMPLING'||message.type==='UI_SET_DOCUMENT_PDF_SHARPENING'||message.type==='UI_SET_ENABLED'){
       const settings=normalizeSettings((await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings);
       const feature=settings.documentPreview;
       if(message.type==='UI_SET_DOCUMENT_PDF_SAMPLING')feature.pdfSampling=message.pdfSampling;
+      else if(message.type==='UI_SET_DOCUMENT_PDF_SHARPENING')feature.pdfSharpening=message.pdfSharpening;
       else feature.enabled=message.enabled;
       await chrome.storage.local.set({cosmicGeminiSettings:settings});
       const {qaDocument:doc}=await chrome.storage.session.get('qaDocument');
-      if(doc)await chrome.storage.session.set({qaDocument:{...doc,pdfSampling:feature.pdfSampling}});
+      if(doc)await chrome.storage.session.set({qaDocument:{...doc,pdfSampling:feature.pdfSampling,pdfSharpening:feature.pdfSharpening}});
       return feature;
     }
     const {qaDocument:doc}=await chrome.storage.session.get('qaDocument');
@@ -42,7 +43,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 });`);
 await writeFile(join(extension, 'qa.html'), '<!doctype html><style>body{margin:0;background:#121416}main{height:100vh;display:flex}iframe{border:0;width:100%;height:100%}</style><main></main><script type="module" src="qa.js"></script>');
 await writeFile(join(extension, 'qa.js'), `import {createPdfViewer} from './workspaces/pdf-viewer/host.js';
-window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6)=>{window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,dark:true,automatic:true,onDownload:()=>events.push('download'),onTheme:()=>viewer.setTheme(false,false),onAuto:()=>viewer.setTheme(true,true),onError:()=>events.push('error')});};`);
+window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=false)=>{window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,sharpening,dark:true,automatic:true,onDownload:()=>events.push('download'),onTheme:()=>viewer.setTheme(false,false),onAuto:()=>viewer.setTheme(true,true),onError:()=>events.push('error')});};`);
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, deviceScaleFactor: 2, viewport: { width: 1280, height: 1000 }, args: ['--force-device-scale-factor=2', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 try {
   const page = await context.newPage();
@@ -53,8 +54,8 @@ try {
   await page.goto('chrome://extensions');
   const id = await page.evaluate(() => document.querySelector('extensions-manager').shadowRoot.querySelector('extensions-item-list').shadowRoot.querySelector('extensions-item').id);
   const url = `chrome-extension://${id}/qa.html`;
-  async function open(bytes, locale, sampling) {
-    await page.goto(url); await page.evaluate(({ bytes, locale, sampling }) => openPdf(bytes, locale, sampling), { bytes: Array.from(bytes), locale, sampling });
+  async function open(bytes, locale, sampling, sharpening) {
+    await page.goto(url); await page.evaluate(({ bytes, locale, sampling, sharpening }) => openPdf(bytes, locale, sampling, sharpening), { bytes: Array.from(bytes), locale, sampling, sharpening });
     return (await page.locator('iframe').elementHandle()).contentFrame();
   }
   async function ready(frame) { await frame.waitForFunction(() => document.querySelector('.page canvas')?.width > 0 && document.querySelector('#count').textContent !== '/ —'); await frame.waitForFunction(() => document.querySelector('.textLayer span')); }
@@ -85,9 +86,14 @@ try {
     assert.equal(position.top, 0, 'newly opened PDFs start above the first page, not at its paper edge');
     assert.ok(position.gap >= 15, 'keep the space between the toolbar and first page visible');
   }
+  async function filtersOff(frame) {
+    await frame.waitForFunction(() => [...document.querySelectorAll('.page canvas')].every(canvas => getComputedStyle(canvas).filter === 'none'));
+    assert.equal(await frame.locator('canvas.pdf-sharpen').count(),0,'disabled sharpening keeps no sharpened base surfaces');
+  }
   const start = performance.now(); const frame = await open(viewerPdf()); await ready(frame);
   await detailReady(frame);
   metrics.open80PagesMs = Math.round(performance.now() - start);
+  await filtersOff(frame);
   await initialPosition(frame);
   metrics.initialCanvasRatio = await frame.evaluate(() => {
     const canvas = document.querySelector('.page canvas.detailView'), width = canvas.getBoundingClientRect().width;
@@ -247,7 +253,7 @@ try {
     return scan.toDataURL('image/jpeg', .9).split(',')[1];
   });
   const scanStart = performance.now();
-  const scan = await open(scannedPdf(Buffer.from(scanImage, 'base64'),612,842)); await detailReady(scan);
+  const scan = await open(scannedPdf(Buffer.from(scanImage, 'base64'),612,842), 'en-US', 6, true); await detailReady(scan);
   metrics.scanReadyMs = Math.round(performance.now()-scanStart);
   assert.match(await scan.locator('canvas.detailView').evaluate(canvas => getComputedStyle(canvas).filter), /pdf-detail-sharpen/);
   assert.equal(await scan.locator('.textLayer span').count(), 0, 'fixture is a scan without a text layer');
@@ -268,21 +274,43 @@ try {
     }, [...screenshot]);
   }
   const sharpEdges = await scanEdges('scan-sharpened');
-  await scan.evaluate(() => {document.querySelector('canvas.detailView').style.filter='none';});
+  await page.evaluate(() => viewer.setSharpening(false));
+  await filtersOff(scan);
   const plainEdges = await scanEdges('scan-unsharpened');
   metrics.scanEdgeGain = sharpEdges/plainEdges;
   assert.ok(metrics.scanEdgeGain > 1.01, 'mild sharpening measurably increases scan stroke-edge contrast');
-  await scan.evaluate(() => {document.querySelector('canvas.detailView').style.removeProperty('filter');});
+  await page.evaluate(() => viewer.setSharpening(true));
+  await scan.waitForFunction(()=>getComputedStyle(document.querySelector('canvas.detailView')).filter.includes('pdf-detail-sharpen'));
   const scanPrevious = await scan.locator('canvas.detailView').elementHandle();
   const scanZoomStart = performance.now(); await scan.locator('#scale').selectOption('2'); await detailReady(scan,1,scanPrevious);
   await page.screenshot({path:join(folder,'scan-200-percent.png')});
   metrics.scanZoomPaintMs = Math.round(performance.now()-scanZoomStart);
-  const economical = await open(viewerPdf(2), 'en-US', 2); await ready(economical);
+  const economical = await open(viewerPdf(2), 'en-US', 2, true); await ready(economical);
   await economical.waitForFunction(()=>window.qaPdfViewer.getPageView(0).renderingState===3);
   assert.equal(await economical.evaluate(()=>window.qaPdfViewer.getPageView(0).getRenderPixelRatio()),2);
   assert.equal(await economical.locator('.page[data-page-number="1"] canvas.pdf-sharpen').count(),1,'sharpening also covers full-resolution base canvases');
   await economical.locator('#scale').selectOption('2'); await detailReady(economical);
   assert.equal(await economical.evaluate(()=>window.qaPdfViewer.getPageView(0).getRenderPixelRatio()),2);
+  await page.evaluate(() => viewer.setSharpening(false)); await filtersOff(economical);
+  const lowMemory = await open(viewerPdf(2), 'en-US', 1); await ready(lowMemory);
+  await lowMemory.waitForFunction(()=>window.qaPdfViewer.getPageView(0).renderingState===3);
+  metrics.oneTimesCanvas = await lowMemory.evaluate(()=>{
+    const view=window.qaPdfViewer.getPageView(0),canvas=view.canvas;
+    return {density:canvas.width/view.viewport.width,pixels:canvas.width*canvas.height};
+  });
+  assert.ok(Math.abs(metrics.oneTimesCanvas.density-1)<.01);
+  assert.ok(metrics.oneTimesCanvas.pixels<=1024*1024, '1x uses a smaller actual canvas at normal zoom');
+  await filtersOff(lowMemory);
+  await lowMemory.locator('#scale').selectOption('2'); await detailReady(lowMemory);
+  assert.equal(await lowMemory.evaluate(()=>window.qaPdfViewer.getPageView(0).maxDetailCanvasPixels),1024*1024);
+  assert.equal(await lowMemory.evaluate(()=>window.qaPdfViewer.getPageView(0).maxCanvasPixels),1024*1024);
+  await filtersOff(lowMemory);
+  for (const sampling of [3,5]) {
+    const intermediate = await open(viewerPdf(1), 'en-US', sampling); await ready(intermediate); await detailReady(intermediate);
+    assert.equal(await intermediate.evaluate(()=>window.qaPdfViewer.getPageView(0).getRenderPixelRatio()),sampling);
+    assert.equal(await intermediate.evaluate(()=>window.qaPdfViewer.getPageView(0).maxDetailCanvasPixels),sampling**2*1024*1024);
+    await filtersOff(intermediate);
+  }
   // Exercise the real privileged Document Preview host and its existing session
   // lifecycle. The test background supplies owned metadata, not reader policy.
   const docId = await page.evaluate(async bytes => {
@@ -301,6 +329,7 @@ try {
   await detailReady(embedded);
   const density = target => target.evaluate(()=>window.qaPdfViewer.getPageView(0).getRenderPixelRatio());
   assert.equal(await density(embedded),4,'default reader sampling is 4x');
+  await filtersOff(embedded);
   assert.equal(await embedded.evaluate(()=>window.qaPdfViewer.getPageView(0).maxDetailCanvasPixels),16*1024*1024);
   await page.evaluate(()=>chrome.storage.local.set({cosmicGeminiSettings:{documentPreview:{enabled:true,appearance:'dark',pdfSampling:4}}}));
   const settings = await context.newPage();
@@ -308,7 +337,26 @@ try {
   await settings.goto(`chrome-extension://${id}/settings/satellites.html`);
   await settings.waitForFunction(()=>!document.querySelector('#documentPdfSampling').matches(':disabled'));
   assert.equal(await settings.locator('#documentPdfSampling').inputValue(),'4');
-  assert.deepEqual(await settings.locator('#documentPdfSampling option').allTextContents(),['2×','4×','6×']);
+  assert.deepEqual(await settings.locator('#documentPdfSampling option').allTextContents(),['1×','2×','3×','4×','5×','6×']);
+  assert.equal(await settings.locator('#documentPdfSharpening').isChecked(),false,'sharpening starts unchecked');
+  // These are live style changes, not another parse or canvas render.
+  await embedded.evaluate(()=>{
+    window.qaOriginalPage=window.qaPdfViewer.getPageView(0);
+    window.qaOriginalCanvas=window.qaOriginalPage.detailView.canvas;
+    window.qaSharpenRenders=0;window.qaPdfViewer.eventBus.on('pagerendered',()=>window.qaSharpenRenders++);
+  });
+  await settings.locator('#documentPdfSharpening').check({force:true});
+  await embedded.waitForFunction(()=>getComputedStyle(window.qaOriginalCanvas).filter.includes('pdf-detail-sharpen'));
+  await settings.reload();
+  await settings.waitForFunction(()=>document.querySelector('#documentPdfSharpening').checked);
+  await settings.locator('#documentPdfSharpening').uncheck({force:true});
+  await filtersOff(embedded);
+  assert.equal(await embedded.evaluate(()=>window.qaOriginalCanvas===window.qaPdfViewer.getPageView(0).detailView.canvas),true);
+  assert.equal(await embedded.evaluate(()=>window.qaSharpenRenders),0,'changing sharpening does not render new canvases');
+  await settings.locator('#documentPdfSampling').selectOption('1');
+  await settings.waitForFunction(async()=>(await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.documentPreview.pdfSampling===1);
+  await settings.reload();
+  await settings.waitForFunction(()=>document.querySelector('#documentPdfSampling').value==='1');
   await settings.locator('#documentPdfSampling').selectOption('6');
   await settings.waitForFunction(async()=>(await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.documentPreview.pdfSampling===6);
   await settings.locator('#documentPdfSampling').scrollIntoViewIfNeeded();
@@ -323,6 +371,7 @@ try {
   await settings.screenshot({path:join(folder,'sampling-settings-zh.png')});
   await settings.locator('#documentPreviewEnabled').uncheck({force:true});
   await settings.waitForFunction(()=>document.querySelector('#documentPdfSampling').matches(':disabled'));
+  assert.equal(await settings.locator('#documentPdfSharpening').isDisabled(),true);
   await settings.close();
   await page.evaluate(()=>chrome.storage.local.set({qaLocale:'en-US'}));
   await embedded.locator('#scale').selectOption('2'); await detailReady(embedded);
@@ -343,7 +392,7 @@ try {
   await page.evaluate(()=>chrome.storage.session.set({'documentPreview:regular':{documents:[],themes:{}}}));
   await integration.waitForFunction(()=>!document.querySelector('.pdf-viewer-frame'));
   assert.match(await integration.locator('#status').textContent(),/expired/);await integration.close();
-  metrics.documentPreview='default 4x, 2x/6x, immutable open-reader sampling, theme, fullscreen, reload and expiry passed';
+  metrics.documentPreview='default 4x, all 1x–6x choices, default-off live sharpening, immutable open-reader sampling, theme, fullscreen, reload and expiry passed';
   assert.deepEqual(network, []); assert.deepEqual(failures, []); assert.deepEqual(errors, []);
   await page.evaluate(() => viewer.destroy()); assert.equal(await page.locator('iframe').count(), 0);
   console.log(JSON.stringify({metrics, errors, network, screenshots: folder}, null, 2));

@@ -94,6 +94,7 @@
   const introSetting = document.querySelector('.intro-setting');
   if (introSetting && ['nativeScroll', 'noAutoplay'].includes(feature) && incognitoContext) {
     introSetting.textContent = translate('disabledByDefaultInIncognito');
+    introSetting.hidden = false;
   }
   const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
   if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;
@@ -108,7 +109,7 @@
   }
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
   if (mailtoCaptureEnabled) {
-    mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled !== false;
+    mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled === true;
   }
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = !incognitoContext && cached.langGoogle?.enabled === true;
@@ -137,7 +138,7 @@
     document.querySelector('#websiteKnowledgeOptions').disabled = !knowledgeEnabled.checked;
     for (const [category, suffix] of [['languages', 'Languages'], ['timeZone', 'TimeZone'], ['globalPrivacyControl', 'GlobalPrivacyControl']]) {
       const control = document.querySelector('#websiteKnowledge' + suffix);
-      control.checked = knowledge?.[category]?.enabled ?? (category !== 'timeZone');
+      control.checked = knowledge?.[category]?.enabled === true;
       const value = document.querySelector('#websiteKnowledge' + suffix + 'Value');
       if (value) {
         const selected = knowledge?.[category]?.value || (category === 'timeZone' ? 'America/New_York' : 'en-US');

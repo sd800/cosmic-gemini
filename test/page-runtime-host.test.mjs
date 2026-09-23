@@ -223,12 +223,16 @@ test('Native Scroll selects one declared mode stylesheet and keeps Xiaohongshu s
     async sync(...args) { calls.push(args); }
   });
   const baseContext = { tabId: 9, frameId: 0, documentId: 'document-d' };
-  await nativeScroll.sync({ ...baseContext, topUrl: 'https://example.com/' }, DEFAULT_SETTINGS);
+  await nativeScroll.sync({ ...baseContext, topUrl: 'https://example.com/' }, {
+    ...DEFAULT_SETTINGS, nativeScroll: { ...DEFAULT_SETTINGS.nativeScroll, enabled: true }
+  });
   await nativeScroll.sync({ ...baseContext, topUrl: 'https://enhanced.example/' }, {
     ...DEFAULT_SETTINGS,
-    nativeScroll: { ...DEFAULT_SETTINGS.nativeScroll, enhancedRules: ['enhanced.example'] }
+    nativeScroll: { ...DEFAULT_SETTINGS.nativeScroll, enabled: true, enhancedRules: ['enhanced.example'] }
   });
-  await nativeScroll.sync({ ...baseContext, topUrl: 'https://www.xiaohongshu.com/explore' }, DEFAULT_SETTINGS);
+  await nativeScroll.sync({ ...baseContext, topUrl: 'https://www.xiaohongshu.com/explore' }, {
+    ...DEFAULT_SETTINGS, nativeScroll: { ...DEFAULT_SETTINGS.nativeScroll, enabled: true }
+  });
   assert.deepEqual(calls.map(([, , active, files]) => ({ active, files })), [
     { active: true, files: ['content/native-scroll-standard.css'] },
     { active: true, files: ['content/native-scroll-enhanced.css'] },
@@ -242,14 +246,15 @@ test('No Autoplay follows the top-level page decision in every web frame', async
     async sync(...args) { calls.push(args); }
   });
   const topUrl = 'https://example.com/article';
-  await noAutoplay.sync({ tabId: 9, frameId: 0, documentId: 'top', topUrl }, DEFAULT_SETTINGS);
+  const enabledSettings = { ...DEFAULT_SETTINGS, noAutoplay: { ...DEFAULT_SETTINGS.noAutoplay, enabled: true } };
+  await noAutoplay.sync({ tabId: 9, frameId: 0, documentId: 'top', topUrl }, enabledSettings);
   await noAutoplay.sync({
     tabId: 9,
     frameId: 3,
     documentId: 'embedded-player',
     frameUrl: 'https://media.example.net/player',
     topUrl
-  }, DEFAULT_SETTINGS);
+  }, enabledSettings);
   await noAutoplay.sync({
     tabId: 9,
     frameId: 4,
@@ -270,7 +275,8 @@ test('No Autoplay follows the top-level page decision in every web frame', async
 test('Standing Province records governed No Autoplay interventions from child frames', async () => {
   const activity = [];
   const province = createStandingProvince({
-    async readSettings() { return DEFAULT_SETTINGS; },
+    async readSettings() { return { ...DEFAULT_SETTINGS,
+      noAutoplay: { ...DEFAULT_SETTINGS.noAutoplay, enabled: true } }; },
     async setFeatureActivity(tabId, featureId, active) { activity.push({ tabId, featureId, active }); }
   });
   const result = await province.handleMessage('noAutoplay', {

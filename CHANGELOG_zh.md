@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 9.6.21 — 2026-09-23
+
+- 新安装时所有功能均默认关闭，包括此前自动启用的防护功能及 Website Knowledge Control 子选项；已有用户的选择保持不变。
+- 移除 Native Scroll 和 No Autoplay 设置页中多余的默认状态说明。
+
 ## 9.6.20 — 2026-09-23
 
 - 在受 Access Control 限制的页面点击插件工具栏按钮即可单次放行，并移除原控制窗口中的放行按钮。

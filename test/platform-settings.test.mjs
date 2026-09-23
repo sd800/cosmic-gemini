@@ -151,11 +151,11 @@ test('reset is serialized behind settings writes and leaves defaults in storage'
   const platform = createPlatform();
   const update = platform.mutateSettings(current => ({
     ...current,
-    nativeScroll: { ...current.nativeScroll, enabled: false }
+    nativeScroll: { ...current.nativeScroll, enabled: true }
   }), false);
   const reset = platform.resetStorage();
   await Promise.all([update, reset]);
-  assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
+  assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, false);
 });
 
 test('reset preserves artifact records for downloads already accepted by Chrome', async () => {
@@ -177,7 +177,7 @@ test('a failed default-settings replacement does not delete existing preferences
   const mock = chromeMock();
   globalThis.chrome = mock.api;
   const platform = createPlatform();
-  await platform.mutateSettings(current => ({ ...current, nativeScroll: { ...current.nativeScroll, enabled: false } }), false);
+  await platform.mutateSettings(current => ({ ...current, nativeScroll: { ...current.nativeScroll, enabled: true } }), false);
   mock.local.interfaceLocale = 'zh-CN';
   mock.session['anyCopyEnhancedTab:7'] = { active: true };
   const before = structuredClone({ local: mock.local, session: mock.session });
@@ -185,7 +185,7 @@ test('a failed default-settings replacement does not delete existing preferences
   await assert.rejects(platform.resetStorage(), /temporary storage failure/);
   assert.deepEqual({ local: mock.local, session: mock.session }, before);
   await platform.resetStorage();
-  assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, true);
+  assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, false);
   assert.equal(mock.local.interfaceLocale, undefined);
   assert.equal(mock.session['anyCopyEnhancedTab:7'], undefined);
 });

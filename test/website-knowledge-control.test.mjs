@@ -30,7 +30,9 @@ function runtimeFixture(crypto = { randomUUID: () => 'test-token' }) {
   load('website-knowledge-control-runtime.js');
   const run = source => vm.runInContext(source, context);
   const configure = preferences => {
-    const settings = normalizeSettings({ websiteKnowledgeControl: { enabled: true, ...preferences } });
+    const settings = normalizeSettings({ websiteKnowledgeControl: {
+      enabled: true, globalPrivacyControl: { enabled: true }, ...preferences
+    } });
     context.configuration = websiteKnowledgeControlState(settings, 'https://example.com');
     run(`window.dispatchEvent(new CustomEvent('cosmic-gemini:website-knowledge-control:configure', {
       detail: JSON.stringify({ token: 'test-token', config: configuration })
@@ -50,7 +52,7 @@ test('Website Knowledge Control validates independent preferences and starts dis
   const settings = normalizeSettings();
   assert.equal(websiteKnowledgeControlState(settings, 'https://example.com').active, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.websiteKnowledgeControl.enabled, false);
-  assert.equal(settings.websiteKnowledgeControl.globalPrivacyControl.enabled, true);
+  assert.equal(settings.websiteKnowledgeControl.globalPrivacyControl.enabled, false);
   assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-cn'), 'zh-CN');
   assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-hans'), 'zh-Hans');
   assert.equal(validateWebsiteKnowledgeValue('languages', 'zh-hant'), 'zh-Hant');
@@ -175,7 +177,9 @@ test('Claude dedicated identity wins as a whole in either activation order and y
 });
 
 test('Website Knowledge Control scopes request language by context, retries rules, and saves independently', async () => {
-  let settings = normalizeSettings();
+  let settings = normalizeSettings({ websiteKnowledgeControl: {
+    languages: { enabled: true }, globalPrivacyControl: { enabled: true }
+  } });
   const updates = [];
   let failRules = false;
   let tabs = [{ id: 1, url: 'https://example.com', incognito: false }, { id: 2, url: 'https://private.example', incognito: true }];

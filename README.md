@@ -78,7 +78,7 @@ Block visits to selected domains, every level of their subdomains, and exact IPv
 
 #### Website Knowledge Control
 
-Control the language and regional format, time zone, and privacy preference sent to websites. Website Knowledge Control is off by default. Enable its master switch, then select the categories to adjust. Language and regional formats is one combined choice that applies to requests, browser language information, and default Intl formatting; it defaults to `en-US`. The optional time-zone setting defaults to New York and follows daylight saving time. Global Privacy Control is selected by default and asks websites not to sell or share your personal data.
+Control the language and regional format, time zone, and privacy preference sent to websites. Website Knowledge Control and all its categories are off by default. Enable its master switch, then select the categories to adjust. Language and regional formats is one combined choice that applies to requests, browser language information, and default Intl formatting; its suggested value is `en-US`. The optional time-zone setting suggests New York and follows daylight saving time. Global Privacy Control asks websites not to sell or share your personal data when selected.
 
 Unselected categories keep their original values. These adjustments do not change your system settings. Each page keeps the browser information it received when it loaded, so changed or disabled settings take effect when that page next loads.
 
@@ -182,7 +182,7 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 **All Settings** occupies its own bottom row and aligns to the right. The Cosmic Gemini wordmark is hidden in this compact main view. All Settings opens the product directory and the command for restoring all settings and website rules to their defaults.
 
-All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Mailto Capture is on by default in ordinary windows, while Clipboard Protect, Access Control, Website Knowledge Control, Page Display, both of its visual adjustments, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, Bili Daily Login, and every Ad Marshal website are off by default. Ad Marshal lets each managed website group be selected independently.
+All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Every feature starts off in a new installation, including Native Scroll, No Autoplay, Mailto Capture, and the Website Knowledge Control categories. Existing choices are preserved. Ad Marshal lets each managed website group be selected independently.
 
 On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can keep image adjustment always on, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
 
@@ -222,7 +222,7 @@ Any Copy keeps its own website activation list. Any Copy Enhanced uses no websit
 
 ### Audio autoplay
 
-Audio autoplay is blocked by default without interrupting you with a page prompt. In No Autoplay settings, you can allow audio elements and Web Audio on all sites or add hostname or IP-address rules for selected websites. These permissions do not allow autoplaying video.
+When No Autoplay is enabled, audio autoplay is blocked without interrupting you with a page prompt. In No Autoplay settings, you can allow audio elements and Web Audio on all sites or add hostname or IP-address rules for selected websites. These permissions do not allow autoplaying video.
 
 ## Privacy
 

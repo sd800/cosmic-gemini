@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.6.20');
+assert.equal(manifest.version, '9.6.21');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -199,6 +199,8 @@ const popupStyle = await source('popup', 'popup.css');
 assert.doesNotMatch(popupStyle, /access-control-visit/);
 const imageDownloadStyle = await source('workspaces', 'image-download', 'image-download.css');
 const satellitesSettings = await source('settings', 'satellites.html');
+const nativeScrollSettings = await source('settings', 'native-scroll.html');
+const noAutoplaySettings = await source('settings', 'no-autoplay.html');
 const pageDisplaySettings = await source('settings', 'page-display.html');
 const readme = await readFile(join(project, 'README.md'), 'utf8');
 const readmeZh = await readFile(join(project, 'README_zh.md'), 'utf8');
@@ -215,6 +217,16 @@ assert.match(settingsSource, /UI_RESET_ALL_SETTINGS/);
 assert.match(settingsSource, /retryRead\(\(\) => reload/);
 assert.doesNotMatch(settingsSource, /chrome\.storage|chrome\.tabs\./);
 assert.match(settingsPreload, /inIncognitoContext[\s\S]*disabledByDefaultInIncognito/);
+for (const page of [nativeScrollSettings, noAutoplaySettings]) {
+  assert.doesNotMatch(page, /id="enabled"[^>]*checked/,
+    'Native Scroll and No Autoplay must render off before settings are loaded.');
+  assert.doesNotMatch(page, /ProtectionHelp/,
+    'The removed default-state text must not reappear in NSNA settings.');
+}
+for (const id of ['mailtoCaptureEnabled', 'websiteKnowledgeLanguages', 'websiteKnowledgeGlobalPrivacyControl']) {
+  assert.doesNotMatch(satellitesSettings, new RegExp(`id="${id}"[^>]*checked`),
+    `${id} must render off before settings are loaded.`);
+}
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
 assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*adMarshalName[\s\S]*id="adMarshalTencentNews"[\s\S]*satellitesSiteSpecificFeatures[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"/);
 assert.match(satellitesSettings, /data-feature-id="accessControl" data-list-section="blockedDomains"[\s\S]*id="accessControlEnabled"[\s\S]*id="accessControlOptions"/);
@@ -261,8 +273,8 @@ assert.match(satellitesSettings, /id="websiteKnowledgeLanguagesValue"[\s\S]*valu
   'The combined language and regional-format menu must preserve the requested Chinese locale order.');
 assert.doesNotMatch(satellitesSettings, /websiteKnowledgeLocale/,
   'Website Knowledge Control must not retain a separate Intl locale control.');
-assert.match(satellitesSettings, /id="websiteKnowledgeGlobalPrivacyControl"[^>]*checked[\s\S]*websiteKnowledgeGlobalPrivacyControlHelp/,
-  'Global Privacy Control must be an independently selected Website Knowledge Control option.');
+assert.match(satellitesSettings, /id="websiteKnowledgeGlobalPrivacyControl"[^>]*type="checkbox"[\s\S]*websiteKnowledgeGlobalPrivacyControlHelp/,
+  'Global Privacy Control must remain an independent, initially unchecked choice.');
 assert.match(settingsSource, /pageDisplayReduceWhitePointEnabled[\s\S]*UI_SET_PAGE_DISPLAY_SETTING[\s\S]*pageDisplayGreyscaleEnabled/);
 assert.match(settingsPreload, /pageDisplayReduceWhitePointEnabled[\s\S]*pageDisplayGreyscaleEnabled[\s\S]*reduceWhitePointReduction/);
 assert.match(settingsSource, /pageDisplayEnabled[\s\S]*reduceWhitePointEnabled\.disabled = !pageDisplayEnabled[\s\S]*greyscaleEnabled\.disabled = !pageDisplayEnabled/);

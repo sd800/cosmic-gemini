@@ -15,13 +15,13 @@ export function settingsViewCache(states = {}) {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
     nativeScroll: {
-      enabled: states.nativeScroll?.enabled !== false,
+      enabled: states.nativeScroll?.enabled === true,
       inactiveRules: rules(states.nativeScroll?.inactiveRules),
       enhancedRules: rules(states.nativeScroll?.enhancedRules),
       standardRules: rules(states.nativeScroll?.standardRules)
     },
     noAutoplay: {
-      enabled: states.noAutoplay?.enabled !== false,
+      enabled: states.noAutoplay?.enabled === true,
       inactiveRules: rules(states.noAutoplay?.inactiveRules),
       enhancedRules: rules(states.noAutoplay?.enhancedRules),
       standardRules: rules(states.noAutoplay?.standardRules),
@@ -32,7 +32,7 @@ export function settingsViewCache(states = {}) {
       siteRules: rules(states.anyCopy?.siteRules)
     },
     mailtoCapture: {
-      enabled: states.mailtoCapture?.enabled !== false
+      enabled: states.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
     documentPreview: {

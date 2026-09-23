@@ -34,7 +34,7 @@ Native Scroll restores its page API wrappers, event hooks, observers, and record
 
 Standard protection blocks `HTMLMediaElement.play()` and captured playback events unless playback follows direct user activation. A short trusted-input window also recognizes custom page controls that call `play()` after their own pointer or keyboard handler. Audio elements and Web Audio may run when the all-sites audio setting is enabled or the hostname matches a saved audio autoplay rule. Audio autoplay permission does not allow autoplaying video.
 
-Audio autoplay is denied silently by default. An Always inactive website rule deactivates all media interception and permits video, audio, and Web Audio autoplay. Enhanced protection removes video and audio elements, including matching nodes inserted later. Its subtree observer exists only while Enhanced mode is active.
+When No Autoplay is enabled, audio autoplay is denied silently by default. An Always inactive website rule deactivates all media interception and permits video, audio, and Web Audio autoplay. Enhanced protection removes video and audio elements, including matching nodes inserted later. Its subtree observer exists only while Enhanced mode is active.
 
 No Autoplay restores media playback and Web Audio methods and removes its event hooks whenever it becomes inactive, then disposes its runtime and bridge.
 
@@ -42,7 +42,7 @@ No Autoplay operates only on media elements and audio contexts inside the curren
 
 ## Mailto Capture
 
-Mailto Capture is a Standing Province product displayed as the first item in Satellites settings. It is enabled by default in ordinary windows, disabled by default in each incognito session, and has no popup control or activity icon. Its independent product module owns the bridge and runtime lifecycle after Central authorizes it through Standing Province.
+Mailto Capture is a Standing Province product displayed as the first item in Satellites settings. It is disabled by default in ordinary and incognito windows, and has no popup control or activity icon. Its independent product module owns the bridge and runtime lifecycle after Central authorizes it through Standing Province.
 
 The runtime uses capture-phase delegated activation handling in every eligible HTTP or HTTPS frame, so dynamically created links require no DOM scan or observer. A trusted left or middle activation of a `mailto:`, `tel:`, or `sms:` anchor is cancelled before the browser hands it to the operating system. The mail parser preserves path and query recipients, repeated To, CC, and BCC fields, subject, body, repeated extension fields, encoded line breaks, and literal plus signs. The telephone parser preserves the complete decoded dialing target, including URI parameters such as an extension. The text-message parser preserves one or more recipients, the message body, repeated extension fields, encoded line breaks, and literal plus signs.
 
@@ -238,6 +238,8 @@ For ordinary windows, `chrome.storage.local` stores one versioned settings objec
 - Satellites: Bili Daily Login switch state, last completed date, and most recent attempted schedule slot
 - Ad Marshal: two independent managed-site selections; the Tencent News selection coordinates two separate internal policies
 - Interface locale
+
+Initial ordinary-window settings also leave every automatic product inactive, including Native Scroll, No Autoplay, Mailto Capture, and Website Knowledge Control's independent categories. Normalization preserves explicit saved `enabled: true` choices; only missing values use the new off defaults. Download prompts and other preferences that do not activate a product retain their own defaults.
 
 The split incognito background ignores that persistent object. It keeps a separate `chrome.storage.session` object with Native Scroll, No Autoplay, and every other automatic product inactive by default. Explicit incognito choices remain in that temporary object only while the current set of incognito windows exists.
 

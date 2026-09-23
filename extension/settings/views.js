@@ -149,7 +149,7 @@ export function viewFor(featureId) {
       <section class="card satellite-card">
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="mailtoCapture" aria-hidden="true"></span><h1 data-i18n="mailtoCaptureName"></h1></div><p data-i18n="mailtoCaptureDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="mailtoCaptureEnabled" type="checkbox" checked><span></span><b class="sr-only">Mailto Capture</b></label></div>
+          <div class="satellite-control"><label class="switch"><input id="mailtoCaptureEnabled" type="checkbox"><span></span><b class="sr-only">Mailto Capture</b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="mailtoCapturePrivacy"></p></div>
       </section>
@@ -185,7 +185,7 @@ export function viewFor(featureId) {
         <fieldset id="websiteKnowledgeOptions" class="knowledge-options" disabled>
           <legend class="sr-only" data-i18n="websiteKnowledgeOptions"></legend>
           <div class="knowledge-row">
-            <label for="websiteKnowledgeLanguages"><input id="websiteKnowledgeLanguages" type="checkbox" checked><span><strong id="websiteKnowledgeLanguagesLabel" data-i18n="websiteKnowledgeLanguages"></strong><small data-i18n="websiteKnowledgeLanguagesHelp"></small></span></label>
+            <label for="websiteKnowledgeLanguages"><input id="websiteKnowledgeLanguages" type="checkbox"><span><strong id="websiteKnowledgeLanguagesLabel" data-i18n="websiteKnowledgeLanguages"></strong><small data-i18n="websiteKnowledgeLanguagesHelp"></small></span></label>
             <select id="websiteKnowledgeLanguagesValue" aria-labelledby="websiteKnowledgeLanguagesLabel">${knowledgeLocaleOptions}</select>
           </div>
           <div class="knowledge-row">
@@ -193,7 +193,7 @@ export function viewFor(featureId) {
             <select id="websiteKnowledgeTimeZoneValue" aria-labelledby="websiteKnowledgeTimeZoneLabel" disabled><option value="America/New_York">America/New_York</option><option value="UTC">UTC</option></select>
           </div>
           <div class="knowledge-row knowledge-checkbox-row">
-            <label for="websiteKnowledgeGlobalPrivacyControl"><input id="websiteKnowledgeGlobalPrivacyControl" type="checkbox" checked><span><strong data-i18n="websiteKnowledgeGlobalPrivacyControl"></strong><small data-i18n="websiteKnowledgeGlobalPrivacyControlHelp"></small></span></label>
+            <label for="websiteKnowledgeGlobalPrivacyControl"><input id="websiteKnowledgeGlobalPrivacyControl" type="checkbox"><span><strong data-i18n="websiteKnowledgeGlobalPrivacyControl"></strong><small data-i18n="websiteKnowledgeGlobalPrivacyControlHelp"></small></span></label>
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteKnowledgePrivacy"></p></div>
@@ -337,8 +337,8 @@ export function viewFor(featureId) {
     primary: `
       <section class="card default-card">
         <div class="section-heading">
-          <div>${introTitle('nativeScroll', 'nativeScrollName')}<p class="intro-purpose" data-i18n="nativeIntroPurpose"></p><p class="intro-setting" data-i18n="nativeProtectionHelp"></p></div>
-          <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">Native Scroll</b></label>
+          <div>${introTitle('nativeScroll', 'nativeScrollName')}<p class="intro-purpose" data-i18n="nativeIntroPurpose"></p><p class="intro-setting" hidden></p></div>
+          <label class="switch"><input id="enabled" type="checkbox"><span></span><b class="sr-only">Native Scroll</b></label>
         </div>
       </section>
       ${websiteBehaviorCard('nativeWebsiteBehaviorHelp')}
@@ -349,8 +349,8 @@ export function viewFor(featureId) {
     primary: `
       <section class="card default-card">
         <div class="section-heading">
-          <div>${introTitle('noAutoplay', 'noAutoplayName')}<p class="intro-purpose" data-i18n="autoplayIntroPurpose"></p><p class="intro-setting" data-i18n="autoplayProtectionHelp"></p></div>
-          <label class="switch"><input id="enabled" type="checkbox" checked><span></span><b class="sr-only">No Autoplay</b></label>
+          <div>${introTitle('noAutoplay', 'noAutoplayName')}<p class="intro-purpose" data-i18n="autoplayIntroPurpose"></p><p class="intro-setting" hidden></p></div>
+          <label class="switch"><input id="enabled" type="checkbox"><span></span><b class="sr-only">No Autoplay</b></label>
         </div>
       </section>
       ${websiteBehaviorCard('autoplayWebsiteBehaviorHelp')}

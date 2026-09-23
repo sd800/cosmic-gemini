@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.21 — 2026-09-23
+
+- Start every feature off for new installations, including previously enabled automatic protections and Website Knowledge Control categories. Keep existing user choices unchanged.
+- Remove redundant default-state text from the Native Scroll and No Autoplay settings pages.
+
 ## 9.6.20 — 2026-09-23
 
 - Allow a blocked Access Control visit by clicking the extension toolbar button directly; remove the former popup action.

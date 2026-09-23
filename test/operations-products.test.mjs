@@ -50,7 +50,7 @@ test('Claude response display product saves independently and refreshes page dec
   });
   assert.equal(result.enabled, true);
   assert.equal(settings.chineseResponseClaude.enabled, true);
-  assert.equal(settings.mailtoCapture.enabled, true);
+  assert.equal(settings.mailtoCapture.enabled, false);
   assert.equal(refreshes, 1);
 });
 

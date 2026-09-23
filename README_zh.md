@@ -78,7 +78,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Website Knowledge Control
 
-自行设置向网站提供的语言与地区格式、时区和隐私偏好信息。Website Knowledge Control 默认关闭。开启总开关后，可分别勾选要调整的项目。“语言与地区格式”是一个合并选项，由一次选择统一调整网络请求、浏览器语言信息及默认 Intl 格式，默认使用 `en-US`。时区需另行勾选，默认候选值为纽约，并遵循当地夏令时规则。Global Privacy Control 默认勾选，用于向网站表明请勿出售或共享您的个人数据。
+自行设置向网站提供的语言与地区格式、时区和隐私偏好信息。Website Knowledge Control 及其子选项均默认关闭。开启总开关后，可分别勾选要调整的项目。“语言与地区格式”是一个合并选项，由一次选择统一调整网络请求、浏览器语言信息及默认 Intl 格式；建议值为 `en-US`。时区的建议值为纽约，并遵循当地夏令时规则。Global Privacy Control 在勾选后向网站表明请勿出售或共享您的个人数据。
 
 未勾选的项目保持原样，这些调整也不会修改系统设置。每个页面会沿用载入时获取到的浏览器信息；修改或关闭设置后，新状态将在页面下次载入时生效。
 
@@ -182,7 +182,7 @@ Reduce White Point 与 Greyscale 是全局开关。在控制窗口中开启其�
 
 **全部设置**位于底部的独立一行并靠右显示。紧凑的主控制窗口会暂时隐藏 Cosmic Gemini 名称。全部设置可进入各项功能的设置页面，也可以将全部设置和网站规则恢复为默认状态。
 
-全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。Mailto Capture 在普通窗口中默认开启。Clipboard Protect、Access Control、Website Knowledge Control、Page Display 及其两项显示调整、XHS Image Dark Mode、Chinese Response Display Optimization for Claude、Bili Daily Login 和 Ad Marshal 的全部网站均默认关闭。Ad Marshal 允许单独选择每一组管制网站。
+全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。新安装时所有功能均默认关闭，包括 Native Scroll、No Autoplay、Mailto Capture 及 Website Knowledge Control 的各项子功能；已有用户的设置不会被重置。Ad Marshal 允许单独选择每一组管制网站。
 
 访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Mode 的动态开关。功能开启但尚未检测到页面深色模式时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终启用图片处理、隐藏仅在展开笔记后显示的图片切换按钮，或调整按钮透明度。
 

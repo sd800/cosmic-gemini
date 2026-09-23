@@ -21,19 +21,23 @@ import {
   xhsImageDarkModeState
 } from '../extension/core/config.js';
 
-test('incognito defaults keep every automatic product inactive', () => {
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.nativeScroll.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.noAutoplay.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.mailtoCapture.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.reduceWhitePoint.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.pageDisplay.greyscale.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.xhsImageDarkMode.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.chineseResponseClaude.enabled, false);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.chineseResponseClaude.browserIdentityEnabled, false);
+test('ordinary and incognito defaults keep automatic products and regional categories inactive', () => {
+  for (const settings of [DEFAULT_SETTINGS, DEFAULT_INCOGNITO_SETTINGS]) {
+    for (const product of ['nativeScroll', 'noAutoplay', 'mailtoCapture', 'clipboardProtect',
+      'documentPreview', 'langGoogle', 'accessControl', 'websiteKnowledgeControl',
+      'pageDisplay', 'xhsImageDarkMode', 'chineseResponseClaude']) {
+      assert.equal(settings[product].enabled, false, product);
+    }
+    assert.equal(settings.websiteKnowledgeControl.languages.enabled, false);
+    assert.equal(settings.websiteKnowledgeControl.timeZone.enabled, false);
+    assert.equal(settings.websiteKnowledgeControl.globalPrivacyControl.enabled, false);
+    assert.equal(settings.chineseResponseClaude.browserIdentityEnabled, false);
+    assert.equal(settings.pageDisplay.reduceWhitePoint.enabled, false);
+    assert.equal(settings.pageDisplay.greyscale.enabled, false);
+    assert.equal(settings.satellites.biliDailyLogin.enabled, false);
+    assert.equal(Object.values(settings.adMarshal.managedSites).some(Boolean), false);
+  }
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
-  assert.equal(DEFAULT_INCOGNITO_SETTINGS.satellites.biliDailyLogin.enabled, false);
-  assert.equal(Object.values(DEFAULT_INCOGNITO_SETTINGS.adMarshal.managedSites).some(Boolean), false);
 });
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 
@@ -47,7 +51,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.equal(settings.noAutoplay.audioAutoplayAllSites, false);
   assert.deepEqual(settings.noAutoplay.permanentAudioAllowRules, []);
   assert.deepEqual(settings.anyCopy.siteRules, []);
-  assert.deepEqual(settings.mailtoCapture, { enabled: true });
+  assert.deepEqual(settings.mailtoCapture, { enabled: false });
   assert.deepEqual(settings.accessControl, { enabled: false, allowTemporaryVisits: false, blockedDomains: [] });
   assert.deepEqual(settings.pageDisplay, {
     enabled: false,
@@ -67,6 +71,30 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
   assert.deepEqual(settings.videoDownload, { preferredQuality: 'best', askWhereToSave: true });
   assert.deepEqual(settings.satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
+});
+
+test('explicitly enabled saved features survive the new off-by-default initialization', () => {
+  const settings = normalizeSettings({
+    nativeScroll: { enabled: true },
+    noAutoplay: { enabled: true },
+    mailtoCapture: { enabled: true },
+    websiteKnowledgeControl: {
+      enabled: true,
+      languages: { enabled: true, value: 'fr-FR' },
+      globalPrivacyControl: { enabled: true }
+    }
+  });
+  assert.equal(settings.nativeScroll.enabled, true);
+  assert.equal(settings.noAutoplay.enabled, true);
+  assert.equal(settings.mailtoCapture.enabled, true);
+  assert.equal(settings.websiteKnowledgeControl.enabled, true);
+  assert.equal(settings.websiteKnowledgeControl.languages.enabled, true);
+  assert.equal(settings.websiteKnowledgeControl.languages.value, 'fr-FR');
+  assert.equal(settings.websiteKnowledgeControl.globalPrivacyControl.enabled, true);
+  const cache = settingsViewCache(settings);
+  assert.equal(cache.nativeScroll.enabled, true);
+  assert.equal(cache.noAutoplay.enabled, true);
+  assert.equal(cache.mailtoCapture.enabled, true);
 });
 
 test('user-maintained domain rules are normalized, deduplicated, and kept in insertion order', () => {
@@ -94,7 +122,7 @@ test('deprecated activation and mode fields are ignored', () => {
       enhancedRules: ['enhanced.example.com', 'standard.example.com', 'conflict.example.com']
     }
   });
-  assert.equal(settings.nativeScroll.enabled, true);
+  assert.equal(settings.nativeScroll.enabled, false);
   assert.deepEqual(settings.nativeScroll.inactiveRules, []);
   assert.deepEqual(settings.nativeScroll.standardRules, ['standard.example.com', 'conflict.example.com']);
   assert.deepEqual(settings.nativeScroll.enhancedRules, ['enhanced.example.com']);
@@ -150,7 +178,8 @@ test('numeric-leading domains and internationalized hostnames survive saving and
     assert.equal(normalizeRule(hostname), canonical);
     const rule = normalizeRule('*.' + hostname);
     assert.equal(rule, '*.' + canonical);
-    const settings = normalizeSettings({ nsna: { whitelistRules: [rule] } });
+    const settings = normalizeSettings({ nsna: { whitelistRules: [rule] },
+      nativeScroll: { enabled: true }, noAutoplay: { enabled: true } });
     assert.deepEqual(settings.nsna.whitelistRules, [rule]);
     for (const host of [hostname, 'www.' + hostname]) {
       assert.equal(featureState(settings, 'nativeScroll', 'https://' + host).active, false);
@@ -262,7 +291,7 @@ test('No Autoplay audio permission applies only while No Autoplay is active', ()
   assert.equal(inactive.active, false);
   assert.equal(inactive.audioAllowed, false);
   assert.equal(featureState({}, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example').audioAllowed, false);
-  assert.equal(featureState({ noAutoplay: { audioAutoplayAllSites: true } }, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example').audioAllowed, true);
+  assert.equal(featureState({ noAutoplay: { enabled: true, audioAutoplayAllSites: true } }, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example').audioAllowed, true);
 });
 
 test('feature updates do not mutate other products', () => {
@@ -303,13 +332,14 @@ test('only HTTP and HTTPS pages expose a hostname', () => {
   assert.equal(hostnameFromUrl('chrome://extensions'), '');
 });
 
-test('Mailto Capture follows its ordinary and incognito defaults without website rules', () => {
+test('Mailto Capture starts off and activates only when selected', () => {
   const ordinary = mailtoCaptureState(DEFAULT_SETTINGS, 'https://example.com/page');
-  assert.equal(ordinary.enabled, true);
-  assert.equal(ordinary.active, true);
+  assert.equal(ordinary.enabled, false);
+  assert.equal(ordinary.active, false);
   assert.equal(ordinary.hostname, 'example.com');
   assert.equal(mailtoCaptureState(DEFAULT_INCOGNITO_SETTINGS, 'https://example.com/page').active, false);
   assert.equal(mailtoCaptureState({ mailtoCapture: { enabled: false } }, 'https://example.com/page').active, false);
+  assert.equal(mailtoCaptureState({ mailtoCapture: { enabled: true } }, 'https://example.com/page').active, true);
   assert.equal(mailtoCaptureState(DEFAULT_SETTINGS, 'chrome://extensions').active, false);
 });
 

@@ -58,7 +58,7 @@ const AD_MARSHAL_SITE_KEY_BY_POLICY = Object.freeze({
 });
 
 const DEFAULT_FEATURE = Object.freeze({
-  enabled: true,
+  enabled: false,
   inactiveRules: Object.freeze([]),
   enhancedRules: Object.freeze([]),
   standardRules: Object.freeze([])
@@ -79,7 +79,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     siteRules: Object.freeze([])
   }),
   mailtoCapture: Object.freeze({
-    enabled: true
+    enabled: false
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
   documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, pdfSharpening: false, whitelistDomains: Object.freeze([]) }),
@@ -91,9 +91,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   websiteKnowledgeControl: Object.freeze({
     enabled: false,
-    languages: Object.freeze({ enabled: true, value: 'en-US' }),
+    languages: Object.freeze({ enabled: false, value: 'en-US' }),
     timeZone: Object.freeze({ enabled: false, value: 'America/New_York' }),
-    globalPrivacyControl: Object.freeze({ enabled: true })
+    globalPrivacyControl: Object.freeze({ enabled: false })
   }),
   pageDisplay: Object.freeze({
     enabled: false,
@@ -250,7 +250,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
   const enhancedRules = normalizeRules(value.enhancedRules)
     .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule));
   const normalized = {
-    enabled: value.enabled !== false,
+    enabled: value.enabled === true,
     inactiveRules,
     standardRules: explicitStandardRules,
     enhancedRules
@@ -320,7 +320,7 @@ export function normalizeSettings(value = {}) {
       siteRules: normalizeRules(value.anyCopy?.siteRules)
     },
     mailtoCapture: {
-      enabled: value.mailtoCapture?.enabled !== false
+      enabled: value.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
     documentPreview: {

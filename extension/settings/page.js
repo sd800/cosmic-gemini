@@ -203,6 +203,7 @@ function render() {
   const introSetting = document.querySelector('.intro-setting');
   if (introSetting && ['nativeScroll', 'noAutoplay'].includes(featureId) && incognito) {
     introSetting.textContent = t('disabledByDefaultInIncognito');
+    introSetting.hidden = false;
   }
   const audioAutoplayAllSites = document.querySelector('#audioAutoplayAllSites');
   if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;

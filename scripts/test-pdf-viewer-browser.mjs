@@ -27,7 +27,7 @@ await writeFile(join(extension, 'qa-background.js'), `chrome.runtime.onMessage.a
 await writeFile(join(extension, 'qa.html'), '<!doctype html><style>body{margin:0;background:#121416}main{height:100vh;display:flex}iframe{border:0;width:100%;height:100%}</style><main></main><script type="module" src="qa.js"></script>');
 await writeFile(join(extension, 'qa.js'), `import {createPdfViewer} from './workspaces/pdf-viewer/host.js';
 window.events=[];window.openPdf=(bytes, locale='en-US')=>{window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,dark:true,automatic:true,onDownload:()=>events.push('download'),onTheme:()=>viewer.setTheme(false,false),onAuto:()=>viewer.setTheme(true,true),onError:()=>events.push('error')});};`);
-const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, viewport: { width: 1280, height: 1000 }, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
+const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, viewport: { width: 1280, height: 1000 }, args: ['--force-device-scale-factor=2', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 try {
   const page = await context.newPage();
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
@@ -56,6 +56,11 @@ try {
   const start = performance.now(); const frame = await open(viewerPdf()); await ready(frame);
   metrics.open80PagesMs = Math.round(performance.now() - start);
   await initialPosition(frame);
+  metrics.initialCanvasRatio = await frame.evaluate(() => {
+    const canvas = document.querySelector('.page canvas'), width = canvas.getBoundingClientRect().width;
+    return canvas.width / width;
+  });
+  assert.ok(metrics.initialCanvasRatio >= 1.9, 'a normal page stays sharp at 100% on a Retina display');
   assert.equal(await frame.locator('#scale').inputValue(), '1');
   const pageIndicator = await frame.evaluate(() => ({
     appearance: getComputedStyle(document.querySelector('#page')).appearance,
@@ -101,9 +106,17 @@ try {
   const zoomStart = performance.now(); for (let i = 0; i < 10; i++) await frame.locator('#zoom-in').click();
   assert.equal(await frame.locator('#scale').inputValue(), '2'); assert.equal(await frame.locator('#page').inputValue(), '60');
   metrics.tenZoomStepsMs = Math.round(performance.now() - zoomStart);
+  await frame.waitForFunction(() => document.querySelector('.page[data-page-number="60"] canvas.detailView')?.width > 0);
+  metrics.zoomDetailRatio = await frame.evaluate(() => {
+    const canvas = document.querySelector('.page[data-page-number="60"] canvas.detailView');
+    return canvas.width / canvas.getBoundingClientRect().width;
+  });
+  assert.ok(metrics.zoomDetailRatio >= 1.9, 'high zoom retains a sharp visible-area detail canvas');
   await frame.locator('#rotate').click(); assert.equal(await frame.locator('#page').inputValue(), '60');
   await frame.locator('#scale').selectOption('page-fit');
   await frame.locator('#sidebar-toggle').click(); await frame.waitForSelector('.thumbnail canvas');
+  metrics.thumbnailRatio = await frame.locator('.thumbnail canvas').first().evaluate(canvas => canvas.width / canvas.getBoundingClientRect().width);
+  assert.ok(metrics.thumbnailRatio >= 1.9, 'sidebar thumbnails match Retina pixel density');
   await frame.locator('#show-outline').click(); await frame.locator('#outline button').click();
   assert.equal(await frame.locator('#page').inputValue(), '80');
   await frame.locator('#show-pages').click();

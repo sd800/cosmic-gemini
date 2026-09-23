@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.6 — 2026-09-22
+
+- Improved PDF Viewer clarity on high-density displays. Normal pages and sidebar thumbnails render at sharper pixel densities, while high-zoom detail rendering and bounded canvas resources remain in place.
+
 ## 9.6.5 — 2026-09-22
 
 - Refocused the Document Preview README introduction on what visitors can preview, the supported file families and the main preview limitations. Detailed controls and lifecycle rules remain in Settings and technical documentation.

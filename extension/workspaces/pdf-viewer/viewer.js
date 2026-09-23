@@ -97,7 +97,9 @@ async function open(bytes) {
   viewer = new PDFViewer({ container: viewport, viewer: $('pages'), eventBus, linkService: links, findController: find,
     annotationMode: pdfjs.AnnotationMode.DISABLE, annotationEditorMode: pdfjs.AnnotationEditorType.DISABLE,
     enableAutoLinking: false, enablePermissions: true, scriptingManager: null, textLayerMode: 1,
-    maxCanvasPixels: PDF_LIMITS.canvasPixels, maxCanvasDim: 8192, capCanvasAreaFactor: 150,
+    // The fixed pixel/dimension limits already bound memory. A second
+    // screen-relative cap makes ordinary Retina pages render as tiny canvases.
+    maxCanvasPixels: PDF_LIMITS.canvasPixels, maxCanvasDim: 8192, capCanvasAreaFactor: -1,
     enableDetailCanvas: true, enableOptimizedPartialRendering: true, minDurationToUpdateCanvas: 160,
     imagesRightClickMinSize: -1, abortSignal: signal });
   links.setViewer(viewer); links.setDocument(pdf);
@@ -231,8 +233,11 @@ async function drawThumbnails() {
       const page = await pdf.getPage(Number(node.dataset.page)); if (destroyed || generation !== thumbnailGeneration) break;
       const base = page.getViewport({ scale: 1, rotation: (page.rotate + viewer.pagesRotation) % 360 });
       const viewport = page.getViewport({ scale: Math.min(144 / base.width, 145 / base.height), rotation: base.rotation });
-      const canvas = document.createElement('canvas'); canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-      thumbnailTask = page.render({ canvasContext: canvas.getContext('2d'), viewport, annotationMode: pdfjs.AnnotationMode.DISABLE });
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      const canvas = document.createElement('canvas'); canvas.width = Math.ceil(viewport.width * pixelRatio); canvas.height = Math.ceil(viewport.height * pixelRatio);
+      canvas.style.width = viewport.width + 'px'; canvas.style.height = viewport.height + 'px';
+      thumbnailTask = page.render({ canvasContext: canvas.getContext('2d'), viewport,
+        transform: [pixelRatio, 0, 0, pixelRatio, 0, 0], annotationMode: pdfjs.AnnotationMode.DISABLE });
       await thumbnailTask.promise; thumbnailTask = null;
       eventBus.dispatch('thumbnailrendered', { pageNumber: Number(node.dataset.page), pdfPage: page });
       if (destroyed || generation !== thumbnailGeneration) { canvas.width = canvas.height = 0; break; }

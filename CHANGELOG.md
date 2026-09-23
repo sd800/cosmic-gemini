@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.19 — 2026-09-23
+
+- Refine project documentation.
+
 ## 9.6.18 — 2026-09-23
 
 - Add confirmation prompts for external web and application links in Document Preview, including PDF previews; email, telephone and SMS links offer copying only.
@@ -1306,7 +1310,7 @@
 - Expanded HLS and DASH handling with alternate audio, inline manifests, live snapshots, SegmentTemplate and SegmentTimeline support, and compatible wrapped HLS playlists.
 - Added local adapters for the service-specific playback sources represented by Vimeo, Facebook, Instagram, OK, VK Video, Canva, iQIYI, TwitCasting, Osmosis, Kick, and Chaturbate.
 - Streams direct files through the local offscreen processor so authenticated and referrer-sensitive media can retain the active page context.
-- Bundled Mediabunny and YouTube.js locally for media processing without a runtime CDN or private rule service.
+- Bundled Mediabunny and YouTube.js locally for media processing without a runtime CDN.
 
 ## 1.3.8 — 2026-08-30
 

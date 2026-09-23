@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.6.19 — 2026-09-23
+
+- 优化项目文档表述。
+
 ## 9.6.18 — 2026-09-23
 
 - Document Preview（含 PDF 预览）中的网页和应用外链先显示确认浮窗；邮件、电话和短信链接仅提供复制。
@@ -1306,7 +1310,7 @@
 - 完善 HLS 与 DASH 处理，支持独立音轨、内嵌清单、直播片段、SegmentTemplate、SegmentTimeline，以及采用兼容封装方式的 HLS 清单。
 - 新增针对 Vimeo、Facebook、Instagram、OK、VK Video、Canva、iQIYI、TwitCasting、Osmosis、Kick 和 Chaturbate 播放来源的本地适配。
 - 视频文件会通过本地离屏处理器传输，使需要登录状态或来源页面信息的媒体能够沿用当前页面的请求环境。
-- 将 Mediabunny 与 YouTube.js 随插件保存在本地，媒体处理不依赖运行时 CDN 或私有规则服务。
+- 将 Mediabunny 与 YouTube.js 随插件保存在本地，媒体处理不依赖运行时 CDN。
 
 ## 1.3.8 — 2026-08-30
 

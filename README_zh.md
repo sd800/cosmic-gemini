@@ -238,7 +238,7 @@ Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务
 
 Cosmic Gemini 适用于 Chrome 120 及以上版本，支持 macOS、Windows 和 Linux。Chrome 不允许扩展在 `chrome://`、Chrome 应用商店和部分内置查看器中运行，因此 Cosmic Gemini 不会处理这些页面。
 
-Image Download 与 Video Download 可以处理当前浏览器会话能够访问的兼容来源。Video Download 不会解密 DRM，也不会使用其他插件的私有规则服务、授权机制或付费功能校验。
+Image Download 与 Video Download 可以处理当前浏览器会话能够访问的兼容来源。Video Download 不会解密 DRM。
 
 ## 开发
 

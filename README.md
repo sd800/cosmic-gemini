@@ -238,7 +238,7 @@ When Bili Daily Login is enabled, its background schedule contacts only Bilibili
 
 Cosmic Gemini targets Chrome 120 or later on macOS, Windows, and Linux. Chrome prevents extensions from running on internal pages such as `chrome://`, the Chrome Web Store, and some built-in viewers.
 
-Image Download and Video Download can access compatible sources available to the current browser session. Video Download does not decrypt DRM, use private third-party rule services, or reproduce another extension’s licensing and paid-feature checks.
+Image Download and Video Download can access compatible sources available to the current browser session. Video Download does not decrypt DRM.
 
 ## Development
 

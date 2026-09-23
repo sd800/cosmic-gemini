@@ -20,6 +20,7 @@ const hooks = new Map([
     ['files: options.files', 'files: options.files,\n            cgFormatting: options.cgFormatting && options.cgFormatting.forPart(filename)']
   ]],
   [require.resolve('mammoth/lib/docx/body-reader'), [
+    ['var handler = xmlElementReaders[element.name];', 'if (options.cgFormatting && options.cgFormatting.isSpecial(element)) return options.cgFormatting.wrap(element, emptyResult);\n            var handler = xmlElementReaders[element.name];'],
     ['return handler(element);', 'return options.cgFormatting ? options.cgFormatting.wrap(element, function() { return handler(element); }) : handler(element);']
   ]],
   [require.resolve('mammoth/lib/document-to-html'), [
@@ -27,6 +28,7 @@ const hooks = new Map([
     ['var noteNumber = 1;', 'var formatting = options.cgFormatting;\n    var noteNumber = 1;']
   ]],
   [require.resolve('mammoth/lib/docx/office-xml-reader'), [
+    ['var xmlNamespaceMap = {', 'var xmlNamespaceMap = {\n    "http://schemas.openxmlformats.org/officeDocument/2006/math": "m",\n    "http://purl.oclc.org/ooxml/officeDocument/math": "m",'],
     ['function readXmlFromZipFile(docxFile, path) {', 'function readXmlFromZipFile(docxFile, path) {\n    if (docxFile.cgXmlCache && docxFile.cgXmlCache.has(path)) return promises.resolve(docxFile.cgXmlCache.get(path));'],
     ['function read(xmlString) {', 'function read(xmlString) {\n    if (/<!DOCTYPE|<!ENTITY/i.test(xmlString)) throw new Error("Unsupported XML declaration");']
   ]]

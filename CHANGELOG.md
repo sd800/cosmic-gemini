@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.5.8 — 2026-09-22
+
+- Improved Word-family previews (`.doc/.docx/.docm/.dotx/.dotm`): preserved visible consecutive spaces and blank underlined fields, corrected direct text-style overrides, and refined character positioning, paragraph borders/spacing and table formatting.
+- Added passive rendering of common Word equations, phonetic annotations and checkbox symbols, retained authored picture dimensions, and expanded legacy Word support for embedded raster pictures, character spacing and safe document links. Conversion remains local and bounded; macros and remote content remain disabled.
+- Refined Word lists with aligned wrapped text, multilevel style links, continued and restarted numbering, Unicode bullets and additional Chinese numbering formats. Corrected embedded raster-picture record handling shared with legacy PowerPoint.
+- Open document previews immediately to the right of their source tab, including remembered preview choices.
+- Keep the preview toolbar, filename and source website unchanged during browser translation.
+
 ## 9.5.7 — 2026-09-22
 
 - Reduced Document Preview’s post-close temporary cache retention to 10 minutes.

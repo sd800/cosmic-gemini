@@ -31,3 +31,37 @@ export function formattingEntries() {
     </w:body></w:document>`
   };
 }
+
+export function readingEntries() {
+  const entries = formattingEntries();
+  const p = (text, props = '', run = '') => `<w:p><w:pPr>${props}</w:pPr><w:r><w:rPr>${run}</w:rPr><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
+  const equation = '<m:oMath><m:f><m:num><m:r><m:t>x+1</m:t></m:r></m:num><m:den><m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:e><m:r><m:t>y</m:t></m:r></m:e></m:rad></m:den></m:f></m:oMath>';
+  entries['word/settings.xml'] = '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:defaultTabStop w:val="960"/></w:settings>';
+  entries['word/document.xml'] = `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"><w:body>
+    ${p('Name:    ')}${p('                    ', '', '<w:u w:color="2468AC"/><w:rFonts w:ascii="Courier New"/><w:spacing w:val="20"/>')}
+    ${p('Italic', '', '<w:i/><w:position w:val="4"/><w:kern w:val="16"/><w:lang w:val="en-US"/>')}
+    ${p('HIDDEN', '', '<w:vanish/>')}${p('ALSO HIDDEN', '', '<w:webHidden/>')}
+    ${p('First contextual', '<w:contextualSpacing/><w:spacing w:before="240" w:after="240"/>')}${p('Second contextual', '<w:spacing w:before="240"/>')}
+    ${p('Bordered', '<w:jc w:val="distribute"/><w:pBdr><w:bottom w:val="single" w:color="2468AC" w:space="6"/></w:pBdr>')}
+    <w:p><w:r><w:t>Inline equation </w:t></w:r>${equation}</w:p><m:oMathPara>${equation}</m:oMathPara>
+    <w:p><w:r><w:ruby><w:rt><w:r><w:t>hàn</w:t></w:r></w:rt><w:rubyBase><w:r><w:t>汉</w:t></w:r></w:rubyBase></w:ruby></w:r></w:p>
+    <w:p><w:sdt><w:sdtPr><w14:checkbox><w14:checked w14:val="1"/></w14:checkbox></w:sdtPr><w:sdtContent><w:r><w:t>LOST CHECKBOX</w:t></w:r></w:sdtContent></w:sdt></w:p>
+    <w:p><w:r><w:drawing><wp:inline><wp:extent cx="1270000" cy="635000"/><a:graphic><a:graphicData><pic:pic><pic:blipFill><a:blip r:embed="picture"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>
+    <w:tbl><w:tblPr/><w:tr><w:tc>${p('Borderless')}</w:tc></w:tr></w:tbl>
+  </w:body></w:document>`;
+  entries['word/_rels/document.xml.rels'] = entries['word/_rels/document.xml.rels'].replace('</Relationships>', '<Relationship Id="picture" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/pixel.png"/></Relationships>');
+  entries['[Content_Types].xml'] = entries['[Content_Types].xml'].replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>');
+  entries['word/media/pixel.png'] = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jGmgAAAAASUVORK5CYII=', 'base64');
+  return entries;
+}
+
+export function listEntries() {
+ const entries=formattingEntries(),w='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+ const level=(n,format,label,extra='')=>`<w:lvl w:ilvl="${n}"><w:start w:val="1"/><w:numFmt w:val="${format}"/><w:lvlText w:val="${label}"/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="${720+n*360}" w:hanging="360"/></w:pPr>${extra}</w:lvl>`;
+ entries['word/numbering.xml']=`<w:numbering xmlns:w="${w}"><w:abstractNum w:abstractNumId="10">${level(0,'chineseCounting','%1、')}${level(1,'lowerLetter','%1.%2)', '<w:lvlRestart w:val="0"/><w:pStyle w:val="ListTwo"/><w:isLgl w:val="0"/>')}${level(2,'decimal','%1.%2.%3)', '<w:lvlRestart w:val="2"/><w:isLgl/>')}</w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="10"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="10"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="12"/></w:lvlOverride></w:num><w:abstractNum w:abstractNumId="11">${level(0,'bullet','&#xF0B7;', '<w:rPr><w:rFonts w:ascii="Symbol"/></w:rPr>')}</w:abstractNum><w:num w:numId="3"><w:abstractNumId w:val="11"/></w:num><w:abstractNum w:abstractNumId="12">${level(0,'decimal','%1.')}</w:abstractNum><w:num w:numId="4"><w:abstractNumId w:val="12"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="998"/></w:lvlOverride></w:num></w:numbering>`;
+ entries['word/styles.xml']=entries['word/styles.xml'].replace('</w:styles>','<w:style w:type="paragraph" w:styleId="ListTwo"><w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr></w:style></w:styles>');
+ const p=(text,id,ilvl=0,extra='')=>`<w:p><w:pPr><w:numPr><w:numId w:val="${id}"/><w:ilvl w:val="${ilvl}"/></w:numPr>${extra}</w:pPr><w:r><w:t>${text}</w:t></w:r></w:p>`;
+ const text='A long list item that wraps over multiple lines; each continuation must align with the text, never beneath the marker. 中文多行列表内容也应当对齐。';
+ entries['word/document.xml']=`<w:document xmlns:w="${w}"><w:body>${p('Parent',1)}${p(text,1,1)}${p('Legal nested',1,2)}${p('Parent again',1)}<w:p><w:r><w:t>Ordinary paragraph does not reset numbering.</w:t></w:r></w:p><w:p><w:pPr><w:pStyle w:val="ListTwo"/></w:pPr><w:r><w:t>Style linked level</w:t></w:r></w:p>${p('Restart third level',1,2)}${p('Separate list',2)}${p('Bullet',3)}${p(text,4)}${p(text,4)}${p(text,4)}${p('Cancelled numbering',0)}</w:body></w:document>`;
+ return entries;
+}

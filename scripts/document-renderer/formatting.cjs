@@ -1,6 +1,7 @@
 const {fontRuns}=require('./fonts.cjs');
 const P = require('./properties.cjs');
-const {createNumbering} = require('./numbering.cjs');
+const {createNumbering,listLayout} = require('./numbering.cjs');
+const {wordContent} = require('./word-content.cjs');
 const {first,children,attr,value,properties,merge,styledRun,on,number,points,runCss,paragraphCss,tableCss,cellCss,clean} = P;
 
 function readTheme(root) {
@@ -48,7 +49,7 @@ function styleCatalog(root) {
     cache.set(id,result);return result;
   }
   const doc=first(root,'w:docDefaults');
-  return {get,combine,p:properties(first(first(doc,'w:pPrDefault'),'w:pPr')),r:merge({sz:{val:'22'}},properties(first(first(doc,'w:rPrDefault'),'w:rPr')))};
+  return {get,combine,p:properties(first(first(doc,'w:pPrDefault'),'w:pPr')),r:merge({sz:{val:'22'},b:{val:'0'},i:{val:'0'}},properties(first(first(doc,'w:rPrDefault'),'w:rPr')))};
 }
 function pageProperties(root) {
   const body=first(root,'w:body');
@@ -70,29 +71,38 @@ function createFormatting(parts, Html) {
     if(styles.length>=8192)throw Error('documentTooComplex');
     const className='cg-f'+styles.length;keys.set(key,className);styles.push(clean(style));return className;
   };
+  const specialContent=wordContent(Html,register,theme);
   function tableCondition(table,row,column) {
     const look=table.properties.tblLook||{},mask=parseInt(look.val||'0',16);
     const flag=(key,bit)=>look[key]!=null?!['0','false','off'].includes(look[key]):!!(mask&bit);
     const names=['wholeTable'];
-    if(!flag('noHBand',0x200))names.push(row%2?'band2Horz':'band1Horz');
-    if(!flag('noVBand',0x400))names.push(column%2?'band2Vert':'band1Vert');
+    const rowBand=number(table.properties.tblStyleRowBandSize?.val||'1',1,1000),colBand=number(table.properties.tblStyleColBandSize?.val||'1',1,1000);
+    if(!flag('noHBand',0x200))names.push(Math.floor(Math.max(0,row-(flag('firstRow',0x20)?1:0))/rowBand)%2?'band2Horz':'band1Horz');
+    if(!flag('noVBand',0x400))names.push(Math.floor(Math.max(0,column-(flag('firstColumn',0x80)?1:0))/colBand)%2?'band2Vert':'band1Vert');
     if(column===0&&flag('firstColumn',0x80))names.push('firstCol');
     if(column===table.columns-1&&flag('lastColumn',0x100))names.push('lastCol');
     if(row===0&&flag('firstRow',0x20))names.push('firstRow');
     if(row===table.rows-1&&flag('lastRow',0x40))names.push('lastRow');
+    if(row===0&&flag('firstRow',0x20)&&column===0&&flag('firstColumn',0x80))names.push('nwCell');
+    if(row===0&&flag('firstRow',0x20)&&column===table.columns-1&&flag('lastColumn',0x100))names.push('neCell');
+    if(row===table.rows-1&&flag('lastRow',0x40)&&column===0&&flag('firstColumn',0x80))names.push('swCell');
+    if(row===table.rows-1&&flag('lastRow',0x40)&&column===table.columns-1&&flag('lastColumn',0x100))names.push('seCell');
     return names.reduce((out,name)=>catalog.combine(out,table.style.conditions?.[name]||{}),{});
   }
   function forPart(part) {
-    let context={r:catalog.r,p:catalog.p};
-    return {wrap(element, read) {
+    let context={r:catalog.r,p:catalog.p,flow:{}};
+    return {isSpecial:element=>['m:oMath','m:oMathPara','w:ruby'].includes(element.name),wrap(element, read) {
       const before=context;
       let css,marker,grid;
       const kind=element.name;
+      const custom=specialContent(element,context.r);
+      if(custom)return read().map(()=>[{type:'run',children:[],cgContent:custom}]);
       if(kind==='w:tbl') {
+        context.flow.previous=null;
         const direct=properties(first(element,'w:tblPr')),style=catalog.get(direct.tblStyle?.val,'table');
         const tableProps=merge(style.table,style.conditions?.wholeTable?.table,direct);
         const columns=children(first(element,'w:tblGrid'),'w:gridCol').map(col=>number(attr(col,'w'),0,28800)||0);
-        context={...context,table:{properties:tableProps,style,columns:columns.length,rows:children(element,'w:tr').length,rowIndex:0},cell:null};
+        context={...context,table:{properties:tableProps,style,columns:columns.length||children(children(element,'w:tr')[0],'w:tc').length,rows:children(element,'w:tr').length,rowIndex:0},cell:null,flow:{}};
         css=tableCss(tableProps,theme);grid=columns;
       } else if(kind==='w:tr'&&context.table) {
         const index=context.table.rowIndex++;
@@ -106,7 +116,7 @@ function createFormatting(parts, Html) {
         const table=context.table,condition=tableCondition(table,context.row.index,start);
         const c=merge(table.style.cell,condition.cell,direct);
         const rLayers=[...(table.style.rLayers||[]),...(condition.rLayers||[])];
-        context={...context,r:styledRun(catalog.r,rLayers),p:merge(catalog.p,table.style.p,condition.p),cell:c};
+        context={...context,r:styledRun(catalog.r,rLayers),p:merge(catalog.p,table.style.p,condition.p),cell:c,flow:{}};
         css=cellCss(c,table.properties,{top:context.row.index===0,bottom:context.row.index===table.rows-1,left:start===0,right:start+span>=table.columns},theme);
       } else if(kind==='w:p') {
         const direct=properties(first(element,'w:pPr')),style=catalog.get(direct.pStyle?.val,'paragraph');
@@ -126,28 +136,48 @@ function createFormatting(parts, Html) {
           if(css['margin-left']==null)css['margin-left']=(num.level+1)*18+'pt';
           if(css['text-indent']==null)css['text-indent']='-18pt';
           const markerCss=runCss(merge(r,marker.r),theme);
-          marker.className=register(markerCss);
-          marker.width=css['text-indent']?.startsWith('-')?css['text-indent'].slice(1):'1.5em';
+          // Dingbat bullets have already become Unicode, so a missing Symbol
+          // font must not turn them back into unrelated glyphs.
+          if(num.spec.format==='bullet')delete markerCss['font-family'];
+          const layout=listLayout(css,marker);css=layout.paragraph;
+          marker.className=register({...markerCss,...layout.marker});
         }
       } else if(kind==='w:r') {
         const direct=properties(first(element,'w:rPr')),style=catalog.get(direct.rStyle?.val,'character');
         const r=merge(styledRun(context.r,style.rLayers),direct);
+        if(on(r.vanish)||on(r.webHidden))return read().map(()=>[]);
         context={...context,r};css=runCss(r,theme);
       }
       let result;
       try {
         result=read();
+        if(kind==='wp:inline'||kind==='wp:anchor'){
+          const extent=first(element,'wp:extent'),width=points(extent?.attributes.cx,12700,1,1440),height=points(extent?.attributes.cy,12700,1,1440);
+          if(width)result=result.map(value=>{
+            function size(node,depth=0){if(depth>64)throw Error('documentTooComplex');if(node?.type==='image')node.cgClass=register({width,...(height?{'aspect-ratio':P.rounded(parseFloat(width)/parseFloat(height))}:{})});for(const child of node?.children||[])size(child,depth+1);}
+            for(const node of Array.isArray(value)?value:[value])size(node);return value;
+          });
+        }
         if(css) result=result.map(value=>{
           for(const node of Array.isArray(value)?value:[value]) {
             const types={'w:p':'paragraph','w:r':'run','w:tbl':'table','w:tr':'tableRow','w:tc':'tableCell'};
             if(node?.type!==types[kind])continue;
             node.cgClass=register(css);node.cgMarker=marker;node.cgGrid=grid;
-            if(node.type==='paragraph')node.cgPageBefore=on(context.p.pageBreakBefore);
+            if(node.type==='paragraph'){
+              node.cgPageBefore=on(context.p.pageBreakBefore);
+              const style=context.p.pStyle?.val||'',previous=context.flow.previous;
+              if(previous?.style===style){
+                if(on(context.p.contextualSpacing))css['margin-top']='0pt';
+                if(previous.contextual)previous.node.cgClass=register({...previous.css,'margin-bottom':'0pt'});
+              }
+              node.cgClass=register(css);context.flow.previous={node,css,style,contextual:on(context.p.contextualSpacing)};
+            }
             if(node.type==='run') {
               for(const key of ['isBold','isItalic','isUnderline','isStrikethrough','isAllCaps','isSmallCaps'])node[key]=false;
               node.highlight=null;node.styleId=node.styleName=null;
               node.verticalAlignment=context.r.vertAlign?.val||'baseline';
               node.cgFonts=P.fontFamilies(context.r,theme);node.cgCss=css;
+              node.cgLanguage=context.r.lang?.val;
             }
             if(node.type==='paragraph'&&(marker||context.p.numPr?.numId?.val==='0'))node.numbering=null;
           }
@@ -158,6 +188,14 @@ function createFormatting(parts, Html) {
     }};
   }
   function decorate(element,nodes) {
+    if(element.cgContent)return element.cgContent;
+    if(element.type==='checkbox')return [Html.freshElement('span',{},[Html.text(element.checked?'☑':'☐')])];
+    if(element.type==='image'&&element.cgClass){
+      for(const node of nodes)if(node.type==='deferred'){
+        const read=node.value;node.value=()=>read().then(images=>images.map(image=>Html.freshElement('img',{...image.tag.attributes,class:element.cgClass},[])));
+      }
+      return nodes;
+    }
     if(element.type==='break'&&element.breakType==='page')return [Html.freshElement('span',{class:'cg-page-break',role:'separator'},[Html.forceWrite])];
     if(element.type==='run'){
       const fonts=element.cgFonts;
@@ -169,7 +207,7 @@ function createFormatting(parts, Html) {
         }return out;}
         nodes=apply(nodes);
       }
-      return element.cgClass?[Html.freshElement('span',{class:element.cgClass},nodes)]:nodes;
+      return element.cgClass?[Html.freshElement('span',{class:element.cgClass,...(element.cgLanguage?{lang:element.cgLanguage}:{})},nodes)]:nodes;
     }
     if(!element.cgClass&&!element.cgMarker&&!element.cgGrid&&!element.cgPageBefore)return nodes;
     const tagNames={paragraph:/^(?:p|h[1-6]|li)$/,table:/^table$/,tableRow:/^tr$/,tableCell:/^(?:td|th)$/}[element.type];
@@ -179,11 +217,10 @@ function createFormatting(parts, Html) {
         if(node.type!=='element')continue;
         if(tagNames?.test(node.tag.tagName)) {
           const attributes={...node.tag.attributes,class:[node.tag.attributes.class,element.cgClass,element.cgMarker&&'cg-numbered'].filter(Boolean).join(' ')};
-          const content=[...node.children];
+          let content=[...node.children];
           if(element.cgMarker) {
             const marker=element.cgMarker;
-            const markerClass=register({'min-width':marker.suffix==='tab'?marker.width:'0pt','text-indent':'0pt'});
-            content.unshift(Html.freshElement('span',{class:['cg-list-marker',marker.className,markerClass].filter(Boolean).join(' ')},[Html.text(marker.label+(marker.suffix==='nothing'?'':'\u00a0'))]));
+            content=[Html.freshElement('span',{class:['cg-list-marker',marker.className].filter(Boolean).join(' ')},[Html.text(marker.label+(marker.label&&marker.suffix!=='nothing'?' ':''))]),Html.freshElement('span',{class:'cg-list-content'},content)];
           }
           if(element.cgGrid?.some(Boolean)) {
             const total=element.cgGrid.reduce((sum,n)=>sum+n,0);

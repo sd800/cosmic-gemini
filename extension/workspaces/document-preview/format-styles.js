@@ -5,14 +5,18 @@ const fonts = /^(?:"[\p{L}\p{N} ._+-]{1,80}",){1,8}(?:serif|sans-serif|monospace
 const values = {
   'tab-size':/^\d{1,4}(?:\.\d{1,3})?pt$/,
   'list-style-type':/^(?:decimal|lower-alpha|upper-alpha|lower-roman|upper-roman)$/,
-  position:/^absolute$/, overflow:/^hidden$/, 'white-space':/^(?:pre-wrap|nowrap)$/,
+  position:/^absolute$/, overflow:/^hidden$/, 'white-space':/^(?:pre-wrap|break-spaces|nowrap)$/,
+  'font-kerning':/^(?:normal|none)$/,'text-decoration-skip-ink':/^none$/,
+  'text-align-last':/^(?:auto|justify)$/,'writing-mode':/^(?:horizontal-tb|vertical-rl|vertical-lr)$/,
+  'border-collapse':/^(?:collapse|separate)$/,'border-spacing':lengths,
+  'aspect-ratio':/^\d{1,4}(?:\.\d{1,3})?$/,
   transform:/^rotate\(-?\d{1,3}(?:\.\d{1,3})?deg\)$/,
   'font-family':fonts,'font-size':/^\d{1,2}(?:\.\d{1,3})?pt$/,'font-weight':/^(?:400|700)$/,
   'font-style':/^(?:normal|italic)$/,'font-variant-caps':/^(?:normal|small-caps)$/,
   'text-decoration-line':/^(?:none|underline|line-through|underline line-through)$/,
   'text-decoration-style':/^(?:solid|double|dotted|dashed|wavy)$/,
   'text-transform':/^(?:none|uppercase)$/,'text-align':/^(?:left|right|center|justify|start|end)$/,
-  direction:/^(?:ltr|rtl)$/,'vertical-align':/^(?:top|middle|bottom)$/,'table-layout':/^(?:auto|fixed)$/,
+  direction:/^(?:ltr|rtl)$/,'vertical-align':/^(?:top|middle|bottom|baseline|-?\d{1,2}(?:\.\d{1,3})?pt)$/,'table-layout':/^(?:auto|fixed)$/,
   'line-height':/^(?:\d{1,3}(?:\.\d{1,3})?(?:pt)?|max\(1\.2em,\d{1,3}(?:\.\d{1,3})?pt\))$/
 };
 for(const property of ['width','min-width','max-width','height','min-height','left','top','border-radius','text-indent','letter-spacing',...['top','bottom','left','right'].flatMap(side=>['margin-'+side,'padding-'+side])])values[property]=lengths;
@@ -39,8 +43,9 @@ export function acceptedStyles(formatting) {
     if(!style||typeof style!=='object'||Object.keys(style).length>64)return {};
     return Object.fromEntries(Object.entries(style).filter(([key,val])=>{
       if(typeof val!=='string'||val.length>800)return false;
-      if(key==='color'||key==='background-color'||/^border-(?:top|bottom|left|right)-color$/.test(key))return colorValue.test(val);
+      if(key==='color'||key==='text-decoration-color'||key==='background-color'||/^border-(?:top|bottom|left|right)-color$/.test(key))return colorValue.test(val);
       if((key==='margin-left'||key==='margin-right')&&val==='auto')return true;
+      if(key==='margin-left'&&/^calc\(-?\d{1,4}(?:\.\d{1,3})?(?:pt|em) [+-] \d{1,4}(?:\.\d{1,3})?(?:pt|em)\)$/.test(val))return true;
       return Object.hasOwn(values,key)&&values[key].test(val);
     }));
   });

@@ -1,6 +1,7 @@
 const {reader,clamp,rgb,fontFamily,numberLabel}=require('./legacy-binary.cjs');
 const {localFont}=require('./fonts.cjs');
 const {pt}=require('./office-package.cjs');
+const {formatted,bullet}=require('./numbering.cjs');
 const COLORS=['inherit','#000000','#0000ff','#00ffff','#00ff00','#ff00ff','#ff0000','#ffff00','#ffffff','#000080','#008080','#008000','#800080','#800000','#808000','#808080','#c0c0c0'];
 
 function properties(bytes) {
@@ -37,6 +38,12 @@ function apply(list,state,baseline=state) {
     else if(op===0x083c){const v=b.u8(0);s.hidden=v===128?baseline.hidden:v===129?!baseline.hidden:!!v;}
     else if(op===0x2a3e)s.underline=b.u8(0);
     else if(op===0x2a48)s.script=b.u8(0);
+    else if(op===0x8840)s.css['letter-spacing']=pt(clamp(b.i16(0)/20,-2,12));
+    else if(op===0x4845)s.css['vertical-align']=pt(clamp(b.i16(0)/2,-96,96));
+    else if(op===0x484b)s.kern=b.i16(0)/2;
+    else if(op===0x6a03)s.picture=b.u32(0);
+    else if(op===0x0806)s.pictureData=!!b.u8(0);
+    else if(op===0x6a09)s.symbol={font:b.u16(0),code:b.u16(2)};
     else if(op===0x4a43||op===0x4a61)s.css['font-size']=pt(clamp(b.u16(0)/2,4,96));
     else if(op===0x2a0c)s.css['background-color']=COLORS[b.u8(0)]||undefined;
     else if(op===0x2a42)s.css.color=COLORS[b.u8(0)]||'inherit';
@@ -46,6 +53,11 @@ function apply(list,state,baseline=state) {
     else if(op===0x4a51)s.otherFont=b.u16(0);
     else if(op===0x4866||op===0xca71||op===0x442d||op===0xc64d)s.css['background-color']=shading(b,op===0xca71||op===0xc64d);
     else if(op===0x2403||op===0x2461)s.css['text-align']=['left','center','right','justify','justify'][b.u8(0)]||'left';
+    else if([0x4455,0x4456,0x4457].includes(op))s.css[{17493:'margin-right',17494:'margin-left',17495:'text-indent'}[op]]=String(clamp(b.i16(0)/100,-24,24))+'em';
+    else if(op===0x4458||op===0x4459)s.css[op===0x4458?'margin-top':'margin-bottom']=String(clamp(b.i16(0)/100,0,20))+'em';
+    else if(op>=0x6424&&op<=0x6427)setBorder(s.css,['top','left','bottom','right'][op-0x6424],border(b));
+    else if(op>=0xc64e&&op<=0xc651)setBorder(s.css,['top','left','bottom','right'][op-0xc64e],border(b,0,true));
+    else if(op===0x246d)s.contextual=!!b.u8(0);
     else if([0x840e,0x845d,0x840f,0x845e,0x8411,0x8460].includes(op))s.css[[0x840e,0x845d].includes(op)?'margin-right':[0x840f,0x845e].includes(op)?'margin-left':'text-indent']=pt(clamp(b.i16(0)/20,-720,1440));
     else if(op===0xa413||op===0xa414)s.css[op===0xa413?'margin-top':'margin-bottom']=pt(clamp(b.u16(0)/20,0,720));
     else if(op===0x6412){const line=b.i16(0),multiple=b.u16(2);s.css['line-height']=line<0?pt(clamp(-line/20,1,999)):multiple?String(Math.round(clamp(line/240,.5,10)*1000)/1000):'max(1.2em,'+pt(clamp(line/20,0,999))+')';}
@@ -79,7 +91,8 @@ function wordFormatting(word,table,pairs,dataStream) {
   function part(index){const p=pairs[index];return p?.length?reader(t.slice(p.start,p.length)):reader(new Uint8Array());}
   const ft=part(15);
   if(ft.length){const n=ft.u16(0),extra=ft.u16(2);if(n>4096)throw Error('documentTooComplex');let at=4;for(let i=0;i<n;i++){const size=ft.u8(at)+1;ft.check(at,size);if(size<40)throw Error('invalidDocument');const names=ft.utf16(at+40,(size-40)&~1),alternate=ft.u8(at+5),kind=(ft.u8(at+1)>>>4)&7;fonts.push(localFont([names.split('\0')[0],alternate?names.slice(alternate).split('\0')[0]:null],kind===2?'sans-serif':kind===3?'monospace':'serif'));at+=size+extra;}}
-  const sh=part(1);let defaults={css:{'font-size':'11pt','font-family':fontFamily(['Times New Roman','Songti SC','SimSun'],'serif'),'margin-top':'0pt','margin-bottom':'0pt'},font:0,eastFont:0};
+  const dop=part(31),tabSize=dop.length>=12?clamp(dop.u16(10)/20,1,1440):36;
+  const sh=part(1);let defaults={css:{'font-size':'11pt','font-weight':'400','font-style':'normal','font-family':fontFamily(['Times New Roman','Songti SC','SimSun'],'serif'),'margin-top':'0pt','margin-bottom':'0pt','tab-size':pt(tabSize)},font:0,eastFont:0};
   if(sh.length){
     const header=sh.u16(0),n=sh.u16(2),baseSize=sh.u16(4);sh.check(2,header);
     if(n>4094||![10,18].includes(baseSize)||header<18)throw Error('invalidDocument');
@@ -137,18 +150,22 @@ function wordFormatting(word,table,pairs,dataStream) {
     const family=fonts[state.font]||state.css['font-family'];if(family)state.css['font-family']=family;
     const families={ascii:family,east:fonts[state.eastFont]||family,other:fonts[state.otherFont]||family};
     if(state.underline!==undefined||state.strike!==undefined)state.css['text-decoration-line']=[state.underline?'underline':'',state.strike?'line-through':''].filter(Boolean).join(' ')||'none';
-    if(state.underline===3)state.css['text-decoration-style']='double';
+    if(state.underline){state.css['text-decoration-style']=({3:'double',4:'dotted',7:'dashed',9:'dashed',11:'wavy'}[state.underline]||'solid');state.css['text-decoration-skip-ink']='none';}
+    if(state.kern!==undefined)state.css['font-kerning']=state.kern>0&&parseFloat(state.css['font-size'])>=state.kern?'normal':'none';
     // Paragraph layout belongs to its block, not every character span.
-    const css=Object.fromEntries(Object.entries(state.css).filter(([k])=>/^(font-|color$|background-color$|text-decoration-|text-transform$)/.test(k)));
-    return {css,families,script:state.script,hidden:state.hidden,end:run.end};
+    const css=Object.fromEntries(Object.entries(state.css).filter(([k])=>/^(font-|color$|background-color$|text-decoration-|text-transform$|letter-spacing$|vertical-align$)/.test(k)));
+    return {css,families,script:state.script,hidden:state.hidden,end:run.end,picture:state.pictureData?undefined:state.picture,symbol:state.symbol&&{...state.symbol,family:fonts[state.symbol.font]}};
   }
   const lists=wordLists(t,pairs);
-  function paragraph(fc,extra=[]){const run=lookup(paras,fc),id=[...run.list,...extra].find(([op])=>op===0x4600)?.[1].u16(0)??run.id;let state=apply([...run.list,...extra],style(id));
-    const list=lists.get(state.list),level=list?.levels[state.level||0];if(level){state=apply([...level.para,...run.list,...extra],style(id));state.marker=list.next(state.level||0);state.markerCss=characterFrom(level.char,state);}
-    return state;
+  const paragraphStyleId=(fc,extra=[])=>{const run=lookup(paras,fc);return [...run.list,...extra].find(([op])=>op===0x4600)?.[1].u16(0)??run.id;};
+  function paragraph(fc,extra=[]){const run=lookup(paras,fc),id=paragraphStyleId(fc,extra);let state=apply([...run.list,...extra],style(id));
+    const list=lists.get(state.list),level=list?.levels[state.level||0];if(level){state=apply([...level.para,...run.list,...extra],style(id));state.marker=list.next(state.level||0);state.markerCss=characterFrom(level.char,state);
+      if(level.format===23){state.marker.label=bullet(state.marker.label,state.markerCss['font-family']?.match(/^"([^"]+)"/)?.[1]);delete state.markerCss['font-family'];}
+    }
+    return {...state,styleId:id};
   }
-  function characterFrom(props,state){const value=apply(props,state);return {...value.css,'font-family':fonts[value.font]||fonts[value.eastFont]};}
-  return {page,paragraph,character,properties};
+  function characterFrom(props,state){const value=apply(props,state);return {...Object.fromEntries(Object.entries(value.css).filter(([k])=>/^(font-|color$|background-color$|text-decoration-|text-transform$|letter-spacing$|vertical-align$)/.test(k))),'font-family':fonts[value.font]||fonts[value.eastFont]};}
+  return {page,paragraph,paragraphStyleId,character,properties};
 }
 
 function wordLists(table,pairs){
@@ -173,8 +190,10 @@ function wordLists(table,pairs){
     const counters=[];
     lists.set(i+1,{levels,next(index){const l=levels[index];if(!l)return '';counters[index]=counters[index]===undefined?l.start:counters[index]+1;
       for(let j=index+1;j<9;j++)if(!(levels[j]?.flags&8))counters[j]=undefined;
-      const label=l.pattern.replace(/[\x00-\x08]/g,ch=>{const k=ch.charCodeAt(0);return numberLabel(counters[k]??levels[k]?.start??1,l.flags&4?0:levels[k]?.format??0);});
-      return (l.format===23?label.replace(/[\uf000-\uf0ff]/g,'•'):label)+(l.follow===2?'':l.follow===1?' ':'\t');}});
+      const label=l.format===255?'':l.pattern.replace(/[\x00-\x08]/g,ch=>{const k=ch.charCodeAt(0),n=counters[k]??levels[k]?.start??1,f=l.flags&4?0:levels[k]?.format??0;
+        const type={11:'japaneseCounting',14:'decimalFullWidth',18:'decimalEnclosedCircle',19:'decimalFullWidth2',30:'ideographTraditional',33:'taiwaneseCounting',34:'ideographLegalTraditional',35:'taiwaneseCountingThousand',37:'chineseCounting',38:'chineseLegalSimplified',39:'chineseCountingThousand'}[f];
+        return type?formatted(n,type):numberLabel(n,f);});
+      return {label:label.slice(0,120),suffix:l.follow===2?'nothing':l.follow===1?'space':'tab',align:['left','center','right'][l.flags&3]||'left'};}});
   }
   return lists;
 }

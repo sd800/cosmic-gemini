@@ -4,7 +4,7 @@ import { deflateRawSync } from 'node:zlib';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { spreadsheetEntries, presentationEntries, samplePdf } from './fixtures/office-formats.mjs';
-import { formattingEntries } from './fixtures/document-formatting.mjs';
+import { formattingEntries, readingEntries } from './fixtures/document-formatting.mjs';
 import { acceptedStyles, formatStylesheet } from '../extension/workspaces/document-preview/format-styles.js';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
@@ -829,11 +829,103 @@ test('DOCX preserves blank fields and uses paragraph-mark metrics without changi
  const blank=result.value.match(/<span class="cg-f(\d+)"> {12}<\/span>/);assert.equal(styles[Number(blank[1])]['text-decoration-line'],'underline');assert.equal(styles[Number(blank[1])]['font-size'],'12pt');assert.notEqual(styles[Number(blank[1])]['font-weight'],'700');
  assert.ok(styles.some(s=>s['font-size']==='24pt'&&s['margin-bottom']==='0.5em'&&s['tab-size']==='21pt'));
  assert.ok(styles.some(s=>s['margin-top']==='0pt'&&s['margin-bottom']==='0pt'));
- assert.match(previewSrcdoc(result.value,'en-US',result.formatting),/p,h1,h2,h3,h4,h5,h6,li\{white-space:pre-wrap/);
+ assert.match(previewSrcdoc(result.value,'en-US',result.formatting),/p,h1,h2,h3,h4,h5,h6,li\{white-space:break-spaces/);
  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(styles)));
 });
 
 test('document information uses decimal size units rather than fixed binary KiB',()=>{
  for(const [bytes,label]of [[0,'0 bytes'],[1,'1 byte'],[2,'2 bytes'],[999,'999 bytes'],[1000,'1 KB'],[44544,'44.5 KB'],[1048576,'1 MB'],[999999,'1 MB'],[1e9,'1 GB']])assert.equal(formatDocumentBytes(bytes,'en-US'),label);
  assert.equal(formatDocumentBytes(NaN),'');assert.equal(formatDocumentBytes(-1),'');assert.equal(formatDocumentBytes(1500000,'zh-CN'),'1.5 MB');
+});
+
+test('Word-family content keeps passive equations, ruby, checkbox text, picture sizes and authored run overrides', async () => {
+  const result=await convert(readingEntries()),styles=JSON.parse(JSON.stringify(result.formatting.styles));
+  assert.match(result.value,/<math display="inline"><mrow><mfrac>/);
+  assert.match(result.value,/<math display="block">/);assert.match(result.value,/<msqrt>/);
+  assert.match(result.value,/<ruby>.*汉.*<rt>.*hàn/);
+  assert.match(result.value,/☑/);assert.doesNotMatch(result.value,/HIDDEN|LOST CHECKBOX|<input/);
+  assert.match(result.value,/<img[^>]+class="cg-f\d+"/);
+  assert.ok(styles.some(s=>s.width==='100pt'&&s['aspect-ratio']==='2'));
+  const italic=styles[Number(result.value.match(/class="cg-f(\d+)" lang="en-US">Italic/)[1])];
+  assert.equal(italic['font-style'],'italic');assert.equal(italic['vertical-align'],'2pt');assert.equal(italic['font-kerning'],'normal');
+  const first=styles[Number(result.value.match(/<p class="cg-f(\d+)"><span[^>]*>First contextual/)[1])];
+  assert.equal(first['margin-bottom'],'0pt');
+  assert.ok(styles.some(s=>s['padding-bottom']==='6pt'&&s['text-align-last']==='justify'));
+  assert.ok(styles.some(s=>s['border-top-style']==='none'&&s['padding-left']==='5.4pt'));
+  assert.ok(styles.some(s=>s['tab-size']==='48pt'));
+  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),styles);
+  for(const format of ['docm','dotx','dotm']){
+    const entries=readingEntries();entries['[Content_Types].xml']=entries['[Content_Types].xml'].replace('application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml', ({docm:'application/vnd.ms-word.document.macroEnabled.main+xml',dotx:'application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml',dotm:'application/vnd.ms-word.template.macroEnabledTemplate.main+xml'})[format]);
+    // Family dispatch uses the requested suffix; macros never become content.
+    if(format.endsWith('m'))entries['word/vbaProject.bin']='INERT MACRO';
+    const buffer=storedZip(entries);await validateOfficeContent(buffer,format);
+    const variant=await renderer.convertToHtml({arrayBuffer:buffer},{externalFileAccess:false});
+    assert.equal(variant.value,result.value,format);
+  }
+});
+
+test('binary DOC follows live picture references, preserves character spacing and safe hyperlink field results', async () => {
+  const XLSX=await extraRenderers(),{cfbFile,readingWordStreams,wordStreams}=await import('./fixtures/additional-document-formats.mjs');
+  const streams=readingWordStreams(),result=renderer.convertLegacyWord(cfbFile(XLSX,streams));
+  assert.match(result.value,/Name: {10}/);assert.match(result.value,/<img[^>]+src="data:image\/png;base64,/);
+  assert.match(result.value,/<a href="https:\/\/example.test\/guide"><span[^>]*>Guide/);
+  assert.doesNotMatch(result.value,/HYPERLINK|UNSUPPORTED METAFILE/);
+  assert.ok(result.formatting.styles.some(s=>s['letter-spacing']==='1pt'&&s['vertical-align']==='2pt'&&s['font-kerning']==='normal'&&s['text-decoration-style']==='double'));
+  assert.ok(result.formatting.styles.some(s=>s.width==='100pt'&&s['aspect-ratio']==='2'));
+  assert.ok(result.formatting.styles.some(s=>s['tab-size']==='48pt'));
+  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(result.formatting.styles)));
+  const unsafe=renderer.convertLegacyWord(cfbFile(XLSX,wordStreams('\x13HYPERLINK "javascript:alert(1)"\x14Only text\x15\r')));
+  assert.match(unsafe.value,/Only text/);assert.doesNotMatch(unsafe.value,/<a |javascript/);
+  const corrupt=readingWordStreams();corrupt.Data.writeUInt32LE(0xffffff,72);assert.throws(()=>renderer.convertLegacyWord(cfbFile(XLSX,corrupt)),/invalidDocument/);
+});
+
+test('legacy Office decodes raster record IDs and rejects metafile records even when they contain PNG-like bytes',async()=>{
+  const XLSX=await extraRenderers(),{cfbFile,formattedPresentationStreams,readingWordStreams}=await import('./fixtures/additional-document-formats.mjs');
+  const result=renderer.convertLegacyPresentation(cfbFile(XLSX,formattedPresentationStreams({embeddedImage:true})));
+  assert.match(result.parts[0].html,/<img class="cg-slide-picture" src="data:image\/png;base64,/);
+  const unsupported=readingWordStreams(),at=68+8+Buffer.byteLength('UNSUPPORTED METAFILE');
+  unsupported.Data.writeUInt16LE(0xf01a,at+2);
+  assert.doesNotMatch(renderer.convertLegacyWord(cfbFile(XLSX,unsupported)).value,/<img/);
+});
+
+test('preview opens beside its current source tab in that window, including remembered choices and cached files',async()=>{
+  const env=environment();Object.assign(env.tabs[0],{index:2,windowId:9});
+  await env.capture();await env.settle();env.tabs[0].index=5;
+  await env.choose(undefined,'preview',true);
+  let opened=env.calls.filter(c=>c[0]==='open').at(-1)[1];
+  assert.deepEqual({index:opened.index,windowId:opened.windowId,openerTabId:opened.openerTabId},{index:6,windowId:9,openerTabId:1});
+  env.tabs[0].index=1;await env.capture();await env.settle();
+  opened=env.calls.filter(c=>c[0]==='open').at(-1)[1];assert.equal(opened.index,2);
+  // The same cached file may be requested from a different source tab.
+  Object.assign(env.tabs[0],{id:8,index:3,windowId:12});env.ingress.take=()=>({method:'GET',tabId:8});
+  await env.capture();await env.settle();opened=env.calls.filter(c=>c[0]==='open').at(-1)[1];
+  assert.equal(opened.openerTabId,8);assert.equal(opened.windowId,12);assert.equal(opened.index,4);
+  const fallback=environment();Object.assign(fallback.tabs[0],{index:0,windowId:7});
+  chrome.scripting.executeScript=async()=>{throw Error('restricted page');};
+  await fallback.capture();await fallback.settle();opened=fallback.calls.filter(c=>c[0]==='open').at(-1)[1];
+  assert.equal(opened.index,1);assert.equal(opened.windowId,7);assert.match(opened.url,/mode=choose/);
+});
+
+test('Word lists preserve nested formats, continued counts, explicit restarts, style-linked levels and long hanging labels',async()=>{
+ const {listEntries}=await import('./fixtures/document-formatting.mjs');const result=await convert(listEntries());
+ const labels=[...result.value.matchAll(/class="cg-list-marker[^"]*">([^<]+)<\/span>/g)].map(m=>m[1].trimEnd());
+ assert.deepEqual(labels,['一、','一.a)','1.1.1)','二、','二.b)','2.2.1)','十二、','•','998.','999.','1000.']);
+ assert.equal((result.value.match(/class="cg-list-content"/g)||[]).length,11);
+ assert.match(result.value,/<p class="cg-f\d+"><span[^>]*>Cancelled numbering/);
+ const styles=JSON.parse(JSON.stringify(result.formatting.styles));
+ assert.ok(styles.some(s=>s['margin-left']==='18pt'&&s['text-indent']==='0pt'));
+ assert.ok(styles.some(s=>s['min-width']==='18pt'&&s['text-align']==='right'&&s['padding-right']==='0.35em'));
+ assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),styles);
+ const entries=listEntries();entries['word/document.xml']=entries['word/document.xml'].replace('</w:numPr>', '</w:numPr><w:ind w:hangingChars="200"/>');
+ const mixed=await convert(entries);assert.ok(mixed.formatting.styles.some(s=>s['margin-left']==='calc(36pt - 2em)'));
+ assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(mixed.formatting))),JSON.parse(JSON.stringify(mixed.formatting.styles)));
+});
+
+test('binary Word lists keep Chinese/letter formats, uninterrupted counts, independent restarts and bullet gutters',async()=>{
+ const XLSX=await extraRenderers(),{cfbFile,listWordStreams}=await import('./fixtures/additional-document-formats.mjs');
+ const result=renderer.convertLegacyWord(cfbFile(XLSX,listWordStreams()));
+ assert.deepEqual([...result.value.matchAll(/class="cg-list-marker[^\"]*">([^<]+)<\/span>/g)].map(m=>m[1].trimEnd()),['九、','九.a)','九.b)','十、','十.c)','九、','•']);
+ assert.equal((result.value.match(/class="cg-list-content"/g)||[]).length,7);
+ assert.ok(result.formatting.styles.some(s=>s['margin-left']==='36pt'&&s['text-indent']==='0pt'));
+ assert.ok(result.formatting.styles.some(s=>s['min-width']==='18pt'&&s['padding-right']==='0.35em'));
 });

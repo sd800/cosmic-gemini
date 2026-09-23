@@ -12,14 +12,30 @@ export function odfEntries(format){
 export const rtfSample=String.raw`{\rtf1\ansi\ansicpg936{\fonttbl{\f0\fcharset134 SimSun;}}\f0\fs28\b RTF document\b0\par \'d6\'d0\'ce\'c4\par \uc1\u20013?\u25991?\par {\field{\*\fldinst INCLUDEPICTURE "https://tracker.invalid/pixel"}{\fldrslt Safe field result}}\par {\object\objdata PROGRAM-MUST-NOT-APPEAR}\page Second page\par \intbl Cell one\cell Cell two\cell\row\pard End.}`;
 export const emailSample='From: =?UTF-8?B?5rWL6K+V?= <author@example.test>\r\nTo: reader@example.test\r\nSubject: =?UTF-8?B?6YKu5Lu26aKE6KeI?=\r\nDate: Tue, 22 Sep 2026 10:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="mixed"\r\n\r\n--mixed\r\nContent-Type: multipart/alternative; boundary="alt"\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nPlain fallback 中文\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<h2>Email content</h2><p>HTML body</p><img src=3D"https://tracker.invalid/pixel"><iframe src=3D"https://tracker.invalid/frame"></iframe><style>@import "https://tracker.invalid/style";</style><script>alert(1)</script>\r\n--alt--\r\n--mixed\r\nContent-Type: application/octet-stream; name="test.exe"\r\nContent-Disposition: attachment; filename="test.exe"\r\nContent-Transfer-Encoding: base64\r\n\r\nTVpOb3RBY3R1YWxFeGVjdXRhYmxl\r\n--mixed--\r\n';
 export function cfbFile(XLSX,streams){const cfb=XLSX.CFB.utils.cfb_new();for(const[name,data]of Object.entries(streams))XLSX.CFB.utils.cfb_add(cfb,name,Buffer.from(data));const bytes=XLSX.CFB.write(cfb,{type:'buffer'});return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);}
-export function wordStreams(){
- const text='Word 97 中文正文\rNext paragraph\r\x13HYPERLINK secret\x14Display result\x15\r';
+export function wordStreams(text='Word 97 中文正文\rNext paragraph\r\x13HYPERLINK secret\x14Display result\x15\r'){
  const body=Buffer.alloc(4096),table=Buffer.alloc(512),utf=Buffer.from(text,'utf16le');
  body.writeUInt16LE(0xa5ec,0);body.writeUInt16LE(0xc1,2);body.writeUInt16LE(0x200,10);body.writeUInt16LE(14,32);body.writeUInt16LE(22,62);body.writeUInt32LE(text.length,76);body.writeUInt16LE(93,152);body.writeUInt32LE(0,154+33*8);body.writeUInt32LE(21,154+33*8+4);utf.copy(body,1024);
  table[0]=2;table.writeUInt32LE(16,1);table.writeUInt32LE(0,5);table.writeUInt32LE(text.length,9);table.writeUInt32LE(1024,15);
  return {'WordDocument':body,'1Table':table};
 }
 function record(type,body,instance=0,container=false){const out=Buffer.alloc(8+body.length);out.writeUInt16LE((instance<<4)|(container?15:0));out.writeUInt16LE(type,2);out.writeUInt32LE(body.length,4);Buffer.from(body).copy(out,8);return out;}
+export function readingWordStreams() {
+ const text='Name:          \r\x01\r\x13HYPERLINK "https://example.test/guide"\x14Guide\x15\r';
+ const streams=wordStreams(text),body=streams.WordDocument,table=streams['1Table'];
+ const u16=n=>{const b=Buffer.alloc(2);b.writeUInt16LE(n);return b;},u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;};
+ const picture=text.indexOf('\x01'),bounds=[1024,1024+picture*2,1024+(picture+1)*2,1024+text.length*2];
+ const props=[Buffer.concat([u16(0x8840),u16(20),u16(0x4845),u16(4),u16(0x484b),u16(16),u16(0x2a3e),Buffer.from([3])]),Buffer.concat([u16(0x6a03),u32(0)]),Buffer.alloc(0)];
+ const fkp=Buffer.alloc(512);bounds.forEach((n,i)=>fkp.writeUInt32LE(n,i*4));fkp[511]=props.length;let free=510;
+ props.forEach((v,i)=>{free=(free-v.length-1)&~1;fkp[free]=v.length;v.copy(fkp,free+1);fkp[bounds.length*4+i]=free/2;});fkp.copy(body,2048);
+ const part=(index,offset,bytes)=>{body.writeUInt32LE(offset,154+index*8);body.writeUInt32LE(bytes.length,158+index*8);bytes.copy(table,offset);};
+ part(12,40,Buffer.concat([u32(bounds[0]),u32(bounds.at(-1)),u32(4)]));
+ const dop=Buffer.alloc(12);dop.writeUInt16LE(960,10);part(31,60,dop);
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jGmgAAAAASUVORK5CYII=', 'base64');
+ const blip=record(0xf01a,Buffer.from('UNSUPPORTED METAFILE')); // never rendered
+ const image=record(0xf01e,Buffer.concat([Buffer.alloc(17),png]),0x6e0);
+ const pic=Buffer.alloc(68);pic.writeUInt32LE(68+blip.length+image.length);pic.writeUInt16LE(68,4);pic.writeUInt16LE(100,6);pic.writeInt16LE(2000,28);pic.writeInt16LE(1000,30);pic.writeUInt16LE(1000,32);pic.writeUInt16LE(1000,34);
+ streams.Data=Buffer.concat([pic,blip,image]);return streams;
+}
 export function presentationStreams(){
  const tx=s=>record(4000,Buffer.from(s,'utf16le'));
  const slide1=record(1006,record(0xf002,tx('First shape 中文'),0,true),0,true),slide2=record(1006,record(0xf002,tx('Second shape'),0,true),0,true);
@@ -69,18 +85,38 @@ export function styledXls(XLSX){
  }
  return cfbFile(XLSX,{Workbook:stream});
 }
-export function formattedPresentationStreams(){
+export function formattedPresentationStreams({embeddedImage=false}={}){
  const u16=n=>{const b=Buffer.alloc(2);b.writeUInt16LE(n);return b;},u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;};
  const content='Positioned title',header=record(3999,u32(0)),tx=record(4000,Buffer.from(content,'utf16le'));
  const textStyle=record(4001,Buffer.concat([u32(content.length+1),u16(0),u32(2048|4096),u16(1),u16(150),u32(content.length+1),u32(1|0x10000|0x20000|0x40000),u16(1),u16(0),u16(28),u32(0xfe663300)]));
  const anchor=record(0xf010,Buffer.concat([u16(288),u16(576),u16(5184),u16(1440)]));
- const options=Buffer.alloc(6);options.writeUInt16LE(385);options.writeUInt32LE(0x00eeddcc,2);
- const shape=record(0xf004,Buffer.concat([record(0xf00a,Buffer.concat([u32(1),u32(0)]),1),anchor,record(0xf00b,options,1),record(0xf00d,Buffer.concat([header,tx,textStyle]))]),0,true);
+ const options=Buffer.alloc(embeddedImage?12:6);if(embeddedImage){options.writeUInt16LE(260,6);options.writeUInt32LE(1,8);}options.writeUInt16LE(385);options.writeUInt32LE(0x00eeddcc,2);
+ const shape=record(0xf004,Buffer.concat([record(0xf00a,Buffer.concat([u32(1),u32(0)]),1),anchor,record(0xf00b,options,embeddedImage?2:1),record(0xf00d,Buffer.concat([header,tx,textStyle]))]),0,true);
  const slide=record(1006,record(1036,record(0xf002,shape,0,true),0,true),0,true);
  const persist=Buffer.alloc(20);persist.writeUInt32LE(2);const size=Buffer.alloc(40);size.writeInt32LE(5760);size.writeInt32LE(4320,4);
  const font=Buffer.alloc(68);Buffer.from('Arial\0','utf16le').copy(font);
- const doc=record(1000,Buffer.concat([record(1001,size),record(4023,font),record(4080,record(1011,persist),0,true)]),0,true);
+ const data=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jGmgAAAAASUVORK5CYII=', 'base64'),headerImage=Buffer.alloc(36);headerImage[0]=headerImage[1]=6;headerImage.writeUInt32LE(25+data.length,20);
+ const store=embeddedImage?record(0xf001,record(0xf007,Buffer.concat([headerImage,record(0xf01e,Buffer.concat([Buffer.alloc(17),data]),0x6e0)]),6),1,true):Buffer.alloc(0);
+ const doc=record(1000,Buffer.concat([record(1001,size),record(4023,font),store,record(4080,record(1011,persist),0,true)]),0,true);
  const ptr=record(6002,Buffer.concat([u32((2<<20)|1),u32(slide.length),u32(0)])),editBody=Buffer.alloc(28);editBody.writeUInt32LE(slide.length+doc.length,12);editBody.writeUInt32LE(1,16);
  const editAt=slide.length+doc.length+ptr.length,current=Buffer.alloc(28);current.writeUInt16LE(4086,2);current.writeUInt32LE(20,4);current.writeUInt32LE(0xe391c05f,12);current.writeUInt32LE(editAt,16);
  return {'PowerPoint Document':Buffer.concat([slide,doc,ptr,record(4085,editBody)]),'Current User':current};
+}
+
+export function listWordStreams(){
+ const paragraphs=['Top','Nested text that wraps with a hanging indent and does not overlap the label.','Ordinary paragraph','Continued child','Next parent','Child across parent','Separate numbering','Bullet'];
+ const ids=[1,1,0,1,1,1,2,3],levels=[0,1,0,1,0,1,0,0],text=paragraphs.map(p=>p+'\r').join('');
+ const base=wordStreams(text),body=Buffer.alloc(8192),table=Buffer.alloc(8192);base.WordDocument.copy(body,0,0,2048);let at=0;
+ const u16=n=>{const b=Buffer.alloc(2);b.writeUInt16LE(n&65535);return b;},u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;};
+ const prop=(op,data)=>Buffer.concat([u16(op),data]);
+ const part=(index,data)=>{body.writeUInt32LE(at,154+index*8);body.writeUInt32LE(data.length,158+index*8);data.copy(table,at);at+=data.length;};
+ part(33,base['1Table'].subarray(0,21));
+ const bounds=[1024];for(const p of paragraphs)bounds.push(bounds.at(-1)+(p.length+1)*2);
+ const fkp=Buffer.alloc(512);bounds.forEach((n,i)=>fkp.writeUInt32LE(n,i*4));fkp[511]=paragraphs.length;let free=510;
+ paragraphs.forEach((_,i)=>{const p=Buffer.concat([u16(0),prop(0x460b,u16(ids[i])),prop(0x260a,Buffer.from([levels[i]])),prop(0x840f,u16(720+levels[i]*360)),prop(0x8411,u16(-360))]);const bytes=Buffer.concat([p.length%2?Buffer.from([(p.length+1)/2]):Buffer.from([0,p.length/2]),p]);free=(free-bytes.length)&~1;bytes.copy(fkp,free);fkp[bounds.length*4+i*13]=free/2;});fkp.copy(body,3072);
+ part(13,Buffer.concat([u32(bounds[0]),u32(bounds.at(-1)),u32(6)]));
+ const heads=Buffer.alloc(58);heads.writeUInt16LE(2);heads.writeUInt32LE(101,2);heads.writeUInt32LE(102,30);heads[56]=1;part(73,heads);
+ for(let i=0;i<10;i++){const head=Buffer.alloc(28),bullet=i===9;head.writeUInt32LE(i===0?9:1);head[4]=bullet?23:i===0?37:i===1?4:0;head[5]=i===1?8:0;const pattern=bullet?'\uf0b7':i===0?'\0、':'\0.\x01)';const value=Buffer.concat([head,u16(pattern.length),Buffer.from(pattern,'utf16le')]);value.copy(table,at);at+=value.length;}
+ const overrides=Buffer.alloc(64);overrides.writeUInt32LE(3);[101,101,102].forEach((id,i)=>overrides.writeUInt32LE(id,4+i*16));part(74,overrides);
+ return {WordDocument:body,'1Table':table};
 }

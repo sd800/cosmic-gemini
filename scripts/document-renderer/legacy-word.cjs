@@ -2,6 +2,9 @@ const {fontRuns}=require('./fonts.cjs');
 const {compound}=require('./compound.cjs');
 const {esc,styles}=require('./office-package.cjs');
 const {wordFormatting,properties,setBorder}=require('./legacy-word-format.cjs');
+const {wordImages}=require('./legacy-office-images.cjs');
+const dingbat=require('dingbat-to-unicode');
+const {listLayout}=require('./numbering.cjs');
 // MS-DOC 2.4.1: the CLX piece table selects the current text, so saved/deleted
 // bytes elsewhere in WordDocument never become visible simply by scanning it.
 function word(buffer) {
@@ -39,26 +42,47 @@ function word(buffer) {
   }
   if(expected<lengths[0])throw Error('invalidDocument');
   const formatting=wordFormatting(bytes,table,entries,streams.get('Data')),registered=styles();
+  const picture=wordImages(streams.get('Data'),registered);
   // Mask field instructions without changing CP offsets used by formatting.
-  const source=pieces.map(piece=>piece.text).join(''),fields=[],chunks=[];
+  const source=pieces.map(piece=>piece.text).join(''),fields=[],chunks=[];let links=[];
   for(const match of source.matchAll(/[\x13-\x15]|[^\x13-\x15]+/g)){
-    const value=match[0];if(value==='\x13'){if(fields.length>=80)throw Error('documentTooComplex');fields.push(false);chunks.push('\0');}
-    else if(value==='\x14'){if(fields.length)fields[fields.length-1]=true;chunks.push('\0');}
-    else if(value==='\x15'){fields.pop();chunks.push('\0');}
-    else chunks.push(fields.every(Boolean)?value:'\0'.repeat(value.length));
+    const value=match[0];if(value==='\x13'){if(fields.length>=80)throw Error('documentTooComplex');fields.push({visible:false,instruction:''});chunks.push('\0');}
+    else if(value==='\x14'){const field=fields.at(-1);if(field){field.visible=true;field.start=match.index+1;}chunks.push('\0');}
+    else if(value==='\x15'){
+      const field=fields.pop(),href=field?.instruction.match(/^\s*HYPERLINK\s+(?:"(https?:\/\/[^"\x00-\x1f]+)"|(https?:\/\/[^\s"]+))/i);
+      if(href&&field.start!==undefined&&fields.every(f=>f.visible)){
+        if(links.length>=20000)throw Error('documentTooComplex');
+        links.push({start:field.start,end:match.index,href:href[1]||href[2]});
+      }
+      chunks.push('\0');
+    }else{
+      const field=fields.at(-1);if(field&&!field.visible)field.instruction=(field.instruction+value).slice(0,8192);
+      chunks.push(fields.every(f=>f.visible)?value:'\0'.repeat(value.length));
+    }
   }
+  links.sort((a,b)=>a.start-b.start||b.end-a.end);
+  let linkEnd=-1;links=links.filter(link=>{if(link.start<linkEnd)return false;linkEnd=link.end;return true;});
+  function linkAt(cp){let lo=0,hi=links.length;while(lo<hi){const mid=(lo+hi)>>>1;if(links[mid].end<=cp)lo=mid+1;else hi=mid;}return links[lo]?.start<=cp?links[lo]:{end:links[lo]?.start??Infinity};}
   const visible=chunks.join('');
   function pieceAt(cp){let lo=0,hi=pieces.length;while(lo<hi){const mid=(lo+hi)>>>1;if(pieces[mid].end<=cp)lo=mid+1;else hi=mid;}const piece=pieces[lo];if(!piece)throw Error('invalidDocument');return piece;}
   const clean=text=>text.replace(/[\x00-\x08\x0e-\x1f]/g,'').replace(/\x0b/g,'\n');
-  let nodes=0;
+  let nodes=0,outputSize=0;
+  const budget=value=>{outputSize+=value.length;if(outputSize>32*1024*1024)throw Error('documentTooLarge');return value;};
   function runs(begin,end,state){let html='';for(let cp=begin;cp<end;){
     if(++nodes>120000)throw Error('documentTooComplex');
-    const piece=pieceAt(cp),fc=piece.offset+(cp-piece.cp)*piece.step,run=formatting.character(fc,state,piece.extra),stop=Math.min(end,piece.end,cp+Math.max(1,Math.ceil((run.end-fc)/piece.step)));
-    const text=clean(visible.slice(cp,stop));if(text&&!run.hidden){const tag=run.script===1?'sup':run.script===2?'sub':'span';for(const part of fontRuns(text,run.families)){if(++nodes>120000)throw Error('documentTooComplex');html+='<'+tag+' class="'+registered.add({...run.css,'font-family':part.family})+'">'+esc(part.text)+'</'+tag+'>';}}
+    const piece=pieceAt(cp),fc=piece.offset+(cp-piece.cp)*piece.step,run=formatting.character(fc,state,piece.extra),link=linkAt(cp),stop=Math.min(end,piece.end,link.end,cp+Math.max(1,Math.ceil((run.end-fc)/piece.step)));
+    let content='';
+    if(!run.hidden)for(const segment of visible.slice(cp,stop).split(/(\x01)/)){
+      if(segment==='\x01'){content+=budget(picture(run.picture));continue;}
+      let text=clean(segment);
+      if(run.symbol){const font=run.symbol.family?.match(/^"([^"]+)"/)?.[1],code=run.symbol.code,unicode=dingbat.hex(font,(code>=0xf000&&code<=0xf0ff?code&255:code).toString(16));text=text.replace(/\u0028|\uf000/g,unicode?.string||String.fromCharCode(code));}
+      if(text){const tag=run.script===1?'sup':run.script===2?'sub':'span';for(const part of fontRuns(text,run.families)){if(++nodes>120000)throw Error('documentTooComplex');content+=budget('<'+tag+' class="'+registered.add({...run.css,'font-family':part.family})+'">'+esc(part.text)+'</'+tag+'>');}}
+    }
+    html+=link.href&&content?'<a href="'+esc(link.href)+'">'+content+'</a>':content;
     cp=stop;
   }return html;}
   function renderStory(begin,length){
-    const out=[],rows=[];let cell='',cells=[],count=0;
+    const out=[],rows=[];let cell='',cells=[],count=0,previous;
     function finishRow(state){if(cell)cells.push(cell);cell='';if(cells.length){if(rows.length>=10000||cells.length>63)throw Error('documentTooComplex');rows.push({cells:cells.map(html=>({html,span:1,down:1})),state});}cells=[];}
     function flushTable(){
       finishRow({});if(!rows.length)return;
@@ -68,23 +92,34 @@ function word(buffer) {
         for(let i=0;i<cells.length;i++){
           const c=cells[i],meta=state.cells?.[i];c.css={...meta?.css};if(state.shades?.[i])c.css['background-color']=state.shades[i];
           if(state.borders)for(const [j,side]of ['top','left','bottom','right'].entries())if(!meta)setBorder(c.css,side,state.borders[j]);
-          if(meta?.merge===1&&previous){previous.span++;const sum=parseFloat(previous.css.width)+parseFloat(c.css.width);if(Number.isFinite(sum))previous.css.width=sum+'pt';c.skip=true;continue;}
+          if(meta?.merge===1&&previous){previous.span++;previous.html+=c.html;const sum=parseFloat(previous.css.width)+parseFloat(c.css.width);if(Number.isFinite(sum))previous.css.width=sum+'pt';c.skip=true;continue;}
           previous=c;
-          if(meta?.vertical===1&&vertical.has(i)){vertical.get(i).down++;c.skip=true;}else if(meta?.vertical===3)vertical.set(i,c);else vertical.delete(i);
+          if(meta?.vertical===1&&vertical.has(i)){vertical.get(i).down++;vertical.get(i).html+=c.html;c.skip=true;}else if(meta?.vertical===3)vertical.set(i,c);else vertical.delete(i);
         }
       }
       for(const {cells,state}of rows){body+='<tr class="'+registered.add({height:state.rowHeight?Math.min(600,state.rowHeight)+'pt':undefined})+'">'+cells.filter(c=>!c.skip).map(c=>'<td class="'+registered.add(c.css)+'" colspan="'+c.span+'" rowspan="'+c.down+'">'+c.html+'</td>').join('')+'</tr>';}
       out.push('<table class="'+registered.add({'table-layout':'fixed',width:rows.find(r=>r.state.tableWidth)?.state.tableWidth||'100%'})+'"><tbody>'+body+'</tbody></table>');rows.length=0;
     }
-    for(const match of visible.slice(begin,begin+length).matchAll(/[^\r\x07]*[\r\x07]|[^\r\x07]+$/g)){
+    const paragraphs=visible.slice(begin,begin+length).matchAll(/[^\r\x07]*[\r\x07]|[^\r\x07]+$/g);
+    for(let current=paragraphs.next();!current.done;){
+      const match=current.value;current=paragraphs.next();
       if(++count>100000)throw Error('documentTooComplex');
       const start=begin+match.index,raw=match[0],terminated=/[\r\x07]$/.test(raw),end=start+raw.length-(terminated?1:0),mark=terminated?end:Math.max(start,end-1),piece=pieceAt(mark);
       const state=formatting.paragraph(piece.offset+(mark-piece.cp)*piece.step,piece.extra);
+      // Adjacent paragraphs of the same style can explicitly suppress spacing.
+      if(state.contextual&&previous?.styleId===state.styleId)state.css['margin-top']='0pt';
+      if(state.contextual&&!raw.endsWith('\x07')&&!current.done){
+        const next=current.value,mark=begin+next.index+Math.max(0,next[0].length-1),piece=pieceAt(mark);
+        if(formatting.paragraphStyleId(piece.offset+(mark-piece.cp)*piece.step,piece.extra)===state.styleId)state.css['margin-bottom']='0pt';
+      }
+      previous=raw.endsWith('\x07')?undefined:state;
       let content='',cursor=start;
       for(const segment of visible.slice(start,end).split('\f')){
         if(cursor>start)content+='<hr class="cg-page-break">';
-        const tag=state.heading?'h'+state.heading:'p',css={...state.css};delete css['text-decoration-line'];
-        content+='<'+tag+' class="'+registered.add(css)+'">'+(state.marker?'<span class="cg-list-marker '+registered.add(state.markerCss||{})+'">'+esc(state.marker)+'</span>':'')+runs(cursor,cursor+segment.length,state)+'</'+tag+'>';cursor+=segment.length+1;
+        const tag=state.heading?'h'+state.heading:'p';let css={...state.css};delete css['text-decoration-line'];
+        let body=runs(cursor,cursor+segment.length,state);
+        if(state.marker){const layout=listLayout(css,state.marker);css=layout.paragraph;body='<span class="cg-list-marker '+registered.add({...state.markerCss,...layout.marker})+'">'+esc(state.marker.label+(state.marker.label&&state.marker.suffix!=='nothing'?' ':''))+'</span><span class="cg-list-content">'+body+'</span>';}
+        content+='<'+tag+' class="'+registered.add(css)+(state.marker?' cg-numbered':'')+'">'+body+'</'+tag+'>';cursor+=segment.length+1;
       }
       if(state.inTable||state.rowEnd||raw.endsWith('\x07')){
         if(!state.rowEnd||clean(visible.slice(start,end)).trim())cell+=content;

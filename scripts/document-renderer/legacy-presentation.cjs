@@ -1,4 +1,5 @@
 const {compound}=require('./compound.cjs');
+const {rasterBlip}=require('./legacy-office-images.cjs');
 const {styles,pt}=require('./office-package.cjs');
 const {reader,clamp,rgb}=require('./legacy-binary.cjs');
 const {masterStyles,renderText}=require('./legacy-powerpoint-text.cjs');
@@ -55,11 +56,7 @@ function presentation(input) {
     const b=data(entry);if(b.length<36)return '';const embedded=36+b.u8(33);let stream,offset;
     if(embedded+8<b.length){stream=b;offset=embedded;}else if(pictures){stream=reader(pictures);offset=b.u32(28);}else return '';
     if(offset===0xffffffff||offset+8>stream.length)return '';
-    const type=stream.u16(offset+2),length=stream.u32(offset+4);if(length>8*1024*1024)return '';stream.check(offset+8,length);
-    if(![0xf01a,0xf01b,0xf029].includes(type))return '';
-    const body=stream.slice(offset+8,length);let start=-1,mime='';
-    for(const at of [17,33]){if(body[at]===0x89&&body[at+1]===0x50&&body[at+2]===0x4e&&body[at+3]===0x47){start=at;mime='png';break;}if(body[at]===255&&body[at+1]===216&&body[at+2]===255){start=at;mime='jpeg';break;}}
-    if(start<0)return '';const url='data:image/'+mime+';base64,'+Buffer.from(body.subarray(start)).toString('base64');imageCache.set(index,url);return url;
+    const url=rasterBlip(stream,offset);imageCache.set(index,url);return url;
   }
   let output=0,fragments=0;
   function bounded(fragment){fragments+=fragment.length;if(fragments>40*1024*1024)throw Error('documentTooLarge');return fragment;}

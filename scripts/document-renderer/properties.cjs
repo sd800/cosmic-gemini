@@ -13,6 +13,8 @@ const points = (input, divisor = 20, min = 0, max = 144) => {
   return num == null ? undefined : rounded(num / divisor) + 'pt';
 };
 const containers = new Set(['numPr', 'tblBorders', 'tcBorders', 'pBdr', 'tblCellMar', 'tcMar', 'tabs']);
+const toggles = ['b', 'i', 'bCs', 'iCs', 'strike', 'dstrike', 'caps', 'smallCaps', 'vanish', 'webHidden'];
+const atomic = new Set([...toggles, 'u', 'contextualSpacing', 'bidi', 'pageBreakBefore']);
 function properties(node) {
   const result = Object.create(null);
   for (const child of node?.children || []) {
@@ -29,13 +31,17 @@ function merge(...sources) {
   const result = Object.create(null);
   for (const source of sources) for (const [key, val] of Object.entries(source || {})) {
     if (['__proto__', 'constructor', 'prototype'].includes(key)) continue;
+    // An empty on/off element means ON; it must not inherit a parent's val=0.
+    // Underline also resets as a whole (an empty element means single).
+    if (atomic.has(key)) {
+      result[key] = val && typeof val === 'object' ? {...val} : val; continue;
+    }
     const inherited=key==='rFonts'?{...result[key]}:result[key];
     if(key==='rFonts'&&val)for(const [name,themeKey]of [['ascii','asciiTheme'],['hAnsi','hAnsiTheme'],['eastAsia','eastAsiaTheme'],['cs','cstheme']])if(val[name]&&!val[themeKey])delete inherited[themeKey];
     result[key] = val && typeof val === 'object' && !Array.isArray(val) ? merge(inherited, val) : val;
   }
   return result;
 }
-const toggles = ['b', 'i', 'strike', 'dstrike', 'caps', 'smallCaps'];
 function styledRun(base, layers) {
   let result = merge(base);
   for (const layer of layers || []) {
@@ -69,6 +75,7 @@ function fontFamilies(run,theme) {
 }
 function runCss(run, theme) {
   const underline = run.u && !['none','0','false'].includes(run.u.val), strike = on(run.strike) || on(run.dstrike);
+  const kerning = number(run.kern?.val, 0, 192), size = number(run.sz?.val || run.szCs?.val, 8, 192);
   return clean({
     'font-family':fontFamilies(run,theme).ascii, 'font-size':points(run.sz?.val || run.szCs?.val, 2, 4, 96),
     'font-weight':run.b ? (on(run.b) ? '700' : '400') : undefined,
@@ -76,7 +83,11 @@ function runCss(run, theme) {
     color:color(run.color, theme),
     'background-color':run.highlight ? (highlightColors[run.highlight.val] ? '#' + highlightColors[run.highlight.val] : 'transparent') : color(run.shd && {...run.shd, val:run.shd.fill}, theme),
     'text-decoration-line':run.u || run.strike || run.dstrike ? ([underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ') || 'none') : undefined,
-    'text-decoration-style':underline ? ({double:'double', dotted:'dotted', dash:'dashed', wave:'wavy'}[run.u.val] || 'solid') : undefined,
+    'text-decoration-style':underline ? (/double/i.test(run.u.val) ? 'double' : /wave/i.test(run.u.val) ? 'wavy' : /dot/i.test(run.u.val) ? 'dotted' : /dash/i.test(run.u.val) ? 'dashed' : 'solid') : on(run.dstrike) ? 'double' : undefined,
+    'text-decoration-color':underline ? color({...run.u,val:run.u.color},theme) : undefined,
+    'text-decoration-skip-ink':underline ? 'none' : undefined,
+    'vertical-align':points(run.position?.val,2,-96,96),
+    'font-kerning':kerning == null ? undefined : kerning > 0 && size >= kerning ? 'normal' : 'none',
     'text-transform':run.caps ? (on(run.caps) ? 'uppercase' : 'none') : undefined,
     'font-variant-caps':run.smallCaps ? (on(run.smallCaps) ? 'small-caps' : 'normal') : undefined,
     'letter-spacing':points(run.spacing?.val, 20, -2, 12)
@@ -92,6 +103,7 @@ function paragraphCss(p, theme) {
   const css = runCss({}, theme);
   Object.assign(css, {
     'text-align':({both:'justify',distribute:'justify',center:'center',left:'left',right:'right',start:'start',end:'end'}[p.jc?.val]),
+    'text-align-last':p.jc?.val === 'distribute' ? 'justify' : undefined,
     direction:p.bidi ? (on(p.bidi) ? 'rtl' : 'ltr') : undefined,
     'margin-left':indentValue(ind, ind.start != null ? 'start' : 'left', ind.startChars != null ? 'startChars' : 'leftChars'),
     'margin-right':indentValue(ind, ind.end != null ? 'end' : 'right', ind.endChars != null ? 'endChars' : 'rightChars'),
@@ -106,7 +118,10 @@ function paragraphCss(p, theme) {
       : rule === 'atLeast' ? 'max(1.2em,' + (points(spacing.line, 20, 1, 144) || '12pt') + ')'
       : points(spacing.line, 20, 1, 144);
   }
-  for (const side of ['top','bottom','left','right']) Object.assign(css, borderCss(side, p.pBdr?.[side], theme));
+  for (const side of ['top','bottom','left','right']) {
+    Object.assign(css, borderCss(side, p.pBdr?.[side], theme));
+    if(p.pBdr?.[side]?.space)css['padding-'+side]=points(p.pBdr[side].space,1,0,36);
+  }
   return clean(css);
 }
 function borderCss(side, spec, theme) {
@@ -117,18 +132,23 @@ function borderCss(side, spec, theme) {
 function width(spec) { return spec?.type === 'pct' ? rounded((number(spec.w, 0, 5000) || 0) / 50) + '%' : spec?.type === 'dxa' ? points(spec.w,20,0,1440) : undefined; }
 function tableCss(t, theme) {
   return clean({width:width(t.tblW),'table-layout':t.tblLayout?.type === 'fixed' ? 'fixed' : undefined,
+    'margin-top':'0pt','margin-bottom':'0pt',
+    'border-collapse':t.tblCellSpacing?.w && Number(t.tblCellSpacing.w)>0 ? 'separate' : 'collapse',
+    'border-spacing':points(t.tblCellSpacing?.w),
     'margin-left':t.jc?.val === 'center' || t.jc?.val === 'right' ? 'auto' : points(t.tblInd?.w),
     'margin-right':t.jc?.val === 'center' ? 'auto' : t.jc?.val === 'right' ? '0pt' : undefined,
     'background-color':color(t.shd && {...t.shd,val:t.shd.fill},theme)});
 }
 function cellCss(c, table, position, theme) {
   const css = clean({width:width(c.tcW),'vertical-align':({top:'top',center:'middle',bottom:'bottom'}[c.vAlign?.val]),
+    'writing-mode':({tbRl:'vertical-rl',tbRlV:'vertical-rl',btLr:'vertical-lr',lrTb:'horizontal-tb'}[c.textDirection?.val]),
     'background-color':color(c.shd && {...c.shd,val:c.shd.fill},theme)});
   for (const side of ['top','bottom','left','right']) {
     const edge = position[side], inside = ['top','bottom'].includes(side) ? 'insideH' : 'insideV';
-    Object.assign(css,borderCss(side,c.tcBorders?.[side] || table.tblBorders?.[edge ? side : inside],theme));
-    const pad = c.tcMar?.[side] || table.tblCellMar?.[side];
-    if (pad?.w != null) css['padding-'+side] = points(pad.w,20,0,36);
+    Object.assign(css,borderCss(side,c.tcBorders?.[side] || table.tblBorders?.[edge ? side : inside] || {val:'nil'},theme));
+    const logical = side==='left'?'start':side==='right'?'end':side;
+    const pad = c.tcMar?.[logical] || c.tcMar?.[side] || table.tblCellMar?.[logical] || table.tblCellMar?.[side];
+    css['padding-'+side] = points(pad?.w ?? (side==='left'||side==='right'?'108':'0'),20,0,36);
   }
   return clean(css);
 }

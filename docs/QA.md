@@ -83,3 +83,12 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 
 - Check short and long English/Chinese filenames in light/dark appearance at desktop and narrow widths. Keep the product name above Cosmic Gemini, center the filename over the source website, truncate filenames to one line with an ellipsis and a full-name hover title and omit file size. No empty feedback row or horizontal overflow after loading.
 - Exercise document zoom/theme/download and spreadsheet/slide navigation; all controls must remain reachable, including with long part names. Verify loading, choice, failure and expiry feedback inside the toolbar and full-viewport PDF display.
+
+### Word reading fidelity and toolbar translation
+
+- Convert the deterministic reading fixtures and representative `.doc/.docx` files in an independent Chrome profile. Confirm the same OOXML rendering for `.docm/.dotx/.dotm`; macros and embedded programs must remain inert.
+- Measure a twenty-space underlined run with a DOM Range: text length and visible width must both remain nonzero and all spaces must occupy width. Check trailing spaces, empty paragraphs, narrow-window wrapping and local font fallbacks in light/dark appearance.
+- Verify Chinese/letter/decimal nested lists, style-linked levels without explicit `ilvl`, interrupted/continued sequences, separate restarts and Symbol bullets. At a narrow viewport, measure continuation-line left edges for long items and three/four-digit labels; confirm markers never overlap text and copied labels have a separator. Cover the binary DOC list fixture as well.
+- Check direct italic/bold overrides, raised/lowered characters, contextual spacing, borderless/styled tables, image width/ratio, checkbox symbols, ruby annotations and inline/display fractions. Pass hostile MathML containing links, foreign HTML and event attributes through the sanitizer; preserve only passive math and issue no remote requests.
+- Move the source tab and switch active windows before choosing Preview. Verify placement immediately to its right in the source window; repeat with remembered choices, reused cache from another source tab and the fallback choice page.
+- The toolbar must retain `translate="no"` and `notranslate`, with no such marker on the document frame. Where browser translation is available, translate the body and verify that filename, source site and controls retain their UI language.

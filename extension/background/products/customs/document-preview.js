@@ -158,13 +158,17 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       await persist(); await scheduleCleanup();
     });
   }
-  async function open(doc, mode = 'preview') {
+  async function open(doc, mode = 'preview', sourceTabId = doc.sourceTabId) {
     const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({ id: doc.id, mode });
-    return chrome.tabs.create({ url, active: mode !== 'download' });
+    const source = Number.isInteger(sourceTabId) ? await chrome.tabs.get(sourceTabId).catch(() => null) : null;
+    const position = source && siteKey(source.url) === doc.site && !!source.incognito === platform.isIncognitoContext()
+      && Number.isInteger(source.index) && Number.isInteger(source.windowId)
+      ? { windowId: source.windowId, index: source.index + 1, openerTabId: source.id } : {};
+    return chrome.tabs.create({ url, active: mode !== 'download', ...position });
   }
   async function present(doc, sourceTabId) {
     const choice = state.choices[doc.site];
-    if (choice === 'preview' || choice === 'download') return open(doc, choice);
+    if (choice === 'preview' || choice === 'download') return open(doc, choice, sourceTabId);
     const t = translator(await platform.getLocale());
     const payload = {
       id: doc.id, filename: doc.filename, size: doc.size,
@@ -176,7 +180,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (siteKey(tab.url) !== doc.site) throw Error();
       const result = await chrome.scripting.executeScript({ target: { tabId: sourceTabId, frameIds: [0] }, world: 'ISOLATED', func: showDocumentChoice, args: [payload] });
       if (result[0]?.result !== true) throw Error();
-    } catch { await open(doc, 'choose'); }
+    } catch { await open(doc, 'choose', sourceTabId); }
   }
 
   // Filename determination has a browser deadline. Record only bounded request
@@ -204,10 +208,10 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         const settings = (await platform.readSettings()).documentPreview;
         if (!sites.has(site) || !settings?.enabled || documentPreviewWhitelisted(tab.url, settings.whitelistDomains) || released) return;
         const existing = state.documents.find(doc => doc.site === site && doc.url === url);
-        if (existing) savedDoc = existing;
+        if (existing) { savedDoc = existing; savedDoc.sourceTabId = tab.id; await persist(); }
         else {
           if (state.documents.length >= 64) return;
-          savedDoc = { id: crypto.randomUUID(), site, filename: documentFilename(item), format: documentFormat(documentFilename(item)), size: reportedSize, url, prepared: false, closedAt: Date.now() };
+          savedDoc = { id: crypto.randomUUID(), site, sourceTabId: tab.id, filename: documentFilename(item), format: documentFormat(documentFilename(item)), size: reportedSize, url, prepared: false, closedAt: Date.now() };
           state.documents.push(savedDoc); await persist();
           await scheduleCleanup();
         }
@@ -332,7 +336,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         if (message.remember) await serial(async () => {
           await currentDocument(prepared.id); state.choices[prepared.site] = message.action; await persist();
         });
-        if (page) await open(prepared, message.action);
+        if (page) await open(prepared, message.action, context.sender.tab?.id);
         return { action: message.action, prepared: true, size: prepared.size };
       }
       if (message.type === 'UI_DOCUMENT_DOWNLOAD') {

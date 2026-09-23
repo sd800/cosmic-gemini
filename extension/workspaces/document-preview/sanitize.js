@@ -1,6 +1,9 @@
 import { acceptedStyles, formatStylesheet, DOCUMENT_DARK_TEXT } from './format-styles.js';
-const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd'.split(' '));
-const DROP = new Set('script style iframe frame object embed form input button textarea select meta link base svg math'.split(' '));
+const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd ruby rt rp'.split(' '));
+const DROP = new Set('script style iframe frame object embed form input button textarea select meta link base svg'.split(' '));
+const MATH_NS = 'http://www.w3.org/1998/Math/MathML';
+const MATH = new Set('math mrow mi mn mo mtext mfrac msqrt mroot msub msup msubsup mover munder munderover mtable mtr mtd'.split(' '));
+const MATH_ATTRIBUTES = {display:/^(?:inline|block)$/,mathvariant:/^(?:normal|italic|bold|bold-italic)$/,linethickness:/^0$/,fence:/^(?:true|false)$/,stretchy:/^(?:true|false)$/};
 
 // Mail HTML often uses inline presentation attributes. Convert only passive
 // visual declarations to the same validated, deduplicated classes as Office.
@@ -45,11 +48,23 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
     if (++count > 150000 || depth > 80) throw Error('documentTooLarge');
     if (node.nodeType === 3) { target.append(output.createTextNode(node.textContent)); return; }
     if (node.nodeType !== 1 || DROP.has(node.localName)) return;
+    if (node.namespaceURI === MATH_NS) {
+      if (!MATH.has(node.localName)) return;
+      const next = output.createElementNS(MATH_NS, node.localName);
+      for (const [key, pattern] of Object.entries(MATH_ATTRIBUTES)) {
+        const value = node.getAttribute(key); if(value && pattern.test(value))next.setAttribute(key,value);
+      }
+      target.append(next);
+      for(const child of node.childNodes)copy(child,next,depth+1);
+      return;
+    }
+    // Do not allow foreign HTML inside a mathematical tree.
+    if (target.namespaceURI === MATH_NS) return;
     let next = target;
     if (ALLOWED.has(node.localName)) {
       next = output.createElement(node.localName);
       const classes = (node.getAttribute('class') || '').split(/\s+/).filter(value => /^cg-f\d{1,4}$/.test(value)
-        ? Number(value.slice(4)) < styleCount : ['cg-numbered','cg-list-marker','cg-page-break','cg-sheet','cg-row-number','cg-hidden','cg-slide','cg-shape','cg-slide-picture','cg-slide-background'].includes(value));
+        ? Number(value.slice(4)) < styleCount : ['cg-numbered','cg-list-marker','cg-list-content','cg-page-break','cg-sheet','cg-row-number','cg-hidden','cg-slide','cg-shape','cg-slide-picture','cg-slide-background'].includes(value));
       if (mail) {
         const style = emailStyle(node);
         if (Object.keys(style).length) {
@@ -70,6 +85,8 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
         if (!/^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(src)) return;
         next.setAttribute('src', src); next.setAttribute('alt', (node.getAttribute('alt') || '').slice(0, 2000));
       }
+      const language = node.getAttribute('lang');
+      if (language && /^[a-z]{2,8}(?:-[a-z\d]{1,8}){0,3}$/i.test(language)) next.setAttribute('lang', language);
       const id = node.getAttribute('id');
       if (id && /^[\w:.-]{1,150}$/.test(id)) next.setAttribute('id', id);
       for (const attr of ['colspan', 'rowspan', 'start']) {
@@ -90,9 +107,9 @@ export function previewSrcdoc(body, locale, formatting) {
   return `<!doctype html><html lang="${locale === 'zh-CN' ? 'zh-CN' : 'en-US'}"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>
     html{color-scheme:light dark;background:#eceef1;color:#202124;font:11pt/1.4 'Aptos','Calibri','Arial','PingFang SC','Microsoft YaHei',sans-serif;overflow-wrap:anywhere}
     body{box-sizing:border-box;width:calc(100% - 40px);max-width:612pt;min-height:calc(100vh - 40px);margin:20px auto;padding:54pt;background:white;box-shadow:0 1px 5px #0002}
-    p,h1,h2,h3,h4,h5,h6,li{white-space:pre-wrap;tab-size:36pt}p{margin:0 0 8pt}p:empty::before{content:'\u00a0'}h1,h2,h3,h4,h5,h6{line-height:1.25;margin:16pt 0 8pt}h1{font-size:22pt}h2{font-size:18pt}h3{font-size:14pt}h4,h5,h6{font-size:12pt}img{max-width:100%;height:auto}
+    p,h1,h2,h3,h4,h5,h6,li{white-space:break-spaces;tab-size:36pt}p{margin:0 0 8pt;min-height:1em}p:empty::before{content:'\u00a0'}h1,h2,h3,h4,h5,h6{line-height:1.25;margin:16pt 0 8pt}h1{font-size:22pt}h2{font-size:18pt}h3{font-size:14pt}h4,h5,h6{font-size:12pt}img{max-width:100%;height:auto}rt{white-space:pre-wrap}sup,sub{line-height:0}
     table{border-collapse:collapse;max-width:100%;margin:8pt 0}td,th{border:1px solid #bfc3c8;padding:4pt 6pt;vertical-align:top;font-weight:inherit}td>p:last-child,th>p:last-child{margin-bottom:0}col{max-width:100%}
-    a{color:#0b57d0}pre{white-space:pre-wrap}blockquote{border-left:3px solid #ccc;padding-left:16px;margin-left:0}.cg-list-marker{display:inline-block;white-space:pre;text-align:start}
+    a{color:#0b57d0}pre{white-space:pre-wrap}blockquote{border-left:3px solid #ccc;padding-left:16px;margin-left:0}.cg-list-marker{display:inline-block;white-space:pre;text-align:start;box-sizing:border-box}.cg-numbered{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:baseline}.cg-list-content{min-width:0}math{white-space:normal}math[display=block]{overflow-x:auto;padding:8pt 0}mtext{white-space:break-spaces}
     .cg-page-break{display:block;height:0;min-height:0;border:0;border-top:1px dashed #bfc3c8;margin:22px 0;clear:both;text-indent:0}
     @media(prefers-color-scheme:dark){html{background:#202124;color:${DOCUMENT_DARK_TEXT}}body{background:#292a2d}a{color:#a8c7fa}td,th,blockquote,.cg-page-break{border-color:#5f6368}}
     ${formatStylesheet(formatting)}

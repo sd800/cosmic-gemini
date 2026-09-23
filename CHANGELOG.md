@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.5.2 — 2026-09-22
+
+- Added Dark Reader-style PDF dark mode to Document Preview, following the existing appearance preference and manual toggle without reloading the document. Chrome's native viewer remains in use; the display filter also changes embedded pictures and the viewer's controls and background, while original files remain unchanged.
+
 ## 9.5.1 — 2026-09-22
 
 - Improved Document Preview for legacy `.doc/.xls/.ppt`: preserved common fonts and text styles, paragraph spacing and indentation, list numbering, table geometry and cell formatting, plus supported slide text boxes, colors and embedded pictures.

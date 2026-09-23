@@ -54,6 +54,9 @@ function updateTheme() {
   // An opaque sandbox cannot be restyled through its DOM. The embedding
   // element's color scheme updates its media queries without reloading it.
   frame.style.colorScheme = dark ? 'dark' : 'light';
+  // Chrome owns the PDF viewer's isolated contents. Recolor its composite
+  // surface without reparsing or reloading the document (including its UI).
+  frame.classList.toggle('pdf-dark', metadata?.format === 'pdf' && dark && !expired);
   themeToggle.innerHTML = icon(dark ? 'pageDisplay' : 'moon');
   themeToggle.title = t(dark ? 'documentThemeLight' : 'documentThemeDark');
   themeToggle.setAttribute('aria-label', themeToggle.title);

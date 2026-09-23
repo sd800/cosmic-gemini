@@ -71,3 +71,10 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 - Check that consecutive ASCII/full-width spaces and underline-only blank fields survive conversion and display. Paragraph-mark sizes must affect spacing metrics but not change text-run sizes; absent paragraph margins are zero and package-local default tab intervals are used.
 - Check header sizes such as `1 byte`, `2 bytes`, `44.5 KB` and `1.5 MB`: decimal units, at most one decimal and no forced trailing zero. Conversion/performance comparisons use identical bounded fixtures and warm runs; track bundle growth and numeric formatter construction counts rather than asserting general browser speed from small samples.
 - Test artifacts/scripts live under ignored `dist/qa/document-preview/`; logs and temporary browser profiles remain outside the shipped extension. No claim of exhaustive malware detection or full legacy Office layout fidelity.
+
+## Native PDF appearance
+
+- In an independent temporary Chrome profile, preview a PDF through the actual download choice. Check Auto with both browser color schemes, manual Light/Dark, restoring Default, settings changes and a second preview from the same source site.
+- Inspect screenshots to confirm that white PDF paper becomes dark and black text becomes light, while the extension header is themed normally. The native viewer background, controls and pictures also invert; this is an expected limitation.
+- Switching appearance must preserve the iframe URL, native frame identity, scroll/page position and zoom without another source fetch. Check native viewer controls and both original-file download buttons; compare downloaded bytes with the source.
+- Verify that non-PDF frames have no PDF filter, disabling capture preserves an existing themed preview, expiry removes the PDF and filter, and host print media does not apply the filter.

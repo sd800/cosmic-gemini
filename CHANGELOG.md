@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.5 — 2026-09-22
+
+- Refocused the Document Preview README introduction on what visitors can preview, the supported file families and the main preview limitations. Detailed controls and lifecycle rules remain in Settings and technical documentation.
+- Fixed spreadsheet preview headers so scrolling does not expose cells above the column labels or cover the blank corner. The preview toolbar now shows a localized, lowercase file family beside the source website.
+
 ## 9.6.3 — 2026-09-22
 
 - Shortened the English and Chinese README descriptions for Document Preview and XHS Image Dark Mode. Combined the three-part XHS Image Dark Mode Settings description into one paragraph while keeping its experimental note separate.

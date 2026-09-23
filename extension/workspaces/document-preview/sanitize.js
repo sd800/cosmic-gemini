@@ -115,7 +115,8 @@ export function previewSrcdoc(body, locale, formatting) {
     ${formatStylesheet(formatting)}
     @media(max-width:700px){body{width:100%;margin:0;min-height:100vh;padding:24px 18px;box-shadow:none}}
     body.cg-format-xlsx,body.cg-format-pptx{width:max-content;max-width:none;min-width:calc(100% - 40px);min-height:0;padding:0;background:transparent;box-shadow:none}
-    .cg-sheet{background:white}.cg-sheet table{margin:0;max-width:none;table-layout:fixed;font-size:11pt}.cg-sheet td{min-width:54pt;white-space:pre-wrap}.cg-sheet th{background:#eef0f3;text-align:center;color:#5f6368;font-size:10pt;font-weight:400;position:sticky;top:0}.cg-sheet .cg-row-number{width:32pt}.cg-hidden{display:none}
+    body.cg-format-xlsx{margin:0;min-width:100%}
+    .cg-sheet{background:white}.cg-sheet table{margin:0;max-width:none;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:11pt}.cg-sheet td{min-width:54pt;white-space:pre-wrap}.cg-sheet th{background:#eef0f3;text-align:center;color:#5f6368;font-size:10pt;font-weight:400}.cg-sheet thead th{position:sticky;top:0;z-index:2}.cg-sheet tbody th{position:sticky;left:0;z-index:1}.cg-sheet thead th:first-child{left:0;z-index:3}.cg-sheet .cg-row-number{width:32pt}.cg-hidden{display:none}
     .cg-slide{position:relative;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 5px #0002}.cg-shape{box-sizing:border-box;line-height:1.2}.cg-shape p{margin:0 0 5pt}.cg-shape table{width:100%;margin:0}.cg-slide-picture{display:block;width:100%;height:100%;max-width:none;object-fit:contain}.cg-slide-background{position:absolute;width:100%;height:100%;max-width:none;object-fit:cover}
     @media(prefers-color-scheme:dark){.cg-sheet{background:#292a2d}.cg-sheet th{background:#303238;color:#aeb4bc}}
     @media(max-width:700px){body.cg-format-xlsx,body.cg-format-pptx{min-width:100%;padding:0}}

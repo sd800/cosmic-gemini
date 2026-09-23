@@ -84,15 +84,11 @@ Unselected categories keep their original values. These adjustments do not chang
 
 #### Document Preview
 
-Preview documents, spreadsheets, slides, PDFs and email messages before saving them. This default-off feature offers **Preview** or **Download** before Chrome asks where to save a supported file. You can remember one choice for the current website visit, or whitelist a site to keep its normal downloads.
+Preview documents, spreadsheets, slides, PDFs and email messages in your browser before deciding whether to save them. Supported files offer a **Preview** or **Download** choice.
 
-Supported formats: documents `.docx/.docm/.dotx/.dotm/.doc/.rtf/.odt`; spreadsheets `.xlsx/.xlsm/.xltx/.xltm/.xls/.ods`; slides `.pptx/.pptm/.potx/.potm/.ppsx/.ppsm/.ppt/.odp`; PDF `.pdf`; other `.eml`. The same list is available in Settings.
+Supported formats include Word, Excel, PowerPoint, Rich Text, OpenDocument, PDF and email files.
 
-Office, Rich Text, OpenDocument and email previews preserve common formatting, although complex layouts may differ. Password-protected Office files cannot be previewed; supported encrypted PDFs can be opened with a password.
-
-PDF Viewer provides text selection, search, page navigation, thumbnails, outlines when available, zoom, rotation, printing and original-file download. PDFs open at 100%. Preview appearance can be set to **Auto**, **Light** or **Dark**, then changed for the current website visit without altering the original file.
-
-Files are processed locally. Previews do not run macros or load remote content. The temporary file cache is cleared 10 minutes after the last preview closes, when the source website session ends, or when Chrome exits, whichever comes first.
+Previews retain common formatting, although complex layouts may differ from the original. In PDFs that already contain selectable text, you can search and copy it. Files are processed locally; previews do not run macros or load remote content.
 
 #### Ad Marshal
 

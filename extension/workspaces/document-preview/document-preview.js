@@ -198,7 +198,9 @@ function showMetadata() {
   document.querySelector('#filename').textContent = metadata.filename;
   document.querySelector('#filename').title = metadata.filename;
   document.title = metadata.filename + ' · Document Preview';
-  document.querySelector('#metadata').textContent = metadata.site;
+  const family = documentKind(metadata.format);
+  const typeKey = {docx:'documentToolbarDocuments',xlsx:'documentToolbarSpreadsheets',pptx:'documentToolbarSlides',pdf:'documentToolbarPdf',eml:'documentToolbarEmail'}[family];
+  document.querySelector('#metadata').textContent = [metadata.site, typeKey && t(typeKey)].filter(Boolean).join(' · ');
 }
 async function loadPreparedDocument() {
   notices.loading(t('documentLoading'));

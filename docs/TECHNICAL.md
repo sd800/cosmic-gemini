@@ -153,9 +153,9 @@ PDF.js prioritizes visible and adjacent pages and retains a bounded page buffer;
 
 Regression coverage includes the pinned asset inventory and sandbox policy. `scripts/test-pdf-viewer-browser.mjs` runs a temporary Chrome profile with real PDF fixtures to exercise search, links, rotation, 100% startup, fixed zoom steps, page-buffer/thumbnail bounds, themes, printing preparation and optional password/real-document samples; it asserts zero remote requests and no script execution.
 
-The preview uses a single grid toolbar. Its left identity stacks the product and umbrella names; the wider center displays the filename on one line with an ellipsis (full name in its title) and shows only the source eTLD+1 below; the right contains reading actions. Responsive rows preserve access at narrow widths. Loading/status/choice feedback spans the toolbar only while populated, with no persistent file-information strip. File sizes remain available in the capture dialog, not the preview toolbar.
+The preview uses a single grid toolbar. Its left identity stacks the product and umbrella names; the wider center displays the filename on one line with an ellipsis (full name in its title) and shows the source eTLD+1 followed by a localized file-family label below; the right contains reading actions. Responsive rows preserve access at narrow widths. Loading/status/choice feedback spans the toolbar only while populated, with no persistent file-information strip. File sizes remain available in the capture dialog, not the preview toolbar.
 
-The action preference is keyed only by source eTLD+1, never by file format. The settings introduction uses general document/spreadsheet/slide language, with all actual suffixes grouped inside a closed `details` element; READMEs list them in a separate paragraph. Parallel suffix lists use slashes in both languages.
+The action preference is keyed only by source eTLD+1, never by file format. The settings introduction uses general document/spreadsheet/slide language, with all actual suffixes grouped inside a closed `details` element; README introductions stay at the file-family level. Parallel suffix lists use slashes in both languages. Spreadsheet previews remove the document page margin and give column headers, row numbers and the empty corner separate sticky axes and stacking levels.
 
 ## Ad Marshal
 

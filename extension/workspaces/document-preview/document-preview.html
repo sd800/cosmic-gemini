@@ -10,7 +10,11 @@
 </head>
 <body>
   <header class="document-toolbar">
-    <div class="identity"><span id="document-icon" aria-hidden="true"></span><strong>Document Preview</strong><span class="brand">Cosmic Gemini</span></div>
+    <div class="identity"><span id="document-icon" aria-hidden="true"></span><div class="identity-text"><strong>Document Preview</strong><span class="brand">Cosmic Gemini</span></div></div>
+    <div class="document-info">
+      <h1 id="filename"></h1>
+      <p id="metadata"></p>
+    </div>
     <nav class="toolbar-actions">
       <div id="part-controls" hidden><button id="part-previous" type="button">‹</button><label id="part-label" for="document-part"></label><select id="document-part"></select><button id="part-next" type="button">›</button></div>
       <div id="zoom-controls" class="zoom-controls" role="group" data-i18n-aria-label="documentZoom" hidden>
@@ -22,20 +26,17 @@
       <button id="theme-toggle" class="theme-toggle" type="button"></button>
       <button id="download" class="primary-button" type="button" data-i18n="documentDownloadAction" disabled></button>
     </nav>
+    <div class="document-feedback">
+      <p id="layout-note" hidden></p>
+      <p id="status" role="status" data-i18n="documentLoading"></p>
+      <div id="loading-progress" role="progressbar" data-i18n-aria-label="documentLoading"><span></span></div>
+      <div id="choice" hidden>
+        <label><input id="remember" type="checkbox"><span data-i18n="documentRemember"></span></label>
+        <div class="choice-actions"><button id="preview" class="primary-button" type="button" data-i18n="documentPreviewAction"></button><button id="choice-download" class="secondary-button" type="button" data-i18n="documentDownloadAction"></button></div>
+      </div>
+    </div>
   </header>
   <main>
-    <div class="document-heading">
-      <section class="document-info">
-        <h1 id="filename"></h1>
-        <div class="document-details"><p id="metadata"></p><p id="layout-note" hidden></p></div>
-        <p id="status" role="status" data-i18n="documentLoading"></p>
-        <div id="loading-progress" role="progressbar" data-i18n-aria-label="documentLoading"><span></span></div>
-        <div id="choice" hidden>
-          <label><input id="remember" type="checkbox"><span data-i18n="documentRemember"></span></label>
-          <div class="choice-actions"><button id="preview" class="primary-button" type="button" data-i18n="documentPreviewAction"></button><button id="choice-download" class="secondary-button" type="button" data-i18n="documentDownloadAction"></button></div>
-        </div>
-      </section>
-    </div>
     <iframe id="document" title="Document content" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" hidden></iframe>
   </main>
   <script type="module" src="document-preview.js"></script>

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.5.5 — 2026-09-22
+
+- Merged document information into the preview toolbar: Cosmic Gemini now sits below Document Preview, the slightly smaller filename occupies a wider centered area on one line, with the source website beneath it and no file size. Long filenames use an ellipsis and remain available in full on hover. Slightly increased toolbar height and adapted the layout for narrow windows; PDF previews continue to hide the extension toolbar.
+
 ## 9.5.3 — 2026-09-22
 
 - Automatically hide the extension toolbar and file-information header while displaying a PDF, giving Chrome’s native viewer the full preview area. Other document formats retain their headers.

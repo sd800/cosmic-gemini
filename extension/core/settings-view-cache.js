@@ -1,3 +1,4 @@
+import { normalizePdfSampling } from './pdf-sampling.js';
 import { normalizeAccessControlDomain, normalizeWebsiteKnowledge } from './config.js';
 import { normalizeDocumentAppearance } from './document-appearance.js';
 
@@ -37,6 +38,7 @@ export function settingsViewCache(states = {}) {
     documentPreview: {
       enabled: states.documentPreview?.enabled === true,
       appearance: normalizeDocumentAppearance(states.documentPreview?.appearance),
+      pdfSampling: normalizePdfSampling(states.documentPreview?.pdfSampling),
       whitelistDomains: [...new Set(rules(states.documentPreview?.whitelistDomains).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
       }))].slice(0, 1000)

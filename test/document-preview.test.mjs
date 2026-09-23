@@ -116,6 +116,15 @@ test.after(() => { globalThis.fetch = originalFetch; });
 test('Document Preview is default-off and preserves unsupported and unprepared downloads', async () => {
   assert.equal(DEFAULT_SETTINGS.documentPreview.enabled, false);
   assert.equal(DEFAULT_SETTINGS.documentPreview.appearance, 'auto');
+  assert.equal(DEFAULT_SETTINGS.documentPreview.pdfSampling, 4);
+  for (const value of [undefined, 0, 3, 8, '6', NaN]) {
+    assert.equal(normalizeSettings({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, 4);
+    assert.equal(settingsViewCache({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, 4);
+  }
+  for (const value of [2, 4, 6]) {
+    assert.equal(normalizeSettings({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, value);
+    assert.equal(settingsViewCache({documentPreview:{pdfSampling:value}}).documentPreview.pdfSampling, value);
+  }
   assert.equal(normalizeSettings({documentPreview:{appearance:'invalid'}}).documentPreview.appearance, 'auto');
   assert.equal(settingsViewCache({documentPreview:{appearance:'dark'}}).documentPreview.appearance, 'dark');
   assert.equal(settingsViewCache({ documentPreview: { enabled: true } }).documentPreview.enabled, true);
@@ -347,6 +356,15 @@ test('document appearance defaults, site overrides and resets follow the source 
   const setTheme = (doc,theme) => env.product.handleMessage({type:'UI_DOCUMENT_SET_THEME',id:doc.id,theme},workspace(doc));
   const setDefault = appearance => env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
   assert.equal((await get(first)).appearance, 'auto');
+  const opened = await get(first);
+  assert.equal(opened.pdfSampling, 4);
+  const setSampling = pdfSampling => env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  for (const value of [2, 6, 4]) {
+    assert.equal((await setSampling(value)).pdfSampling, value);
+    assert.equal((await get(first)).pdfSampling, value, 'new readers receive the current setting, including cached documents');
+  }
+  assert.equal(opened.pdfSampling, 4, 'previously returned reader metadata is a snapshot');
+  assert.equal(first.pdfSampling, undefined, 'document cache does not freeze a global rendering preference');
   await setDefault('dark'); await setTheme(first,'light');
   assert.equal((await get(first)).appearance, 'dark'); assert.equal((await get(first)).siteTheme, 'light');
   env.tabs[0].url = 'https://docs.example.com/downloads';
@@ -391,6 +409,8 @@ test('appearance commands reject invalid callers and values, and incognito overr
   await assert.rejects(env.product.handleMessage(command,{sender:{url:sender.url.replace(doc.id,'other')}}));
   await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'light'},{sender}));
   await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'invalid'},{sender:{url:'chrome-extension://test/settings/satellites.html'}}));
+  await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling:6},{sender}), /Settings only/);
+  for (const pdfSampling of ['6', 3, 0, 10, null]) await assert.rejects(env.product.handleMessage({type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling},{sender:{url:'chrome-extension://test/settings/satellites.html'}}), /Unknown PDF sampling/);
   chrome.storage.session.set = async () => { throw Error('storage unavailable'); };
   await assert.rejects(env.product.handleMessage({...command,theme:'dark'},{sender}), /storage unavailable/);
   assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender})).siteTheme,'light','a failed write cannot change the authoritative session preference');
@@ -583,6 +603,9 @@ test('Customs routes document settings, state and cleanup without starting media
   const result = await customs.handleMessage('documentPreview',{type:'UI_SET_DOCUMENT_APPEARANCE',appearance:'dark'},
     {sender:{url:'chrome-extension://test/settings/satellites.html'}});
   assert.equal(result.appearance,'dark');
+  const sampling = await customs.handleMessage('documentPreview',{type:'UI_SET_DOCUMENT_PDF_SAMPLING',pdfSampling:6},
+    {sender:{url:'chrome-extension://test/settings/satellites.html'}});
+  assert.equal(sampling.pdfSampling,6);
   const state = await customs.getProductState('documentPreview',{settings:await env.platform.readSettings(),tabId:1,url:env.tabs[0].url});
   assert.equal(state.enabled,false);assert.equal(state.supported,true);
   assert.equal(await customs.handleAlarm({name:DOCUMENT_CLEANUP_ALARM_PREFIX+'regular'}),true);

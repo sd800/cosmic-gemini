@@ -224,6 +224,14 @@ export function viewFor(featureId) {
               <option value="dark" data-i18n="documentAppearanceDark"></option>
             </select>
           </div>
+          <div class="knowledge-row">
+            <div class="knowledge-label"><strong id="documentPdfSamplingLabel" data-i18n="documentPdfSampling"></strong><small id="documentPdfSamplingHelp" data-i18n="documentPdfSamplingHelp"></small></div>
+            <select id="documentPdfSampling" aria-labelledby="documentPdfSamplingLabel" aria-describedby="documentPdfSamplingHelp">
+              <option value="2">2×</option>
+              <option value="4" selected>4×</option>
+              <option value="6">6×</option>
+            </select>
+          </div>
           <div class="document-whitelist" data-feature-id="documentPreview" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="documentWhitelistEmpty">
             <strong id="documentWhitelistHeading" data-i18n="documentWhitelistHeading"></strong>
             <p data-i18n="documentWhitelistDescription"></p>

@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.8 — 2026-09-23
+
+- Added a PDF sampling dropdown in Document Preview settings with 2×/4×/6× options, defaulting to 4×. Changes apply only to newly opened PDF readers.
+- Improved high-zoom clarity and added gentle sharpening for scanned pages, while retaining the previous dark-mode contrast. High-resolution rendering stays focused on the visible area, with bounded page caches.
+
+## 9.6.7 — 2026-09-23
+
+- Improved PDF text and fine-line rendering, including fractional zoom, while keeping rendering and page caches bounded. Dark mode now uses darker paper and brighter text while preserving visible page edges.
+
 ## 9.6.6 — 2026-09-22
 
 - Improved PDF Viewer clarity on high-density displays. Normal pages and sidebar thumbnails render at sharper pixel densities, while high-zoom detail rendering and bounded canvas resources remain in place.

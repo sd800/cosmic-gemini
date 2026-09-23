@@ -1,3 +1,4 @@
+import { PDF_SAMPLING_VALUES, normalizePdfSampling } from '../../../core/pdf-sampling.js';
 import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature, normalizeAccessControlDomain } from '../../../core/config.js';
 import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, documentPreviewWhitelisted, readDocumentResponse } from '../../../core/document-preview.js';
 import { documentStore } from '../../features/document-cache.js';
@@ -278,6 +279,12 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         }));
         return settings.documentPreview;
       }
+      if (message.type === 'UI_SET_DOCUMENT_PDF_SAMPLING') {
+        if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) throw Error('Settings only.');
+        if (!PDF_SAMPLING_VALUES.includes(message.pdfSampling)) throw Error('Unknown PDF sampling.');
+        const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({ ...feature, pdfSampling: message.pdfSampling })));
+        return settings.documentPreview;
+      }
       if (message.type === 'UI_SET_DOCUMENT_APPEARANCE') {
         if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) throw Error('Settings only.');
         if (!DOCUMENT_APPEARANCES.includes(message.appearance)) throw Error('Unknown appearance.');
@@ -304,11 +311,13 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (page && siteKey(context.sender.tab?.url) !== doc.site) throw Error('The source website changed.');
       if (workspace && new URLSearchParams(senderUrl.split('#')[1] || '').get('id') !== doc.id) throw Error('Wrong document.');
       if (message.type === 'UI_DOCUMENT_GET') {
+        const preference = (await platform.readSettings()).documentPreview;
         const cached = doc.prepared ? await store.get(doc.id) : null;
         const prepared = !!cached?.blobUrl && cached.context === contextName && cached.epoch === state.epoch;
         return {
           ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.site] || 'ask',
-          appearance: normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance),
+          appearance: normalizeDocumentAppearance(preference?.appearance),
+          pdfSampling: normalizePdfSampling(preference?.pdfSampling),
           siteTheme: state.themes[doc.site] || null,
           prepared, blobUrl: prepared ? cached.blobUrl : null
         };

@@ -10357,20 +10357,26 @@ class PDFPageDetailView extends BasePDFPageView {
     }
     const {
       viewport,
-      maxCanvasPixels,
+      maxDetailCanvasPixels: maxCanvasPixels,
       capCanvasAreaFactor
     } = this.pageView;
     const visibleWidth = visibleArea.maxX - visibleArea.minX;
     const visibleHeight = visibleArea.maxY - visibleArea.minY;
-    const visiblePixels = visibleWidth * visibleHeight * OutputScale.pixelRatio ** 2;
+    const pixelBudget = OutputScale.capPixels(maxCanvasPixels, capCanvasAreaFactor);
+    // Leave room around the viewport so small scrolls can reuse this canvas.
+    const pixelRatio = Math.min(this.pageView.getRenderPixelRatio(),
+      Math.sqrt(pixelBudget / (visibleWidth * visibleHeight * 1.25)),
+      this.pageView.maxCanvasDim / visibleWidth, this.pageView.maxCanvasDim / visibleHeight);
+    const visiblePixels = visibleWidth * visibleHeight * pixelRatio ** 2;
     const maxDetailToVisibleLinearRatio = Math.sqrt(OutputScale.capPixels(maxCanvasPixels, capCanvasAreaFactor) / visiblePixels);
     const maxOverflowScale = (maxDetailToVisibleLinearRatio - 1) / 2;
     let overflowScale = Math.min(1, maxOverflowScale);
     if (overflowScale < 0) {
       overflowScale = 0;
     }
-    const overflowWidth = visibleWidth * overflowScale;
-    const overflowHeight = visibleHeight * overflowScale;
+    const maxDimension = this.pageView.maxCanvasDim / pixelRatio;
+    const overflowWidth = Math.min(visibleWidth * overflowScale, Math.max(0, (maxDimension - visibleWidth) / 2));
+    const overflowHeight = Math.min(visibleHeight * overflowScale, Math.max(0, (maxDimension - visibleHeight) / 2));
     const minX = Math.max(0, visibleArea.minX - overflowWidth);
     const maxX = Math.min(viewport.width, visibleArea.maxX + overflowWidth);
     const minY = Math.max(0, visibleArea.minY - overflowHeight);
@@ -10378,6 +10384,7 @@ class PDFPageDetailView extends BasePDFPageView {
     const width = maxX - minX;
     const height = maxY - minY;
     this.#detailArea = {
+      pixelRatio,
       minX,
       minY,
       width,
@@ -10459,12 +10466,13 @@ class PDFPageDetailView extends BasePDFPageView {
       height
     } = viewport;
     const area = this.#detailArea;
-    const {
-      pixelRatio
-    } = OutputScale;
-    const transform = [pixelRatio, 0, 0, pixelRatio, -area.minX * pixelRatio, -area.minY * pixelRatio];
-    canvas.width = area.width * pixelRatio;
-    canvas.height = area.height * pixelRatio;
+    const { pixelRatio } = area;
+    canvas.width = Math.max(1, Math.floor(area.width * pixelRatio));
+    canvas.height = Math.max(1, Math.floor(area.height * pixelRatio));
+    // Integer backing dimensions must map to the exact CSS rectangle, avoiding
+    // a second fractional squeeze of small glyphs and fine rules.
+    const sx = canvas.width / area.width, sy = canvas.height / area.height;
+    const transform = [sx, 0, 0, sy, -area.minX * sx, -area.minY * sy];
     const {
       style
     } = canvas;
@@ -11689,7 +11697,9 @@ class PDFPageView extends BasePDFPageView {
     this.#annotationMode = options.annotationMode ?? AnnotationMode.ENABLE_FORMS;
     this.imageResourcesPath = options.imageResourcesPath || "";
     this.enableDetailCanvas = options.enableDetailCanvas ?? true;
+    this.getRenderPixelRatio = options.getRenderPixelRatio || (() => OutputScale.pixelRatio);
     this.maxCanvasPixels = options.maxCanvasPixels ?? AppOptions.get("maxCanvasPixels");
+    this.maxDetailCanvasPixels = options.maxDetailCanvasPixels ?? this.maxCanvasPixels;
     this.maxCanvasDim = options.maxCanvasDim || AppOptions.get("maxCanvasDim");
     this.capCanvasAreaFactor = options.capCanvasAreaFactor ?? AppOptions.get("capCanvasAreaFactor");
     this.#enableAutoLinking = options.enableAutoLinking !== false;
@@ -11756,6 +11766,8 @@ class PDFPageView extends BasePDFPageView {
       annotationMode: this.#annotationMode,
       imageResourcesPath: this.imageResourcesPath,
       enableDetailCanvas: this.enableDetailCanvas,
+      getRenderPixelRatio: this.getRenderPixelRatio,
+      maxDetailCanvasPixels: this.maxDetailCanvasPixels,
       maxCanvasPixels: this.maxCanvasPixels,
       maxCanvasDim: this.maxCanvasDim,
       capCanvasAreaFactor: this.capCanvasAreaFactor,
@@ -12177,6 +12189,7 @@ class PDFPageView extends BasePDFPageView {
       height
     } = this.viewport;
     const outputScale = this.outputScale = new OutputScale();
+    outputScale.sx = outputScale.sy = this.getRenderPixelRatio();
     if (this.maxCanvasPixels === 0) {
       const invScale = 1 / this.scale;
       outputScale.sx *= invScale;
@@ -12185,7 +12198,7 @@ class PDFPageView extends BasePDFPageView {
     } else {
       this.#needsRestrictedScaling = outputScale.limitCanvas(width, height, this.maxCanvasPixels, this.maxCanvasDim, this.capCanvasAreaFactor);
       if (this.#needsRestrictedScaling && this.enableDetailCanvas) {
-        const factor = this.enableOptimizedPartialRendering ? 4 : 2;
+        const factor = this.maxDetailCanvasPixels > this.maxCanvasPixels ? 1 : this.enableOptimizedPartialRendering ? 4 : 2;
         outputScale.sx /= factor;
         outputScale.sy /= factor;
       }
@@ -12400,6 +12413,11 @@ class PDFPageView extends BasePDFPageView {
     this.#hasRestrictedScaling = this.#needsRestrictedScaling;
     const sfx = approximateFraction(outputScale.sx);
     const sfy = approximateFraction(outputScale.sy);
+    // A coarse base preview must not snap the entire page (and its high-res
+    // detail/text layers) to an eight-CSS-pixel grid at fractional zoom.
+    if (this.#hasRestrictedScaling && this.enableDetailCanvas) {
+      sfx[1] = sfy[1] = 1;
+    }
     const canvasWidth = canvas.width = floorToDivide(calcRound(width * outputScale.sx), sfx[0]);
     const canvasHeight = canvas.height = floorToDivide(calcRound(height * outputScale.sy), sfy[0]);
     const pageWidth = floorToDivide(calcRound(width), sfx[1]);
@@ -13106,7 +13124,7 @@ class PDFRenderingQueue {
 
 
 
-const DEFAULT_CACHE_SIZE = 10;
+const DEFAULT_CACHE_SIZE = 4;
 const PagesCountLimit = {
   FORCE_SCROLL_MODE_PAGE: 10000,
   FORCE_LAZY_PAGE_INIT: 5000,
@@ -13238,7 +13256,9 @@ class PDFViewer {
     this.imageResourcesPath = options.imageResourcesPath || "";
     this.enablePrintAutoRotate = options.enablePrintAutoRotate || false;
     this.removePageBorders = options.removePageBorders || false;
+    this.getRenderPixelRatio = options.getRenderPixelRatio || (() => OutputScale.pixelRatio);
     this.maxCanvasPixels = options.maxCanvasPixels;
+    this.maxDetailCanvasPixels = options.maxDetailCanvasPixels ?? this.maxCanvasPixels;
     this.maxCanvasDim = options.maxCanvasDim;
     this.capCanvasAreaFactor = options.capCanvasAreaFactor;
     this.enableDetailCanvas = options.enableDetailCanvas ?? true;
@@ -13725,6 +13745,8 @@ class PDFViewer {
           textLayerMode,
           annotationMode,
           imageResourcesPath: this.imageResourcesPath,
+          getRenderPixelRatio: this.getRenderPixelRatio,
+          maxDetailCanvasPixels: this.maxDetailCanvasPixels,
           maxCanvasPixels: this.maxCanvasPixels,
           maxCanvasDim: this.maxCanvasDim,
           capCanvasAreaFactor: this.capCanvasAreaFactor,
@@ -14368,7 +14390,9 @@ class PDFViewer {
       view,
       visibleArea
     } of visiblePages) {
-      view.updateVisibleArea(visibleArea);
+      view.updateVisibleArea(visibleArea || {
+        minX: 0, minY: 0, maxX: view.viewport.width, maxY: view.viewport.height
+      });
     }
     for (const view of this.#buffer) {
       if (!visible.ids.has(view.id)) {

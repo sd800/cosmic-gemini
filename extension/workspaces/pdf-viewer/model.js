@@ -1,5 +1,11 @@
+import { normalizePdfSampling } from '../../core/pdf-sampling.js';
 // Read-only PDF policy shared by the host, viewer and regression tests.
-export const PDF_LIMITS = Object.freeze({ bytes: 64 * 1024 * 1024, pages: 10000, canvasPixels: 5 * 1024 * 1024, printPages: 50, printPixels: 64 * 1024 * 1024 });
+export const PDF_LIMITS = Object.freeze({ bytes: 64 * 1024 * 1024, pages: 10000, canvasPixels: 4 * 1024 * 1024, detailCanvasPixels: 36 * 1024 * 1024, printPages: 50, printPixels: 64 * 1024 * 1024 });
+// Supersample vectors/text without changing layout, zoom or the browser's DPR.
+// Allocate high resolution only near the viewport, scaled to the user's choice.
+export function pdfDetailCanvasPixels(sampling) {
+  return Math.min(PDF_LIMITS.detailCanvasPixels, normalizePdfSampling(sampling) ** 2 * 1024 * 1024);
+}
 export function safePdfLink(value) {
   try { const url = new URL(value); return ['https:', 'http:', 'mailto:'].includes(url.protocol) ? url.href : null; } catch { return null; }
 }

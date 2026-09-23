@@ -103,7 +103,7 @@ async function preview() {
     pdfViewer?.destroy();
     const theme = siteTheme || defaultTheme;
     pdfViewer = createPdfViewer({ container: document.querySelector('main'), bytes,
-      filename: metadata.filename, locale,
+      filename: metadata.filename, locale, sampling: metadata.pdfSampling,
       dark: theme === 'dark' || (theme === 'auto' && appearance.matches), automatic: siteTheme === null,
       onDownload: () => void download(), onTheme: () => themeToggle.click(), onAuto: () => void setSiteTheme(null),
       onError: () => { if (!expired) { document.body.classList.remove('pdf-active'); notices.show(t('documentRenderFailed')); } }

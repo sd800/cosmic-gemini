@@ -2,7 +2,8 @@ import * as pdfjs from '../../vendor/pdfjs/pdf.min.mjs';
 import { PDFViewer, EventBus, PDFLinkService, PDFFindController } from '../../vendor/pdfjs/pdf_viewer.mjs';
 import { labels } from './labels.js';
 import { setReaderIcon, setReaderIcons } from './icons.js';
-import { PDF_LIMITS, pdfOptions, pdfScale, stepPdfScale, printRange, rotateLeft, safePdfLink } from './model.js';
+import { normalizePdfSampling } from '../../core/pdf-sampling.js';
+import { PDF_LIMITS, pdfDetailCanvasPixels, pdfOptions, pdfScale, stepPdfScale, printRange, rotateLeft, safePdfLink } from './model.js';
 
 const $ = id => document.getElementById(id);
 let port, task, pdf, viewer, workerUrl, parseTimer, destroyed = false, text = labels['en-US'];
@@ -57,13 +58,13 @@ window.addEventListener('message', async event => {
   }
   click('download', () => emit('download')); click('theme', () => emit('theme')); click('theme-auto', () => emit('auto'));
   click('fullscreen', () => emit('fullscreen'));
-  try { await open(input.bytes); } catch {
+  try { await open(input.bytes, normalizePdfSampling(input.sampling)); } catch {
     clearTimeout(parseTimer);
     if (!destroyed && !passwordCancelled) { status('failed'); emit('error'); void task?.destroy().catch(() => {}); }
   }
 }, { signal });
 
-async function open(bytes) {
+async function open(bytes, sampling) {
   // An opaque extension sandbox cannot create a Worker from its extension URL.
   // Only the fixed bundled worker is copied into a blob; never PDF-supplied code.
   const workerCode = await (await fetch(new URL('../../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url), { signal })).text();
@@ -99,7 +100,9 @@ async function open(bytes) {
     enableAutoLinking: false, enablePermissions: true, scriptingManager: null, textLayerMode: 1,
     // The fixed pixel/dimension limits already bound memory. A second
     // screen-relative cap makes ordinary Retina pages render as tiny canvases.
-    maxCanvasPixels: PDF_LIMITS.canvasPixels, maxCanvasDim: 8192, capCanvasAreaFactor: -1,
+    getRenderPixelRatio: () => sampling,
+    maxCanvasPixels: PDF_LIMITS.canvasPixels, maxDetailCanvasPixels: pdfDetailCanvasPixels(sampling),
+    maxCanvasDim: 8192, capCanvasAreaFactor: -1,
     enableDetailCanvas: true, enableOptimizedPartialRendering: true, minDurationToUpdateCanvas: 160,
     imagesRightClickMinSize: -1, abortSignal: signal });
   links.setViewer(viewer); links.setDocument(pdf);
@@ -126,9 +129,15 @@ async function open(bytes) {
   }, { signal });
   eventBus.on('pagerendered', ({ pageNumber, cssTransform, error }) => {
     if (error) status('pageError');
+    // Small pages may reach the chosen density without a detail canvas. Sharpen
+    // only these bounded base surfaces, never a stretched high-zoom preview.
+    const view = viewer.getPageView(pageNumber - 1), canvas = view?.canvas;
+    canvas?.classList.toggle('pdf-sharpen', !cssTransform && !error &&
+      canvas.width / view.viewport.width >= sampling * .98 && canvas.height / view.viewport.height >= sampling * .98);
     if (!cssTransform && !destroyed) void renderLinks(pageNumber, links).catch(() => {});
   }, { signal });
   eventBus.on('scalechanging', ({ scale, presetValue }) => {
+    for (const view of viewer.getCachedPageViews()) view.canvas?.classList.remove('pdf-sharpen');
     const preset = presetValue || String(scale);
     if ([...$('scale').options].some(option => option.value === preset)) $('scale').value = preset;
     else { $('custom-scale').textContent = Math.round(scale * 100) + '%'; $('custom-scale').hidden = false; $('scale').value = 'custom'; }

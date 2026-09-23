@@ -2,16 +2,18 @@
 import { cp, mkdir, readFile, writeFile, readdir, stat, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
+import { patchPdfViewer } from './pdf-viewer-rendering-patch.mjs';
 const source = resolve(process.argv[2] || ''), target = resolve('extension/vendor/pdfjs');
 const pkg = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'));
 if (pkg.name !== 'pdfjs-dist' || pkg.version !== '6.3.289') throw Error('Expected pdfjs-dist@6.3.289');
+const patchedViewer = patchPdfViewer(await readFile(join(source, 'legacy/web/pdf_viewer.mjs'), 'utf8'));
 // This directory is entirely generated. Rebuilding must never accumulate stale
 // codecs, duplicate font files or files removed by a newer dependency policy.
 await rm(target, { recursive: true, force: true });
 await mkdir(target, { recursive: true });
 for (const name of ['pdf.min.mjs', 'pdf.worker.min.mjs']) await cp(join(source, 'legacy/build', name), join(target, name));
 // Only the reusable viewer, not Mozilla's application, editor or scripting engine.
-await cp(join(source, 'legacy/web/pdf_viewer.mjs'), join(target, 'pdf_viewer.mjs'));
+await writeFile(join(target, 'pdf_viewer.mjs'), patchedViewer);
 await cp(join(source, 'web/pdf_viewer.css'), join(target, 'pdf_viewer.css'));
 await mkdir(join(target, 'images'), { recursive: true });
 await cp(join(source, 'web/images/loading-icon.gif'), join(target, 'images/loading-icon.gif'));
@@ -32,4 +34,4 @@ async function walk(dir, prefix = '') {
 }
 await walk(target);
 await writeFile(join(target, 'integrity.json'), JSON.stringify(files, null, 2) + '\n');
-await writeFile(join(target, 'NOTICE.md'), `# PDF.js 6.3.289\n\nMozilla PDF.js, Apache-2.0. https://github.com/mozilla/pdf.js/tree/v6.3.289\n\nSource: pdfjs-dist@6.3.289 from the npm registry. Package integrity: sha512-ZHjSVpDa3D6izMq8/04lvkhkATUmL9px6ChPaXc1k6nU2Mrhlg1/7F0bdUqCwUjw3NsPTfPZsMDUU6ZIcRaeQw==\n\nReproduce with node scripts/vendor-pdf-viewer.mjs /path/to/unpacked/package. The legacy engine and viewer support the extension's Chrome baseline. Source files are unmodified; source maps, application UI, QuickJS, editing application and remote resources are not included. Standard fonts, CMaps and image codecs are local and load only as needed. Subcomponent licenses are in their respective folders. integrity.json records every shipped dependency asset.\n`);
+await writeFile(join(target, 'NOTICE.md'), `# PDF.js 6.3.289\n\nMozilla PDF.js, Apache-2.0. https://github.com/mozilla/pdf.js/tree/v6.3.289\n\nSource: pdfjs-dist@6.3.289 from the npm registry. Package integrity: sha512-ZHjSVpDa3D6izMq8/04lvkhkATUmL9px6ChPaXc1k6nU2Mrhlg1/7F0bdUqCwUjw3NsPTfPZsMDUU6ZIcRaeQw==\n\nReproduce with node scripts/vendor-pdf-viewer.mjs /path/to/unpacked/package. The legacy engine and viewer support the extension's Chrome baseline. The engine/worker are unmodified. The reusable viewer has a local, guarded rendering patch (scripts/pdf-viewer-rendering-patch.mjs): configurable sampling density, separate base/detail canvas budgets, bounded detail-canvas sampling with exact backing-to-display mapping, and a four-page minimum cache. Source maps, application UI, QuickJS, editing application and remote resources are not included. Standard fonts, CMaps and image codecs are local and load only as needed. Subcomponent licenses are in their respective folders. integrity.json records every shipped dependency asset.\n`);

@@ -118,6 +118,8 @@
   if (documentPreviewEnabled) {
     documentPreviewEnabled.checked = !incognitoContext && cached.documentPreview?.enabled === true;
     document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
+    const sampling = incognitoContext ? 4 : cached.documentPreview?.pdfSampling;
+    document.querySelector('#documentPdfSampling').value = [2, 4, 6].includes(sampling) ? sampling : 4;
     const appearance = incognitoContext ? 'auto' : cached.documentPreview?.appearance;
     document.querySelector('#documentPreviewAppearance').value = ['auto', 'light', 'dark'].includes(appearance) ? appearance : 'auto';
   }

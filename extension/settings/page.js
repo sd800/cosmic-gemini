@@ -222,6 +222,7 @@ function render() {
     documentPreviewEnabled.checked = preference?.enabled === true;
     document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
     document.querySelector('#documentPreviewAppearance').value = preference?.appearance || 'auto';
+    document.querySelector('#documentPdfSampling').value = preference?.pdfSampling || 4;
   }
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
@@ -643,6 +644,10 @@ function bindView() {
       type: 'UI_SET_ENABLED', featureId: 'documentPreview', enabled: documentPreviewEnabled.checked
     }), [documentPreviewEnabled]);
   });
+  const documentPdfSampling = document.querySelector('#documentPdfSampling');
+  if (documentPdfSampling) documentPdfSampling.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
+    type: 'UI_SET_DOCUMENT_PDF_SAMPLING', featureId: 'documentPreview', pdfSampling: Number(documentPdfSampling.value)
+  }), [documentPdfSampling]));
   const documentPreviewAppearance = document.querySelector('#documentPreviewAppearance');
   if (documentPreviewAppearance) documentPreviewAppearance.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
     type: 'UI_SET_DOCUMENT_APPEARANCE', featureId: 'documentPreview', appearance: documentPreviewAppearance.value

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { PDF_LIMITS, pdfScale, stepPdfScale, pdfOptions, printRange, rotateLeft, safePdfLink } from '../extension/workspaces/pdf-viewer/model.js';
+import { PDF_LIMITS, pdfDetailCanvasPixels, pdfScale, stepPdfScale, pdfOptions, printRange, rotateLeft, safePdfLink } from '../extension/workspaces/pdf-viewer/model.js';
 import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
 import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
 const root = new URL('../extension/', import.meta.url);
@@ -21,6 +21,8 @@ test('PDF Viewer applies read-only asset and resource boundaries', () => {
   assert.equal(stepPdfScale(stepPdfScale(1, 1), 1), 1.2);
   assert.equal(stepPdfScale(stepPdfScale(1.2, -1), -1), 1);
   assert.equal(stepPdfScale(5, 1), 5); assert.equal(stepPdfScale(.25, -1), .25);
+  for (const sampling of [2, 4, 6]) assert.equal(pdfDetailCanvasPixels(sampling), sampling ** 2 * 1024 * 1024);
+  for (const invalid of [undefined, 0, 8, NaN, '6']) assert.equal(pdfDetailCanvasPixels(invalid), 16 * 1024 * 1024);
   assert.equal(printRange(0, 5, 10), null); assert.equal(printRange(1, 51, 80), null);
   assert.equal(printRange(3, 2, 10), null); assert.equal(printRange(1, 11, 10), null);
   assert.deepEqual(printRange('2', '10', 20), {from:2,to:10});

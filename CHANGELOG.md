@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.5.3 — 2026-09-22
+
+- Automatically hide the extension toolbar and file-information header while displaying a PDF, giving Chrome’s native viewer the full preview area. Other document formats retain their headers.
+
 ## 9.5.2 — 2026-09-22
 
 - Added Dark Reader-style PDF dark mode to Document Preview, following the existing appearance preference and manual toggle without reloading the document. Chrome's native viewer remains in use; the display filter also changes embedded pictures and the viewer's controls and background, while original files remain unchanged.

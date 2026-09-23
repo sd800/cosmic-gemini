@@ -74,7 +74,7 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 
 ## Native PDF appearance
 
-- In an independent temporary Chrome profile, preview a PDF through the actual download choice. Check Auto with both browser color schemes, manual Light/Dark, restoring Default, settings changes and a second preview from the same source site.
-- Inspect screenshots to confirm that white PDF paper becomes dark and black text becomes light, while the extension header is themed normally. The native viewer background, controls and pictures also invert; this is an expected limitation.
-- Switching appearance must preserve the iframe URL, native frame identity, scroll/page position and zoom without another source fetch. Check native viewer controls and both original-file download buttons; compare downloaded bytes with the source.
+- In an independent temporary Chrome profile, preview a PDF through the actual download choice. Check Auto with both browser color schemes, Light/Dark settings changes and a second preview from the same source site. Verify both extension headers are hidden and the native viewer fills the viewport at wide and narrow widths; non-PDF documents retain both headers and their manual theme controls.
+- Inspect screenshots to confirm that white PDF paper becomes dark and black text becomes light, while both extension headers stay hidden. The native viewer background, controls and pictures also invert; this is an expected limitation.
+- Switching appearance must preserve the iframe URL, native frame identity, scroll/page position and zoom without another source fetch. Check native viewer controls and its original-file download; compare downloaded bytes with the source. Choice/loading/fallback states and expiry must restore the headers so their controls and status remain accessible.
 - Verify that non-PDF frames have no PDF filter, disabling capture preserves an existing themed preview, expiry removes the PDF and filter, and host print media does not apply the filter.

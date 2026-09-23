@@ -52,7 +52,7 @@ export function documentFormat(filename) {
 export const DOCUMENT_LIMIT = 24 * 1024 * 1024;
 export const CACHE_LIMIT = 64 * 1024 * 1024;
 export const DOCUMENT_CLEANUP_ALARM_PREFIX = 'documentPreviewCleanup:';
-export const DOCUMENT_CLOSED_RETENTION = 30 * 60 * 1000;
+export const DOCUMENT_CLOSED_RETENTION = 10 * 60 * 1000;
 
 export function documentFilename(item) {
   const name = String(item.filename || '').split(/[/\\]/).pop().replace(/[\x00-\x1f\x7f]/g, '').slice(-200);

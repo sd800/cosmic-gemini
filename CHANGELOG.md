@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.5.7 — 2026-09-22
+
+- Reduced Document Preview’s post-close temporary cache retention to 10 minutes.
+
 ## 9.5.6 — 2026-09-22
 
 - Reduced Document Preview’s temporary cache retention to 30 minutes after the last preview closes. Earlier cleanup when the source website session ends or Chrome exits still applies.

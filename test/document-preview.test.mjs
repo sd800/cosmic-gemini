@@ -396,7 +396,8 @@ test('appearance commands reject invalid callers and values, and incognito overr
   assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender})).siteTheme,'light','a failed write cannot change the authoritative session preference');
 });
 
-test('closed previews expire after three hours, with open copies and source sessions respected', async t => {
+test('closed previews expire after thirty minutes, with open copies and source sessions respected', async t => {
+  assert.equal(DOCUMENT_CLOSED_RETENTION, 30 * 60 * 1000);
   t.mock.timers.enable({apis:['Date'],now:1800000000000});
   const env = environment(); await env.capture(); await env.settle();
   await env.choose();
@@ -445,7 +446,7 @@ test('reopening cancels a document deadline, navigation restarts it, and an earl
   assert.equal(await env.product.handleAlarm({name:DOCUMENT_CLEANUP_ALARM_PREFIX+'incognito'}),false);
   assert.equal(env.alarms.get(alarmName).scheduledTime,before);
   env.tabs.splice(0,2); await env.product.handleTabRemoved(1);
-  assert.equal(env.files.size,0,'source-site closure expires bytes before the three-hour deadline, even while capture is off');
+  assert.equal(env.files.size,0,'source-site closure expires bytes before the thirty-minute deadline, even while capture is off');
   assert.equal(env.alarms.size,0);
 });
 

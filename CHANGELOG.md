@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.5.6 — 2026-09-22
+
+- Reduced Document Preview’s temporary cache retention to 30 minutes after the last preview closes. Earlier cleanup when the source website session ends or Chrome exits still applies.
+
 ## 9.5.5 — 2026-09-22
 
 - Merged document information into the preview toolbar: Cosmic Gemini now sits below Document Preview, the slightly smaller filename occupies a wider centered area on one line, with the source website beneath it and no file size. Long filenames use an ellipsis and remain available in full on hover. Slightly increased toolbar height and adapted the layout for narrow windows; PDF previews continue to hide the extension toolbar.

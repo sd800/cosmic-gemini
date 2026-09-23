@@ -5,12 +5,15 @@ import {
   isIpAddress,
   normalizeAccessControlDomain
 } from '../../../core/config.js';
+import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 
 const RULE_LIMIT = 1_000;
 const REGULAR_RULE_ID_START = 920_001;
 const INCOGNITO_RULE_ID_START = 922_001;
 const REGULAR_VISIT_RULE_ID_START = 924_001;
 const INCOGNITO_VISIT_RULE_ID_START = 926_001;
+const POPUP_PATH = 'popup/index.html';
+const PENDING_VISIT_PREFIX = 'accessControlPendingVisit:';
 
 function ruleIdStart(incognito) {
   return incognito ? INCOGNITO_RULE_ID_START : REGULAR_RULE_ID_START;
@@ -106,6 +109,68 @@ function rulesMatch(existing, desired) {
 
 export function createAccessControlProduct(platform) {
   let networkQueue = Promise.resolve();
+  const actionQueue = createKeyedTaskQueue();
+  const pendingKey = tabId => PENDING_VISIT_PREFIX + tabId;
+
+  function observeBlockedNavigation(details) {
+    if (!Number.isInteger(details?.tabId) || details.tabId < 0) return;
+    void actionQueue.run(details.tabId, async () => {
+      const settings = await platform.readSettings();
+      const domain = matchingBlockedDomain(settings, details.url);
+      if (settings.accessControl?.allowTemporaryVisits !== true || !domain
+        || await hasVisitRule(details.tabId, domain)) return;
+      const tab = await chrome.tabs.get(details.tabId).catch(() => null);
+      if (!tab || !!tab.incognito !== platform.isIncognitoContext()) return;
+      // A blocked navigation can leave the tab on a Chrome error page with no
+      // readable URL. Keep only this tab's last failed destination for retry.
+      await chrome.storage.session.set({ [pendingKey(tab.id)]: details.url });
+      await setActionPopup(tab.id, true);
+    }).catch(() => {});
+  }
+
+  // MV3 listeners must be registered synchronously so a sleeping worker can
+  // wake for the blocked navigation. Only failed main-frame loads reach this.
+  chrome.webRequest?.onErrorOccurred?.addListener(observeBlockedNavigation,
+    { urls: ['http://*/*', 'https://*/*'], types: ['main_frame'] });
+
+  async function setActionPopup(tabId, blocked) {
+    if (!chrome.action?.getPopup || !chrome.action?.setPopup) return false;
+    const current = await chrome.action.getPopup({ tabId });
+    const standard = current === POPUP_PATH || current === chrome.runtime.getURL(POPUP_PATH);
+    if ((blocked && current === '') || (!blocked && standard)) return false;
+    await chrome.action.setPopup({ tabId, popup: blocked ? '' : POPUP_PATH });
+    return true;
+  }
+
+  function syncTabAction(tabId, changedUrl = '') {
+    if (!Number.isInteger(tabId) || !chrome.action?.setPopup) return Promise.resolve(false);
+    return actionQueue.run(tabId, async () => {
+      const tab = await chrome.tabs.get(tabId).catch(() => null);
+      if (!tab || !!tab.incognito !== platform.isIncognitoContext()) return false;
+      const settings = await platform.readSettings();
+      let pending = (await chrome.storage.session.get(pendingKey(tabId)))[pendingKey(tabId)] || '';
+      if (changedUrl && changedUrl !== pending && !changedUrl.startsWith('chrome-error:')) {
+        if (pending) await chrome.storage.session.remove(pendingKey(tabId));
+        pending = '';
+      }
+      if (settings.accessControl?.enabled !== true || settings.accessControl?.allowTemporaryVisits !== true) {
+        if (pending) await chrome.storage.session.remove(pendingKey(tabId));
+        return setActionPopup(tabId, false);
+      }
+      const nextUrl = tab.pendingUrl && tab.pendingUrl !== pending ? tab.pendingUrl
+        : pending || changedUrl || tab.url || '';
+      const domain = matchingBlockedDomain(settings, nextUrl);
+      const blocked = !!domain && !(await hasVisitRule(tabId, domain));
+      return setActionPopup(tabId, blocked);
+    });
+  }
+
+  async function syncOpenTabs() {
+    if (!chrome.action?.setPopup) return;
+    const tabs = await chrome.tabs.query({});
+    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)
+      && !!tab.incognito === platform.isIncognitoContext()).map(tab => syncTabAction(tab.id)));
+  }
 
   function queueNetwork(task) {
     const operation = networkQueue.then(task);
@@ -139,7 +204,11 @@ export function createAccessControlProduct(platform) {
   }
 
   function reconcile(settings) {
-    return queueNetwork(() => writeRules(settings));
+    return queueNetwork(async () => {
+      const current = settings || await platform.readSettings();
+      const result = await writeRules(current);
+      return result;
+    }).then(async result => { await syncOpenTabs(); return result; });
   }
 
   async function visitRules() {
@@ -184,7 +253,12 @@ export function createAccessControlProduct(platform) {
       ...(removeRuleIds.length ? { removeRuleIds } : {}),
       addRules: [visitRule(domain, id, tabId)]
     });
-    await chrome.tabs.reload(tabId);
+    try {
+      await chrome.tabs.update(tabId, { url });
+    } catch (error) {
+      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id] });
+      throw error;
+    }
     return { allowed: true, domain };
   }
 
@@ -206,16 +280,6 @@ export function createAccessControlProduct(platform) {
     sync() { return false; },
     async handleMessage(message, context) {
       const settingsUrl = chrome.runtime.getURL('settings/');
-      const popupUrl = chrome.runtime.getURL('popup/');
-      if (message.type === 'UI_ACCESS_CONTROL_ALLOW_VISIT') {
-        if (!String(context?.sender?.url || '').startsWith(popupUrl)) {
-          throw new Error('A temporary visit can be allowed only from the popup.');
-        }
-        const tabId = Number(message.tabId);
-        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        if (!Number.isInteger(tabId) || tab?.id !== tabId) throw new Error('The active page changed before it could be allowed.');
-        return queueNetwork(() => allowVisit(tabId, tab.pendingUrl || tab.url || ''));
-      }
       if (!String(context?.sender?.url || '').startsWith(settingsUrl)) {
         throw new Error('Access Control can be changed only from Settings.');
       }
@@ -283,14 +347,44 @@ export function createAccessControlProduct(platform) {
       if (JSON.stringify(oldValue?.accessControl) === JSON.stringify(newValue?.accessControl)) return false;
       return reconcile();
     },
+    handleTabCreated(tab) { return syncTabAction(tab?.id); },
     handleTabUpdated(tabId, change, tab) {
-      if (!change?.url) return false;
-      return queueNetwork(async () => {
+      if (!change?.url && change?.status !== 'complete') return false;
+      const cleanup = change?.url ? queueNetwork(async () => {
         const settings = await platform.readSettings();
         return removeVisitRules(tabId, matchingBlockedDomain(settings, tab?.url || change.url));
+      }) : Promise.resolve(false);
+      return cleanup.then(() => syncTabAction(tabId, change?.url || ''));
+    },
+    handleTabRemoved(tabId) {
+      return Promise.allSettled([
+        queueNetwork(() => removeVisitRules(tabId)),
+        actionQueue.run(tabId, () => chrome.storage.session.remove(pendingKey(tabId)))
+      ]);
+    },
+    handleActionClicked(tab) {
+      const tabId = tab?.id;
+      if (!Number.isInteger(tabId)) return Promise.resolve(false);
+      return actionQueue.run(tabId, async () => {
+        const current = await chrome.tabs.get(tabId).catch(() => null);
+        if (!current?.active || current.windowId !== tab.windowId
+          || !!current.incognito !== platform.isIncognitoContext()) return false;
+        const settings = await platform.readSettings();
+        const pending = (await chrome.storage.session.get(pendingKey(tabId)))[pendingKey(tabId)] || '';
+        const liveUrl = current.pendingUrl || current.url || '';
+        const destination = !liveUrl || liveUrl.startsWith('chrome-error:') ? pending : liveUrl;
+        const domain = matchingBlockedDomain(settings, destination);
+        if (settings.accessControl?.allowTemporaryVisits !== true || !domain
+          || await hasVisitRule(tabId, domain)) {
+          await setActionPopup(tabId, false);
+          return false;
+        }
+        const result = await queueNetwork(() => allowVisit(tabId, destination));
+        await chrome.storage.session.remove(pendingKey(tabId));
+        await setActionPopup(tabId, false);
+        return result;
       });
     },
-    handleTabRemoved(tabId) { return queueNetwork(() => removeVisitRules(tabId)); },
     reconcile,
     reset() { return reconcile(); }
   });

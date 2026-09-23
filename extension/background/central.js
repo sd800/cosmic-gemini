@@ -27,9 +27,7 @@ const PAGE_PRODUCTS = Object.freeze([
 const STATE_PRODUCTS = Object.freeze([
   ...PAGE_PRODUCTS,
   FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.DOCUMENT_PREVIEW,
-  FEATURE_IDS.FOLLOW_LIST_INSTAGRAM,
-  FEATURE_IDS.IMAGE_DOWNLOAD,
-  FEATURE_IDS.VIDEO_DOWNLOAD,
+  FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD,
   'satellites'
 ]);
 const EVENT_PROVINCES = Object.freeze({
@@ -37,6 +35,7 @@ const EVENT_PROVINCES = Object.freeze({
   tabCreated: Object.freeze(['standing', 'operations', 'customs']),
   tabUpdated: Object.freeze(['standing', 'operations', 'customs']),
   tabRemoved: Object.freeze(['standing', 'operations', 'customs']),
+  actionClicked: Object.freeze(['standing']),
   windowCreated: Object.freeze(['operations']),
   windowRemoved: Object.freeze(['operations']),
   downloadChanged: Object.freeze(['customs']),
@@ -195,7 +194,8 @@ async function dispatchEvent(eventName, ...args) {
     const handlerName = eventName === 'initialize' ? 'initialize'
       : eventName === 'tabCreated' ? 'handleTabCreated'
       : eventName === 'tabUpdated' ? 'handleTabUpdated'
-        : eventName === 'tabRemoved' ? 'handleTabRemoved'
+      : eventName === 'tabRemoved' ? 'handleTabRemoved'
+        : eventName === 'actionClicked' ? 'handleActionClicked'
           : eventName === 'windowCreated' ? 'handleWindowCreated'
             : eventName === 'windowRemoved' ? 'handleWindowRemoved'
               : eventName === 'downloadChanged' ? 'handleDownloadChanged'
@@ -225,6 +225,7 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   void dispatchEvent('tabUpdated', tabId, change, tab);
 });
 chrome.tabs.onRemoved.addListener(tabId => void dispatchEvent('tabRemoved', tabId));
+chrome.action.onClicked.addListener(tab => void dispatchEvent('actionClicked', tab));
 chrome.windows.onCreated.addListener(window => {
   void dispatchEvent('windowCreated', window);
 });

@@ -13,6 +13,7 @@ export function defineProvince({ id, products, ...implementation }) {
     handleTabCreated: implementation.handleTabCreated || NOOP,
     handleTabUpdated: implementation.handleTabUpdated || NOOP,
     handleTabRemoved: implementation.handleTabRemoved || NOOP,
+    handleActionClicked: implementation.handleActionClicked || NOOP,
     handleWindowCreated: implementation.handleWindowCreated || NOOP,
     handleWindowRemoved: implementation.handleWindowRemoved || NOOP,
     handleDownloadChanged: implementation.handleDownloadChanged || NOOP,

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.20 — 2026-09-23
+
+- Allow a blocked Access Control visit by clicking the extension toolbar button directly; remove the former popup action.
+
 ## 9.6.19 — 2026-09-23
 
 - Refine project documentation.
@@ -1310,7 +1314,7 @@
 - Expanded HLS and DASH handling with alternate audio, inline manifests, live snapshots, SegmentTemplate and SegmentTimeline support, and compatible wrapped HLS playlists.
 - Added local adapters for the service-specific playback sources represented by Vimeo, Facebook, Instagram, OK, VK Video, Canva, iQIYI, TwitCasting, Osmosis, Kick, and Chaturbate.
 - Streams direct files through the local offscreen processor so authenticated and referrer-sensitive media can retain the active page context.
-- Bundled Mediabunny and YouTube.js locally for media processing without a runtime CDN.
+- Bundled Mediabunny and YouTube.js locally for media processing without a runtime CDN or private rule service.
 
 ## 1.3.8 — 2026-08-30
 

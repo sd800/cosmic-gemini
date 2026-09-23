@@ -140,18 +140,36 @@ test('Access Control rejects changes outside Settings', async () => {
   }));
 });
 
-test('Access Control can allow the blocked domain in the active tab for the current visit', async () => {
-  const tab = { id: 17, url: 'https://docs.example.com/guide' };
-  const reloaded = [];
+test('Access Control uses the toolbar button to retry a blocked navigation in the current tab', async () => {
+  const tab = { id: 17, windowId: 2, active: true, incognito: false, url: 'chrome-error://chromewebdata/' };
+  const retried = [];
+  const popups = new Map();
+  const session = new Map();
+  let errorListener;
   let installed = [];
   let settings = normalizeSettings({
     accessControl: { enabled: true, allowTemporaryVisits: true, blockedDomains: ['example.com', 'elsewhere.example'] }
   });
   globalThis.chrome = {
     runtime: { getURL: path => 'chrome-extension://test/' + path },
+    webRequest: { onErrorOccurred: {
+      hasListener: listener => errorListener === listener,
+      addListener: listener => { errorListener = listener; },
+      removeListener: listener => { if (errorListener === listener) errorListener = undefined; }
+    } },
+    storage: { session: {
+      async get(key) { return { [key]: session.get(key) }; },
+      async set(values) { for (const [key, value] of Object.entries(values)) session.set(key, value); },
+      async remove(key) { session.delete(key); }
+    } },
+    action: {
+      async getPopup({ tabId }) { return popups.get(tabId) ?? 'popup/index.html'; },
+      async setPopup({ tabId, popup }) { popups.set(tabId, popup); }
+    },
     tabs: {
       async query() { return [tab]; },
-      async reload(tabId) { reloaded.push(tabId); }
+      async get(tabId) { return tabId === tab.id ? tab : null; },
+      async update(tabId, options) { retried.push([tabId, options.url]); tab.url = options.url; }
     },
     declarativeNetRequest: {
       async getSessionRules() { return installed; },
@@ -167,8 +185,14 @@ test('Access Control can allow the blocked domain in the active tab for the curr
     mutateSettings: async update => (settings = normalizeSettings(update(settings)))
   });
   await product.reconcile();
+  assert.equal(typeof errorListener, 'function');
+  assert.equal(popups.get(tab.id), undefined, 'normal pages retain the normal popup');
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(session.get('accessControlPendingVisit:17'), 'https://docs.example.com/guide');
+  assert.equal(popups.get(tab.id), '', 'the blocked tab routes its toolbar click to the background');
 
-  assert.deepEqual(await product.state(settings, tab.url, tab.id), {
+  assert.deepEqual(await product.state(settings, 'https://docs.example.com/guide', tab.id), {
     enabled: true,
     allowTemporaryVisits: true,
     blockedDomains: ['example.com', 'elsewhere.example'],
@@ -178,17 +202,21 @@ test('Access Control can allow the blocked domain in the active tab for the curr
     blocked: true,
     temporarilyAllowed: false
   });
-  await assert.rejects(product.handleMessage({
-    type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id
-  }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } }), /popup/i);
-
-  assert.deepEqual(await product.handleMessage({
-    type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id
-  }, { sender: { url: 'chrome-extension://test/popup/index.html' } }), {
+  tab.url = 'https://allowed.example.net/';
+  await product.handleTabUpdated(tab.id, { url: tab.url }, tab);
+  assert.equal(session.has('accessControlPendingVisit:17'), false, 'leaving discards the blocked destination');
+  assert.equal(popups.get(tab.id), 'popup/index.html');
+  tab.url = 'chrome-error://chromewebdata/';
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(popups.get(tab.id), '');
+  assert.deepEqual(await product.handleActionClicked(tab), {
     allowed: true,
     domain: 'example.com'
   });
-  assert.deepEqual(reloaded, [17]);
+  assert.deepEqual(retried, [[17, 'https://docs.example.com/guide']]);
+  assert.equal(popups.get(tab.id), 'popup/index.html');
+  assert.equal(session.has('accessControlPendingVisit:17'), false);
   const visit = installed.find(rule => rule.action.type === 'allow');
   assert.equal(visit.id, 924001);
   assert.equal(visit.priority, 200);
@@ -207,9 +235,9 @@ test('Access Control can allow the blocked domain in the active tab for the curr
   assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
 
   tab.url = 'https://elsewhere.example/';
-  await product.handleMessage({ type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id }, {
-    sender: { url: 'chrome-extension://test/popup/index.html' }
-  });
+  await product.handleTabUpdated(tab.id, { url: tab.url }, tab);
+  assert.equal(popups.get(tab.id), '');
+  await product.handleActionClicked(tab);
   assert.ok(installed.some(rule => rule.action.type === 'allow'));
   const disabled = await product.handleMessage({
     type: 'UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS', enabled: false
@@ -217,17 +245,14 @@ test('Access Control can allow the blocked domain in the active tab for the curr
   assert.equal(disabled.allowTemporaryVisits, false);
   await product.reconcile();
   assert.equal(installed.some(rule => rule.action.type === 'allow'), false, 'disabling one-time visits revokes the exception');
-  await assert.rejects(product.handleMessage({
-    type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id
-  }, { sender: { url: 'chrome-extension://test/popup/index.html' } }), /disabled/i);
+  assert.equal(typeof errorListener, 'function', 'MV3 listener remains registered through worker lifetime');
+  assert.equal(popups.get(tab.id), 'popup/index.html');
 
   await product.handleMessage({
     type: 'UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS', enabled: true
   }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
   await product.reconcile();
-  await product.handleMessage({ type: 'UI_ACCESS_CONTROL_ALLOW_VISIT', tabId: tab.id }, {
-    sender: { url: 'chrome-extension://test/popup/index.html' }
-  });
+  await product.handleActionClicked(tab);
   await product.handleTabRemoved(tab.id);
   assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
 });

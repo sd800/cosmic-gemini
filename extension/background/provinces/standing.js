@@ -233,7 +233,9 @@ export function createStandingProvince(platform) {
       return product(productId).sync(context, context.settings);
     },
     handleMessage,
-    handleTabCreated(tab) { return Promise.allSettled([websiteKnowledgeControl.handleTabCreated(tab)]); },
+    handleTabCreated(tab) { return Promise.allSettled([
+      websiteKnowledgeControl.handleTabCreated(tab), accessControl.handleTabCreated(tab)
+    ]); },
     handleTabUpdated(tabId, change, tab) { return Promise.allSettled([
       adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab),
       accessControl.handleTabUpdated(tabId, change, tab), langGoogle.handleTabUpdated(tabId, change, tab)
@@ -241,6 +243,7 @@ export function createStandingProvince(platform) {
     handleTabRemoved(tabId) { return Promise.allSettled([
       adMarshal.handleTabRemoved(tabId), accessControl.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId)
     ]); },
+    handleActionClicked(tab) { return accessControl.handleActionClicked(tab); },
     handleStorageChanged(changes, areaName) {
       mailtoCapture.handleStorageChanged(changes, areaName);
       return Promise.allSettled([

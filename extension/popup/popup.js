@@ -160,11 +160,9 @@ function renderContextualProducts() {
   try { hostname = new URL(currentTab?.url || '').hostname.toLowerCase().replace(/\.$/, ''); } catch {}
   const available = contextualProducts.filter(entry => entry.hostname === hostname || entry.alternateHostname === hostname);
   container.replaceChildren();
-  const blockedByAccessControl = state.accessControl?.blocked === true
-    && state.accessControl?.allowTemporaryVisits === true;
   const documentChoice = state.documentPreview?.enabled && ['preview', 'download'].includes(state.documentPreview?.choice)
     ? state.documentPreview.choice : '';
-  container.hidden = !blockedByAccessControl && !documentChoice && available.length === 0;
+  container.hidden = !documentChoice && available.length === 0;
   if (documentChoice) {
     const row = document.createElement('section'); row.className = 'feature-row';
     const actions = document.createElement('nav'); actions.className = 'launcher-actions';
@@ -175,29 +173,6 @@ function renderContextualProducts() {
     label(button, t('documentResetChoice', { action: t(documentChoice === 'preview' ? 'documentAutoPreview' : 'documentAutoDownload') }));
     button.addEventListener('click', () => void act(async () => {
       await send({ type: 'UI_DOCUMENT_RESET_CHOICE', featureId: 'documentPreview', tabId: currentTab?.id });
-    }));
-    actions.append(button); row.append(actions); container.append(row);
-  }
-  if (blockedByAccessControl) {
-    const row = document.createElement('section');
-    row.className = 'feature-row';
-    const actions = document.createElement('nav');
-    actions.className = 'launcher-actions contextual-actions';
-    actions.setAttribute('aria-label', t('accessControlName'));
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'feature-status feature-toggle primary-product access-control-visit';
-    button.dataset.state = 'active';
-    button.dataset.persistent = 'true';
-    button.innerHTML = icon('accessControl');
-    label(button, t('accessControlAllowVisitTitle'));
-    button.addEventListener('click', () => void perform(async () => {
-      await send({
-        type: 'UI_ACCESS_CONTROL_ALLOW_VISIT',
-        featureId: 'accessControl',
-        tabId: currentTab?.id
-      });
-      window.close();
     }));
     actions.append(button); row.append(actions); container.append(row);
   }

@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.6.19');
+assert.equal(manifest.version, '9.6.20');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -196,7 +196,7 @@ const settingsSource = await source('settings', 'page.js');
 const settingsPreload = await source('settings', 'preload.js');
 const settingsStyle = await source('settings', 'settings.css');
 const popupStyle = await source('popup', 'popup.css');
-assert.match(popupStyle, /\.launcher-actions \.access-control-visit svg \{ width: 21px; height: 21px; \}/);
+assert.doesNotMatch(popupStyle, /access-control-visit/);
 const imageDownloadStyle = await source('workspaces', 'image-download', 'image-download.css');
 const satellitesSettings = await source('settings', 'satellites.html');
 const pageDisplaySettings = await source('settings', 'page-display.html');
@@ -389,7 +389,7 @@ assert.match(central, /windowCreated[\s\S]*handleWindowCreated[\s\S]*chrome\.win
 assert.doesNotMatch(central, /chrome\.storage\.(?!onChanged\.addListener)|chrome\.scripting\.executeScript|chrome\.tabs\.(?:query|create|update)|chrome\.downloads\.download\s*\(|chrome\.sidePanel|chrome\.offscreen|chrome\.declarativeNetRequest|fetch\s*\(/,
   'Central may decide and route, but must not execute product work.');
 
-for (const method of ['initialize', 'getProductState', 'syncProduct', 'handleMessage', 'handleConnect', 'handleTabUpdated', 'handleTabRemoved', 'handleWindowCreated', 'handleWindowRemoved', 'handleDownloadChanged', 'handleDeterminingFilename', 'handleHeadersReceived', 'handleAlarm', 'handleStorageChanged', 'reset']) {
+for (const method of ['initialize', 'getProductState', 'syncProduct', 'handleMessage', 'handleConnect', 'handleTabUpdated', 'handleTabRemoved', 'handleActionClicked', 'handleWindowCreated', 'handleWindowRemoved', 'handleDownloadChanged', 'handleDeterminingFilename', 'handleHeadersReceived', 'handleAlarm', 'handleStorageChanged', 'reset']) {
   assert.match(provinceInterface, new RegExp(method));
 }
 for (const [id, province] of [['standing', standing], ['operations', operations], ['customs', customs]]) {
@@ -403,11 +403,13 @@ assert.match(standing, /createAdMarshalProduct/);
 assert.match(central, /FEATURE_IDS\.CLIPBOARD_PROTECT[\s\S]*FEATURE_IDS\.ACCESS_CONTROL[\s\S]*FEATURE_IDS\.WEBSITE_KNOWLEDGE_CONTROL/);
 assert.match(accessControl, /getSessionRules[\s\S]*updateSessionRules/);
 assert.match(accessControl, /urlFilter: `\|\|\$\{domain\}\^`[\s\S]*'main_frame', 'sub_frame'/);
-assert.match(accessControl, /UI_ACCESS_CONTROL_ALLOW_VISIT/);
-assert.match(accessControl, /updateSessionRules\([\s\S]*chrome\.tabs\.reload/,
-  'Access Control temporary visits must install the exception before reloading the blocked tab.');
-assert.doesNotMatch(accessControl, /chrome\.tabs\.update|scripting\.executeScript/,
-  'Access Control must not rewrite a page or replace its address.');
+assert.match(central, /chrome\.action\.onClicked\.addListener/);
+assert.match(accessControl, /webRequest\?\.onErrorOccurred/);
+assert.match(accessControl, /chrome\.action\.setPopup/);
+assert.match(accessControl, /updateSessionRules\([\s\S]*chrome\.tabs\.update/,
+  'Access Control must install the temporary rule before retrying the blocked destination.');
+assert.doesNotMatch(accessControl, /chrome\.tabs\.reload|scripting\.executeScript|UI_ACCESS_CONTROL_ALLOW_VISIT/);
+assert.doesNotMatch(popupSource, /access-control-visit|UI_ACCESS_CONTROL_ALLOW_VISIT/);
 assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /restorationTask[\s\S]*if \(restorationTask\) return restorationTask/,

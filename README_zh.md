@@ -74,7 +74,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Access Control
 
-阻止访问所选域名及其任意层级的子域名，以及指定的 IPv4 或 IPv6 地址。Access Control 默认关闭，设有一个总开关。输入 `example.com` 这样的普通域名会同时覆盖该域名及其所有子域名；IP 地址规则则会在所有端口上精确匹配该地址。规则修订会在匹配页面刷新或再次打开后生效。单次访问选项也默认关闭；勾选后，当前页面被阻止访问时，插件控制窗口会显示动态按钮，可在不修改已保存规则的情况下临时允许当前标签页完成本次访问。标签页离开该受限域名或被关闭后，临时放行自动失效。
+阻止访问所选域名及其任意层级的子域名，以及指定的 IPv4 或 IPv6 地址。Access Control 默认关闭，设有一个总开关。输入 `example.com` 这样的普通域名会同时覆盖该域名及其所有子域名；IP 地址规则则会在所有端口上精确匹配该地址。规则修订会在匹配页面刷新或再次打开后生效。单次访问选项也默认关闭；勾选后，在受限页面点击 Chrome 工具栏里的插件按钮即可临时允许当前标签页访问，无需打开控制窗口，也不会修改已保存的规则。标签页离开该受限域名或被关闭后，临时放行自动失效。
 
 #### Website Knowledge Control
 
@@ -230,7 +230,7 @@ Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download�
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 
-Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址、电话号码或邮件信息。Access Control 只使用本地浏览器网络规则，不记录访问尝试。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 仅在页面内调整回复显示与浏览器标识的一致性，不会另行发送或留存回复内容及标识信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
+Cosmic Gemini 不会记录浏览历史或活动记录，也不使用分析服务。Mailto Capture 不会保存预览中的邮箱地址、电话号码或邮件信息。Access Control 使用本地浏览器网络规则；开启单次访问后，仅在浏览器会话中暂存受限目标地址，直到该标签页离开或关闭，不建立访问历史。Page Display 只在本地调整页面显示，不会读取或保留网页内容。XHS Image Dark Mode 只在本机分析低分辨率图片样本，并仅在页面打开期间保留数量有限的内存缓存。Chinese Response Display Optimization for Claude 仅在页面内调整回复显示与浏览器标识的一致性，不会另行发送或留存回复内容及标识信息。Bili Daily Login 不会判断或记录您是否、何时打开哔哩哔哩。
 
 开启 Bili Daily Login 后，后台日程仅在电脑已唤醒且 Chrome 正在运行时调用哔哩哔哩账号服务。它会直接使用 Chrome 中已有的登录状态，不会读取或保存您的哔哩哔哩密码。
 

@@ -11,7 +11,8 @@ export function icon(name) {
     reduceWhitePoint: '<path d="M8.7 15.5A6.4 6.4 0 1 1 15.3 15.5C14.5 16.1 14 17 14 18H10c0-1-.5-1.9-1.3-2.5Z"/><path d="M10 21h4M9.5 18h5"/>',
     greyscale: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17Z" fill="currentColor" stroke="none"/>',
     mailtoCapture: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
-    documentPreview: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 13h8M8 17h6"/>',
+    // Cosmic PDF's document glyph, fitted to the shared 24-unit grid without its app-icon background.
+    documentPreview: '<path d="M13.846 3H6.231a1.385 1.385 0 0 0-1.385 1.385v15.23A1.385 1.385 0 0 0 6.231 21h11.538a1.385 1.385 0 0 0 1.385-1.385V8.308Z"/><path d="M13.846 3v5.308h5.308M8.308 12.462h7.384M8.308 16.154h5.538"/>',
     moon: '<path d="M20.5 13.5A8.5 8.5 0 0 1 10.5 3 8.5 8.5 0 1 0 20.5 13.5Z"/>',
     clipboardProtect: '<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 5V3h6v2M9 9h6M9 13h6M9 17h4"/>',
     accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="M12.4 13.35 15.952 18.318"/>',

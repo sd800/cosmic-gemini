@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.6.10 — 2026-09-23
+
+- 将 Document Preview 图标改为 Cosmic PDF 的文档图案，保留 Cosmic Gemini 原有的图标配色和样式。
+
 ## 9.6.9 — 2026-09-23
 
 - 将 PDF 锐化改为独立勾选项，默认关闭。取消勾选也会移除已打开阅读页的锐化效果，无需重新创建画布。

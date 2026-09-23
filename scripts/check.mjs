@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.6.16');
+assert.equal(manifest.version, '9.6.17');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -141,7 +141,7 @@ assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'core/twitter-video.js'),
   join(extension, 'offscreen/video-download.js'),
   join(extension, 'workspaces/document-preview/document-preview.js'),
-  join(extension, 'workspaces/pdf-viewer/viewer.js')
+  join(extension, 'workspaces/pdf-viewer/worker.js')
 ].sort());
 assert.doesNotMatch(firstPartyJoined, /recent activity|最近活动/i);
 assert.doesNotMatch(firstPartyJoined, /sound autoplay/i);

@@ -91,3 +91,55 @@ test('PDF dependency assets match pinned integrity and omit the script evaluator
   assert.ok(hashes['wasm/openjpeg.wasm']); assert.ok(hashes['wasm/jbig2.wasm']);
   assert.ok(!(await readdir(new URL('wasm/', vendor))).some(name => name.startsWith('quickjs')));
 });
+
+const { createPdfWorker } = await import('../extension/workspaces/pdf-viewer/worker.js');
+test('sandbox PDF worker owns its native port across startup, failure and disposal', async t => {
+  const bundle = 'globalThis.pdfjsWorker={};const source=import.meta.url;export{WorkerMessageHandler};';
+  for (const mode of ['ready','abort','error','invalid','constructor']) await t.test(mode, async t => {
+    const controller = new AbortController(); let native, revoked = 0, bytes, terminated = 0;
+    t.mock.method(globalThis,'fetch',async()=>({ok:true,text:async()=>mode==='invalid'?'unexpected bundle':bundle}));
+    t.mock.method(URL,'createObjectURL',blob=>{bytes=blob;return 'blob:fixed-local-code';});
+    t.mock.method(URL,'revokeObjectURL',()=>revoked++);
+    class Native extends EventTarget {
+      constructor(url) {
+        super(); assert.equal(url,'blob:fixed-local-code');
+        if(mode==='constructor')throw Error('worker creation failed');
+        native=this;
+        queueMicrotask(()=>{
+          if(mode==='abort')controller.abort();
+          else if(mode==='error')this.dispatchEvent(new Event('error'));
+          else this.dispatchEvent(new MessageEvent('message',{data:{action:'ready'}}));
+        });
+      }
+      terminate(){terminated++;}
+    }
+    const descriptor=Object.getOwnPropertyDescriptor(globalThis,'Worker');globalThis.Worker=Native;t.after(()=>{if(descriptor)Object.defineProperty(globalThis,'Worker',descriptor);else delete globalThis.Worker;});
+    class PDFWorker {
+      constructor({port}){this.port=port;this.promise=Promise.resolve();}
+      destroy(){this.destroyed=true;}
+    }
+    const pending=createPdfWorker({PDFWorker},controller.signal);
+    if(mode==='ready') {
+      const worker=await pending; assert.equal(worker.port,native);
+      const source=await bytes.text(); assert.doesNotMatch(source,/import\.meta|export\{/);assert.match(source,/vendor\/pdfjs\/pdf\.worker\.min\.mjs/);
+      controller.abort();assert.equal(worker.destroyed,true);worker.destroy();
+    }else await assert.rejects(pending);
+    assert.equal(terminated,mode==='invalid'||mode==='constructor'?0:1);
+    assert.equal(revoked,mode==='invalid'?0:1);
+  });
+});
+
+test('opaque PDF dialog markup has no blocked cross-origin autofocus attributes', async () => {
+  const source = await readFile(new URL('../extension/workspaces/pdf-viewer/viewer.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\bautofocus(?:\s|=|>)/i);
+  assert.match(source, /id="properties-title" tabindex="-1"/);
+});
+
+const { showReaderDialog } = await import('../extension/workspaces/pdf-viewer/dialog.js');
+test('reader dialogs choose explicit focus without implicit cross-origin autofocus', () => {
+  const dialog={inert:false,showModal(){assert.equal(this.inert,true);this.open=true;}};
+  let focused=false;
+  showReaderDialog(dialog,{focus(options){assert.equal(dialog.inert,false);assert.equal(dialog.open,true);assert.deepEqual(options,{preventScroll:true});focused=true;}});
+  assert.equal(focused,true);
+  assert.throws(()=>showReaderDialog({inert:false,showModal(){throw Error('detached');}},null));
+});

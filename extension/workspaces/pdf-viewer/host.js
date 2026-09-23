@@ -7,6 +7,9 @@ export function createPdfViewer({ container, bytes, filename, locale, sampling, 
   const iframe = document.createElement('iframe');
   iframe.className = 'pdf-viewer-frame'; iframe.title = 'PDF Viewer';
   iframe.referrerPolicy = 'no-referrer';
+  // Grant write-only clipboard access to this fixed opaque reader (e.g. Copy
+  // all PDF text). No clipboard read access or privileged host copy command.
+  iframe.allow = 'clipboard-write *';
   iframe.style.visibility = 'hidden';
   iframe.style.background = dark ? '#121416' : '#e8eaed';
   const url = new URL('viewer.html', import.meta.url);

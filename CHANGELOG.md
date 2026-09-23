@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.17 — 2026-09-23
+
+- Fix PDF background-worker startup and whole-document copying in the isolated reader, and avoid cross-frame dialog autofocus.
+- Remove page-interior PDF loading symbols while scrolling; use the toolbar-divider progress line only when a visible page needs longer to render, without moving the document.
+
 ## 9.6.16 — 2026-09-23
 
 - Keep only the newest Settings tab open across All Settings and individual feature pages, automatically closing earlier Settings tabs without affecting other extension pages.

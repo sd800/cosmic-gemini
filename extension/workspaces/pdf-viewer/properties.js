@@ -1,3 +1,4 @@
+import { showReaderDialog } from './dialog.js';
 import { formatPdfDate } from './document-dates.js';
 import { pdfFileSize } from './model.js';
 
@@ -32,8 +33,7 @@ export function createProperties({ pdf, viewer, filename, byteLength, locale, te
       for (const key of fields.keys()) set(key, '');
       set('fileName', filename); set('fileSize', pdfFileSize(byteLength, locale)); set('pageCount', numbers.format(pdf.numPages));
       // Focus the heading rather than scrolling to the bottom Close button.
-      status.textContent = text.propertiesLoading; dialog.showModal();
-      document.getElementById('properties-title').focus({ preventScroll: true });
+      status.textContent = text.propertiesLoading; showReaderDialog(dialog, document.getElementById('properties-title'));
       dialog.scrollTop = 0; dialog.scrollLeft = 0;
       const [result, page] = await Promise.all([
         metadata ||= pdf.getMetadata().catch(() => null),

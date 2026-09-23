@@ -49,7 +49,7 @@ window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=f
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, deviceScaleFactor: 2, viewport: { width: 1280, height: 1000 }, args: ['--force-device-scale-factor=2', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 try {
   const page = await context.newPage();
-  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('console', message => { if (message.type() === 'error' || /fake worker|autofocusing|permissions policy|Content Security Policy|cross-origin redirects/i.test(message.text())) errors.push(message.text()); });
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (/^https?:/.test(request.url())) network.push(request.url()); });
   page.on('requestfailed', request => failures.push(request.url()));
@@ -60,7 +60,25 @@ try {
     await page.goto(url); await page.evaluate(({ bytes, locale, sampling, sharpening }) => openPdf(bytes, locale, sampling, sharpening), { bytes: Array.from(bytes), locale, sampling, sharpening });
     return (await page.locator('iframe').elementHandle()).contentFrame();
   }
-  async function ready(frame) { await frame.waitForFunction(() => document.querySelector('.page canvas')?.width > 0 && document.querySelector('#count').textContent !== '—'); await frame.waitForFunction(() => document.querySelector('.textLayer span')); }
+  async function ready(frame) { await frame.waitForFunction(() => !!window.qaWorkerReady); assert.equal(await frame.evaluate(async () => (await window.qaWorkerReady).port instanceof Worker), true, 'PDF parsing uses a real background Worker'); await frame.waitForFunction(() => document.querySelector('.page canvas')?.width > 0 && document.querySelector('#count').textContent !== '—'); await frame.waitForFunction(() => document.querySelector('.textLayer span')); }
+
+  async function checkCopyAll(frame) {
+    const allowed = await frame.evaluate(() => ({write:document.featurePolicy.allowsFeature('clipboard-write'),read:document.featurePolicy.allowsFeature('clipboard-read')}));
+    assert.equal(allowed.write, true); assert.equal(allowed.read, false);
+    await frame.evaluate(() => {
+      // Test the real PDF.js extraction path without replacing the OS clipboard.
+      const original = Object.getOwnPropertyDescriptor(navigator.clipboard, 'writeText');
+      window.qaRestoreCopy = () => { if (original) Object.defineProperty(navigator.clipboard,'writeText',original); else delete navigator.clipboard.writeText; };
+      Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:async text=>{window.qaAllCopied=text;}});
+      document.addEventListener('copy',event=>event.preventDefault(),{once:true});
+    });
+    await frame.locator('.textLayer span').first().click();
+    await frame.page().keyboard.press(process.platform==='darwin'?'Meta+a':'Control+a');
+    await frame.page().keyboard.press(process.platform==='darwin'?'Meta+c':'Control+c');
+    await frame.waitForFunction(() => typeof window.qaAllCopied === 'string');
+    assert.match(await frame.evaluate(()=>window.qaAllCopied), /PDF Viewer page 1/);
+    await frame.evaluate(()=>{qaRestoreCopy();getSelection().removeAllRanges();});
+  }
   async function detailReady(frame, number = 1, previous = null) {
     await frame.waitForFunction(({number, previous}) => {
       const detail = window.qaPdfViewer?.getPageView(number - 1)?.detailView;
@@ -109,7 +127,42 @@ try {
   assert.equal(await warming.evaluate(() => qaRenderedPages[0]), 1, 'page one is painted first');
   assert.ok(await warming.locator('.page canvas').count()<10, 'first page is usable without rendering the whole PDF');
   assert.equal(await warming.locator('#filename').isDisabled(), false);
-  const start = performance.now(); const frame = await open(viewerPdf()); await ready(frame);
+  async function checkRenderFeedback(frame) {
+    await frame.waitForFunction(()=>document.querySelector('#progress').hidden);
+    const before=await frame.evaluate(async()=>{
+      const viewer=window.qaViewer||window.qaPdfViewer,number=viewer.pagesCount;
+      const page=await viewer.pdfDocument.getPage(number),original=page.render;
+      window.qaProgressNumber=number;window.qaRestoreRender=()=>{page.render=original;};
+      page.render=function(...args){
+        const task=original.apply(this,args),gate=new Promise(resolve=>{window.qaReleaseRender=resolve;});
+        const promise=task.promise.then(()=>gate);
+        return new Proxy(task,{get(target,key){if(key==='promise')return promise;const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
+      };
+      const y=document.querySelector('#workspace').getBoundingClientRect().top;
+      viewer.currentPageNumber=number;
+      return {y,hidden:document.querySelector('#progress').hidden};
+    });
+    assert.equal(before.hidden,true,'no immediate progress flash on navigation');
+    await frame.waitForFunction(()=>typeof qaReleaseRender==='function'&&!document.querySelector('#progress').hidden);
+    const waiting=await frame.evaluate(()=>{
+      const viewer=window.qaViewer||window.qaPdfViewer,style=getComputedStyle(viewer.getPageView(qaProgressNumber-1).div,'::after');
+      return{display:style.display,content:style.content,background:style.backgroundImage,y:document.querySelector('#workspace').getBoundingClientRect().top,
+        line:document.querySelector('#progress').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,status:document.querySelector('#status').textContent};
+    });
+    assert.equal(waiting.display,'none');assert.equal(waiting.content,'none');assert.equal(waiting.background,'none');
+    assert.equal(waiting.y,before.y,'progress never moves the document');assert.ok(Math.abs(waiting.line-waiting.header)<=2,'progress sits on the toolbar divider');assert.equal(waiting.status,'');
+    await frame.evaluate(()=>{qaRestoreRender();qaReleaseRender();});
+    await frame.waitForFunction(()=>document.querySelector('#progress').hidden);
+    await frame.evaluate(()=>{const viewer=window.qaViewer||window.qaPdfViewer;viewer.currentPageNumber=1;});
+    await frame.waitForFunction(()=>document.querySelector('#progress').hidden&&(window.qaViewer||window.qaPdfViewer).getPageView(0).renderingState===3);
+    // Offscreen pending state must not participate in visible-page feedback.
+    assert.equal(await frame.evaluate(async()=>{
+      const viewer=window.qaViewer||window.qaPdfViewer,offscreen=viewer.getPageView(qaProgressNumber-1),state=offscreen.renderingState;
+      offscreen.renderingState=1;viewer.update();await new Promise(resolve=>setTimeout(resolve,260));const hidden=document.querySelector('#progress').hidden;offscreen.renderingState=state;return hidden;
+    }),true);
+  }
+  await checkRenderFeedback(warming);metrics.renderFeedback='toolbar-divider only for slow visible pages; no page icons, background feedback or layout shift';
+  const start = performance.now(); const frame = await open(viewerPdf()); await ready(frame); await checkCopyAll(frame);
   await detailReady(frame);
   metrics.open80PagesMs = Math.round(performance.now() - start);
   await filtersOff(frame);

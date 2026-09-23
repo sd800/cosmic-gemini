@@ -159,7 +159,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     });
   }
   async function open(doc, mode = 'preview', sourceTabId = doc.sourceTabId) {
-    const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({ id: doc.id, mode });
+    const appearance = state.themes?.[doc.site] || normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance);
+    const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({ id: doc.id, mode, appearance });
     const source = Number.isInteger(sourceTabId) ? await chrome.tabs.get(sourceTabId).catch(() => null) : null;
     const position = source && siteKey(source.url) === doc.site && !!source.incognito === platform.isIncognitoContext()
       && Number.isInteger(source.index) && Number.isInteger(source.windowId)

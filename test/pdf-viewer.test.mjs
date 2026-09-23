@@ -1,0 +1,60 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { PDF_LIMITS, pdfScale, stepPdfScale, pdfOptions, printRange, rotateLeft, safePdfLink } from '../extension/workspaces/pdf-viewer/model.js';
+import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
+import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
+const root = new URL('../extension/', import.meta.url);
+test('PDF Viewer applies read-only asset and resource boundaries', () => {
+  const data = new Uint8Array([1,2]);
+  const options = pdfOptions(data, 'chrome-extension://test/vendor/pdfjs/');
+  assert.equal(options.data, data); assert.equal(options.isEvalSupported, false); assert.equal(options.enableXfa, false);
+  assert.equal(options.disableAutoFetch, true); assert.equal(options.useWorkerFetch, false);
+  assert.equal(options.cMapUrl, 'chrome-extension://test/vendor/pdfjs/cmaps/');
+  assert.ok(options.maxImageSize <= 32 * 1024 * 1024);
+  assert.equal(safePdfLink('javascript:alert(1)'), null); assert.equal(safePdfLink('data:text/html,hello'), null);
+  assert.equal(safePdfLink('file:///etc/passwd'), null); assert.equal(safePdfLink('https://example.com/'), 'https://example.com/');
+  assert.equal(safePdfLink('mailto:a@example.com'), 'mailto:a@example.com');
+  assert.equal(rotateLeft(0), 270); assert.equal(rotateLeft(90), 0);
+  assert.equal(pdfScale(100), 5); assert.equal(pdfScale(.01), .25);
+  assert.equal(stepPdfScale(stepPdfScale(1, 1), 1), 1.2);
+  assert.equal(stepPdfScale(stepPdfScale(1.2, -1), -1), 1);
+  assert.equal(stepPdfScale(5, 1), 5); assert.equal(stepPdfScale(.25, -1), .25);
+  assert.equal(printRange(0, 5, 10), null); assert.equal(printRange(1, 51, 80), null);
+  assert.equal(printRange(3, 2, 10), null); assert.equal(printRange(1, 11, 10), null);
+  assert.deepEqual(printRange('2', '10', 20), {from:2,to:10});
+  assert.throws(() => createPdfViewer({bytes: new ArrayBuffer(0)}));
+  assert.throws(() => createPdfViewer({bytes: new ArrayBuffer(PDF_LIMITS.bytes + 1)}));
+});
+test('PDF rendering lives in a network-restricted opaque sandbox without editing/scripting', async () => {
+  const manifest = JSON.parse(await readFile(new URL('manifest.json', root)));
+  assert.deepEqual(manifest.sandbox.pages, ['workspaces/pdf-viewer/viewer.html']);
+  const policy = manifest.content_security_policy.sandbox;
+  assert.doesNotMatch(policy, /allow-same-origin|'unsafe-eval'|https?:|\*/);
+  assert.match(policy, /connect-src 'self' blob:/); assert.match(policy, /frame-src 'none'/); assert.match(policy, /object-src 'none'/);
+  const source = await readFile(new URL('workspaces/pdf-viewer/viewer.js', root), 'utf8');
+  assert.match(source, /annotationEditorMode: pdfjs.AnnotationEditorType.DISABLE/);
+  assert.match(source, /scriptingManager: null/); assert.match(source, /enableAutoLinking: false/);
+  assert.doesNotMatch(source, /chrome\.|localStorage|sessionStorage|innerHTML|eval\(/);
+  assert.match(source, /event.source !== parent/);
+  assert.match(source, /drawingDelay: 180/); assert.match(source, /maxCanvasPixels: PDF_LIMITS.canvasPixels/);
+  assert.match(source, /thumbnailCache.size <= 24/); assert.match(source, /viewer.currentPageNumber = page/);
+  const host = await readFile(new URL('workspaces/pdf-viewer/host.js', root), 'utf8');
+  assert.match(host, /new MessageChannel/); assert.match(host, /iframe.remove\(\)/);
+  const integration = await readFile(new URL('workspaces/document-preview/document-preview.js', root), 'utf8');
+  assert.match(integration, /import\('\.\.\/pdf-viewer\/host.js'\)/); assert.doesNotMatch(integration, /pdfViewerEnabled|pdf-dark/);
+  const css = await readFile(new URL('workspaces/pdf-viewer/viewer.css', root), 'utf8');
+  assert.match(css, /data-dark=true\] \.pdfViewer \.page\{outline:1px solid/);
+  assert.deepEqual(Object.keys(labels['en-US']).sort(), Object.keys(labels['zh-CN']).sort());
+});
+test('PDF dependency assets match pinned integrity and omit the script evaluator', async () => {
+  const vendor = new URL('vendor/pdfjs/', root);
+  const hashes = JSON.parse(await readFile(new URL('integrity.json', vendor)));
+  for (const [name, hash] of Object.entries(hashes)) {
+    assert.equal(createHash('sha256').update(await readFile(new URL(name, vendor))).digest('hex'), hash, name);
+  }
+  assert.ok(hashes['cmaps/UniGB-UCS2-H.bcmap']); assert.ok(hashes['standard_fonts/LiberationSans-Regular.ttf']);
+  assert.ok(hashes['wasm/openjpeg.wasm']); assert.ok(hashes['wasm/jbig2.wasm']);
+  assert.ok(!(await readdir(new URL('wasm/', vendor))).some(name => name.startsWith('quickjs')));
+});

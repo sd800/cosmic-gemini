@@ -13,7 +13,7 @@ document.documentElement.lang = locale; localizeDocument(t);
 document.querySelector('#document-icon').innerHTML = icon('documentPreview');
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
 const notices = createDocumentStatus(status, document.querySelector('#loading-progress'));
-let metadata, blob, worker, workerTimer, pdfUrl, rendered, expired = false, downloadPending = false;
+let metadata, blob, worker, workerTimer, pdfViewer, rendered, expired = false, downloadPending = false;
 const frame = document.querySelector('#document');
 const partControls = document.querySelector('#part-controls'), partSelect = document.querySelector('#document-part');
 const previousPart = document.querySelector('#part-previous'), nextPart = document.querySelector('#part-next');
@@ -45,18 +45,21 @@ zoomReset.onclick = () => updateZoom(100);
 for (const [button, key] of [[zoomOut, 'documentZoomOut'], [zoomIn, 'documentZoomIn'], [zoomReset, 'documentZoomReset']]) button.title = t(key);
 const themeToggle = document.querySelector('#theme-toggle'), themeAuto = document.querySelector('#theme-auto');
 const appearance = matchMedia('(prefers-color-scheme: dark)');
-let defaultTheme = 'auto', siteTheme = null, themeSaving = false;
+let defaultTheme = normalizeDocumentAppearance(params.get('appearance')), siteTheme = null, themeSaving = false;
 function updateTheme() {
   const theme = siteTheme || defaultTheme;
   const dark = theme === 'dark' || (theme === 'auto' && appearance.matches);
   document.documentElement.dataset.appearance = theme;
   document.documentElement.style.colorScheme = theme === 'auto' ? 'light dark' : theme;
+  document.documentElement.style.backgroundColor = dark ? '#24262a' : '#f7f8fa';
+  // Keep the next reload's first paint consistent without storing site history.
+  if (metadata && params.get('appearance') !== theme) {
+    params.set('appearance', theme); history.replaceState(null, '', '#' + params);
+  }
   // An opaque sandbox cannot be restyled through its DOM. The embedding
   // element's color scheme updates its media queries without reloading it.
   frame.style.colorScheme = dark ? 'dark' : 'light';
-  // Chrome owns the PDF viewer's isolated contents. Recolor its composite
-  // surface without reparsing or reloading the document (including its UI).
-  frame.classList.toggle('pdf-dark', metadata?.format === 'pdf' && dark && !expired);
+  pdfViewer?.setTheme(dark, siteTheme === null);
   themeToggle.innerHTML = icon(dark ? 'pageDisplay' : 'moon');
   themeToggle.title = t(dark ? 'documentThemeLight' : 'documentThemeDark');
   themeToggle.setAttribute('aria-label', themeToggle.title);
@@ -83,7 +86,8 @@ const blobDownloads = new Set();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
 
 function expire() {
-  expired = true; blob = null; rendered = null; if (pdfUrl) URL.revokeObjectURL(pdfUrl); pdfUrl = null; worker?.terminate(); clearTimeout(workerTimer);
+  expired = true; blob = null; rendered = null; pdfViewer?.destroy(); pdfViewer = null; worker?.terminate(); clearTimeout(workerTimer);
+  document.body.classList.remove('pdf-active');
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
   zoomControls.hidden = true; partControls.hidden = true;
   frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); frame.hidden = true; notices.show(t('documentExpired')); updateTheme();
@@ -93,14 +97,20 @@ async function preview() {
   document.querySelector('#choice').hidden = true; notices.loading(t('documentLoading'));
   worker?.terminate();
   if (metadata.format === 'pdf') {
-    if (!navigator.pdfViewerEnabled) { notices.show(t('documentPdfUnavailable')); return; }
-    // The browser's native PDF viewer has its own isolated PDFium process.
-    // Only a locally validated, extension-owned PDF blob is navigated here.
-    pdfUrl = URL.createObjectURL(blob);
-    frame.removeAttribute('sandbox'); frame.removeAttribute('srcdoc');
-    frame.src = pdfUrl; frame.hidden = false;
+    const { createPdfViewer } = await import('../pdf-viewer/host.js');
+    const bytes = await blob.arrayBuffer();
+    if (expired) return;
+    pdfViewer?.destroy();
+    const theme = siteTheme || defaultTheme;
+    pdfViewer = createPdfViewer({ container: document.querySelector('main'), bytes,
+      filename: metadata.filename, locale,
+      dark: theme === 'dark' || (theme === 'auto' && appearance.matches), automatic: siteTheme === null,
+      onDownload: () => void download(), onTheme: () => themeToggle.click(), onAuto: () => void setSiteTheme(null),
+      onError: () => { if (!expired) { document.body.classList.remove('pdf-active'); notices.show(t('documentRenderFailed')); } }
+    });
+    document.body.classList.add('pdf-active');
     zoomControls.hidden = true; partControls.hidden = true;
-    notices.show(''); document.querySelector('#layout-note').textContent = t('documentPdfNote'); document.querySelector('#layout-note').hidden = false;
+    notices.show('');
     return;
   }
   worker = new Worker('render-worker.js');
@@ -167,7 +177,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     updateTheme();
   }
 });
-window.addEventListener('pagehide', () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); worker?.terminate(); clearTimeout(workerTimer); notices.clear(); });
+window.addEventListener('pagehide', () => { pdfViewer?.destroy(); worker?.terminate(); clearTimeout(workerTimer); notices.clear(); });
 downloadButton.addEventListener('click', () => void download());
 async function choose(action) {
   notices.loading(t('documentLoading'));

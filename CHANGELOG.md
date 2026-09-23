@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.1 — 2026-09-22
+
+- Added PDF Viewer as an internal reading capability for Document Preview, with no separate Settings entry. It supports text selection, search, page navigation, thumbnails, document outlines, fit modes, full screen, password-protected PDFs, printing and downloading originals; no editing or drawing tools are included.
+- Added independent light/dark PDF reading, visible page-edge borders, display-only Rotate left, 100% default zoom and fixed 10-percentage-point zoom steps. Refined the centered toolbar with borderless buttons, group separators and a compact M / N page indicator, and prevented light loading surfaces in dark mode.
+- Prioritized visible pages, delayed sharp redraws until continuous zoom settles and bounded offscreen page/thumbnail resources. Parse PDFs locally in a separate worker and isolated sandbox without extension privileges, document scripts or remote content.
+
 ## 9.5.8 — 2026-09-22
 
 - Improved Word-family previews (`.doc/.docx/.docm/.dotx/.dotm`): preserved visible consecutive spaces and blank underlined fields, corrected direct text-style overrides, and refined character positioning, paragraph borders/spacing and table formatting.

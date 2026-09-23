@@ -6,6 +6,7 @@ import '../test/native-scroll-runtime.test.mjs';
 import '../test/no-autoplay-runtime.test.mjs';
 import '../test/mailto-capture-runtime.test.mjs';
 import '../test/document-preview.test.mjs';
+import '../test/pdf-viewer.test.mjs';
 import '../test/clipboard-protect-runtime.test.mjs';
 import '../test/access-control.test.mjs';
 import '../test/lang-google.test.mjs';

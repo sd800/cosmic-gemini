@@ -25,7 +25,7 @@ async function filesBelow(directory) {
 const files = await filesBelow(extension);
 const source = async (...parts) => readFile(join(extension, ...parts), 'utf8');
 
-for (const path of files.filter(path => path.endsWith('.js'))) {
+for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
   const check = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
   assert.equal(check.status, 0, path + '\n' + check.stderr);
 }
@@ -33,7 +33,7 @@ for (const path of files.filter(path => path.endsWith('.js'))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.5.8');
+assert.equal(manifest.version, '9.6.1');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -104,7 +104,8 @@ for (const jsPath of files.filter(path => path.endsWith('.js') && !path.includes
   }
 }
 
-for (const cssPath of files.filter(path => path.endsWith('.css'))) {
+// Vendor PDF text-layer metrics reproduce authored glyphs, not our UI typography.
+for (const cssPath of files.filter(path => path.endsWith('.css') && !path.includes(join(extension, 'vendor')))) {
   assert.doesNotMatch(await readFile(cssPath, 'utf8'), /letter-spacing\s*:\s*-/i, `${cssPath} uses negative letter spacing`);
 }
 
@@ -139,7 +140,8 @@ assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'core/site-video.js'),
   join(extension, 'core/twitter-video.js'),
   join(extension, 'offscreen/video-download.js'),
-  join(extension, 'workspaces/document-preview/document-preview.js')
+  join(extension, 'workspaces/document-preview/document-preview.js'),
+  join(extension, 'workspaces/pdf-viewer/viewer.js')
 ].sort());
 assert.doesNotMatch(firstPartyJoined, /recent activity|最近活动/i);
 assert.doesNotMatch(firstPartyJoined, /sound autoplay/i);

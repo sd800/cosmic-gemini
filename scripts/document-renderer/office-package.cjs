@@ -48,7 +48,7 @@ function styles() {
   };
 }
 async function openPackage(buffer) {
-  const zip=await unzip.openZip({arrayBuffer:buffer}), cache=new Map();
+  const zip=await unzip.openZip({arrayBuffer:buffer}), cache=new Map(),images=new Map();
   async function read(path) {
     if(!path || !zip.exists(path))return null;
     if(!cache.has(path))cache.set(path,(async()=>{
@@ -71,7 +71,7 @@ async function openPackage(buffer) {
     }
     return result;
   }
-  async function image(path) {
+  async function readImage(path) {
     const type={png:'png',jpg:'jpeg',jpeg:'jpeg',gif:'gif',webp:'webp'}[String(path).split('.').pop().toLowerCase()];
     if(!type || !zip.exists(path))return '';
     const bytes=await zip.read(path);
@@ -82,6 +82,7 @@ async function openPackage(buffer) {
     if(!signatures[type])return '';
     return 'data:image/'+type+';base64,'+await zip.read(path,'base64');
   }
+  function image(path){if(!images.has(path))images.set(path,readImage(path));return images.get(path);}
   return {read,relations,image};
 }
 function theme(root) {

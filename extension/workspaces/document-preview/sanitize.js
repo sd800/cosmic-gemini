@@ -2,12 +2,45 @@ import { acceptedStyles, formatStylesheet, DOCUMENT_DARK_TEXT } from './format-s
 const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd'.split(' '));
 const DROP = new Set('script style iframe frame object embed form input button textarea select meta link base svg math'.split(' '));
 
+// Mail HTML often uses inline presentation attributes. Convert only passive
+// visual declarations to the same validated, deduplicated classes as Office.
+// Never retain source CSS, selectors, remote fonts or resource-bearing values.
+function emailStyle(node) {
+  if ((node.getAttribute('style') || '').length > 8192) return {};
+  const css = node.style, result = {};
+  const color = value => {
+    if (/^#[\da-f]{6}$/i.test(value)) return value;
+    const m = value.match(/^rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)$/);
+    return m ? '#' + m.slice(1).map(v => Math.min(255, Number(v)).toString(16).padStart(2, '0')).join('') : value;
+  };
+  for (const property of ['color','background-color','font-size','font-weight','font-style','font-family','text-align','text-indent','text-decoration-line','line-height','width','height','white-space','vertical-align',
+    ...['top','bottom','left','right'].flatMap(side => ['padding-'+side,'margin-'+side,'border-'+side+'-width','border-'+side+'-style','border-'+side+'-color'])]) {
+    let value = css?.getPropertyValue(property) || '';
+    if (!value && property === 'text-align') value = node.getAttribute('align') || '';
+    if (!value && property === 'background-color') value = node.getAttribute('bgcolor') || '';
+    if (!value && ['width','height'].includes(property)) { const v=node.getAttribute(property)||'';value=/^\d+(?:\.\d+)?$/.test(v)?v+'px':v; }
+    if (!value) continue;
+    if (property.endsWith('color')) value = color(value);
+    else if (/^-?\d+(?:\.\d+)?px$/.test(value)) value = Math.round(parseFloat(value)*.75*1000)/1000+'pt';
+    else if (property === 'font-family') {
+      const names=value.split(',').map(v=>v.trim().replace(/^['"]|['"]$/g,'')).filter(v=>/^[\p{L}\p{N} ._+-]{1,80}$/u.test(v)).slice(0,8);
+      value=names.map(v=>'"'+v+'",').join('')+'sans-serif';
+    } else if (property === 'font-weight') value = value === 'bold' ? '700' : value === 'normal' ? '400' : value;
+    result[property] = value;
+  }
+  return acceptedStyles({styles:[result]})[0];
+}
+
 // Rebuild a fresh allowlisted tree. Never insert converter output directly.
 export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
   const source = parser.parseFromString(html, 'text/html');
   const output = document.implementation.createHTMLDocument('');
   let count = 0;
   const styleCount = acceptedStyles(formatting).length;
+  const mail = formatting?.kind === 'eml';
+  const mailStyles = mail ? acceptedStyles(formatting) : [];
+  const styleKey = value => JSON.stringify(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)));
+  const mailKeys = new Map(mailStyles.map((value,index)=>[styleKey(value),index]));
   function copy(node, target, depth = 0) {
     if (++count > 150000 || depth > 80) throw Error('documentTooLarge');
     if (node.nodeType === 3) { target.append(output.createTextNode(node.textContent)); return; }
@@ -17,6 +50,14 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
       next = output.createElement(node.localName);
       const classes = (node.getAttribute('class') || '').split(/\s+/).filter(value => /^cg-f\d{1,4}$/.test(value)
         ? Number(value.slice(4)) < styleCount : ['cg-numbered','cg-list-marker','cg-page-break','cg-sheet','cg-row-number','cg-hidden','cg-slide','cg-shape','cg-slide-picture','cg-slide-background'].includes(value));
+      if (mail) {
+        const style = emailStyle(node);
+        if (Object.keys(style).length) {
+          const key=styleKey(style);
+          if (!mailKeys.has(key)) { if (mailStyles.length >= 8192) throw Error('documentTooComplex');mailKeys.set(key,mailStyles.length);mailStyles.push(style); }
+          classes.unshift('cg-f'+mailKeys.get(key));
+        }
+      }
       if (classes.length) next.setAttribute('class', classes.slice(0,4).join(' '));
       if (classes.includes('cg-page-break')) next.setAttribute('role', 'separator');
       if (node.localName === 'a') {
@@ -40,6 +81,7 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
     for (const child of node.childNodes) copy(child, next, depth + 1);
   }
   for (const node of source.body.childNodes) copy(node, output.body);
+  if (mail) formatting.styles = mailStyles;
   return output.body.innerHTML;
 }
 
@@ -48,7 +90,7 @@ export function previewSrcdoc(body, locale, formatting) {
   return `<!doctype html><html lang="${locale === 'zh-CN' ? 'zh-CN' : 'en-US'}"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>
     html{color-scheme:light dark;background:#eceef1;color:#202124;font:11pt/1.4 'Aptos','Calibri','Arial','PingFang SC','Microsoft YaHei',sans-serif;overflow-wrap:anywhere}
     body{box-sizing:border-box;width:calc(100% - 40px);max-width:612pt;min-height:calc(100vh - 40px);margin:20px auto;padding:54pt;background:white;box-shadow:0 1px 5px #0002}
-    p{margin:0 0 8pt;white-space:pre-wrap}p:empty::before{content:'\u00a0'}h1,h2,h3,h4,h5,h6{line-height:1.25;margin:16pt 0 8pt}h1{font-size:22pt}h2{font-size:18pt}h3{font-size:14pt}h4,h5,h6{font-size:12pt}img{max-width:100%;height:auto}
+    p,h1,h2,h3,h4,h5,h6,li{white-space:pre-wrap;tab-size:36pt}p{margin:0 0 8pt}p:empty::before{content:'\u00a0'}h1,h2,h3,h4,h5,h6{line-height:1.25;margin:16pt 0 8pt}h1{font-size:22pt}h2{font-size:18pt}h3{font-size:14pt}h4,h5,h6{font-size:12pt}img{max-width:100%;height:auto}
     table{border-collapse:collapse;max-width:100%;margin:8pt 0}td,th{border:1px solid #bfc3c8;padding:4pt 6pt;vertical-align:top;font-weight:inherit}td>p:last-child,th>p:last-child{margin-bottom:0}col{max-width:100%}
     a{color:#0b57d0}pre{white-space:pre-wrap}blockquote{border-left:3px solid #ccc;padding-left:16px;margin-left:0}.cg-list-marker{display:inline-block;white-space:pre;text-align:start}
     .cg-page-break{display:block;height:0;min-height:0;border:0;border-top:1px dashed #bfc3c8;margin:22px 0;clear:both;text-indent:0}

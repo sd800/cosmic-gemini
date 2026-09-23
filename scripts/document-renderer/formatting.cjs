@@ -1,3 +1,4 @@
+const {fontRuns}=require('./fonts.cjs');
 const P = require('./properties.cjs');
 const {createNumbering} = require('./numbering.cjs');
 const {first,children,attr,value,properties,merge,styledRun,on,number,points,runCss,paragraphCss,tableCss,cellCss,clean} = P;
@@ -13,6 +14,7 @@ function readTheme(root) {
     const node=first(first(elements,'a:fontScheme'),'a:'+kind+'Font');
     const supplemental=children(node,'a:font').find(child=>child.attributes.script==='Hans');
     fonts[kind+'Ascii']=fonts[kind+'HAnsi']=first(node,'a:latin')?.attributes.typeface;
+    fonts[kind+'EastAsiaScripts']=Object.fromEntries(children(node,'a:font').map(child=>[child.attributes.script,child.attributes.typeface]));
     fonts[kind+'EastAsia']=first(node,'a:ea')?.attributes.typeface || supplemental?.attributes.typeface;
     fonts[kind+'Bidi']=first(node,'a:cs')?.attributes.typeface;
   }
@@ -46,7 +48,7 @@ function styleCatalog(root) {
     cache.set(id,result);return result;
   }
   const doc=first(root,'w:docDefaults');
-  return {get,combine,p:properties(first(first(doc,'w:pPrDefault'),'w:pPr')),r:properties(first(first(doc,'w:rPrDefault'),'w:rPr'))};
+  return {get,combine,p:properties(first(first(doc,'w:pPrDefault'),'w:pPr')),r:merge({sz:{val:'22'}},properties(first(first(doc,'w:rPrDefault'),'w:rPr')))};
 }
 function pageProperties(root) {
   const body=first(root,'w:body');
@@ -59,6 +61,7 @@ function pageProperties(root) {
 
 function createFormatting(parts, Html) {
   const theme=readTheme(parts.theme), catalog=styleCatalog(parts.styles), numbering=createNumbering(parts.numbering,catalog.get);
+  const tabSize=points(value(parts.settings,'defaultTabStop')||'720',20,1,1440);
   const styles=[],keys=new Map();
   const register=style=>{
     const key=JSON.stringify(clean(style));
@@ -112,6 +115,11 @@ function createFormatting(parts, Html) {
         const r=styledRun(context.r,style.rLayers);
         context={...context,r,p};
         css={...runCss(r,theme),...paragraphCss(p,theme)};
+        // The paragraph mark controls the paragraph's spacing metrics, not the
+        // character formatting of its text. Every run retains its own size.
+        const mark=properties(first(first(element,'w:pPr'),'w:rPr'));
+        if(mark.sz?.val)css['font-size']=points(mark.sz.val,2,4,96);
+        css['tab-size']=tabSize;
         delete css['text-decoration-line'];delete css['text-decoration-style'];
         if(num) {
           marker=numbering.next(num,part);
@@ -139,6 +147,7 @@ function createFormatting(parts, Html) {
               for(const key of ['isBold','isItalic','isUnderline','isStrikethrough','isAllCaps','isSmallCaps'])node[key]=false;
               node.highlight=null;node.styleId=node.styleName=null;
               node.verticalAlignment=context.r.vertAlign?.val||'baseline';
+              node.cgFonts=P.fontFamilies(context.r,theme);node.cgCss=css;
             }
             if(node.type==='paragraph'&&(marker||context.p.numPr?.numId?.val==='0'))node.numbering=null;
           }
@@ -150,7 +159,18 @@ function createFormatting(parts, Html) {
   }
   function decorate(element,nodes) {
     if(element.type==='break'&&element.breakType==='page')return [Html.freshElement('span',{class:'cg-page-break',role:'separator'},[Html.forceWrite])];
-    if(element.type==='run')return element.cgClass?[Html.freshElement('span',{class:element.cgClass},nodes)]:nodes;
+    if(element.type==='run'){
+      const fonts=element.cgFonts;
+      if(fonts&&(fonts.ascii!==fonts.east||fonts.ascii!==fonts.other)){
+        let count=0;
+        function apply(list,depth=0){if(depth>64)throw Error('documentTooComplex');const out=[];for(const node of list){if(++count>100000)throw Error('documentTooComplex');
+          if(node.type==='text')for(const part of fontRuns(node.value,fonts)){if(++count>100000)throw Error('documentTooComplex');out.push(part.family===fonts.ascii?Html.text(part.text):Html.freshElement('span',{class:register({...element.cgCss,'font-family':part.family})},[Html.text(part.text)]));}
+          else {if(node.children)node.children=apply(node.children,depth+1);out.push(node);}
+        }return out;}
+        nodes=apply(nodes);
+      }
+      return element.cgClass?[Html.freshElement('span',{class:element.cgClass},nodes)]:nodes;
+    }
     if(!element.cgClass&&!element.cgMarker&&!element.cgGrid&&!element.cgPageBefore)return nodes;
     const tagNames={paragraph:/^(?:p|h[1-6]|li)$/,table:/^table$/,tableRow:/^tr$/,tableCell:/^(?:td|th)$/}[element.type];
     function find(list) {

@@ -31,3 +31,56 @@ export function presentationStreams(){
  const editAt=offsetDoc+document.length+persistBlock.length,edit=record(4085,editBody),current=Buffer.alloc(28);current.writeUInt16LE(4086,2);current.writeUInt32LE(20,4);current.writeUInt32LE(0xe391c05f,12);current.writeUInt32LE(editAt,16);
  return {'PowerPoint Document':Buffer.concat([slide1,slide2,deleted,document,persistBlock,edit]),'Current User':current};
 }
+
+// Minimal, structurally valid formatting records; values are independent of the
+// production readers so changes to byte offsets cannot silently update fixtures.
+export function formattedWordStreams({mixedFonts=false}={}){
+ const streams=wordStreams(),body=Buffer.alloc(8192),table=Buffer.alloc(4096);streams.WordDocument.copy(body,0,0,1024);
+ const paragraphs=['Heading\r',mixedFonts?'Indented 中文body\r':'Indented body\r','One\r','Left\x07','Right\x07','\x07','Hidden visible\r'],content=paragraphs.join('');
+ body.writeUInt32LE(content.length,76);Buffer.from(content,'utf16le').copy(body,1024);let at=64;
+ function part(index,bytes){body.writeUInt32LE(at,154+index*8);body.writeUInt32LE(bytes.length,158+index*8);bytes.copy(table,at);at+=bytes.length+(bytes.length%2);}
+ const u16=n=>{const b=Buffer.alloc(2);b.writeUInt16LE(n);return b;},u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;};
+ const prop=(op,value)=>Buffer.concat([u16(op),Array.isArray(value)?Buffer.from(value):Buffer.from(value)]);
+ const clx=Buffer.alloc(21);clx[0]=2;clx.writeUInt32LE(16,1);clx.writeUInt32LE(content.length,9);clx.writeUInt32LE(1024,15);part(33,clx);
+ function style(id,kind,base,name,pap,chp){const head=Buffer.alloc(10);head.writeUInt16LE(id);head.writeUInt16LE((base<<4)|kind,2);head.writeUInt16LE(kind===1?2:1,4);const n=Buffer.from(name+'\0','utf16le');const upx=bytes=>Buffer.concat([u16(bytes.length),bytes,Buffer.alloc(bytes.length%2)]);const value=Buffer.concat([head,u16(name.length),n,...(kind===1?[upx(Buffer.concat([u16(id),pap]))]:[]),upx(chp)]);return Buffer.concat([u16(value.length),value,Buffer.alloc(value.length%2)]);}
+ const header=Buffer.alloc(20);header.writeUInt16LE(18);header.writeUInt16LE(3,2);header.writeUInt16LE(10,4);if(mixedFonts)header.writeUInt16LE(1,16);
+ part(1,Buffer.concat([header,style(0,1,0xfff,'Normal',Buffer.alloc(0),prop(0x4a43,u16(26))),style(1,1,0,'Heading 1',prop(0x2403,[1]),Buffer.concat([prop(0x0835,[1]),prop(0x4a43,u16(40))])),style(2,2,0xfff,'Emphasis',Buffer.alloc(0),prop(0x0836,[1]))]));
+ const name=Buffer.from('Courier New\0','utf16le'),ffn=Buffer.alloc(40+name.length);ffn[0]=ffn.length-1;name.copy(ffn,40);const eastName=Buffer.from('仿宋_GB2312\0','utf16le'),eastFont=Buffer.alloc(40+eastName.length);eastFont[0]=eastFont.length-1;eastName.copy(eastFont,40);part(15,Buffer.concat([u16(mixedFonts?2:1),u16(0),ffn,...(mixedFonts?[eastFont]:[])]));
+ const tdef=Buffer.alloc(47);tdef[0]=2;tdef.writeInt16LE(2400,3);tdef.writeInt16LE(6000,5);for(let i=0;i<2;i++)for(let j=0;j<4;j++){tdef[7+i*20+4+j*4]=8;tdef[7+i*20+5+j*4]=1;tdef[7+i*20+6+j*4]=1;}
+ const inTable=prop(0x2416,[1]);
+ const pap=[{id:1,data:Buffer.alloc(0)},{id:0,data:Buffer.concat([prop(0x840f,u16(720)),prop(0x8411,u16(360)),prop(0xa414,u16(240))])},{id:0,data:Buffer.concat([prop(0x460b,u16(1)),prop(0x260a,[0])])},{id:0,data:inTable},{id:0,data:inTable},{id:0,data:Buffer.concat([inTable,prop(0x2417,[1]),prop(0xd608,Buffer.concat([u16(tdef.length+1),tdef]))])},{id:0,data:Buffer.alloc(0)}];
+ let cp=0;const boundaries=[1024];for(const p of paragraphs){cp+=p.length;boundaries.push(1024+cp*2);}
+ function fkp(page,bounds,values,pap){const f=Buffer.alloc(512);bounds.forEach((n,i)=>f.writeUInt32LE(n,i*4));f[511]=values.length;let free=510;values.forEach((v,i)=>{let bytes;if(pap){const data=Buffer.concat([u16(v.id),v.data]);bytes=data.length%2?Buffer.concat([Buffer.from([(data.length+1)/2]),data]):Buffer.concat([Buffer.from([0,data.length/2]),data]);}else bytes=Buffer.concat([Buffer.from([v.length]),v]);free=(free-bytes.length)&~1;bytes.copy(f,free);f[(values.length+1)*4+i*(pap?13:1)]=free/2;});f.copy(body,page*512);return Buffer.concat([u32(bounds[0]),u32(bounds.at(-1)),u32(page)]);}
+ part(13,fkp(4,boundaries,pap,true));
+ const hidden=content.indexOf('Hidden'),emphasis=content.indexOf('body'),cb=[1024,1024+emphasis*2,1024+(emphasis+4)*2,1024+hidden*2,1024+(hidden+6)*2,1024+content.length*2];
+ part(12,fkp(5,cb,[Buffer.alloc(0),prop(0x4a30,u16(2)),Buffer.alloc(0),prop(0x083c,[1]),Buffer.alloc(0)],false));
+ const lst=Buffer.alloc(30);lst.writeUInt16LE(1);lst.writeUInt32LE(101,2);lst[28]=1;part(73,lst);
+ const lvl=Buffer.alloc(28);lvl.writeUInt32LE(1);lvl[15]=1;const pattern=Buffer.from('\0.','utf16le');Buffer.concat([lvl,u16(2),pattern]).copy(table,at);at+=34;
+ const lfo=Buffer.alloc(24);lfo.writeUInt32LE(1);lfo.writeUInt32LE(101,4);part(74,lfo);
+ return {WordDocument:body,'1Table':table};
+}
+export function styledXls(XLSX){
+ const book=XLSX.utils.book_new(),sheet=XLSX.utils.aoa_to_sheet([['Styled workbook',1234.5],['Merged']]);sheet.B1.z='#,##0.00';sheet['!merges']=[{s:{r:1,c:0},e:{r:1,c:1}}];XLSX.utils.book_append_sheet(book,sheet,'Styled');
+ const file=XLSX.CFB.read(new Uint8Array(XLSX.write(book,{bookType:'biff8',type:'array'})),{type:'array'}),stream=Buffer.from(XLSX.CFB.find(file,'Workbook').content);
+ for(let at=0;at+4<=stream.length;){const id=stream.readUInt16LE(at),length=stream.readUInt16LE(at+2),pos=at+4;
+  if(id===0x31){stream.writeUInt16LE(320,pos);stream.writeUInt16LE(2,pos+2);stream.writeUInt16LE(10,pos+4);stream.writeUInt16LE(700,pos+6);stream[pos+10]=1;}
+  if(id===0xe0){stream[pos+6]=0x1a;stream[pos+9]=0x78;stream.writeUInt32LE(0x00001111,pos+10);stream.writeUInt32LE(1<<26,pos+14);stream.writeUInt16LE(13,pos+18);}
+  at+=4+length;
+ }
+ return cfbFile(XLSX,{Workbook:stream});
+}
+export function formattedPresentationStreams(){
+ const u16=n=>{const b=Buffer.alloc(2);b.writeUInt16LE(n);return b;},u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;};
+ const content='Positioned title',header=record(3999,u32(0)),tx=record(4000,Buffer.from(content,'utf16le'));
+ const textStyle=record(4001,Buffer.concat([u32(content.length+1),u16(0),u32(2048|4096),u16(1),u16(150),u32(content.length+1),u32(1|0x10000|0x20000|0x40000),u16(1),u16(0),u16(28),u32(0xfe663300)]));
+ const anchor=record(0xf010,Buffer.concat([u16(288),u16(576),u16(5184),u16(1440)]));
+ const options=Buffer.alloc(6);options.writeUInt16LE(385);options.writeUInt32LE(0x00eeddcc,2);
+ const shape=record(0xf004,Buffer.concat([record(0xf00a,Buffer.concat([u32(1),u32(0)]),1),anchor,record(0xf00b,options,1),record(0xf00d,Buffer.concat([header,tx,textStyle]))]),0,true);
+ const slide=record(1006,record(1036,record(0xf002,shape,0,true),0,true),0,true);
+ const persist=Buffer.alloc(20);persist.writeUInt32LE(2);const size=Buffer.alloc(40);size.writeInt32LE(5760);size.writeInt32LE(4320,4);
+ const font=Buffer.alloc(68);Buffer.from('Arial\0','utf16le').copy(font);
+ const doc=record(1000,Buffer.concat([record(1001,size),record(4023,font),record(4080,record(1011,persist),0,true)]),0,true);
+ const ptr=record(6002,Buffer.concat([u32((2<<20)|1),u32(slide.length),u32(0)])),editBody=Buffer.alloc(28);editBody.writeUInt32LE(slide.length+doc.length,12);editBody.writeUInt32LE(1,16);
+ const editAt=slide.length+doc.length+ptr.length,current=Buffer.alloc(28);current.writeUInt16LE(4086,2);current.writeUInt32LE(20,4);current.writeUInt32LE(0xe391c05f,12);current.writeUInt32LE(editAt,16);
+ return {'PowerPoint Document':Buffer.concat([slide,doc,ptr,record(4085,editBody)]),'Current User':current};
+}

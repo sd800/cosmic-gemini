@@ -4,7 +4,7 @@ import { icon, send } from '../../shared/ui.js';
 import { safeDocumentHtml, previewSrcdoc } from './sanitize.js';
 import { normalizeDocumentAppearance } from '../../core/document-appearance.js';
 import { createDocumentStatus } from './status.js';
-import { documentKind } from '../../core/document-preview.js';
+import { documentKind, formatDocumentBytes } from '../../core/document-preview.js';
 
 const params = new URLSearchParams(location.hash.slice(1));
 const id = params.get('id'), mode = params.get('mode');
@@ -185,7 +185,7 @@ function showMetadata() {
   document.querySelector('#filename').textContent = metadata.filename;
   document.querySelector('#filename').title = metadata.filename;
   document.title = metadata.filename + ' · Document Preview';
-  document.querySelector('#metadata').textContent = metadata.site + (metadata.size ? ' · ' + new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(metadata.size / 1024) + ' KiB' : '');
+  document.querySelector('#metadata').textContent = metadata.site + (metadata.size ? ' · ' + formatDocumentBytes(metadata.size, locale) : '');
 }
 async function loadPreparedDocument() {
   notices.loading(t('documentLoading'));

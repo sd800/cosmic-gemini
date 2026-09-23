@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.5.1 — 2026-09-22
+
+- Improved Document Preview for legacy `.doc/.xls/.ppt`: preserved common fonts and text styles, paragraph spacing and indentation, list numbering, table geometry and cell formatting, plus supported slide text boxes, colors and embedded pictures.
+- Refined non-PDF previews with richer spreadsheet text, corrected merged cells around hidden rows/columns, improved RTF/OpenDocument formatting and slide text layout, and safely retained common email presentation styles.
+- Corrected font inheritance and Chinese/Latin font selection, with local substitutes when the original font is unavailable.
+- Corrected Word paragraph spacing and retained blank fields, heading whitespace and default tab widths.
+- Displayed file sizes in decimal units with at most one decimal place, using byte/bytes for unscaled sizes.
+- Fixed preview defaults overriding document formatting. Reused image and formatting data, reduced repeated parsing and bounded complex layouts to keep local conversion responsive. Remote content and executable content remain disabled; PDF continues to use Chrome’s native viewer.
+
 ## 9.4.1 — 2026-09-22
 
 - Expanded Document Preview to `.doc/.xls/.ppt/.rtf/.odt/.ods/.odp/.eml`, including email messages under Other in the supported-format list. Legacy Word and PowerPoint files use content-oriented previews.

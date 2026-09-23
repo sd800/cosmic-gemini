@@ -1,4 +1,12 @@
 export const DOCUMENT_PREVIEW_PATH = 'workspaces/document-preview/document-preview.html';
+export function formatDocumentBytes(bytes, locale = 'en-US') {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '';
+  const units = ['bytes','KB','MB','GB','TB','PB'];
+  let value=bytes,index=0;
+  while(value>=1000&&index<units.length-1){value/=1000;index++;}
+  if(index&&value>=999.95&&index<units.length-1){value/=1000;index++;}
+  return new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(value)+' '+(index===0&&value===1?'byte':units[index]);
+}
 export function documentPreviewWhitelisted(url, domains = []) {
   try {
     const hostname = new URL(url).hostname.toLowerCase().replace(/\.$/, '');

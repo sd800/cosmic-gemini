@@ -1,3 +1,4 @@
+const {localFont}=require('./fonts.cjs');
 // Read only formatting properties. Relationship targets and document CSS never
 // enter this model. All emitted values are checked again at the display boundary.
 const first = (node, name) => node?.children?.find(child => child.name === name);
@@ -28,7 +29,9 @@ function merge(...sources) {
   const result = Object.create(null);
   for (const source of sources) for (const [key, val] of Object.entries(source || {})) {
     if (['__proto__', 'constructor', 'prototype'].includes(key)) continue;
-    result[key] = val && typeof val === 'object' && !Array.isArray(val) ? merge(result[key], val) : val;
+    const inherited=key==='rFonts'?{...result[key]}:result[key];
+    if(key==='rFonts'&&val)for(const [name,themeKey]of [['ascii','asciiTheme'],['hAnsi','hAnsiTheme'],['eastAsia','eastAsiaTheme'],['cs','cstheme']])if(val[name]&&!val[themeKey])delete inherited[themeKey];
+    result[key] = val && typeof val === 'object' && !Array.isArray(val) ? merge(inherited, val) : val;
   }
   return result;
 }
@@ -55,22 +58,19 @@ function color(spec, theme) {
   return '#' + rgb.map(c => Math.round(c).toString(16).padStart(2, '0')).join('');
 }
 const highlightColors = { black:'000000', blue:'0000ff', cyan:'00ffff', green:'00ff00', magenta:'ff00ff', red:'ff0000', yellow:'ffff00', white:'ffffff', darkBlue:'000080', darkCyan:'008080', darkGreen:'008000', darkMagenta:'800080', darkRed:'800000', darkYellow:'808000', darkGray:'808080', lightGray:'c0c0c0' };
-function fontFamily(fonts, theme) {
-  if (!fonts) return undefined;
-  const names = [];
-  for (const [key, themeKey] of [['ascii','asciiTheme'], ['hAnsi','hAnsiTheme'], ['eastAsia','eastAsiaTheme'], ['cs','cstheme']]) {
-    const name = theme.fonts[fonts[themeKey]] || fonts[key];
-    if (typeof name === 'string' && /^[\p{L}\p{N} ._+-]{1,80}$/u.test(name) && !names.includes(name)) names.push(name);
-  }
-  if (!names.length) return undefined;
-  const serif = names.some(name => /宋|仿|楷|SimSun|FangSong|KaiTi|Times|Cambria|Serif/i.test(name));
-  const fallbacks = serif ? ['Songti SC', 'Noto Serif CJK SC'] : ['PingFang SC', 'Microsoft YaHei'];
-  return [...new Set([...names, ...fallbacks])].map(name => '"' + name + '"').join(',') + (serif ? ',serif' : ',sans-serif');
+function fontFamilies(run,theme) {
+  const fonts=run.rFonts;if(!fonts)return {};
+  const name=(key,themeKey)=>theme.fonts[fonts[themeKey]]||fonts[key];
+  let east=name('eastAsia','eastAsiaTheme');
+  const locale=run.lang?.eastAsia||'',script=/^ja/i.test(locale)?'Jpan':/^ko/i.test(locale)?'Hang':/Hant|-(TW|HK|MO)$/i.test(locale)?'Hant':'Hans';
+  const themeName=fonts.eastAsiaTheme;if(themeName&&theme.fonts[themeName+'Scripts']?.[script])east=theme.fonts[themeName+'Scripts'][script];
+  const ascii=localFont([name('ascii','asciiTheme')||name('hAnsi','hAnsiTheme')||east],'sans-serif');
+  return {ascii,east:localFont([east])||ascii,other:localFont([name('hAnsi','hAnsiTheme')])||ascii};
 }
 function runCss(run, theme) {
   const underline = run.u && !['none','0','false'].includes(run.u.val), strike = on(run.strike) || on(run.dstrike);
   return clean({
-    'font-family':fontFamily(run.rFonts, theme), 'font-size':points(run.sz?.val || run.szCs?.val, 2, 4, 96),
+    'font-family':fontFamilies(run,theme).ascii, 'font-size':points(run.sz?.val || run.szCs?.val, 2, 4, 96),
     'font-weight':run.b ? (on(run.b) ? '700' : '400') : undefined,
     'font-style':run.i ? (on(run.i) ? 'italic' : 'normal') : undefined,
     color:color(run.color, theme),
@@ -96,8 +96,8 @@ function paragraphCss(p, theme) {
     'margin-left':indentValue(ind, ind.start != null ? 'start' : 'left', ind.startChars != null ? 'startChars' : 'leftChars'),
     'margin-right':indentValue(ind, ind.end != null ? 'end' : 'right', ind.endChars != null ? 'endChars' : 'rightChars'),
     'text-indent':ind.hanging != null || ind.hangingChars != null ? indentValue(ind, 'hanging', 'hangingChars', true) : indentValue(ind, 'firstLine', 'firstLineChars'),
-    'margin-top':spacing.beforeLines != null ? rounded((number(spacing.beforeLines, 0, 2000) || 0) / 100) + 'em' : points(spacing.before),
-    'margin-bottom':spacing.afterLines != null ? rounded((number(spacing.afterLines, 0, 2000) || 0) / 100) + 'em' : points(spacing.after),
+    'margin-top':spacing.beforeLines != null ? rounded((number(spacing.beforeLines, 0, 2000) || 0) / 100) + 'em' : points(spacing.before || '0'),
+    'margin-bottom':spacing.afterLines != null ? rounded((number(spacing.afterLines, 0, 2000) || 0) / 100) + 'em' : points(spacing.after || '0'),
     'background-color':color(p.shd && {...p.shd,val:p.shd.fill}, theme)
   });
   if (spacing.line != null) {
@@ -132,4 +132,4 @@ function cellCss(c, table, position, theme) {
   }
   return clean(css);
 }
-module.exports = {first,children,attr,value,on,number,points,rounded,properties,merge,styledRun,clean,color,runCss,paragraphCss,tableCss,cellCss};
+module.exports = {first,children,attr,value,on,number,points,rounded,properties,merge,styledRun,clean,color,fontFamilies,runCss,paragraphCss,tableCss,cellCss};

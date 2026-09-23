@@ -8,7 +8,7 @@ import { formattingEntries } from './fixtures/document-formatting.mjs';
 import { acceptedStyles, formatStylesheet } from '../extension/workspaces/document-preview/format-styles.js';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
-import { inspectOffice, validateOfficeContent, documentFilename, documentKind, DOCUMENT_TYPES, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview.js';
+import { formatDocumentBytes, inspectOffice, validateOfficeContent, documentFilename, documentKind, DOCUMENT_TYPES, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview.js';
 import { siteKey } from '../extension/core/site-key.js';
 import { createDocumentRequestIngress } from '../extension/background/features/document-request-ingress.js';
 import { createDocumentPreviewProduct } from '../extension/background/products/customs/document-preview.js';
@@ -294,7 +294,8 @@ test('bundled DOCX renderer preserves inherited and direct formatting, table lay
   };
   const heading = styleForText('Document Preview');
   assert.equal(heading['font-size'], '20pt'); assert.equal(heading['font-weight'], '700');
-  assert.equal(heading.color, '#2468ac'); assert.match(heading['font-family'], /Calibri.*宋体.*serif/);
+  assert.equal(heading.color, '#2468ac'); assert.match(heading['font-family'], /^"Calibri"/);
+  assert.ok(styles.some(s=>s['font-family']?.includes('宋体')), 'Chinese source font remains available on Chinese text');
   const body = styleForText('保留原文');
   assert.equal(body['font-weight'], '400', 'direct bold-off overrides the inherited style');
   assert.equal(body['font-style'], 'italic'); assert.equal(body['font-size'], '13pt');
@@ -322,8 +323,9 @@ test('page-break-before also works without any other formatting; repeated runs s
   entries['word/document.xml'] = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pageBreakBefore/></w:pPr><w:r><w:t>Break</w:t></w:r></w:p>' + '<w:p><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>Repeated</w:t></w:r></w:p>'.repeat(200) + '</w:body></w:document>';
   const result = await convert(entries);
   assert.match(result.value, /^<hr class="cg-page-break"/);
-  assert.equal(result.formatting.styles.length, 1);
-  assert.equal((result.value.match(/Repeated/g) || []).length, 200);
+  const repeated=[...result.value.matchAll(/<span class="(cg-f\d+)">Repeated<\/span>/g)];
+  assert.equal(repeated.length,200);assert.equal(new Set(repeated.map(m=>m[1])).size,1);
+  assert.equal(result.formatting.styles.filter(s=>s['font-size']==='12pt').length,1);
 });
 
 test('document styles cannot add arbitrary CSS, and source XML declarations are rejected', async () => {
@@ -649,7 +651,7 @@ test('XLS keeps Unicode, saved values, formatted numbers, merges and worksheet o
 test('RTF handles Unicode fallbacks, Chinese byte sequences, scoped formatting and safe field results',async()=>{
   await extraRenderers();const {rtfSample}=await import('./fixtures/additional-document-formats.mjs');
   const result=renderer.convertRtf(new TextEncoder().encode(rtfSample).buffer);
-  assert.equal((result.value.match(/中文/g)||[]).length,2);assert.match(result.value,/Safe field result/);assert.match(result.value,/cg-page-break/);assert.match(result.value,/<td>.*Cell one/);
+  assert.equal((result.value.match(/中文/g)||[]).length,2);assert.match(result.value,/Safe field result/);assert.match(result.value,/cg-page-break/);assert.match(result.value,/<td[^>]*>.*Cell one/);
   assert.ok(result.formatting.styles.some(s=>s['font-weight']==='700'));assert.doesNotMatch(result.value,/PROGRAM|INCLUDEPICTURE|tracker/);
   assert.throws(()=>renderer.convertRtf(new TextEncoder().encode('{\\rtf1{bad').buffer));
 });
@@ -711,4 +713,126 @@ test('Document Preview whitelist includes subdomains and ports, preserves order 
   await command('UI_ALPHABETIZE_RULES');assert.deepEqual((await env.platform.readSettings()).documentPreview.whitelistDomains,['example.com','z.example.net']);
   await command('UI_DELETE_RULE','example.com');await env.capture();await env.settle();assert.equal(env.calls.filter(v=>v==='cancel').length,before+1);
   await command('UI_CLEAR_RULES');assert.deepEqual((await env.platform.readSettings()).documentPreview.whitelistDomains,[]);
+});
+
+test('binary DOC preserves inherited/direct styles, list markers, paragraph layout, real tables and hides hidden runs',async()=>{
+  const XLSX=await extraRenderers(),{cfbFile,formattedWordStreams}=await import('./fixtures/additional-document-formats.mjs');
+  const source=formattedWordStreams(),result=renderer.convertLegacyWord(cfbFile(XLSX,source)),styles=result.formatting.styles;
+  assert.match(result.value,/<h1[^>]*>.*Heading/);assert.match(result.value,/cg-list-marker[^>]*>1\. /);assert.match(result.value,/<table.*Left.*Right/);assert.doesNotMatch(result.value,/Hidden/);assert.match(result.value,/visible/);
+  assert.ok(styles.some(s=>s['font-size']==='20pt'&&s['font-weight']==='700'));
+  assert.ok(styles.some(s=>s['margin-left']==='36pt'&&s['text-indent']==='18pt'&&s['margin-bottom']==='12pt'));
+  const emphasis=result.value.match(/<span class="cg-f(\d+)">body<\/span>/);assert.ok(emphasis);assert.equal(styles[Number(emphasis[1])]['font-size'],'13pt','character style does not replace the paragraph font size');assert.equal(styles[Number(emphasis[1])]['font-style'],'italic');
+  assert.ok(styles.some(s=>s.width==='120pt'&&s['border-top-style']==='solid'));
+  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(styles)));
+  source.WordDocument[4*512+511]=255;assert.throws(()=>renderer.convertLegacyWord(cfbFile(XLSX,source)),/invalidDocument/);
+});
+test('binary XLS retains BIFF fonts, palette colors, fills, wrapping and borders alongside saved number formats',async()=>{
+  const XLSX=await extraRenderers(),{styledXls}=await import('./fixtures/additional-document-formats.mjs');
+  const result=renderer.convertLegacySpreadsheet(styledXls(XLSX),XLSX),styles=result.formatting.styles;
+  assert.match(result.parts[0].html,/Styled workbook/);assert.match(result.parts[0].html,/1,234\.50/);
+  const style=styles.find(s=>s['font-size']==='16pt');assert.ok(style);assert.equal(style['font-weight'],'700');assert.equal(style['font-style'],'italic');assert.equal(style.color,'#ff0000');assert.equal(style['background-color'],'#ffff00');assert.equal(style['white-space'],'pre-wrap');assert.equal(style['border-left-style'],'solid');
+  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(styles)));
+});
+test('binary PPT retains text box coordinates, colors, paragraph spacing and character sizes without duplicating text',async()=>{
+  const XLSX=await extraRenderers(),{cfbFile,formattedPresentationStreams}=await import('./fixtures/additional-document-formats.mjs');
+  const result=renderer.convertLegacyPresentation(cfbFile(XLSX,formattedPresentationStreams())),styles=result.formatting.styles;
+  assert.equal((result.parts[0].html.match(/Positioned title/g)||[]).length,1);
+  assert.ok(styles.some(s=>s.left==='72pt'&&s.top==='36pt'&&s.width==='576pt'&&s['background-color']==='#ccddee'));
+  assert.ok(styles.some(s=>s['font-size']==='28pt'&&s['font-weight']==='700'&&s.color==='#003366'));
+  assert.ok(styles.some(s=>s['text-align']==='center'&&s['line-height']==='1.5'));
+  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(styles)));
+});
+test('XLSX preserves rich text without phonetic duplication and carries hidden merge roots to the visible grid',async()=>{
+  await extraRenderers();const entries=spreadsheetEntries();
+  entries['xl/sharedStrings.xml']=entries['xl/sharedStrings.xml'].replace('<r><t>Shared </t></r>','<r><rPr><rFont val="Arial"/><b/><u val="double"/><color indexed="10"/></rPr><t>Shared </t></r><rPh sb="0" eb="1"><t>PHONETIC</t></rPh>');
+  entries['xl/worksheets/sheet1.xml']=entries['xl/worksheets/sheet1.xml'].replace('width="26"','width="26" hidden="1"');
+  const result=await renderer.convertSpreadsheet(storedZip(entries)),html=result.parts[0].html;
+  assert.doesNotMatch(html,/>A<|PHONETIC/);assert.match(html,/colspan="2".*Shared /);assert.ok(result.formatting.styles.some(s=>s['text-decoration-style']==='double'&&s.color==='#ff0000'));
+  entries['xl/worksheets/sheet1.xml']=entries['xl/worksheets/sheet1.xml'].replace('</mergeCells>','<mergeCell ref="B4:C4"/></mergeCells>');
+  await assert.rejects(renderer.convertSpreadsheet(storedZip(entries)),/invalidDocument/,'overlapping merges cannot cause repeated unbounded area scans');
+});
+test('RTF preserves local fonts, colors, indents, spacing, table geometry and resets hidden text',async()=>{
+  await extraRenderers();const sample=String.raw`{\rtf1\ansi{\fonttbl{\f0\fcharset0 Georgia;}}{\colortbl;\red0\green51\blue102;\red221\green238\blue255;}\paperw11906\margl1200\f0\cf1\fs28\li720\fi360\sa240\sl360\slmult1 Visible \v HIDDEN\v0 restored\par\pard\trowd\trrh600\clcbpat2\clbrdrt\brdrs\brdrw20\brdrcf1\cellx2400\cellx6000\intbl Left\cell Right\cell\row\pard End}`;
+  const result=renderer.convertRtf(new TextEncoder().encode(sample).buffer),styles=result.formatting.styles;
+  assert.doesNotMatch(result.value,/HIDDEN/);assert.match(result.value,/restored/);assert.ok(styles.some(s=>s.color==='#003366'&&s['font-family']==='"Georgia",serif'));
+  assert.ok(styles.some(s=>s['margin-left']==='36pt'&&s['text-indent']==='18pt'&&s['line-height']==='1.5'));
+  assert.ok(styles.some(s=>s.width==='120pt'&&s['background-color']==='#ddeeff'&&s['border-top-width']==='1pt'));
+  assert.equal(result.formatting.page.width,'595.3pt');assert.equal(result.formatting.page.left,'60pt');
+});
+test('OpenDocument style families remain independent and retain numbered lists, borders, page metrics and scalar cells',async()=>{
+  await extraRenderers();const {odfEntries}=await import('./fixtures/additional-document-formats.mjs');
+  const doc=odfEntries('odt');doc['content.xml']=doc['content.xml'].replace('</office:automatic-styles>',`<style:style style:name="Heading" style:family="text"><style:text-properties fo:font-size="9pt"/></style:style><text:list-style style:name="Numbered"><text:list-level-style-number text:level="1" style:num-format="I" text:start-value="3"/></text:list-style><style:page-layout style:name="Page"><style:page-layout-properties fo:page-width="21cm" fo:margin-left="2cm"/></style:page-layout><style:master-page style:name="Standard" style:page-layout-name="Page"/></office:automatic-styles>`).replace('</office:text>','<text:list text:style-name="Numbered"><text:list-item><text:p>Third item</text:p></text:list-item></text:list></office:text>');
+  const result=await renderer.convertOpenDocument(storedZip(doc),'odt');assert.ok(result.formatting.styles.some(s=>s['font-size']==='22pt'));assert.match(result.value,/<ol start="3"/);assert.ok(result.formatting.styles.some(s=>s['list-style-type']==='upper-roman'));assert.equal(result.formatting.page.width,'595.276pt');
+  const sheet=odfEntries('ods');sheet['content.xml']=sheet['content.xml'].replace('office:value-type="float" office:value="1200.5"><text:p>1,200.50</text:p>','office:value-type="date" office:date-value="2026-09-22">');
+  assert.match((await renderer.convertOpenDocument(storedZip(sheet),'ods')).parts[0].html,/2026-09-22/);
+});
+test('XLSX separate negative number sections preserve minus signs and parentheses',async()=>{
+ await extraRenderers();const entries=spreadsheetEntries();
+ entries['xl/styles.xml']=entries['xl/styles.xml'].replace('</numFmts>','<numFmt numFmtId="180" formatCode="0.00;[Red]-0.00"/><numFmt numFmtId="181" formatCode="0.00;(0.00)"/></numFmts>').replace('</cellXfs>','<xf numFmtId="180"/><xf numFmtId="181"/></cellXfs>');
+ const count=(entries['xl/styles.xml'].match(/<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/)[1].match(/<xf\b/g)||[]).length;
+ entries['xl/worksheets/sheet1.xml']=entries['xl/worksheets/sheet1.xml'].replace(/<sheetData>[\s\S]*?<\/sheetData>/,'<sheetData><row r="1"><c r="A1" s="'+(count-2)+'"><v>-123.5</v></c><c r="B1" s="'+(count-1)+'"><v>-123.5</v></c></row></sheetData>').replace(/<mergeCells>[\s\S]*?<\/mergeCells>/,'');
+ const result=await renderer.convertSpreadsheet(storedZip(entries));assert.match(result.parts[0].html,/>-123\.50<\/td>/);assert.match(result.parts[0].html,/>\(123\.50\)<\/td>/);
+});
+
+test('PPTX retains paragraph spacing, numbering starts and superscript runs',async()=>{
+  await extraRenderers();const entries=presentationEntries();entries['ppt/slides/slide1.xml']=entries['ppt/slides/slide1.xml'].replace('<a:p><a:r>','<a:p><a:pPr><a:spcBef><a:spcPts val="1200"/></a:spcBef><a:lnSpc><a:spcPct val="150000"/></a:lnSpc><a:buAutoNum type="romanUcPeriod" startAt="3"/></a:pPr><a:r>').replace('sz="3200" b="1"','sz="3200" b="1" baseline="30000"');
+  const result=await renderer.convertPresentation(storedZip(entries));assert.match(result.parts[0].html,/III\. <sup/);assert.ok(result.formatting.styles.some(s=>s['margin-top']==='12pt'&&s['line-height']==='1.5'));
+});
+
+test('binary Word applies separate Chinese and Latin font slots with local-only GB2312 fallbacks',async()=>{
+ const XLSX=await extraRenderers(),{cfbFile,formattedWordStreams}=await import('./fixtures/additional-document-formats.mjs');
+ const result=renderer.convertLegacyWord(cfbFile(XLSX,formattedWordStreams({mixedFonts:true}))),styles=result.formatting.styles;
+ const chinese=result.value.match(/<span class="cg-f(\d+)">中文<\/span>/),latin=result.value.match(/<span class="cg-f(\d+)">Indented <\/span>/);assert.ok(chinese);assert.ok(latin);
+ const c=styles[Number(chinese[1])]['font-family'],l=styles[Number(latin[1])]['font-family'];
+ assert.match(c,/^"仿宋_GB2312"/);assert.match(c,/STFangsong/);assert.match(l,/^"Courier New"/);assert.notEqual(c,l);
+ assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(styles)));
+});
+
+test('DOCX retains Chinese GB2312 fonts separately from Latin fonts and explicit fonts override inherited themes',async()=>{
+ const entries=formattingEntries();
+ entries['word/document.xml']='<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:eastAsia="仿宋_GB2312"/></w:rPr><w:t>Latin 中文正文 123</w:t></w:r></w:p></w:body></w:document>';
+ entries['word/styles.xml']='<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:asciiTheme="minorAscii" w:eastAsiaTheme="minorEastAsia"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>';
+ const result=await convert(entries),chinese=result.value.match(/<span class="cg-f(\d+)">中文正文<\/span>/);assert.ok(chinese);
+ assert.match(result.formatting.styles[Number(chinese[1])]['font-family'],/^"仿宋_GB2312","FangSong_GB2312"/);
+ assert.ok(result.formatting.styles.some(s=>s['font-family']?.startsWith('"Courier New"')));
+ assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(result.formatting.styles)));
+});
+test('DOCX keeps distinct Chinese typefaces through paragraph, character and table inheritance',async()=>{
+ const entries=formattingEntries(),fonts=['宋体','黑体','楷体_GB2312','仿宋_GB2312','华文中宋'];
+ entries['word/styles.xml']='<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:rPr><w:rFonts w:asciiTheme="minorHAnsi" w:eastAsiaTheme="minorEastAsia"/></w:rPr></w:style><w:style w:type="character" w:styleId="Kaiti"><w:rPr><w:rFonts w:eastAsia="楷体_GB2312"/></w:rPr></w:style></w:styles>';
+ entries['word/document.xml']='<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:tbl><w:tr><w:tc>'+fonts.map((font,i)=>'<w:p><w:r><w:rPr><w:rFonts w:ascii="Arial" w:eastAsia="'+font+'"/></w:rPr><w:t>字型'+String.fromCharCode(0x4e00+i)+'</w:t></w:r></w:p>').join('')+'</w:tc></w:tr></w:tbl><w:p><w:r><w:rPr><w:rStyle w:val="Kaiti"/></w:rPr><w:t>继承楷体</w:t></w:r></w:p></w:body></w:document>';
+ const result=await convert(entries);
+ for(const [i,font]of fonts.entries()){
+  const span=result.value.match(new RegExp('<span class="cg-f(\\d+)">字型'+String.fromCharCode(0x4e00+i)+'</span>'));assert.ok(span,font);
+  assert.ok(result.formatting.styles[Number(span[1])]['font-family'].startsWith('"'+font+'",'),font);
+ }
+ const inherited=result.value.match(/<span class="cg-f(\d+)">继承楷体<\/span>/);assert.ok(inherited);assert.match(result.formatting.styles[Number(inherited[1])]['font-family'],/^"楷体_GB2312","KaiTi_GB2312"/);
+});
+
+test('PPTX keeps explicit East Asian fonts separate from Latin fonts',async()=>{
+ await extraRenderers();const entries=presentationEntries();
+ entries['ppt/slides/slide1.xml']=entries['ppt/slides/slide1.xml'].replace(/<a:rPr([^>]*)\/>/,'<a:rPr$1><a:latin typeface="Courier New"/><a:ea typeface="黑体"/></a:rPr>');
+ const result=await renderer.convertPresentation(storedZip(entries)),html=result.parts[0].html;
+ assert.match(html,/<span class="cg-f\d+">第一张幻灯片/);
+ assert.ok(result.formatting.styles.some(s=>s['font-family']?.startsWith('"黑体","SimHei"')));
+ assert.ok(result.formatting.styles.some(s=>s['font-family']?.startsWith('"Courier New"')));
+});
+
+test('DOCX preserves blank fields and uses paragraph-mark metrics without changing text-run sizes',async()=>{
+ const entries=formattingEntries();
+ entries['word/styles.xml']='<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="24"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>';
+ entries['word/settings.xml']='<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:defaultTabStop w:val="420"/></w:settings>';
+ entries['word/document.xml']='<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:spacing w:afterLines="50"/><w:rPr><w:sz w:val="48"/><w:b/></w:rPr></w:pPr><w:r><w:t xml:space="preserve">　　Name:    </w:t></w:r><w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">            </w:t></w:r><w:r><w:tab/><w:t>Next</w:t></w:r></w:p><w:p><w:r><w:t>After</w:t></w:r></w:p></w:body></w:document>';
+ const result=await convert(entries),styles=result.formatting.styles;
+ assert.match(result.value,/　　Name:    <\/span>/);assert.match(result.value,/> {12}<\/span>/);assert.match(result.value,/\tNext/);
+ const blank=result.value.match(/<span class="cg-f(\d+)"> {12}<\/span>/);assert.equal(styles[Number(blank[1])]['text-decoration-line'],'underline');assert.equal(styles[Number(blank[1])]['font-size'],'12pt');assert.notEqual(styles[Number(blank[1])]['font-weight'],'700');
+ assert.ok(styles.some(s=>s['font-size']==='24pt'&&s['margin-bottom']==='0.5em'&&s['tab-size']==='21pt'));
+ assert.ok(styles.some(s=>s['margin-top']==='0pt'&&s['margin-bottom']==='0pt'));
+ assert.match(previewSrcdoc(result.value,'en-US',result.formatting),/p,h1,h2,h3,h4,h5,h6,li\{white-space:pre-wrap/);
+ assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(styles)));
+});
+
+test('document information uses decimal size units rather than fixed binary KiB',()=>{
+ for(const [bytes,label]of [[0,'0 bytes'],[1,'1 byte'],[2,'2 bytes'],[999,'999 bytes'],[1000,'1 KB'],[44544,'44.5 KB'],[1048576,'1 MB'],[999999,'1 MB'],[1e9,'1 GB']])assert.equal(formatDocumentBytes(bytes,'en-US'),label);
+ assert.equal(formatDocumentBytes(NaN),'');assert.equal(formatDocumentBytes(-1),'');assert.equal(formatDocumentBytes(1500000,'zh-CN'),'1.5 MB');
 });

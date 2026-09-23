@@ -22,6 +22,6 @@ async function email(buffer,labels={}){
   if(value.length>32*1024*1024)throw Error('documentTooLarge');
   // The shared DOM sanitizer drops scripts/styles/forms and all remote sources.
   // Attachments are listed as text, never embedded as documents or programs.
-  return {value,formatting:{styles:[]}};
+  return {value,formatting:{kind:'eml',styles:[]}};
 }
 module.exports={email};

@@ -1,8 +1,10 @@
 // The worker sends data, never executable document CSS. Both properties and
 // their values are restricted here before they reach the sandbox stylesheet.
 const lengths = /^-?\d{1,4}(?:\.\d{1,3})?(?:pt|em|%)$/;
-const fonts = /^(?:"[\p{L}\p{N} ._+-]{1,80}",){1,8}(?:serif|sans-serif)$/u;
+const fonts = /^(?:"[\p{L}\p{N} ._+-]{1,80}",){1,8}(?:serif|sans-serif|monospace)$/u;
 const values = {
+  'tab-size':/^\d{1,4}(?:\.\d{1,3})?pt$/,
+  'list-style-type':/^(?:decimal|lower-alpha|upper-alpha|lower-roman|upper-roman)$/,
   position:/^absolute$/, overflow:/^hidden$/, 'white-space':/^(?:pre-wrap|nowrap)$/,
   transform:/^rotate\(-?\d{1,3}(?:\.\d{1,3})?deg\)$/,
   'font-family':fonts,'font-size':/^\d{1,2}(?:\.\d{1,3})?pt$/,'font-weight':/^(?:400|700)$/,
@@ -13,7 +15,7 @@ const values = {
   direction:/^(?:ltr|rtl)$/,'vertical-align':/^(?:top|middle|bottom)$/,'table-layout':/^(?:auto|fixed)$/,
   'line-height':/^(?:\d{1,3}(?:\.\d{1,3})?(?:pt)?|max\(1\.2em,\d{1,3}(?:\.\d{1,3})?pt\))$/
 };
-for(const property of ['width','min-width','height','left','top','border-radius','text-indent','letter-spacing',...['top','bottom','left','right'].flatMap(side=>['margin-'+side,'padding-'+side])])values[property]=lengths;
+for(const property of ['width','min-width','max-width','height','min-height','left','top','border-radius','text-indent','letter-spacing',...['top','bottom','left','right'].flatMap(side=>['margin-'+side,'padding-'+side])])values[property]=lengths;
 for(const side of ['top','bottom','left','right']){
   values['border-'+side+'-width']=lengths;
   values['border-'+side+'-style']=/^(?:none|solid|double|dotted|dashed)$/;
@@ -51,8 +53,11 @@ export function formatStylesheet(formatting) {
       normal.push(key+':'+value);
       if(key==='color'||key==='background-color'||key.endsWith('-color'))night.push(key+':'+darkColor(value,key));
     }
-    if(normal.length)light.push('.cg-f'+index+'{'+normal.join(';')+'}');
-    if(night.length)dark.push('.cg-f'+index+'{'+night.join(';')+'}');
+    // Authored document properties outrank family defaults such as .cg-shape p
+    // and .cg-sheet td without accepting arbitrary selectors or !important.
+    const selector='.cg-f'+index+'.cg-f'+index;
+    if(normal.length)light.push(selector+'{'+normal.join(';')+'}');
+    if(night.length)dark.push(selector+'{'+night.join(';')+'}');
   }
   const page=formatting?.page||{},paper=[];
   for(const [property,key] of [['max-width','width'],['padding-top','top'],['padding-bottom','bottom'],['padding-left','left'],['padding-right','right']]) {

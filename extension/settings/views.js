@@ -253,7 +253,7 @@ export function viewFor(featureId) {
       <h2 class="satellite-category-heading" data-i18n="satellitesSiteSpecificFeatures"></h2>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">
-          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsImageDarkMode" aria-hidden="true"></span><h1 data-i18n="xhsImageDarkModeSettingsName"></h1></div><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeScopeDescription"></p><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeControlsDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsImageDarkMode" aria-hidden="true"></span><h1 data-i18n="xhsImageDarkModeSettingsName"></h1></div><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
           <div class="satellite-control"><label class="switch"><input id="xhsImageDarkModeEnabled" type="checkbox"><span></span><b class="sr-only">XHS Image Dark Mode</b></label></div>
         </div>
         <div class="preference-list satellite-preferences">

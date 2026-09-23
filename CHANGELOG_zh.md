@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.6.3 — 2026-09-22
+
+- 精简中英文 README 中 Document Preview 与 XHS Image Dark Mode 的说明；将设置页中 XHS Image Dark Mode 的三段说明合并为一个自然段，实验性提示继续单独显示。
+
 ## 9.6.2 — 2026-09-22
 
 - PDF 首次打开和刷新后停在文档最顶部，完整显示第一页与工具栏之间的留白；正常翻页、缩放与外观切换保持原有的阅读位置行为。

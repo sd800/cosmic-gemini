@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.6.2');
+assert.equal(manifest.version, '9.6.3');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -249,7 +249,7 @@ assert.match(pageDisplaySettings, /page-display-feature-heading[\s\S]*greyscaleN
 assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZhihu"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
 assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
-assert.match(satellitesSettings, /xhsImageDarkModeDescription[\s\S]*xhsImageDarkModeScopeDescription[\s\S]*xhsImageDarkModeControlsDescription[\s\S]*experimentalFeature/);
+assert.match(satellitesSettings, /xhsImageDarkModeDescription[\s\S]*experimentalFeature/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);

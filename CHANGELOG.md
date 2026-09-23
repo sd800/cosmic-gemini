@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.3 — 2026-09-22
+
+- Shortened the English and Chinese README descriptions for Document Preview and XHS Image Dark Mode. Combined the three-part XHS Image Dark Mode Settings description into one paragraph while keeping its experimental note separate.
+
 ## 9.6.2 — 2026-09-22
 
 - Open and reload PDFs at the top of the document, keeping the gap above the first page visible. Normal navigation, zoom and appearance changes retain their existing reading-position behavior.

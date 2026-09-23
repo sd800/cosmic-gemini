@@ -84,27 +84,15 @@ Unselected categories keep their original values. These adjustments do not chang
 
 #### Document Preview
 
-Preview documents, spreadsheets, slides and email messages in the browser before saving them. This default-off feature offers **Preview** and **Download** for supported downloads before Chrome asks for a save location. The dialog shows the filename and any size Chrome already knows. Document bytes are fetched, validated and cached only after you choose an action; dismissing an accidental prompt creates no document cache. A remembered action applies to all supported formats for the current website session. The contextual Document Preview button in the extension popup restores asking each time.
+Preview documents, spreadsheets, slides, PDFs and email messages before saving them. This default-off feature offers **Preview** or **Download** before Chrome asks where to save a supported file. You can remember one choice for the current website visit, or whitelist a site to keep its normal downloads.
 
-A website whitelist skips the preview prompt and keeps normal downloads on matching source pages. Every entered domain includes all of its subdomains; existing preview pages remain available.
+Supported formats: documents `.docx/.docm/.dotx/.dotm/.doc/.rtf/.odt`; spreadsheets `.xlsx/.xlsm/.xltx/.xltm/.xls/.ods`; slides `.pptx/.pptm/.potx/.potm/.ppsx/.ppsm/.ppt/.odp`; PDF `.pdf`; other `.eml`. The same list is available in Settings.
 
-Supported formats: documents `.docx/.docm/.dotx/.dotm/.doc/.rtf/.odt`; spreadsheets `.xlsx/.xlsm/.xltx/.xltm/.xls/.ods`; slides `.pptx/.pptm/.potx/.potm/.ppsx/.ppsm/.ppt/.odp`; PDF `.pdf`; other `.eml`. Settings also provides this list in a collapsed **Supported file formats** section.
+Office, Rich Text, OpenDocument and email previews preserve common formatting, although complex layouts may differ. Password-protected Office files cannot be previewed; supported encrypted PDFs can be opened with a password.
 
-Word previews also retain continuous spaces and blank underlined fields, common equations, phonetic annotations and checkbox symbols where supported. New preview tabs open beside their source tab. Browser translation leaves the preview toolbar unchanged.
+PDF Viewer provides text selection, search, page navigation, thumbnails, outlines when available, zoom, rotation, printing and original-file download. PDFs open at 100%. Preview appearance can be set to **Auto**, **Light** or **Dark**, then changed for the current website visit without altering the original file.
 
-Legacy Word, Excel and PowerPoint previews retain supported fonts, paragraph formatting, tables and slide text positions. Rich Text and OpenDocument previews also preserve common formatting. Email previews retain supported text and table styles while showing attachments as names only. Exact Word pagination and complex drawing effects are not reproduced. Password-protected Office files are not supported; PDF Viewer can open supported password-protected PDFs after you enter the password. A loading line appears while the file is being prepared, without percentage numbers.
-
-Office previews preserve common text and table formatting, with worksheet and slide navigation where applicable. Word page breaks appear as separator lines. Zoom controls adjust Office content in 10% steps from 50% to 200%. Original fonts are preferred when available to the browser; otherwise, similar local fonts are used. Fonts are not downloaded. These are content previews, not full Office applications: complex layouts, charts, SmartArt, animations and embedded media may be omitted or differ. Spreadsheet formulas show saved results when available; they are never recalculated.
-
-PDF files use the internal PDF Viewer, which currently has no separate Settings entry. It provides selectable text, search, page navigation, thumbnails, a document outline when available, fit-width/fit-page views, full screen, printing and original-file download. PDFs open at 100%; the zoom buttons change the scale by 10 percentage points, and Rotate left changes only the displayed orientation. Printing supports up to 50 pages per request, with a rendering budget for large pages. PDFs opened directly by Chrome outside Document Preview keep their existing behavior.
-
-For other documents, a single toolbar shows the filename in the center with the source website below it, alongside the reading controls. File size is omitted from the toolbar.
-
-Choose **Auto**, **Light** or **Dark** in settings. A light/dark button switches the reading appearance for the current website session; **Default** restores the settings preference. PDF dark mode adjusts the rendered pages, including their pictures; the surrounding viewer has its own dark background and fine page-edge borders. Theme changes do not reload the file. Non-PDF embedded pictures and all original files remain unchanged. Turning off Document Preview stops new captures while keeping existing previews available until their session expires.
-
-Non-PDF files are converted locally in a separate worker and displayed in a script-free sandbox with remote content blocked. Macro-enabled files expose static content only: macros, ActiveX controls and embedded programs do not run. PDF Viewer parses locally using a bundled PDF.js worker and displays content in an isolated sandbox without extension privileges. PDF scripts, remote content and document editing are disabled. These measures reduce risk, but do not certify a file as safe; downloading keeps the original file, including any macros it contains.
-
-Document caches live only in browser memory and are not uploaded to a conversion service. A cached file is cleared **10 minutes after its last preview closes**, when the source website’s last tab closes or leaves, or when Chrome exits, whichever comes first. Reopening before expiry cancels the countdown while a preview remains open. Website choices and appearance overrides last for that website session across formats and subdomains, using eTLD+1; ordinary and incognito sessions are separate. Unsupported or uncorrelated downloads keep Chrome’s normal handling. A supported file that cannot be rendered can still be downloaded in its original form.
+Files are processed locally. Previews do not run macros or load remote content. The temporary file cache is cleared 10 minutes after the last preview closes, when the source website session ends, or when Chrome exits, whichever comes first.
 
 #### Ad Marshal
 
@@ -118,13 +106,7 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 #### XHS Image Dark Mode
 
-Make bright text images easier to view when a page-wide dark mode is active on Xiaohongshu.
-
-The feature analyzes reduced image samples, switches light text cards to dark, deepens uniform gray cards to a black background, and recognizes text layouts built from stable light and dark panels. Text cards with colored frames are supported, while photographs and mixed photo-and-text images remain unchanged.
-
-Comment images are considered only after their post is opened and are processed near the viewport. Opening a comment image provides a separate light-or-dark control.
-
-In an expanded post, press and hold the post image button to alternate the complete post between forced dark and forced light display; click it to restore automatic recognition. On a user profile, a separate control can pause analysis and adjustment for every post on that profile.
+Dim bright text cards and chat screenshots on Xiaohongshu when page-wide dark mode is active, while leaving photos unchanged. Automatic adjustment covers feeds and opened posts; comment images are handled after their post opens. In an opened post, use the image button to switch one image, hold it to force the whole post dark or light, or click to restore automatic detection. A profile control can pause adjustments for that profile. **Always on** allows adjustment without detecting page-wide dark mode.
 
 This is an experimental feature.
 

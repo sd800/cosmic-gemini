@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.23 — 2026-09-23
+
+- Refined the Native Scroll and No Autoplay setup descriptions in English and Simplified Chinese.
+
 ## 9.6.22 — 2026-09-23
 
 - Refine the Chinese Native Scroll settings description.

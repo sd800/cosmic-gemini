@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.6.23 — 2026-09-23
+
+- 调整 Native Scroll 和 No Autoplay 建议设置说明的中英文表述。
+
 ## 9.6.22 — 2026-09-23
 
 - 调整 Native Scroll 设置页的中文说明。

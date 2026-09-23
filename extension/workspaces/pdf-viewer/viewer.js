@@ -108,7 +108,12 @@ async function open(bytes) {
     if (document.hidden) viewer.cleanup(); else { viewer.update(); void drawThumbnails(); }
   }, { signal });
   eventBus.on('pagesinit', () => {
-    viewer.currentScaleValue = '1'; $('count').textContent = '/ ' + pdf.numPages; $('page').max = pdf.numPages; $('page').style.setProperty('--page-digits', Math.max(2, String(pdf.numPages).length));
+    viewer.currentScaleValue = '1';
+    // Setting the initial scale aligns the first paper edge with the viewport.
+    // Restore its top gutter once at initialization, never during later reading.
+    viewport.scrollTop = 0;
+    viewer.update();
+    $('count').textContent = '/ ' + pdf.numPages; $('page').max = pdf.numPages; $('page').style.setProperty('--page-digits', Math.max(2, String(pdf.numPages).length));
     $('previous').disabled = true; $('next').disabled = pdf.numPages === 1; $('print').disabled = !viewer.printingAllowed;
     $('print-to').max = $('print-from').max = pdf.numPages; $('print-to').value = Math.min(pdf.numPages, PDF_LIMITS.printPages);
     status(''); emit('ready');

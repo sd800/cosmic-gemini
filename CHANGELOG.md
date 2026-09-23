@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.2 — 2026-09-22
+
+- Open and reload PDFs at the top of the document, keeping the gap above the first page visible. Normal navigation, zoom and appearance changes retain their existing reading-position behavior.
+
 ## 9.6.1 — 2026-09-22
 
 - Added PDF Viewer as an internal reading capability for Document Preview, with no separate Settings entry. It supports text selection, search, page navigation, thumbnails, document outlines, fit modes, full screen, password-protected PDFs, printing and downloading originals; no editing or drawing tools are included.

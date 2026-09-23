@@ -43,8 +43,19 @@ try {
   }
   async function ready(frame) { await frame.waitForFunction(() => document.querySelector('.page canvas')?.width > 0 && document.querySelector('#count').textContent !== '/ —'); await frame.waitForFunction(() => document.querySelector('.textLayer span')); }
   async function jump(frame, number) { await frame.locator('#page').fill(String(number)); await frame.locator('#page').blur(); await frame.waitForFunction(n => !!document.querySelector(`.page[data-page-number="${n}"] canvas`), number); }
+  async function initialPosition(frame) {
+    const position = await frame.evaluate(() => {
+      const viewport = document.querySelector('#viewport');
+      return {top: viewport.scrollTop, gap: document.querySelector('.page').getBoundingClientRect().top - viewport.getBoundingClientRect().top,
+        page: document.querySelector('#page').value};
+    });
+    assert.equal(position.page, '1');
+    assert.equal(position.top, 0, 'newly opened PDFs start above the first page, not at its paper edge');
+    assert.ok(position.gap >= 15, 'keep the space between the toolbar and first page visible');
+  }
   const start = performance.now(); const frame = await open(viewerPdf()); await ready(frame);
   metrics.open80PagesMs = Math.round(performance.now() - start);
+  await initialPosition(frame);
   assert.equal(await frame.locator('#scale').inputValue(), '1');
   const pageIndicator = await frame.evaluate(() => ({
     appearance: getComputedStyle(document.querySelector('#page')).appearance,
@@ -140,8 +151,11 @@ try {
   await integration.goto(`chrome-extension://${id}/workspaces/document-preview/document-preview.html#id=${docId}&mode=preview&appearance=dark`);
   await integration.waitForSelector('.pdf-viewer-frame');
   let embedded=await (await integration.locator('.pdf-viewer-frame').elementHandle()).contentFrame();await ready(embedded);
+  await initialPosition(embedded);
   assert.equal(await integration.locator('body').getAttribute('class'),'pdf-active');
+  await jump(embedded, 3);
   await embedded.locator('#theme').click();await embedded.waitForFunction(()=>document.documentElement.dataset.dark==='false');
+  assert.equal(await embedded.locator('#page').inputValue(), '3', 'theme changes keep the reading position');
   assert.match(integration.url(),/appearance=light/);
   await embedded.locator('#theme-auto').click();await embedded.waitForFunction(()=>document.documentElement.dataset.dark==='true');
   await embedded.locator('#fullscreen').click();await integration.waitForFunction(()=>!!document.fullscreenElement);
@@ -150,6 +164,7 @@ try {
   embedded=await (await integration.locator('.pdf-viewer-frame').elementHandle()).contentFrame();await ready(embedded);
   assert.equal(await embedded.locator('#scale').inputValue(),'1');
   assert.equal(await embedded.evaluate(()=>document.documentElement.dataset.dark),'true');
+  await initialPosition(embedded);
   await page.evaluate(()=>chrome.storage.session.set({'documentPreview:regular':{documents:[],themes:{}}}));
   await integration.waitForFunction(()=>!document.querySelector('.pdf-viewer-frame'));
   assert.match(await integration.locator('#status').textContent(),/expired/);await integration.close();

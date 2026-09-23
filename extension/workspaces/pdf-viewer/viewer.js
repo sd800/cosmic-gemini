@@ -25,10 +25,11 @@ void workerReady.catch(() => {});
 let thumbnailObserver, thumbnailTask, thumbnailBusy = false, thumbnailGeneration = 0, outlineLoaded = false;
 const nearThumbnails = new Set(), thumbnailCache = new Map(), printUrls = new Set();
 let sharpening = false, documentFilename, documentBytes = 0, properties;
+let customZoomScale = null;
 let printing = false, printTask, zoomFrame = 0, wheelFactor = 1, wheelOrigin, passwordCancelled = false;
 const emit = type => port?.postMessage({ type });
 function status(key, loading = false) { $('status').textContent = text[key] || ''; $('progress').hidden = !loading; }
-function theme(dark, automatic) { document.documentElement.dataset.dark = String(!!dark); document.documentElement.style.colorScheme = dark ? 'dark' : 'light'; $('theme-auto').hidden = !!automatic; setReaderIcon($('theme'), dark ? 'sun' : 'moon'); }
+function theme(dark) { document.documentElement.dataset.dark = String(!!dark); document.documentElement.style.colorScheme = dark ? 'dark' : 'light'; setReaderIcon($('theme'), dark ? 'sun' : 'moon'); }
 function updateCanvasSharpening(view, transformed = false) {
   const canvas = view?.canvas;
   if (!canvas) return;
@@ -71,7 +72,7 @@ window.addEventListener('message', event => {
         if (!destroyed && !passwordCancelled) { status('failed'); emit('error'); void task?.destroy().catch(() => {}); pdfWorker?.destroy(); }
       });
     }
-    else if (data?.type === 'theme') theme(data.dark, data.automatic);
+    else if (data?.type === 'theme') theme(data.dark);
     else if (data?.type === 'sharpening') setSharpening(data.enabled);
     else if (data?.type === 'fullscreen-error') status('fullScreenFailed');
     else if (data?.type === 'fullscreen') {
@@ -88,7 +89,7 @@ window.addEventListener('message', event => {
   $('filename').title = `${documentFilename} — ${text.properties}`;
   $('filename').setAttribute('aria-label', $('filename').title);
   setSharpening(input.sharpening);
-  theme(input.dark, input.automatic); status('loading', true);
+  theme(input.dark); status('loading', true);
   setReaderIcons(document); emit('shell-ready');
   // Keep form navigation forbidden by the sandbox, including method=dialog.
   // These controls only validate local input and close the local dialog.
@@ -102,7 +103,7 @@ window.addEventListener('message', event => {
       if (event.key === 'Enter') { event.preventDefault(); form.querySelector('button:not([value=cancel])').click(); }
     }, { signal });
   }
-  click('download', () => emit('download')); click('theme', () => emit('theme')); click('theme-auto', () => emit('auto'));
+  click('download', () => emit('download')); click('theme', () => emit('theme'));
   click('fullscreen', () => emit('fullscreen'));
 }, { signal });
 
@@ -157,7 +158,7 @@ async function open(bytes, sampling) {
     // Restore its top gutter once at initialization, never during later reading.
     viewport.scrollTop = 0;
     viewer.update();
-    $('count').textContent = '/ ' + pdf.numPages; $('page').max = pdf.numPages; $('page').style.setProperty('--page-digits', Math.max(2, String(pdf.numPages).length));
+    $('count').textContent = String(pdf.numPages); $('page').max = pdf.numPages; $('page').parentElement.style.setProperty('--page-digits', Math.max(2, String(pdf.numPages).length));
     $('previous').disabled = true; $('next').disabled = pdf.numPages === 1; $('print').disabled = !viewer.printingAllowed;
     $('print-to').max = $('print-from').max = pdf.numPages; $('print-to').value = Math.min(pdf.numPages, PDF_LIMITS.printPages);
     $('filename').disabled = false;
@@ -181,8 +182,13 @@ async function open(bytes, sampling) {
   eventBus.on('scalechanging', ({ scale, presetValue }) => {
     if (sharpening) for (const view of viewer.getCachedPageViews()) view.canvas?.classList.remove('pdf-sharpen');
     const preset = presetValue || String(scale);
-    if ([...$('scale').options].some(option => option.value === preset)) $('scale').value = preset;
-    else { $('custom-scale').textContent = Math.round(scale * 100) + '%'; $('custom-scale').hidden = false; $('scale').value = 'custom'; }
+    const custom = $('custom-scale'), select = $('scale');
+    if ([...select.options].some(option => option.value === preset)) {
+      select.value = preset; custom.hidden = true; customZoomScale = null;
+    } else {
+      custom.textContent = Math.round(scale * 100) + '%'; custom.hidden = false;
+      select.value = 'custom'; customZoomScale = scale;
+    }
     $('zoom-in').disabled = scale >= 5; $('zoom-out').disabled = scale <= .25;
   }, { signal });
   viewer.setDocument(pdf);
@@ -190,6 +196,17 @@ async function open(bytes, sampling) {
   $('page').onchange = () => { viewer.currentPageNumber = Math.max(1, Math.min(pdf.numPages, Number($('page').value) || 1)); $('page').value = viewer.currentPageNumber; };
   function zoomTo(scale, origin) { viewer.updateScale({ scaleFactor: pdfScale(scale) / viewer.currentScale, drawingDelay: 180, origin }); }
   click('zoom-in', () => zoomTo(stepPdfScale(viewer.currentScale, 1))); click('zoom-out', () => zoomTo(stepPdfScale(viewer.currentScale, -1)));
+  // Position the changing percentage only when the menu opens, not per zoom tick.
+  function locateCustomZoom() {
+    if (customZoomScale === null) return;
+    const select = $('scale'), custom = $('custom-scale');
+    const upper = [...select.options].find(option => Number(option.value) > customZoomScale);
+    select.insertBefore(custom, upper || null); select.value = 'custom'; customZoomScale = null;
+  }
+  $('scale').addEventListener('pointerdown', locateCustomZoom, { signal });
+  $('scale').addEventListener('keydown', event => {
+    if (['ArrowDown','ArrowUp',' ','Enter','Home','End','F4'].includes(event.key)) locateCustomZoom();
+  }, { signal });
   $('scale').onchange = () => { const value = $('scale').value; if (value === 'custom') return; if (value.startsWith('page-')) viewer.currentScaleValue = value; else zoomTo(Number(value)); };
   click('rotate', () => {
     const page = viewer.currentPageNumber;

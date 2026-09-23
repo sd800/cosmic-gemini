@@ -1,7 +1,7 @@
 import { PDF_LIMITS } from './model.js';
 // This host is the only connection to a product. The opaque viewer has no
 // extension APIs, storage access, document URL, or arbitrary command channel.
-export function createPdfViewer({ container, bytes, filename, locale, sampling, sharpening = false, dark, automatic, onDownload, onTheme, onAuto, onError }) {
+export function createPdfViewer({ container, bytes, filename, locale, sampling, sharpening = false, dark, onDownload, onTheme, onError }) {
   const validBytes = value => value instanceof ArrayBuffer && value.byteLength > 0 && value.byteLength <= PDF_LIMITS.bytes;
   if (bytes !== undefined && !validBytes(bytes)) throw Error('Invalid PDF size');
   const iframe = document.createElement('iframe');
@@ -39,7 +39,6 @@ export function createPdfViewer({ container, bytes, filename, locale, sampling, 
     else if (data.type === 'ready' || data.type === 'password') { loaded = true; clearTimeout(timeout); }
     else if (data.type === 'download') onDownload();
     else if (data.type === 'theme') onTheme();
-    else if (data.type === 'auto') onAuto();
     else if (data.type === 'fullscreen') {
       // User activation from the reader reaches its ancestor. Fullscreen belongs
       // to the trusted host; the opaque sandbox never receives extra privileges.
@@ -50,7 +49,7 @@ export function createPdfViewer({ container, bytes, filename, locale, sampling, 
   };
   iframe.addEventListener('load', () => {
     if (closed) return;
-    iframe.contentWindow.postMessage({ type: 'CG_PDF_INIT', filename, locale, sampling, sharpening: sharpening === true, dark, automatic }, '*', [channel.port2]);
+    iframe.contentWindow.postMessage({ type: 'CG_PDF_INIT', filename, locale, sampling, sharpening: sharpening === true, dark }, '*', [channel.port2]);
     frameLoaded = true; sendDocument();
   }, { once: true });
   container.append(iframe);
@@ -60,7 +59,7 @@ export function createPdfViewer({ container, bytes, filename, locale, sampling, 
       opened = true; pending = data; armTimeout(); sendDocument();
     },
     setSharpening(value) { if (!closed) { sharpening = value === true; channel.port1.postMessage({ type: 'sharpening', enabled: sharpening }); } },
-    setTheme(dark, automatic) { if (!closed) channel.port1.postMessage({ type: 'theme', dark: !!dark, automatic: !!automatic }); },
+    setTheme(value) { dark = !!value; if (!closed) channel.port1.postMessage({ type: 'theme', dark }); },
     destroy
   };
 }

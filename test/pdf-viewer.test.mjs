@@ -6,6 +6,7 @@ import { PDF_LIMITS, pdfDetailCanvasPixels, pdfScale, stepPdfScale, pdfOptions, 
 import { formatPdfDate } from '../extension/workspaces/pdf-viewer/document-dates.js';
 import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
 import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
+import { toggleDocumentAppearance } from '../extension/core/document-appearance.js';
 const root = new URL('../extension/', import.meta.url);
 test('PDF properties preserve ISO date order, optional seconds and original offsets', () => {
   assert.equal(formatPdfDate("D:20260102123456+05'30'"), '2026-01-02 12:34:56 (UTC+5:30)');
@@ -26,6 +27,15 @@ test('PDF properties show validated decimal file sizes with at most one decimal'
   assert.equal(pdfFileSize(1234), '1.2 KB'); assert.equal(pdfFileSize(1200000), '1.2 MB');
   assert.equal(pdfFileSize(999, 'zh-CN'), '999 字节');
   for (const value of [undefined, -1, 1.5, NaN, Infinity, '1000']) assert.equal(pdfFileSize(value), '');
+});
+test('single PDF appearance control returns to the configured default', () => {
+  for (const systemDark of [true, false]) for (const base of ['light','dark','auto']) {
+    const opposite = toggleDocumentAppearance(base, null, systemDark);
+    const dark = base === 'dark' || (base === 'auto' && systemDark);
+    assert.equal(opposite, dark ? 'light' : 'dark');
+    assert.equal(toggleDocumentAppearance(base, opposite, systemDark), null);
+    assert.equal(toggleDocumentAppearance(base, dark ? 'dark' : 'light', systemDark), opposite, 'same-as-default site override still switches visibly');
+  }
 });
 test('PDF Viewer applies read-only asset and resource boundaries', () => {
   const data = new Uint8Array([1,2]);

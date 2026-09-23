@@ -45,7 +45,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 });`);
 await writeFile(join(extension, 'qa.html'), '<!doctype html><style>body{margin:0;background:#121416}main{height:100vh;display:flex}iframe{border:0;width:100%;height:100%}</style><main></main><script type="module" src="qa.js"></script>');
 await writeFile(join(extension, 'qa.js'), `import {createPdfViewer} from './workspaces/pdf-viewer/host.js';
-window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=false)=>{window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:bytes===undefined?undefined:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,sharpening,dark:true,automatic:true,onDownload:()=>events.push('download'),onTheme:()=>viewer.setTheme(false,false),onAuto:()=>viewer.setTheme(true,true),onError:()=>events.push('error')});};`);
+window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=false)=>{window.qaDark=true;window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:bytes===undefined?undefined:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,sharpening,dark:true,onDownload:()=>events.push('download'),onTheme:()=>{window.qaDark=!window.qaDark;viewer.setTheme(window.qaDark);},onError:()=>events.push('error')});};`);
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, deviceScaleFactor: 2, viewport: { width: 1280, height: 1000 }, args: ['--force-device-scale-factor=2', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 try {
   const page = await context.newPage();
@@ -60,7 +60,7 @@ try {
     await page.goto(url); await page.evaluate(({ bytes, locale, sampling, sharpening }) => openPdf(bytes, locale, sampling, sharpening), { bytes: Array.from(bytes), locale, sampling, sharpening });
     return (await page.locator('iframe').elementHandle()).contentFrame();
   }
-  async function ready(frame) { await frame.waitForFunction(() => document.querySelector('.page canvas')?.width > 0 && document.querySelector('#count').textContent !== '/ —'); await frame.waitForFunction(() => document.querySelector('.textLayer span')); }
+  async function ready(frame) { await frame.waitForFunction(() => document.querySelector('.page canvas')?.width > 0 && document.querySelector('#count').textContent !== '—'); await frame.waitForFunction(() => document.querySelector('.textLayer span')); }
   async function detailReady(frame, number = 1, previous = null) {
     await frame.waitForFunction(({number, previous}) => {
       const detail = window.qaPdfViewer?.getPageView(number - 1)?.detailView;
@@ -77,6 +77,7 @@ try {
       throw error;
     });
   }
+  async function zoom(frame, value) { await frame.locator('#scale').selectOption(value); }
   async function jump(frame, number) { await frame.locator('#page').fill(String(number)); await frame.locator('#page').blur(); await frame.waitForFunction(n => !!document.querySelector(`.page[data-page-number="${n}"] canvas`), number); }
   async function initialPosition(frame) {
     const position = await frame.evaluate(() => {
@@ -140,20 +141,44 @@ try {
   await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'false');
   assert.deepEqual(await paperPalette(), [[255,255,255],[0,0,0]], 'light appearance retains the original paper and ink');
   await page.screenshot({path:join(folder, 'small-type-light.png'), clip:detailClip});
-  await frame.locator('#theme-auto').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
+  await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
   assert.equal(await frame.locator('#scale').inputValue(), '1');
   const pageIndicator = await frame.evaluate(() => ({
     appearance: getComputedStyle(document.querySelector('#page')).appearance,
     countSize: getComputedStyle(document.querySelector('#count')).fontSize,
     pageSize: getComputedStyle(document.querySelector('#page')).fontSize,
     zoomSize: getComputedStyle(document.querySelector('#scale')).fontSize,
-    count: document.querySelector('.page-indicator #count').textContent
+    count: document.querySelector('.page-indicator #count').textContent,
+    countWidth: document.querySelector('#count').getBoundingClientRect().width,
+    pageWidth: document.querySelector('#page').getBoundingClientRect().width,
+    separatorSize: getComputedStyle(document.querySelector('.page-separator')).fontSize
   }));
   assert.equal(pageIndicator.appearance, 'textfield');
   assert.equal(pageIndicator.countSize, pageIndicator.pageSize);
   assert.equal(pageIndicator.countSize, pageIndicator.zoomSize);
-  assert.equal(pageIndicator.count, '/ 80');
-  assert.equal(await frame.locator('#rotate').evaluate(node => getComputedStyle(node).borderTopColor), 'rgba(0, 0, 0, 0)');
+  assert.equal(pageIndicator.count, '80');
+  assert.equal(pageIndicator.countWidth, pageIndicator.pageWidth);
+  assert.equal(pageIndicator.separatorSize, pageIndicator.pageSize);
+  assert.equal(await frame.locator('#scale').evaluate(n => n.tagName), 'SELECT');
+  assert.equal(await frame.locator('#theme-auto').count(), 0);
+  assert.equal(await frame.locator('#theme').getAttribute('title'), 'Switch light/dark mode');
+  assert.equal(await frame.locator('#previous').isVisible(), true);
+  assert.equal(await frame.locator('#next').isVisible(), true);
+  await frame.locator('#next').click();
+  await frame.waitForFunction(() => qaPdfViewer.currentPageNumber === 2 && qaPdfViewer._getVisiblePages().ids.has(2));
+  await frame.locator('#previous').click();
+  await frame.waitForFunction(() => qaPdfViewer.currentPageNumber === 1 && qaPdfViewer._getVisiblePages().ids.has(1));
+  await frame.locator('#zoom-in').click();
+  assert.equal(await frame.locator('#custom-scale').textContent(), '110%');
+  await frame.locator('#scale').dispatchEvent('pointerdown');
+  assert.deepEqual(await frame.locator('#scale').evaluate(n => {
+    const custom = n.querySelector('#custom-scale'); return [custom.previousElementSibling.value,custom.nextElementSibling.value,n.value];
+  }), ['1','1.25','custom']);
+  await zoom(frame, '1');
+  assert.equal(await frame.locator('#custom-scale').evaluate(n => n.hidden), true);
+  await jump(frame, 1);
+  await frame.waitForFunction(() => qaPdfViewer.currentPageNumber === 1);
+  await detailReady(frame);
   for (const width of [1280, 600, 360]) {
     await page.setViewportSize({width, height:1000});
     const layout = await frame.evaluate(() => {
@@ -206,7 +231,7 @@ try {
   await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'false');
   await frame.locator('#filename').click(); await frame.waitForFunction(() => !document.querySelector('#properties-status').textContent);
   await page.screenshot({path:join(folder,'properties-light-en.png')}); await frame.locator('#properties-close').click();
-  await frame.locator('#theme-auto').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
+  await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
   metrics.properties = 'filename click/keyboard, lazy cached metadata, ISO dates/offsets, safe text, original dimensions, light/dark and dismissal';
   assert.equal(await frame.evaluate(() => typeof chrome?.runtime), 'undefined');
   assert.equal(await frame.evaluate(() => !!globalThis.PDF_ATTACK), false);
@@ -215,13 +240,13 @@ try {
   assert.equal(await frame.evaluate(() => getComputedStyle(document.querySelector('.page')).outlineStyle), 'solid');
   assert.equal(await frame.evaluate(() => getComputedStyle(document.querySelector('.page')).backgroundColor), 'rgb(10, 10, 10)');
   const originalDetail = await frame.locator('.page canvas.detailView').first().elementHandle();
-  await frame.locator('#scale').selectOption('1.25');
+  await zoom(frame, '1.25');
   await detailReady(frame, 1, originalDetail);
   metrics.fractionalDetailRatio = await frame.locator('.page canvas.detailView').first().evaluate(canvas => canvas.width / canvas.getBoundingClientRect().width);
   assert.ok(metrics.fractionalDetailRatio >= 5.5, 'fractional zoom preserves higher-density detail');
   assert.equal(await frame.locator('.page canvas.detailView').first().evaluate(canvas => getComputedStyle(canvas).imageRendering), 'auto');
   await page.screenshot({path:join(folder, 'fractional-zoom.png')});
-  await frame.locator('#scale').selectOption('1');
+  await zoom(frame, '1');
   await frame.locator('#zoom-in').click(); await frame.locator('#zoom-in').click();
   assert.equal(await frame.locator('#custom-scale').textContent(), '120%');
   await frame.locator('#zoom-out').click(); await frame.locator('#zoom-out').click(); assert.equal(await frame.locator('#scale').inputValue(), '1');
@@ -251,7 +276,7 @@ try {
   const pagePixels = await frame.locator('.page canvas').evaluateAll(nodes => nodes.map(canvas => ({pixels:canvas.width * canvas.height, detail:canvas.classList.contains('detailView')})));
   assert.ok(pagePixels.every(({pixels, detail}) => pixels <= (detail ? 36 : 4) * 1024 * 1024), 'base and detail canvases respect their separate budgets');
   await frame.locator('#rotate').click(); assert.equal(await frame.locator('#page').inputValue(), '60');
-  await frame.locator('#scale').selectOption('page-fit');
+  await zoom(frame, 'page-fit');
   await frame.locator('#sidebar-toggle').click(); await frame.waitForSelector('.thumbnail canvas');
   metrics.thumbnailRatio = await frame.locator('.thumbnail canvas').first().evaluate(canvas => canvas.width / canvas.getBoundingClientRect().width);
   assert.ok(metrics.thumbnailRatio >= 1.9, 'sidebar thumbnails match Retina pixel density');
@@ -265,7 +290,7 @@ try {
   metrics.retainedThumbnails = await frame.locator('.thumbnail canvas').count(); assert.ok(metrics.retainedThumbnails <= 24);
   await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'false');
   assert.equal(await frame.evaluate(() => getComputedStyle(document.querySelector('.canvasWrapper')).filter), 'none');
-  await frame.locator('#theme-auto').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
+  await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
   await frame.locator('#fullscreen').click(); await page.waitForFunction(() => !!document.fullscreenElement);
   await frame.locator('#fullscreen').click(); await page.waitForFunction(() => !document.fullscreenElement);
   await frame.locator('#download').click(); assert.ok((await page.evaluate(() => events)).includes('download'));
@@ -276,7 +301,7 @@ try {
   assert.equal(await fresh.locator('#scale').inputValue(), '1'); assert.equal(await fresh.locator('#rotate').getAttribute('title'), '向左旋转');
   // The theme hint is applied by a head script, before the engine import/first paint.
   assert.equal(await fresh.evaluate(() => document.documentElement.dataset.dark), 'true');
-  await fresh.locator('#scale').selectOption('page-fit');
+  await zoom(fresh, 'page-fit');
   await page.screenshot({path: join(folder, 'dark-zh.png')});
   if (process.env.PDF_VIEWER_PASSWORD_SAMPLE) {
     const locked = await open(await readFile(process.env.PDF_VIEWER_PASSWORD_SAMPLE)); await locked.waitForSelector('#password-dialog[open]');
@@ -290,12 +315,12 @@ try {
     metrics.realPages = await real.locator('#count').textContent();
     const firstDetail = await real.locator('.page canvas.detailView').first().elementHandle();
     const realZoomStart = performance.now();
-    await real.locator('#scale').selectOption('5'); await detailReady(real, 1, firstDetail);
+    await zoom(real, '5'); await detailReady(real, 1, firstDetail);
     metrics.real500PercentMs = Math.round(performance.now() - realZoomStart);
     metrics.real500PercentRatio = await real.locator('.page canvas.detailView').first().evaluate(canvas => canvas.width / canvas.getBoundingClientRect().width);
     assert.ok(metrics.real500PercentRatio >= 4.8, '500% zoom increases visible detail without rasterizing the whole page at 6x');
     const enlargedDetail = await real.locator('.page canvas.detailView').first().elementHandle();
-    await real.locator('#scale').selectOption('page-fit');
+    await zoom(real, 'page-fit');
     await detailReady(real, 1, enlargedDetail);
     await page.screenshot({path: join(folder, 'real.png')});
   }
@@ -341,14 +366,14 @@ try {
   await page.evaluate(() => viewer.setSharpening(true));
   await scan.waitForFunction(()=>getComputedStyle(document.querySelector('canvas.detailView')).filter.includes('pdf-detail-sharpen'));
   const scanPrevious = await scan.locator('canvas.detailView').elementHandle();
-  const scanZoomStart = performance.now(); await scan.locator('#scale').selectOption('2'); await detailReady(scan,1,scanPrevious);
+  const scanZoomStart = performance.now(); await zoom(scan, '2'); await detailReady(scan,1,scanPrevious);
   await page.screenshot({path:join(folder,'scan-200-percent.png')});
   metrics.scanZoomPaintMs = Math.round(performance.now()-scanZoomStart);
   const economical = await open(viewerPdf(2), 'en-US', 2, true); await ready(economical);
   await economical.waitForFunction(()=>window.qaPdfViewer.getPageView(0).renderingState===3);
   assert.equal(await economical.evaluate(()=>window.qaPdfViewer.getPageView(0).getRenderPixelRatio()),2);
   assert.equal(await economical.locator('.page[data-page-number="1"] canvas.pdf-sharpen').count(),1,'sharpening also covers full-resolution base canvases');
-  await economical.locator('#scale').selectOption('2'); await detailReady(economical);
+  await zoom(economical, '2'); await detailReady(economical);
   assert.equal(await economical.evaluate(()=>window.qaPdfViewer.getPageView(0).getRenderPixelRatio()),2);
   await page.evaluate(() => viewer.setSharpening(false)); await filtersOff(economical);
   const lowMemory = await open(viewerPdf(2), 'en-US', 1); await ready(lowMemory);
@@ -360,7 +385,7 @@ try {
   assert.ok(Math.abs(metrics.oneTimesCanvas.density-1)<.01);
   assert.ok(metrics.oneTimesCanvas.pixels<=1024*1024, '1x uses a smaller actual canvas at normal zoom');
   await filtersOff(lowMemory);
-  await lowMemory.locator('#scale').selectOption('2'); await detailReady(lowMemory);
+  await zoom(lowMemory, '2'); await detailReady(lowMemory);
   assert.equal(await lowMemory.evaluate(()=>window.qaPdfViewer.getPageView(0).maxDetailCanvasPixels),1024*1024);
   assert.equal(await lowMemory.evaluate(()=>window.qaPdfViewer.getPageView(0).maxCanvasPixels),1024*1024);
   await filtersOff(lowMemory);
@@ -463,13 +488,13 @@ try {
   assert.equal(await settings.locator('#documentPdfSharpening').isDisabled(),true);
   await settings.close();
   await page.evaluate(()=>chrome.storage.local.set({qaLocale:'en-US'}));
-  await embedded.locator('#scale').selectOption('2'); await detailReady(embedded);
+  await zoom(embedded, '2'); await detailReady(embedded);
   assert.equal(await density(embedded),4,'saving preferences and zooming cannot change an open reader sampling value');
   await jump(embedded, 3);
   await embedded.locator('#theme').click();await embedded.waitForFunction(()=>document.documentElement.dataset.dark==='false');
   assert.equal(await embedded.locator('#page').inputValue(), '3', 'theme changes keep the reading position');
   assert.match(integration.url(),/appearance=light/);
-  await embedded.locator('#theme-auto').click();await embedded.waitForFunction(()=>document.documentElement.dataset.dark==='true');
+  await embedded.locator('#theme').click();await embedded.waitForFunction(()=>document.documentElement.dataset.dark==='true');
   await embedded.locator('#fullscreen').click();await integration.waitForFunction(()=>!!document.fullscreenElement);
   await embedded.locator('#fullscreen').click();await integration.waitForFunction(()=>!document.fullscreenElement);
   await integration.reload();await integration.waitForSelector('.pdf-viewer-frame');
@@ -478,6 +503,30 @@ try {
   assert.equal(await density(embedded),6,'a new reader instance takes the updated setting');
   assert.equal(await embedded.evaluate(()=>document.documentElement.dataset.dark),'true');
   await initialPosition(embedded);
+  const themeTooltip = await embedded.locator('#theme').getAttribute('title');
+  for (const defaultAppearance of ['light','dark','auto']) {
+    await integration.emulateMedia({colorScheme:'light'});
+    await page.evaluate(async appearance => {
+      const stored = (await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings;
+      stored.documentPreview.appearance = appearance;
+      await chrome.storage.local.set({cosmicGeminiSettings:stored});
+    }, defaultAppearance);
+    const defaultDark = defaultAppearance === 'dark';
+    await embedded.waitForFunction(dark => document.documentElement.dataset.dark === String(dark), defaultDark);
+    await embedded.locator('#theme').click();
+    await embedded.waitForFunction(dark => document.documentElement.dataset.dark === String(dark), !defaultDark);
+    await page.waitForFunction(async () => (await chrome.storage.session.get('qaDocument')).qaDocument.siteTheme !== null);
+    await embedded.locator('#theme').click();
+    await embedded.waitForFunction(dark => document.documentElement.dataset.dark === String(dark), defaultDark);
+    await page.waitForFunction(async () => (await chrome.storage.session.get('qaDocument')).qaDocument.siteTheme === null);
+    assert.equal(await embedded.locator('#theme').getAttribute('title'), themeTooltip);
+    assert.equal(await embedded.locator('#theme-auto').count(),0);
+    if (defaultAppearance === 'auto') {
+      await integration.emulateMedia({colorScheme:'dark'});
+      await embedded.waitForFunction(() => document.documentElement.dataset.dark === 'true');
+    }
+  }
+  metrics.toolbar = 'centered compact groups, symmetric page fields, previous/next, zoom presets/custom insertion, single theme control and restored Auto/Light/Dark';
   await page.evaluate(()=>chrome.storage.session.set({'documentPreview:regular':{documents:[],themes:{}}}));
   await integration.waitForFunction(()=>!document.querySelector('.pdf-viewer-frame'));
   assert.match(await integration.locator('#status').textContent(),/expired/);await integration.close();

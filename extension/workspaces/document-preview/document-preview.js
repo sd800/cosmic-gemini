@@ -2,7 +2,7 @@ import { loadLocale } from '../../core/locale.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
 import { icon, send } from '../../shared/ui.js';
 import { safeDocumentHtml, previewSrcdoc } from './sanitize.js';
-import { normalizeDocumentAppearance } from '../../core/document-appearance.js';
+import { normalizeDocumentAppearance, toggleDocumentAppearance } from '../../core/document-appearance.js';
 import { createDocumentStatus } from './status.js';
 import { documentKind } from '../../core/document-preview.js';
 
@@ -59,7 +59,7 @@ function updateTheme() {
   // An opaque sandbox cannot be restyled through its DOM. The embedding
   // element's color scheme updates its media queries without reloading it.
   frame.style.colorScheme = dark ? 'dark' : 'light';
-  pdfViewer?.setTheme(dark, siteTheme === null);
+  pdfViewer?.setTheme(dark);
   themeToggle.innerHTML = icon(dark ? 'pageDisplay' : 'moon');
   themeToggle.title = t(dark ? 'documentThemeLight' : 'documentThemeDark');
   themeToggle.setAttribute('aria-label', themeToggle.title);
@@ -99,8 +99,9 @@ async function preparePdfViewer() {
   const theme = siteTheme || defaultTheme;
   pdfViewer = createPdfViewer({ container: document.querySelector('main'),
     filename: metadata.filename, locale, sampling: metadata.pdfSampling, sharpening: metadata.pdfSharpening,
-    dark: theme === 'dark' || (theme === 'auto' && appearance.matches), automatic: siteTheme === null,
-    onDownload: () => void download(), onTheme: () => themeToggle.click(), onAuto: () => void setSiteTheme(null),
+    dark: theme === 'dark' || (theme === 'auto' && appearance.matches),
+    onDownload: () => void download(),
+    onTheme: () => void setSiteTheme(toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)),
     onError: () => { if (!expired) { document.body.classList.remove('pdf-active'); notices.show(t('documentRenderFailed')); } }
   });
   document.body.classList.add('pdf-active');

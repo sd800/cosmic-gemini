@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.6.26 — 2026-09-23
+
+- No Autoplay 总开关关闭时，声音自动播放设置灰度显示且不可操作，已保存的选择保持不变。
+
 ## 9.6.25 — 2026-09-23
 
 - 调整 Native Scroll 和 No Autoplay 建议设置说明的英文措辞。

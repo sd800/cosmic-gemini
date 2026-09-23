@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.26 — 2026-09-23
+
+- Dim and disable No Autoplay's audio autoplay settings while its main switch is off, without discarding saved choices.
+
 ## 9.6.25 — 2026-09-23
 
 - Refined the English Native Scroll and No Autoplay setup wording.

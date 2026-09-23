@@ -60,8 +60,8 @@ const sharedWhitelistSection = () => `
   </section>`;
 
 const audioAllowSection = () => `
-  <section class="card grouped-rule-card audio-rule-card">
-    <h2 data-i18n="audioAllowHeading"></h2>
+  <fieldset id="noAutoplayAudioOptions" class="card grouped-rule-card audio-rule-card" aria-labelledby="audioAllowHeading" disabled>
+    <h2 id="audioAllowHeading" data-i18n="audioAllowHeading"></h2>
     <p data-i18n="audioAllowHelp"></p>
     <label class="preference-row" for="audioAutoplayAllSites">
       <span><strong data-i18n="audioAllowAllSitesHeading"></strong><small data-i18n="audioAllowAllSitesHelp"></small></span>
@@ -69,7 +69,7 @@ const audioAllowSection = () => `
     </label>
     ${rulePanel('permanentAudioAllowRules', 'audioAllowedSitesHeading', 'audioAllowedSitesHelp')}
     <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
-  </section>`;
+  </fieldset>`;
 
 const anyCopyRuleSection = (featureId, headingKey, helpKey, emptyKey) => `
   <section class="card rule-card" data-feature-id="${featureId}" data-list-section="siteRules" data-empty-key="${emptyKey}">

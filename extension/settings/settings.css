@@ -71,6 +71,8 @@ html[lang="en-US"] .adaptive-rule-help span + span { margin-top: 3px; }
 .audio-rule-card > .preference-row { margin-top: 14px; }
 .audio-rule-card > .rule-panel { padding: 18px 0 0; margin-top: 4px; border-top: 1px solid var(--line); }
 .audio-rule-card > .rule-panel > p:first-of-type { min-height: 0; }
+.audio-rule-card { min-width: 0; margin: 0; transition: border-color 150ms ease, opacity 150ms ease; }
+.audio-rule-card:disabled { border-color: color-mix(in srgb, var(--line) 82%, var(--surface-raised)); opacity: .56; }
 .flow-list { display: grid; gap: 14px; padding: 0; margin: 14px 0 0; counter-reset: settings-flow; list-style: none; }
 .flow-list li { position: relative; min-height: 24px; padding-left: 34px; color: var(--muted); font-size: 12px; line-height: 1.5; counter-increment: settings-flow; }
 .flow-list li::before { position: absolute; top: 0; left: 0; display: grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; background: var(--blue-soft); color: var(--blue); content: counter(settings-flow); font-size: 11px; font-weight: 750; }

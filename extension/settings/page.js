@@ -333,6 +333,8 @@ function render() {
     control.value = value;
     control.checked = checked;
   }
+  const noAutoplayAudioOptions = document.querySelector('#noAutoplayAudioOptions');
+  if (noAutoplayAudioOptions) noAutoplayAudioOptions.disabled = !enabled?.checked;
   if (reduceWhitePointReduction) {
     reduceWhitePointReduction.disabled = !pageDisplayEnabled || !reduceWhitePointEnabled.checked;
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${reduceWhitePointReduction.value}%`;
@@ -619,6 +621,10 @@ function bindView() {
   if (enabled) {
     const enabledFeatureId = featureId;
     enabled.addEventListener('change', () => {
+      if (enabledFeatureId === 'noAutoplay') {
+        const audioOptions = document.querySelector('#noAutoplayAudioOptions');
+        if (audioOptions) audioOptions.disabled = !enabled.checked;
+      }
       if (enabledFeatureId === 'pageDisplay') {
         document.body.dataset.pageDisplayEnabled = String(enabled.checked);
         const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');

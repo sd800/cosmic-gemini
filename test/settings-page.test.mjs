@@ -150,7 +150,7 @@ function controller(feature = 'satellites') {
   const source = readFileSync(new URL('../extension/settings/page.js', import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '');
   vm.runInContext(source.slice(0, source.indexOf("\nfor (const link of document.querySelectorAll('[data-feature-link]')) {")) + `
-    globalThis.controller = { render, renderList, renderBehaviorList, update, savePreference,
+    globalThis.controller = { render, renderList, renderBehaviorList, bindView, update, savePreference,
       bindEmptyRuleSort, bindRuleInputHelp, isRuleOrderReset, isRuleListClean, isRuleInputHelpRequest,
       async hydrate(snapshot) { await settingsState.read(async () => snapshot); states = settingsState.value; },
       pendingControls, listSignatures };
@@ -396,6 +396,40 @@ test('Page Display master switch disables every subordinate control without disc
   assert.equal(reduce.disabled, true);
   assert.equal(greyscale.disabled, true);
   assert.equal(slider.disabled, true);
+});
+
+test('No Autoplay main switch disables audio autoplay settings without clearing saved choices', async () => {
+  const { api, nodes, setTransport } = controller('noAutoplay');
+  const master = new Element('input');
+  const audioOptions = new Element('fieldset');
+  const audioAllSites = new Element('input');
+  nodes.set('#enabled', master);
+  nodes.set('#noAutoplayAudioOptions', audioOptions);
+  nodes.set('#audioAutoplayAllSites', audioAllSites);
+  nodes.set('#language', new Element('select'));
+  let snapshot = { preferences: { noAutoplay: {
+    enabled: false, audioAutoplayAllSites: true, permanentAudioAllowRules: ['music.example']
+  } } };
+  await api.hydrate(snapshot);
+  api.render();
+  assert.equal(audioOptions.disabled, true);
+  assert.equal(audioAllSites.checked, true);
+  api.bindView();
+  const saving = deferred();
+  setTransport(message => message.type === 'UI_GET' ? Promise.resolve(snapshot) : saving.promise);
+  master.checked = true;
+  master.events.change();
+  assert.equal(audioOptions.disabled, false, 'the audio section is available immediately');
+  snapshot = { preferences: { noAutoplay: { ...snapshot.preferences.noAutoplay, enabled: true } } };
+  saving.resolve(snapshot.preferences.noAutoplay);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(audioOptions.disabled, false);
+  assert.equal(audioAllSites.checked, true);
+
+  await api.hydrate({ preferences: { noAutoplay: { ...snapshot.preferences.noAutoplay, enabled: false } } });
+  api.render();
+  assert.equal(audioOptions.disabled, true);
+  assert.equal(audioAllSites.checked, true);
 });
 
 test('popup readback caches only saved ordinary-window preferences', async () => {

@@ -91,6 +91,8 @@
   };
   const enabled = document.querySelector('#enabled');
   if (enabled) enabled.checked = incognitoContext ? false : typeof current.enabled === 'boolean' ? current.enabled : enabled.checked;
+  const noAutoplayAudioOptions = document.querySelector('#noAutoplayAudioOptions');
+  if (noAutoplayAudioOptions) noAutoplayAudioOptions.disabled = !enabled?.checked;
   const introSetting = document.querySelector('.intro-setting');
   if (introSetting && ['nativeScroll', 'noAutoplay'].includes(feature) && incognitoContext) {
     introSetting.textContent = translate('disabledByDefaultInIncognito');

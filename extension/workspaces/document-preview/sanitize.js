@@ -1,3 +1,4 @@
+import { externalLinkTarget } from '../../shared/external-links-capture/target.js';
 import { acceptedStyles, formatStylesheet, DOCUMENT_DARK_TEXT } from './format-styles.js';
 const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd ruby rt rp'.split(' '));
 const DROP = new Set('script style iframe frame object embed form input button textarea select meta link base svg'.split(' '));
@@ -77,7 +78,8 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
       if (classes.includes('cg-page-break')) next.setAttribute('role', 'separator');
       if (node.localName === 'a') {
         const href = node.getAttribute('href') || '';
-        if (/^https?:\/\//i.test(href)) { next.setAttribute('href', href); next.setAttribute('target', '_blank'); next.setAttribute('rel', 'noopener noreferrer'); }
+        const external = externalLinkTarget(href);
+        if (external) { next.setAttribute('href', '#'); next.setAttribute('data-external-link', external); }
         else if (/^#[\w:.-]+$/.test(href)) next.setAttribute('href', href);
       }
       if (node.localName === 'img') {
@@ -102,9 +104,8 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
   return output.body.innerHTML;
 }
 
-export function previewSrcdoc(body, locale, formatting) {
-  const kind = ['xlsx', 'pptx'].includes(formatting?.kind) ? formatting.kind : 'docx';
-  return `<!doctype html><html lang="${locale === 'zh-CN' ? 'zh-CN' : 'en-US'}"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>
+export function documentStyles(formatting) {
+  return `
     html{color-scheme:light dark;background:#eceef1;color:#202124;font:11pt/1.4 'Aptos','Calibri','Arial','PingFang SC','Microsoft YaHei',sans-serif;overflow-wrap:anywhere}
     body{box-sizing:border-box;width:calc(100% - 40px);max-width:612pt;min-height:calc(100vh - 40px);margin:20px auto;padding:54pt;background:white;box-shadow:0 1px 5px #0002}
     p,h1,h2,h3,h4,h5,h6,li{white-space:break-spaces;tab-size:36pt}p{margin:0 0 8pt;min-height:1em}p:empty::before{content:'\u00a0'}h1,h2,h3,h4,h5,h6{line-height:1.25;margin:16pt 0 8pt}h1{font-size:22pt}h2{font-size:18pt}h3{font-size:14pt}h4,h5,h6{font-size:12pt}img{max-width:100%;height:auto}rt{white-space:pre-wrap}sup,sub{line-height:0}
@@ -120,5 +121,5 @@ export function previewSrcdoc(body, locale, formatting) {
     .cg-slide{position:relative;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 5px #0002}.cg-shape{box-sizing:border-box;line-height:1.2}.cg-shape p{margin:0 0 5pt}.cg-shape table{width:100%;margin:0}.cg-slide-picture{display:block;width:100%;height:100%;max-width:none;object-fit:contain}.cg-slide-background{position:absolute;width:100%;height:100%;max-width:none;object-fit:cover}
     @media(prefers-color-scheme:dark){.cg-sheet{background:#292a2d}.cg-sheet th{background:#303238;color:#aeb4bc}}
     @media(max-width:700px){body.cg-format-xlsx,body.cg-format-pptx{min-width:100%;padding:0}}
-    </style></head><body class="cg-format-${kind}">${body}</body></html>`;
+    `;
 }

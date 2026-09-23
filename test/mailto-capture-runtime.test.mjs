@@ -73,6 +73,7 @@ async function runtimeFixture() {
   vm.runInContext(nanpSource, context);
   const phoneSource = await readFile(new URL('../extension/content/mailto-capture-phone.js', import.meta.url), 'utf8');
   vm.runInContext(phoneSource, context);
+  vm.runInContext(await readFile(new URL('../extension/shared/external-links-capture/protocols.js', import.meta.url), 'utf8'), context);
   const source = await readFile(new URL('../extension/content/mailto-capture-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   return { context, runtime: context[Symbol.for('cosmic-gemini.mailto-capture.runtime')] };

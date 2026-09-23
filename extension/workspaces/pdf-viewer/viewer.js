@@ -272,6 +272,27 @@ async function open(bytes, sampling) {
   window.addEventListener('afterprint', cleanupPrint, { signal });
 }
 
+// External Links Capture never forwards arbitrary URLs to the privileged host.
+let externalLinksCapture, externalLinkRequest = 0;
+function bindExternalLink(node, url) {
+  node.dataset.externalLink = url; node.title = url;
+  if (node.tagName === 'A') node.href = '#';
+  const activate = async event => {
+    if (event.type === 'auxclick' && event.button !== 1) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!event.isTrusted || destroyed) return;
+    const request = ++externalLinkRequest;
+    externalLinksCapture ||= import('../../shared/external-links-capture/capture.js')
+      .then(({ createExternalLinksCapture }) => createExternalLinksCapture({ signal, locale: document.documentElement.lang }));
+    try {
+      const capture = await externalLinksCapture;
+      if (!destroyed && node.isConnected && request === externalLinkRequest) capture.show(url, node);
+    } catch { /* A failed prompt must never fall through to opening a link. */ }
+  };
+  node.addEventListener('click', activate, { signal });
+  node.addEventListener('auxclick', activate, { signal });
+}
+
 async function renderLinks(number, linkService) {
   const pageView = viewer.getPageView(number - 1), viewport = pageView?.viewport;
   if (!pageView?.pdfPage || !viewport || destroyed) return;
@@ -281,11 +302,11 @@ async function renderLinks(number, linkService) {
   const layer = document.createElement('div'); layer.className = 'pdf-links';
   for (const item of annotations.slice(0, 1000)) {
     if (item.subtype !== 'Link' || item.actions || !Array.isArray(item.rect) || item.rect.length !== 4 || !item.rect.every(Number.isFinite)) continue;
-    const url = safePdfLink(item.url); if (!url && !item.dest) continue;
+    const url = safePdfLink(item.url || item.unsafeUrl); if (!url && !item.dest) continue;
     const rect = [...viewport.convertToViewportPoint(item.rect[0], item.rect[1]), ...viewport.convertToViewportPoint(item.rect[2], item.rect[3])];
     if (!rect.every(Number.isFinite)) continue;
     const link = document.createElement('a');
-    if (url) { link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.title = url; }
+    if (url) bindExternalLink(link, url);
     else { link.href = '#'; link.onclick = e => { e.preventDefault(); void linkService.goToDestination(item.dest).catch(() => {}); }; link.title = text.page; }
     link.style.cssText = `left:${Math.min(rect[0],rect[2])/viewport.width*100}%;top:${Math.min(rect[1],rect[3])/viewport.height*100}%;width:${Math.abs(rect[2]-rect[0])/viewport.width*100}%;height:${Math.abs(rect[3]-rect[1])/viewport.height*100}%`;
     link.setAttribute('aria-label', link.title); layer.append(link);
@@ -338,7 +359,11 @@ async function showOutline(links) {
     if (depth > 20) return;
     for (const item of items) { if (++count > 2000) break;
       const button = document.createElement('button'); button.textContent = String(item.title || text.page).slice(0, 512); button.style.paddingInlineStart = (8 + depth * 10) + 'px';
-      button.disabled = !item.dest; button.onclick = () => void links.goToDestination(item.dest).catch(() => {}); container.append(button);
+      const url = !item.actions && safePdfLink(item.url || item.unsafeUrl);
+      button.disabled = !item.dest && !url;
+      if (url) bindExternalLink(button, url);
+      else button.onclick = () => void links.goToDestination(item.dest).catch(() => {});
+      container.append(button);
       if (Array.isArray(item.items)) add(item.items, container, depth + 1);
     }
   }

@@ -45,7 +45,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 });`);
 await writeFile(join(extension, 'qa.html'), '<!doctype html><style>body{margin:0;background:#121416}main{height:100vh;display:flex}iframe{border:0;width:100%;height:100%}</style><main></main><script type="module" src="qa.js"></script>');
 await writeFile(join(extension, 'qa.js'), `import {createPdfViewer} from './workspaces/pdf-viewer/host.js';
-window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=false)=>{window.qaDark=true;window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:bytes===undefined?undefined:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,sharpening,dark:true,onDownload:()=>events.push('download'),onTheme:()=>{window.qaDark=!window.qaDark;viewer.setTheme(window.qaDark);},onError:()=>events.push('error')});};`);
+window.openDocument=async(html,formatting)=>{const {createDocumentContent}=await import('./workspaces/document-preview/content-host.js');const frame=document.createElement('iframe');document.querySelector('main').replaceChildren(frame);window.contentReader=createDocumentContent(frame,'en-US',()=>events.push('content-error'));contentReader.render(html,formatting);};window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=false)=>{window.qaDark=true;window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:bytes===undefined?undefined:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,sharpening,dark:true,onDownload:()=>events.push('download'),onTheme:()=>{window.qaDark=!window.qaDark;viewer.setTheme(window.qaDark);},onError:()=>events.push('error')});};`);
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, deviceScaleFactor: 2, viewport: { width: 1280, height: 1000 }, args: ['--force-device-scale-factor=2', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 try {
   const page = await context.newPage();
@@ -111,6 +111,60 @@ try {
     await frame.waitForFunction(() => [...document.querySelectorAll('.page canvas')].every(canvas => getComputedStyle(canvas).filter === 'none'));
     assert.equal(await frame.locator('canvas.pdf-sharpen').count(),0,'disabled sharpening keeps no sharpened base surfaces');
   }
+
+  // All non-PDF formats pass through this same sanitized content boundary.
+  await page.goto(url);
+  const web='https://example.com/captured', app='ms-word:ofe|u|https://example.com/report.docx';
+  await page.evaluate(({web,app})=>openDocument(`<p id="start">Document text</p><a href="#end">Internal</a>
+    <p><a href="${web}">Web</a></p><p><a href="${app}">App</a></p>
+    <p><a href="mailto:a+tag@example.com">Mail</a></p><p><a href="tel:+13125550123">Phone</a></p><p><a href="sms:+13125550123?body=Hello">SMS</a></p>
+    <a href="javascript:globalThis.ATTACK=true">Unsafe</a><img src="https://example.com/tracking"><iframe src="https://example.com/tracking"></iframe>
+    <script>globalThis.ATTACK=true</script><p id="end">End</p>`,{}), {web,app});
+  const content = await (await page.locator('iframe').elementHandle()).contentFrame();
+  await content.waitForSelector('a[data-external-link]');
+  assert.equal(await content.locator('a[data-external-link]').count(),5);
+  assert.equal(await content.locator('img,iframe,script').count(),0);
+  assert.equal(await content.evaluate(()=>typeof globalThis.chrome?.runtime), 'undefined');
+  assert.equal(await content.evaluate(()=>window.ATTACK),undefined);
+  assert.equal(await content.evaluate(()=>{try{parent.document;return false;}catch{return true;}}),true);
+  assert.equal(await content.evaluate(()=>performance.getEntriesByType('resource').some(r=>r.name.endsWith('/capture.js'))),false);
+  const tabs = context.pages().length;
+  for (const [title,opens] of [['Web',true],['App',true],['Mail',false],['Phone',false],['SMS',false]]) {
+    const a=content.getByRole('link',{name:title,exact:true});assert.equal(await a.getAttribute('href'),'#');
+    await a.click({button:title==='App'?'middle':'left'});await content.waitForSelector('.link-capture[open]');
+    assert.equal(context.pages().length,tabs);assert.equal(await content.locator('.link-open').count(),Number(opens));
+    if(title==='App')assert.equal(await content.locator('.link-open').getAttribute('href'),app);
+    await content.evaluate(()=>{document.execCommand=command=>{window.qaCopy=document.querySelector('.link-copy-buffer')?.value;return command==='copy';};});
+    await content.locator('.link-primary').click();assert.ok(await content.evaluate(()=>!!window.qaCopy));
+    await content.locator('.link-capture').press('Escape');await content.waitForFunction(()=>!document.querySelector('.link-capture'));
+  }
+  await content.getByRole('link',{name:'Internal',exact:true}).click();assert.equal(await content.locator('.link-capture').count(),0);
+  await page.evaluate(()=>contentReader.setTheme(true));
+  await content.waitForFunction(()=>getComputedStyle(document.body).backgroundColor==='rgb(41, 42, 45)');
+  await content.getByRole('link',{name:'App',exact:true}).click();await content.waitForSelector('.link-capture[open]');
+  assert.equal(await content.locator('.link-capture').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(41, 42, 45)');
+  await content.locator('.link-capture').evaluate(async node=>Promise.all(node.getAnimations().map(animation=>animation.finished)));
+  await page.screenshot({path:join(folder,'external-links-document-dark.png')});
+  await content.locator('.link-capture').press('Escape');await content.waitForFunction(()=>!document.querySelector('.link-capture'));
+  await page.evaluate(()=>contentReader.setTheme(false));
+  await content.waitForFunction(()=>getComputedStyle(document.body).backgroundColor==='rgb(255, 255, 255)');
+  // Replacing a spreadsheet/slide closes stale captures and keeps only this part.
+  await content.getByRole('link',{name:'App',exact:true}).click();await content.waitForSelector('.link-capture');
+  await page.evaluate(()=>contentReader.render('<p>Second part</p>',{kind:'xlsx',styles:[]}));await content.waitForSelector('body.cg-format-xlsx');
+  assert.equal(await content.locator('.link-capture').count(),0);
+  assert.deepEqual(await page.evaluate(()=>events),[]);
+  await page.screenshot({path:join(folder,'external-links-document.png')});
+  metrics.externalDocumentCapture='opaque sandbox; no untrusted scripts/resources; web/app second action; mail/tel/sms copy-only; internal links unchanged';
+
+  let captureFrame=await open(viewerPdf(1,['mailto:a@example.com','tel:+13125550123','sms:+13125550123','custom-app:open?id=1']),'en-US',1);
+  await ready(captureFrame);await captureFrame.waitForSelector('.pdf-links a[data-external-link^="custom-app:"]');
+  for(const prefix of ['https:','mailto:','tel:','sms:','custom-app:']){
+    await captureFrame.locator(`.pdf-links a[data-external-link^="${prefix}"]`).click();await captureFrame.waitForSelector('.link-capture[open]');
+    assert.equal(await captureFrame.locator('.link-open').count(),['https:','custom-app:'].includes(prefix)?1:0);
+    await captureFrame.locator('.link-capture').press('Escape');await captureFrame.waitForFunction(()=>!document.querySelector('.link-capture'));
+  }
+  metrics.externalPdfCapture='URI protocols captured without executing PDF actions or opening apps';
+
   await page.goto(url); await page.evaluate(() => openPdf(undefined, 'en-US', 1));
   const warming = await (await page.locator('iframe').elementHandle()).contentFrame();
   await warming.waitForFunction(() => document.querySelector('#filename').textContent.length > 0);
@@ -295,10 +349,10 @@ try {
   }
   await page.setViewportSize({width:1280,height:1000});
   metrics.properties = 'filename click/keyboard, lazy cached metadata, ISO dates/offsets, safe text, original dimensions, light/dark and dismissal';
-  assert.equal(await frame.evaluate(() => typeof chrome?.runtime), 'undefined');
+  assert.equal(await frame.evaluate(() => typeof globalThis.chrome?.runtime), 'undefined');
   assert.equal(await frame.evaluate(() => !!globalThis.PDF_ATTACK), false);
   assert.equal(await frame.locator('.pdf-links a[href^="javascript:"]').count(), 0);
-  await frame.waitForSelector('.pdf-links a[href="https://example.com/pdf-link"]');
+  await frame.waitForSelector('.pdf-links a[data-external-link="https://example.com/pdf-link"]');
   assert.equal(await frame.evaluate(() => getComputedStyle(document.querySelector('.page')).outlineStyle), 'solid');
   assert.equal(await frame.evaluate(() => getComputedStyle(document.querySelector('.page')).backgroundColor), 'rgb(10, 10, 10)');
   const originalDetail = await frame.locator('.page canvas.detailView').first().elementHandle();

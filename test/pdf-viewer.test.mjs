@@ -62,7 +62,7 @@ test('PDF Viewer applies read-only asset and resource boundaries', () => {
 });
 test('PDF rendering lives in a network-restricted opaque sandbox without editing/scripting', async () => {
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root)));
-  assert.deepEqual(manifest.sandbox.pages, ['workspaces/pdf-viewer/viewer.html']);
+  assert.deepEqual(manifest.sandbox.pages, ['workspaces/pdf-viewer/viewer.html', 'workspaces/document-preview/content.html']);
   const policy = manifest.content_security_policy.sandbox;
   assert.doesNotMatch(policy, /allow-same-origin|'unsafe-eval'|https?:|\*/);
   assert.match(policy, /connect-src 'self' blob:/); assert.match(policy, /frame-src 'none'/); assert.match(policy, /object-src 'none'/);
@@ -142,4 +142,30 @@ test('reader dialogs choose explicit focus without implicit cross-origin autofoc
   showReaderDialog(dialog,{focus(options){assert.equal(dialog.inert,false);assert.equal(dialog.open,true);assert.deepEqual(options,{preventScroll:true});focused=true;}});
   assert.equal(focused,true);
   assert.throws(()=>showReaderDialog({inert:false,showModal(){throw Error('detached');}},null));
+});
+
+const { externalLinkTarget } = await import('../extension/shared/external-links-capture/target.js');
+const { parseExternalLink: parseCapture, linkCopyText: copyCapture } = await import('../extension/shared/external-links-capture/model.js');
+test('External Links Capture accepts bounded app targets but never executable or privileged URLs', () => {
+  for (const value of ['https://example.com/a?q=a%2Bb','http://example.com/', 'ftp://example.com/a',
+    'zoommtg://zoom.us/join?confno=123', 'msteams:/l/meetup-join/example',
+    'ms-word:ofe|u|https://example.com/document.docx', 'custom-app:open?item=123']) {
+    assert.equal(externalLinkTarget(value), new URL(value).href);
+    const capture = parseCapture(value);
+    assert.equal(capture.kind, /^https?:/.test(value) ? 'web' : 'app');
+    assert.equal(copyCapture(capture, {}), new URL(value).href);
+  }
+  for (const value of [null, '/relative', '#page', 'C:/private', 'javascript:alert(1)',
+    'JaVaScRiPt:alert(1)', 'java\nscript:alert(1)', 'vbscript:attack', 'data:text/html,attack',
+    'blob:https://example.com/id', 'file:///private', 'filesystem:https://example.com/a',
+    'chrome://settings', 'chrome-extension://id/private', 'about:blank', 'view-source:https://example.com',
+    'ms-msdt:payload', 'shell:command', 'https://user:password@example.com/',
+    'custom-app://u:p@example.com', 'custom-app:a%00b', 'https://example.com/'+ 'a'.repeat(8192)]) {
+    assert.equal(externalLinkTarget(value), null, String(value));
+    assert.equal(parseCapture(value), null, String(value));
+  }
+  for (const [url,kind,text] of [['mailto:a+tag@example.com','mailto','a+tag@example.com'],
+    ['tel:+13125550123','tel','+13125550123'], ['sms:+13125550123','sms','+13125550123']]) {
+    const capture = parseCapture(url); assert.equal(capture.kind,kind); assert.equal(copyCapture(capture,{}),text);
+  }
 });

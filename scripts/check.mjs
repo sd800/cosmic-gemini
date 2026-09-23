@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.6.17');
+assert.equal(manifest.version, '9.6.18');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -295,6 +295,7 @@ const noAutoplay = await source('background', 'products', 'standing', 'no-autopl
 const noAutoplayRuntime = await source('content', 'no-autoplay-runtime.js');
 const mailtoCapture = await source('background', 'products', 'standing', 'mailto-capture.js');
 const mailtoCaptureRuntime = await source('content', 'mailto-capture-runtime.js');
+const mailtoCaptureProtocols = await source('shared', 'external-links-capture', 'protocols.js');
 const mailtoCaptureNanp = await source('content', 'mailto-capture-nanp.js');
 const mailtoCapturePhone = await source('content', 'mailto-capture-phone.js');
 const accessControl = await source('background', 'products', 'standing', 'access-control.js');
@@ -480,8 +481,8 @@ assert.doesNotMatch(mailtoCaptureNanp, /United States/,
 assert.doesNotMatch(mailtoCaptureNanp, /U\.S\. Government/,
   'Mailto Capture must use the consistent USA Government label.');
 assert.match(mailtoCaptureRuntime, /attachShadow\(\{ mode: 'closed'/);
-assert.match(mailtoCaptureRuntime, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
-assert.match(mailtoCaptureRuntime, /\^sms:[\s\S]*recipients[\s\S]*body[\s\S]*otherFields/);
+assert.match(mailtoCaptureProtocols, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\s\S]*bcc[\s\S]*subject[\s\S]*body[\s\S]*otherFields/);
+assert.match(mailtoCaptureProtocols, /\^sms:[\s\S]*recipients[\s\S]*body[\s\S]*otherFields/);
 assert.match(mailtoCaptureRuntime, /onPointerDown[\s\S]*path\.includes\(this\.host\)[\s\S]*this\.close\(\)/);
 assert.match(mailtoCaptureRuntime, /event\.key === 'Escape'[\s\S]*this\.close\(true\)/);
 assert.match(anyCopy, /UI_TOGGLE_COORDINATED_TAB_FEATURE[\s\S]*COORDINATED_PAUSE_PREFIX/,

@@ -14,7 +14,7 @@ import { createDocumentRequestIngress } from '../extension/background/features/d
 import { createDocumentPreviewProduct } from '../extension/background/products/customs/document-preview.js';
 import { createCustomsProvince } from '../extension/background/provinces/customs.js';
 import { createDocumentStatus } from '../extension/workspaces/document-preview/status.js';
-import { previewSrcdoc } from '../extension/workspaces/document-preview/sanitize.js';
+import { documentStyles } from '../extension/workspaces/document-preview/sanitize.js';
 
 export function storedZip(entries, compress = false) {
   let offset = 0;
@@ -520,7 +520,7 @@ test('temporary document notices last fifteen seconds and cannot erase newer sta
 });
 
 test('dark document text uses the filename white for defaults and neutral source colors', () => {
-  assert.match(previewSrcdoc('<p>Text</p>','en-US'), /@media\(prefers-color-scheme:dark\)\{html\{background:#202124;color:#f1f3f4\}/);
+  assert.match(documentStyles(), /@media\(prefers-color-scheme:dark\)\{html\{background:#202124;color:#f1f3f4\}/);
   const css = formatStylesheet({styles:[{color:'#000000'},{color:'#333333'},{color:'#ffffff'},{color:'#2468ac'},{'background-color':'#ffffff'}]});
   const dark = css.slice(css.indexOf('@media'));
   for(let i=0;i<3;i++)assert.ok(dark.includes('.cg-f'+i+'{color:#f1f3f4}'));
@@ -871,7 +871,7 @@ test('DOCX preserves blank fields and uses paragraph-mark metrics without changi
  const blank=result.value.match(/<span class="cg-f(\d+)"> {12}<\/span>/);assert.equal(styles[Number(blank[1])]['text-decoration-line'],'underline');assert.equal(styles[Number(blank[1])]['font-size'],'12pt');assert.notEqual(styles[Number(blank[1])]['font-weight'],'700');
  assert.ok(styles.some(s=>s['font-size']==='24pt'&&s['margin-bottom']==='0.5em'&&s['tab-size']==='21pt'));
  assert.ok(styles.some(s=>s['margin-top']==='0pt'&&s['margin-bottom']==='0pt'));
- assert.match(previewSrcdoc(result.value,'en-US',result.formatting),/p,h1,h2,h3,h4,h5,h6,li\{white-space:break-spaces/);
+ assert.match(documentStyles(result.formatting),/p,h1,h2,h3,h4,h5,h6,li\{white-space:break-spaces/);
  assert.deepEqual(JSON.parse(JSON.stringify(acceptedStyles(result.formatting))),JSON.parse(JSON.stringify(styles)));
 });
 

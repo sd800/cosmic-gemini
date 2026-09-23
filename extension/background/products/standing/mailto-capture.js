@@ -16,6 +16,7 @@ export function createMailtoCaptureProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.MAILTO_CAPTURE,
     bridge: 'content/mailto-capture-bridge.js',
     runtimeDependencies: [
+      'shared/external-links-capture/protocols.js',
       'content/mailto-capture-nanp.js',
       'content/mailto-capture-phone.js'
     ],

@@ -22,4 +22,4 @@ Build command: node scripts/build-document-renderer.mjs <build-directory>.
 The renderer is loaded only by Document Preview's dedicated worker. No CDN or
 remote conversion service is used. External file access and embedded style maps
 are disabled. Converter output is rebuilt as an allowlisted tree and shown in a
-script-free sandbox with external subresources blocked.
+sandbox with external subresources and document scripts blocked. Only fixed packaged preview UI code executes.

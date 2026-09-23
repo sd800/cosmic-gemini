@@ -1,7 +1,7 @@
 import { loadLocale } from '../../core/locale.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
 import { icon, send } from '../../shared/ui.js';
-import { safeDocumentHtml, previewSrcdoc } from './sanitize.js';
+import { createDocumentContent } from './content-host.js';
 import { normalizeDocumentAppearance, toggleDocumentAppearance } from '../../core/document-appearance.js';
 import { createDocumentStatus } from './status.js';
 import { documentKind } from '../../core/document-preview.js';
@@ -13,17 +13,20 @@ document.documentElement.lang = locale; localizeDocument(t);
 document.querySelector('#document-icon').innerHTML = icon('documentPreview');
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
 const notices = createDocumentStatus(status, document.querySelector('#loading-progress'));
-let metadata, blob, worker, workerTimer, pdfViewer, rendered, expired = false, downloadPending = false;
+let contentViewer, metadata, blob, worker, workerTimer, pdfViewer, rendered, expired = false, downloadPending = false;
 const frame = document.querySelector('#document');
 const partControls = document.querySelector('#part-controls'), partSelect = document.querySelector('#document-part');
 const previousPart = document.querySelector('#part-previous'), nextPart = document.querySelector('#part-next');
 previousPart.setAttribute('aria-label', t('documentPreviousPart')); nextPart.setAttribute('aria-label', t('documentNextPart'));
+function showContent(html) {
+  contentViewer ||= createDocumentContent(frame, locale, () => notices.show(t('documentRenderFailed')));
+  contentViewer.render(html, rendered.formatting);
+}
 function showPart(index) {
   const parts = rendered?.parts; if (!parts?.length || expired) return;
   index = Math.max(0, Math.min(parts.length - 1, index));
   partSelect.value = String(index); previousPart.disabled = index === 0; nextPart.disabled = index === parts.length - 1;
-  const safe = safeDocumentHtml(parts[index].html, rendered.formatting);
-  frame.srcdoc = previewSrcdoc(safe, locale, rendered.formatting);
+  showContent(parts[index].html);
 }
 partSelect.onchange = () => showPart(Number(partSelect.value));
 previousPart.onclick = () => showPart(Number(partSelect.value) - 1);
@@ -33,7 +36,7 @@ const zoomOut = document.querySelector('#zoom-out'), zoomIn = document.querySele
 let zoom = 100;
 function updateZoom(next) {
   zoom = Math.max(50, Math.min(200, Math.round(next / 10) * 10));
-  // Scale only the embedding frame. Its sandbox stays script-free, and the
+  // Scale only the embedding frame. The opaque sandbox stays isolated, and the
   // document is neither converted again nor navigated when zoom changes.
   frame.style.setProperty('--document-zoom', String(zoom / 100));
   zoomReset.textContent = zoom + '%';
@@ -56,9 +59,10 @@ function updateTheme() {
   if (metadata && params.get('appearance') !== theme) {
     params.set('appearance', theme); history.replaceState(null, '', '#' + params);
   }
-  // An opaque sandbox cannot be restyled through its DOM. The embedding
-  // element's color scheme updates its media queries without reloading it.
+  // Keep host/frame chrome consistent and send only a theme boolean to the
+  // opaque content controller; document markup is not re-parsed or reloaded.
   frame.style.colorScheme = dark ? 'dark' : 'light';
+  contentViewer?.setTheme(dark);
   pdfViewer?.setTheme(dark);
   themeToggle.innerHTML = icon(dark ? 'pageDisplay' : 'moon');
   themeToggle.title = t(dark ? 'documentThemeLight' : 'documentThemeDark');
@@ -86,7 +90,7 @@ const blobDownloads = new Set();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
 
 function expire() {
-  expired = true; blob = null; rendered = null; pdfViewer?.destroy(); pdfViewer = null; worker?.terminate(); clearTimeout(workerTimer);
+  expired = true; contentViewer?.destroy(); contentViewer = null; blob = null; rendered = null; pdfViewer?.destroy(); pdfViewer = null; worker?.terminate(); clearTimeout(workerTimer);
   document.body.classList.remove('pdf-active');
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
   zoomControls.hidden = true; partControls.hidden = true;
@@ -134,9 +138,8 @@ async function preview() {
         document.querySelector('#part-label').textContent = t(documentKind(metadata.format) === 'xlsx' ? 'documentSheet' : 'documentSlide');
         partControls.hidden = rendered.parts.length < 2; showPart(0);
       } else {
-        const safe = safeDocumentHtml(rendered.html, rendered.formatting);
-        if (!safe.trim()) throw Error();
-        frame.srcdoc = previewSrcdoc(safe, locale, rendered.formatting);
+        if (typeof rendered.html !== 'string' || !rendered.html.trim()) throw Error();
+        showContent(rendered.html);
       }
       frame.hidden = false;
       zoomControls.hidden = false;
@@ -184,7 +187,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     updateTheme();
   }
 });
-window.addEventListener('pagehide', () => { pdfViewer?.destroy(); worker?.terminate(); clearTimeout(workerTimer); notices.clear(); });
+window.addEventListener('pagehide', () => { contentViewer?.destroy(); pdfViewer?.destroy(); worker?.terminate(); clearTimeout(workerTimer); notices.clear(); });
 downloadButton.addEventListener('click', () => void download());
 async function choose(action) {
   notices.loading(t('documentLoading'));

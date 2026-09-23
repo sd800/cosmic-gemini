@@ -1,16 +1,17 @@
 // Small authored fixture: real PDF objects/xref, mixed page sizes, selectable
 // text, an outline, safe/unsafe links and an inert document JavaScript action.
-export function viewerPdf(count = 80) {
+export function viewerPdf(count = 80, externalLinks = []) {
   const objects = [], add = value => (objects.push(value), objects.length);
   add(''); add(''); add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
   const pages = [];
   const link = add('<< /Type /Annot /Subtype /Link /Rect [50 620 230 655] /A << /S /URI /URI (https://example.com/pdf-link) >> >>');
   const unsafe = add('<< /Type /Annot /Subtype /Link /Rect [50 560 230 590] /A << /S /URI /URI (javascript:globalThis.PDF_ATTACK=true) >> >>');
+  const extra = externalLinks.map((url,index) => add(`<< /Type /Annot /Subtype /Link /Rect [50 ${360-index*45} 300 ${390-index*45}] /A << /S /URI /URI (${url.replace(/[()\\]/g, c=>'\\'+c)}) >> >>`));
   for (let i = 0; i < count; i++) {
     const fineText = [7, 9, 11].map((size, row) => `BT /F1 ${size} Tf 50 ${790 - row * 18} Td (Small text ${size} pt: minimum 0123456789 / fractional zoom) Tj ET`).join('\n');
     const content = `${fineText}\n0 G 0.25 w 50 730 m 400 730 l S\n0 g 450 750 30 30 re f\nBT /F1 24 Tf 50 700 Td (PDF Viewer page ${i + 1}) Tj 0 -50 Td (Searchable needle ${i + 1}) Tj ET\n0.9 0.2 0.1 rg 50 400 150 120 re f\n`;
     const stream = add(`<< /Length ${content.length} >>\nstream\n${content}endstream`);
-    pages.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${i % 3 ? 595 : 612} 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${stream} 0 R /Annots [${link} 0 R ${unsafe} 0 R] >>`));
+    pages.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${i % 3 ? 595 : 612} 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${stream} 0 R /Annots [${link} 0 R ${unsafe} 0 R ${extra.map(id=>id+' 0 R').join(' ')}] >>`));
   }
   const outlines = add(''), item = add(`<< /Title (Go to final page) /Parent ${outlines} 0 R /Dest [${pages.at(-1)} 0 R /Fit] >>`);
   objects[outlines - 1] = `<< /Type /Outlines /First ${item} 0 R /Last ${item} 0 R /Count 1 >>`;

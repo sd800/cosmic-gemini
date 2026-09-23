@@ -731,7 +731,7 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     chinese: '简体中文',
     helpHeading: '工作方式',
     setupGuideHeading: '建议设置顺序',
-    nativeSetupStepDefault: '开启 Native Scroll 后，它会在浏览网页时阻止网站接管滚轮和触控板的滚动操作，保留 Chrome 原生滚动。',
+    nativeSetupStepDefault: '如果希望在各网站上使用系统原生的页面自然滑动，可开启 Native Scroll。',
     nativeSetupStepExceptions: '仅添加需要始终停用或固定使用某种模式的网站。',
     nativeSetupStepEnhanced: '只有标准模式无法阻止网页重新接管滚动时，才选择始终使用强力模式。',
     autoplaySetupStepDefault: '如果希望拦截网页擅自播放的媒体，可开启 No Autoplay。',

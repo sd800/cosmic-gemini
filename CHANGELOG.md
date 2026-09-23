@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.22 — 2026-09-23
+
+- Refine the Chinese Native Scroll settings description.
+
 ## 9.6.21 — 2026-09-23
 
 - Start every feature off for new installations, including previously enabled automatic protections and Website Knowledge Control categories. Keep existing user choices unchanged.

@@ -1,17 +1,30 @@
 import * as pdfjs from '../../vendor/pdfjs/pdf.min.mjs';
-import { PDFViewer, EventBus, PDFLinkService, PDFFindController, RenderingStates } from '../../vendor/pdfjs/pdf_viewer.mjs';
+import { PDFViewer, EventBus, PDFLinkService, RenderingStates } from '../../vendor/pdfjs/pdf_viewer.mjs';
 import { labels } from './labels.js';
 import { setReaderIcon, setReaderIcons } from './icons.js';
 import { normalizePdfSampling } from '../../core/pdf-sampling.js';
 import { PDF_LIMITS, pdfDetailCanvasPixels, pdfOptions, pdfScale, stepPdfScale, printRange, rotateLeft, safePdfLink } from './model.js';
 
 const $ = id => document.getElementById(id);
-let port, task, pdf, viewer, workerUrl, parseTimer, destroyed = false, text = labels['en-US'];
+let port, task, pdf, viewer, workerUrl, pdfWorker, parseTimer, destroyed = false, firstPageReady = false, text = labels['en-US'];
 const lifetime = new AbortController(), signal = lifetime.signal;
 const eventBus = new EventBus(), viewport = $('viewport');
+// Prepare the local parser while the authorized host prepares document bytes.
+const workerReady = fetch(new URL('../../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url), { signal }).then(response => {
+  if (!response.ok) throw Error('PDF worker unavailable');
+  return response.text();
+}).then(async code => {
+  if (destroyed) return;
+  workerUrl = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  pdfWorker = new pdfjs.PDFWorker();
+  await pdfWorker.promise;
+  return pdfWorker;
+});
+void workerReady.catch(() => {});
 let thumbnailObserver, thumbnailTask, thumbnailBusy = false, thumbnailGeneration = 0, outlineLoaded = false;
 const nearThumbnails = new Set(), thumbnailCache = new Map(), printUrls = new Set();
-let sharpening = false;
+let sharpening = false, documentFilename, documentBytes = 0, properties;
 let printing = false, printTask, zoomFrame = 0, wheelFactor = 1, wheelOrigin, passwordCancelled = false;
 const emit = type => port?.postMessage({ type });
 function status(key, loading = false) { $('status').textContent = text[key] || ''; $('progress').hidden = !loading; }
@@ -40,16 +53,25 @@ function destroy() {
   if (destroyed) return; destroyed = true; lifetime.abort(); cancelAnimationFrame(zoomFrame); clearTimeout(parseTimer);
   thumbnailGeneration++; thumbnailObserver?.disconnect(); thumbnailTask?.cancel(); printTask?.cancel();
   viewer?.setDocument(null); void task?.destroy().catch(() => {}); cleanupPrint();
-  if (workerUrl) URL.revokeObjectURL(workerUrl); port?.close();
+  pdfWorker?.destroy(); if (workerUrl) URL.revokeObjectURL(workerUrl); port?.close();
 }
 window.addEventListener('pagehide', destroy, { once: true });
-window.addEventListener('message', async event => {
+window.addEventListener('message', event => {
   if (event.source !== parent || port || event.data?.type !== 'CG_PDF_INIT' || event.ports.length !== 1) return;
   const input = event.data;
-  if (!(input.bytes instanceof ArrayBuffer) || input.bytes.byteLength > PDF_LIMITS.bytes) return;
   port = event.ports[0];
+  let opened = false;
+  for (const control of document.querySelectorAll('header nav button:not(#fullscreen), header nav input, header nav select, #print, #download')) control.disabled = true;
   port.onmessage = ({ data }) => {
-    if (data?.type === 'theme') theme(data.dark, data.automatic);
+    if (data?.type === 'document') {
+      if (opened || !(data.bytes instanceof ArrayBuffer) || !data.bytes.byteLength || data.bytes.byteLength > PDF_LIMITS.bytes) return;
+      opened = true; documentBytes = data.bytes.byteLength; $('download').disabled = false;
+      void open(data.bytes, normalizePdfSampling(input.sampling)).catch(() => {
+        clearTimeout(parseTimer);
+        if (!destroyed && !passwordCancelled) { status('failed'); emit('error'); void task?.destroy().catch(() => {}); pdfWorker?.destroy(); }
+      });
+    }
+    else if (data?.type === 'theme') theme(data.dark, data.automatic);
     else if (data?.type === 'sharpening') setSharpening(data.enabled);
     else if (data?.type === 'fullscreen-error') status('fullScreenFailed');
     else if (data?.type === 'fullscreen') {
@@ -61,7 +83,10 @@ window.addEventListener('message', async event => {
   text = labels[input.locale] || labels['en-US']; document.documentElement.lang = input.locale === 'zh-CN' ? input.locale : 'en-US';
   for (const node of document.querySelectorAll('[data-text]')) node.textContent = text[node.dataset.text];
   for (const node of document.querySelectorAll('[data-label]')) { node.title = text[node.dataset.label]; node.setAttribute('aria-label', node.title); }
-  $('filename').textContent = String(input.filename || 'PDF').slice(0, 1024); $('filename').title = $('filename').textContent;
+  documentFilename = String(input.filename || 'PDF').slice(0, 1024);
+  $('filename').textContent = documentFilename;
+  $('filename').title = `${documentFilename} — ${text.properties}`;
+  $('filename').setAttribute('aria-label', $('filename').title);
   setSharpening(input.sharpening);
   theme(input.dark, input.automatic); status('loading', true);
   setReaderIcons(document); emit('shell-ready');
@@ -79,23 +104,15 @@ window.addEventListener('message', async event => {
   }
   click('download', () => emit('download')); click('theme', () => emit('theme')); click('theme-auto', () => emit('auto'));
   click('fullscreen', () => emit('fullscreen'));
-  try { await open(input.bytes, normalizePdfSampling(input.sampling)); } catch {
-    clearTimeout(parseTimer);
-    if (!destroyed && !passwordCancelled) { status('failed'); emit('error'); void task?.destroy().catch(() => {}); }
-  }
 }, { signal });
 
 async function open(bytes, sampling) {
-  // An opaque extension sandbox cannot create a Worker from its extension URL.
-  // Only the fixed bundled worker is copied into a blob; never PDF-supplied code.
-  const workerCode = await (await fetch(new URL('../../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url), { signal })).text();
+  const worker = await workerReady;
   if (destroyed) return;
-  workerUrl = URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }));
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-  task = pdfjs.getDocument(pdfOptions(new Uint8Array(bytes), new URL('../../vendor/pdfjs/', import.meta.url).href));
+  task = pdfjs.getDocument({ ...pdfOptions(new Uint8Array(bytes), new URL('../../vendor/pdfjs/', import.meta.url).href), worker });
   const armParseDeadline = () => {
     clearTimeout(parseTimer);
-    parseTimer = setTimeout(() => { status('failed'); emit('error'); void task.destroy().catch(() => {}); }, 30000);
+    parseTimer = setTimeout(() => { status('failed'); emit('error'); void task.destroy().catch(() => {}); pdfWorker?.destroy(); }, 30000);
   };
   armParseDeadline();
   task.onPassword = (accept, reason) => {
@@ -105,18 +122,18 @@ async function open(bytes, sampling) {
     $('password').value = ''; $('password-dialog').showModal(); $('password').focus();
     $('password-dialog').onclose = () => {
       if ($('password-dialog').returnValue === 'open') { status('loading', true); armParseDeadline(); accept($('password').value); $('password').value = ''; }
-      else { passwordCancelled = true; status('cancelled'); void task.destroy().catch(() => {}); }
+      else { passwordCancelled = true; status('cancelled'); void task.destroy().catch(() => {}); pdfWorker?.destroy(); }
     };
   };
   pdf = await task.promise;
   clearTimeout(parseTimer);
   if (destroyed) return;
   if (pdf.numPages > PDF_LIMITS.pages) { await task.destroy(); throw Error('PDF page budget'); }
+  emit('parsed');
   const links = new PDFLinkService({ eventBus });
   // The annotation/form/editor/scripting layers are not instantiated. Only
   // passive text and our bounded allowlisted links are added above the canvas.
-  const find = new PDFFindController({ eventBus, linkService: links });
-  viewer = new PDFViewer({ container: viewport, viewer: $('pages'), eventBus, linkService: links, findController: find,
+  viewer = new PDFViewer({ container: viewport, viewer: $('pages'), eventBus, linkService: links,
     annotationMode: pdfjs.AnnotationMode.DISABLE, annotationEditorMode: pdfjs.AnnotationEditorType.DISABLE,
     enableAutoLinking: false, enablePermissions: true, scriptingManager: null, textLayerMode: 1,
     // The fixed pixel/dimension limits already bound memory. A second
@@ -134,6 +151,7 @@ async function open(bytes, sampling) {
     if (document.hidden) viewer.cleanup(); else { viewer.update(); void drawThumbnails(); }
   }, { signal });
   eventBus.on('pagesinit', () => {
+    for (const control of document.querySelectorAll('header nav button, header nav input, header nav select')) control.disabled = false;
     viewer.currentScaleValue = '1';
     // Setting the initial scale aligns the first paper edge with the viewport.
     // Restore its top gutter once at initialization, never during later reading.
@@ -142,13 +160,20 @@ async function open(bytes, sampling) {
     $('count').textContent = '/ ' + pdf.numPages; $('page').max = pdf.numPages; $('page').style.setProperty('--page-digits', Math.max(2, String(pdf.numPages).length));
     $('previous').disabled = true; $('next').disabled = pdf.numPages === 1; $('print').disabled = !viewer.printingAllowed;
     $('print-to').max = $('print-from').max = pdf.numPages; $('print-to').value = Math.min(pdf.numPages, PDF_LIMITS.printPages);
-    status(''); emit('ready');
+    $('filename').disabled = false;
   }, { signal });
   eventBus.on('pagechanging', ({ pageNumber }) => {
     $('page').value = pageNumber; $('previous').disabled = pageNumber === 1; $('next').disabled = pageNumber === pdf.numPages;
     for (const node of $('thumbnails').children) node.setAttribute('aria-current', String(Number(node.dataset.page) === pageNumber));
   }, { signal });
   eventBus.on('pagerendered', ({ pageNumber, cssTransform, error }) => {
+    if (!firstPageReady && !cssTransform) {
+      firstPageReady = true; status(''); emit('ready');
+      // Let the first visible page paint before optional thumbnail work.
+      if (!$('sidebar').hidden) requestAnimationFrame(() => {
+        if (!destroyed && !$('sidebar').hidden && !$('thumbnails').children.length) createThumbnails();
+      });
+    }
     if (error) status('pageError');
     if (sharpening) updateCanvasSharpening(viewer.getPageView(pageNumber - 1), cssTransform || error);
     if (!cssTransform && !destroyed) void renderLinks(pageNumber, links).catch(() => {});
@@ -159,10 +184,6 @@ async function open(bytes, sampling) {
     if ([...$('scale').options].some(option => option.value === preset)) $('scale').value = preset;
     else { $('custom-scale').textContent = Math.round(scale * 100) + '%'; $('custom-scale').hidden = false; $('scale').value = 'custom'; }
     $('zoom-in').disabled = scale >= 5; $('zoom-out').disabled = scale <= .25;
-  }, { signal });
-  eventBus.on('updatefindmatchescount', ({ matchesCount }) => { $('matches').textContent = `${matchesCount.current} / ${matchesCount.total}`; }, { signal });
-  eventBus.on('updatefindcontrolstate', ({ state, matchesCount }) => {
-    $('matches').textContent = state === 3 ? text.searching : state === 1 ? text.noMatches : `${matchesCount?.current || 0} / ${matchesCount?.total || 0}`;
   }, { signal });
   viewer.setDocument(pdf);
   click('previous', () => viewer.previousPage()); click('next', () => viewer.nextPage());
@@ -184,22 +205,13 @@ async function open(bytes, sampling) {
     wheelFactor *= Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .004); wheelOrigin = [event.clientX, event.clientY];
     if (!zoomFrame) zoomFrame = requestAnimationFrame(() => { zoomFrame = 0; zoomTo(viewer.currentScale * wheelFactor, wheelOrigin); wheelFactor = 1; });
   }, { passive: false, signal });
-  function openFind() { $('findbar').hidden = false; $('query').focus(); $('query').select(); }
-  function closeFind() { $('findbar').hidden = true; eventBus.dispatch('findbarclose', { source: window }); viewport.focus(); }
-  function search(again = false, previous = false) {
-    eventBus.dispatch('find', { source: window, type: again ? 'again' : '', query: $('query').value, caseSensitive: $('match-case').checked,
-      entireWord: false, highlightAll: true, findPrevious: previous, matchDiacritics: false });
-  }
-  click('search-toggle', openFind); click('find-close', closeFind); click('find-next', () => search(true)); click('find-previous', () => search(true, true));
-  $('query').oninput = () => search(); $('match-case').onchange = () => search();
-  $('query').onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); search(true, event.shiftKey); } };
   window.addEventListener('keydown', event => {
+    // A modal's keyboard interactions must not navigate/zoom the PDF behind it.
+    if ($('properties-dialog').open) return;
     const modifier = event.ctrlKey || event.metaKey, editable = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName);
-    if (modifier && event.key.toLowerCase() === 'f') { event.preventDefault(); openFind(); }
-    else if (modifier && event.key.toLowerCase() === 'p') { event.preventDefault(); openPrint(); }
+    if (modifier && event.key.toLowerCase() === 'p') { event.preventDefault(); openPrint(); }
     else if (modifier && event.key.toLowerCase() === 's') { event.preventDefault(); emit('download'); }
     else if (modifier && ['+', '=', '-', '0'].includes(event.key)) { event.preventDefault(); zoomTo(event.key === '0' ? 1 : stepPdfScale(viewer.currentScale, event.key === '-' ? -1 : 1)); }
-    else if (event.key === 'Escape' && !$('findbar').hidden) closeFind();
     else if (!editable && event.key === 'ArrowLeft') { event.preventDefault(); viewer.previousPage(); }
     else if (!editable && event.key === 'ArrowRight') { event.preventDefault(); viewer.nextPage(); }
     else if (!editable && event.key === 'Home') { event.preventDefault(); viewer.currentPageNumber = 1; }
@@ -207,12 +219,17 @@ async function open(bytes, sampling) {
   }, { signal });
   click('sidebar-toggle', () => {
     $('sidebar').hidden = !$('sidebar').hidden;
-    if (!$('sidebar').hidden && !$('thumbnails').children.length) createThumbnails();
+    if (firstPageReady && !$('sidebar').hidden && !$('thumbnails').children.length) createThumbnails();
     if ($('sidebar').hidden) { thumbnailTask?.cancel(); } else void drawThumbnails();
   });
   click('show-pages', () => { $('outline').hidden = true; $('thumbnails').hidden = false; void drawThumbnails(); });
   click('show-outline', () => { $('thumbnails').hidden = true; $('outline').hidden = false; thumbnailTask?.cancel(); void showOutline(links); });
   click('print', openPrint);
+  click('filename', () => {
+    properties ||= import('./properties.js').then(({ createProperties }) => destroyed ? null :
+      createProperties({ pdf, viewer, filename: documentFilename, byteLength: documentBytes, locale: document.documentElement.lang, text, signal }));
+    void properties.then(dialog => dialog?.open()).catch(() => { if (!destroyed) status('propertiesUnavailable'); });
+  });
   $('print-dialog').addEventListener('close', () => { if ($('print-dialog').returnValue === 'print') void printDocument(); }, { signal });
   window.addEventListener('afterprint', cleanupPrint, { signal });
 }

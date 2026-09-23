@@ -12,6 +12,12 @@ export function safePdfLink(value) {
 export function pdfScale(value) { return Math.max(0.25, Math.min(5, Number(value) || 1)); }
 export function stepPdfScale(value, direction) { return pdfScale((Math.round(value * 100) + Math.sign(direction) * 10) / 100); }
 export function rotateLeft(value) { return ((value - 90) % 360 + 360) % 360; }
+export function pdfFileSize(bytes, locale = 'en-US') {
+  if (!Number.isSafeInteger(bytes) || bytes < 0) return '';
+  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  if (bytes < 1000) return `${bytes} ${locale === 'zh-CN' ? '字节' : bytes === 1 ? 'byte' : 'bytes'}`;
+  return `${number.format(bytes / (bytes < 1000000 ? 1000 : 1000000))} ${bytes < 1000000 ? 'KB' : 'MB'}`;
+}
 export function printRange(from, to, total) {
   from = Number(from); to = Number(to);
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from || to > total || to - from + 1 > PDF_LIMITS.printPages) return null;

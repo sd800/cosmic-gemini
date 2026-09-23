@@ -2,10 +2,31 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { PDF_LIMITS, pdfDetailCanvasPixels, pdfScale, stepPdfScale, pdfOptions, printRange, rotateLeft, safePdfLink } from '../extension/workspaces/pdf-viewer/model.js';
+import { PDF_LIMITS, pdfDetailCanvasPixels, pdfScale, stepPdfScale, pdfOptions, printRange, rotateLeft, safePdfLink, pdfFileSize } from '../extension/workspaces/pdf-viewer/model.js';
+import { formatPdfDate } from '../extension/workspaces/pdf-viewer/document-dates.js';
 import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
 import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
 const root = new URL('../extension/', import.meta.url);
+test('PDF properties preserve ISO date order, optional seconds and original offsets', () => {
+  assert.equal(formatPdfDate("D:20260102123456+05'30'"), '2026-01-02 12:34:56 (UTC+5:30)');
+  assert.equal(formatPdfDate("D:202602031012-08'00'"), '2026-02-03 10:12 (UTC-8)');
+  assert.equal(formatPdfDate('D:20260923080000Z'), '2026-09-23 08:00:00 (UTC)');
+  assert.equal(formatPdfDate('202402291030'), '2024-02-29 10:30');
+  assert.equal(formatPdfDate('D:20260923103000'), '2026-09-23 10:30:00');
+  assert.equal(formatPdfDate('D:20260923'), '2026-09-23 00:00');
+  assert.equal(formatPdfDate('D:2026'), '2026-01-01 00:00');
+  assert.equal(formatPdfDate('D:202609231030+0545'), '2026-09-23 10:30 (UTC+5:45)');
+  for (const [offset, zone] of [['+0800', 'UTC+8'], ['-0500', 'UTC-5'], ['-0030', 'UTC-0:30'], ['+1245', 'UTC+12:45'], ['+0000', 'UTC+0']]) {
+    assert.equal(formatPdfDate('D:202609231030' + offset), `2026-09-23 10:30 (${zone})`);
+  }
+  for (const value of [undefined, null, {}, '', '<b>2026</b>', 'D:20260229120000', 'D:20261301', 'D:202601012400', 'D:202601010060', "D:202601010000+24'00'", "D:202601010000+05'60'", '2'.repeat(81)]) assert.equal(formatPdfDate(value), '', String(value));
+});
+test('PDF properties show validated decimal file sizes with at most one decimal', () => {
+  assert.equal(pdfFileSize(1), '1 byte'); assert.equal(pdfFileSize(999), '999 bytes');
+  assert.equal(pdfFileSize(1234), '1.2 KB'); assert.equal(pdfFileSize(1200000), '1.2 MB');
+  assert.equal(pdfFileSize(999, 'zh-CN'), '999 字节');
+  for (const value of [undefined, -1, 1.5, NaN, Infinity, '1000']) assert.equal(pdfFileSize(value), '');
+});
 test('PDF Viewer applies read-only asset and resource boundaries', () => {
   const data = new Uint8Array([1,2]);
   const options = pdfOptions(data, 'chrome-extension://test/vendor/pdfjs/');

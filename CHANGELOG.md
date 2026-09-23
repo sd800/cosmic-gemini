@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.12 — 2026-09-23
+
+- Open PDF document properties by clicking the toolbar filename, with ISO-style dates, available seconds and compact time-zone notation.
+- Prepare the PDF reader in parallel with document loading and prioritize the first visible page.
+- Remove the PDF reader’s built-in search controls and leave Find to Chrome.
+
 ## 9.6.11 — 2026-09-23
 
 - Update the PDF reader’s Rotate left icon to a rounded square with a counterclockwise arrow, aligned with the other toolbar icons.

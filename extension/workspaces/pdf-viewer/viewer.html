@@ -15,15 +15,14 @@
 </defs></svg>
 <header class="notranslate" translate="no">
   <div class="identity"><strong>PDF Viewer</strong><small>Cosmic Gemini</small></div>
-  <div class="file"><strong id="filename"></strong></div>
+  <div class="file"><button id="filename" type="button" data-label="properties" aria-haspopup="dialog" aria-controls="properties-dialog" disabled></button></div>
   <div class="actions"><div><button id="print" data-label="print">⌘</button><button id="download" data-label="download">↓</button></div><div><button id="theme-auto" data-label="auto" data-text="auto">Default</button><button id="theme" data-label="theme">◐</button></div></div>
   <nav aria-label="PDF">
-    <span class="group tool-group"><button id="sidebar-toggle" data-label="sidebar">☰</button><button id="search-toggle" data-label="find">⌕</button></span>
+    <span class="group tool-group"><button id="sidebar-toggle" data-label="sidebar">☰</button></span>
     <span class="group tool-group page-navigation"><button id="previous" data-label="previous">‹</button><span class="page-indicator"><input id="page" type="number" min="1" value="1" inputmode="numeric" data-label="page"><span id="count">/ —</span></span><button id="next" data-label="next">›</button></span>
     <span class="group tool-group"><button id="zoom-out" data-label="zoomOut">−</button><select id="scale" data-label="zoom"><option value="page-width" data-text="fitWidth"></option><option value="page-fit" data-text="fitPage"></option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option><option value="4">400%</option><option value="5">500%</option><option id="custom-scale" value="custom" hidden></option></select><button id="zoom-in" data-label="zoomIn">+</button></span>
     <span class="group tool-group"><button id="rotate" data-label="rotate">↶</button><button id="fullscreen" data-label="fullscreen">⛶</button></span>
   </nav>
-  <div id="findbar" hidden><input id="query" type="search" data-label="find" maxlength="256"><label><input id="match-case" type="checkbox"><span data-text="matchCase"></span></label><button id="find-previous" data-label="previousMatch">↑</button><button id="find-next" data-label="nextMatch">↓</button><span id="matches" role="status"></span><button id="find-close" data-label="close">×</button></div>
 </header>
 <div id="feedback" role="status"><span id="status"></span><span id="progress"><i></i></span></div>
 <div id="workspace">
@@ -32,6 +31,11 @@
 </div>
 <dialog id="password-dialog"><form method="dialog"><p id="password-message"></p><input id="password" type="password" autocomplete="off" data-label="password" required><div class="dialog-actions"><button value="cancel" formnovalidate data-text="cancel"></button><button value="open" data-text="open"></button></div></form></dialog>
 <dialog id="print-dialog"><form method="dialog"><p data-text="printRange"></p><label><span data-text="from"></span><input id="print-from" type="number" min="1" value="1" required></label><label><span data-text="to"></span><input id="print-to" type="number" min="1" value="1" required></label><p id="print-error" role="alert"></p><div class="dialog-actions"><button value="cancel" formnovalidate data-text="cancel"></button><button value="print" data-text="print"></button></div></form></dialog>
+<dialog id="properties-dialog" class="notranslate" translate="no" aria-labelledby="properties-title">
+  <h2 id="properties-title" data-text="properties"></h2>
+  <p id="properties-status" role="status"></p><dl id="properties-list"></dl>
+  <div class="dialog-actions"><button id="properties-close" type="button" data-text="close"></button></div>
+</dialog>
 <div id="print-pages"></div>
 <script type="module" src="viewer.js"></script>
 </body></html>

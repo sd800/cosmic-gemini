@@ -88,7 +88,7 @@ Preview documents, spreadsheets, slides, PDFs and email messages in your browser
 
 Supported formats include Word, Excel, PowerPoint, Rich Text, OpenDocument, PDF and email files.
 
-Previews retain common formatting, although complex layouts may differ from the original. In PDFs that already contain selectable text, you can search and copy it. Files are processed locally; previews do not run macros or load remote content.
+Previews retain common formatting, although complex layouts may differ from the original. In PDFs that already contain text, you can select and copy it. Files are processed locally; previews do not run macros or load remote content.
 
 #### Ad Marshal
 

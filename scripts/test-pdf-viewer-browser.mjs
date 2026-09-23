@@ -12,7 +12,9 @@ const metrics = {}, errors = [], network = [], failures = [];
 await cp(resolve('extension'), extension, { recursive: true });
 // Observe settled rendering only in this disposable QA copy, never production.
 const viewerPath = join(extension, 'workspaces/pdf-viewer/viewer.js');
-await writeFile(viewerPath, (await readFile(viewerPath, 'utf8')).replace('links.setViewer(viewer);', 'window.qaPdfViewer = viewer; links.setViewer(viewer);'));
+await writeFile(viewerPath, (await readFile(viewerPath, 'utf8'))
+  .replace('void workerReady.catch(() => {});', 'void workerReady.catch(() => {}); window.qaWorkerReady = workerReady;')
+  .replace('links.setViewer(viewer);', 'window.qaPdfViewer = viewer; window.qaPdfDocument = pdf; window.qaMetadataCalls = 0; const qaGetMetadata = pdf.getMetadata.bind(pdf); pdf.getMetadata = (...args) => { window.qaMetadataCalls++; return qaGetMetadata(...args); }; window.qaRenderedPages = []; eventBus.on("pagerendered", ({pageNumber, cssTransform, error}) => { if (!cssTransform && !error) window.qaRenderedPages.push(pageNumber); }); links.setViewer(viewer);'));
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json')));
 await writeFile(join(extension, 'manifest.json'), JSON.stringify({ manifest_version: 3, name: 'PDF Viewer isolated QA', version: '1.0', permissions: ['storage','downloads'], background: {service_worker:'qa-background.js',type:'module'}, sandbox: manifest.sandbox, content_security_policy: manifest.content_security_policy }));
 await writeFile(join(extension, 'qa-background.js'), `import {normalizeSettings} from './core/config.js';
@@ -43,7 +45,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 });`);
 await writeFile(join(extension, 'qa.html'), '<!doctype html><style>body{margin:0;background:#121416}main{height:100vh;display:flex}iframe{border:0;width:100%;height:100%}</style><main></main><script type="module" src="qa.js"></script>');
 await writeFile(join(extension, 'qa.js'), `import {createPdfViewer} from './workspaces/pdf-viewer/host.js';
-window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=false)=>{window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,sharpening,dark:true,automatic:true,onDownload:()=>events.push('download'),onTheme:()=>viewer.setTheme(false,false),onAuto:()=>viewer.setTheme(true,true),onError:()=>events.push('error')});};`);
+window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6, sharpening=false)=>{window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:bytes===undefined?undefined:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,sharpening,dark:true,automatic:true,onDownload:()=>events.push('download'),onTheme:()=>viewer.setTheme(false,false),onAuto:()=>viewer.setTheme(true,true),onError:()=>events.push('error')});};`);
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, deviceScaleFactor: 2, viewport: { width: 1280, height: 1000 }, args: ['--force-device-scale-factor=2', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 try {
   const page = await context.newPage();
@@ -90,6 +92,22 @@ try {
     await frame.waitForFunction(() => [...document.querySelectorAll('.page canvas')].every(canvas => getComputedStyle(canvas).filter === 'none'));
     assert.equal(await frame.locator('canvas.pdf-sharpen').count(),0,'disabled sharpening keeps no sharpened base surfaces');
   }
+  await page.goto(url); await page.evaluate(() => openPdf(undefined, 'en-US', 1));
+  const warming = await (await page.locator('iframe').elementHandle()).contentFrame();
+  await warming.waitForFunction(() => document.querySelector('#filename').textContent.length > 0);
+  await warming.evaluate(() => qaWorkerReady.then(() => true));
+  assert.equal(await page.locator('iframe').evaluate(n => getComputedStyle(n).visibility), 'visible');
+  assert.equal(await warming.locator('#filename').isDisabled(), true);
+  assert.equal(await warming.locator('#download').isDisabled(), true);
+  assert.equal(await warming.locator('#next').isDisabled(), true);
+  assert.equal(await warming.locator('#progress').isVisible(), true);
+  assert.equal(await warming.locator('.page').count(), 0, 'shell/worker can be ready before document bytes');
+  await page.screenshot({path:join(folder,'loading-warm-shell.png')});
+  await page.evaluate(bytes => viewer.open(new Uint8Array(bytes).buffer), Array.from(viewerPdf(80)));
+  await ready(warming); await warming.waitForFunction(() => document.querySelector('#progress').hidden);
+  assert.equal(await warming.evaluate(() => qaRenderedPages[0]), 1, 'page one is painted first');
+  assert.ok(await warming.locator('.page canvas').count()<10, 'first page is usable without rendering the whole PDF');
+  assert.equal(await warming.locator('#filename').isDisabled(), false);
   const start = performance.now(); const frame = await open(viewerPdf()); await ready(frame);
   await detailReady(frame);
   metrics.open80PagesMs = Math.round(performance.now() - start);
@@ -151,6 +169,45 @@ try {
     await page.screenshot({path:join(folder, `toolbar-${width}.png`)});
   }
   await page.setViewportSize({width:1280, height:1000});
+  // Properties is lazy, keyboard accessible and reads the existing document.
+  assert.equal(await frame.evaluate(() => performance.getEntriesByType('resource').some(r => r.name.endsWith('/properties.js'))), false);
+  // PDF.js also reads metadata for the document language; the dialog must add
+  // no eager request of its own, and only one cached request after activation.
+  const engineMetadataCalls = await frame.evaluate(() => qaMetadataCalls);
+  assert.equal(await frame.locator('#properties-list dd').count(), 0);
+  assert.equal(await frame.locator('#filename').getAttribute('aria-haspopup'), 'dialog');
+  await frame.locator('#filename').focus(); await frame.locator('#filename').press('Enter');
+  await frame.waitForSelector('#properties-dialog[open]');
+  await frame.waitForFunction(() => document.querySelector('[data-property=author]').textContent === 'Cosmic Gemini tests');
+  assert.equal(await frame.locator('#properties-title').textContent(), 'Document properties');
+  assert.equal(await frame.locator('[data-property=fileName]').textContent(), 'PDF Viewer — reading and zoom.pdf');
+  assert.match(await frame.locator('[data-property=fileSize]').textContent(), /^\d+(\.\d)? KB$/);
+  assert.equal(await frame.locator('[data-property=documentTitle]').textContent(), 'QA <b>metadata</b>');
+  assert.equal(await frame.locator('#properties-list b').count(), 0);
+  assert.equal(await frame.locator('[data-property=created]').textContent(), '2026-01-02 12:34:56 (UTC+5:30)');
+  assert.equal(await frame.locator('[data-property=modified]').textContent(), '2026-02-03 10:12 (UTC-8)');
+  assert.equal(await frame.locator('[data-property=pageCount]').textContent(), '80');
+  assert.equal(await frame.locator('[data-property=pdfVersion]').textContent(), '1.7');
+  const originalPageSize = await frame.locator('[data-property=pageSize]').textContent();
+  assert.match(originalPageSize, /^8.5 × 11.69 in \(Page 1\)$/);
+  await frame.locator('#properties-close').press('ArrowRight');
+  assert.equal(await frame.locator('#page').inputValue(), '1', 'modal keyboard must not move the PDF behind it');
+  await page.screenshot({path:join(folder,'properties-dark-en.png')});
+  await frame.locator('#properties-close').press('Escape');
+  assert.equal(await frame.locator('#filename').evaluate(n => document.activeElement === n), true);
+  await frame.locator('#rotate').click(); await frame.locator('#filename').click();
+  await frame.waitForFunction(() => !document.querySelector('#properties-status').textContent);
+  assert.equal(await frame.locator('[data-property=pageSize]').textContent(), originalPageSize, 'display rotation does not change original page dimensions');
+  assert.equal(await frame.evaluate(() => qaMetadataCalls), engineMetadataCalls + 1, 'reopening reuses metadata');
+  await frame.locator('#properties-list').click();
+  assert.equal(await frame.locator('#properties-dialog').evaluate(n => n.open), true);
+  await page.mouse.click(8,8); await frame.waitForFunction(() => !document.querySelector('#properties-dialog').open);
+  for (let i=0;i<3;i++) await frame.locator('#rotate').click();
+  await frame.locator('#theme').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'false');
+  await frame.locator('#filename').click(); await frame.waitForFunction(() => !document.querySelector('#properties-status').textContent);
+  await page.screenshot({path:join(folder,'properties-light-en.png')}); await frame.locator('#properties-close').click();
+  await frame.locator('#theme-auto').click(); await frame.waitForFunction(() => document.documentElement.dataset.dark === 'true');
+  metrics.properties = 'filename click/keyboard, lazy cached metadata, ISO dates/offsets, safe text, original dimensions, light/dark and dismissal';
   assert.equal(await frame.evaluate(() => typeof chrome?.runtime), 'undefined');
   assert.equal(await frame.evaluate(() => !!globalThis.PDF_ATTACK), false);
   assert.equal(await frame.locator('.pdf-links a[href^="javascript:"]').count(), 0);
@@ -170,9 +227,11 @@ try {
   await frame.locator('#zoom-out').click(); await frame.locator('#zoom-out').click(); assert.equal(await frame.locator('#scale').inputValue(), '1');
   // Select/copy remains a text layer, not OCR or an editable document.
   assert.match(await frame.locator('.textLayer').first().textContent(), /PDF Viewer page 1/);
-  await frame.locator('#search-toggle').click(); await frame.locator('#query').fill('needle');
-  await frame.waitForFunction(() => document.querySelector('#matches').textContent === '1 / 80');
-  await frame.locator('#find-close').click(); await jump(frame, 60);
+  assert.equal(await frame.locator('#search-toggle, #findbar').count(), 0);
+  for (const modifier of ['metaKey','ctrlKey']) {
+    assert.equal(await frame.evaluate(key => document.querySelector('#viewport').dispatchEvent(new KeyboardEvent('keydown', {key:'f', [key]:true, bubbles:true, cancelable:true})), modifier), true, 'Chrome owns Find shortcuts');
+  }
+  await jump(frame, 60);
   await detailReady(frame, 60);
   const detailBeforeZoom = await frame.locator('.page[data-page-number="60"] canvas.detailView').elementHandle();
   const zoomStart = performance.now(); for (let i = 0; i < 10; i++) await frame.locator('#zoom-in').click();
@@ -311,6 +370,36 @@ try {
     assert.equal(await intermediate.evaluate(()=>window.qaPdfViewer.getPageView(0).maxDetailCanvasPixels),sampling**2*1024*1024);
     await filtersOff(intermediate);
   }
+  const propertiesChinese = await open(viewerPdf(2), 'zh-CN', 1); await ready(propertiesChinese);
+  await propertiesChinese.locator('#filename').click();
+  await propertiesChinese.waitForFunction(() => !document.querySelector('#properties-status').textContent);
+  assert.equal(await propertiesChinese.locator('#properties-title').textContent(), '文档信息');
+  assert.equal(await propertiesChinese.locator('[data-property=created]').textContent(), '2026-01-02 12:34:56 (UTC+5:30)');
+  assert.match(await propertiesChinese.locator('[data-property=pageSize]').textContent(), /^215.9 × 297.04 mm/);
+  await page.setViewportSize({width:360,height:850});
+  assert.equal(await propertiesChinese.locator('#properties-dialog').evaluate(n => n.getBoundingClientRect().width<=innerWidth&&n.scrollWidth<=n.clientWidth),true);
+  await page.screenshot({path:join(folder,'properties-dark-zh-narrow.png')});
+  await propertiesChinese.locator('#properties-close').click();
+  await page.setViewportSize({width:1280,height:1000});
+  const deferred = await open(viewerPdf(2), 'en-US', 1); await ready(deferred);
+  await deferred.evaluate(() => {
+    const original = qaPdfDocument.getMetadata.bind(qaPdfDocument);
+    qaPdfDocument.getMetadata = () => new Promise(resolve => { window.qaResolveMetadata = async () => resolve(await original()); });
+  });
+  await deferred.locator('#filename').click(); await deferred.waitForSelector('#properties-dialog[open]');
+  await deferred.waitForFunction(() => typeof qaResolveMetadata === 'function');
+  await deferred.locator('#properties-close').press('Escape'); await deferred.evaluate(() => qaResolveMetadata());
+  assert.equal(await deferred.locator('#properties-dialog').evaluate(n => n.open),false);
+  assert.equal(await deferred.locator('[data-property=author]').textContent(),'—', 'closed dialog ignores stale metadata completion');
+  await deferred.locator('#filename').click(); await deferred.waitForFunction(() => document.querySelector('[data-property=author]').textContent === 'Cosmic Gemini tests');
+  await deferred.locator('#properties-close').click();
+  const unavailable = await open(viewerPdf(1), 'en-US', 1); await ready(unavailable);
+  await unavailable.evaluate(() => { qaPdfDocument.getMetadata = () => Promise.reject(new Error('QA metadata failure')); });
+  await unavailable.locator('#filename').click();
+  await unavailable.waitForFunction(() => document.querySelector('#properties-status').textContent === 'Some document properties could not be read.');
+  assert.equal(await unavailable.locator('[data-property=author]').textContent(),'—');
+  assert.equal(await unavailable.locator('[data-property=pageCount]').textContent(),'1');
+  await unavailable.locator('#properties-close').click();
   // Exercise the real privileged Document Preview host and its existing session
   // lifecycle. The test background supplies owned metadata, not reader policy.
   const docId = await page.evaluate(async bytes => {

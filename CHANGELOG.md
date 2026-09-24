@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.7 — 2026-09-24
+
+- Soften the developer-mode metadata label color.
+
 ## 9.7.6 — 2026-09-24
 
 - Refine developer-mode text colors to distinguish the metadata labels and match affiliation paths to technical-tag values.

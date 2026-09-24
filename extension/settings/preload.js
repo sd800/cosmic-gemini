@@ -11,6 +11,7 @@
     blockedDomains: 'accessControlEmptyDomains'
   };
   const iconPaths = {
+    followListInstagram: '<g stroke-width="1.7"><path d="M2 7h3M3.5 7v10M2 17h3M14 8.5a4.5 5 0 1 0 0 7v-3h-3.5M17 10h5M19.5 7.5v5M17 16h5"/></g>',
     nativeScroll: '<path d="M12 3v18M7.5 7.5 12 3l4.5 4.5M7.5 16.5 12 21l4.5-4.5"/>',
     noAutoplay: '<path d="M6 5v14l10-7z"/><path d="M21 18A4 4 0 1 1 17 14a3.3 3.3 0 0 0 4 4Z" fill="currentColor" stroke="none"/>',
     anyCopy: '<rect x="8" y="7" width="12" height="12" rx="2"/><rect x="4" y="3" width="12" height="12" rx="2" fill="var(--icon-surface, var(--surface))"/>',
@@ -26,6 +27,8 @@
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',
     websiteFixer: '<path d="M20 7.5a5.4 5.4 0 0 1-7.2 5.1l-6.6 6.6a2 2 0 0 1-2.8-2.8l6.6-6.6A5.4 5.4 0 0 1 15.1 2l-2.8 2.8.6 3 3 .6L20 4.3a5.4 5.4 0 0 1 0 3.2Z"/>',
     adMarshal: '<path d="M12 2.75 20 6v5.2c0 5.1-3.1 8.55-8 10.05-4.9-1.5-8-4.95-8-10.05V6Z"/><path d="m8.5 12 2.25 2.25L16 9"/>',
+    leetcodeDarkMode: '<path d="m5 6.5 6 5.5-6 5.5M13 17.5h6"/>',
+    langGoogle: '<circle cx="10.5" cy="10.5" r="7.25"/><path d="m15.9 15.9 5.1 5.1"/>',
     biliDailyLogin: '<path d="m8 5-2.5-2M16 5l2.5-2"/><rect x="3" y="5" width="18" height="15.5" rx="3"/><path d="M8 12h.01M16 12h.01M8.5 16c2.1 1.15 4.9 1.15 7 0"/>',
     xhsImageDarkMode: '<path d="M12 5.1C9.1 3 6 2.6 2.8 4.2v12.1c1.7-.85 3.3-1.18 4.7-1.12"/><path d="M12 5.1C9.1 3 6 2.6 2.8 4.2v12.1c1.7-.85 3.3-1.18 4.7-1.12" transform="translate(24 0) scale(-1 1)"/><path d="M12 5.1v.9"/><g transform="translate(0 1.3)"><path d="M12 7.35c-2.35 0-4.1 1.8-4.1 4.15 0 1.65.68 2.88 1.5 4.05.54.76.88 1.5.88 2.3h3.44c0-.8.34-1.54.88-2.3.82-1.17 1.5-2.4 1.5-4.05 0-2.35-1.75-4.15-4.1-4.15Z" fill="var(--icon-surface, var(--surface))" stroke="var(--icon-surface, var(--surface))" stroke-width="3.8"/><path d="M12 7.35c-2.35 0-4.1 1.8-4.1 4.15 0 1.65.68 2.88 1.5 4.05.54.76.88 1.5.88 2.3h3.44c0-.8.34-1.54.88-2.3.82-1.17 1.5-2.4 1.5-4.05 0-2.35-1.75-4.15-4.1-4.15Z" fill="var(--icon-surface, var(--surface))"/><path d="M10.1 20h3.8"/></g>',
     pageDisplay: '<circle cx="12" cy="12" r="3.4" fill="currentColor" stroke="none"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/>',

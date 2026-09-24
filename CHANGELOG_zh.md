@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.2 — 2026-09-24
+
+- 为 LeetCode Explore 深色模式、Instagram 关注列表检查和 Google 搜索结果语言指定功能添加图标。
+
 ## 9.8.1 — 2026-09-24
 
 - 新增默认关闭的 LeetCode Explore 深色模式功能，跟随 LeetCode 自身外观适配课程、文章和练习。

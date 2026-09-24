@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.25 — 2026-09-24
+
+- Restore the Standing Province navigation-request hook and reject unrecognized province hooks instead of silently dropping them.
+
 ## 9.8.24 — 2026-09-24
 
 - Allow Stay on the page rules to be removed by entering a domain or website URL prefixed with `-`, including when no saved rule matches.

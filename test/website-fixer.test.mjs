@@ -13,6 +13,16 @@ import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { normalizeStayOnPageCommand } from '../extension/core/website-rule-input.js';
 import { createWebsiteFixerProduct } from '../extension/background/products/standing/website-fixer.js';
 import { createStayOnPage } from '../extension/background/products/standing/website-fixer-stay.js';
+import { createStandingProvince } from '../extension/background/provinces/standing.js';
+import { defineProvince } from '../extension/background/provinces/interface.js';
+
+test('Standing exposes the navigation hook and rejects silently dropped province hooks', () => {
+  globalThis.chrome = { webRequest: {} };
+  const standing = createStandingProvince({});
+  assert.equal(typeof standing.handleNavigationRequest, 'function');
+  assert.equal(standing.handleNavigationRequest({ tabId: -1 }), undefined);
+  assert.throws(() => defineProvince({ id: 'unknown', products: {}, lostHook() {} }), /Unknown province hook/);
+});
 
 test('Website Fixer defaults off and matches only selected domains and their subdomains', () => {
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.websiteFixer, {

@@ -1,0 +1,24 @@
+[data-cosmic-gemini-white-softer] {
+  all: initial !important;
+  display: none !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  contain: strict !important;
+  /* Per-channel darken caps whites without lifting black or multiplying every pixel. */
+  mix-blend-mode: darken !important;
+  background-color: rgb(232 230 227) !important;
+}
+[data-cosmic-gemini-white-softer]:popover-open { display: block !important; }
+[data-cosmic-gemini-white-softer][data-tone="warm-plus-1"] { background-color: rgb(216 214 211) !important; }
+[data-cosmic-gemini-white-softer][data-tone="warm-plus-2"] { background-color: rgb(208 206 203) !important; }
+[data-cosmic-gemini-white-softer][data-tone="cool"] { background-color: rgb(206 224 242) !important; }
+[data-cosmic-gemini-white-softer]::backdrop { display: none !important; }

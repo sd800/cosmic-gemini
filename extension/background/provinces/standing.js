@@ -10,6 +10,7 @@ import { createAdMarshalProduct } from '../products/standing/ad-marshal.js';
 import { createAccessControlProduct } from '../products/standing/access-control.js';
 import { createWebsiteKnowledgeControlProduct } from '../products/standing/website-knowledge-control.js';
 import { createWebsiteFixerProduct } from '../products/standing/website-fixer.js';
+import { createWhiteSofterProduct } from '../products/standing/white-softer.js';
 import { createClipboardProtectProduct } from '../products/standing/clipboard-protect.js';
 import { createMailtoCaptureProduct } from '../products/standing/mailto-capture.js';
 import { createLangGoogleProduct } from '../products/standing/lang-google.js';
@@ -45,6 +46,7 @@ export function createStandingProvince(platform) {
   const mailtoCapture = createMailtoCaptureProduct(host, platform);
   const langGoogle = createLangGoogleProduct(platform);
   const clipboardProtect = createClipboardProtectProduct(host, platform);
+  const whiteSofter = createWhiteSofterProduct(host, platform);
   const accessControl = createAccessControlProduct(platform);
   const adMarshal = createAdMarshalProduct(host, platform);
   const websiteKnowledgeControl = createWebsiteKnowledgeControlProduct(host, platform);
@@ -55,6 +57,7 @@ export function createStandingProvince(platform) {
     [mailtoCapture.id]: mailtoCapture,
     [langGoogle.id]: langGoogle,
     [clipboardProtect.id]: clipboardProtect,
+    [whiteSofter.id]: whiteSofter,
     [accessControl.id]: accessControl,
     [websiteKnowledgeControl.id]: websiteKnowledgeControl,
     [adMarshal.id]: adMarshal,
@@ -100,7 +103,7 @@ export function createStandingProvince(platform) {
       if (message.active !== true) await platform.setFeatureActivity(senderTabId, governed.id, false);
       return { updated: true };
     }
-    if ([websiteKnowledgeControl.id, clipboardProtect.id, accessControl.id, websiteFixer.id].includes(governed?.id)) {
+    if ([websiteKnowledgeControl.id, clipboardProtect.id, whiteSofter.id, accessControl.id, websiteFixer.id].includes(governed?.id)) {
       return governed.handleMessage(message, context);
     }
     if (message.type === 'UI_SET_ENABLED') {

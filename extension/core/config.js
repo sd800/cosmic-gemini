@@ -23,6 +23,7 @@ export const FEATURE_IDS = Object.freeze({
   ACCESS_CONTROL: 'accessControl',
   WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
   CLIPBOARD_PROTECT: 'clipboardProtect',
+  WHITE_SOFTER: 'whiteSofter',
   AD_MARSHAL: 'adMarshal',
   WEBSITE_FIXER: 'websiteFixer',
   IMAGE_DOWNLOAD: 'imageDownload',
@@ -45,6 +46,7 @@ export const FEATURE_SLOTS = Object.freeze({
   CHINESE_RESPONSE_CLAUDE: 36,
   WEBSITE_KNOWLEDGE_CONTROL: 37,
   CLIPBOARD_PROTECT: 38,
+  WHITE_SOFTER: 47,
   FOLLOW_LIST_INSTAGRAM: 39,
   IMAGE_DOWNLOAD: 40,
   WEBSITE_FIXER: 45,
@@ -70,7 +72,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 39,
+  version: 40,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -87,6 +89,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: false
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
+  whiteSofter: Object.freeze({ enabled: false, tone: 'warm' }),
   documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
   leetcodeDarkMode: Object.freeze({ enabled: false }),
@@ -324,10 +327,14 @@ export function websiteKnowledgeControlState(settings, url) {
     && ['languages', 'timeZone', 'globalPrivacyControl'].some(category => feature[category].enabled) };
 }
 
+export function normalizeWhiteSofterTone(value) {
+  return ['warm', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(value) ? value : 'warm';
+}
+
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 39,
+    version: 40,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -340,6 +347,7 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
+    whiteSofter: { enabled: value.whiteSofter?.enabled === true, tone: normalizeWhiteSofterTone(value.whiteSofter?.tone) },
     documentPreview: {
       enabled: value.documentPreview?.enabled === true,
       appearance: normalizeDocumentAppearance(value.documentPreview?.appearance),

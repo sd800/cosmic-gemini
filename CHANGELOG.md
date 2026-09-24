@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.12 — 2026-09-24
+
+- Add White Softer with four selectable tones to soften webpage whites, including white text.
+
 ## 9.8.11 — 2026-09-24
 
 - Use the full LeetCode Explore name throughout the feature’s descriptions and documentation.

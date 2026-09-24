@@ -23,7 +23,7 @@ import {
 
 test('ordinary and incognito defaults keep automatic products and regional categories inactive', () => {
   for (const settings of [DEFAULT_SETTINGS, DEFAULT_INCOGNITO_SETTINGS]) {
-    for (const product of ['nativeScroll', 'noAutoplay', 'mailtoCapture', 'clipboardProtect',
+    for (const product of ['nativeScroll', 'noAutoplay', 'mailtoCapture', 'clipboardProtect', 'whiteSofter',
       'documentPreview', 'langGoogle', 'leetcodeDarkMode', 'accessControl', 'websiteKnowledgeControl',
       'pageDisplay', 'xhsImageDarkMode', 'chineseResponseClaude']) {
       assert.equal(settings[product].enabled, false, product);

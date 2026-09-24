@@ -12,6 +12,7 @@ export const DEVELOPER_FEATURES = Object.freeze({
   satellites: { title: 'satellitesName', tag: 'satellites', province: 'operations' },
   mailtoCapture: { title: 'mailtoCaptureName', tag: 'mailto-capture', province: 'standing' },
   clipboardProtect: { title: 'clipboardProtectName', tag: 'clipboard-protect', province: 'standing' },
+  whiteSofter: { title: 'whiteSofterName', tag: 'white-softer', province: 'standing' },
   accessControl: { title: 'accessControlName', tag: 'access-control', province: 'standing' },
   websiteKnowledgeControl: { title: 'websiteKnowledgeName', tag: 'website-knowledge-control', province: 'standing' },
   languages: { title: 'websiteKnowledgeLanguages', tag: 'languages', parent: 'websiteKnowledgeControl' },

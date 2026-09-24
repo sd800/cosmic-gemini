@@ -160,6 +160,20 @@ export function viewFor(featureId) {
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="clipboardProtectPrivacy"></p></div>
       </section>
+      <section class="card satellite-card" data-product="white-softer">
+        <div class="section-heading">
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="whiteSofter" aria-hidden="true"></span><h1 data-i18n="whiteSofterName"></h1></div><p data-i18n="whiteSofterDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="whiteSofterEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="whiteSofterName"></b></label></div>
+        </div>
+        <fieldset id="whiteSofterOptions" class="knowledge-options white-softer-options" disabled>
+          <legend class="sr-only" data-i18n="whiteSofterTone"></legend>
+          <div class="knowledge-row">
+            <label for="whiteSofterTone" class="knowledge-label" data-i18n="whiteSofterTone"></label>
+            <select id="whiteSofterTone"><option value="warm" data-i18n="whiteSofterWarm"></option><option value="warm-plus-1" data-i18n="whiteSofterWarmPlus1"></option><option value="warm-plus-2" data-i18n="whiteSofterWarmPlus2"></option><option value="cool" data-i18n="whiteSofterCool"></option></select>
+          </div>
+        </fieldset>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="whiteSofterPrivacy"></p></div>
+      </section>
       <section class="card satellite-card access-control-card" data-feature-id="accessControl" data-list-section="blockedDomains" data-empty-key="accessControlEmptyDomains">
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="accessControl" aria-hidden="true"></span><h1 data-i18n="accessControlName"></h1></div><p data-i18n="accessControlDescription"></p></div>

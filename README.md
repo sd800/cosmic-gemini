@@ -72,6 +72,10 @@ Stop mailto links from opening your system mail app before you can inspect them.
 
 Keep selected text free of content a website adds during copying, such as links, credits, and promotional messages. Clipboard Protect preserves the selected text and available formatting, with no clipboard reading, logging, or uploads. It is off by default and has one independent switch in Satellites. Editable areas, including rich-text editors and spreadsheet grids, keep their own copy handling. Normal copy buttons with no selected text also keep their existing behavior. When Any Copy is active on the current page, it takes priority and Clipboard Protect remains inactive there.
 
+#### White Softer
+
+Soften bright whites across webpages, including white text, backgrounds, and images. Choose warm ivory in three strengths or cool blue-white. White Softer is off by default and adjusts the appearance locally.
+
 #### Access Control
 
 Block visits to selected domains, every level of their subdomains, and exact IPv4 or IPv6 addresses. Access Control is off by default and uses one master switch. Entering a plain domain such as `example.com` covers both that domain and all of its subdomains; an IP entry covers that exact address on every port. Rule changes take effect when a matching page is reloaded or opened again. An optional one-time-visit setting is also off by default. When selected, click the extension toolbar button on a blocked page to allow that visit in the current tab without opening the popup or changing the saved rule. The exception ends after the tab leaves the blocked domain or closes.

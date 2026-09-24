@@ -318,6 +318,7 @@ export function createPlatform() {
       mailtoCapture: settings.mailtoCapture,
       websiteKnowledgeControl: settings.websiteKnowledgeControl,
       clipboardProtect: settings.clipboardProtect,
+      whiteSofter: settings.whiteSofter,
       langGoogle: settings.langGoogle,
       chineseResponseClaude: settings.chineseResponseClaude,
       adMarshal: settings.adMarshal

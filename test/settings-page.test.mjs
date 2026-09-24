@@ -549,3 +549,25 @@ test('Website Knowledge Control renders master authorization separately from sav
   assert.equal(nodes.get('#websiteKnowledgeTimeZoneValue').disabled, true);
   assert.equal(nodes.get('#websiteKnowledgeTimeZoneValue').value, 'Asia/Tokyo');
 });
+
+
+test('White Softer uses saved preferences and retains its tone when the master is off', async () => {
+  const { api, nodes } = controller();
+  const master = new Element('input');
+  const options = new Element('fieldset');
+  const tone = new Element('select');
+  nodes.set('#whiteSofterEnabled', master);
+  nodes.set('#whiteSofterOptions', options);
+  nodes.set('#whiteSofterTone', tone);
+  await api.hydrate({ preferences: { satellites: {}, whiteSofter: { enabled: true, tone: 'cool' } },
+    whiteSofter: { enabled: false, supported: false, tone: 'warm' } });
+  api.render();
+  assert.equal(master.checked, true);
+  assert.equal(options.disabled, false);
+  assert.equal(tone.value, 'cool');
+  await api.hydrate({ preferences: { satellites: {}, whiteSofter: { enabled: false, tone: 'cool' } } });
+  api.render();
+  assert.equal(master.checked, false);
+  assert.equal(options.disabled, true);
+  assert.equal(tone.value, 'cool');
+});

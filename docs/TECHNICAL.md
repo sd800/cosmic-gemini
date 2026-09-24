@@ -1,6 +1,6 @@
 # Technical design
 
-Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Mailto Capture, Website Knowledge Control, Clipboard Protect, Ad Marshal, Any Copy, Page Display, XHS Image Dark Mode, Image Download, Video Download, and Satellites. Its authority chain is `central → province → product → feature`. Central decides jurisdiction and routes work, provinces coordinate their assigned products, products execute independently, and features or nested subfeatures implement the technical operations. Any Copy and Any Copy Enhanced own separate activation, runtime, bridge, and activity-state paths even though they share one settings page.
+Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Mailto Capture, Website Knowledge Control, Clipboard Protect, White Softer, Ad Marshal, Any Copy, Page Display, XHS Image Dark Mode, Image Download, Video Download, and Satellites. Its authority chain is `central → province → product → feature`. Central decides jurisdiction and routes work, provinces coordinate their assigned products, products execute independently, and features or nested subfeatures implement the technical operations. Any Copy and Any Copy Enhanced own separate activation, runtime, bridge, and activity-state paths even though they share one settings page.
 
 ## Extension layout
 
@@ -10,13 +10,13 @@ The `extension` root contains only `manifest.json`. Chrome entry points and prod
 
 Central records the jurisdiction map and accepts browser events and typed messages. It does not contain product rules, storage mutations, page injection, scanners, scheduling, network fetches, workspace operations, media assembly, or download execution.
 
-Standing Province governs Native Scroll, No Autoplay, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Ad Marshal, Website Fixer, and Search Result Language Designate for Google Search (`lang-google`). Operations Province governs Any Copy, Any Copy Enhanced, Page Display, XHS Image Dark Mode, Dark Mode for LeetCode Explore (`leetcode-dark-mode`), Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download, Video Download and Document Preview. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
+Standing Province governs Native Scroll, No Autoplay, Mailto Capture, Clipboard Protect, White Softer, Access Control, Website Knowledge Control, Ad Marshal, Website Fixer, and Search Result Language Designate for Google Search (`lang-google`). Operations Province governs Any Copy, Any Copy Enhanced, Page Display, XHS Image Dark Mode, Dark Mode for LeetCode Explore (`leetcode-dark-mode`), Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download, Video Download and Document Preview. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
 
 Products retain separate state and execution paths. A product may use province-coordinated infrastructure, but it cannot import or control a sibling product. Features such as bridges, runtimes, scanners, adapters, and offscreen processors may contain further subfeatures as required without changing the authority chain. Shared browser and storage primitives live in `background/platform.js`; they provide infrastructure without deciding product policy.
 
 ## Page startup
 
-`content/central-page.js` is the only declarative content script. This small isolated entry loads at `document_start`, asks `background/central.js` for a per-frame decision, and contains no product behavior. Central routes the request to the assigned province and product. The product's page-runtime feature injects its isolated bridge and main-world runtime only when that product is active in the current page context. Inactive products are not injected. Native Scroll, No Autoplay, Page Display, and XHS Image Dark Mode remain top-frame products. Mailto Capture, Clipboard Protect, and Any Copy may be injected in matching frames, while Any Copy Enhanced remains limited to its active top tab.
+`content/central-page.js` is the only declarative content script. This small isolated entry loads at `document_start`, asks `background/central.js` for a per-frame decision, and contains no product behavior. Central routes the request to the assigned province and product. The product's page-runtime feature injects its isolated bridge and main-world runtime only when that product is active in the current page context. Inactive products are not injected. Native Scroll, No Autoplay, Page Display, White Softer, and XHS Image Dark Mode remain top-frame products. Mailto Capture, Clipboard Protect, and Any Copy may be injected in matching frames, while Any Copy Enhanced remains limited to its active top tab.
 
 Each injected feature bridge retrieves only its current page state through the authority chain and passes it to its main-world runtime through token-bound events. Stored rule collections and extension APIs are not exposed to page code. Every injected product has separate bridges, runtimes, lifecycle messages, and cleanup paths. When a new decision deactivates one product, that product restores its page changes, removes its listeners and observers, and disposes without starting or stopping another product.
 
@@ -52,13 +52,21 @@ International numbers beginning with `+` use a separate 84 KB precompiled refere
 
 ## Clipboard Protect
 
-Clipboard Protect is an independent Standing Province product directly below Website Knowledge Control in Satellites. It defaults off in ordinary and incognito contexts, has no popup icon, and is authorized through Central for eligible HTTP(S) frames. Its saved switch remains independent from Any Copy, NSNA rules, and current page activity.
+Clipboard Protect is an independent Standing Province product directly below Mailto Capture in Satellites. It defaults off in ordinary and incognito contexts, has no popup icon, and is authorized through Central for eligible HTTP(S) frames. Its saved switch remains independent from Any Copy, NSNA rules, and current page activity.
 
 During a trusted copy event with selected non-editable text, the runtime captures that selection and writes its original plain text plus an inert, sanitized HTML fragment where available. A narrow clipboard-event getter hook captures the selection before an earlier website handler writes added content; a guarded propagation hook keeps the final copy handler reachable. It does not block arbitrary events or replace clipboard APIs globally. Both hooks and the copy listener are removed on disable, and retained wrappers become inert. No page scan, DOM observer, polling, clipboard-read permission, clipboard history, or network request is involved.
 
 Design-mode documents, inputs, textareas, contenteditable regions, ARIA textbox/grid/treegrid controls, and common code editors are excluded. The decision checks the event path, focus (including open shadow focus), selection endpoints, and shadow hosts. Those editors retain their own plain text, rich HTML, and custom clipboard formats. Copy buttons without a text selection, cut/paste operations, and synthetic events also keep their normal handling. A protected ordinary selection takes precedence over a site's custom copy formatting, while basic selected markup and links remain available.
 
 The product protects selected-content copy events, not every possible write to the system clipboard: unrelated or later asynchronous Clipboard API writes are outside its scope. It does not read existing clipboard contents. It neither enables nor changes Any Copy; that product retains its own saved behavior. Central resolves Any Copy's effective per-page state, including coordinated activation and a current-tab pause, and directs Clipboard Protect to yield while Any Copy is active. During transitions, Central stops the outgoing copy guard before starting the incoming one, so the two main-world copy guards do not remain active together.
+
+## White Softer
+
+White Softer (`white-softer`) belongs to Standing Province and appears immediately after Clipboard Protect in the general Satellites section. It starts disabled in both ordinary and incognito contexts. The saved `tone` is `warm` (RGB 232/230/227), `warm-plus-1` (216/214/211), `warm-plus-2` (208/206/203), or `cool` (206/224/242), with `warm` as the fallback. The selected tone survives disabling; changing either setting refreshes eligible open pages. Settings preloading, in-page navigation, and developer metadata use the same product identity.
+
+Central authorizes one top-frame HTTP(S) runtime. A pointer-transparent, inert manual popover forms a single top-layer surface with CSS `mix-blend-mode: darken`. Per-channel minima cap rendered whites at the selected RGB, including backgrounds, text, images, Canvas, and visible nested frames; lower channel values remain unchanged, while bright channels in other colors can also be reduced. The top layer blends after ancestor filters and transformed stacking contexts. The runtime follows native fullscreen and open-dialog/popover events without content scanning, polling, API patches, or network access. USER-origin CSS avoids page CSP restrictions, and the host starts hidden until that stylesheet arrives. Native controls outside the webpage and restricted browser pages are outside the product's scope.
+
+Repeated configuration retains the same surface and stylesheet. Disabling removes its host, event listeners, bridge, and styles through the shared runtime host, without changing sibling products or discarding its tone preference.
 
 ## Page Display
 
@@ -70,7 +78,7 @@ Turning off one subfeature removes its visual contribution. Turning off the mast
 
 ## XHS Image Dark Mode
 
-XHS Image Dark Mode is a default-off Operations Province product presented after Clipboard Protect in Satellites settings. Its page product is authorized only for the exact top-frame host `www.xiaohongshu.com`. The popup uses a contextual-product registry to add its open-book-and-bulb control below the fixed product rows only on that host, leaving the row position open for future contextual products.
+XHS Image Dark Mode is a default-off Operations Province product presented in the site-specific section of Satellites settings. Its page product is authorized only for the exact top-frame host `www.xiaohongshu.com`. The popup uses a contextual-product registry to add its open-book-and-bulb control below the fixed product rows only on that host, leaving the row position open for future contextual products.
 
 When enabled, the product checks the page's actual rendered surfaces first. It samples visible viewport positions, composites transparent background layers, and recognizes page-wide inversion filters before consulting Dark Reader markers or site theme attributes. Dark Reader's dynamic, filter, and static engines are recognized through their current root attributes, active styles, and instance marker. Theme styles, metadata, visibility changes, and several short checks during initial page setup cover extension injection order. A dark color-scheme declaration alone is not enough to activate processing. The product does not start image work until page-wide dark mode is detected, unless the user enables the explicit override. That override authorizes processing immediately and makes the contextual control active without waiting for a page-status round trip. The waiting state uses a blue open-book-and-hollow-bulb icon without a background. Active image processing fills the bulb and adds a blue background, while the disabled state remains neutral and hollow.
 
@@ -243,6 +251,7 @@ For ordinary windows, `chrome.storage.local` stores one versioned settings objec
 - Any Copy: its own site rules
 - Any Copy Enhanced: current-tab activation for the browser session
 - Mailto Capture: one enabled setting
+- White Softer: enabled state and one of four white tones
 - Page Display: one master authorization, independent Reduce White Point and Greyscale states, plus reduction strength
 - XHS Image Dark Mode: enabled state, page-wide dark-mode override, image-control visibility, and control opacity
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference

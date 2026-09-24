@@ -14,6 +14,7 @@ export function icon(name) {
     // Cosmic PDF's document glyph, fitted to the shared 24-unit grid without its app-icon background.
     documentPreview: '<path d="M13.846 3H6.231a1.385 1.385 0 0 0-1.385 1.385v15.23A1.385 1.385 0 0 0 6.231 21h11.538a1.385 1.385 0 0 0 1.385-1.385V8.308Z"/><path d="M13.846 3v5.308h5.308M8.308 12.462h7.384M8.308 16.154h5.538"/>',
     moon: '<path d="M20.5 13.5A8.5 8.5 0 0 1 10.5 3 8.5 8.5 0 1 0 20.5 13.5Z"/>',
+    whiteSofter: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 13c5-5 12 3 17-2M3.5 17c5-5 12 3 17-2"/>',
     clipboardProtect: '<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 5V3h6v2M9 9h6M9 13h6M9 17h4"/>',
     accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="M12.4 13.35 15.952 18.318"/>',
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',

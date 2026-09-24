@@ -1,5 +1,5 @@
 import { normalizePdfSampling } from './pdf-sampling.js';
-import { normalizeAccessControlDomain, normalizeWebsiteKnowledge } from './config.js';
+import { normalizeAccessControlDomain, normalizeWebsiteKnowledge, normalizeWhiteSofterTone } from './config.js';
 import { normalizeDocumentAppearance } from './document-appearance.js';
 
 export const SETTINGS_VIEW_CACHE_KEY = 'cosmicGeminiSettingsViewCache';
@@ -10,7 +10,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 39,
+    version: 40,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -35,6 +35,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
+    whiteSofter: { enabled: states.whiteSofter?.enabled === true, tone: normalizeWhiteSofterTone(states.whiteSofter?.tone) },
     documentPreview: {
       enabled: states.documentPreview?.enabled === true,
       appearance: normalizeDocumentAppearance(states.documentPreview?.appearance),

@@ -257,6 +257,13 @@ function render() {
   }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
+  const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
+  if (whiteSofterEnabled) {
+    const preference = (states?.preferences || states)?.whiteSofter;
+    whiteSofterEnabled.checked = preference?.enabled === true;
+    document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
+    document.querySelector('#whiteSofterTone').value = ['warm-plus-1', 'warm-plus-2', 'cool'].includes(preference?.tone) ? preference.tone : 'warm';
+  }
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) {
     const preference = (states?.preferences || states)?.documentPreview;
@@ -710,6 +717,17 @@ function bindView() {
   }, biliDailyLogin => ({ biliDailyLogin })), [biliDailyLogin]));
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
+  const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
+  if (whiteSofterEnabled) whiteSofterEnabled.addEventListener('change', () => {
+    document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
+    void update(null, () => savePreference('whiteSofter', {
+      type: 'UI_SET_ENABLED', featureId: 'whiteSofter', enabled: whiteSofterEnabled.checked
+    }), [whiteSofterEnabled]);
+  });
+  const whiteSofterTone = document.querySelector('#whiteSofterTone');
+  if (whiteSofterTone) whiteSofterTone.addEventListener('change', () => void update(null, () => savePreference('whiteSofter', {
+    type: 'UI_SET_WHITE_SOFTER_TONE', featureId: 'whiteSofter', tone: whiteSofterTone.value
+  }), [whiteSofterTone]));
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) documentPreviewEnabled.addEventListener('change', () => {
     document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;

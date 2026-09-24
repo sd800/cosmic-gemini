@@ -22,6 +22,7 @@
     greyscale: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17Z" fill="currentColor" stroke="none"/>',
     mailtoCapture: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
     documentPreview: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 13h8M8 17h6"/>',
+    whiteSofter: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 13c5-5 12 3 17-2M3.5 17c5-5 12 3 17-2"/>',
     clipboardProtect: '<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 5V3h6v2M9 9h6M9 13h6M9 17h4"/>',
     accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="M12.4 13.35 15.952 18.318"/>',
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',
@@ -123,6 +124,12 @@
   if (langGoogleEnabled) langGoogleEnabled.checked = !incognitoContext && cached.langGoogle?.enabled === true;
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = !incognitoContext && cached.clipboardProtect?.enabled === true;
+  const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
+  if (whiteSofterEnabled) {
+    whiteSofterEnabled.checked = !incognitoContext && cached.whiteSofter?.enabled === true;
+    document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
+    document.querySelector('#whiteSofterTone').value = !incognitoContext && ['warm-plus-1', 'warm-plus-2', 'cool'].includes(cached.whiteSofter?.tone) ? cached.whiteSofter.tone : 'warm';
+  }
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) {
     documentPreviewEnabled.checked = !incognitoContext && cached.documentPreview?.enabled === true;

@@ -1907,12 +1907,43 @@ test('menus group image and all actions but omit all for single-image posts and 
   let groups = runtime.controlMenuGroups(record);
   assert.equal(groups.length, 2);
   assert.deepEqual(Array.from(groups, group => group.title), ['Image', 'All']);
-  assert.deepEqual(Array.from(groups[0].items, item => item.label), ['Hide', 'Auto', 'Dark', 'Light']);
+  assert.deepEqual(Array.from(groups[0].items, item => item.label), ['Hide', 'Auto', 'Dark', 'Light', 'Original']);
+  assert.deepEqual(Array.from(groups[1].items, item => item.label), ['Hide', 'Auto', 'Dark', 'Light', 'Original']);
   total = '1 / 1';
   assert.equal(runtime.controlMenuGroups(record).length, 1);
   total = '1 / 8';
   record.commentKind = 'preview';
   assert.equal(runtime.controlMenuGroups(record).length, 1);
+});
+
+test('Original bypasses image adjustment independently for an image or its entire post', async () => {
+  const runtime = await runtimeFixture();
+  runtime.viewerPostKey = image => image.post || '';
+  runtime.viewerForImage = () => ({ querySelector: () => ({ textContent: '1 / 2' }) });
+  runtime.updateRecordVisual = runtime.syncInterventionStatus = () => {};
+  const first = { image: { post: 'one', isConnected: true }, darkened: true, result: { kind: 'light-theme' } };
+  const second = { image: { post: 'one', isConnected: true }, darkened: true, result: { kind: 'light-theme' } };
+  const other = { image: { post: 'two', isConnected: true }, darkened: true, result: { kind: 'light-theme' } };
+  for (const record of [first, second, other]) runtime.records.set(record.image, record);
+  runtime.controlMenuGroups(first)[0].items.at(-1).run();
+  assert.equal(first.imageMode, 'original');
+  assert.equal(first.darkened, false);
+  assert.equal(second.darkened, true);
+  runtime.concealPost(first);
+  assert.equal(runtime.resolvedConcealed(second), true);
+  runtime.controlMenuGroups(first)[1].items.at(-1).run();
+  assert.equal(runtime.postOverride(first)?.mode, 'original');
+  assert.equal(first.imageMode, null);
+  assert.equal(first.darkened, false);
+  assert.equal(second.darkened, false);
+  assert.equal(runtime.resolvedConcealed(second), false);
+  assert.equal(other.darkened, true);
+  assert.equal(runtime.resolvedDarkened({ image: { post: 'one' }, result: { kind: 'light-theme' } }), false,
+    'later images inherit the post-wide Original choice');
+  assert.equal(runtime.controlMenuGroups(first)[1].items.at(-1).selected, true);
+  runtime.setPostMode(first, 'auto');
+  assert.equal(first.darkened, true);
+  assert.equal(second.darkened, true);
 });
 
 test('a held gesture without a browser click cannot swallow the next independent tap', async () => {

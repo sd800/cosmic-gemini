@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.19 — 2026-09-24
+
+- Add an Original choice at the end of both XHS image menu groups, preserving separate choices for one image and the complete post.
+- Limit Stay on the page to website-initiated navigation from protected tabs while allowing browser context-menu actions, manually entered addresses, and tabs opened by other extensions.
+
 ## 9.8.18 — 2026-09-24
 
 - Shorten the Website Fixer save confirmation to 1.5 seconds.

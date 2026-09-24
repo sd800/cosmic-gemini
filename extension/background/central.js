@@ -204,7 +204,6 @@ async function dispatchEvent(eventName, ...args) {
     return provinces[provinceId][handlerName](...args);
   }));
 }
-
 void dispatchEvent('initialize');
 chrome.runtime.onInstalled.addListener(() => void dispatchEvent('initialize'));
 chrome.runtime.onStartup.addListener(() => void dispatchEvent('initialize'));
@@ -225,6 +224,7 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   void dispatchEvent('tabUpdated', tabId, change, tab);
 });
 chrome.tabs.onRemoved.addListener(tabId => void dispatchEvent('tabRemoved', tabId));
+chrome.webRequest.onBeforeRequest.addListener(details => void provinces.standing.handleNavigationRequest(details), { urls: ['http://*/*', 'https://*/*'], types: ['main_frame'] });
 chrome.action.onClicked.addListener(tab => void dispatchEvent('actionClicked', tab));
 chrome.windows.onCreated.addListener(window => {
   void dispatchEvent('windowCreated', window);

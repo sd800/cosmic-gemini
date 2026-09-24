@@ -35,6 +35,43 @@
     if (link && !permitted(link.getAttribute('href') || link.getAttribute('xlink:href'), link.baseURI)) stop(event);
   }
   for (const type of ['click', 'auxclick']) nativeApply(listen, window, [type, guardLink, true]);
+  // Only the isolated-world copy can report a trusted browser context-menu
+  // gesture. The MAIN-world guard never receives extension messaging access.
+  if (globalThis.chrome?.runtime?.sendMessage) {
+    nativeApply(listen, window, ['contextmenu', event => {
+      if (!event.isTrusted) return;
+      const selected = String(window.getSelection?.() || '').trim()
+        || (document.activeElement?.selectionStart !== undefined
+          ? document.activeElement.value?.slice(document.activeElement.selectionStart,
+            document.activeElement.selectionEnd).trim() : '');
+      const link = event.composedPath?.().find(node => /^(a|area)$/.test(node?.localName)
+        && (node.hasAttribute('href') || node.hasAttribute('xlink:href')));
+      let kind = 'search';
+      let url = '';
+      if (link) {
+        try {
+          const target = new NativeURL(link.getAttribute('href') || link.getAttribute('xlink:href'), link.baseURI);
+          if (!/^https?:$/.test(target.protocol) || permitted(target.href)) return;
+          kind = 'link';
+          url = target.href;
+        } catch { return; }
+      } else {
+        if (!selected) return;
+        try {
+          const target = new NativeURL(selected);
+          if (/^https?:$/.test(target.protocol) && !permitted(target.href)) {
+            kind = 'link';
+            url = target.href;
+          }
+        } catch {}
+      }
+      try {
+        const sent = chrome.runtime.sendMessage({ type: 'CG_WEBSITE_FIXER_CONTEXT_MENU',
+          featureId: 'websiteFixer', kind, url, search: !!selected });
+        sent?.catch?.(() => {});
+      } catch {}
+    }, true]);
+  }
   const formUrl = (form, submitter) => submitter?.hasAttribute('formaction') ? submitter.formAction : form.action;
   nativeApply(listen, window, ['submit', event => {
     if (!permitted(formUrl(event.target, event.submitter))) stop(event);

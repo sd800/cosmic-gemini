@@ -11,6 +11,7 @@ import {
 } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { createWebsiteFixerProduct } from '../extension/background/products/standing/website-fixer.js';
+import { createStayOnPage } from '../extension/background/products/standing/website-fixer-stay.js';
 
 test('Website Fixer defaults off and matches only selected domains and their subdomains', () => {
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.websiteFixer, {
@@ -174,6 +175,7 @@ test('Stay on the page owns bounded independent rules and preserves per-site add
   let settings = normalizeSettings(), registered = [], network = [{ id: 10, action: { type: 'block' } }], writes = 0;
   globalThis.chrome = {
     runtime: { getURL: path => 'chrome-extension://test/' + path },
+    tabs: { query: async () => [{ id: 7, url: 'https://deep.example.co.uk/', incognito: false }] },
     scripting: {
       getRegisteredContentScripts: async ({ ids }) => registered.filter(script => ids.includes(script.id)),
       registerContentScripts: async scripts => { registered.push(...scripts); },
@@ -201,7 +203,8 @@ test('Stay on the page owns bounded independent rules and preserves per-site add
   assert.deepEqual(registered.map(script => script.world), ['MAIN', 'ISOLATED']);
   assert.ok(registered.every(script => script.allFrames && script.matchOriginAsFallback && script.runAt === 'document_start'));
   assert.deepEqual(registered[0].matches, ['*://*.example.co.uk/*']);
-  assert.deepEqual(network[1].condition, { initiatorDomains: ['example.co.uk'], excludedRequestDomains: ['example.co.uk'], resourceTypes: ['main_frame'] });
+  assert.deepEqual(network[1].condition, { initiatorDomains: ['example.co.uk'], excludedRequestDomains: ['example.co.uk'],
+    resourceTypes: ['main_frame'], tabIds: [7] });
   assert.equal(network[1].action.type, 'block');
   assert.deepEqual(network[2].condition.resourceTypes, ['sub_frame']);
   assert.doesNotMatch(network[2].action.responseHeaders[0].value, /allow-popups|allow-top-navigation/);
@@ -214,6 +217,74 @@ test('Stay on the page owns bounded independent rules and preserves per-site add
   await rule('UI_CLEAR_RULES'); assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, []);
   await assert.rejects(rule('UI_ADD_RULE', 'bad.test', 'unrecognized'));
   await product.reset(); assert.deepEqual(network.map(rule => rule.id), [10]);
+});
+
+test('Stay on the page confines network blocking to source tabs and honors browser context-menu navigation', async () => {
+  const source = { id: 1, url: 'https://stay.test/article', incognito: false };
+  const tabs = new Map([[source.id, source]]);
+  const removed = [];
+  let rules = [];
+  const settings = normalizeSettings({ websiteFixer: { enabled: true, stayOnPage: {
+    enabled: true, whitelistDomains: ['stay.test']
+  } } });
+  globalThis.chrome = {
+    tabs: {
+      query: async () => [...tabs.values()],
+      get: async id => tabs.get(id),
+      remove: async id => { removed.push(id); tabs.delete(id); }
+    },
+    declarativeNetRequest: {
+      getSessionRules: async () => rules,
+      updateSessionRules: async ({ removeRuleIds, addRules = [] }) => {
+        rules = rules.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+      }
+    }
+  };
+  const stay = createStayOnPage({ readSettings: async () => settings });
+  await stay.reconcile(settings);
+  assert.deepEqual(rules.find(rule => rule.condition.resourceTypes.includes('main_frame')).condition.tabIds, [1]);
+
+  const manual = { id: 2, url: 'https://outside.test/typed', incognito: false };
+  tabs.set(manual.id, manual);
+  await stay.handleTabCreated(manual);
+  assert.deepEqual(removed, [], 'a user-created tab is not tied to the protected page');
+
+  const popup = { id: 3, openerTabId: 1, url: 'https://outside.test/popup', incognito: false };
+  tabs.set(popup.id, popup);
+  stay.handleNavigationRequest({ tabId: popup.id, initiator: 'https://stay.test', url: popup.url });
+  await stay.handleTabCreated(popup);
+  assert.deepEqual(removed, [3], 'a page-created external tab remains blocked');
+
+  assert.equal(await stay.handleContextMenu({ kind: 'link', url: 'https://outside.test/article' }, { tab: source }), true);
+  const chosen = { id: 4, openerTabId: 1, url: 'https://outside.test/article', incognito: false };
+  tabs.set(chosen.id, chosen);
+  await stay.handleTabCreated(chosen);
+  assert.deepEqual(removed, [3], 'the exact link chosen from a browser context menu is allowed');
+
+  const unrelated = { id: 5, openerTabId: 1, url: 'https://outside.test/other', incognito: false };
+  tabs.set(unrelated.id, unrelated);
+  stay.handleNavigationRequest({ tabId: unrelated.id, initiator: 'https://stay.test', url: unrelated.url });
+  await stay.handleTabCreated(unrelated);
+  assert.deepEqual(removed, [3, 5]);
+
+  assert.equal(await stay.handleContextMenu({ kind: 'search' }, { tab: source }), true);
+  const search = { id: 6, openerTabId: 1, url: 'https://www.google.com/search?q=example', incognito: false };
+  tabs.set(search.id, search);
+  await stay.handleTabCreated(search);
+  assert.deepEqual(removed, [3, 5], 'Search with Google is a browser action');
+  const extensionTab = { id: 7, openerTabId: 1, url: 'https://outside.test/extension-open', incognito: false };
+  tabs.set(extensionTab.id, extensionTab);
+  stay.handleNavigationRequest({ tabId: extensionTab.id, url: extensionTab.url });
+  await stay.handleTabCreated(extensionTab);
+  assert.deepEqual(removed, [3, 5], 'an extension-created tab is not a website popup');
+  const extensionPage = { id: 8, openerTabId: 1,
+    url: 'chrome-extension://other-extension/document-preview.html', incognito: false };
+  tabs.set(extensionPage.id, extensionPage);
+  await stay.handleTabCreated(extensionPage);
+  assert.deepEqual(removed, [3, 5], 'another extension page is not blocked');
+  await stay.reconcile(settings);
+  assert.deepEqual(rules.find(rule => rule.condition.resourceTypes.includes('main_frame')).condition.tabIds, [1],
+    'newly opened external tabs never inherit the source tab network restriction');
 });
 
 test('scoped runtime uses the same curated site boundaries as background policy', () => {

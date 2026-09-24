@@ -25,7 +25,7 @@
       menuHint: 'Right-click for image options',
       menuTitle: 'Image display',
       imageGroup: 'Image', allGroup: 'All',
-      hide: 'Hide', auto: 'Auto', dark: 'Dark', light: 'Light',
+      hide: 'Hide', auto: 'Auto', dark: 'Dark', light: 'Light', original: 'Original',
       holdDark: 'Press and hold to show every image in this post in dark mode',
       holdLight: 'Press and hold to show every image in this post in light mode',
       profileEnabled: 'XHS Image Dark Mode is on for this profile. Click to turn it off for all posts',
@@ -41,7 +41,7 @@
       menuHint: '右键可打开图片菜单',
       menuTitle: '图片显示',
       imageGroup: '本图', allGroup: '本帖所有图片',
-      hide: '关闭', auto: '自动', dark: '深色', light: '浅色',
+      hide: '关闭', auto: '自动', dark: '深色', light: '浅色', original: '原图',
       holdDark: '长按可将这篇笔记的全部图片切换为深色模式',
       holdLight: '长按可将这篇笔记的全部图片切换为浅色模式',
       profileEnabled: 'XHS Image Dark Mode 已在这个用户主页中开启，点击可暂停处理全部笔记',
@@ -2103,7 +2103,9 @@
     postOverride(record) {
       const postKey = this.viewerPostKey(record?.image);
       if (!postKey || !this.postOverrides.has(postKey)) return null;
-      return { postKey, darkened: this.postOverrides.get(postKey) };
+      const choice = this.postOverrides.get(postKey);
+      return { postKey, mode: choice === 'original' ? 'original' : choice ? 'dark' : 'light',
+        darkened: choice === true };
     }
 
     recordsForPost(postKey) {
@@ -2127,16 +2129,17 @@
       return matches;
     }
 
-    applyPostMode(postKey, darkened) {
+    applyPostMode(postKey, mode) {
       this.concealedPosts.delete(postKey);
+      const forced = typeof mode === 'boolean' || mode === 'original';
       for (const related of this.recordsForPost(postKey)) {
         related.imageMode = null;
         related.concealed = null;
         related.darkened = this.profileProcessingDisabled(related)
           ? false
-          : (typeof darkened === 'boolean' ? darkened : this.automaticDarkened(related));
+          : (forced ? mode === true : this.automaticDarkened(related));
         this.updateRecordVisual(related, false);
-        if (typeof darkened !== 'boolean' && related.result?.kind === 'photo'
+        if (!forced && related.result?.kind === 'photo'
           && !this.viewerForImage(related.image)) {
           this.clearVisual(related, false);
           this.retireRecord(related);
@@ -2199,8 +2202,9 @@
       if (!postKey) return;
       if (mode === 'auto') this.restorePostAutomatic(record);
       else {
-        this.postOverrides.set(postKey, mode === 'dark');
-        this.applyPostMode(postKey, mode === 'dark');
+        const choice = mode === 'original' ? 'original' : mode === 'dark';
+        this.postOverrides.set(postKey, choice);
+        this.applyPostMode(postKey, choice);
       }
     }
 
@@ -2250,8 +2254,8 @@
     controlMenuGroups(record) {
       const copy = COPY[this.locale];
       const override = this.postOverride(record);
-      const imageMode = record.imageMode || (override ? override.darkened ? 'dark' : 'light' : 'auto');
-      const group = (title, selected, action) => ({ title, items: ['hide', 'auto', 'dark', 'light'].map(mode =>
+      const imageMode = record.imageMode || override?.mode || 'auto';
+      const group = (title, selected, action) => ({ title, items: ['hide', 'auto', 'dark', 'light', 'original'].map(mode =>
         ({ label: copy[mode], selected: selected === mode, run: () => action(mode) })) });
       const groups = [group(copy.imageGroup, this.resolvedConcealed(record) ? 'hide' : imageMode,
         mode => mode === 'hide' ? this.concealImage(record) : this.setImageMode(record, mode))];
@@ -2263,7 +2267,7 @@
             : related.imageMode || typeof related.concealed === 'boolean')
           && this.viewerPostKey(related.image) === postKey);
         const selected = hasImageChoices ? null : postHidden ? 'hide'
-          : override ? override.darkened ? 'dark' : 'light' : 'auto';
+          : override?.mode || 'auto';
         groups.push(group(copy.allGroup, selected,
           mode => mode === 'hide' ? this.concealPost(record) : this.setPostMode(record, mode)));
       }

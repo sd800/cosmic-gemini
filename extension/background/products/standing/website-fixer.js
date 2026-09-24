@@ -54,6 +54,9 @@ export function createWebsiteFixerProduct(platform) {
     id: FEATURE_IDS.WEBSITE_FIXER,
     state: websiteFixerState,
     async handleMessage(message, context) {
+      if (message.type === 'CG_WEBSITE_FIXER_CONTEXT_MENU') {
+        return stay.handleContextMenu(message, context.sender);
+      }
       if (!String(context.sender.url || '').startsWith(chrome.runtime.getURL('settings/'))) {
         throw new Error('Website Fixer can be changed only from Settings.');
       }
@@ -86,9 +89,19 @@ export function createWebsiteFixerProduct(platform) {
       return settings.websiteFixer;
     },
     initialize: reconcile,
-    handleTabCreated: stay.handleTabCreated,
-    handleTabUpdated: stay.handleTabUpdated,
-    handleTabRemoved: stay.handleTabRemoved,
+    handleNavigationRequest: stay.handleNavigationRequest,
+    async handleTabCreated(tab) {
+      await stay.handleTabCreated(tab);
+      return reconcile();
+    },
+    async handleTabUpdated(tabId, change, tab) {
+      await stay.handleTabUpdated(tabId, change, tab);
+      if (change.url) return reconcile();
+    },
+    async handleTabRemoved(tabId) {
+      stay.handleTabRemoved(tabId);
+      return reconcile();
+    },
     handleStorageChanged(changes) {
       const key = platform.isIncognitoContext?.() === true ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       const change = changes[key];

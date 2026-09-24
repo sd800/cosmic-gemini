@@ -56,6 +56,51 @@ try {
   const page = await context.newPage(); await page.goto(`http://outside.test:${port}/prior`); await page.goto(origin);
   const guard = await page.evaluate(() => ({ active: !!window[Symbol.for('cosmic-gemini.website-fixer.stay')], navigation: !!window.navigation }));
   assert.deepEqual(guard, { active: true, navigation: true });
+  const manualPage = context.waitForEvent('page');
+  const manualTabInfo = await worker.evaluate(() => chrome.tabs.create({ active: true }));
+  const manualTab = await manualPage;
+  assert.equal(manualTabInfo.openerTabId, undefined, 'browser-created new tabs have no website opener');
+  await manualTab.goto(`http://outside.test:${port}/manual`);
+  assert.equal(manualTab.url(), `http://outside.test:${port}/manual`, 'a user-created tab can load an external address');
+  await manualTab.close();
+  const sourceTabId = await worker.evaluate(url => chrome.tabs.query({}).then(tabs =>
+    tabs.find(tab => tab.url === url)?.id), origin + '/');
+  assert.ok(Number.isInteger(sourceTabId));
+  const chosenUrl = `http://outside.test:${port}/chosen`;
+  await page.locator('#link').evaluate((link, url) => { link.href = url; }, chosenUrl);
+  await page.locator('#link').click({ button: 'right' });
+  await page.waitForTimeout(80);
+  const chosenPage = context.waitForEvent('page');
+  await worker.evaluate(({ url, openerTabId }) => chrome.tabs.create({ url, openerTabId, active: false }),
+    { url: chosenUrl, openerTabId: sourceTabId });
+  const chosenTab = await chosenPage;
+  await chosenTab.waitForURL(chosenUrl);
+  await chosenTab.close();
+  await page.evaluate(() => {
+    const selection = getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(document.querySelector('h1'));
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  await page.locator('h1').click({ button: 'right' });
+  await page.waitForTimeout(80);
+  const googleUrl = 'https://www.google.com/search?q=Website+Fixer+QA';
+  await context.route('https://www.google.com/search**', route => route.fulfill({
+    contentType: 'text/html', body: '<!doctype html><title>Search fixture</title>'
+  }));
+  const searchPage = context.waitForEvent('page');
+  await worker.evaluate(({ url, openerTabId }) => chrome.tabs.create({ url, openerTabId, active: false }),
+    { url: googleUrl, openerTabId: sourceTabId });
+  const searchTab = await searchPage;
+  await searchTab.waitForURL(googleUrl);
+  await searchTab.close();
+  const extensionPage = context.waitForEvent('page');
+  await worker.evaluate(({ url, openerTabId }) => chrome.tabs.create({ url, openerTabId, active: false }),
+    { url: `http://outside.test:${port}/extension-open`, openerTabId: sourceTabId });
+  const extensionTab = await extensionPage;
+  await extensionTab.waitForURL(`http://outside.test:${port}/extension-open`);
+  await extensionTab.close();
   const attempts = [
     ['script history escape', () => history.back()],
     ['location assignment', url => { location.href = url; }],
@@ -109,5 +154,5 @@ try {
   await settings.waitForFunction(() => document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-count').textContent === '0 websites saved.');
   assert.equal(await section.locator('.website-fixer-count').textContent(), '0 websites saved.');
   await page.goto(origin); await page.evaluate(url => { location.href = url; }, outside); await page.waitForURL(outside);
-  console.log('PASS: settings add/hidden list/clear, scoped injection, direct/link/form/meta/blob/protocol/popup guards, same-site navigation, embedded resources and cleanup.');
+  console.log('PASS: settings, page-navigation guards, manual/context-menu/extension-created tabs, same-site navigation, embedded resources and cleanup.');
 } finally { await context.close(); server.close(); await rm(folder, { recursive: true, force: true }); }

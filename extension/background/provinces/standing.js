@@ -251,6 +251,7 @@ export function createStandingProvince(platform) {
       adMarshal.handleTabRemoved(tabId), accessControl.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId),
       websiteFixer.handleTabRemoved(tabId)
     ]); },
+    handleNavigationRequest(details) { return websiteFixer.handleNavigationRequest(details); },
     handleActionClicked(tab) { return accessControl.handleActionClicked(tab); },
     handleStorageChanged(changes, areaName) {
       mailtoCapture.handleStorageChanged(changes, areaName);

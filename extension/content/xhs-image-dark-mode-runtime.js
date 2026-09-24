@@ -13,9 +13,13 @@
   const CONTROL_GAP = 8;
   const LONG_PRESS_MS = 550;
   const LONG_PRESS_MOVE_TOLERANCE = 8;
+  const POST_OPEN_TRANSITION_MS = 380;
+  const CONTROL_RESIZE_SETTLE_MS = 140;
   const COPY = Object.freeze({
     'en-US': Object.freeze({
       clickAutomatic: 'Click to restore automatic recognition for this post',
+      clickRestoreImage: 'Click to restore this image',
+      clickRestoreAll: 'Click to restore every image in this post',
       clickDark: 'Click to show this image in dark mode',
       clickLight: 'Click to show this image in light mode',
       menuHint: 'Right-click for image options',
@@ -30,6 +34,8 @@
     }),
     'zh-CN': Object.freeze({
       clickAutomatic: '单击可恢复这篇笔记的自动识别',
+      clickRestoreImage: '单击可恢复本图',
+      clickRestoreAll: '单击可恢复本帖所有图片',
       clickDark: '单击可将当前图片切换为深色模式',
       clickLight: '单击可将当前图片切换为浅色模式',
       menuHint: '右键可打开图片菜单',
@@ -146,6 +152,9 @@
       this.themeTimer = 0;
       this.themeCheckTimers = [];
       this.positionFrame = 0;
+      this.controlTransitionUntil = 0;
+      this.controlTransitionTimer = 0;
+      this.watchedControlAnimations = new WeakMap();
       this.viewerRefreshFrame = 0;
       this.cleanupTimer = 0;
       this.style = null;
@@ -173,6 +182,8 @@
       this.onPostActivation = this.onPostActivation.bind(this);
       this.onIntersections = this.onIntersections.bind(this);
       this.onViewportChange = this.onViewportChange.bind(this);
+      this.onControlResize = this.onControlResize.bind(this);
+      this.onControlMotion = this.onControlMotion.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
       window.addEventListener(READY, this.onBridgeReady, true);
@@ -490,7 +501,7 @@
         rootMargin: '150% 0px 700% 0px',
         threshold: 0
       });
-      this.resizeObserver = new ResizeObserver(() => this.scheduleControlPositions());
+      this.resizeObserver = new ResizeObserver(this.onControlResize);
       this.pageObserver = new MutationObserver(this.onPageMutations);
       this.pageObserver.observe(document.documentElement, {
         childList: true,
@@ -522,6 +533,10 @@
       this.openingProfileKey = '';
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
       this.positionFrame = 0;
+      if (this.controlTransitionTimer) clearTimeout(this.controlTransitionTimer);
+      this.controlTransitionTimer = 0;
+      this.controlTransitionUntil = 0;
+      this.watchedControlAnimations = new WeakMap();
       if (this.viewerRefreshFrame) cancelAnimationFrame(this.viewerRefreshFrame);
       this.viewerRefreshFrame = 0;
       if (this.cleanupTimer) clearTimeout(this.cleanupTimer);
@@ -593,7 +608,7 @@
         :host { all: initial; }
         .layer { position: fixed; inset: 0; pointer-events: none; }
         button { position: absolute; z-index: 1; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; transition: opacity 120ms ease, background-color 120ms ease; }
-        .image-menu { position: fixed; z-index: 2; box-sizing: border-box; padding: 5px; margin: 0; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; overscroll-behavior: contain; border: 1px solid #4a4c50; border-radius: 10px; background: #222428; color: #e8e6e3; box-shadow: 0 4px 18px #0006; pointer-events: auto; font: 14px/1.45 system-ui, sans-serif; }
+        .image-menu { position: fixed; z-index: 2; box-sizing: border-box; padding: 5px; margin: 0; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; overscroll-behavior: contain; border: 1px solid #4a4c50; border-radius: 10px; background: #222428; color: #e8e6e3; box-shadow: 0 4px 18px #0006; pointer-events: auto; font: 14px/1.45 system-ui, sans-serif; outline: none; }
         .image-menu button { position: relative; display: block; width: 100%; height: auto; padding: 7px 12px; border: 0; border-radius: 5px; background: transparent; color: inherit; box-shadow: none; font: inherit; text-align: start; white-space: nowrap; opacity: 1; }
         .image-menu button:hover, .image-menu button:focus-visible { background: #383b42; }
         .menu-heading { padding: 5px 12px 3px; color: #aeb1b6; }
@@ -986,8 +1001,9 @@
     }
 
     onPostActivation(event) {
-      if (this.controlRecords.size) this.scheduleControlPositions();
       const path = event.composedPath?.() || [];
+      if (path.includes(this.controlHost)) return;
+      if (this.controlRecords.size) this.scheduleControlPositions();
       let commentImage = path.find(node => this.inlineCommentImage(node));
       if (!commentImage) {
         const x = Number(event.clientX);
@@ -1013,6 +1029,11 @@
       if (id) {
         this.openingProfileKey = this.currentProfileKey();
         this.openingPostId = id;
+        this.suspendControlPositions(POST_OPEN_TRANSITION_MS);
+      } else if (this.viewerRoot && path.some(node => node?.matches?.(
+        'button[aria-label*="close" i], .close, [class*="close-btn"], [class*="close-icon"]'
+      ) && node.closest?.('#noteContainer, .note-container'))) {
+        this.suspendControlPositions(POST_OPEN_TRANSITION_MS);
       }
     }
 
@@ -1978,6 +1999,15 @@
 
     activateImageControl(record) {
       if (this.profileProcessingDisabled(record)) return;
+      if (record.concealed === true) {
+        record.concealed = false;
+        this.updateRecordVisual(record);
+        return;
+      }
+      if (this.resolvedConcealed(record)) {
+        this.restoreConcealedPost(record);
+        return;
+      }
       if (!this.recordCommentKind(record) && this.postOverride(record)) {
         this.restorePostAutomatic(record);
         return;
@@ -2020,6 +2050,22 @@
       for (const related of this.recordsForPost(postKey)) {
         related.concealed = null;
         this.updateRecordVisual(related, false);
+      }
+      this.syncInterventionStatus();
+    }
+
+    restoreConcealedPost(record) {
+      const postKey = this.viewerPostKey(record.image);
+      if (!postKey || !this.concealedPosts.delete(postKey)) return;
+      for (const related of this.records.values()) {
+        if (related.image.isConnected === false || this.viewerPostKey(related.image) !== postKey) continue;
+        this.updateRecordVisual(related, false);
+        if (related.result?.kind === 'photo' && !this.postOverride(related)
+          && !related.imageMode && !this.resolvedConcealed(related)
+          && !this.viewerForImage(related.image)) {
+          this.clearVisual(related, false);
+          this.retireRecord(related);
+        }
       }
       this.syncInterventionStatus();
     }
@@ -2073,6 +2119,7 @@
       if (!this.controlLayer || !record.button || record.button.hidden) return;
       const menu = document.createElement('div');
       menu.className = 'image-menu';
+      menu.tabIndex = -1;
       menu.setAttribute('role', 'menu');
       menu.setAttribute('aria-label', COPY[this.locale].menuTitle);
       const source = record.source;
@@ -2121,7 +2168,8 @@
         const items = [...menu.querySelectorAll('button')];
         const current = items.indexOf(menu.getRootNode().activeElement);
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
-          : (current + direction + items.length) % items.length;
+          : current < 0 ? direction > 0 ? 0 : items.length - 1
+            : (current + direction + items.length) % items.length;
         items[next]?.focus();
       };
       window.addEventListener('pointerdown', outside, true);
@@ -2136,7 +2184,7 @@
       const bounds = menu.getBoundingClientRect();
       menu.style.left = `${Math.max(8, Math.min(innerWidth - bounds.width - 8, anchor.left))}px`;
       menu.style.top = `${Math.max(8, Math.min(innerHeight - bounds.height - 8, anchor.bottom + 6))}px`;
-      menu.querySelector('button')?.focus({ preventScroll: true });
+      menu.focus({ preventScroll: true });
     }
 
     bindControlGestures(button, record, allowHold = true) {
@@ -2229,6 +2277,10 @@
       this.controlViewportListening = true;
       window.addEventListener('scroll', this.onViewportChange, { capture: true, passive: true });
       window.addEventListener('resize', this.onViewportChange, { passive: true });
+      for (const type of ['transitionrun', 'transitionend', 'transitioncancel',
+        'animationstart', 'animationend', 'animationcancel']) {
+        document.addEventListener(type, this.onControlMotion, true);
+      }
     }
 
     stopControlPositionTracking() {
@@ -2236,6 +2288,75 @@
       this.controlViewportListening = false;
       window.removeEventListener('scroll', this.onViewportChange, true);
       window.removeEventListener('resize', this.onViewportChange, false);
+      for (const type of ['transitionrun', 'transitionend', 'transitioncancel',
+        'animationstart', 'animationend', 'animationcancel']) {
+        document.removeEventListener(type, this.onControlMotion, true);
+      }
+    }
+
+    suspendControlPositions(duration) {
+      if (!this.processing) return;
+      this.controlTransitionUntil = Math.max(this.controlTransitionUntil, Date.now() + duration);
+      if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
+      this.positionFrame = 0;
+      for (const record of this.controlRecords) {
+        if (record.button) record.button.style.display = 'none';
+        record.cancelGesture?.();
+      }
+      this.closeControlMenu();
+      if (this.controlTransitionTimer) clearTimeout(this.controlTransitionTimer);
+      this.controlTransitionTimer = setTimeout(() => {
+        this.controlTransitionTimer = 0;
+        this.scheduleControlPositions();
+      }, Math.max(1, this.controlTransitionUntil - Date.now() + 1));
+    }
+
+    onControlResize(entries) {
+      let changing = false;
+      for (const entry of entries) {
+        const record = this.records.get(entry.target);
+        if (!record?.button || !record.image.isConnected || !entry.contentRect) continue;
+        const { width, height } = entry.contentRect;
+        const last = record.controlImageSize;
+        record.controlImageSize = { width, height };
+        if (last && (Math.abs(width - last.width) > 1 || Math.abs(height - last.height) > 1)) changing = true;
+      }
+      if (changing) this.suspendControlPositions(CONTROL_RESIZE_SETTLE_MS);
+      else this.scheduleControlPositions();
+    }
+
+    onControlMotion(event) {
+      const target = event.target;
+      const modal = this.viewerRoot?.closest?.('#noteContainer, .note-container');
+      if (!this.processing || !this.controlRecords.size || !this.viewerRoot
+        || !(this.viewerRoot.contains?.(target)
+          || (modal?.contains?.(target) && target?.contains?.(this.viewerRoot)))) return;
+      if (event.type === 'transitionrun' || event.type === 'animationstart') {
+        this.suspendControlPositions(CONTROL_RESIZE_SETTLE_MS);
+      } else this.scheduleControlPositions();
+    }
+
+    hasControlMotion(record) {
+      let node = record.image;
+      for (let depth = 0; node && depth < 8 && node !== document.body; depth += 1, node = node.parentElement) {
+        for (const animation of node.getAnimations?.() || []) {
+          if (animation.playState !== 'running') continue;
+          let frames;
+          try { frames = animation.effect?.getKeyframes?.() || []; } catch { continue; }
+          if (!frames.some(frame => ['transform', 'translate', 'scale', 'width', 'height',
+            'left', 'right', 'top', 'bottom', 'opacity'].some(property => property in frame))) continue;
+          const finished = animation.finished;
+          if (finished && this.watchedControlAnimations.get(animation) !== finished) {
+            this.watchedControlAnimations.set(animation, finished);
+            Promise.resolve(finished).then(
+              () => this.scheduleControlPositions(),
+              () => this.scheduleControlPositions()
+            );
+          }
+          return true;
+        }
+      }
+      return false;
     }
 
     removeControl(record) {
@@ -2280,12 +2401,15 @@
       const copy = COPY[this.locale];
       button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
       button.style.opacity = String(this.controlOpacity);
-      const icon = record.darkened ? LIGHT_ICON : DARK_ICON;
+      const concealed = this.resolvedConcealed(record);
+      const icon = concealed ? POST_DISABLED_ICON : record.darkened ? LIGHT_ICON : DARK_ICON;
       // Keep the hit target stable throughout a pointer gesture and SPA refresh.
       if (record.controlIcon !== icon) { button.innerHTML = icon; record.controlIcon = icon; }
       const override = this.recordCommentKind(record) ? null : this.postOverride(record);
-      const parts = [override ? copy.clickAutomatic : record.darkened ? copy.clickLight : copy.clickDark];
-      if (this.recordCommentKind(record) !== 'preview') {
+      const parts = [concealed
+        ? record.concealed === true ? copy.clickRestoreImage : copy.clickRestoreAll
+        : override ? copy.clickAutomatic : record.darkened ? copy.clickLight : copy.clickDark];
+      if (!concealed && this.recordCommentKind(record) !== 'preview') {
         parts.push((override?.darkened ?? record.darkened) ? copy.holdLight : copy.holdDark);
       }
       parts.push(copy.menuHint);
@@ -2395,7 +2519,8 @@
     }
 
     scheduleControlPositions() {
-      if (this.positionFrame || !this.processing || !this.controlRecords.size) return;
+      if (this.positionFrame || !this.processing || !this.controlRecords.size
+        || Date.now() < this.controlTransitionUntil) return;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
         const positionedOwners = new Set();
@@ -2412,10 +2537,10 @@
           const commentPreview = classifiedCommentPreview && record === activeCommentPreview;
           const viewer = this.viewerForImage(record.image);
           const owner = commentPreview ? record.image : classifiedCommentPreview ? null : viewer;
-          const placement = this.showImageControl && (commentPreview || !commentPreviewOpen)
-            && owner && !positionedOwners.has(owner)
-            ? this.controlPlacement(record)
-            : null;
+          const eligible = this.showImageControl && (commentPreview || !commentPreviewOpen)
+            && owner && !positionedOwners.has(owner);
+          const placement = eligible && !this.hasControlMotion(record)
+            ? this.controlPlacement(record) : null;
           record.button.style.display = placement ? 'grid' : 'none';
           if (!placement) {
             record.cancelGesture?.();

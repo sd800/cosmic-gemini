@@ -1449,15 +1449,19 @@ test('only one image control is displayed for a viewer at a time', async () => {
 
 test('feed scrolling has no viewport listener until an expanded-view control needs positioning', async () => {
   const windowTarget = new SimpleEventTarget();
-  const runtime = await runtimeFixture({}, { window: windowTarget });
+  const documentTarget = new SimpleEventTarget();
+  const runtime = await runtimeFixture(documentTarget, { window: windowTarget });
   assert.equal(windowTarget.listeners.get('scroll')?.length || 0, 0);
   assert.equal(windowTarget.listeners.get('resize')?.length || 0, 0);
+  assert.equal(documentTarget.listeners.get('transitionrun')?.length || 0, 0);
   runtime.startControlPositionTracking();
   assert.equal(windowTarget.listeners.get('scroll')?.length, 1);
   assert.equal(windowTarget.listeners.get('resize')?.length, 1);
+  assert.equal(documentTarget.listeners.get('transitionrun')?.length, 1);
   runtime.stopControlPositionTracking();
   assert.equal(windowTarget.listeners.get('scroll')?.length, 0);
   assert.equal(windowTarget.listeners.get('resize')?.length, 0);
+  assert.equal(documentTarget.listeners.get('transitionrun')?.length, 0);
 });
 
 test('expanded images transform the slide background and image as one visual surface', async () => {
@@ -1784,6 +1788,42 @@ test('all-image hiding follows the post identity, excludes comments, and is rest
   assert.equal(runtime.resolvedConcealed(cover), true);
   runtime.setPostMode(current, 'auto');
   assert.equal(runtime.resolvedConcealed(cover), false);
+});
+
+test('a hidden image uses the switch icon and a click restores only the hidden scope', async () => {
+  const runtime = await runtimeFixture();
+  runtime.viewerPostKey = image => image.post || '';
+  runtime.viewerForImage = image => image.post ? {} : null;
+  runtime.updateRecordVisual = runtime.syncInterventionStatus = () => {};
+  const button = { style: {}, innerHTML: '', title: '', setAttribute() {} };
+  const current = { image: { post: 'one', isConnected: true }, button, commentKind: '',
+    result: { kind: 'light-theme' }, darkened: true };
+  const other = { image: { post: 'one', isConnected: true }, commentKind: '',
+    result: { kind: 'light-theme' }, darkened: true };
+  runtime.records.set(current.image, current);
+  runtime.records.set(other.image, other);
+  runtime.postOverrides.set('one', true);
+
+  runtime.concealPost(current);
+  runtime.updateControl(current);
+  assert.match(button.innerHTML, /<rect x="3" y="7"/);
+  assert.match(button.title, /restore every image/);
+  runtime.activateImageControl(current);
+  assert.equal(runtime.resolvedConcealed(current), false);
+  assert.equal(runtime.resolvedConcealed(other), false);
+  assert.equal(runtime.postOverride(current)?.darkened, true);
+  runtime.updateControl(current);
+  assert.doesNotMatch(button.innerHTML, /<rect x="3" y="7"/);
+
+  runtime.concealImage(current);
+  runtime.updateControl(current);
+  assert.match(button.innerHTML, /<rect x="3" y="7"/);
+  assert.match(button.title, /restore this image/);
+  other.concealed = true;
+  runtime.activateImageControl(current);
+  assert.equal(runtime.resolvedConcealed(current), false);
+  assert.equal(runtime.resolvedConcealed(other), true);
+  assert.equal(runtime.postOverride(current)?.darkened, true);
 });
 
 test('menus group image and all actions but omit all for single-image posts and comment previews', async () => {

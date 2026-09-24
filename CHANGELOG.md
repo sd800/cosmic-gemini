@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.16 — 2026-09-24
+
+- Open the XHS image options menu without initially highlighting Hide; keyboard navigation still starts with the selected direction.
+- Show the switch icon for hidden images and restore the affected image or post with the next click.
+- Keep XHS image controls out of opening and closing zoom animations, then position them after the image settles.
+
 ## 9.8.15 — 2026-09-24
 
 - Improve XHS Image Dark Mode button responsiveness, manual display choices and resource cleanup, while reducing repeated image processing.

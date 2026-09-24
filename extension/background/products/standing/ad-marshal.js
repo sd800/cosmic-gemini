@@ -9,6 +9,8 @@ import {
 const RULE_ID_START = 1_600_000_000;
 const RULE_ID_GROUPS = 20_000_000;
 const RULES_PER_TAB = 12;
+const stable = value => JSON.stringify(value, (_, item) => item && !Array.isArray(item) && typeof item === 'object'
+  ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 const SITE_POLICIES = Object.freeze({
   newsQqCom: Object.freeze({
     matches: Object.freeze([
@@ -201,18 +203,20 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       if (message.type !== 'UI_SET_AD_MARSHAL_SITE' || !AD_MARSHAL_SITE_KEYS.includes(message.siteId)) {
         throw new Error('Ad Marshal does not support this command.');
       }
-      const settings = await platform.mutateSettings(current => ({
-        ...current,
-        adMarshal: {
-          ...current.adMarshal,
-          managedSites: {
-            ...current.adMarshal.managedSites,
-            [message.siteId]: message.enabled === true
-          }
-        }
-      }));
-      void reconcile(settings).catch(() => false);
-      return settings.adMarshal;
+      try {
+        const settings = await platform.mutateSettings(async current => {
+          const next = { ...current, adMarshal: {
+            ...current.adMarshal,
+            managedSites: { ...current.adMarshal.managedSites, [message.siteId]: message.enabled === true }
+          } };
+          await reconcile(next);
+          return next;
+        });
+        return settings.adMarshal;
+      } catch (error) {
+        await reconcile().catch(() => {});
+        throw error;
+      }
     },
     async handleTabUpdated(tabId, change, tab) {
       if (!change.url && change.status !== 'loading') return;
@@ -226,6 +230,8 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       const expectedArea = incognito ? 'session' : 'local';
       const key = incognito ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       if (areaName !== expectedArea || !changes?.[key]) return false;
+      const { oldValue, newValue } = changes[key];
+      if (stable(oldValue?.adMarshal) === stable(newValue?.adMarshal)) return false;
       return reconcile();
     },
     reconcile,
@@ -261,11 +267,23 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
   }
 
   function reconcile(providedSettings) {
-    return queueNetwork(() => writeAllRules(providedSettings));
+    return queueNetwork(async () => {
+      let failure;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try { return await writeAllRules(providedSettings); }
+        catch (error) {
+          failure = error;
+          if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 40 * (attempt + 1)));
+        }
+      }
+      throw failure;
+    });
   }
 
   async function writeAllRules(providedSettings) {
-    if (!chrome.declarativeNetRequest?.updateSessionRules) return false;
+    if (!chrome.declarativeNetRequest?.getSessionRules || !chrome.declarativeNetRequest?.updateSessionRules) {
+      throw new Error('Ad Marshal network rules are unavailable.');
+    }
     const settings = providedSettings || await platform.readSettings();
     const existing = await ownedRules();
     const removeRuleIds = existing.map(rule => rule.id);
@@ -291,6 +309,11 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     }
     if (removeRuleIds.length || addRules.length) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds, addRules });
+      const installed = await ownedRules();
+      if (stable(installed.sort((a, b) => a.id - b.id))
+        !== stable([...addRules].sort((a, b) => a.id - b.id))) {
+        throw new Error('Ad Marshal could not verify its network rules.');
+      }
     }
     activeTabs.clear();
     for (const [tabId, siteId] of tabs) activeTabs.set(tabId, siteId);

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.27 — 2026-09-24
+
+- 改进 Website Fixer 及相关网站控制功能的名单同步与相互隔离。
+
 ## 9.8.26 — 2026-09-24
 
 - 提升网站规则变更时 Access Control 的可靠性，包括调整 Stay on the page 网站后。Access Control 的网站名单与临时许可仍独立于 Website Fixer。

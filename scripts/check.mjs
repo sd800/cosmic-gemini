@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.8.26');
+assert.equal(manifest.version, '9.8.27');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -629,8 +629,8 @@ assert.match(adMarshal, /tabIds[\s\S]*universal-report\.min\.js[\s\S]*\/qqindex2
 assert.match(adMarshal, /wwwQqCom[\s\S]*https:\/\/www\.qq\.com\/\*/);
 assert.match(adMarshal, /SETTING_ID_BY_SITE_ID[\s\S]*settings\.adMarshal\.managedSites/);
 assert.match(adMarshal, /UI_SET_AD_MARSHAL_SITE/);
-assert.match(adMarshal, /void reconcile\(settings\)\.catch\(\(\) => false\)[\s\S]*return settings\.adMarshal/,
-  'Saving an Ad Marshal site selection must not wait for native network-rule reconciliation.');
+assert.match(adMarshal, /await reconcile\(next\)[\s\S]*return next[\s\S]*return settings\.adMarshal/,
+  'Ad Marshal must reconcile native network rules before saving a changed site selection.');
 assert.match(adMarshal, /WWW_QQ_TRACKING_DOMAINS[\s\S]*h5\.ssp\.qq\.com[\s\S]*\/www\/js\/emonitor\//);
 assert.match(adMarshal, /zhihuCom[\s\S]*http:\/\/\*\.zhihu\.com\/\*/);
 assert.match(adMarshal, /ZHIHU_TELEMETRY_DOMAINS[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*crash2\.zhihu\.com[\s\S]*hm\.baidu\.com/);

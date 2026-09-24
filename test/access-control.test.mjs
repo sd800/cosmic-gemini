@@ -27,6 +27,8 @@ test('Access Control starts disabled and stores canonical domains and exact IP a
     allowTemporaryVisits: false,
     blockedDomains: ['z.example', 'example.com', 'a.example', '192.0.2.1', '[2001:db8::1]']
   });
+  assert.equal(normalizeSettings({ accessControl: { blockedDomains: Array.from({ length: 1001 },
+    (_, index) => `site${index}.example`) } }).accessControl.blockedDomains.length, 1000);
 });
 
 test('Access Control installs root-and-subdomain navigation blocks and removes them when disabled', async () => {

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.27 — 2026-09-24
+
+- Improve synchronization and isolation of saved website choices across Website Fixer and related site controls.
+
 ## 9.8.26 — 2026-09-24
 
 - Improve Access Control reliability when website rules change, including after edits to Stay on the page. Its site list and temporary visits remain independent of Website Fixer.

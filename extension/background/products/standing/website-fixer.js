@@ -25,8 +25,8 @@ export function createWebsiteFixerProduct(platform) {
     return operation;
   };
 
-  const reconcile = () => serialize(async () => {
-    const settings = await platform.readSettings();
+  const reconcile = providedSettings => serialize(async () => {
+    const settings = providedSettings || await platform.readSettings();
     await stay.reconcile(settings);
     const translate = settings.websiteFixer;
     const translateMatches = translate.enabled && translate.translateOverride.enabled
@@ -50,6 +50,18 @@ export function createWebsiteFixerProduct(platform) {
       else await chrome.scripting.registerContentScripts([script]);
     }
   });
+
+  async function ensureReconciled(settings) {
+    let failure;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try { return await reconcile(settings); }
+      catch (error) {
+        failure = error;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 40 * (attempt + 1)));
+      }
+    }
+    throw failure;
+  }
 
   return Object.freeze({
     id: FEATURE_IDS.WEBSITE_FIXER,
@@ -85,29 +97,39 @@ export function createWebsiteFixerProduct(platform) {
           return { ...feature, [group]: { ...feature[group], whitelistDomains: domains } };
         };
       } else throw new Error('Website Fixer does not support this command.');
-      const settings = await platform.mutateSettings(current => updateFeature(current, FEATURE_IDS.WEBSITE_FIXER, revise));
-      await reconcile();
-      return settings.websiteFixer;
+      try {
+        const settings = await platform.mutateSettings(async current => {
+          const next = updateFeature(current, FEATURE_IDS.WEBSITE_FIXER, revise);
+          await ensureReconciled(next);
+          return next;
+        });
+        return settings.websiteFixer;
+      } catch (error) {
+        // A failed storage write or partial registration must leave the last
+        // saved website lists and their installed rules in agreement.
+        await ensureReconciled().catch(() => {});
+        throw error;
+      }
     },
-    initialize: reconcile,
+    initialize: () => ensureReconciled(),
     handleNavigationRequest: stay.handleNavigationRequest,
     async handleTabCreated(tab) {
       await stay.handleTabCreated(tab);
-      return reconcile();
+      return ensureReconciled();
     },
     async handleTabUpdated(tabId, change, tab) {
       await stay.handleTabUpdated(tabId, change, tab);
-      if (change.url) return reconcile();
+      if (change.url) return ensureReconciled();
     },
     async handleTabRemoved(tabId) {
       stay.handleTabRemoved(tabId);
-      return reconcile();
+      return ensureReconciled();
     },
     handleStorageChanged(changes) {
       const key = platform.isIncognitoContext?.() === true ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       const change = changes[key];
       if (!change || JSON.stringify(change.oldValue?.websiteFixer) === JSON.stringify(change.newValue?.websiteFixer)) return;
-      return reconcile();
+      return ensureReconciled();
     },
     reset() { return serialize(async () => {
       await stay.reset();

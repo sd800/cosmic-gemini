@@ -118,6 +118,11 @@ export function createStayOnPage(platform) {
       const next = stayRules(domains, incognito, tabIdsBySite);
       if (stable(old.sort((a, b) => a.id - b.id)) !== stable(next)) {
         await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: old.map(rule => rule.id), addRules: next });
+        const installed = (await chrome.declarativeNetRequest.getSessionRules()).filter(owns)
+          .sort((a, b) => a.id - b.id);
+        if (stable(installed) !== stable(next)) {
+          throw new Error('Stay on the page could not verify its network rules.');
+        }
       }
     },
     async handleContextMenu(message, sender) {

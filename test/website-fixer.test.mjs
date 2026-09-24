@@ -73,7 +73,7 @@ test('Website Fixer registers only allowlisted document-start scripts and unregi
   };
   const product = createWebsiteFixerProduct({
     readSettings: async () => settings,
-    mutateSettings: async mutate => (settings = normalizeSettings(mutate(settings))),
+    mutateSettings: async mutate => (settings = normalizeSettings(await mutate(settings))),
     isIncognitoContext: () => false
   });
   const sender = { sender: { url: 'chrome-extension://test/settings/satellites.html' } };
@@ -96,6 +96,69 @@ test('Website Fixer registers only allowlisted document-start scripts and unregi
   await assert.rejects(product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }, {
     sender: { url: 'https://www.ilsos.gov/' }
   }));
+});
+
+test('Website Fixer keeps saved sites and installed protection together when registration or storage fails', async () => {
+  let settings = normalizeSettings({ websiteFixer: { enabled: true, stayOnPage: { enabled: true } } });
+  let rules = [], registered = [], failedRegistrations = 3, failStorage = false, ignoreNetworkUpdate = false;
+  globalThis.chrome = {
+    runtime: { getURL: path => 'chrome-extension://test/' + path },
+    tabs: { query: async () => [] },
+    declarativeNetRequest: {
+      getSessionRules: async () => rules,
+      updateSessionRules: async ({ removeRuleIds = [], addRules = [] }) => {
+        if (ignoreNetworkUpdate) return;
+        rules = rules.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+      }
+    },
+    scripting: {
+      getRegisteredContentScripts: async ({ ids }) => registered.filter(script => ids.includes(script.id)),
+      registerContentScripts: async scripts => {
+        if (failedRegistrations > 0) {
+          failedRegistrations -= 1;
+          throw new Error('registration unavailable');
+        }
+        registered.push(...scripts);
+      },
+      unregisterContentScripts: async ({ ids }) => {
+        registered = registered.filter(script => !ids.includes(script.id));
+      }
+    }
+  };
+  const product = createWebsiteFixerProduct({
+    isIncognitoContext: () => false,
+    readSettings: async () => settings,
+    mutateSettings: async revise => {
+      const next = normalizeSettings(await revise(settings));
+      if (failStorage) throw new Error('storage unavailable');
+      return (settings = next);
+    }
+  });
+  const message = { type: 'UI_ADD_RULE', listName: 'whitelistDomains',
+    settingGroup: 'stayOnPage', rule: 'example.com' };
+  const context = { sender: { url: 'chrome-extension://test/settings/satellites.html' } };
+  await assert.rejects(product.handleMessage(message, context), /registration unavailable/);
+  assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, []);
+  assert.deepEqual(rules, []);
+  assert.deepEqual(registered, []);
+
+  failStorage = true;
+  await assert.rejects(product.handleMessage(message, context), /storage unavailable/);
+  assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, []);
+  assert.deepEqual(rules, []);
+  assert.deepEqual(registered, []);
+
+  failStorage = false;
+  failedRegistrations = 1;
+  const recovered = await product.handleMessage(message, context);
+  assert.deepEqual(recovered.stayOnPage.whitelistDomains, ['example.com']);
+  assert.deepEqual(rules.map(rule => rule.id), [930002]);
+  assert.equal(registered.length, 2);
+
+  ignoreNetworkUpdate = true;
+  await assert.rejects(product.handleMessage({ ...message, type: 'UI_DELETE_RULE' }, context), /could not verify/);
+  assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, ['example.com']);
+  assert.deepEqual(rules.map(rule => rule.id), [930002]);
 });
 
 test('Translate Override clears page-wide and nested opt-outs, including late rewrites', () => {
@@ -211,7 +274,7 @@ test('Stay on the page owns bounded independent rules and preserves per-site add
     }
   };
   const product = createWebsiteFixerProduct({ readSettings: async () => settings,
-    mutateSettings: async revise => settings = normalizeSettings(revise(settings)) });
+    mutateSettings: async revise => settings = normalizeSettings(await revise(settings)) });
   const sender = { sender: { url: 'chrome-extension://test/settings/satellites.html' } };
   const rule = (type, value, group = 'stayOnPage') => product.handleMessage({ type,
     listName: 'whitelistDomains', settingGroup: group, rule: value }, sender);

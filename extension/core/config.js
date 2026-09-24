@@ -364,7 +364,7 @@ export function normalizeSettings(value = {}) {
       blockedDomains: [...new Set((Array.isArray(value.accessControl?.blockedDomains)
         ? value.accessControl.blockedDomains : []).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
-      }))]
+      }))].slice(0, 1000)
     },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(value.websiteKnowledgeControl),
     pageDisplay: {

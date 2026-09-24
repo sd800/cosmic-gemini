@@ -15,27 +15,29 @@
   const LONG_PRESS_MOVE_TOLERANCE = 8;
   const COPY = Object.freeze({
     'en-US': Object.freeze({
-      postAutomatic: 'Automatic recognition is active for this post',
-      postDark: 'Every image in this post uses dark mode',
-      postLight: 'Every image in this post uses light mode',
       clickAutomatic: 'Click to restore automatic recognition for this post',
+      clickDark: 'Click to show this image in dark mode',
+      clickLight: 'Click to show this image in light mode',
+      menuHint: 'Right-click for image options',
+      menuTitle: 'Image display',
+      imageGroup: 'Image', allGroup: 'All',
+      hide: 'Hide', auto: 'Auto', dark: 'Dark', light: 'Light',
       holdDark: 'Press and hold to show every image in this post in dark mode',
       holdLight: 'Press and hold to show every image in this post in light mode',
-      commentDark: 'This comment image uses dark mode. Click to show it in light mode',
-      commentLight: 'This comment image uses light mode. Click to show it in dark mode',
       profileEnabled: 'XHS Image Dark Mode is on for this profile. Click to turn it off for all posts',
       profileDisabled: 'XHS Image Dark Mode is off for this profile. Click to turn it on',
       separator: '. '
     }),
     'zh-CN': Object.freeze({
-      postAutomatic: '这篇笔记正在使用自动识别',
-      postDark: '这篇笔记的全部图片均使用深色模式',
-      postLight: '这篇笔记的全部图片均使用浅色模式',
       clickAutomatic: '单击可恢复这篇笔记的自动识别',
+      clickDark: '单击可将当前图片切换为深色模式',
+      clickLight: '单击可将当前图片切换为浅色模式',
+      menuHint: '右键可打开图片菜单',
+      menuTitle: '图片显示',
+      imageGroup: '本图', allGroup: '本帖所有图片',
+      hide: '关闭', auto: '自动', dark: '深色', light: '浅色',
       holdDark: '长按可将这篇笔记的全部图片切换为深色模式',
       holdLight: '长按可将这篇笔记的全部图片切换为浅色模式',
-      commentDark: '这张评论图片正在使用深色模式，单击可切换为浅色模式',
-      commentLight: '这张评论图片正在使用浅色模式，单击可切换为深色模式',
       profileEnabled: 'XHS Image Dark Mode 已在这个用户主页中开启，点击可暂停处理全部笔记',
       profileDisabled: 'XHS Image Dark Mode 已在这个用户主页中暂停，点击可恢复处理',
       separator: '。'
@@ -125,6 +127,8 @@
       this.controlRecords = new Set();
       this.commentPreviewRecords = new Set();
       this.postOverrides = new Map();
+      this.concealedPosts = new Set();
+      this.controlMenu = null;
       this.disabledProfileKeys = new Set();
       this.commentImageKeys = new Set();
       this.commentPreviewImages = new WeakSet();
@@ -133,6 +137,7 @@
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
+      this.inFlight = new WeakMap();
       this.running = 0;
       this.pumpHandle = 0;
       this.pumpKind = '';
@@ -182,6 +187,7 @@
       if (message?.token !== this.token) return;
       const config = message.config || {};
       const nextActive = config.active === true && location.hostname === 'www.xiaohongshu.com';
+      this.closeControlMenu();
       this.locale = config.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
       this.overrideDarkMode = config.overrideDarkMode === true;
       this.showImageControl = config.showImageControl !== false;
@@ -229,6 +235,7 @@
       window.removeEventListener('load', this.onThemeChange, true);
       this.stopProcessing();
       this.postOverrides.clear();
+      this.concealedPosts.clear();
       this.disabledProfileKeys.clear();
       this.reportStatus();
     }
@@ -509,6 +516,7 @@
       this.resizeObserver?.disconnect();
       this.resizeObserver = null;
       this.stopControlPositionTracking();
+      this.closeControlMenu();
       document.removeEventListener('click', this.onPostActivation, true);
       this.openingPostId = '';
       this.openingProfileKey = '';
@@ -522,6 +530,7 @@
       this.running = 0;
       this.queue.length = 0;
       this.queued.clear();
+      this.inFlight = new WeakMap();
       for (const record of this.records.values()) this.clearRecord(record);
       this.records.clear();
       this.intervenedRecords.clear();
@@ -541,15 +550,32 @@
       this.controlLayer = null;
       this.style?.remove();
       this.style = null;
+      this.coverFilters?.remove();
+      this.coverFilters = null;
     }
 
     installStyle() {
       if (this.style?.isConnected) return;
       const style = document.createElement('style');
       style.dataset.cosmicGeminiXhsImageDarkMode = '';
+      const darkFilter = `cg-xhs-cover-dark-${this.token}`;
+      const lightFilter = `cg-xhs-cover-light-${this.token}`;
+      const filters = document.createElement('div');
+      filters.style.cssText = 'position:fixed;width:0;height:0;overflow:hidden;pointer-events:none;';
+      filters.setAttribute('aria-hidden', 'true');
+      // Constant-color SVG filters stay in the image's own stacking/clip context.
+      // They need no image copy, canvas, per-scroll positioning or network resource.
+      filters.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"><defs>
+        <filter id="${darkFilter}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feFlood flood-color="#000"/></filter>
+        <filter id="${lightFilter}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feFlood flood-color="#e8e6e3"/></filter>
+      </defs></svg>`;
+      document.documentElement.append(filters);
+      this.coverFilters = filters;
       style.textContent = `
         html .cg-xhs-image-dark-mode { filter: invert(1) hue-rotate(180deg) brightness(var(--cg-xhs-image-brightness, 1)) contrast(.92) saturate(.88) !important; }
         html .cg-xhs-image-dark-mode-gray { filter: brightness(var(--cg-xhs-image-brightness, 1)) contrast(6) saturate(.9) !important; }
+        html .cg-xhs-image-hidden-dark { filter: url("#${darkFilter}") !important; }
+        html .cg-xhs-image-hidden-light { filter: url("#${lightFilter}") !important; }
         html img.avatar-item, html img[src*="sns-avatar"] { filter: brightness(.72) saturate(.9) !important; }
         html .note-detail-follow-btn .follow-button, html button.follow-button.primary { filter: brightness(.76) saturate(.88) !important; }
       `;
@@ -566,12 +592,19 @@
       style.textContent = `
         :host { all: initial; }
         .layer { position: fixed; inset: 0; pointer-events: none; }
-        button { position: absolute; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; transition: opacity 120ms ease, background-color 120ms ease; }
+        button { position: absolute; z-index: 1; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; transition: opacity 120ms ease, background-color 120ms ease; }
+        .image-menu { position: fixed; z-index: 2; box-sizing: border-box; padding: 5px; margin: 0; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; overscroll-behavior: contain; border: 1px solid #4a4c50; border-radius: 10px; background: #222428; color: #e8e6e3; box-shadow: 0 4px 18px #0006; pointer-events: auto; font: 14px/1.45 system-ui, sans-serif; }
+        .image-menu button { position: relative; display: block; width: 100%; height: auto; padding: 7px 12px; border: 0; border-radius: 5px; background: transparent; color: inherit; box-shadow: none; font: inherit; text-align: start; white-space: nowrap; opacity: 1; }
+        .image-menu button:hover, .image-menu button:focus-visible { background: #383b42; }
+        .menu-heading { padding: 5px 12px 3px; color: #aeb1b6; }
+        .image-menu button::before { content: ''; display: inline-block; width: 18px; margin-right: 5px; }
+        .image-menu button[aria-checked="true"]::before { content: '✓'; color: #8fb8ee; }
+        .image-menu hr { margin: 4px 6px; border: 0; border-top: 1px solid #45474c; }
         button.profile-control { position: fixed; top: 88px; right: 24px; }
         button:hover, button:focus-visible { opacity: 1 !important; background: rgba(20,24,30,.96); }
         button[hidden] { display: none !important; }
         button:focus-visible { outline: 2px solid #4f8df0; outline-offset: 2px; }
-        svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        svg { pointer-events: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       `;
       const layer = document.createElement('div');
       layer.className = 'layer';
@@ -835,7 +868,9 @@
         image,
         source: '',
         button: null,
-        darkened: true,
+        darkened: false,
+        imageMode: null,
+        concealed: null,
         result: null,
         commentKind,
         profileKey,
@@ -875,8 +910,13 @@
         if (profileKey && this.disabledProfileKeys.has(profileKey)) return;
         record = this.createRecord(image, commentKind, profileKey);
       } else if (this.profileProcessingDisabled(record)) return;
-      if (commentKind === 'preview') this.resizeObserver?.observe(image);
+      if (commentKind === 'preview' || this.viewerForImage(image)) {
+        this.createControl(record);
+        this.scheduleControlPositions();
+      }
       if (this.applyCachedResult(record)) return;
+      record.darkened = this.resolvedDarkened(record);
+      if (record.darkened || this.resolvedConcealed(record)) this.updateRecordVisual(record);
       const viewerPriority = this.viewerForImage(image) ? -20 : null;
       if (viewerPriority !== null) {
         this.waitForImageLoad(record, viewerPriority);
@@ -922,13 +962,20 @@
       this.viewerObserver.observe(root, {
         attributes: true,
         attributeFilter: ['class'],
+        attributeOldValue: true,
         childList: true,
         subtree: true
       });
       this.viewerRoot = root;
     }
 
-    onViewerMutations() {
+    onViewerMutations(mutations) {
+      if (mutations?.length && !mutations.some(mutation => {
+        if (mutation.type !== 'attributes') return true;
+        const siteClasses = value => String(value || '').split(/\s+/)
+          .filter(name => name && !name.startsWith('cg-xhs-image-')).sort().join(' ');
+        return siteClasses(mutation.oldValue) !== siteClasses(mutation.target.getAttribute?.('class'));
+      })) return;
       if (!this.processing || this.viewerRefreshFrame) return;
       this.viewerRefreshFrame = requestAnimationFrame(() => {
         this.viewerRefreshFrame = 0;
@@ -1002,11 +1049,16 @@
           }
           const requestKey = this.imageRequestKey(image);
           if (record && record.requestKey !== requestKey) {
+            record.cancelGesture?.();
+            if (this.controlMenu?.record === record) this.closeControlMenu();
             const currentSource = image.currentSrc || image.src || '';
             const displayedSourceUnchanged = !!record.source && currentSource === record.source;
             if (!displayedSourceUnchanged) this.clearRecord(record);
             record.requestKey = requestKey;
-            if (!displayedSourceUnchanged) record.darkened = true;
+            if (!displayedSourceUnchanged) {
+              record.darkened = this.resolvedDarkened(record);
+              this.createControl(record);
+            }
             this.intersectionObserver?.observe(image);
             const priority = this.viewerForImage(image) ? -20 : 0;
             if (displayedSourceUnchanged) {
@@ -1052,6 +1104,8 @@
       if (this.profileProcessingDisabled(record)) return;
       const source = image.currentSrc || image.src || '';
       if (!source || (record.source === source && record.result)) return;
+      const pending = this.inFlight.get(image);
+      if (pending?.source === source && pending.generation === this.processingGeneration) return;
       if (record.loadSource) return;
       if (!image.complete || !image.naturalWidth) {
         this.waitForImageLoad(record, priority);
@@ -1159,9 +1213,12 @@
         if (!record || !task.image.isConnected
           || !this.isContentImage(task.image, record.commentKind)) continue;
         const generation = this.processingGeneration;
+        const pending = { source: task.image.currentSrc || task.image.src || '', generation };
+        this.inFlight.set(task.image, pending);
         this.running += 1;
         void this.analyze(task.image, generation).finally(() => {
           if (generation !== this.processingGeneration) return;
+          if (this.inFlight.get(task.image) === pending) this.inFlight.delete(task.image);
           this.running -= 1;
           this.schedulePump((this.queue[0]?.priority ?? 0) < 0);
         });
@@ -1173,7 +1230,7 @@
       if (!value) return '';
       try {
         const url = new URL(value, location.href);
-        if (/xhscdn\.com$/i.test(url.hostname)) {
+        if (/(?:^|\.)xhscdn\.com$/i.test(url.hostname)) {
           const filename = url.pathname.split('/').filter(Boolean).at(-1) || '';
           const identity = filename.split('!')[0];
           if (identity) return `xhs:${identity}`;
@@ -1267,10 +1324,20 @@
       const cached = this.cachedResult(record.image, source);
       if (!cached) return record.source === source && !!record.result;
       if (record.source === source && record.result === cached) return true;
-      record.source = source;
+      this.adoptSource(record, source);
       record.result = cached;
       this.applyResult(record);
       return true;
+    }
+
+    adoptSource(record, source) {
+      if (record.source && record.source !== source) {
+        record.cancelGesture?.();
+        record.imageMode = null;
+        record.concealed = null;
+        if (this.controlMenu?.record === record) this.closeControlMenu();
+      }
+      record.source = source;
     }
 
     async analyze(image, generation = this.processingGeneration) {
@@ -1281,7 +1348,7 @@
       if (!source) return;
       const cached = this.cachedResult(image, source);
       if (cached) {
-        record.source = source;
+        this.adoptSource(record, source);
         record.result = cached;
         this.applyResult(record);
         return;
@@ -1300,7 +1367,7 @@
       const result = this.classifySample(sample.data, sample.width, sample.height);
       this.cacheResult(source, result, image);
       record.requestKey = this.imageRequestKey(image);
-      record.source = source;
+      this.adoptSource(record, source);
       record.result = result;
       this.applyResult(record);
     }
@@ -1348,8 +1415,8 @@
       const sourceWidth = Math.max(1, image.naturalWidth || image.clientWidth || 1);
       const sourceHeight = Math.max(1, image.naturalHeight || image.clientHeight || 1);
       const scale = Math.min(1, Math.sqrt(MAX_SAMPLE_PIXELS / (sourceWidth * sourceHeight)));
-      const width = Math.max(1, Math.ceil(sourceWidth * scale));
-      const height = Math.max(1, Math.ceil(sourceHeight * scale));
+      const width = Math.min(MAX_SAMPLE_PIXELS, Math.max(1, Math.floor(sourceWidth * scale)));
+      const height = Math.min(Math.floor(MAX_SAMPLE_PIXELS / width), Math.max(1, Math.floor(sourceHeight * scale)));
       const direct = this.drawSample(image, width, height);
       if (direct) return direct;
       const source = image.currentSrc || image.src || '';
@@ -1687,14 +1754,12 @@
       const commentKind = this.recordCommentKind(record);
       const commentPreview = commentKind === 'preview';
       const override = commentKind ? null : this.postOverride(record);
-      record.darkened = this.profileProcessingDisabled(record)
-        ? false
-        : override?.darkened ?? this.automaticDarkened(record);
+      record.darkened = this.resolvedDarkened(record);
       const viewer = this.viewerForImage(record.image);
       if (viewer || commentPreview) this.createControl(record);
       this.updateRecordVisual(record, false);
       if (viewer || commentPreview) this.scheduleControlPositions();
-      else if (record.result.kind === 'photo' && !override
+      else if (record.result.kind === 'photo' && !override && !this.resolvedConcealed(record)
         && !commentPreview) {
         this.clearVisual(record, false);
         this.retireRecord(record);
@@ -1708,6 +1773,8 @@
         || (!commentPreview && !this.viewerForImage(record.image))) return;
       const button = document.createElement('button');
       button.type = 'button';
+      button.setAttribute('aria-haspopup', 'menu');
+      button.setAttribute('aria-expanded', 'false');
       // Keep newly discovered controls out of the hit-testing layer until their
       // owning slide has been selected and positioned on the next frame.
       button.style.display = 'none';
@@ -1727,11 +1794,20 @@
       return record?.result?.kind === 'light-theme' || record?.result?.kind === 'gray-theme';
     }
 
+    resolvedDarkened(record) {
+      if (this.profileProcessingDisabled(record)) return false;
+      const override = this.recordCommentKind(record) ? null : this.postOverride(record);
+      if (record.imageMode === 'auto') return this.automaticDarkened(record);
+      if (record.imageMode) return record.imageMode === 'dark';
+      return override?.darkened ?? this.automaticDarkened(record);
+    }
+
     viewerPostKey(image) {
       if (this.commentImageKind(image)) return '';
       const noteKey = this.noteCacheKey(image);
       const match = /^note:([^:]+):/.exec(noteKey);
-      return match?.[1] || this.noteId(location.href) || this.openingPostId || '';
+      return match?.[1] || (this.viewerForImage(image)
+        ? this.noteId(location.href) || this.openingPostId || '' : '');
     }
 
     profileId(value) {
@@ -1768,6 +1844,7 @@
     }
 
     toggleProfileDisabled() {
+      this.closeControlMenu();
       const profileKey = this.currentProfileKey();
       if (!profileKey) return;
       const nextDisabled = !this.disabledProfileKeys.has(profileKey);
@@ -1781,7 +1858,7 @@
           record.darkened = false;
           this.updateRecordVisual(record, false);
         } else if (record.result) {
-          record.darkened = this.postOverride(record)?.darkened ?? this.automaticDarkened(record);
+          record.darkened = this.resolvedDarkened(record);
           this.updateRecordVisual(record, false);
         } else {
           this.intersectionObserver?.observe?.(record.image);
@@ -1845,7 +1922,7 @@
     recordsForPost(postKey) {
       const matches = new Set();
       for (const record of this.records.values()) {
-        if (this.viewerPostKey(record.image) === postKey) matches.add(record);
+        if (record.image.isConnected !== false && this.viewerPostKey(record.image) === postKey) matches.add(record);
       }
       const anchors = document.querySelectorAll?.(
         'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
@@ -1864,7 +1941,10 @@
     }
 
     applyPostMode(postKey, darkened) {
+      this.concealedPosts.delete(postKey);
       for (const related of this.recordsForPost(postKey)) {
+        related.imageMode = null;
+        related.concealed = null;
         related.darkened = this.profileProcessingDisabled(related)
           ? false
           : (typeof darkened === 'boolean' ? darkened : this.automaticDarkened(related));
@@ -1880,7 +1960,7 @@
 
     togglePostOverride(record) {
       const viewer = this.viewerForImage(record?.image);
-      if (!viewer || !record?.result || this.profileProcessingDisabled(record)) return;
+      if (!viewer || this.profileProcessingDisabled(record)) return;
       const postKey = this.viewerPostKey(record.image);
       if (!postKey) return;
       const existing = this.postOverride(record);
@@ -1896,69 +1976,252 @@
       this.applyPostMode(postKey, null);
     }
 
-    bindControlGestures(button, record) {
+    activateImageControl(record) {
+      if (this.profileProcessingDisabled(record)) return;
+      if (!this.recordCommentKind(record) && this.postOverride(record)) {
+        this.restorePostAutomatic(record);
+        return;
+      }
+      this.setImageMode(record, record.darkened ? 'light' : 'dark');
+    }
+
+    resolvedConcealed(record) {
+      if (this.profileProcessingDisabled(record)) return false;
+      return record.concealed ?? this.concealedPosts.has(this.viewerPostKey(record.image));
+    }
+
+    setImageMode(record, mode) {
+      if (this.profileProcessingDisabled(record)) return;
+      record.imageMode = mode;
+      record.concealed = false;
+      record.darkened = this.resolvedDarkened(record);
+      this.updateRecordVisual(record);
+    }
+
+    setPostMode(record, mode) {
+      const postKey = this.viewerPostKey(record.image);
+      if (!postKey) return;
+      if (mode === 'auto') this.restorePostAutomatic(record);
+      else {
+        this.postOverrides.set(postKey, mode === 'dark');
+        this.applyPostMode(postKey, mode === 'dark');
+      }
+    }
+
+    concealImage(record) {
+      record.concealed = true;
+      this.updateRecordVisual(record);
+    }
+
+    concealPost(record) {
+      const postKey = this.viewerPostKey(record.image);
+      if (!postKey) return;
+      this.concealedPosts.add(postKey);
+      for (const related of this.recordsForPost(postKey)) {
+        related.concealed = null;
+        this.updateRecordVisual(related, false);
+      }
+      this.syncInterventionStatus();
+    }
+
+    postImageCount(record) {
+      if (this.recordCommentKind(record)) return 1;
+      const viewer = this.viewerForImage(record.image);
+      if (!viewer) return 1;
+      const total = Number(viewer.querySelector?.('.fraction')?.textContent?.match(/[/／]\s*(\d+)/)?.[1]) || 0;
+      const carousel = viewer.querySelector?.('.xhs-slider-container, .note-slider') || viewer;
+      const slides = carousel.querySelectorAll?.('.swiper-slide') || [];
+      const indexes = new Set([...slides].map(slide => slide.getAttribute?.('data-swiper-slide-index') ?? slide));
+      return Math.max(1, total, indexes.size);
+    }
+
+    controlMenuGroups(record) {
+      const copy = COPY[this.locale];
+      const override = this.postOverride(record);
+      const imageMode = record.imageMode || (override ? override.darkened ? 'dark' : 'light' : 'auto');
+      const group = (title, selected, action) => ({ title, items: ['hide', 'auto', 'dark', 'light'].map(mode =>
+        ({ label: copy[mode], selected: selected === mode, run: () => action(mode) })) });
+      const groups = [group(copy.imageGroup, this.resolvedConcealed(record) ? 'hide' : imageMode,
+        mode => mode === 'hide' ? this.concealImage(record) : this.setImageMode(record, mode))];
+      if (this.postImageCount(record) > 1) {
+        const postKey = this.viewerPostKey(record.image);
+        const postHidden = this.concealedPosts.has(postKey);
+        const hasImageChoices = [...this.records.values()].some(related =>
+          related.image.isConnected !== false && (postHidden ? related.concealed === false
+            : related.imageMode || typeof related.concealed === 'boolean')
+          && this.viewerPostKey(related.image) === postKey);
+        const selected = hasImageChoices ? null : postHidden ? 'hide'
+          : override ? override.darkened ? 'dark' : 'light' : 'auto';
+        groups.push(group(copy.allGroup, selected,
+          mode => mode === 'hide' ? this.concealPost(record) : this.setPostMode(record, mode)));
+      }
+      return groups;
+    }
+
+    closeControlMenu(restoreFocus = false) {
+      const menu = this.controlMenu;
+      if (!menu) return;
+      this.controlMenu = null;
+      menu.cleanup();
+      menu.element.remove();
+      menu.record.button?.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) menu.record.button?.focus?.({ preventScroll: true });
+    }
+
+    openControlMenu(record) {
+      this.closeControlMenu();
+      if (!this.controlLayer || !record.button || record.button.hidden) return;
+      const menu = document.createElement('div');
+      menu.className = 'image-menu';
+      menu.setAttribute('role', 'menu');
+      menu.setAttribute('aria-label', COPY[this.locale].menuTitle);
+      const source = record.source;
+      const requestKey = record.requestKey;
+      for (const [index, group] of this.controlMenuGroups(record).entries()) {
+        if (index) menu.append(document.createElement('hr'));
+        const heading = document.createElement('div');
+        heading.className = 'menu-heading';
+        heading.textContent = group.title;
+        const section = document.createElement('div');
+        section.setAttribute('role', 'group');
+        section.setAttribute('aria-label', group.title);
+        section.append(heading);
+        for (const action of group.items) {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.setAttribute('role', 'menuitemradio');
+          item.setAttribute('aria-checked', String(action.selected));
+          item.textContent = action.label;
+          item.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.closeControlMenu(true);
+            if (record.image.isConnected && record.source === source && record.requestKey === requestKey) action.run();
+          });
+          section.append(item);
+        }
+        menu.append(section);
+      }
+      for (const type of ['pointerdown', 'pointerup', 'contextmenu']) menu.addEventListener(type, event => {
+        event.stopPropagation();
+        if (type === 'contextmenu') event.preventDefault();
+      });
+      const outside = event => {
+        if (!event.composedPath().includes(this.controlHost)) this.closeControlMenu();
+      };
+      const keydown = event => {
+        if (event.key === 'Escape' || event.key === 'Tab') {
+          this.closeControlMenu(true);
+          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); }
+          return;
+        }
+        const direction = { ArrowDown: 1, ArrowUp: -1, Home: 0, End: 0 }[event.key];
+        if (direction === undefined) return;
+        event.preventDefault(); event.stopPropagation();
+        const items = [...menu.querySelectorAll('button')];
+        const current = items.indexOf(menu.getRootNode().activeElement);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+          : (current + direction + items.length) % items.length;
+        items[next]?.focus();
+      };
+      window.addEventListener('pointerdown', outside, true);
+      window.addEventListener('keydown', keydown, true);
+      this.controlMenu = { record, element: menu, cleanup: () => {
+        window.removeEventListener('pointerdown', outside, true);
+        window.removeEventListener('keydown', keydown, true);
+      } };
+      record.button.setAttribute('aria-expanded', 'true');
+      this.controlLayer.append(menu);
+      const anchor = record.button.getBoundingClientRect();
+      const bounds = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(innerWidth - bounds.width - 8, anchor.left))}px`;
+      menu.style.top = `${Math.max(8, Math.min(innerHeight - bounds.height - 8, anchor.bottom + 6))}px`;
+      menu.querySelector('button')?.focus({ preventScroll: true });
+    }
+
+    bindControlGestures(button, record, allowHold = true) {
       let timer = 0;
-      let startX = 0;
-      let startY = 0;
-      let suppressClickUntil = 0;
-      const cancel = () => {
+      let gesture = null;
+      let suppressClick = false;
+      const cancelTimer = () => {
         if (timer) clearTimeout(timer);
         timer = 0;
       };
+      const cancel = () => {
+        cancelTimer();
+        gesture = null;
+        suppressClick = true;
+      };
+      record.cancelGesture = cancel;
       const shield = event => {
         event.preventDefault?.();
         event.stopPropagation?.();
       };
+      const unchanged = press => record.image?.isConnected !== false
+        && press.source === record.source && press.requestKey === record.requestKey;
       button.addEventListener('pointerdown', event => {
         shield(event);
-        if (event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
+        if (event.isPrimary === false) return;
         cancel();
-        startX = Number(event.clientX) || 0;
-        startY = Number(event.clientY) || 0;
+        this.closeControlMenu();
+        // Control-click is the native context-menu gesture on macOS.
+        if (event.ctrlKey || (event.button !== undefined && event.button !== 0)) return;
+        suppressClick = false;
+        gesture = { id: event.pointerId, x: Number(event.clientX) || 0, y: Number(event.clientY) || 0,
+          source: record.source, requestKey: record.requestKey, held: false, moved: false };
+        const press = gesture;
         try { button.setPointerCapture?.(event.pointerId); } catch {}
-        timer = setTimeout(() => {
+        if (allowHold) timer = setTimeout(() => {
           timer = 0;
-          suppressClickUntil = Date.now() + 1_000;
+          if (gesture !== press || press.moved || !unchanged(press)) return;
+          press.held = true;
+          suppressClick = true;
           this.togglePostOverride(record);
         }, LONG_PRESS_MS);
       });
       button.addEventListener('pointermove', event => {
         shield(event);
-        if (!timer) return;
-        const distance = Math.hypot((Number(event.clientX) || 0) - startX, (Number(event.clientY) || 0) - startY);
-        if (distance > LONG_PRESS_MOVE_TOLERANCE) cancel();
+        if (!gesture || event.pointerId !== gesture.id) return;
+        if (Math.hypot((Number(event.clientX) || 0) - gesture.x,
+          (Number(event.clientY) || 0) - gesture.y) > LONG_PRESS_MOVE_TOLERANCE) {
+          gesture.moved = true;
+          cancelTimer();
+        }
       });
-      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      button.addEventListener('pointerup', event => {
+        shield(event);
+        if (!gesture || event.pointerId !== gesture.id) return;
+        const press = gesture;
+        cancel();
+        // Commit a tap here: a carousel or DOM update may prevent Chrome from
+        // delivering click, but it must not turn a tap into a no-op or double tap.
+        if (!press.held && !press.moved && unchanged(press)) this.activateImageControl(record);
+      });
+      for (const type of ['pointercancel', 'lostpointercapture']) {
         button.addEventListener(type, event => {
           shield(event);
-          cancel();
+          if (gesture && event.pointerId === gesture.id) cancel();
         });
       }
-      button.addEventListener('contextmenu', shield);
+      button.addEventListener('contextmenu', event => {
+        shield(event);
+        // Touch long-press belongs to the post-wide gesture, not right-click.
+        if (event.pointerType === 'touch') return;
+        cancel();
+        this.openControlMenu(record);
+      });
+      for (const type of ['mousedown', 'mouseup', 'auxclick', 'dblclick']) button.addEventListener(type, shield);
       button.addEventListener('click', event => {
         shield(event);
-        if (Date.now() < suppressClickUntil) {
-          suppressClickUntil = 0;
-          return;
-        }
-        this.restorePostAutomatic(record);
+        if (event.ctrlKey || (event.button !== undefined && event.button !== 0)) return;
+        const ignored = suppressClick && event.detail !== 0;
+        suppressClick = false;
+        if (!ignored) this.activateImageControl(record);
       });
     }
 
     bindCommentControl(button, record) {
-      const shield = event => {
-        event.preventDefault?.();
-        event.stopPropagation?.();
-      };
-      for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'contextmenu']) {
-        button.addEventListener(type, shield);
-      }
-      button.addEventListener('click', event => {
-        shield(event);
-        if (!record.result || this.recordCommentKind(record) !== 'preview') return;
-        record.darkened = !record.darkened;
-        this.updateRecordVisual(record);
-      });
+      this.bindControlGestures(button, record, false);
     }
 
     startControlPositionTracking() {
@@ -1977,8 +2240,12 @@
 
     removeControl(record) {
       this.resizeObserver?.unobserve?.(record.image);
+      record.cancelGesture?.();
+      record.cancelGesture = null;
+      if (this.controlMenu?.record === record) this.closeControlMenu();
       record.button?.remove();
       record.button = null;
+      record.controlIcon = '';
       this.controlRecords.delete(record);
       if (!this.controlRecords.size) this.stopControlPositionTracking();
     }
@@ -1987,16 +2254,20 @@
       const grayTheme = record.result?.kind === 'gray-theme';
       const target = this.visualTarget(record.image);
       if (record.visualTarget && record.visualTarget !== target) {
-        record.visualTarget.classList?.remove('cg-xhs-image-dark-mode', 'cg-xhs-image-dark-mode-gray');
+        this.removeVisualClasses(record.visualTarget);
+        record.visualTarget.style?.removeProperty?.('--cg-xhs-image-brightness');
       }
       if (target !== record.image) {
-        record.image.classList?.remove('cg-xhs-image-dark-mode', 'cg-xhs-image-dark-mode-gray');
+        this.removeVisualClasses(record.image);
       }
       target?.style?.setProperty?.('--cg-xhs-image-brightness', String(this.imageBrightness));
       target?.classList?.toggle('cg-xhs-image-dark-mode', record.darkened && !grayTheme);
       target?.classList?.toggle('cg-xhs-image-dark-mode-gray', record.darkened && grayTheme);
       record.visualTarget = target;
-      const transformed = record.darkened && !!record.result;
+      const concealed = this.resolvedConcealed(record);
+      target?.classList?.toggle('cg-xhs-image-hidden-dark', concealed && record.darkened);
+      target?.classList?.toggle('cg-xhs-image-hidden-light', concealed && !record.darkened);
+      const transformed = record.darkened || concealed;
       if (transformed) this.intervenedRecords.add(record);
       else this.intervenedRecords.delete(record);
       this.updateControl(record);
@@ -2004,28 +2275,25 @@
     }
 
     updateControl(record) {
-      if (!record.button) return;
+      const button = record.button;
+      if (!button) return;
       const copy = COPY[this.locale];
-      record.button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
-      record.button.style.opacity = String(this.controlOpacity);
-      if (this.recordCommentKind(record) === 'preview') {
-        const label = record.darkened ? copy.commentDark : copy.commentLight;
-        record.button.innerHTML = record.darkened ? LIGHT_ICON : DARK_ICON;
-        record.button.title = label;
-        record.button.setAttribute('aria-label', label);
-        return;
+      button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
+      button.style.opacity = String(this.controlOpacity);
+      const icon = record.darkened ? LIGHT_ICON : DARK_ICON;
+      // Keep the hit target stable throughout a pointer gesture and SPA refresh.
+      if (record.controlIcon !== icon) { button.innerHTML = icon; record.controlIcon = icon; }
+      const override = this.recordCommentKind(record) ? null : this.postOverride(record);
+      const parts = [override ? copy.clickAutomatic : record.darkened ? copy.clickLight : copy.clickDark];
+      if (this.recordCommentKind(record) !== 'preview') {
+        parts.push((override?.darkened ?? record.darkened) ? copy.holdLight : copy.holdDark);
       }
-      const override = this.postOverride(record);
-      const state = override
-        ? override.darkened ? copy.postDark : copy.postLight
-        : copy.postAutomatic;
-      const holdAction = record.darkened ? copy.holdLight : copy.holdDark;
-      const fullLabel = override
-        ? `${state}${copy.separator}${copy.clickAutomatic}${copy.separator}${holdAction}`
-        : `${state}${copy.separator}${holdAction}`;
-      record.button.innerHTML = record.darkened ? LIGHT_ICON : DARK_ICON;
-      record.button.title = fullLabel;
-      record.button.setAttribute('aria-label', fullLabel);
+      parts.push(copy.menuHint);
+      const label = parts.join(copy.separator);
+      if (button.title !== label) {
+        button.title = label;
+        button.setAttribute('aria-label', label);
+      }
     }
 
     updateControls() {
@@ -2036,12 +2304,14 @@
         for (const record of this.controlRecords) this.resizeObserver?.unobserve?.(record.image);
         this.stopControlPositionTracking();
       }
+      if (!this.showImageControl) this.closeControlMenu();
       for (const record of this.controlRecords) this.updateControl(record);
       this.updateProfileControl();
       this.scheduleControlPositions();
     }
 
-    onViewportChange() {
+    onViewportChange(event) {
+      if (!event?.composedPath?.().includes(this.controlHost)) this.closeControlMenu();
       if (this.controlRecords.size) this.scheduleControlPositions();
     }
 
@@ -2135,6 +2405,7 @@
           if (!record.button) continue;
           if (!record.image.isConnected) {
             record.button.style.display = 'none';
+            if (this.controlMenu?.record === record) this.closeControlMenu();
             continue;
           }
           const classifiedCommentPreview = this.recordCommentKind(record) === 'preview';
@@ -2146,7 +2417,11 @@
             ? this.controlPlacement(record)
             : null;
           record.button.style.display = placement ? 'grid' : 'none';
-          if (!placement) continue;
+          if (!placement) {
+            record.cancelGesture?.();
+            if (this.controlMenu?.record === record) this.closeControlMenu();
+            continue;
+          }
           positionedOwners.add(owner);
           record.button.style.left = `${placement.left}px`;
           record.button.style.top = `${placement.top}px`;
@@ -2155,13 +2430,20 @@
     }
 
     clearVisual(record, notify = true) {
-      record.image?.classList?.remove('cg-xhs-image-dark-mode');
-      record.image?.classList?.remove('cg-xhs-image-dark-mode-gray');
-      record.visualTarget?.classList?.remove('cg-xhs-image-dark-mode', 'cg-xhs-image-dark-mode-gray');
+      this.removeVisualClasses(record.image);
+      this.removeVisualClasses(record.visualTarget);
+      record.image?.style?.removeProperty?.('--cg-xhs-image-brightness');
       record.visualTarget?.style?.removeProperty?.('--cg-xhs-image-brightness');
       record.visualTarget = null;
       const changed = this.intervenedRecords.delete(record);
       if (notify && changed) this.syncInterventionStatus();
+    }
+
+    removeVisualClasses(target) {
+      for (const name of ['cg-xhs-image-dark-mode', 'cg-xhs-image-dark-mode-gray',
+        'cg-xhs-image-hidden-dark', 'cg-xhs-image-hidden-light']) {
+        if (target?.classList?.contains?.(name)) target.classList.remove(name);
+      }
     }
 
     syncInterventionStatus() {
@@ -2182,7 +2464,10 @@
       record.loadPriority = Number.POSITIVE_INFINITY;
       this.removeControl(record);
       record.result = null;
-      record.darkened = true;
+      record.source = '';
+      record.imageMode = null;
+      record.concealed = null;
+      record.darkened = false;
     }
 
     retireRecord(record) {

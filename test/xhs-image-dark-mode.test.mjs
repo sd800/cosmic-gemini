@@ -524,7 +524,7 @@ test('holding the image control suppresses its following short-click action', as
   let held = 0;
   let clicked = 0;
   runtime.togglePostOverride = () => { held += 1; };
-  runtime.restorePostAutomatic = () => { clicked += 1; };
+  runtime.activateImageControl = () => { clicked += 1; };
   runtime.bindControlGestures(button, record);
   const event = type => ({
     type,
@@ -553,6 +553,7 @@ test('a short click restores automatic recognition for the complete post', async
   const button = new SimpleEventTarget();
   const record = { darkened: false };
   let restored = 0;
+  runtime.postOverride = () => ({ darkened: false });
   runtime.restorePostAutomatic = () => { restored += 1; };
   runtime.bindControlGestures(button, record);
   button.dispatchEvent({
@@ -1734,4 +1735,158 @@ test('the manual theme override starts image processing without a dark-page sign
   assert.equal(runtime.darkModeDetected, false);
   assert.equal(runtime.processing, true);
   assert.equal(started, true);
+});
+
+test('image choices survive late classification while all-post commands reset individual choices', async () => {
+  const runtime = await runtimeFixture();
+  runtime.processing = true;
+  runtime.viewerPostKey = image => image.post;
+  runtime.viewerForImage = () => ({});
+  runtime.createControl = runtime.clearVisual = runtime.updateRecordVisual = runtime.scheduleControlPositions = () => {};
+  const image = { post: 'one', isConnected: true };
+  const record = { image, darkened: false, result: { kind: 'light-theme' } };
+  runtime.records.set(image, record);
+  runtime.setPostMode(record, 'light');
+  runtime.setImageMode(record, 'dark');
+  runtime.applyResult(record);
+  assert.equal(record.darkened, true);
+  runtime.setImageMode(record, 'auto');
+  assert.equal(record.darkened, true);
+  runtime.setPostMode(record, 'light');
+  assert.equal(record.imageMode, null);
+  assert.equal(record.darkened, false);
+  runtime.activateImageControl(record);
+  assert.equal(runtime.postOverride(record), null);
+  assert.equal(record.darkened, true);
+  runtime.activateImageControl(record);
+  assert.equal(record.darkened, false);
+  runtime.applyResult(record);
+  assert.equal(record.darkened, false);
+});
+
+test('all-image hiding follows the post identity, excludes comments, and is restored by mode commands', async () => {
+  const runtime = await runtimeFixture();
+  runtime.viewerPostKey = image => image.post || '';
+  runtime.updateRecordVisual = runtime.syncInterventionStatus = () => {};
+  const current = { image: { post: 'one' }, darkened: true };
+  const cover = { image: { post: 'one' }, darkened: false };
+  const other = { image: { post: 'two' }, darkened: false };
+  const comment = { image: {}, commentKind: 'preview', darkened: false };
+  for (const record of [current, cover, other, comment]) runtime.records.set(record.image, record);
+  runtime.concealPost(current);
+  assert.equal(runtime.resolvedConcealed(current), true);
+  assert.equal(runtime.resolvedConcealed(cover), true);
+  assert.equal(runtime.resolvedConcealed(other), false);
+  assert.equal(runtime.resolvedConcealed(comment), false);
+  assert.equal(runtime.resolvedConcealed({ image: { post: 'one' } }), true, 'reopened post inherits hiding');
+  runtime.setImageMode(current, 'light');
+  assert.equal(runtime.resolvedConcealed(current), false);
+  assert.equal(runtime.resolvedConcealed(cover), true);
+  runtime.setPostMode(current, 'auto');
+  assert.equal(runtime.resolvedConcealed(cover), false);
+});
+
+test('menus group image and all actions but omit all for single-image posts and comment previews', async () => {
+  let total = '1 / 8';
+  const runtime = await runtimeFixture();
+  runtime.viewerForImage = () => ({ querySelector: () => ({ textContent: total }) });
+  const record = { image: {}, darkened: false };
+  let groups = runtime.controlMenuGroups(record);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(Array.from(groups, group => group.title), ['Image', 'All']);
+  assert.deepEqual(Array.from(groups[0].items, item => item.label), ['Hide', 'Auto', 'Dark', 'Light']);
+  total = '1 / 1';
+  assert.equal(runtime.controlMenuGroups(record).length, 1);
+  total = '1 / 8';
+  record.commentKind = 'preview';
+  assert.equal(runtime.controlMenuGroups(record).length, 1);
+});
+
+test('a held gesture without a browser click cannot swallow the next independent tap', async () => {
+  let hold;
+  const runtime = await runtimeFixture({}, { setTimeout(callback) { hold = callback; return 1; }, clearTimeout() {} });
+  const button = new SimpleEventTarget();
+  let holds = 0;
+  let taps = 0;
+  runtime.togglePostOverride = () => { holds += 1; };
+  runtime.activateImageControl = () => { taps += 1; };
+  runtime.bindControlGestures(button, {});
+  const send = (type, extra = {}) => button.dispatchEvent({ type, pointerId: 2, button: 0, detail: 1, clientX: 10, clientY: 10, ...extra });
+  send('pointerdown'); hold(); send('pointerup');
+  send('pointerdown'); send('pointerup'); send('click');
+  assert.equal(holds, 1);
+  assert.equal(taps, 1);
+  send('pointerdown'); send('pointermove', { clientX: 40 }); send('pointerup'); send('click');
+  send('pointerdown'); send('pointercancel'); send('click');
+  assert.equal(taps, 1, 'drag and cancelled presses do not toggle');
+  send('click', { detail: 0 });
+  assert.equal(taps, 2, 'keyboard activation still works');
+});
+
+test('context menus and source replacement cancel pending holds without activating a new image', async () => {
+  let hold;
+  const runtime = await runtimeFixture({}, { setTimeout(callback) { hold = callback; return 1; }, clearTimeout() {} });
+  const button = new SimpleEventTarget();
+  const record = { source: 'old', imageMode: 'dark', concealed: true };
+  let holds = 0;
+  let menus = 0;
+  runtime.togglePostOverride = () => { holds += 1; };
+  runtime.openControlMenu = () => { menus += 1; };
+  runtime.bindControlGestures(button, record);
+  button.dispatchEvent({ type: 'pointerdown', button: 0 });
+  const oldHold = hold;
+  runtime.adoptSource(record, 'new'); oldHold();
+  assert.equal(holds, 0);
+  assert.equal(record.imageMode, null);
+  assert.equal(record.concealed, null);
+  button.dispatchEvent({ type: 'contextmenu', pointerType: 'touch' });
+  assert.equal(menus, 0);
+  button.dispatchEvent({ type: 'contextmenu', pointerType: 'mouse' });
+  assert.equal(menus, 1);
+});
+
+test('own filter mutations do not rescan a carousel, but slide changes do', async () => {
+  let frames = 0;
+  const runtime = await runtimeFixture({}, { requestAnimationFrame() { frames += 1; return 1; } });
+  runtime.processing = true;
+  runtime.onViewerMutations([{ type: 'attributes', oldValue: 'swiper-slide swiper-slide-active',
+    target: { getAttribute: () => 'swiper-slide swiper-slide-active cg-xhs-image-dark-mode cg-xhs-image-hidden-dark' } }]);
+  assert.equal(frames, 0);
+  runtime.onViewerMutations([{ type: 'attributes', oldValue: 'swiper-slide swiper-slide-active cg-xhs-image-dark-mode',
+    target: { getAttribute: () => 'swiper-slide' } }]);
+  assert.equal(frames, 1);
+});
+
+test('unrelated feed images cannot inherit the currently open post identity', async () => {
+  const runtime = await runtimeFixture({}, { URL, location: { href: 'https://www.xiaohongshu.com/explore/open-post' } });
+  runtime.commentImageKind = () => '';
+  runtime.noteCacheKey = () => '';
+  runtime.viewerForImage = () => null;
+  assert.equal(runtime.viewerPostKey({}), '');
+  runtime.viewerForImage = () => ({});
+  assert.equal(runtime.viewerPostKey({}), 'open-post');
+});
+
+test('sampling stays within its pixel budget, including extreme aspect ratios', async () => {
+  const runtime = await runtimeFixture();
+  const sizes = [];
+  runtime.drawSample = (_image, width, height) => { sizes.push([width, height]); return {}; };
+  for (const [naturalWidth, naturalHeight] of [[700, 1200], [100000, 1], [1, 100000], [20, 10]]) {
+    await runtime.sampleImage({ naturalWidth, naturalHeight });
+  }
+  for (const [width, height] of sizes) assert.ok(width * height <= 1024 && width >= 1 && height >= 1);
+  assert.deepEqual(sizes.at(-1), [20, 10]);
+});
+
+test('in-flight image samples cannot occupy a second analysis slot', async () => {
+  const runtime = await runtimeFixture();
+  runtime.processing = true;
+  runtime.processingGeneration = 1;
+  runtime.isContentImage = () => true;
+  runtime.schedulePump = () => { throw new Error('must not enqueue the same pending source'); };
+  const image = { currentSrc: 'pending-image', complete: true, naturalWidth: 400 };
+  runtime.records.set(image, { image, source: '', result: null });
+  runtime.inFlight.set(image, { source: image.currentSrc, generation: 1 });
+  runtime.queueImage(image, -20);
+  assert.equal(runtime.queue.length, 0);
 });

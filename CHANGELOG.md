@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.15 — 2026-09-24
+
+- Improve XHS Image Dark Mode button responsiveness, manual display choices and resource cleanup, while reducing repeated image processing.
+- Add a grouped right-click menu for hiding images and choosing automatic, dark or light display for the current image or post.
+
 ## 9.8.13 — 2026-09-24
 
 - Add a lighter warm-white tone to White Softer and mark the original warm ivory as the default.

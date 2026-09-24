@@ -110,7 +110,7 @@ Website Fixer improves website behavior with selectable fixes. Translate Overrid
 
 #### XHS Image Dark Mode
 
-Dim bright text cards and chat screenshots on Xiaohongshu when page-wide dark mode is active, while leaving photos unchanged. Automatic adjustment covers feeds and opened posts; comment images are handled after their post opens. In an opened post, use the image button to switch one image, hold it to force the whole post dark or light, or click to restore automatic detection. A profile control can pause adjustments for that profile. **Always on** allows adjustment without detecting page-wide dark mode.
+Dim bright text cards and chat screenshots on Xiaohongshu when page-wide dark mode is active, while leaving photos unchanged. Automatic adjustment covers feeds and opened posts; comment images are handled after their post opens. Image controls and a right-click menu let you choose automatic, dark or light display, or hide images, individually or for a whole post. A profile control can pause adjustments for that profile. **Always on** allows adjustment without detecting page-wide dark mode.
 
 This is an experimental feature.
 

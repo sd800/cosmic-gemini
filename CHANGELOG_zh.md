@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.3 — 2026-09-24
+
+- 略微缩小设置页中的 Google 搜索结果语言功能图标。
+
 ## 9.8.2 — 2026-09-24
 
 - 为 LeetCode Explore 深色模式、Instagram 关注列表检查和 Google 搜索结果语言指定功能添加图标。

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.3 — 2026-09-24
+
+- Slightly reduce the Google Search language feature icon in Settings.
+
 ## 9.8.2 — 2026-09-24
 
 - Add feature icons for LeetCode Explore dark mode, Instagram follow-list checking, and Google Search language designation.

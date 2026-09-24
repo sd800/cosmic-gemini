@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.6 — 2026-09-24
+
+- Refine developer-mode text colors to distinguish the metadata labels and match affiliation paths to technical-tag values.
+
 ## 9.7.5 — 2026-09-24
 
 - Add a temporary Settings developer mode: press 1 outside website inputs to show technical tags and affiliation hierarchies beneath feature names. Press 1 again to hide them; refreshing closes the mode.

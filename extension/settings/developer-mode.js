@@ -67,12 +67,22 @@ export function createDeveloperMode(document) {
           event.stopPropagation();
         });
         const tagLine = document.createElement('span');
-        tagLine.append(t('developerTechnicalTag') + ': ');
+        const tagLabel = document.createElement('span');
+        tagLabel.className = 'developer-metadata-label';
+        tagLabel.textContent = t('developerTechnicalTag') + ': ';
+        tagLine.append(tagLabel);
         const tag = document.createElement('code');
         tag.textContent = feature.tag;
         tagLine.append(tag);
         const affiliation = document.createElement('span');
-        affiliation.textContent = t('developerAffiliation') + ': ' + featureAffiliation(id, t);
+        const affiliationLabel = document.createElement('span');
+        affiliationLabel.className = 'developer-metadata-label';
+        affiliationLabel.textContent = t('developerAffiliation') + ': ';
+        affiliation.append(affiliationLabel);
+        const affiliationValue = document.createElement('span');
+        affiliationValue.className = 'developer-affiliation-value';
+        affiliationValue.textContent = featureAffiliation(id, t);
+        affiliation.append(affiliationValue);
         details.append(tagLine, affiliation);
         if (title.parentElement.matches('.intro-title, .satellite-title, .rule-heading, .website-fixer-heading')) {
           const stack = document.createElement('div');

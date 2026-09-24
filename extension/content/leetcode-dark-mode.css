@@ -1,5 +1,5 @@
 /* Only the legacy Explore surfaces; images, video and course artwork stay intact. */
-:root[data-cg-leetcode-dark] { color-scheme: dark !important; --cg-lc-bg: #1a1a1a; --cg-lc-surface: #242424; --cg-lc-raised: #2c2c2c; --cg-lc-text: #e5e5e5; --cg-lc-muted: #aaa; --cg-lc-line: #424242; }
+:root[data-cg-leetcode-dark] { color-scheme: dark !important; --cg-lc-bg: #1a1a1a; --cg-lc-surface: #242424; --cg-lc-raised: #2c2c2c; --cg-lc-text: #d8d8d8; --cg-lc-muted: #aaa; --cg-lc-line: #424242; }
 :root[data-cg-leetcode-dark] body { background-color: var(--cg-lc-bg) !important; color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] #MathJax_Message { background-color: var(--cg-lc-surface) !important; color: var(--cg-lc-text) !important; border-color: var(--cg-lc-line) !important; }
 :root[data-cg-leetcode-dark] :is(.content-wrapper, .explore-detail-base, .explore-detail, .explore-detail-body-base, .content-viewer-base, .content-base, .viewer-base, .question-base, .question-wrapper, .article-base, .playground-mini-base, .card-intro-base) { background-color: var(--cg-lc-bg) !important; color: var(--cg-lc-text) !important; }
@@ -9,7 +9,7 @@
 :root[data-cg-leetcode-dark] .content-viewer-base .chapter-list-view { box-shadow: inset -1px 0 0 var(--cg-lc-line) !important; transition-property: left, opacity !important; }
 :root[data-cg-leetcode-dark] :is(.chapter-list-base, .chapter-list, .list-group-item, .list-group, .item-bg, .table-item.odd-table-child, .question-description, .description, .testcase-input-base) { background-color: var(--cg-lc-surface) !important; color: var(--cg-lc-text) !important; border-color: var(--cg-lc-line) !important; }
 :root[data-cg-leetcode-dark] :is(.item-bg-alt, .table-item.even-table-child, .list-group-item:hover, .Select-option.is-focused, .Select-option.is-selected) { background-color: var(--cg-lc-raised) !important; color: var(--cg-lc-text) !important; }
-:root[data-cg-leetcode-dark] :is(.list-group-item.active, .chapter-base.active, .chapter-base.opened, .lang-btn-set .btn.active) { background-color: #3a3a3a !important; color: #fff !important; border-color: var(--cg-lc-line) !important; }
+:root[data-cg-leetcode-dark] :is(.list-group-item.active, .chapter-base.active, .chapter-base.opened, .lang-btn-set .btn.active) { background-color: #3a3a3a !important; color: #e5e5e5 !important; border-color: var(--cg-lc-line) !important; }
 /* Course overviews have their own prose, lesson grids and sidebar shell. */
 :root[data-cg-leetcode-dark] .explore-detail-base .explore-paragraph { color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] .explore-detail-base .chapter-list-base { box-shadow: 0 0 0 1px var(--cg-lc-line) !important; }

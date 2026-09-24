@@ -76,7 +76,7 @@ try{
  assert.equal(await mathStatus.isVisible(),false);
  await mathStatus.evaluate(n=>{n.style.display='block';});
  assert.equal(await mathStatus.isVisible(),true);
- assert.deepEqual(await mathStatusColors(),['rgb(36, 36, 36)','rgb(229, 229, 229)','rgb(66, 66, 66)']);
+ assert.deepEqual(await mathStatusColors(),['rgb(36, 36, 36)','rgb(216, 216, 216)','rgb(66, 66, 66)']);
  const sidebar=lesson.locator('.chapter-list-view');
  const sidebarStyle=()=>sidebar.evaluate(n=>[getComputedStyle(n).boxShadow,getComputedStyle(n).transitionProperty]);
  const darkSidebar=['rgb(66, 66, 66) -1px 0px 0px 0px inset','left, opacity'];
@@ -107,7 +107,7 @@ try{
  const overview=lesson.locator('.explore-detail-base');
  const styles=(locator,properties)=>locator.evaluate((n,properties)=>properties.map(p=>getComputedStyle(n)[p]),properties);
  assert.deepEqual(await styles(overview.locator('.card-intro-base'),['backgroundColor']),['rgb(26, 26, 26)']);
- assert.deepEqual(await styles(overview.locator('.explore-paragraph > div'),['color']),['rgb(229, 229, 229)']);
+ assert.deepEqual(await styles(overview.locator('.explore-paragraph > div'),['color']),['rgb(216, 216, 216)']);
  assert.deepEqual(await styles(overview.locator('.chapter-list-base'),['boxShadow']),['rgb(66, 66, 66) 0px 0px 0px 1px']);
  for(const border of await overview.locator('.table-header,.overview-item-list-base,.table-item').evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).borderBottomColor)))assert.equal(border,'rgb(66, 66, 66)');
  const overviewRow=overview.locator('.table-item.even-table-child.accessible');
@@ -118,7 +118,7 @@ try{
  assert.match(artwork[0],/rgb\(115, 60, 255\)/);
  assert.deepEqual(await styles(lesson.locator('footer'),['backgroundColor','color']),['rgb(26, 26, 26)','rgb(170, 170, 170)']);
  assert.deepEqual(await styles(lesson.locator('footer > div'),['borderTopColor']),['rgb(66, 66, 66)']);
- assert.deepEqual(await styles(lesson.locator('.loading-box__fixture'),['backgroundColor','color']),['rgb(36, 36, 36)','rgb(229, 229, 229)']);
+ assert.deepEqual(await styles(lesson.locator('.loading-box__fixture'),['backgroundColor','color']),['rgb(36, 36, 36)','rgb(216, 216, 216)']);
  await page.mouse.move(0,0);await overview.screenshot({path:join(artifacts,'overview-dark.png')});
  // Chapter links reuse the same documents. An active refresh must not remove/reinsert
  // their stylesheet, even though route/configuration messages still run normally.

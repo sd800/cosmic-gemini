@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.10 — 2026-09-24
+
+- Slightly soften text brightness in LeetCode Explore dark mode.
+
 ## 9.8.9 — 2026-09-24
 
 - Refine LeetCode Explore course-overview backgrounds, text contrast, lesson borders, and completion icons, with consistent sidebar, footer, and loading surfaces.

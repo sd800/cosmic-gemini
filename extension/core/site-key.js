@@ -10,6 +10,7 @@ function rules() {
 }
 
 // eTLD+1 uses the project's curated PSL snapshot, including wildcard/exception rules.
+// Unlisted top-level labels use the PSL implicit wildcard rule, including unassigned TLDs.
 // IP addresses, localhost and bare public suffixes remain exact-host keys.
 export function siteKey(value) {
   let host;

@@ -227,6 +227,27 @@ test('a question mark opens contextual help without becoming a website rule', ()
   assert.equal(aliasSection.hidden, false, 'Access Control exposes its site aliases');
 });
 
+test('clearing a rule input immediately clears its validation message', () => {
+  const { api } = controller();
+  for (const selector of ['[data-list-section]', '[data-behavior-card]']) {
+    const container = new Element('section');
+    const message = new Element('p', 'form-message');
+    container.append(message);
+    const input = new Element('input');
+    input.closest = candidate => candidate === selector ? container : null;
+    api.bindRuleInputHelp(input);
+    message.textContent = 'invalidRule';
+    input.value = 'bad/path';
+    input.events.input();
+    assert.equal(message.textContent, 'invalidRule');
+    input.value = '  ';
+    input.events.input();
+    assert.equal(message.textContent, '');
+    message.textContent = 'invalidRule';
+    assert.equal(message.textContent, 'invalidRule', 'the next invalid submission remains visible');
+  }
+});
+
 test('unchanged settings refreshes preserve rule controls and pending removals', async () => {
   const { api } = controller('nativeScroll');
   const section = new Element();

@@ -591,6 +591,11 @@ function bindRuleInputHelp(input) {
   if (input.dataset.ruleInputHelpBound === 'true') return;
   input.dataset.ruleInputHelpBound = 'true';
   input.addEventListener('input', () => {
+    if (!input.value.trim()) {
+      const container = input.closest('[data-list-section]') || input.closest('[data-behavior-card]');
+      const message = container?.querySelector('.form-message');
+      if (message) message.textContent = '';
+    }
     if (!isRuleInputHelpRequest(input.value)) return;
     input.value = '';
     openRuleInputHelp(input);

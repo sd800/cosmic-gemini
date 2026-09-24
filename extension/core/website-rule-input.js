@@ -38,12 +38,20 @@ export function normalizeWebsiteRuleInput(value) {
 export function normalizeGeneralDomainInput(value) {
   if (typeof value !== 'string') throw new Error('Enter a website domain or URL.');
   const raw = value.trim();
-  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(raw)) return normalizeWebsiteRuleInput(raw);
+  if (raw.includes('\\')) throw new Error('Enter a valid website URL.');
+  const webPrefix = /^(https?)(?::\/\/|\/\/|:\/|:|\/)/i.exec(raw);
+  const hasScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(raw);
+  if (!webPrefix && !hasScheme && !raw.includes('/')) return normalizeWebsiteRuleInput(raw);
   let url;
-  try { url = new URL(raw); } catch { throw new Error('Enter a valid website URL.'); }
+  try {
+    url = new URL(webPrefix ? `${webPrefix[1]}://${raw.slice(webPrefix[0].length)}`
+      : hasScheme ? raw : `https://${raw}`);
+  }
+  catch { throw new Error('Enter a valid website URL.'); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
     throw new Error('Enter an HTTP or HTTPS website URL without credentials.');
   }
+  normalizeRule(url.hostname);
   const domain = siteKey(url.href);
   if (!domain) throw new Error('Enter a valid website URL.');
   return domain;

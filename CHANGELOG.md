@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.30 — 2026-09-23
+
+- Clear website-rule validation messages as soon as an invalid entry is removed from the input.
+- Accept website addresses with unlisted top-level domains and improve pasted-address handling.
+
 ## 9.6.29 — 2026-09-23
 
 - Move the shared subdomain coverage note below each populated domain list and simplify its wording.

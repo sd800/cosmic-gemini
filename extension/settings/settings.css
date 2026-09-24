@@ -161,6 +161,7 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .satellite-preferences .preference-row { gap: 28px; }
 .satellite-preferences .preference-row > span:first-child { min-width: 0; }
 .satellite-preferences .preference-row:first-child { border-top: 1px solid var(--line); }
+.xhs-dark-reader-card .satellite-privacy { margin-top: 0; }
 .xhs-dark-reader-card .preference-row:has(input:disabled) > span:first-child,
 .xhs-dark-reader-card .preference-row:has(input:disabled) .range-control output,
 .page-display-card .preference-row:has(input:disabled) > span:first-child,

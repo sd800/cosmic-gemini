@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.23 — 2026-09-24
+
+- Remove excess spacing below the XHS Image Dark Mode button-opacity setting.
+
 ## 9.8.22 — 2026-09-24
 
 - Shorten the Chinese wording for the XHS whole-post image option.

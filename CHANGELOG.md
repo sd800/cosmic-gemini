@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.18 — 2026-09-24
+
+- Shorten the Website Fixer save confirmation to 1.5 seconds.
+
 ## 9.8.17 — 2026-09-24
 
 - Recognize comment images when navigating their preview with previous and next controls, and pre-analyze the neighboring images when available.

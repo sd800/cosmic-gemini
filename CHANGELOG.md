@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.22 — 2026-09-24
+
+- Shorten the Chinese wording for the XHS whole-post image option.
+
 ## 9.8.21 — 2026-09-24
 
 - Stabilize XHS image controls by limiting motion-related hiding to the active image’s actual geometric changes.

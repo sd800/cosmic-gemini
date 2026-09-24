@@ -947,7 +947,7 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     xhsImageDarkModeOverrideHeading: '始终启用',
     xhsImageDarkModeOverrideHelp: '即使未检测到页面深色模式，也始终调整符合条件的图片。',
     xhsImageDarkModeControlHeading: '显示图片切换按钮',
-    xhsImageDarkModeControlHelp: '在展开的图片上显示按钮。单击切换当前图片；如已设置整篇笔记的深浅色模式，单击则恢复自动识别。长按切换整篇笔记的深浅色。右键菜单可对本图或本帖所有图片选择关闭、自动、深色或浅色。图片关闭后按钮改为开关图案，单击可恢复本图或整篇笔记的图片；评论图片使用独立的单图控制。',
+    xhsImageDarkModeControlHelp: '在展开的图片上显示按钮。单击切换当前图片；如已设置整篇笔记的深浅色模式，单击则恢复自动识别。长按切换整篇笔记的深浅色。右键菜单可对本图或所有图片选择关闭、自动、深色或浅色。图片关闭后按钮改为开关图案，单击可恢复本图或整篇笔记的图片；评论图片使用独立的单图控制。',
     xhsImageDarkModeOpacityHeading: '按钮透明度',
     xhsImageDarkModeOpacityHelp: '调整图片切换按钮在未操作时的透明度。',
     xhsImageDarkModePrivacy: '图片仅在本机处理，不会上传。页面关闭后会清除临时处理结果。',

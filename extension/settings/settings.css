@@ -264,15 +264,20 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .knowledge-options:disabled label { opacity: .55; cursor: default; }
 .knowledge-options:disabled .knowledge-label { opacity: .55; }
 .knowledge-options:disabled input { accent-color: var(--switch-disabled-track); }
+.website-fixer-translate-options { min-width: 0; margin: 12px 0 0; padding: 0; border: 0; }
+.website-fixer-translate-options:disabled { opacity: .55; }
+.website-fixer-translate-options > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.website-fixer-translate-options > .rule-panel { margin-top: 12px; padding: 14px 0 0; border-top: 1px solid var(--line); }
+.website-fixer-translate-options .rule-list { margin-bottom: 0; }
 @media (max-width: 560px) { .knowledge-row { grid-template-columns: 1fr; gap: 10px; } }
 
 .document-whitelist{padding-top:18px;border-top:1px solid var(--line)}
 .document-whitelist>p{max-width:var(--satellite-copy-width,85%);margin:6px 0 16px;color:var(--muted)}
 .document-whitelist .rule-list{margin-bottom:0}
 
-.access-control-options .rule-list,.document-whitelist .rule-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
-.access-control-options .rule-list li,.document-whitelist .rule-list li{min-width:0}
-.access-control-options .rule-list .empty,.document-whitelist .rule-list .empty{grid-column:1/-1}
-.access-control-options .rule-list .icon-button,.document-whitelist .rule-list .icon-button{flex-shrink:0}
+.access-control-options .rule-list,.document-whitelist .rule-list,.website-fixer-translate-options .rule-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
+.access-control-options .rule-list li,.document-whitelist .rule-list li,.website-fixer-translate-options .rule-list li{min-width:0}
+.access-control-options .rule-list .empty,.document-whitelist .rule-list .empty,.website-fixer-translate-options .rule-list .empty{grid-column:1/-1}
+.access-control-options .rule-list .icon-button,.document-whitelist .rule-list .icon-button,.website-fixer-translate-options .rule-list .icon-button{flex-shrink:0}
 #documentPreviewOptions:disabled .document-whitelist{opacity:.55}
-@media(max-width:620px){.access-control-options .rule-list,.document-whitelist .rule-list{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:620px){.access-control-options .rule-list,.document-whitelist .rule-list,.website-fixer-translate-options .rule-list{grid-template-columns:minmax(0,1fr)}}

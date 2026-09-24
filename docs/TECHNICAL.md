@@ -10,7 +10,7 @@ The `extension` root contains only `manifest.json`. Chrome entry points and prod
 
 Central records the jurisdiction map and accepts browser events and typed messages. It does not contain product rules, storage mutations, page injection, scanners, scheduling, network fetches, workspace operations, media assembly, or download execution.
 
-Standing Province governs Native Scroll, No Autoplay, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Ad Marshal, and Serch Result Language Designate for Google Search (`lang-google`). Operations Province governs Any Copy, Any Copy Enhanced, Page Display, XHS Image Dark Mode, Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download, Video Download and Document Preview. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
+Standing Province governs Native Scroll, No Autoplay, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Ad Marshal, Website Fixer, and Serch Result Language Designate for Google Search (`lang-google`). Operations Province governs Any Copy, Any Copy Enhanced, Page Display, XHS Image Dark Mode, Satellites, extension administration, and otherwise unassigned products. Customs Province governs Image Download, Video Download and Document Preview. Each province exposes the same stable interface while owning its shared policy, event coordination, dispatch, and reset ordering.
 
 Products retain separate state and execution paths. A product may use province-coordinated infrastructure, but it cannot import or control a sibling product. Features such as bridges, runtimes, scanners, adapters, and offscreen processors may contain further subfeatures as required without changing the authority chain. Shared browser and storage primitives live in `background/platform.js`; they provide infrastructure without deciding product policy.
 
@@ -160,6 +160,10 @@ Regression coverage includes the pinned asset inventory and sandbox policy. `scr
 The preview uses a single grid toolbar. Its left identity stacks the product and umbrella names; the wider center displays the filename on one line with an ellipsis (full name in its title) and shows the source eTLD+1 followed by a localized file-family label below; the right contains reading actions. Responsive rows preserve access at narrow widths. Loading/status/choice feedback spans the toolbar only while populated, with no persistent file-information strip. File sizes remain available in the capture dialog, not the preview toolbar.
 
 The action preference is keyed only by source eTLD+1, never by file format. The settings introduction uses general document/spreadsheet/slide language, with all actual suffixes grouped inside a closed `details` element; README introductions stay at the file-family level. Parallel suffix lists use slashes in both languages. Spreadsheet previews remove the document page margin and give column headers, row numbers and the empty corner separate sticky axes and stacking levels.
+
+## Website Fixer
+
+Website Fixer is a Standing Province product with an independent master switch. Its initial Translate Override subfeature has its own switch and bounded, insertion-ordered domain whitelist. Each domain covers the root and label-boundary subdomains. A serialized reconciliation registers one isolated `document_start` content script with Chrome only for the enabled whitelist; disabling either switch or clearing the list unregisters it for future navigations. Existing pages apply changes after reload. The content script watches the head only during initial document construction, removes page-level `google/notranslate` opt-out metadata, and then disconnects. It does not translate content or run on unrelated websites.
 
 ## Ad Marshal
 

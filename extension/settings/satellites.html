@@ -154,6 +154,25 @@
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
       </section>
+      <section class="card satellite-card website-fixer-card">
+        <div class="section-heading">
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="websiteFixer" aria-hidden="true"></span><h1 data-i18n="websiteFixerName"></h1></div><p data-i18n="websiteFixerDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="websiteFixerEnabled" type="checkbox"><span></span><b class="sr-only">Website Fixer</b></label></div>
+        </div>
+        <fieldset id="websiteFixerOptions" class="knowledge-options" disabled>
+          <label class="satellite-inline-checkbox" for="websiteFixerTranslateOverrideEnabled"><input id="websiteFixerTranslateOverrideEnabled" type="checkbox"><span data-i18n="websiteFixerTranslateName"></span></label>
+          <fieldset id="websiteFixerTranslateOptions" class="website-fixer-translate-options" disabled>
+            <legend class="sr-only" data-i18n="websiteFixerTranslateName"></legend>
+            <p data-i18n="websiteFixerTranslateHelp"></p>
+            <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="translateOverride" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="websiteFixerWhitelistEmpty">
+              <h3 data-i18n="websiteFixerWhitelistHeading"></h3>
+              <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="accessControlDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+              <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+            </section>
+          </fieldset>
+        </fieldset>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteFixerPrivacy"></p></div>
+      </section>
       <h2 class="satellite-category-heading" data-i18n="satellitesSiteSpecificFeatures"></h2>
       <section class="card satellite-card xhs-dark-reader-card">
         <div class="section-heading">

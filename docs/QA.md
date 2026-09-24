@@ -116,3 +116,7 @@ PDF sandbox regressions must assert a real Worker port, not just successful rend
 ### External Links Capture
 
 The isolated PDF browser suite also exercises the non-PDF content sandbox: all output formats share this sanitizer/controller. Cover primary/middle/modifier/keyboard activation, internal anchors, web/app confirmation, copy-only mailto/tel/sms, inert unsafe links, discarded remote images/frames/scripts, part replacement and disposal. App confirmation tests cancel navigation after observing the trusted second action; never launch an installed application during QA. `npm test` also checks the shared parser, rejected target classes and existing Mailto Capture geography/copy regressions.
+
+### Website Fixer
+
+In Satellites, confirm Website Fixer is the final General features card and begins off. Its Translate Override setting and website list must be unavailable while the master is off; the list must also be unavailable while the subfeature is off. Add `ilsos.gov`, enable both switches, then reload an Illinois Secretary of State news page with a `google/notranslate` meta declaration. Confirm that declaration is gone from the document head, that Chrome can offer translation under its normal language preferences, and that another domain is unchanged. Turn either switch off and reload; the original declaration should remain. Test the root hostname and a subdomain separately, and check that no script is registered when the allowlist is empty.

@@ -24,6 +24,7 @@
     clipboardProtect: '<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 5V3h6v2M9 9h6M9 13h6M9 17h4"/>',
     accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="M12.4 13.35 15.952 18.318"/>',
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',
+    websiteFixer: '<path d="M20 7.5a5.4 5.4 0 0 1-7.2 5.1l-6.6 6.6a2 2 0 0 1-2.8-2.8l6.6-6.6A5.4 5.4 0 0 1 15.1 2l-2.8 2.8.6 3 3 .6L20 4.3a5.4 5.4 0 0 1 0 3.2Z"/>',
     adMarshal: '<path d="M12 2.75 20 6v5.2c0 5.1-3.1 8.55-8 10.05-4.9-1.5-8-4.95-8-10.05V6Z"/><path d="m8.5 12 2.25 2.25L16 9"/>',
     biliDailyLogin: '<path d="m8 5-2.5-2M16 5l2.5-2"/><rect x="3" y="5" width="18" height="15.5" rx="3"/><path d="M8 12h.01M16 12h.01M8.5 16c2.1 1.15 4.9 1.15 7 0"/>',
     xhsImageDarkMode: '<path d="M12 5.1C9.1 3 6 2.6 2.8 4.2v12.1c1.7-.85 3.3-1.18 4.7-1.12"/><path d="M12 5.1C9.1 3 6 2.6 2.8 4.2v12.1c1.7-.85 3.3-1.18 4.7-1.12" transform="translate(24 0) scale(-1 1)"/><path d="M12 5.1v.9"/><g transform="translate(0 1.3)"><path d="M12 7.35c-2.35 0-4.1 1.8-4.1 4.15 0 1.65.68 2.88 1.5 4.05.54.76.88 1.5.88 2.3h3.44c0-.8.34-1.54.88-2.3.82-1.17 1.5-2.4 1.5-4.05 0-2.35-1.75-4.15-4.1-4.15Z" fill="var(--icon-surface, var(--surface))" stroke="var(--icon-surface, var(--surface))" stroke-width="3.8"/><path d="M12 7.35c-2.35 0-4.1 1.8-4.1 4.15 0 1.65.68 2.88 1.5 4.05.54.76.88 1.5.88 2.3h3.44c0-.8.34-1.54.88-2.3.82-1.17 1.5-2.4 1.5-4.05 0-2.35-1.75-4.15-4.1-4.15Z" fill="var(--icon-surface, var(--surface))"/><path d="M10.1 20h3.8"/></g>',
@@ -132,6 +133,14 @@
     accessControlEnabled.checked = cached.accessControl?.enabled === true;
     document.querySelector('#accessControlTemporaryVisits').checked = cached.accessControl?.allowTemporaryVisits === true;
     document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
+  }
+  const websiteFixerEnabled = document.querySelector('#websiteFixerEnabled');
+  if (websiteFixerEnabled) {
+    websiteFixerEnabled.checked = cached.websiteFixer?.enabled === true;
+    const translateOverride = document.querySelector('#websiteFixerTranslateOverrideEnabled');
+    translateOverride.checked = cached.websiteFixer?.translateOverride?.enabled === true;
+    document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
+    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked || !translateOverride.checked;
   }
   const knowledge = cached.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
@@ -264,7 +273,8 @@
 
   for (const section of document.querySelectorAll('[data-list-section]')) {
     const listName = section.dataset.listSection;
-    const sectionState = cached[section.dataset.featureId || feature] || {};
+    const sectionFeature = cached[section.dataset.featureId || feature] || {};
+    const sectionState = section.dataset.settingGroup ? sectionFeature[section.dataset.settingGroup] || {} : sectionFeature;
     const list = section.querySelector('.rule-list');
     const rules = Array.isArray(sectionState[listName]) ? sectionState[listName].filter(rule => typeof rule === 'string') : [];
     list.replaceChildren();

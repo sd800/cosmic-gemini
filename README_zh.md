@@ -98,6 +98,10 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 目前可选的管制网站包括腾讯新闻和知乎。
 
+#### Website Fixer
+
+Website Fixer 用于恢复被网站主动禁用的浏览器功能。首个子功能 Translate Override 可忽略网站的禁止翻译声明，让 Chrome 能提供网页翻译。添加域名后，规则同时适用于该域名及其所有子域名；实际翻译仍由 Chrome 负责。
+
 ### Satellites - 网站专用功能
 
 #### XHS Image Dark Mode

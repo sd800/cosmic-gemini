@@ -1,5 +1,5 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress, normalizeAccessControlDomain } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
@@ -55,7 +55,8 @@ function state() {
 }
 
 function sectionState(section) {
-  return (states?.preferences || states)?.[section.dataset.featureId || featureId] || null;
+  const current = (states?.preferences || states)?.[section.dataset.featureId || featureId];
+  return section.dataset.settingGroup ? current?.[section.dataset.settingGroup] || null : current || null;
 }
 
 function applyLocale() {
@@ -239,6 +240,13 @@ function render() {
     document.querySelector('#accessControlTemporaryVisits').checked = accessControl?.allowTemporaryVisits === true;
     document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
   }
+  const websiteFixer = (states?.preferences || states)?.websiteFixer;
+  const websiteFixerEnabled = document.querySelector('#websiteFixerEnabled');
+  const websiteFixerTranslateOverrideEnabled = document.querySelector('#websiteFixerTranslateOverrideEnabled');
+  if (websiteFixerEnabled) {
+    websiteFixerEnabled.checked = websiteFixer?.enabled === true;
+    websiteFixerTranslateOverrideEnabled.checked = websiteFixer?.translateOverride?.enabled === true;
+  }
   const knowledge = (states?.preferences || states)?.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
   if (knowledgeEnabled) {
@@ -348,6 +356,11 @@ function render() {
   }
   for (const control of pendingControls) control.disabled = true;
   if (documentPreviewEnabled) document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
+  if (websiteFixerEnabled) {
+    document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
+    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
+      || !websiteFixerTranslateOverrideEnabled.checked;
+  }
 }
 
 async function reload() {
@@ -692,6 +705,24 @@ function bindView() {
     featureId: 'accessControl',
     enabled: accessControlTemporaryVisits.checked
   }), [accessControlTemporaryVisits]));
+  const websiteFixerEnabled = document.querySelector('#websiteFixerEnabled');
+  const websiteFixerTranslateOverrideEnabled = document.querySelector('#websiteFixerTranslateOverrideEnabled');
+  if (websiteFixerEnabled) websiteFixerEnabled.addEventListener('change', () => {
+    document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
+    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
+      || !websiteFixerTranslateOverrideEnabled.checked;
+    void update(null, () => savePreference('websiteFixer', {
+      type: 'UI_SET_ENABLED', featureId: 'websiteFixer', enabled: websiteFixerEnabled.checked
+    }), [websiteFixerEnabled]);
+  });
+  if (websiteFixerTranslateOverrideEnabled) websiteFixerTranslateOverrideEnabled.addEventListener('change', () => {
+    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
+      || !websiteFixerTranslateOverrideEnabled.checked;
+    void update(null, () => savePreference('websiteFixer', {
+      type: 'UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', featureId: 'websiteFixer',
+      enabled: websiteFixerTranslateOverrideEnabled.checked
+    }), [websiteFixerTranslateOverrideEnabled]);
+  });
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
   if (knowledgeEnabled) {
     const zoneSelect = document.querySelector('#websiteKnowledgeTimeZoneValue');
@@ -915,6 +946,8 @@ function bindView() {
       try {
         rule = sectionFeatureId === 'accessControl'
           ? normalizeAccessControlRuleInput(input.value)
+          : sectionFeatureId === 'websiteFixer'
+            ? normalizeWebsiteFixerDomain(normalizeWebsiteRuleInput(input.value))
           : section.dataset.domainScope === 'subdomains'
             ? normalizeAccessControlDomain(normalizeWebsiteRuleInput(input.value))
             : normalizeWebsiteRuleInput(input.value);

@@ -22,6 +22,7 @@ export const FEATURE_IDS = Object.freeze({
   WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
   CLIPBOARD_PROTECT: 'clipboardProtect',
   AD_MARSHAL: 'adMarshal',
+  WEBSITE_FIXER: 'websiteFixer',
   IMAGE_DOWNLOAD: 'imageDownload',
   VIDEO_DOWNLOAD: 'videoDownload'
 });
@@ -43,6 +44,7 @@ export const FEATURE_SLOTS = Object.freeze({
   CLIPBOARD_PROTECT: 38,
   FOLLOW_LIST_INSTAGRAM: 39,
   IMAGE_DOWNLOAD: 40,
+  WEBSITE_FIXER: 45,
   VIDEO_DOWNLOAD: 50
 });
 
@@ -65,7 +67,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 37,
+  version: 38,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -120,6 +122,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
       tencentNews: false,
       zhihu: false
     })
+  }),
+  websiteFixer: Object.freeze({
+    enabled: false,
+    translateOverride: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) })
   }),
   imageDownload: Object.freeze({
     workspaceMode: 'sidePanel',
@@ -232,6 +238,12 @@ export function normalizeAccessControlDomain(value) {
   return domain;
 }
 
+export function normalizeWebsiteFixerDomain(value) {
+  const domain = normalizeAccessControlDomain(value);
+  if (isIpAddress(domain)) throw new Error('Enter a website domain.');
+  return domain;
+}
+
 function normalizeRules(value) {
   const rules = [];
   for (const entry of Array.isArray(value) ? value : []) {
@@ -310,7 +322,7 @@ export function websiteKnowledgeControlState(settings, url) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 37,
+    version: 38,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -369,6 +381,16 @@ export function normalizeSettings(value = {}) {
         siteKey,
         value.adMarshal?.managedSites?.[siteKey] === true
       ]))
+    },
+    websiteFixer: {
+      enabled: value.websiteFixer?.enabled === true,
+      translateOverride: {
+        enabled: value.websiteFixer?.translateOverride?.enabled === true,
+        whitelistDomains: [...new Set((Array.isArray(value.websiteFixer?.translateOverride?.whitelistDomains)
+          ? value.websiteFixer.translateOverride.whitelistDomains : []).flatMap(entry => {
+          try { return [normalizeWebsiteFixerDomain(entry)]; } catch { return []; }
+        }))].slice(0, 100)
+      }
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
@@ -594,6 +616,17 @@ export function adMarshalState(settings, url) {
     supported,
     active: supported && enabled,
     enabled
+  };
+}
+
+export function websiteFixerState(settings, url) {
+  const feature = normalizeSettings(settings).websiteFixer;
+  const hostname = hostnameFromUrl(url);
+  return {
+    ...feature,
+    supported: !!hostname,
+    active: !!hostname && feature.enabled && feature.translateOverride.enabled
+      && feature.translateOverride.whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain))
   };
 }
 

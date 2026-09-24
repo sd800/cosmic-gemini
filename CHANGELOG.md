@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.27 — 2026-09-23
+
+- Add Website Fixer in Satellites with a Translate Override option for selected websites and their subdomains. It removes website requests that disable Chrome Translate while leaving translation to Chrome.
+
 ## 9.6.26 — 2026-09-23
 
 - Dim and disable No Autoplay's audio autoplay settings while its main switch is off, without discarding saved choices.

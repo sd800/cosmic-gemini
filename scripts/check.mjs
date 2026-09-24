@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.6.26');
+assert.equal(manifest.version, '9.6.27');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -228,7 +228,7 @@ for (const id of ['mailtoCaptureEnabled', 'websiteKnowledgeLanguages', 'websiteK
     `${id} must render off before settings are loaded.`);
 }
 assert.match(satellitesSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*adMarshalName[\s\S]*id="adMarshalTencentNews"[\s\S]*satellitesSiteSpecificFeatures[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"/);
+assert.match(satellitesSettings, /satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*adMarshalName[\s\S]*id="adMarshalTencentNews"[\s\S]*id="websiteFixerEnabled"[\s\S]*satellitesSiteSpecificFeatures[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"/);
 assert.match(satellitesSettings, /data-feature-id="accessControl" data-list-section="blockedDomains"[\s\S]*id="accessControlEnabled"[\s\S]*id="accessControlOptions"/);
 assert.match(satellitesSettings, /class="rule-list"[\s\S]*id="accessControlTemporaryVisits"/,
   'Access Control must place the one-time-visit choice below its website list.');

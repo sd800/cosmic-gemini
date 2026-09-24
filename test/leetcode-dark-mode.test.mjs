@@ -5,7 +5,7 @@ import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { isLeetCodeExplorePage, isLeetCodeExploreFrame } from '../extension/core/leetcode-dark-mode.js';
 import { createLeetcodeDarkModeProduct } from '../extension/background/products/operations/leetcode-dark-mode.js';
 const url='https://leetcode.com/explore/interview/card/course/704/4660/';
-test('Explore scope excludes the landing page, unrelated frames and lookalike hosts',()=>{
+test('LeetCode Explore scope excludes the landing page, unrelated frames and lookalike hosts',()=>{
  for(const value of [url,'https://leetcode.com/explore/featured/card/course/']) assert.equal(isLeetCodeExplorePage(value),true);
  for(const value of ['https://leetcode.com/explore/','https://leetcode.com/explore/?theme=dark','https://leetcode.com/explore','https://leetcode.com/problems/a/','https://leetcode.com.evil.test/explore/a','https://example.com/explore/a','http://leetcode.com/explore/a','bad'])assert.equal(isLeetCodeExplorePage(value),false,value);
  assert.equal(isLeetCodeExploreFrame(url,url+'?iframe=0'),true);

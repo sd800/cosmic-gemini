@@ -42,7 +42,7 @@ try{
  <div class="view-controller"><div class="chapter-list-view"><div class="expandable-chapter-list-base"><div class="chapter-item"><div class="chapter-base"><div class="chapter"><b>Introduction</b><div class="description">A long chapter introduction with a fading end</div></div></div></div><div class="item-list-group"><div class="check-mark completed"><i></i> Completed lesson</div></div></div></div></div>
  <div class="chapter-list-base"><div class="chapter-list"><div class="chapter-list-item"><b>Course chapter</b><div class="description">Another long chapter introduction with a fading end</div></div></div></div>
  <div class="chapter-view-base"><div class="list-group explore-item-list"><a class="list-group-item accessible"><div class="status"><div class="check-mark completed"><i></i></div></div>Completed chapter item</a></div></div>
- <div class="article-inner block-markdown"><h1>Explore lesson</h1><p>Readable content</p><pre>Sample code</pre></div>
+ <div class="article-inner block-markdown"><h1>LeetCode Explore lesson</h1><p>Readable content</p><pre>Sample code</pre></div>
  <div class="playground-mini-base"><div class="lang-btn-set-base"><div class="lang-btn-set"><button class="btn active">C++</button><button class="btn">Java</button></div></div><div class="CodeMirror"><pre><span class="cm-keyword">return</span> value;</pre></div></div></div>
  <div class="explore-detail-base"><div class="course-artwork"></div><div class="chapter-list-base">Course navigation</div><div class="card-intro-base">
  <div class="explore-paragraph"><h2>Introduction</h2><div>Course introduction uses raw text, not paragraph elements.<br>Readable without an extra rectangular backdrop.</div></div>

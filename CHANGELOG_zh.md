@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.11 — 2026-09-24
+
+- 在功能说明和文档中统一使用 LeetCode Explore 全名。
+
 ## 9.8.10 — 2026-09-24
 
 - 略微降低 LeetCode Explore 深色模式中的文字亮度。

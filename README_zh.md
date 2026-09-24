@@ -116,7 +116,7 @@ Website Fixer 通过可选的修复功能改善网站的使用体验。Translate
 
 #### Dark Mode for LeetCode Explore
 
-在 LeetCode 自身的深色模式开启时，以深色显示 Explore 中的课程、文章和练习。此功能默认关闭，Explore 首页保持原样。
+在 LeetCode 自身的深色模式开启时，以深色显示 LeetCode Explore 中的课程、文章和练习。此功能默认关闭，LeetCode Explore 首页保持原样。
 
 #### Chinese Response Display Optimization for Claude
 

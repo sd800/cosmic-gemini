@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.11 — 2026-09-24
+
+- Use the full LeetCode Explore name throughout the feature’s descriptions and documentation.
+
 ## 9.8.10 — 2026-09-24
 
 - Slightly soften text brightness in LeetCode Explore dark mode.

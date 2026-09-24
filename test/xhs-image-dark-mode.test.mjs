@@ -772,6 +772,79 @@ test('clicking a comment thumbnail associates a preview even when its resource U
   assert.equal(runtime.isContentImage(preview), true);
 });
 
+test('an opened comment gallery recognizes a switched image and preloads its neighbors', async () => {
+  const runtime = await runtimeFixture({}, { URL, innerWidth: 1200, innerHeight: 800 });
+  runtime.processing = true;
+  const bounds = { left: 300, right: 700, top: 100, bottom: 700, width: 400, height: 600 };
+  const images = ['previous', 'current', 'next', 'later'].map((id, index) => ({
+    id,
+    src: `https://sns-webpic-qc.xhscdn.com/comment/${id}.webp`,
+    naturalWidth: 400,
+    naturalHeight: 600,
+    visible: index === 1,
+    closest() { return null; },
+    checkVisibility() { return this.visible; },
+    getBoundingClientRect() {
+      return this.visible ? bounds
+        : { left: 1400, right: 1800, top: 100, bottom: 700, width: 400, height: 600 };
+    }
+  }));
+  const root = {
+    isConnected: true,
+    contains(image) { return images.includes(image); },
+    querySelectorAll(selector) { return selector === 'img' ? images : []; }
+  };
+  runtime.commentPreviewRoot = root;
+  runtime.commentPreviewBounds = bounds;
+  runtime.commentPreviewImages.add(images[1]);
+  runtime.records.set(images[1], {
+    image: images[1], commentKind: 'preview', result: { kind: 'light-theme' },
+    requestKey: runtime.imageRequestKey(images[1])
+  });
+  const queued = [];
+  runtime.observeImage = image => {
+    if (!runtime.records.has(image)) runtime.records.set(image, {
+      image, commentKind: runtime.commentImageKind(image),
+      result: null, requestKey: runtime.imageRequestKey(image)
+    });
+  };
+  runtime.waitForImageLoad = (record, priority) => queued.push([record.image.id, priority]);
+  runtime.scheduleControlPositions = () => {};
+
+  runtime.scanCommentPreviewGallery();
+  assert.deepEqual(queued, [['previous', -10], ['next', -10]]);
+  assert.equal(runtime.commentImageKind(images[0]), 'preview');
+  assert.equal(runtime.commentImageKind(images[2]), 'preview');
+  assert.equal(runtime.records.has(images[3]), false);
+
+  images[1].visible = false;
+  images[2].visible = true;
+  runtime.records.get(images[2]).result = { kind: 'light-theme' };
+  runtime.scanCommentPreviewGallery();
+  assert.deepEqual(queued.at(-1), ['later', -10]);
+  assert.equal(runtime.commentImageKind(images[3]), 'preview');
+});
+
+test('a hidden image stays black regardless of the page or image mode', async () => {
+  const runtime = await runtimeFixture();
+  const classes = new Set();
+  const target = {
+    classList: { toggle(name, active) { active ? classes.add(name) : classes.delete(name); } },
+    style: { setProperty() {} }
+  };
+  runtime.visualTarget = () => target;
+  const record = { image: target, profileKey: '', result: { kind: 'light-theme' },
+    darkened: false, concealed: true };
+  runtime.darkModeDetected = true;
+  runtime.updateRecordVisual(record, false);
+  assert.equal(classes.has('cg-xhs-image-hidden-dark'), true);
+
+  runtime.darkModeDetected = false;
+  record.darkened = true;
+  runtime.updateRecordVisual(record, false);
+  assert.equal(classes.has('cg-xhs-image-hidden-dark'), true);
+});
+
 test('a comment preview control toggles only that preview between dark and light display', async () => {
   const runtime = await runtimeFixture();
   const button = new SimpleEventTarget();

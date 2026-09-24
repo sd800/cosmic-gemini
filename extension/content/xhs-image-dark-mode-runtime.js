@@ -138,6 +138,11 @@
       this.disabledProfileKeys = new Set();
       this.commentImageKeys = new Set();
       this.commentPreviewImages = new WeakSet();
+      this.commentPreviewRoot = null;
+      this.commentPreviewBounds = null;
+      this.commentPreviewObserver = null;
+      this.commentPreviewScanFrame = 0;
+      this.commentGalleryProbeTimers = new Set();
       this.pendingCommentPreview = null;
       this.commentPreviewProbeTimers = new Set();
       this.cache = new Map();
@@ -184,6 +189,7 @@
       this.onViewportChange = this.onViewportChange.bind(this);
       this.onControlResize = this.onControlResize.bind(this);
       this.onControlMotion = this.onControlMotion.bind(this);
+      this.onCommentPreviewMutations = this.onCommentPreviewMutations.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
       window.addEventListener(READY, this.onBridgeReady, true);
@@ -554,6 +560,7 @@
       this.commentPreviewRecords.clear();
       this.commentImageKeys.clear();
       this.commentPreviewImages = new WeakSet();
+      this.clearCommentPreviewGallery();
       this.pendingCommentPreview = null;
       for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
       this.commentPreviewProbeTimers.clear();
@@ -574,7 +581,6 @@
       const style = document.createElement('style');
       style.dataset.cosmicGeminiXhsImageDarkMode = '';
       const darkFilter = `cg-xhs-cover-dark-${this.token}`;
-      const lightFilter = `cg-xhs-cover-light-${this.token}`;
       const filters = document.createElement('div');
       filters.style.cssText = 'position:fixed;width:0;height:0;overflow:hidden;pointer-events:none;';
       filters.setAttribute('aria-hidden', 'true');
@@ -582,7 +588,6 @@
       // They need no image copy, canvas, per-scroll positioning or network resource.
       filters.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"><defs>
         <filter id="${darkFilter}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feFlood flood-color="#000"/></filter>
-        <filter id="${lightFilter}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feFlood flood-color="#e8e6e3"/></filter>
       </defs></svg>`;
       document.documentElement.append(filters);
       this.coverFilters = filters;
@@ -590,7 +595,6 @@
         html .cg-xhs-image-dark-mode { filter: invert(1) hue-rotate(180deg) brightness(var(--cg-xhs-image-brightness, 1)) contrast(.92) saturate(.88) !important; }
         html .cg-xhs-image-dark-mode-gray { filter: brightness(var(--cg-xhs-image-brightness, 1)) contrast(6) saturate(.9) !important; }
         html .cg-xhs-image-hidden-dark { filter: url("#${darkFilter}") !important; }
-        html .cg-xhs-image-hidden-light { filter: url("#${lightFilter}") !important; }
         html img.avatar-item, html img[src*="sns-avatar"] { filter: brightness(.72) saturate(.9) !important; }
         html .note-detail-follow-btn .follow-button, html button.follow-button.primary { filter: brightness(.76) saturate(.88) !important; }
       `;
@@ -683,9 +687,161 @@
         && rect.right > 0 && rect.left < viewportWidth);
     }
 
-    markCommentPreview(image) {
+    commentGalleryCandidate(image) {
+      if (!image || this.isAvatar(image) || this.viewerImageContext(image)) return false;
+      const source = image.currentSrc || image.src || '';
+      if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
+      if (image.closest?.(
+        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"], section.note-item, a.cover'
+      )) return false;
+      const width = image.naturalWidth || image.clientWidth || 0;
+      const height = image.naturalHeight || image.clientHeight || 0;
+      return width >= 120 && height >= 120 && width * height >= 20_000;
+    }
+
+    commentPreviewContainer(image) {
+      let named = null;
+      let fixed = null;
+      for (let node = image.parentElement, depth = 0;
+        node && node !== document.body && depth < 7; node = node.parentElement, depth += 1) {
+        if (node.matches?.('[role="dialog"], [class*="preview" i], [class*="viewer" i], '
+          + '[class*="lightbox" i], [class*="modal" i]')) named = node;
+        if (globalThis.getComputedStyle?.(node)?.position === 'fixed') fixed = node;
+      }
+      return fixed || named || image.parentElement?.parentElement || image.parentElement || null;
+    }
+
+    clearCommentPreviewGallery() {
+      this.commentPreviewObserver?.disconnect();
+      this.commentPreviewObserver = null;
+      if (this.commentPreviewScanFrame) cancelAnimationFrame(this.commentPreviewScanFrame);
+      this.commentPreviewScanFrame = 0;
+      for (const timer of this.commentGalleryProbeTimers) clearTimeout(timer);
+      this.commentGalleryProbeTimers.clear();
+      this.commentPreviewRoot = null;
+      this.commentPreviewBounds = null;
+    }
+
+    observeCommentPreviewGallery(image) {
+      if (this.commentPreviewRoot?.contains?.(image)) return false;
+      const root = this.commentPreviewContainer(image);
+      if (!root) return false;
+      this.clearCommentPreviewGallery();
+      this.commentPreviewRoot = root;
+      if (typeof MutationObserver === 'function') {
+        this.commentPreviewObserver = new MutationObserver(this.onCommentPreviewMutations);
+        this.commentPreviewObserver.observe(root, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeOldValue: true,
+          attributeFilter: ['class', 'style', 'src', 'srcset', 'hidden', 'aria-hidden']
+        });
+      }
+      return true;
+    }
+
+    onCommentPreviewMutations(mutations) {
+      if (!this.processing || this.commentPreviewRoot?.isConnected === false) {
+        this.clearCommentPreviewGallery();
+        return;
+      }
+      const siteClasses = value => String(value || '').split(/\s+/)
+        .filter(name => name && !name.startsWith('cg-xhs-image-')).sort().join(' ');
+      const siteStyle = value => String(value || '')
+        .replace(/(?:^|;)\s*--cg-xhs-image-brightness\s*:[^;]*(?:;|$)/g, '').trim();
+      if (!mutations.some(mutation => mutation.type === 'childList'
+        || (mutation.attributeName === 'class'
+          && siteClasses(mutation.oldValue) !== siteClasses(mutation.target.getAttribute?.('class')))
+        || (mutation.attributeName === 'style'
+          && siteStyle(mutation.oldValue) !== siteStyle(mutation.target.getAttribute?.('style')))
+        || !['class', 'style'].includes(mutation.attributeName))) return;
+      this.scheduleCommentPreviewScan();
+    }
+
+    scheduleCommentPreviewScan() {
+      if (!this.processing || !this.commentPreviewRoot || this.commentPreviewScanFrame) return;
+      this.commentPreviewScanFrame = requestAnimationFrame(() => {
+        this.commentPreviewScanFrame = 0;
+        this.scanCommentPreviewGallery();
+      });
+    }
+
+    probeCommentPreviewGallery() {
+      for (const timer of this.commentGalleryProbeTimers) clearTimeout(timer);
+      this.commentGalleryProbeTimers.clear();
+      for (const delay of [0, 100, 350, 800]) {
+        const timer = setTimeout(() => {
+          this.commentGalleryProbeTimers.delete(timer);
+          this.scheduleCommentPreviewScan();
+        }, delay);
+        timer?.unref?.();
+        this.commentGalleryProbeTimers.add(timer);
+      }
+    }
+
+    commentGalleryVisible(image) {
       if (!this.commentPreviewCandidate(image)) return false;
+      const bounds = this.commentPreviewBounds;
+      const rect = image.getBoundingClientRect?.();
+      if (!bounds || !rect) return true;
+      const overlapWidth = Math.max(0, Math.min(bounds.right, rect.right) - Math.max(bounds.left, rect.left));
+      const overlapHeight = Math.max(0, Math.min(bounds.bottom, rect.bottom) - Math.max(bounds.top, rect.top));
+      return overlapWidth * overlapHeight >= Math.min(
+        bounds.width * bounds.height, rect.width * rect.height
+      ) * 0.35;
+    }
+
+    ensureCommentGalleryImage(image, priority, allowHidden = false) {
+      if (!this.commentGalleryCandidate(image)
+        || (!allowHidden && !this.commentGalleryVisible(image))) return;
+      this.markCommentPreview(image, allowHidden);
+      this.observeImage(image);
+      const record = this.records.get(image);
+      if (record && !record.result) this.waitForImageLoad(record, priority);
+    }
+
+    scanCommentPreviewGallery() {
+      const root = this.commentPreviewRoot;
+      if (!this.processing || !root || root.isConnected === false || root.hidden
+        || root.getAttribute?.('aria-hidden') === 'true'
+        || globalThis.getComputedStyle?.(root)?.display === 'none') {
+        this.clearCommentPreviewGallery();
+        return;
+      }
+      const images = [...(root.querySelectorAll?.('img') || [])]
+        .filter(image => this.commentGalleryCandidate(image));
+      let active = null;
+      for (const image of images) {
+        if (!this.commentGalleryVisible(image)) continue;
+        active = image;
+        const record = this.records.get(image);
+        if (record?.commentKind !== 'preview'
+          || record.requestKey !== this.imageRequestKey(image) || !record.result) {
+          this.ensureCommentGalleryImage(image, -20);
+        }
+      }
+      if (!active) return;
+      const index = images.indexOf(active);
+      for (const adjacent of [images[index - 1], images[index + 1]]) {
+        if (!adjacent) continue;
+        const record = this.records.get(adjacent);
+        if (record?.commentKind !== 'preview'
+          || record.requestKey !== this.imageRequestKey(adjacent) || !record.result) {
+          this.ensureCommentGalleryImage(adjacent, -10, true);
+        }
+      }
+      this.scheduleControlPositions();
+    }
+
+    markCommentPreview(image, allowHidden = false) {
+      if (allowHidden ? !this.commentGalleryCandidate(image)
+        : !this.commentPreviewCandidate(image)) return false;
+      if (this.commentPreviewRoot && this.commentPreviewRoot.isConnected !== false
+        && !this.commentPreviewRoot.contains?.(image) && !this.pendingCommentPreview) return false;
+      const newGallery = this.observeCommentPreviewGallery(image);
       this.commentPreviewImages.add(image);
+      if (!allowHidden) this.commentPreviewBounds = image.getBoundingClientRect?.() || null;
       const key = this.cacheKey(image.currentSrc || image.src || '');
       if (key) {
         this.commentImageKeys.delete(key);
@@ -697,6 +853,7 @@
       this.pendingCommentPreview = null;
       for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
       this.commentPreviewProbeTimers.clear();
+      if (newGallery) this.probeCommentPreviewGallery();
       return true;
     }
 
@@ -766,7 +923,12 @@
     }
 
     commentImageKind(image) {
-      if (this.commentPreviewImages.has(image) && this.commentPreviewCandidate(image)) return 'preview';
+      if (this.commentPreviewImages.has(image)
+        && (this.commentPreviewRoot?.contains?.(image)
+          ? this.commentGalleryCandidate(image) : this.commentPreviewCandidate(image))) return 'preview';
+      if (this.commentPreviewRoot?.contains?.(image) && this.commentGalleryVisible(image)) {
+        if (this.markCommentPreview(image)) return 'preview';
+      }
       const inlineKey = this.rememberCommentImage(image);
       if (inlineKey) return 'inline';
       if (this.pendingCommentPreview && this.commentPreviewCandidate(image)) {
@@ -1022,6 +1184,9 @@
         }
       }
       if (commentImage) this.armCommentPreview(commentImage);
+      if (this.commentPreviewRoot && path.includes(this.commentPreviewRoot)) {
+        this.probeCommentPreviewGallery();
+      }
       const anchor = path.find(node => node?.matches?.(
         'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
       ));
@@ -1047,6 +1212,7 @@
 
     onPageMutations(mutations) {
       let needsCleanup = false;
+      if (this.commentPreviewRoot?.isConnected === false) this.clearCommentPreviewGallery();
       for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
           const image = this.imageForMutation(mutation.target);
@@ -2386,8 +2552,7 @@
       target?.classList?.toggle('cg-xhs-image-dark-mode-gray', record.darkened && grayTheme);
       record.visualTarget = target;
       const concealed = this.resolvedConcealed(record);
-      target?.classList?.toggle('cg-xhs-image-hidden-dark', concealed && record.darkened);
-      target?.classList?.toggle('cg-xhs-image-hidden-light', concealed && !record.darkened);
+      target?.classList?.toggle('cg-xhs-image-hidden-dark', concealed);
       const transformed = record.darkened || concealed;
       if (transformed) this.intervenedRecords.add(record);
       else this.intervenedRecords.delete(record);
@@ -2566,7 +2731,7 @@
 
     removeVisualClasses(target) {
       for (const name of ['cg-xhs-image-dark-mode', 'cg-xhs-image-dark-mode-gray',
-        'cg-xhs-image-hidden-dark', 'cg-xhs-image-hidden-light']) {
+        'cg-xhs-image-hidden-dark']) {
         if (target?.classList?.contains?.(name)) target.classList.remove(name);
       }
     }

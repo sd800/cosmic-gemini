@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.17 — 2026-09-24
+
+- Recognize comment images when navigating their preview with previous and next controls, and pre-analyze the neighboring images when available.
+- Make Hide display black whenever XHS Image Dark Mode is active, regardless of the image's display mode.
+
 ## 9.8.16 — 2026-09-24
 
 - Open the XHS image options menu without initially highlighting Hide; keyboard navigation still starts with the selected direction.

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.21 — 2026-09-24
+
+- Stabilize XHS image controls by limiting motion-related hiding to the active image’s actual geometric changes.
+
 ## 9.8.20 — 2026-09-24
 
 - Make browser context-menu actions bypass Stay on the page reliably, including links, images, media and selected-text searches, while keeping unrelated website popups blocked.

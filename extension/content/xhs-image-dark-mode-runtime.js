@@ -15,6 +15,10 @@
   const LONG_PRESS_MOVE_TOLERANCE = 8;
   const POST_OPEN_TRANSITION_MS = 380;
   const CONTROL_RESIZE_SETTLE_MS = 140;
+  const CONTROL_MOTION_PROPERTIES = new Set([
+    'transform', '-webkit-transform', 'translate', 'scale',
+    'width', 'height', 'left', 'right', 'top', 'bottom'
+  ]);
   const COPY = Object.freeze({
     'en-US': Object.freeze({
       clickAutomatic: 'Click to restore automatic recognition for this post',
@@ -2489,7 +2493,8 @@
         const { width, height } = entry.contentRect;
         const last = record.controlImageSize;
         record.controlImageSize = { width, height };
-        if (last && (Math.abs(width - last.width) > 1 || Math.abs(height - last.height) > 1)) changing = true;
+        if (last && record.button.style.display === 'grid' && !record.button.hidden
+          && (Math.abs(width - last.width) > 1 || Math.abs(height - last.height) > 1)) changing = true;
       }
       if (changing) this.suspendControlPositions(CONTROL_RESIZE_SETTLE_MS);
       else this.scheduleControlPositions();
@@ -2497,24 +2502,41 @@
 
     onControlMotion(event) {
       const target = event.target;
-      const modal = this.viewerRoot?.closest?.('#noteContainer, .note-container');
-      if (!this.processing || !this.controlRecords.size || !this.viewerRoot
-        || !(this.viewerRoot.contains?.(target)
-          || (modal?.contains?.(target) && target?.contains?.(this.viewerRoot)))) return;
-      if (event.type === 'transitionrun' || event.type === 'animationstart') {
+      if (!this.processing || !this.controlRecords.size || !this.viewerRoot) return;
+      const starting = event.type === 'transitionrun' || event.type === 'animationstart';
+      let affectsImage = false;
+      for (const record of this.controlRecords) {
+        if (record.button && !record.button.hidden
+          && (!starting || record.button.style.display === 'grid')
+          && record.image?.isConnected !== false
+          && (target === record.image || target?.contains?.(record.image))) {
+          affectsImage = true;
+          break;
+        }
+      }
+      if (!affectsImage) return;
+      if (event.type.startsWith('transition')
+        && !CONTROL_MOTION_PROPERTIES.has(event.propertyName)) return;
+      if (event.type === 'animationstart'
+        && !(target.getAnimations?.() || []).some(animation => this.controlAnimationMoves(animation))) return;
+      if (starting) {
         this.suspendControlPositions(CONTROL_RESIZE_SETTLE_MS);
       } else this.scheduleControlPositions();
+    }
+
+    controlAnimationMoves(animation) {
+      if (animation.playState !== 'running'
+        || animation.effect?.getTiming?.()?.iterations === Infinity) return false;
+      let frames;
+      try { frames = animation.effect?.getKeyframes?.() || []; } catch { return false; }
+      return frames.some(frame => Object.keys(frame).some(property => CONTROL_MOTION_PROPERTIES.has(property)));
     }
 
     hasControlMotion(record) {
       let node = record.image;
       for (let depth = 0; node && depth < 8 && node !== document.body; depth += 1, node = node.parentElement) {
         for (const animation of node.getAnimations?.() || []) {
-          if (animation.playState !== 'running') continue;
-          let frames;
-          try { frames = animation.effect?.getKeyframes?.() || []; } catch { continue; }
-          if (!frames.some(frame => ['transform', 'translate', 'scale', 'width', 'height',
-            'left', 'right', 'top', 'bottom', 'opacity'].some(property => property in frame))) continue;
+          if (!this.controlAnimationMoves(animation)) continue;
           const finished = animation.finished;
           if (finished && this.watchedControlAnimations.get(animation) !== finished) {
             this.watchedControlAnimations.set(animation, finished);

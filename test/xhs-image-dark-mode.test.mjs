@@ -1537,6 +1537,61 @@ test('feed scrolling has no viewport listener until an expanded-view control nee
   assert.equal(documentTarget.listeners.get('transitionrun')?.length, 0);
 });
 
+test('unrelated viewer animations do not hide or cancel the image control', async () => {
+  const runtime = await runtimeFixture();
+  runtime.processing = true;
+  runtime.viewerRoot = {};
+  let suspensions = 0;
+  let positions = 0;
+  runtime.suspendControlPositions = () => { suspensions += 1; };
+  runtime.scheduleControlPositions = () => { positions += 1; };
+  const image = { isConnected: true };
+  const control = { image, button: { style: { display: 'grid' } } };
+  runtime.controlRecords.add(control);
+  const inactiveImage = { isConnected: true };
+  runtime.controlRecords.add({ image: inactiveImage, button: { style: { display: 'none' } } });
+  const unrelated = { contains: () => false };
+  const ancestor = { contains: node => node === image };
+  runtime.onControlMotion({ type: 'transitionrun', propertyName: 'transform', target: unrelated });
+  runtime.onControlMotion({ type: 'transitionrun', propertyName: 'transform', target: inactiveImage });
+  runtime.onControlMotion({ type: 'transitionrun', propertyName: 'opacity', target: ancestor });
+  ancestor.getAnimations = () => [{ playState: 'running', effect: {
+    getTiming: () => ({ iterations: Infinity }), getKeyframes: () => [{ transform: 'scale(1.1)' }]
+  } }];
+  runtime.onControlMotion({ type: 'animationstart', target: ancestor });
+  assert.equal(suspensions, 0);
+  runtime.onControlMotion({ type: 'transitionrun', propertyName: 'transform', target: ancestor });
+  assert.equal(suspensions, 1, 'a real image-position transition is still concealed');
+  control.button.style.display = 'none';
+  runtime.onControlMotion({ type: 'transitionend', propertyName: 'transform', target: ancestor });
+  assert.equal(positions, 1, 'transition completion repositions even when the control was hidden');
+});
+
+test('inactive image resizes and perpetual or opacity animations do not unset a usable control', async () => {
+  const runtime = await runtimeFixture({ body: {} });
+  let suspensions = 0;
+  let positions = 0;
+  runtime.suspendControlPositions = () => { suspensions += 1; };
+  runtime.scheduleControlPositions = () => { positions += 1; };
+  const image = { isConnected: true };
+  const record = { image, button: { style: { display: 'none' } }, controlImageSize: { width: 200, height: 200 } };
+  runtime.records.set(image, record);
+  runtime.onControlResize([{ target: image, contentRect: { width: 240, height: 240 } }]);
+  assert.equal(suspensions, 0);
+  assert.equal(positions, 1);
+  record.button.style.display = 'grid';
+  runtime.onControlResize([{ target: image, contentRect: { width: 250, height: 250 } }]);
+  assert.equal(suspensions, 1);
+  const animation = (frames, iterations = 1) => ({
+    playState: 'running', effect: { getTiming: () => ({ iterations }), getKeyframes: () => frames }
+  });
+  image.getAnimations = () => [animation([{ opacity: 0 }, { opacity: 1 }]),
+    animation([{ transform: 'scale(1)' }, { transform: 'scale(1.1)' }], Infinity)];
+  assert.equal(runtime.hasControlMotion(record), false);
+  image.getAnimations = () => [animation([{ transform: 'scale(1)' }, { transform: 'scale(1.1)' }])];
+  assert.equal(runtime.hasControlMotion(record), true);
+});
+
 test('expanded images transform the slide background and image as one visual surface', async () => {
   const runtime = await runtimeFixture();
   const imageClasses = new Set();

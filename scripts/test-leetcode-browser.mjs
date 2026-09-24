@@ -25,12 +25,34 @@ try{
  .content-viewer-base .view-controller .chapter-list-view:hover{box-shadow:inset 0 4px 7px 1px white,inset 0 -5px 20px rgba(173,186,204,.25),0 0 40px rgba(0,0,0,.2)}
  .playground-mini-base .lang-btn-set-base{display:inline-block;border:1px solid #ddd;border-bottom:none;border-radius:4px 4px 0 0}
  .lang-btn-set button{border:1px solid #ddd;background:#ecf0f1;padding:10px}.lang-btn-set .active{background:white}
+ .explore-detail-base{padding:20px}.card-intro-base{background:white}.explore-paragraph{font-size:18px;color:grey;padding-bottom:40px}
+ .course-artwork{height:40px;background:linear-gradient(90deg,#733cff,#9452ff)}
+ .explore-detail-base .chapter-list-base{box-shadow:inset 0 4px 7px 1px white,0 2px 6px #00154024}
+ .overview-tables-base .table-base{border-radius:10px;background:#f5f5f5;margin-bottom:20px}
+ .overview-tables-base .table-header{border:1px solid #ddd;background:white;padding:15px;border-radius:10px 10px 0 0}
+ .overview-tables-base .table-header:hover{color:#0088cc}
+ .overview-tables-base .overview-item-list-base{border:1px solid #ddd;border-top:0;border-radius:0 0 10px 10px}
+ .overview-tables-base .table-item{border-bottom:1px solid #ddd;background:#f5f5f5;padding:15px}
+ .overview-tables-base .table-item:last-child{border-bottom:none}
+ .overview-tables-base .table-item.accessible:hover{background:#ecf0f1!important}
+ .overview-tables-base .table-item.disable .title{opacity:.4}
+ footer{background:white}footer>div{border-top:1px solid #eee;padding:15px}footer a{color:#333}footer svg{width:16px;height:16px;fill:#333}
+ .global-container__fixture .loading-box__fixture{background:rgba(255,255,255,.8);color:black;border-radius:10px;box-shadow:0 4px 20px #0001;padding:15px}
  </style><body><div id="MathJax_Message" style="display:none">Loading mathematical notation</div><div class="content-viewer-base">
  <div class="view-controller"><div class="chapter-list-view"><div class="expandable-chapter-list-base"><div class="chapter-item"><div class="chapter-base"><div class="chapter"><b>Introduction</b><div class="description">A long chapter introduction with a fading end</div></div></div></div><div class="item-list-group"><div class="check-mark completed"><i></i> Completed lesson</div></div></div></div></div>
  <div class="chapter-list-base"><div class="chapter-list"><div class="chapter-list-item"><b>Course chapter</b><div class="description">Another long chapter introduction with a fading end</div></div></div></div>
  <div class="chapter-view-base"><div class="list-group explore-item-list"><a class="list-group-item accessible"><div class="status"><div class="check-mark completed"><i></i></div></div>Completed chapter item</a></div></div>
  <div class="article-inner block-markdown"><h1>Explore lesson</h1><p>Readable content</p><pre>Sample code</pre></div>
- <div class="playground-mini-base"><div class="lang-btn-set-base"><div class="lang-btn-set"><button class="btn active">C++</button><button class="btn">Java</button></div></div><div class="CodeMirror"><pre><span class="cm-keyword">return</span> value;</pre></div></div></div>`;
+ <div class="playground-mini-base"><div class="lang-btn-set-base"><div class="lang-btn-set"><button class="btn active">C++</button><button class="btn">Java</button></div></div><div class="CodeMirror"><pre><span class="cm-keyword">return</span> value;</pre></div></div></div>
+ <div class="explore-detail-base"><div class="course-artwork"></div><div class="chapter-list-base">Course navigation</div><div class="card-intro-base">
+ <div class="explore-paragraph"><h2>Introduction</h2><div>Course introduction uses raw text, not paragraph elements.<br>Readable without an extra rectangular backdrop.</div></div>
+ <div class="overview-tables-base"><div class="table-base"><div class="table-header">Introduction</div><div class="overview-item-list-base item-bg-alt">
+ <div class="table-item even-table-child accessible"><span class="check-mark completed"><i></i></span> <span class="title">Completed lesson</span></div>
+ <div class="table-item odd-table-child accessible"><span class="title">Next lesson</span></div>
+ <div class="table-item even-table-child disable"><span class="title">Unavailable lesson</span></div>
+ </div></div></div></div></div>
+ <footer><div><span class="copyright__fixture">Course footer</span> <a href="#footer">Link <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/></svg></a></div></footer>
+ <div class="global-container__fixture"><div class="loading-box__fixture">Loading</div></div>`;
  await context.route('https://leetcode.com/**',route=>{
   const u=new URL(route.request().url()),frame=u.searchParams.has('iframe')||u.pathname.startsWith('/playground/');
   route.fulfill({contentType:'text/html',headers:{'Content-Security-Policy':"script-src 'none'; style-src 'unsafe-inline'"},body:frame?child+(u.searchParams.has('iframe')?'<iframe src="/playground/sample/shared"></iframe>':''):`<!doctype html><html class="dark" style="color-scheme:dark"><head></head><body><h1>Native LeetCode shell</h1><iframe style="width:95%;height:650px" src="/explore/interview/card/fixture/?iframe=0"></iframe></body></html>`});
@@ -66,7 +88,7 @@ try{
   const shadow=getComputedStyle(n).boxShadow;n.append(...children);return [shadow,getComputedStyle(n).boxShadow];
  }),[darkSidebar[0],darkSidebar[0]]);
  for(const selector of ['.chapter-base','.chapter-list-item']){
-  const row=lesson.locator(selector);
+  const row=lesson.locator('.content-viewer-base '+selector);
   const checkFade=async color=>{
    assert.equal(await row.evaluate(n=>getComputedStyle(n).backgroundColor),color);
    assert.equal(await row.locator('.description').evaluate(n=>getComputedStyle(n).backgroundColor),color);
@@ -82,6 +104,22 @@ try{
  assert.equal(await editor.locator('.lang-btn-set-base').evaluate(n=>getComputedStyle(n).borderTopColor),'rgb(66, 66, 66)');
  assert.notEqual(await editor.locator('.btn.active').evaluate(n=>getComputedStyle(n).backgroundColor),await editor.locator('.btn:not(.active)').evaluate(n=>getComputedStyle(n).backgroundColor));
  for(const result of await lesson.locator('.check-mark i').evaluateAll(nodes=>nodes.map(n=>[getComputedStyle(n).textShadow,getComputedStyle(n,'::before').textShadow,getComputedStyle(n).color])))assert.deepEqual(result,['none','none','rgb(48, 184, 255)']);
+ const overview=lesson.locator('.explore-detail-base');
+ const styles=(locator,properties)=>locator.evaluate((n,properties)=>properties.map(p=>getComputedStyle(n)[p]),properties);
+ assert.deepEqual(await styles(overview.locator('.card-intro-base'),['backgroundColor']),['rgb(26, 26, 26)']);
+ assert.deepEqual(await styles(overview.locator('.explore-paragraph > div'),['color']),['rgb(229, 229, 229)']);
+ assert.deepEqual(await styles(overview.locator('.chapter-list-base'),['boxShadow']),['rgb(66, 66, 66) 0px 0px 0px 1px']);
+ for(const border of await overview.locator('.table-header,.overview-item-list-base,.table-item').evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).borderBottomColor)))assert.equal(border,'rgb(66, 66, 66)');
+ const overviewRow=overview.locator('.table-item.even-table-child.accessible');
+ await page.mouse.move(0,0);assert.deepEqual(await styles(overviewRow,['backgroundColor']),['rgb(44, 44, 44)']);
+ await overviewRow.hover();assert.deepEqual(await styles(overviewRow,['backgroundColor']),['rgb(58, 58, 58)']);
+ assert.deepEqual(await styles(overview.locator('.disable .title'),['opacity']),['0.4']);
+ const artwork=await styles(overview.locator('.course-artwork'),['backgroundImage']);
+ assert.match(artwork[0],/rgb\(115, 60, 255\)/);
+ assert.deepEqual(await styles(lesson.locator('footer'),['backgroundColor','color']),['rgb(26, 26, 26)','rgb(170, 170, 170)']);
+ assert.deepEqual(await styles(lesson.locator('footer > div'),['borderTopColor']),['rgb(66, 66, 66)']);
+ assert.deepEqual(await styles(lesson.locator('.loading-box__fixture'),['backgroundColor','color']),['rgb(36, 36, 36)','rgb(229, 229, 229)']);
+ await page.mouse.move(0,0);await overview.screenshot({path:join(artifacts,'overview-dark.png')});
  // Chapter links reuse the same documents. An active refresh must not remove/reinsert
  // their stylesheet, even though route/configuration messages still run normally.
  const refresh=()=>worker.evaluate(async()=>{
@@ -121,6 +159,12 @@ try{
  assert.match(await lesson.locator('.chapter-base .description').evaluate(n=>getComputedStyle(n,'::after').backgroundImage),/rgb\(255, 255, 255\)/);
  assert.equal(await editor.locator('.lang-btn-set-base').evaluate(n=>getComputedStyle(n).borderTopColor),'rgb(221, 221, 221)');
  for(const shadow of await lesson.locator('.check-mark i').evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n,'::before').textShadow)))assert.notEqual(shadow,'none');
+ assert.deepEqual(await styles(overview.locator('.card-intro-base'),['backgroundColor']),['rgb(255, 255, 255)']);
+ assert.deepEqual(await styles(overview.locator('.explore-paragraph > div'),['color']),['rgb(128, 128, 128)']);
+ assert.deepEqual(await styles(overview.locator('.overview-item-list-base'),['borderBottomColor']),['rgb(221, 221, 221)']);
+ assert.deepEqual(await styles(lesson.locator('footer'),['backgroundColor']),['rgb(255, 255, 255)']);
+ assert.deepEqual(await styles(lesson.locator('.loading-box__fixture'),['backgroundColor']),['rgba(255, 255, 255, 0.8)']);
+ assert.deepEqual(await styles(overview.locator('.course-artwork'),['backgroundImage']),artwork);
  await page.evaluate(()=>{document.documentElement.className='dark';document.documentElement.style.colorScheme='dark';});await page.waitForSelector(marker);
  // Same-document navigation must deactivate on landing and reactivate on entry.
  await page.evaluate(()=>history.pushState({},'','/explore/'));await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-cg-leetcode-dark'));
@@ -136,5 +180,5 @@ try{
  await page.waitForFunction(()=>!window[Symbol.for('cosmic-gemini.leetcode-dark-mode.runtime')]);
  assert.equal(await page.locator('meta[name="darkreader-lock"]').count(),1,'pre-existing lock survives');
  assert.deepEqual(errors,[]);
- console.log('PASS: default off, nested frames, MathJax loading status, loading/hover sidebar shadow, chapter fades/states, editor borders, sidebar/overview checkmarks, flash-free chapter refresh, live theme restoration, SPA scope, cleanup, no page errors');
+ console.log('PASS: default off, nested frames, loading status, sidebar shadows, chapter fades/states, editor borders, course overview prose/grid/hover/checkmarks, preserved artwork, footer, flash-free chapter refresh, live theme restoration, SPA scope, cleanup, no page errors');
 }finally{await context.close();await rm(folder,{recursive:true,force:true});}

@@ -126,7 +126,7 @@ Each list shows its own progress once reading begins. Results show usernames wit
 
 Instagram may require sign-in or limit list access; comparison appears only after both lists have been read completely. Results are compared locally and kept only in memory until you leave the profile or close its source tab.
 
-#### Serch Result Language Designate for Google Search
+#### Search Result Language Designate for Google Search
 
 Choose the languages of Google Search results with a `lang:` command in the search box. For example, `openai lang:zh` becomes a search for `openai` with `lr=lang_zh-CN`; `lang:en,ja` requests English or Japanese results. Video, image, and other search modes are preserved.
 

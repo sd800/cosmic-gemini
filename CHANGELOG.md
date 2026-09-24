@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.8 — 2026-09-24
+
+- Use the standard muted text color for developer-mode metadata labels and correct the Google Search feature name throughout the extension and documentation.
+
 ## 9.7.7 — 2026-09-24
 
 - Soften the developer-mode metadata label color.
@@ -255,7 +259,7 @@
 
 ## 8.14.1 — 2026-09-21
 
-- Added Serch Result Language Designate for Google Search (`lang-google`), a default-off Standing Province feature at the end of Satellites. Case-insensitive `lang:` search commands now become Google result-language filters, supporting Simplified and Traditional Chinese aliases, multiple languages, and video or other search modes.
+- Added Search Result Language Designate for Google Search (`lang-google`), a default-off Standing Province feature at the end of Satellites. Case-insensitive `lang:` search commands now become Google result-language filters, supporting Simplified and Traditional Chinese aliases, multiple languages, and video or other search modes.
 
 ## 8.13.31 — 2026-09-21
 

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.7.8 — 2026-09-24
+
+- 开发者模式中的技术标签和管辖归属标题恢复为普通灰色，并统一修正 Google 搜索功能的英文名称。
+
 ## 9.7.7 — 2026-09-24
 
 - 调暗开发者模式中技术标签与管辖归属标题的颜色。
@@ -255,7 +259,7 @@
 
 ## 8.14.1 — 2026-09-21
 
-- 新增 Serch Result Language Designate for Google Search（`lang-google`），归属 Standing Province，位于 Satellites 最后一项，默认关闭。支持将不区分大小写的 `lang:` 搜索指令转换为 Google 搜索结果语言筛选参数，支持简繁中文别名、多种语言及视频等搜索分类。
+- 新增 Search Result Language Designate for Google Search（`lang-google`），归属 Standing Province，位于 Satellites 最后一项，默认关闭。支持将不区分大小写的 `lang:` 搜索指令转换为 Google 搜索结果语言筛选参数，支持简繁中文别名、多种语言及视频等搜索分类。
 
 ## 8.13.31 — 2026-09-21
 

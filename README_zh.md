@@ -126,7 +126,7 @@ Claude 有时会在中文回复中使用半角标点，或者省略中文与英�
 
 Instagram 可能要求登录或限制列表访问；只有完整读取两份列表后才会显示对比结果。列表在本地对比，结果仅保留于内存，离开该主页或关闭来源标签页后清除。
 
-#### Serch Result Language Designate for Google Search
+#### Search Result Language Designate for Google Search
 
 在 Google 搜索词中添加 `lang:` 指令，指定搜索结果的语言。例如，`openai lang:zh` 会变为搜索 `openai`，并添加 `lr=lang_zh-CN`；`lang:en,ja` 会筛选英文或日文结果。视频、图片等搜索分类保持不变。
 

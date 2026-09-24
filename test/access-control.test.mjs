@@ -191,7 +191,11 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   await product.reconcile();
   assert.equal(typeof errorListener, 'function');
   assert.equal(popups.get(tab.id), undefined, 'normal pages retain the normal popup');
-  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide' });
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide', error: 'net::ERR_CONNECTION_RESET' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(session.has('accessControlPendingVisit:17'), false,
+    'an unrelated network failure is not treated as an Access Control block');
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide', error: 'net::ERR_BLOCKED_BY_CLIENT' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(session.get('accessControlPendingVisit:17'), 'https://docs.example.com/guide');
   assert.equal(popups.get(tab.id), '', 'the blocked tab routes its toolbar click to the background');
@@ -211,7 +215,7 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   assert.equal(session.has('accessControlPendingVisit:17'), false, 'leaving discards the blocked destination');
   assert.equal(popups.get(tab.id), 'popup/index.html');
   tab.url = 'chrome-error://chromewebdata/';
-  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide' });
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide', error: 'net::ERR_BLOCKED_BY_CLIENT' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(popups.get(tab.id), '');
   assert.deepEqual(await product.handleActionClicked(tab), {
@@ -229,6 +233,12 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   assert.equal((await product.state(settings, tab.url, tab.id)).blocked, false);
   assert.equal((await product.state(settings, tab.url, tab.id)).temporarilyAllowed, true);
 
+  installed = installed.filter(rule => rule.action.type !== 'allow');
+  await product.reconcile();
+  assert.equal(popups.get(tab.id), 'popup/index.html',
+    'losing a visit rule does not turn an already loaded page into a retry action');
+  installed.push(visit);
+
   await product.handleTabUpdated(tab.id, { url: 'https://sub.example.com/next' }, {
     url: 'https://sub.example.com/next'
   });
@@ -239,9 +249,20 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
 
   tab.url = 'https://elsewhere.example/';
-  await product.handleTabUpdated(tab.id, { url: tab.url }, tab);
+  await product.handleTabUpdated(tab.id, { status: 'complete' }, tab);
+  assert.equal(popups.get(tab.id), 'popup/index.html',
+    'a loaded page without a visit rule still opens the normal popup');
+  popups.set(tab.id, '');
+  assert.equal(await product.handleActionClicked(tab), false,
+    'a stale one-time-visit action cannot retry a loaded page');
+  assert.deepEqual(retried, [[17, 'https://docs.example.com/guide']]);
+  assert.equal(popups.get(tab.id), 'popup/index.html');
+  errorListener({ tabId: tab.id, url: tab.url, error: 'net::ERR_BLOCKED_BY_CLIENT' });
+  await new Promise(resolve => setImmediate(resolve));
+  tab.url = 'chrome-error://chromewebdata/';
   assert.equal(popups.get(tab.id), '');
   await product.handleActionClicked(tab);
+  assert.deepEqual(retried.at(-1), [17, 'https://elsewhere.example/']);
   assert.ok(installed.some(rule => rule.action.type === 'allow'));
   const disabled = await product.handleMessage({
     type: 'UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS', enabled: false

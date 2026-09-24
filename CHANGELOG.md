@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.28 — 2026-09-24
+
+- Keep the normal extension popup available on already loaded Access Control pages; retry navigation only after a recorded block, so a later toolbar click cannot refresh the page unexpectedly.
+
 ## 9.8.27 — 2026-09-24
 
 - Improve synchronization and isolation of saved website choices across Website Fixer and related site controls.

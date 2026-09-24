@@ -110,7 +110,8 @@ export function createAccessControlProduct(platform) {
   const pendingKey = tabId => PENDING_VISIT_PREFIX + tabId;
 
   function observeBlockedNavigation(details) {
-    if (!Number.isInteger(details?.tabId) || details.tabId < 0) return;
+    if (!Number.isInteger(details?.tabId) || details.tabId < 0
+      || details.error !== 'net::ERR_BLOCKED_BY_CLIENT') return;
     void actionQueue.run(details.tabId, async () => {
       const settings = await platform.readSettings();
       const domain = matchingBlockedDomain(settings, details.url);
@@ -154,10 +155,11 @@ export function createAccessControlProduct(platform) {
         if (pending) await chrome.storage.session.remove(pendingKey(tabId));
         return setActionPopup(tabId, false);
       }
-      const nextUrl = tab.pendingUrl && tab.pendingUrl !== pending ? tab.pendingUrl
-        : pending || changedUrl || tab.url || '';
-      const domain = matchingBlockedDomain(settings, nextUrl);
-      const blocked = !!domain && !(await hasVisitRule(tabId, domain));
+      // The current URL may be a page that loaded successfully before a
+      // temporary rule was removed. Only a recorded failed navigation should
+      // replace the normal popup with the one-time-visit action.
+      const domain = matchingBlockedDomain(settings, pending);
+      const blocked = !!pending && !!domain && !(await hasVisitRule(tabId, domain));
       return setActionPopup(tabId, blocked);
     });
   }
@@ -379,8 +381,9 @@ export function createAccessControlProduct(platform) {
           || !!current.incognito !== platform.isIncognitoContext()) return false;
         const settings = await platform.readSettings();
         const pending = (await chrome.storage.session.get(pendingKey(tabId)))[pendingKey(tabId)] || '';
-        const liveUrl = current.pendingUrl || current.url || '';
-        const destination = !liveUrl || liveUrl.startsWith('chrome-error:') ? pending : liveUrl;
+        // Never derive a retry destination from the currently loaded URL.
+        // A blocked navigation is explicitly recorded by onErrorOccurred.
+        const destination = pending;
         const domain = matchingBlockedDomain(settings, destination);
         if (settings.accessControl?.allowTemporaryVisits !== true || !domain
           || await hasVisitRule(tabId, domain)) {

@@ -172,6 +172,7 @@ export function viewFor(featureId) {
             <button class="primary-button" type="submit" data-i18n="add"></button>
           </form>
           <p class="form-message" aria-live="polite"></p>
+          <p class="rule-list-heading" hidden></p>
           <ul class="rule-list"></ul>
           <label class="satellite-inline-checkbox access-control-temporary-visit" for="accessControlTemporaryVisits"><input id="accessControlTemporaryVisits" type="checkbox"><span data-i18n="accessControlTemporaryVisits"></span></label>
         </fieldset>
@@ -246,6 +247,7 @@ export function viewFor(featureId) {
               <button type="submit" class="primary-button" data-i18n="add"></button>
             </form>
             <p class="form-message" role="status"></p>
+            <p class="rule-list-heading" hidden></p>
             <ul class="rule-list"></ul>
           </div>
         </fieldset>
@@ -277,7 +279,7 @@ export function viewFor(featureId) {
             <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="translateOverride" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="websiteFixerWhitelistEmpty">
               <h3 data-i18n="websiteFixerWhitelistHeading"></h3>
               <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="accessControlDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-              <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul>
+              <p class="form-message" aria-live="polite"></p><p class="rule-list-heading" hidden></p><ul class="rule-list"></ul>
             </section>
           </fieldset>
         </fieldset>

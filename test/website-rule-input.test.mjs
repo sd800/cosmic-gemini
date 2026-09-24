@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   normalizeAccessControlRuleInput,
+  normalizeGeneralDomainInput,
   normalizeWebsiteRuleInput
 } from '../extension/core/website-rule-input.js';
 
@@ -41,4 +42,27 @@ test('Access Control input aliases resolve to canonical root domains', () => {
   assert.equal(normalizeAccessControlRuleInput('*.Example.com'), 'example.com');
   assert.equal(normalizeAccessControlRuleInput('192.0.2.1'), '192.0.2.1');
   for (const ambiguous of ['bi', 'bz', 'bl']) assert.throws(() => normalizeAccessControlRuleInput(ambiguous));
+});
+
+test('general domain inputs reduce pasted website URLs to the curated registrable site', () => {
+  const cases = [
+    ['https://www.ilsos.gov/news/2026/article.html?view=1#section', 'ilsos.gov'],
+    ['http://news.example.co.uk:8080/path', 'example.co.uk'],
+    ['https://alice.github.io/project', 'alice.github.io'],
+    ['https://sub.公司.cn/path', 'sub.xn--55qx5d.cn'],
+    ['https://[2001:db8::1]:8443/path', '[2001:db8::1]']
+  ];
+  for (const [url, domain] of cases) {
+    assert.equal(normalizeGeneralDomainInput(url), domain, url);
+    assert.equal(normalizeAccessControlRuleInput(url), domain, url);
+  }
+  assert.equal(normalizeGeneralDomainInput('news.example.com'), 'news.example.com',
+    'a bare domain keeps its previous subdomain-specific meaning');
+  assert.equal(normalizeGeneralDomainInput('*.example.com'), '*.example.com');
+  assert.equal(normalizeGeneralDomainInput('192.0.2.1'), '192.0.2.1');
+  for (const input of [
+    'ftp://news.example.com/file', 'javascript://news.example.com/',
+    'https://user:secret@news.example.com/', 'https://news.example.com:bad/path',
+    'https://', 'https://news.example.com.evil.test@evil.test/'
+  ]) assert.throws(() => normalizeGeneralDomainInput(input), input);
 });

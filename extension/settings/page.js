@@ -1,7 +1,7 @@
 import { loadLocale } from '../core/locale.js';
 import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
+import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
@@ -93,6 +93,12 @@ function renderList(section) {
   const listName = section.dataset.listSection;
   const list = section.querySelector('.rule-list');
   const rules = current[listName] || [];
+  const heading = section.querySelector('.rule-list-heading');
+  if (heading) {
+    heading.hidden = rules.length === 0;
+    if (rules.length) heading.textContent = t(rules.some(isIpAddress)
+      ? 'generalDomainListHeadingWithIp' : 'generalDomainListHeading');
+  }
   const signature = JSON.stringify([locale, rules]);
   if (listSignatures.get(list) === signature
     || [...pendingControls].some(control => list.contains(control))) return;
@@ -120,18 +126,7 @@ function renderList(section) {
         ? { type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule }
         : { type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule }
     ), [remove]));
-    if (section.dataset.featureId === 'accessControl' || section.dataset.domainScope === 'subdomains') {
-      const label = document.createElement('span');
-      label.className = 'access-control-rule-label';
-      const scope = document.createElement('span');
-      scope.className = 'access-control-rule-scope';
-      scope.textContent = t('accessControlSubdomainsSuffix');
-      label.append(code);
-      if (!isIpAddress(rule)) label.append(scope);
-      item.append(label, remove);
-    } else {
-      item.append(code, remove);
-    }
+    item.append(code, remove);
     list.append(item);
   }
 }
@@ -947,9 +942,9 @@ function bindView() {
         rule = sectionFeatureId === 'accessControl'
           ? normalizeAccessControlRuleInput(input.value)
           : sectionFeatureId === 'websiteFixer'
-            ? normalizeWebsiteFixerDomain(normalizeWebsiteRuleInput(input.value))
+            ? normalizeWebsiteFixerDomain(normalizeGeneralDomainInput(input.value))
           : section.dataset.domainScope === 'subdomains'
-            ? normalizeAccessControlDomain(normalizeWebsiteRuleInput(input.value))
+            ? normalizeAccessControlDomain(normalizeGeneralDomainInput(input.value))
             : normalizeWebsiteRuleInput(input.value);
       } catch {
         message.textContent = t(sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');

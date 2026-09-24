@@ -1,5 +1,6 @@
 import { normalizeAccessControlDomain, normalizeRule } from './config.js';
 import { etld } from './etld.js';
+import { siteKey } from './site-key.js';
 
 export const ACCESS_CONTROL_ALIAS_GROUPS = Object.freeze([
   Object.freeze({ aliases: Object.freeze(['xhs', 'xiaohongshu']), domain: 'xiaohongshu.com' }),
@@ -32,8 +33,24 @@ export function normalizeWebsiteRuleInput(value) {
   return MULTI_LABEL_ETLD_RULES.has(normalized) ? '*.' + normalized : normalized;
 }
 
+// General domain inputs accept a pasted web URL as its registrable site while
+// keeping the existing hostname, wildcard, IP, and alias paths unchanged.
+export function normalizeGeneralDomainInput(value) {
+  if (typeof value !== 'string') throw new Error('Enter a website domain or URL.');
+  const raw = value.trim();
+  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(raw)) return normalizeWebsiteRuleInput(raw);
+  let url;
+  try { url = new URL(raw); } catch { throw new Error('Enter a valid website URL.'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    throw new Error('Enter an HTTP or HTTPS website URL without credentials.');
+  }
+  const domain = siteKey(url.href);
+  if (!domain) throw new Error('Enter a valid website URL.');
+  return domain;
+}
+
 export function normalizeAccessControlRuleInput(value) {
   if (typeof value !== 'string') throw new Error('Enter a website domain, IP address, or alias.');
   const alias = ACCESS_CONTROL_ALIASES[value.trim().toLowerCase()];
-  return normalizeAccessControlDomain(normalizeWebsiteRuleInput(alias || value));
+  return normalizeAccessControlDomain(normalizeGeneralDomainInput(alias || value));
 }

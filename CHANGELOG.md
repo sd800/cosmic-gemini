@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.28 — 2026-09-23
+
+- Website domain inputs in Satellites now accept pasted URLs and identify the corresponding site automatically, while preserving existing direct-domain entries.
+- Remove excess space between domain-entry forms and their saved website lists throughout Settings.
+- Show subdomain coverage once above populated website lists instead of repeating it after each domain.
+
 ## 9.6.27 — 2026-09-23
 
 - Add Website Fixer in Satellites with a Translate Override option for selected websites and their subdomains. It removes website requests that disable Chrome Translate while leaving translation to Chrome.

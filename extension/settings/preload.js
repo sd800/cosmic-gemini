@@ -277,6 +277,12 @@
     const sectionState = section.dataset.settingGroup ? sectionFeature[section.dataset.settingGroup] || {} : sectionFeature;
     const list = section.querySelector('.rule-list');
     const rules = Array.isArray(sectionState[listName]) ? sectionState[listName].filter(rule => typeof rule === 'string') : [];
+    const heading = section.querySelector('.rule-list-heading');
+    if (heading) {
+      heading.hidden = rules.length === 0;
+      if (rules.length) heading.textContent = translate(rules.some(isIpRule)
+        ? 'generalDomainListHeadingWithIp' : 'generalDomainListHeading');
+    }
     list.replaceChildren();
     if (!rules.length) {
       const empty = document.createElement('li');
@@ -295,18 +301,7 @@
       remove.innerHTML = icon('trash');
       remove.title = translate('removeRule', { rule });
       remove.setAttribute('aria-label', remove.title);
-      if (section.dataset.featureId === 'accessControl' || section.dataset.domainScope === 'subdomains') {
-        const label = document.createElement('span');
-        label.className = 'access-control-rule-label';
-        const scope = document.createElement('span');
-        scope.className = 'access-control-rule-scope';
-        scope.textContent = translate('accessControlSubdomainsSuffix');
-        label.append(code);
-        if (!isIpRule(rule)) label.append(scope);
-        item.append(label, remove);
-      } else {
-        item.append(code, remove);
-      }
+      item.append(code, remove);
       list.append(item);
     }
   }

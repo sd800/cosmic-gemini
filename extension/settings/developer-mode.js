@@ -84,7 +84,9 @@ export function createDeveloperMode(document) {
         affiliation.append(affiliationValue);
         details.append(tagLine, affiliation);
         if (title.parentElement.matches('.intro-title, .satellite-title, .rule-heading, .website-fixer-heading')) {
-          title.parentElement.after(details);
+          const titleRow = title.parentElement;
+          const anchor = titleRow.parentElement.matches('.section-heading') ? titleRow.parentElement : titleRow;
+          anchor.after(details);
         } else title.after(details);
       }
     }

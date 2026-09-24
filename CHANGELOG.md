@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.10 — 2026-09-24
+
+- Place Any Copy Enhanced developer-mode details below its heading row instead of beside the title.
+
 ## 9.7.9 — 2026-09-24
 
 - Keep feature titles, icons, and switches in place when Settings developer mode adds its information rows.

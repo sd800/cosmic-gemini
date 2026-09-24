@@ -5,6 +5,28 @@ import vm from 'node:vm';
 import { createSettingsState } from '../extension/settings/state.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS } from '../extension/core/website-rule-input.js';
 import { PRODUCT_META, featureFromPath, viewFor } from '../extension/settings/views.js';
+import { FEATURE_IDS } from '../extension/core/config.js';
+import { DEVELOPER_FEATURES, featureAffiliation } from '../extension/settings/developer-mode.js';
+import { translator } from '../extension/shared/localization.js';
+
+test('developer metadata follows Central ownership and attaches only to existing feature titles', () => {
+  const central = readFileSync(new URL('../extension/background/central.js', import.meta.url), 'utf8');
+  const expression = central.match(/export const PROVINCE_PRODUCTS = (Object\.freeze\([\s\S]*?\n\}\));/)[1];
+  const provinces = vm.runInNewContext(expression, { FEATURE_IDS });
+  for (const [province, products] of Object.entries(provinces)) {
+    for (const id of products.filter(id => id !== 'administration')) {
+      assert.equal(DEVELOPER_FEATURES[id]?.province, province, `${id} ownership must match Central`);
+    }
+  }
+  const markup = Object.keys(PRODUCT_META).map(id => viewFor(id).primary).join('');
+  for (const feature of Object.values(DEVELOPER_FEATURES)) {
+    assert.ok(markup.includes(`data-i18n="${feature.title}"`), `${feature.tag} has a Settings title`);
+    if (feature.parent) assert.ok(DEVELOPER_FEATURES[feature.parent], `${feature.tag} has a valid parent`);
+  }
+  const t = translator('en-US');
+  assert.equal(featureAffiliation('stayOnPage', t), 'Central > Standing Province > Website Fixer > Stay on the page');
+  assert.equal(featureAffiliation('biliDailyLogin', t), 'Central > Operations Province > Satellites > Bili Daily Login');
+});
 
 function settingsRegion(html, pattern, label) {
   const match = html.match(pattern);
@@ -135,6 +157,7 @@ function controller(feature = 'satellites') {
   const body = new Element('body');
   const document = {
     documentElement: root, body,
+    addEventListener() {},
     querySelector: selector => nodes.get(selector) || null,
     querySelectorAll: selector => groups.get(selector) || [],
     createElement: tag => new Element(tag)

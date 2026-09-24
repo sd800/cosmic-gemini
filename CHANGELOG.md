@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.5 — 2026-09-24
+
+- Add a temporary Settings developer mode: press 1 outside website inputs to show technical tags and affiliation hierarchies beneath feature names. Press 1 again to hide them; refreshing closes the mode.
+
 ## 9.7.4 — 2026-09-23
 
 - Make clearing Stay on the page’s website list an inline two-click confirmation.

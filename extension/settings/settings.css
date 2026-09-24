@@ -296,3 +296,14 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .website-fixer-actions .secondary-button[data-confirming="true"] { color: var(--danger); }
 .website-fixer-actions .secondary-button[data-confirming="true"]:hover { background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
 .website-fixer-actions .secondary-button:disabled { opacity: .4; cursor: default; }
+
+/* Developer details do not exist until explicitly requested; the CSS gate also
+   prevents a visible default frame if markup is restored by the browser. */
+.developer-feature-details { display: none; }
+[data-developer-mode] .developer-feature-details { display: grid; gap: 3px; margin: 6px 0 9px; color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
+.developer-feature-details > span { display: block; }
+.developer-feature-details code { font-size: inherit; color: var(--text); }
+.developer-title-stack { min-width: 0; flex: 1; }
+.developer-title-stack .developer-feature-details { margin-bottom: 0; }
+[data-developer-mode] :is(.intro-title, .satellite-title, .rule-heading, .website-fixer-heading) { align-items: flex-start; }
+[data-developer-mode] .settings-destination > span { min-width: 0; }

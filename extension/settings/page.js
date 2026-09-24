@@ -51,6 +51,21 @@ let pageClosing = false;
 let localeSaving = false;
 let localeGeneration = 0;
 let ruleInputHelpPanel = null;
+let developerMode = null;
+let developerModeModule = null;
+
+document.addEventListener('keydown', event => {
+  if (event.key !== '1' || event.repeat || event.isComposing || event.defaultPrevented
+    || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  // Keep typed website addresses and other editable text untouched.
+  if (event.target.closest?.('textarea, [contenteditable]:not([contenteditable="false"]), input:not([type]), input:is([type="text"], [type="search"], [type="url"], [type="email"], [type="tel"], [type="number"], [type="password"])')) return;
+  event.preventDefault();
+  developerModeModule ||= import('./developer-mode.js');
+  void developerModeModule.then(({ createDeveloperMode }) => {
+    developerMode ||= createDeveloperMode(document);
+    developerMode.toggle(t);
+  }).catch(() => { developerModeModule = null; });
+});
 
 function state() {
   return (states?.preferences || states)?.[featureId] || null;
@@ -103,6 +118,7 @@ function applyLocale() {
   if (ruleInputHelpPanel?.dialog.open && ruleInputHelpPanel.input?.isConnected) {
     openRuleInputHelp(ruleInputHelpPanel.input);
   }
+  developerMode?.render(t);
 }
 
 function renderList(section) {

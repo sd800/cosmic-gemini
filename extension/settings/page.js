@@ -265,7 +265,9 @@ function render() {
     document.querySelector('#documentPreviewAppearance').value = preference?.appearance || 'auto';
     document.querySelector('#documentPdfSampling').value = preference?.pdfSampling || 4;
   }
+  const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
+  if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.checked = (states?.preferences || states)?.leetcodeDarkMode?.enabled === true;
   if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
   const accessControl = (states?.preferences || states)?.accessControl;
   const accessControlEnabled = document.querySelector('#accessControlEnabled');
@@ -729,7 +731,11 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
+  if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.addEventListener('change', () => void update(null, () => savePreference('leetcodeDarkMode', {
+    type: 'UI_SET_ENABLED', featureId: 'leetcodeDarkMode', enabled: leetcodeDarkModeEnabled.checked
+  }), [leetcodeDarkModeEnabled]));
   if (langGoogleEnabled) langGoogleEnabled.addEventListener('change', () => void update(null, () => savePreference('langGoogle', {
     type: 'UI_SET_ENABLED', featureId: 'langGoogle', enabled: langGoogleEnabled.checked
   }), [langGoogleEnabled]));

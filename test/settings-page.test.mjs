@@ -344,7 +344,7 @@ test('Access Control renders saved domains and IP addresses at the same list lev
   assert.equal(note.hidden, true, 'IP-only lists do not show a subdomain note');
 });
 
-for (const feature of ['clipboardProtect', 'langGoogle']) {
+for (const feature of ['clipboardProtect', 'langGoogle', 'leetcodeDarkMode']) {
   test(`${feature} settings follow the saved switch regardless of current page support`, async () => {
     const { api, nodes, setTransport } = controller();
     const card = new Element('section', 'card');

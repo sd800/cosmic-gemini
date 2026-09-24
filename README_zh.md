@@ -114,6 +114,10 @@ Website Fixer 通过可选的修复功能改善网站的使用体验。Translate
 
 哔哩哔哩每天会向完成每日登录的账号发放一枚硬币。若要持续领取，原本需要您记得每天完成登录。Bili Daily Login 会在 Chrome 可以运行时于后台自动完成这项任务，帮助当前账号领取当日硬币。
 
+#### Dark Mode for LeetCode Explore
+
+在 LeetCode 自身的深色模式开启时，以深色显示 Explore 中的课程、文章和练习。此功能默认关闭，Explore 首页保持原样。
+
 #### Chinese Response Display Optimization for Claude
 
 Claude 有时会在中文回复中使用半角标点，或者省略中文与英文字母、数字及相关符号之间的空格。Chinese Response Display Optimization for Claude 会替换页面上显示的这些标点，并在这些边界补充一致的空格。代码、链接、公式和可编辑文本均保持不变，所有调整仅作用于您浏览器中显示的文字。另有一项独立控制的设置，可针对在美国使用 Claude 的场景统一部分浏览器标识信息。

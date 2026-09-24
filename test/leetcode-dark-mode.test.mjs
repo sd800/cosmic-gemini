@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { normalizeSettings } from '../extension/core/config.js';
+import { settingsViewCache } from '../extension/core/settings-view-cache.js';
+import { isLeetCodeExplorePage, isLeetCodeExploreFrame } from '../extension/core/leetcode-dark-mode.js';
+import { createLeetcodeDarkModeProduct } from '../extension/background/products/operations/leetcode-dark-mode.js';
+const url='https://leetcode.com/explore/interview/card/course/704/4660/';
+test('Explore scope excludes the landing page, unrelated frames and lookalike hosts',()=>{
+ for(const value of [url,'https://leetcode.com/explore/featured/card/course/']) assert.equal(isLeetCodeExplorePage(value),true);
+ for(const value of ['https://leetcode.com/explore/','https://leetcode.com/explore/?theme=dark','https://leetcode.com/explore','https://leetcode.com/problems/a/','https://leetcode.com.evil.test/explore/a','https://example.com/explore/a','http://leetcode.com/explore/a','bad'])assert.equal(isLeetCodeExplorePage(value),false,value);
+ assert.equal(isLeetCodeExploreFrame(url,url+'?iframe=0'),true);
+ assert.equal(isLeetCodeExploreFrame(url,'https://leetcode.com/playground/abc/shared'),true);
+ assert.equal(isLeetCodeExploreFrame('https://leetcode.com/explore/','https://leetcode.com/playground/abc/shared'),false);
+ assert.equal(isLeetCodeExploreFrame(url,'https://player.vimeo.com/video/1'),false);
+ assert.equal(isLeetCodeExploreFrame(url,'https://leetcode.com/problems/a/'),false);
+});
+test('default-off preference, scoped activation and SPA refresh belong to Operations product',async()=>{
+ let settings=normalizeSettings(),refreshes=0;const decisions=[];
+ const p=createLeetcodeDarkModeProduct({async sync(product,context,active,css){decisions.push({active,css});}},{async mutateSettings(update){settings=update(settings);return settings;},async refreshOpenPages(){refreshes++;},async readSettings(){return settings;},async refreshTabPage(){refreshes++;}});
+ const context={topUrl:url,frameUrl:url,frameId:0};
+ assert.equal(p.state(settings,url).active,false);assert.equal(await p.sync(context,settings),false);
+ await p.handleTabUpdated(1,{url});assert.equal(refreshes,0);
+ await p.handleMessage({type:'UI_SET_ENABLED',featureId:p.id,enabled:true});
+ assert.equal(settingsViewCache(settings).leetcodeDarkMode.enabled,true);
+ assert.equal(await p.sync(context,settings),true);
+ assert.equal(await p.sync({...context,frameId:1,frameUrl:'https://leetcode.com/playground/abc/shared'},settings),true);
+ assert.equal(await p.sync({...context,frameId:2,frameUrl:'https://outside.test/'},settings),false);
+ await p.handleTabUpdated(1,{url:'https://leetcode.com/explore/'});assert.equal(refreshes,2);
+ await p.handleTabUpdated(1,{url:'https://other.test/'});assert.equal(refreshes,2);
+ assert.equal(decisions[1].css[0],'content/leetcode-dark-mode.css');
+ await p.handleMessage({type:'UI_SET_ENABLED',featureId:p.id,enabled:false});assert.equal(settings.leetcodeDarkMode.enabled,false);
+});

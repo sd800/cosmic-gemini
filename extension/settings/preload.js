@@ -114,6 +114,8 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled === true;
   }
+  const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
+  if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.checked = !incognitoContext && cached.leetcodeDarkMode?.enabled === true;
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = !incognitoContext && cached.langGoogle?.enabled === true;
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');

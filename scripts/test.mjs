@@ -35,3 +35,5 @@ import '../test/page-runtime-host.test.mjs';
 import '../test/central-page.test.mjs';
 
 import '../test/follow-list-instagram.test.mjs';
+
+import '../test/leetcode-dark-mode.test.mjs';

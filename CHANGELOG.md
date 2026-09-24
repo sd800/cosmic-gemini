@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.1 — 2026-09-24
+
+- Add optional dark-mode support for LeetCode Explore courses, lessons, and exercises, following LeetCode’s native appearance.
+
 ## 9.7.11 — 2026-09-24
 
 - Refine empty website-list spacing in Settings, including the Document Preview whitelist.

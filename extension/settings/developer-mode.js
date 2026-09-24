@@ -26,6 +26,7 @@ export const DEVELOPER_FEATURES = Object.freeze({
   biliDailyLogin: { title: 'biliDailyLoginName', tag: 'bili-daily-login', parent: 'satellites' },
   chineseResponseClaude: { title: 'chineseResponseClaudeName', tag: 'chinese-response-claude', province: 'operations' },
   followListInstagram: { title: 'followListInstagramName', tag: 'follow-list-instagram', province: 'operations' },
+  leetcodeDarkMode: { title: 'leetcodeDarkModeName', tag: 'leetcode-dark-mode', province: 'operations' },
   langGoogle: { title: 'langGoogleName', tag: 'lang-google', province: 'standing' }
 });
 

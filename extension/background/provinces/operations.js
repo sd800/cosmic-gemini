@@ -8,6 +8,7 @@ import { createSatellitesProduct } from '../products/operations/satellites.js';
 import { createPageDisplayProduct } from '../products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../products/operations/xhs-image-dark-mode.js';
 import { createFollowListInstagramProduct } from '../products/operations/follow-list-instagram.js';
+import { createLeetcodeDarkModeProduct } from '../products/operations/leetcode-dark-mode.js';
 import { defineProvince } from './interface.js';
 
 export function createOperationsProvince(platform) {
@@ -15,6 +16,7 @@ export function createOperationsProvince(platform) {
   const anyCopy = createAnyCopyProduct(host, platform);
   const anyCopyEnhanced = createAnyCopyEnhancedProduct(host, platform);
   const satellites = createSatellitesProduct(platform);
+  const leetcodeDarkMode = createLeetcodeDarkModeProduct(host, platform);
   const pageDisplay = createPageDisplayProduct(host, platform);
   const xhsImageDarkMode = createXhsImageDarkModeProduct(host, platform);
   const chineseResponseClaude = createChineseResponseClaudeProduct(host, platform);
@@ -25,6 +27,7 @@ export function createOperationsProvince(platform) {
     [anyCopyEnhanced.id]: anyCopyEnhanced,
     [satellites.id]: satellites,
     [pageDisplay.id]: pageDisplay,
+    [leetcodeDarkMode.id]: leetcodeDarkMode,
     [xhsImageDarkMode.id]: xhsImageDarkMode,
     [chineseResponseClaude.id]: chineseResponseClaude,
     [followListInstagram.id]: followListInstagram,
@@ -103,6 +106,7 @@ export function createOperationsProvince(platform) {
         await platform.clearTabActivity(tabId);
       }
       await followListInstagram.handleTabUpdated(tabId, change);
+      await leetcodeDarkMode.handleTabUpdated(tabId, change);
       await chineseResponseClaude.handleTabUpdated(tabId, change, tab);
     },
     async handleTabRemoved(tabId) {

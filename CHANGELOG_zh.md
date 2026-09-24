@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.1 — 2026-09-24
+
+- 新增默认关闭的 LeetCode Explore 深色模式功能，跟随 LeetCode 自身外观适配课程、文章和练习。
+
 ## 9.7.11 — 2026-09-24
 
 - 调整设置页空网站列表的留白，包括 Document Preview 白名单。

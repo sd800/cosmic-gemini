@@ -17,6 +17,7 @@ export const FEATURE_IDS = Object.freeze({
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   FOLLOW_LIST_INSTAGRAM: 'followListInstagram',
   LANG_GOOGLE: 'langGoogle',
+  LEETCODE_DARK_MODE: 'leetcodeDarkMode',
   MAILTO_CAPTURE: 'mailtoCapture',
   DOCUMENT_PREVIEW: 'documentPreview',
   ACCESS_CONTROL: 'accessControl',
@@ -34,6 +35,7 @@ export const FEATURE_SLOTS = Object.freeze({
   ANY_COPY: 30,
   ANY_COPY_ENHANCED: 31,
   LANG_GOOGLE: 42,
+  LEETCODE_DARK_MODE: 46,
   MAILTO_CAPTURE: 32,
   DOCUMENT_PREVIEW: 43,
   ACCESS_CONTROL: 41,
@@ -68,7 +70,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 38,
+  version: 39,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -87,6 +89,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   clipboardProtect: Object.freeze({ enabled: false }),
   documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
+  leetcodeDarkMode: Object.freeze({ enabled: false }),
   accessControl: Object.freeze({
     enabled: false,
     allowTemporaryVisits: false,
@@ -324,7 +327,7 @@ export function websiteKnowledgeControlState(settings, url) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 38,
+    version: 39,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -346,6 +349,7 @@ export function normalizeSettings(value = {}) {
       }))].slice(0, 1000)
     },
     langGoogle: { enabled: value.langGoogle?.enabled === true },
+    leetcodeDarkMode: { enabled: value.leetcodeDarkMode?.enabled === true },
     accessControl: {
       enabled: value.accessControl?.enabled === true,
       allowTemporaryVisits: value.accessControl?.allowTemporaryVisits === true,

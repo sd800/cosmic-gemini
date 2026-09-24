@@ -10,7 +10,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 38,
+    version: 39,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -55,6 +55,7 @@ export function settingsViewCache(states = {}) {
       }
     },
     langGoogle: { enabled: states.langGoogle?.enabled === true },
+    leetcodeDarkMode: { enabled: states.leetcodeDarkMode?.enabled === true },
     accessControl: {
       enabled: states.accessControl?.enabled === true,
       allowTemporaryVisits: states.accessControl?.allowTemporaryVisits === true,

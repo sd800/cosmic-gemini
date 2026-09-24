@@ -996,7 +996,7 @@ function bindView() {
           status.dataset.i18n = 'websiteFixerSaved'; status.textContent = t('websiteFixerSaved');
           websiteFixerSavedTimers.set(status, setTimeout(() => {
             status.textContent = ''; delete status.dataset.i18n; websiteFixerSavedTimers.delete(status);
-          }, 5_000));
+          }, 3_000));
         }
       }, [input, submit], 'ruleSaveFailed');
     });

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.3 — 2026-09-23
+
+- Add punctuation to the Stay on the page saved-website count and shorten its save confirmation to three seconds.
+
 ## 9.7.2 — 2026-09-23
 
 - Remove the Sharpen PDFs option and its PDF rendering filter.

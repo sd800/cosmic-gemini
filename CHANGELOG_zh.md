@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.7.3 — 2026-09-23
+
+- 为 Stay on the page 的已保存网站数量补上句号，并将保存成功提示缩短至三秒。
+
 ## 9.7.2 — 2026-09-23
 
 - 移除 Document Preview 的「PDF 锐化」选项及相应渲染滤镜。

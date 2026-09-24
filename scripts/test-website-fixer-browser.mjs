@@ -39,10 +39,10 @@ try {
   await settings.locator('.switch:has(#websiteFixerEnabled)').click();
   await settings.locator('.switch:has(#websiteFixerStayOnPageEnabled)').click();
   const section = settings.locator('[data-setting-group="stayOnPage"]');
-  assert.equal(await section.locator('.website-fixer-count').textContent(), '0 websites saved');
+  assert.equal(await section.locator('.website-fixer-count').textContent(), '0 websites saved.');
   await section.locator('input').fill('https://deep.stay.test/path'); await section.locator('button[type=submit]').click();
   await section.locator('.website-fixer-saved').filter({ hasText: 'Website saved.' }).waitFor();
-  assert.equal(await section.locator('.website-fixer-count').textContent(), '1 website saved');
+  assert.equal(await section.locator('.website-fixer-count').textContent(), '1 website saved.');
   assert.equal(await section.locator('.rule-list').count(), 0);
   assert.equal(await section.getByText('stay.test', { exact: true }).count(), 0);
   assert.deepEqual(await settings.evaluate(async () => (await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.websiteFixer.stayOnPage.whitelistDomains), ['stay.test']);
@@ -50,7 +50,7 @@ try {
   await settings.locator('.website-fixer-card').screenshot({ path: resolve('test-dist/website-fixer/card-dark.png') });
   await settings.emulateMedia({ colorScheme: 'light' });
   await settings.locator('.website-fixer-card').screenshot({ path: resolve('test-dist/website-fixer/card-light.png') });
-  await settings.waitForFunction(() => !document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-saved').textContent, null, { timeout: 6_000 });
+  await settings.waitForFunction(() => !document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-saved').textContent, null, { timeout: 4_500 });
   const scripts = await worker.evaluate(() => chrome.scripting.getRegisteredContentScripts());
   assert.equal(scripts.filter(s => s.id.includes('website-fixer-stay')).length, 2);
   const page = await context.newPage(); await page.goto(`http://outside.test:${port}/prior`); await page.goto(origin);
@@ -99,8 +99,8 @@ try {
   settings.on('dialog', dialog => dialog.accept());
   await section.locator('[data-reset-websites]').click();
   await settings.waitForFunction(async () => !(await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.websiteFixer.stayOnPage.whitelistDomains.length);
-  await settings.waitForFunction(() => document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-count').textContent === '0 websites saved');
-  assert.equal(await section.locator('.website-fixer-count').textContent(), '0 websites saved');
+  await settings.waitForFunction(() => document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-count').textContent === '0 websites saved.');
+  assert.equal(await section.locator('.website-fixer-count').textContent(), '0 websites saved.');
   await page.goto(origin); await page.evaluate(url => { location.href = url; }, outside); await page.waitForURL(outside);
   console.log('PASS: settings add/hidden list/clear, scoped injection, direct/link/form/meta/blob/protocol/popup guards, same-site navigation, embedded resources and cleanup.');
 } finally { await context.close(); server.close(); await rm(folder, { recursive: true, force: true }); }

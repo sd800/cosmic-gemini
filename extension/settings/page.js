@@ -1,5 +1,5 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizeWebsiteFixerSite } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
@@ -93,6 +93,10 @@ function renderList(section) {
   const listName = section.dataset.listSection;
   const list = section.querySelector('.rule-list');
   const rules = current[listName] || [];
+  if (section.dataset.hiddenList === 'true') {
+    section.querySelector('[data-reset-websites]').disabled = !rules.length;
+    return;
+  }
   const note = section.querySelector('.rule-list-note');
   if (note) {
     note.hidden = !rules.some(rule => !isIpAddress(rule));
@@ -123,7 +127,7 @@ function renderList(section) {
     remove.addEventListener('click', () => void update(section, () => savePreference(section.dataset.featureId || featureId,
       section.dataset.featureId === 'nsna'
         ? { type: 'UI_DELETE_NSNA_WHITELIST_RULE', rule }
-        : { type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, listName, rule }
+        : { type: 'UI_DELETE_RULE', featureId: section.dataset.featureId || featureId, settingGroup: section.dataset.settingGroup, listName, rule }
     ), [remove]));
     item.append(code, remove);
     list.append(item);
@@ -240,6 +244,7 @@ function render() {
   if (websiteFixerEnabled) {
     websiteFixerEnabled.checked = websiteFixer?.enabled === true;
     websiteFixerTranslateOverrideEnabled.checked = websiteFixer?.translateOverride?.enabled === true;
+    document.querySelector('#websiteFixerStayOnPageEnabled').checked = websiteFixer?.stayOnPage?.enabled === true;
   }
   const knowledge = (states?.preferences || states)?.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
@@ -354,6 +359,8 @@ function render() {
     document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
     document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
       || !websiteFixerTranslateOverrideEnabled.checked;
+    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked
+      || !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
   }
 }
 
@@ -550,6 +557,8 @@ function openRuleInputHelp(input) {
   panel.input = input;
   const section = input.closest('[data-list-section]');
   const accessControl = section?.dataset.featureId === 'accessControl';
+  const hiddenList = section?.dataset.hiddenList === 'true';
+  const websiteFixer = section?.dataset.featureId === 'websiteFixer';
   const documentWhitelist = section?.dataset.featureId === 'documentPreview';
   const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
   const aliasGroups = accessControl ? ACCESS_CONTROL_ALIAS_GROUPS : [];
@@ -558,7 +567,9 @@ function openRuleInputHelp(input) {
   panel.behavior.hidden = !behaviorEditor;
   panel.behavior.textContent = behaviorEditor ? t('ruleInputBehaviorHelp') : '';
   panel.rulesHeading.textContent = t('ruleInputRulesHeading');
-  panel.rules.replaceChildren(...(documentWhitelist
+  panel.rules.replaceChildren(...(websiteFixer
+    ? [helpTextItem('websiteFixerDomainHelp')]
+    : documentWhitelist
     ? [helpTextItem('documentWhitelistDomainHelp'), helpTextItem('documentWhitelistIpHelp')]
     : accessControl
     ? [helpTextItem('accessControlInputDomainHelp'), helpTextItem('accessControlInputIpHelp')]
@@ -578,9 +589,9 @@ function openRuleInputHelp(input) {
   }
   panel.shortcutsHeading.textContent = t('ruleInputShortcutsHeading');
   panel.shortcuts.replaceChildren(
-    helpCommandItem('reset', 'ruleInputResetHelp'),
+    ...(hiddenList ? [] : [helpCommandItem('reset', 'ruleInputResetHelp'),
     helpCommandItem('clean', 'ruleInputCleanHelp'),
-    helpCommandItem(t('add'), 'ruleInputLongPressHelp'),
+    helpCommandItem(t('add'), 'ruleInputLongPressHelp')]),
     helpCommandItem('? / ？', 'ruleInputQuestionHelp')
   );
   panel.close.textContent = t('close');
@@ -705,11 +716,20 @@ function bindView() {
     enabled: accessControlTemporaryVisits.checked
   }), [accessControlTemporaryVisits]));
   const websiteFixerEnabled = document.querySelector('#websiteFixerEnabled');
+  const websiteFixerStayOnPageEnabled = document.querySelector('#websiteFixerStayOnPageEnabled');
+  if (websiteFixerStayOnPageEnabled) websiteFixerStayOnPageEnabled.addEventListener('change', () => {
+    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked || !websiteFixerStayOnPageEnabled.checked;
+    void update(null, () => savePreference('websiteFixer', {
+      type: 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE', featureId: 'websiteFixer', enabled: websiteFixerStayOnPageEnabled.checked
+    }), [websiteFixerStayOnPageEnabled]);
+  });
   const websiteFixerTranslateOverrideEnabled = document.querySelector('#websiteFixerTranslateOverrideEnabled');
   if (websiteFixerEnabled) websiteFixerEnabled.addEventListener('change', () => {
     document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
     document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
       || !websiteFixerTranslateOverrideEnabled.checked;
+    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked
+      || !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
     void update(null, () => savePreference('websiteFixer', {
       type: 'UI_SET_ENABLED', featureId: 'websiteFixer', enabled: websiteFixerEnabled.checked
     }), [websiteFixerEnabled]);
@@ -717,6 +737,8 @@ function bindView() {
   if (websiteFixerTranslateOverrideEnabled) websiteFixerTranslateOverrideEnabled.addEventListener('change', () => {
     document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
       || !websiteFixerTranslateOverrideEnabled.checked;
+    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked
+      || !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
     void update(null, () => savePreference('websiteFixer', {
       type: 'UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', featureId: 'websiteFixer',
       enabled: websiteFixerTranslateOverrideEnabled.checked
@@ -916,12 +938,14 @@ function bindView() {
     const submit = form.querySelector('button[type="submit"]');
     const message = section.querySelector('.form-message');
     const listName = section.dataset.listSection;
+    const settingGroup = section.dataset.settingGroup;
+    const hiddenList = section.dataset.hiddenList === 'true';
     const sectionFeatureId = section.dataset.featureId || featureId;
     const alphabetize = (clearInput = false) => update(section, async () => {
       await savePreference(sectionFeatureId, {
         type: 'UI_ALPHABETIZE_RULES',
         featureId: sectionFeatureId === 'nsna' ? 'nativeScroll' : sectionFeatureId,
-        listName
+        listName, settingGroup
       });
       if (clearInput) input.value = '';
     }, [input, submit], 'ruleSaveFailed');
@@ -929,15 +953,20 @@ function bindView() {
       await savePreference(sectionFeatureId, {
         type: 'UI_CLEAR_RULES',
         featureId: sectionFeatureId === 'nsna' ? 'nativeScroll' : sectionFeatureId,
-        listName
+        listName, settingGroup
       });
       input.value = '';
+      const status = section.querySelector('.website-fixer-saved');
+      if (status) { status.textContent = ''; delete status.dataset.i18n; }
     }, [input, submit], 'ruleSaveFailed');
-    bindEmptyRuleSort(submit, input, alphabetize);
+    if (!hiddenList) bindEmptyRuleSort(submit, input, alphabetize);
+    section.querySelector('[data-reset-websites]')?.addEventListener('click', () => {
+      if (confirm(t('websiteFixerResetConfirm'))) void clearRules();
+    });
     form.addEventListener('submit', event => {
       event.preventDefault();
-      if (isRuleOrderReset(input.value)) { void alphabetize(true); return; }
-      if (isRuleListClean(input.value)) {
+      if (!hiddenList && isRuleOrderReset(input.value)) { void alphabetize(true); return; }
+      if (!hiddenList && isRuleListClean(input.value)) {
         if (confirm(t('clearDomainRulesConfirm'))) void clearRules();
         return;
       }
@@ -946,7 +975,7 @@ function bindView() {
         rule = sectionFeatureId === 'accessControl'
           ? normalizeAccessControlRuleInput(input.value)
           : sectionFeatureId === 'websiteFixer'
-            ? normalizeWebsiteFixerDomain(normalizeGeneralDomainInput(input.value))
+            ? (settingGroup === 'stayOnPage' ? normalizeWebsiteFixerSite : normalizeWebsiteFixerDomain)(normalizeGeneralDomainInput(input.value))
           : section.dataset.domainScope === 'subdomains'
             ? normalizeAccessControlDomain(normalizeGeneralDomainInput(input.value))
             : normalizeWebsiteRuleInput(input.value);
@@ -958,8 +987,10 @@ function bindView() {
       void update(section, async () => {
         await savePreference(sectionFeatureId, sectionFeatureId === 'nsna'
           ? { type: 'UI_ADD_NSNA_WHITELIST_RULE', rule }
-          : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, listName, rule });
+          : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, settingGroup, listName, rule });
         input.value = '';
+        const status = section.querySelector('.website-fixer-saved');
+        if (status) { status.dataset.i18n = 'websiteFixerSaved'; status.textContent = t('websiteFixerSaved'); }
       }, [input, submit], 'ruleSaveFailed');
     });
   }

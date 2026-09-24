@@ -3,21 +3,21 @@ import {
   INCOGNITO_SETTINGS_KEY,
   SETTINGS_KEY,
   normalizeWebsiteFixerDomain,
+  normalizeWebsiteFixerSite,
   updateFeature,
   websiteFixerState
 } from '../../../core/config.js';
+import { normalizeGeneralDomainInput } from '../../../core/website-rule-input.js';
+import { createStayOnPage, stayDomains } from './website-fixer-stay.js';
 
 const SCRIPT_ID = 'cosmic-gemini-website-fixer-translate';
 const SCRIPT_FILE = 'content/website-fixer-translate.js';
 const DOMAIN_LIMIT = 100;
 
-function desiredMatches(settings) {
-  const feature = settings.websiteFixer;
-  if (feature?.enabled !== true || feature.translateOverride?.enabled !== true) return [];
-  return feature.translateOverride.whitelistDomains.map(domain => `*://*.${domain}/*`).sort();
-}
+const STAY_SCRIPTS = ['cosmic-gemini-website-fixer-stay-main', 'cosmic-gemini-website-fixer-stay-isolated'];
 
 export function createWebsiteFixerProduct(platform) {
+  const stay = createStayOnPage(platform);
   let queue = Promise.resolve();
   const serialize = task => {
     const operation = queue.then(task);
@@ -27,25 +27,27 @@ export function createWebsiteFixerProduct(platform) {
 
   const reconcile = () => serialize(async () => {
     const settings = await platform.readSettings();
-    const matches = desiredMatches(settings);
-    const [registered] = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID] });
-    if (!matches.length) {
-      if (registered) await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] });
-      return false;
+    await stay.reconcile(settings);
+    const translate = settings.websiteFixer;
+    const translateMatches = translate.enabled && translate.translateOverride.enabled
+      ? translate.translateOverride.whitelistDomains.map(domain => `*://*.${domain}/*`).sort() : [];
+    const stayMatches = stayDomains(settings).map(domain => `*://*.${domain}/*`).sort();
+    const scripts = [{ id: SCRIPT_ID, matches: translateMatches, js: [SCRIPT_FILE], world: 'ISOLATED', allFrames: false },
+      ...STAY_SCRIPTS.map((id, index) => ({ id, matches: stayMatches,
+        js: ['content/website-fixer-site-key.js', 'content/website-fixer-stay.js'],
+        world: index === 0 ? 'MAIN' : 'ISOLATED', allFrames: true, matchOriginAsFallback: true }))];
+    const registered = await chrome.scripting.getRegisteredContentScripts({ ids: scripts.map(script => script.id) });
+    for (const desired of scripts) {
+      const current = registered.find(script => script.id === desired.id);
+      if (!desired.matches.length) {
+        if (current) await chrome.scripting.unregisterContentScripts({ ids: [desired.id] });
+        continue;
+      }
+      const script = { ...desired, runAt: 'document_start', persistAcrossSessions: true };
+      if (current && Object.entries(script).every(([key, value]) => JSON.stringify(current[key]) === JSON.stringify(value))) continue;
+      if (current) await chrome.scripting.updateContentScripts([script]);
+      else await chrome.scripting.registerContentScripts([script]);
     }
-    if (registered && JSON.stringify(registered.matches) === JSON.stringify(matches)) return true;
-    const script = {
-      id: SCRIPT_ID,
-      matches,
-      js: [SCRIPT_FILE],
-      runAt: 'document_start',
-      world: 'ISOLATED',
-      allFrames: false,
-      persistAcrossSessions: true
-    };
-    if (registered) await chrome.scripting.updateContentScripts([script]);
-    else await chrome.scripting.registerContentScripts([script]);
-    return true;
   });
 
   return Object.freeze({
@@ -58,23 +60,25 @@ export function createWebsiteFixerProduct(platform) {
       let revise;
       if (message.type === 'UI_SET_ENABLED') {
         revise = feature => ({ ...feature, enabled: message.enabled === true });
-      } else if (message.type === 'UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE') {
-        revise = feature => ({ ...feature, translateOverride: {
-          ...feature.translateOverride, enabled: message.enabled === true
-        } });
+      } else if (['UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE'].includes(message.type)) {
+        const group = message.type === 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE' ? 'stayOnPage' : 'translateOverride';
+        revise = feature => ({ ...feature, [group]: { ...feature[group], enabled: message.enabled === true } });
       } else if (['UI_ADD_RULE', 'UI_DELETE_RULE', 'UI_ALPHABETIZE_RULES', 'UI_CLEAR_RULES'].includes(message.type)
         && message.listName === 'whitelistDomains') {
+        const group = message.settingGroup || 'translateOverride';
+        if (!['translateOverride', 'stayOnPage'].includes(group)) throw new Error('Unknown Website Fixer option.');
+        const normalize = group === 'stayOnPage' ? normalizeWebsiteFixerSite : normalizeWebsiteFixerDomain;
         const domain = ['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type)
-          ? normalizeWebsiteFixerDomain(message.rule || '') : '';
+          ? normalize(normalizeGeneralDomainInput(message.rule || '')) : '';
         revise = feature => {
-          const current = feature.translateOverride.whitelistDomains;
+          const current = feature[group].whitelistDomains;
           if (message.type === 'UI_ADD_RULE' && current.length >= DOMAIN_LIMIT && !current.includes(domain)) {
             throw new Error('Website Fixer has reached its domain limit.');
           }
           const domains = message.type === 'UI_ADD_RULE' ? current.includes(domain) ? current : [...current, domain]
             : message.type === 'UI_DELETE_RULE' ? current.filter(item => item !== domain)
               : message.type === 'UI_CLEAR_RULES' ? [] : [...current].sort((a, b) => a.localeCompare(b));
-          return { ...feature, translateOverride: { ...feature.translateOverride, whitelistDomains: domains } };
+          return { ...feature, [group]: { ...feature[group], whitelistDomains: domains } };
         };
       } else throw new Error('Website Fixer does not support this command.');
       const settings = await platform.mutateSettings(current => updateFeature(current, FEATURE_IDS.WEBSITE_FIXER, revise));
@@ -82,6 +86,9 @@ export function createWebsiteFixerProduct(platform) {
       return settings.websiteFixer;
     },
     initialize: reconcile,
+    handleTabCreated: stay.handleTabCreated,
+    handleTabUpdated: stay.handleTabUpdated,
+    handleTabRemoved: stay.handleTabRemoved,
     handleStorageChanged(changes) {
       const key = platform.isIncognitoContext?.() === true ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       const change = changes[key];
@@ -89,8 +96,9 @@ export function createWebsiteFixerProduct(platform) {
       return reconcile();
     },
     reset() { return serialize(async () => {
-      const [registered] = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID] });
-      if (registered) await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] });
+      await stay.reset();
+      const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID, ...STAY_SCRIPTS] });
+      if (registered.length) await chrome.scripting.unregisterContentScripts({ ids: registered.map(script => script.id) });
     }); }
   });
 }

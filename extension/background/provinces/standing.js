@@ -237,14 +237,16 @@ export function createStandingProvince(platform) {
     },
     handleMessage,
     handleTabCreated(tab) { return Promise.allSettled([
-      websiteKnowledgeControl.handleTabCreated(tab), accessControl.handleTabCreated(tab)
+      websiteKnowledgeControl.handleTabCreated(tab), accessControl.handleTabCreated(tab), websiteFixer.handleTabCreated(tab)
     ]); },
     handleTabUpdated(tabId, change, tab) { return Promise.allSettled([
       adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab),
-      accessControl.handleTabUpdated(tabId, change, tab), langGoogle.handleTabUpdated(tabId, change, tab)
+      accessControl.handleTabUpdated(tabId, change, tab), langGoogle.handleTabUpdated(tabId, change, tab),
+      websiteFixer.handleTabUpdated(tabId, change, tab)
     ]); },
     handleTabRemoved(tabId) { return Promise.allSettled([
-      adMarshal.handleTabRemoved(tabId), accessControl.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId)
+      adMarshal.handleTabRemoved(tabId), accessControl.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId),
+      websiteFixer.handleTabRemoved(tabId)
     ]); },
     handleActionClicked(tab) { return accessControl.handleActionClicked(tab); },
     handleStorageChanged(changes, areaName) {

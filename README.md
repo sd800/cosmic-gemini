@@ -100,7 +100,7 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 #### Website Fixer
 
-Website Fixer helps restore browser features that websites disable. Its first option, Translate Override, lets Chrome offer translation on websites that request no translation. Add a domain to cover that website and all its subdomains. Chrome remains responsible for the translation itself.
+Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, while Stay on the page keeps selected websites from sending you to other sites.
 
 ### Satellites – Site-specific features
 

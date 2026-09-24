@@ -10,7 +10,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 37,
+    version: 38,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -43,6 +43,14 @@ export function settingsViewCache(states = {}) {
       whitelistDomains: [...new Set(rules(states.documentPreview?.whitelistDomains).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
       }))].slice(0, 1000)
+    },
+    websiteFixer: {
+      enabled: states.websiteFixer?.enabled === true,
+      translateOverride: {
+        enabled: states.websiteFixer?.translateOverride?.enabled === true,
+        whitelistDomains: rules(states.websiteFixer?.translateOverride?.whitelistDomains)
+      },
+      stayOnPage: { enabled: states.websiteFixer?.stayOnPage?.enabled === true }
     },
     langGoogle: { enabled: states.langGoogle?.enabled === true },
     accessControl: {

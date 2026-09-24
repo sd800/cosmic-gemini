@@ -141,6 +141,9 @@
     translateOverride.checked = cached.websiteFixer?.translateOverride?.enabled === true;
     document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
     document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked || !translateOverride.checked;
+    const stay = document.querySelector('#websiteFixerStayOnPageEnabled');
+    stay.checked = cached.websiteFixer?.stayOnPage?.enabled === true;
+    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked || !stay.checked;
   }
   const knowledge = cached.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
@@ -272,6 +275,10 @@
   }
 
   for (const section of document.querySelectorAll('[data-list-section]')) {
+    if (section.dataset.hiddenList === 'true') {
+      section.querySelector('[data-reset-websites]').disabled = true;
+      continue;
+    }
     const listName = section.dataset.listSection;
     const sectionFeature = cached[section.dataset.featureId || feature] || {};
     const sectionState = section.dataset.settingGroup ? sectionFeature[section.dataset.settingGroup] || {} : sectionFeature;

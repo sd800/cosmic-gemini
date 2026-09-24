@@ -1,5 +1,6 @@
 import { normalizePdfSampling } from './pdf-sampling.js';
 import { normalizeDocumentAppearance } from './document-appearance.js';
+import { siteKey } from './site-key.js';
 
 export const SETTINGS_KEY = 'cosmicGeminiSettings';
 export const INCOGNITO_SETTINGS_KEY = 'cosmicGeminiIncognitoSettings';
@@ -125,7 +126,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   websiteFixer: Object.freeze({
     enabled: false,
-    translateOverride: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) })
+    translateOverride: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) }),
+    stayOnPage: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) })
   }),
   imageDownload: Object.freeze({
     workspaceMode: 'sidePanel',
@@ -390,6 +392,13 @@ export function normalizeSettings(value = {}) {
           ? value.websiteFixer.translateOverride.whitelistDomains : []).flatMap(entry => {
           try { return [normalizeWebsiteFixerDomain(entry)]; } catch { return []; }
         }))].slice(0, 100)
+      },
+      stayOnPage: {
+        enabled: value.websiteFixer?.stayOnPage?.enabled === true,
+        whitelistDomains: [...new Set((Array.isArray(value.websiteFixer?.stayOnPage?.whitelistDomains)
+          ? value.websiteFixer.stayOnPage.whitelistDomains : []).flatMap(entry => {
+          try { return [normalizeWebsiteFixerSite(entry)]; } catch { return []; }
+        }))].slice(0, 100)
       }
     },
     imageDownload: {
@@ -625,9 +634,13 @@ export function websiteFixerState(settings, url) {
   return {
     ...feature,
     supported: !!hostname,
-    active: !!hostname && feature.enabled && feature.translateOverride.enabled
-      && feature.translateOverride.whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain))
+    active: !!hostname && feature.enabled && [feature.translateOverride, feature.stayOnPage].some(fix =>
+      fix.enabled && fix.whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain)))
   };
+}
+
+export function normalizeWebsiteFixerSite(value) {
+  return siteKey('https://' + normalizeWebsiteFixerDomain(value));
 }
 
 export function xhsImageDarkModeState(settings, url, pageState = {}) {

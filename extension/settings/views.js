@@ -271,17 +271,30 @@ export function viewFor(featureId) {
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="websiteFixer" aria-hidden="true"></span><h1 data-i18n="websiteFixerName"></h1></div><p data-i18n="websiteFixerDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="websiteFixerEnabled" type="checkbox"><span></span><b class="sr-only">Website Fixer</b></label></div>
         </div>
-        <fieldset id="websiteFixerOptions" class="knowledge-options" disabled>
-          <label class="satellite-inline-checkbox" for="websiteFixerTranslateOverrideEnabled"><input id="websiteFixerTranslateOverrideEnabled" type="checkbox"><span data-i18n="websiteFixerTranslateName"></span></label>
-          <fieldset id="websiteFixerTranslateOptions" class="website-fixer-translate-options" disabled>
-            <legend class="sr-only" data-i18n="websiteFixerTranslateName"></legend>
-            <p data-i18n="websiteFixerTranslateHelp"></p>
-            <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="translateOverride" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="websiteFixerWhitelistEmpty">
-              <h3 data-i18n="websiteFixerWhitelistHeading"></h3>
-              <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="accessControlDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-              <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="rule-list-note" hidden></p>
-            </section>
-          </fieldset>
+        <fieldset id="websiteFixerOptions" class="knowledge-options website-fixer-options" disabled>
+          <section class="website-fixer-item">
+            <div class="website-fixer-heading"><h3 id="websiteFixerTranslateTitle" data-i18n="websiteFixerTranslateName"></h3><label class="switch"><input id="websiteFixerTranslateOverrideEnabled" type="checkbox" aria-labelledby="websiteFixerTranslateTitle"><span></span></label></div>
+            <fieldset id="websiteFixerTranslateOptions" class="website-fixer-translate-options" disabled>
+              <legend class="sr-only" data-i18n="websiteFixerTranslateName"></legend>
+              <p data-i18n="websiteFixerTranslateHelp"></p>
+              <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="translateOverride" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="websiteFixerWhitelistEmpty">
+                <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="websiteFixerTranslateTitle" data-i18n-placeholder="websiteFixerDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+                <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="rule-list-note" hidden></p>
+              </section>
+            </fieldset>
+          </section>
+          <section class="website-fixer-item">
+            <div class="website-fixer-heading"><h3 id="websiteFixerStayTitle" data-i18n="websiteFixerStayName"></h3><label class="switch"><input id="websiteFixerStayOnPageEnabled" type="checkbox" aria-labelledby="websiteFixerStayTitle"><span></span></label></div>
+            <fieldset id="websiteFixerStayOptions" class="website-fixer-translate-options" disabled>
+              <legend class="sr-only" data-i18n="websiteFixerStayName"></legend>
+              <p data-i18n="websiteFixerStayHelp"></p>
+              <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="stayOnPage" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-hidden-list="true">
+                <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="websiteFixerStayTitle" data-i18n-placeholder="websiteFixerDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+                <p class="form-message" aria-live="polite"></p>
+                <div class="website-fixer-actions"><span class="website-fixer-saved" role="status"></span><button type="button" class="secondary-button" data-reset-websites data-i18n="websiteFixerResetList"></button></div>
+              </section>
+            </fieldset>
+          </section>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteFixerPrivacy"></p></div>
       </section>

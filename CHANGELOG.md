@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.1 — 2026-09-23
+
+- Add Stay on the page to Website Fixer to restrict selected websites from opening other sites.
+- Refine the Website Fixer card, with independent controls and a hidden saved website list for Stay on the page.
+
 ## 9.6.30 — 2026-09-23
 
 - Clear website-rule validation messages as soon as an invalid entry is removed from the input.

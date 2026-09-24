@@ -100,7 +100,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Website Fixer
 
-Website Fixer 用于恢复被网站主动禁用的浏览器功能。首个子功能 Translate Override 可忽略网站的禁止翻译声明，让 Chrome 能提供网页翻译。添加域名后，规则同时适用于该域名及其所有子域名；实际翻译仍由 Chrome 负责。
+Website Fixer 通过可选的修复功能改善网站的使用体验。Translate Override 帮助恢复浏览器翻译，Stay on the page 则阻止所选网站带你跳转到其他网站。
 
 ### Satellites - 网站专用功能
 

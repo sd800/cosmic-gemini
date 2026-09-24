@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 9.7.1 — 2026-09-23
+
+- 在 Website Fixer 新增 Stay on the page，限制所选网站跳转或打开其他网站。
+- 优化 Website Fixer 卡片布局，提供独立的子功能控制；Stay on the page 的已保存网站列表不直接显示。
+
 ## 9.6.30 — 2026-09-23
 
 - 清空错误的网站规则输入后，立即清除相应的校验提示。

@@ -30,7 +30,11 @@
   <main class="layout">
     <div class="primary">
       <section class="card">
-        <div class="intro-title"><span data-section-icon="satellites" aria-hidden="true"></span><h1 data-i18n="satellitesName"></h1></div>
+
+  <div class="intro-title">
+    <span data-section-icon="satellites" aria-hidden="true"></span>
+    <h1 data-i18n="satellitesName"></h1>
+  </div>
         <p class="last" data-i18n="satellitesOverviewHelp"></p>
       </section>
       <h2 class="satellite-category-heading" data-i18n="satellitesGeneralFeatures"></h2>
@@ -76,8 +80,7 @@
           <div class="knowledge-row">
             <label for="websiteKnowledgeLanguages"><input id="websiteKnowledgeLanguages" type="checkbox"><span><strong id="websiteKnowledgeLanguagesLabel" data-i18n="websiteKnowledgeLanguages"></strong><small data-i18n="websiteKnowledgeLanguagesHelp"></small></span></label>
             <select id="websiteKnowledgeLanguagesValue" aria-labelledby="websiteKnowledgeLanguagesLabel">
-              <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-Hans">简体中文（无地区）</option><option value="zh-Hant">繁體中文（無地區）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="zh-MO">繁體中文（中國澳門）</option><option value="zh-TW">繁體中文（中華台北）</option><option value="zh-MY">简体中文（马来西亚）</option><option value="zh-SG">简体中文（新加坡）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option>
-            </select>
+  <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-Hans">简体中文（无地区）</option><option value="zh-Hant">繁體中文（無地區）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="zh-MO">繁體中文（中國澳門）</option><option value="zh-TW">繁體中文（中華台北）</option><option value="zh-MY">简体中文（马来西亚）</option><option value="zh-SG">简体中文（新加坡）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option></select>
           </div>
           <div class="knowledge-row">
             <label for="websiteKnowledgeTimeZone"><input id="websiteKnowledgeTimeZone" type="checkbox"><span><strong id="websiteKnowledgeTimeZoneLabel" data-i18n="websiteKnowledgeTimeZone"></strong><small data-i18n="websiteKnowledgeTimeZoneHelp"></small></span></label>
@@ -161,17 +164,30 @@
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="websiteFixer" aria-hidden="true"></span><h1 data-i18n="websiteFixerName"></h1></div><p data-i18n="websiteFixerDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="websiteFixerEnabled" type="checkbox"><span></span><b class="sr-only">Website Fixer</b></label></div>
         </div>
-        <fieldset id="websiteFixerOptions" class="knowledge-options" disabled>
-          <label class="satellite-inline-checkbox" for="websiteFixerTranslateOverrideEnabled"><input id="websiteFixerTranslateOverrideEnabled" type="checkbox"><span data-i18n="websiteFixerTranslateName"></span></label>
-          <fieldset id="websiteFixerTranslateOptions" class="website-fixer-translate-options" disabled>
-            <legend class="sr-only" data-i18n="websiteFixerTranslateName"></legend>
-            <p data-i18n="websiteFixerTranslateHelp"></p>
-            <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="translateOverride" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="websiteFixerWhitelistEmpty">
-              <h3 data-i18n="websiteFixerWhitelistHeading"></h3>
-              <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="accessControlDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
-              <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="rule-list-note" hidden></p>
-            </section>
-          </fieldset>
+        <fieldset id="websiteFixerOptions" class="knowledge-options website-fixer-options" disabled>
+          <section class="website-fixer-item">
+            <div class="website-fixer-heading"><h3 id="websiteFixerTranslateTitle" data-i18n="websiteFixerTranslateName"></h3><label class="switch"><input id="websiteFixerTranslateOverrideEnabled" type="checkbox" aria-labelledby="websiteFixerTranslateTitle"><span></span></label></div>
+            <fieldset id="websiteFixerTranslateOptions" class="website-fixer-translate-options" disabled>
+              <legend class="sr-only" data-i18n="websiteFixerTranslateName"></legend>
+              <p data-i18n="websiteFixerTranslateHelp"></p>
+              <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="translateOverride" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="websiteFixerWhitelistEmpty">
+                <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="websiteFixerTranslateTitle" data-i18n-placeholder="websiteFixerDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+                <p class="form-message" aria-live="polite"></p><ul class="rule-list"></ul><p class="rule-list-note" hidden></p>
+              </section>
+            </fieldset>
+          </section>
+          <section class="website-fixer-item">
+            <div class="website-fixer-heading"><h3 id="websiteFixerStayTitle" data-i18n="websiteFixerStayName"></h3><label class="switch"><input id="websiteFixerStayOnPageEnabled" type="checkbox" aria-labelledby="websiteFixerStayTitle"><span></span></label></div>
+            <fieldset id="websiteFixerStayOptions" class="website-fixer-translate-options" disabled>
+              <legend class="sr-only" data-i18n="websiteFixerStayName"></legend>
+              <p data-i18n="websiteFixerStayHelp"></p>
+              <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="stayOnPage" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-hidden-list="true">
+                <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="websiteFixerStayTitle" data-i18n-placeholder="websiteFixerDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
+                <p class="form-message" aria-live="polite"></p>
+                <div class="website-fixer-actions"><span class="website-fixer-saved" role="status"></span><button type="button" class="secondary-button" data-reset-websites data-i18n="websiteFixerResetList"></button></div>
+              </section>
+            </fieldset>
+          </section>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteFixerPrivacy"></p></div>
       </section>
@@ -216,8 +232,7 @@
           <div class="satellite-control"><label class="switch"><input id="langGoogleEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="langGoogleName"></b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="langGooglePrivacy"></p></div>
-      </section>
-    </div>
+      </section></div>
     <div class="sidebar">
       <aside class="help card">
         <h2 data-i18n="satellitesHelpHeading"></h2>

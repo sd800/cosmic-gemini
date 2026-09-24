@@ -6,13 +6,15 @@ import {
   DEFAULT_INCOGNITO_SETTINGS,
   normalizeSettings,
   normalizeWebsiteFixerDomain,
+  normalizeWebsiteFixerSite,
   websiteFixerState
 } from '../extension/core/config.js';
+import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { createWebsiteFixerProduct } from '../extension/background/products/standing/website-fixer.js';
 
 test('Website Fixer defaults off and matches only selected domains and their subdomains', () => {
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.websiteFixer, {
-    enabled: false, translateOverride: { enabled: false, whitelistDomains: [] }
+    enabled: false, translateOverride: { enabled: false, whitelistDomains: [] }, stayOnPage: { enabled: false, whitelistDomains: [] }
   });
   assert.equal(normalizeWebsiteFixerDomain('*.ILSOS.gov'), 'ilsos.gov');
   assert.throws(() => normalizeWebsiteFixerDomain('192.0.2.1'));
@@ -39,6 +41,7 @@ test('Website Fixer registers only allowlisted document-start scripts and unregi
   const calls = [];
   globalThis.chrome = {
     runtime: { getURL: path => 'chrome-extension://test/' + path },
+    declarativeNetRequest: { getSessionRules: async () => [], updateSessionRules: async () => {} },
     scripting: {
       async getRegisteredContentScripts() { return registered; },
       async registerContentScripts(scripts) { calls.push('register'); registered = scripts; },
@@ -148,4 +151,75 @@ test('Translate Override catches the document root when the script starts before
   document.documentElement = root;
   callback([{ type: 'childList', addedNodes: [root] }]);
   assert.equal(root.getAttribute('translate'), null);
+});
+
+test('Stay on the page normalizes site boundaries without authorizing the other fix', () => {
+  for (const [input, expected] of [['deep.example.co.uk', 'example.co.uk'], ['employee.corporate-server.corp', 'corporate-server.corp'], ['a.tenant.github.io', 'tenant.github.io'], ['*.SUB.example.com', 'example.com']]) {
+    assert.equal(normalizeWebsiteFixerSite(input), expected);
+  }
+  const settings = normalizeSettings({ websiteFixer: { enabled: true, stayOnPage: {
+    enabled: true, whitelistDomains: ['sub.example.com', 'example.com', 'bad/path']
+  } } });
+  assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, ['example.com']);
+  const cached = settingsViewCache(settings).websiteFixer;
+  assert.equal(cached.stayOnPage.enabled, true);
+  assert.equal(Object.hasOwn(cached.stayOnPage, 'whitelistDomains'), false, 'hidden list is not duplicated into the first-frame cache');
+  assert.equal(settings.websiteFixer.translateOverride.enabled, false);
+  assert.equal(websiteFixerState(settings, 'https://deep.example.com').active, true);
+  assert.equal(websiteFixerState(settings, 'https://example.com.evil.test').active, false);
+});
+
+test('Stay on the page owns bounded independent rules and preserves per-site add/delete APIs', async () => {
+  let settings = normalizeSettings(), registered = [], network = [{ id: 10, action: { type: 'block' } }], writes = 0;
+  globalThis.chrome = {
+    runtime: { getURL: path => 'chrome-extension://test/' + path },
+    scripting: {
+      getRegisteredContentScripts: async ({ ids }) => registered.filter(script => ids.includes(script.id)),
+      registerContentScripts: async scripts => { registered.push(...scripts); },
+      updateContentScripts: async scripts => { registered = registered.map(script => scripts.find(next => next.id === script.id) || script); },
+      unregisterContentScripts: async ({ ids }) => { registered = registered.filter(script => !ids.includes(script.id)); }
+    },
+    declarativeNetRequest: {
+      getSessionRules: async () => network,
+      updateSessionRules: async ({ removeRuleIds, addRules = [] }) => {
+        writes++; network = network.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+      }
+    }
+  };
+  const product = createWebsiteFixerProduct({ readSettings: async () => settings,
+    mutateSettings: async revise => settings = normalizeSettings(revise(settings)) });
+  const sender = { sender: { url: 'chrome-extension://test/settings/satellites.html' } };
+  const rule = (type, value, group = 'stayOnPage') => product.handleMessage({ type,
+    listName: 'whitelistDomains', settingGroup: group, rule: value }, sender);
+  await rule('UI_ADD_RULE', 'https//a.example.co.uk/path');
+  await rule('UI_ADD_RULE', 'translate.test', 'translateOverride');
+  await product.handleMessage({ type: 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE', enabled: true }, sender);
+  assert.equal(registered.length, 0);
+  await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }, sender);
+  assert.equal(registered.length, 2);
+  assert.deepEqual(registered.map(script => script.world), ['MAIN', 'ISOLATED']);
+  assert.ok(registered.every(script => script.allFrames && script.matchOriginAsFallback && script.runAt === 'document_start'));
+  assert.deepEqual(registered[0].matches, ['*://*.example.co.uk/*']);
+  assert.deepEqual(network[1].condition, { initiatorDomains: ['example.co.uk'], excludedRequestDomains: ['example.co.uk'], resourceTypes: ['main_frame'] });
+  assert.equal(network[1].action.type, 'block');
+  assert.deepEqual(network[2].condition.resourceTypes, ['sub_frame']);
+  assert.doesNotMatch(network[2].action.responseHeaders[0].value, /allow-popups|allow-top-navigation/);
+  const count = writes; await product.initialize(); assert.equal(writes, count, 'unchanged settings do not rewrite network rules');
+  await rule('UI_DELETE_RULE', 'example.co.uk');
+  assert.equal(registered.length, 0);
+  assert.deepEqual(network.map(rule => rule.id), [10]);
+  assert.deepEqual(settings.websiteFixer.translateOverride.whitelistDomains, ['translate.test']);
+  await rule('UI_ADD_RULE', 'one.test'); await rule('UI_ADD_RULE', 'two.test');
+  await rule('UI_CLEAR_RULES'); assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, []);
+  await assert.rejects(rule('UI_ADD_RULE', 'bad.test', 'unrecognized'));
+  await product.reset(); assert.deepEqual(network.map(rule => rule.id), [10]);
+});
+
+test('scoped runtime uses the same curated site boundaries as background policy', () => {
+  const context = vm.createContext({ URL });
+  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer-site-key.js', import.meta.url), 'utf8'), context);
+  const classify = vm.runInContext('globalThis[Symbol.for("cosmic-gemini.stay-site-key")]', context);
+  for (const domain of ['a.example.co.uk', 'a.tenant.github.io', 'corporate-server.corp', 'example.com', 'deep.city.kawasaki.jp']) {
+    assert.equal(classify('https://' + domain), normalizeWebsiteFixerSite(domain));
+  }
 });

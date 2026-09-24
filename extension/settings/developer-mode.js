@@ -49,7 +49,6 @@ export function createDeveloperMode(document) {
 
   function clear() {
     for (const details of document.querySelectorAll('.developer-feature-details')) details.remove();
-    for (const stack of document.querySelectorAll('.developer-title-stack')) stack.replaceWith(...stack.childNodes);
   }
 
   function render(t) {
@@ -85,10 +84,7 @@ export function createDeveloperMode(document) {
         affiliation.append(affiliationValue);
         details.append(tagLine, affiliation);
         if (title.parentElement.matches('.intro-title, .satellite-title, .rule-heading, .website-fixer-heading')) {
-          const stack = document.createElement('div');
-          stack.className = 'developer-title-stack';
-          title.replaceWith(stack);
-          stack.append(title, details);
+          title.parentElement.after(details);
         } else title.after(details);
       }
     }

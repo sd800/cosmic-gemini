@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.9 — 2026-09-24
+
+- Keep feature titles, icons, and switches in place when Settings developer mode adds its information rows.
+
 ## 9.7.8 — 2026-09-24
 
 - Use the standard muted text color for developer-mode metadata labels and correct the Google Search feature name throughout the extension and documentation.

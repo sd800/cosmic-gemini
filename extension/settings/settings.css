@@ -304,7 +304,4 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .developer-feature-details > span { display: block; }
 .developer-feature-details code { font-size: inherit; }
 .developer-feature-details code, .developer-affiliation-value { color: var(--text); }
-.developer-title-stack { min-width: 0; flex: 1; }
-.developer-title-stack .developer-feature-details { margin-bottom: 0; }
-[data-developer-mode] :is(.intro-title, .satellite-title, .rule-heading, .website-fixer-heading) { align-items: flex-start; }
 [data-developer-mode] .settings-destination > span { min-width: 0; }

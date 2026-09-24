@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.11 — 2026-09-24
+
+- Refine empty website-list spacing in Settings, including the Document Preview whitelist.
+
 ## 9.7.10 — 2026-09-24
 
 - Place Any Copy Enhanced developer-mode details below its heading row instead of beside the title.

@@ -103,6 +103,7 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .rule-list li { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 4px 10px; border-radius: 8px; background: var(--surface-raised); }
 .rule-list code { overflow: hidden; color: var(--text); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
 .rule-list .empty { min-height: 0; justify-content: flex-start; color: var(--muted); font-size: 13px; background: transparent; padding: 0; }
+.rule-list:has(> .empty) { margin-top: 12px; }
 .caption { margin-bottom: 0; font-size: 12px; }
 .compact { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .compact label { display: grid; gap: 4px; }
@@ -270,7 +271,7 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .website-fixer-translate-options .rule-list { margin-bottom: 0; }
 @media (max-width: 560px) { .knowledge-row { grid-template-columns: 1fr; gap: 10px; } }
 
-.document-whitelist{padding-top:18px;border-top:1px solid var(--line)}
+.document-whitelist{padding:18px 0 10px;border-top:1px solid var(--line)}
 .document-whitelist>p:not(.form-message):not(.rule-list-note){max-width:var(--satellite-copy-width,85%);margin:6px 0 16px;color:var(--muted)}
 .document-whitelist .rule-list{margin-bottom:0}
 

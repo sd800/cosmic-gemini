@@ -39,7 +39,6 @@ export function settingsViewCache(states = {}) {
       enabled: states.documentPreview?.enabled === true,
       appearance: normalizeDocumentAppearance(states.documentPreview?.appearance),
       pdfSampling: normalizePdfSampling(states.documentPreview?.pdfSampling),
-      pdfSharpening: states.documentPreview?.pdfSharpening === true,
       whitelistDomains: [...new Set(rules(states.documentPreview?.whitelistDomains).flatMap(entry => {
         try { return [normalizeAccessControlDomain(entry)]; } catch { return []; }
       }))].slice(0, 1000)
@@ -50,7 +49,10 @@ export function settingsViewCache(states = {}) {
         enabled: states.websiteFixer?.translateOverride?.enabled === true,
         whitelistDomains: rules(states.websiteFixer?.translateOverride?.whitelistDomains)
       },
-      stayOnPage: { enabled: states.websiteFixer?.stayOnPage?.enabled === true }
+      stayOnPage: {
+        enabled: states.websiteFixer?.stayOnPage?.enabled === true,
+        savedCount: rules(states.websiteFixer?.stayOnPage?.whitelistDomains).length
+      }
     },
     langGoogle: { enabled: states.langGoogle?.enabled === true },
     accessControl: {

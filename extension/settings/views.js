@@ -236,9 +236,6 @@ export function viewFor(featureId) {
               <option value="6">6×</option>
             </select>
           </div>
-          <div class="knowledge-row knowledge-checkbox-row">
-            <label for="documentPdfSharpening"><input id="documentPdfSharpening" type="checkbox" aria-describedby="documentPdfSharpeningHelp"><span><strong data-i18n="documentPdfSharpening"></strong><small id="documentPdfSharpeningHelp" data-i18n="documentPdfSharpeningHelp"></small></span></label>
-          </div>
           <div class="document-whitelist" data-feature-id="documentPreview" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-empty-key="documentWhitelistEmpty">
             <strong id="documentWhitelistHeading" data-i18n="documentWhitelistHeading"></strong>
             <p data-i18n="documentWhitelistDescription"></p>
@@ -291,7 +288,7 @@ export function viewFor(featureId) {
               <section class="rule-panel" data-feature-id="websiteFixer" data-setting-group="stayOnPage" data-list-section="whitelistDomains" data-domain-scope="subdomains" data-hidden-list="true">
                 <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="websiteFixerStayTitle" data-i18n-placeholder="websiteFixerDomainPlaceholder"><button class="primary-button" type="submit" data-i18n="add"></button></form>
                 <p class="form-message" aria-live="polite"></p>
-                <div class="website-fixer-actions"><span class="website-fixer-saved" role="status"></span><button type="button" class="secondary-button" data-reset-websites data-i18n="websiteFixerResetList"></button></div>
+                <div class="website-fixer-actions"><span class="website-fixer-count"></span><span class="website-fixer-saved" role="status"></span><button type="button" class="secondary-button" data-reset-websites data-i18n="websiteFixerResetList"></button></div>
               </section>
             </fieldset>
           </section>

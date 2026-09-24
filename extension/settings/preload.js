@@ -122,7 +122,6 @@
   if (documentPreviewEnabled) {
     documentPreviewEnabled.checked = !incognitoContext && cached.documentPreview?.enabled === true;
     document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
-    document.querySelector('#documentPdfSharpening').checked = !incognitoContext && cached.documentPreview?.pdfSharpening === true;
     const sampling = incognitoContext ? 4 : cached.documentPreview?.pdfSampling;
     document.querySelector('#documentPdfSampling').value = [1, 2, 3, 4, 5, 6].includes(sampling) ? sampling : 4;
     const appearance = incognitoContext ? 'auto' : cached.documentPreview?.appearance;
@@ -143,6 +142,9 @@
     document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked || !translateOverride.checked;
     const stay = document.querySelector('#websiteFixerStayOnPageEnabled');
     stay.checked = cached.websiteFixer?.stayOnPage?.enabled === true;
+    const savedCount = cached.websiteFixer?.stayOnPage?.savedCount || 0;
+    document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-count').textContent = translate(
+      savedCount === 1 ? 'websiteFixerSavedCountOne' : 'websiteFixerSavedCountMany', { count: savedCount });
     document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked || !stay.checked;
   }
   const knowledge = cached.websiteKnowledgeControl;

@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.7.2 — 2026-09-23
+
+- Remove the Sharpen PDFs option and its PDF rendering filter.
+- Add separators between Website Fixer’s main heading and child features, and dim the child controls when the main switch is off.
+- Show the number of saved Stay on the page websites without listing them, and clear the save confirmation after five seconds.
+
 ## 9.7.1 — 2026-09-23
 
 - Add Stay on the page to Website Fixer to restrict selected websites from opening other sites.

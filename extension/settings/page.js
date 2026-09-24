@@ -42,6 +42,7 @@ let states = null;
 const pendingControls = new Set();
 const settingsState = createSettingsState();
 const listSignatures = new WeakMap();
+const websiteFixerSavedTimers = new WeakMap();
 let storageSyncTimer = 0;
 let settingsUiPort = null;
 let settingsUiReconnectAttempts = 0;
@@ -95,6 +96,8 @@ function renderList(section) {
   const rules = current[listName] || [];
   if (section.dataset.hiddenList === 'true') {
     section.querySelector('[data-reset-websites]').disabled = !rules.length;
+    section.querySelector('.website-fixer-count').textContent = t(
+      rules.length === 1 ? 'websiteFixerSavedCountOne' : 'websiteFixerSavedCountMany', { count: rules.length });
     return;
   }
   const note = section.querySelector('.rule-list-note');
@@ -227,7 +230,6 @@ function render() {
     document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
     document.querySelector('#documentPreviewAppearance').value = preference?.appearance || 'auto';
     document.querySelector('#documentPdfSampling').value = preference?.pdfSampling || 4;
-    document.querySelector('#documentPdfSharpening').checked = preference?.pdfSharpening === true;
   }
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
@@ -679,10 +681,6 @@ function bindView() {
       type: 'UI_SET_ENABLED', featureId: 'documentPreview', enabled: documentPreviewEnabled.checked
     }), [documentPreviewEnabled]);
   });
-  const documentPdfSharpening = document.querySelector('#documentPdfSharpening');
-  if (documentPdfSharpening) documentPdfSharpening.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
-    type: 'UI_SET_DOCUMENT_PDF_SHARPENING', featureId: 'documentPreview', pdfSharpening: documentPdfSharpening.checked
-  }), [documentPdfSharpening]));
   const documentPdfSampling = document.querySelector('#documentPdfSampling');
   if (documentPdfSampling) documentPdfSampling.addEventListener('change', () => void update(null, () => savePreference('documentPreview', {
     type: 'UI_SET_DOCUMENT_PDF_SAMPLING', featureId: 'documentPreview', pdfSampling: Number(documentPdfSampling.value)
@@ -957,7 +955,10 @@ function bindView() {
       });
       input.value = '';
       const status = section.querySelector('.website-fixer-saved');
-      if (status) { status.textContent = ''; delete status.dataset.i18n; }
+      if (status) {
+        clearTimeout(websiteFixerSavedTimers.get(status));
+        status.textContent = ''; delete status.dataset.i18n;
+      }
     }, [input, submit], 'ruleSaveFailed');
     if (!hiddenList) bindEmptyRuleSort(submit, input, alphabetize);
     section.querySelector('[data-reset-websites]')?.addEventListener('click', () => {
@@ -990,7 +991,13 @@ function bindView() {
           : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, settingGroup, listName, rule });
         input.value = '';
         const status = section.querySelector('.website-fixer-saved');
-        if (status) { status.dataset.i18n = 'websiteFixerSaved'; status.textContent = t('websiteFixerSaved'); }
+        if (status) {
+          clearTimeout(websiteFixerSavedTimers.get(status));
+          status.dataset.i18n = 'websiteFixerSaved'; status.textContent = t('websiteFixerSaved');
+          websiteFixerSavedTimers.set(status, setTimeout(() => {
+            status.textContent = ''; delete status.dataset.i18n; websiteFixerSavedTimers.delete(status);
+          }, 5_000));
+        }
       }, [input, submit], 'ruleSaveFailed');
     });
   }

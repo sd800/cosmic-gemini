@@ -19,7 +19,7 @@ const workerReady = createPdfWorker(pdfjs, signal).then(worker => {
 void workerReady.catch(() => {});
 let thumbnailObserver, thumbnailTask, thumbnailBusy = false, thumbnailGeneration = 0, outlineLoaded = false;
 const nearThumbnails = new Set(), thumbnailCache = new Map(), printUrls = new Set();
-let sharpening = false, documentFilename, documentBytes = 0, properties;
+let documentFilename, documentBytes = 0, properties;
 let customZoomScale = null;
 let printing = false, printTask, zoomFrame = 0, wheelFactor = 1, wheelOrigin, passwordCancelled = false;
 const emit = type => port?.postMessage({ type });
@@ -44,24 +44,6 @@ function syncRenderProgress() {
   }
 }
 function theme(dark) { document.documentElement.dataset.dark = String(!!dark); document.documentElement.style.colorScheme = dark ? 'dark' : 'light'; setReaderIcon($('theme'), dark ? 'sun' : 'moon'); }
-function updateCanvasSharpening(view, transformed = false) {
-  const canvas = view?.canvas;
-  if (!canvas) return;
-  // Only sharpen bounded base surfaces already at the requested density.
-  // Stretched high-zoom previews must not allocate oversized filter surfaces.
-  const density = view.getRenderPixelRatio();
-  canvas.classList.toggle('pdf-sharpen', sharpening && !transformed && view.renderingState === RenderingStates.FINISHED &&
-    canvas.width / view.viewport.width >= density * .98 && canvas.height / view.viewport.height >= density * .98);
-}
-function setSharpening(enabled) {
-  const next = enabled === true;
-  if (sharpening === next) return;
-  sharpening = next;
-  document.documentElement.dataset.sharpen = String(next);
-  // CSS removal drops the extra compositor filter; reuse the existing PDF
-  // canvases without parsing, rasterizing or allocating replacement surfaces.
-  for (const view of viewer?.getCachedPageViews() || []) updateCanvasSharpening(view);
-}
 function click(id, callback) { $(id).addEventListener('click', callback, { signal }); }
 function cleanupPrint() { for (const url of printUrls) URL.revokeObjectURL(url); printUrls.clear(); $('print-pages').replaceChildren(); }
 function destroy() {
@@ -87,7 +69,6 @@ window.addEventListener('message', event => {
       });
     }
     else if (data?.type === 'theme') theme(data.dark);
-    else if (data?.type === 'sharpening') setSharpening(data.enabled);
     else if (data?.type === 'fullscreen-error') status('fullScreenFailed');
     else if (data?.type === 'fullscreen') {
       setReaderIcon($('fullscreen'), data.active ? 'fullscreen-exit' : 'fullscreen');
@@ -102,7 +83,6 @@ window.addEventListener('message', event => {
   $('filename').textContent = documentFilename;
   $('filename').title = `${documentFilename} — ${text.properties}`;
   $('filename').setAttribute('aria-label', $('filename').title);
-  setSharpening(input.sharpening);
   theme(input.dark); status('loading', true);
   setReaderIcons(document); emit('shell-ready');
   // Keep form navigation forbidden by the sandbox, including method=dialog.
@@ -196,12 +176,10 @@ async function open(bytes, sampling) {
       });
     }
     if (error) status('pageError');
-    if (sharpening) updateCanvasSharpening(viewer.getPageView(pageNumber - 1), cssTransform || error);
     if (!cssTransform && !destroyed) void renderLinks(pageNumber, links).catch(() => {});
     syncRenderProgress();
   }, { signal });
   eventBus.on('scalechanging', ({ scale, presetValue }) => {
-    if (sharpening) for (const view of viewer.getCachedPageViews()) view.canvas?.classList.remove('pdf-sharpen');
     const preset = presetValue || String(scale);
     const custom = $('custom-scale'), select = $('scale');
     if ([...select.options].some(option => option.value === preset)) {

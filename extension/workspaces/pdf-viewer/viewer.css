@@ -25,8 +25,6 @@ button.reader-icon{width:34px;height:34px;min-height:34px;flex:0 0 34px;padding:
 
 /* Smooth the supersampled detail canvas at fractional zoom; never use nearest-neighbour text scaling. */
 .pdfViewer .canvasWrapper canvas.detailView{image-rendering:auto}
-:root[data-sharpen=true] .pdfViewer .canvasWrapper canvas.detailView,:root[data-sharpen=true] .pdfViewer .canvasWrapper canvas.pdf-sharpen{filter:url(#pdf-detail-sharpen)}
-.render-filters{position:absolute;pointer-events:none;overflow:hidden}
 
 /* Keep the filename's centered single-line layout while making it accessible. */
 #filename{align-self:center;max-width:100%;min-width:0;min-height:0;padding:0 3px;font-size:15px;font-weight:700;line-height:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

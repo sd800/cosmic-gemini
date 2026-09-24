@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md)
 
+## 9.7.2 — 2026-09-23
+
+- 移除 Document Preview 的「PDF 锐化」选项及相应渲染滤镜。
+- 为 Website Fixer 总标题与子功能、各子功能之间添加分隔线，并在总开关关闭时灰度显示子功能。
+- Stay on the page 显示已保存网站数量而不列出网站；保存成功提示在五秒后消失。
+
 ## 9.7.1 — 2026-09-23
 
 - 在 Website Fixer 新增 Stay on the page，限制所选网站跳转或打开其他网站。

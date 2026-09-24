@@ -163,6 +163,7 @@ test('Stay on the page normalizes site boundaries without authorizing the other 
   assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, ['example.com']);
   const cached = settingsViewCache(settings).websiteFixer;
   assert.equal(cached.stayOnPage.enabled, true);
+  assert.equal(cached.stayOnPage.savedCount, 1);
   assert.equal(Object.hasOwn(cached.stayOnPage, 'whitelistDomains'), false, 'hidden list is not duplicated into the first-frame cache');
   assert.equal(settings.websiteFixer.translateOverride.enabled, false);
   assert.equal(websiteFixerState(settings, 'https://deep.example.com').active, true);

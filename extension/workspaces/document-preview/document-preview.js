@@ -102,7 +102,7 @@ async function preparePdfViewer() {
   if (expired || pdfViewer) return;
   const theme = siteTheme || defaultTheme;
   pdfViewer = createPdfViewer({ container: document.querySelector('main'),
-    filename: metadata.filename, locale, sampling: metadata.pdfSampling, sharpening: metadata.pdfSharpening,
+    filename: metadata.filename, locale, sampling: metadata.pdfSampling,
     dark: theme === 'dark' || (theme === 'auto' && appearance.matches),
     onDownload: () => void download(),
     onTheme: () => void setSiteTheme(toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)),
@@ -182,7 +182,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   const privateContext = metadata.context === 'incognito';
   const settingsChange = changes[privateContext ? 'cosmicGeminiIncognitoSettings' : 'cosmicGeminiSettings'];
   if (area === (privateContext ? 'session' : 'local') && settingsChange) {
-    pdfViewer?.setSharpening(settingsChange.newValue?.documentPreview?.pdfSharpening === true);
     defaultTheme = normalizeDocumentAppearance(settingsChange.newValue?.documentPreview?.appearance);
     updateTheme();
   }

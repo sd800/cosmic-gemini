@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.6.29 — 2026-09-23
+
+- Move the shared subdomain coverage note below each populated domain list and simplify its wording.
+- Strengthen Translate Override on selected websites that mark the whole page or its content as non-translatable.
+- Remove excess spacing around empty website lists throughout Settings.
+
 ## 9.6.28 — 2026-09-23
 
 - Website domain inputs in Satellites now accept pasted URLs and identify the corresponding site automatically, while preserving existing direct-domain entries.

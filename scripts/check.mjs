@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.6.28');
+assert.equal(manifest.version, '9.6.29');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -237,9 +237,16 @@ assert.match(settingsSource, /UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS/);
 assert.match(settingsSource, /querySelectorAll\('input\[type="text"\]'\)[\s\S]*bindRuleInputHelp/);
 assert.match(settingsSource, /normalizeWebsiteRuleInput\(input\.value\)/,
   'Settings website-rule forms must apply shared input completion.');
-assert.match(settingsStyle, /\.rule-list-heading \{[^}]*color: var\(--muted\)[^}]*font-size: 12px/);
-assert.match(settingsSource, /heading\.hidden = rules\.length === 0/);
-assert.match(settingsPreload, /heading\.hidden = rules\.length === 0/);
+assert.match(settingsStyle, /\.rule-list-note \{[^}]*color: var\(--muted\)[^}]*font-size: 12px/);
+assert.match(settingsStyle, /\.form-message:empty \{ display: none; \}/,
+  'Empty validation messages must never reserve layout space.');
+assert.match(settingsStyle, /\.document-whitelist>p:not\(\.form-message\):not\(\.rule-list-note\)/,
+  'Document whitelist description spacing must not apply to validation or list notes.');
+assert.match(settingsStyle, /\.rule-list \.empty \{ min-height: 0;/,
+  'Empty website lists must not inherit populated row height.');
+assert.match(settingsSource, /note\.hidden = !rules\.some\(rule => !isIpAddress\(rule\)\)/);
+assert.match(settingsPreload, /note\.hidden = !rules\.some\(rule => !isIpRule\(rule\)\)/);
+assert.equal((satellitesSettings.match(/<ul class="rule-list"><\/ul>\s*<p class="rule-list-note" hidden><\/p>/g) || []).length, 3);
 assert.doesNotMatch(settingsSource + settingsPreload, /accessControlSubdomainsSuffix|access-control-rule-scope/);
 assert.match(readme, /### Satellites – General features[\s\S]*#### Access Control[\s\S]*### Satellites – Site-specific features/);
 assert.match(readmeZh, /### Satellites - 通用功能[\s\S]*#### Access Control[\s\S]*### Satellites - 网站专用功能/);

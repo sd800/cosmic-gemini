@@ -93,11 +93,10 @@ function renderList(section) {
   const listName = section.dataset.listSection;
   const list = section.querySelector('.rule-list');
   const rules = current[listName] || [];
-  const heading = section.querySelector('.rule-list-heading');
-  if (heading) {
-    heading.hidden = rules.length === 0;
-    if (rules.length) heading.textContent = t(rules.some(isIpAddress)
-      ? 'generalDomainListHeadingWithIp' : 'generalDomainListHeading');
+  const note = section.querySelector('.rule-list-note');
+  if (note) {
+    note.hidden = !rules.some(rule => !isIpAddress(rule));
+    if (!note.hidden) note.textContent = t('generalDomainListNote');
   }
   const signature = JSON.stringify([locale, rules]);
   if (listSignatures.get(list) === signature

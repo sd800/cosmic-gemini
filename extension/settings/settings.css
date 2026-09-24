@@ -97,13 +97,12 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
 .switch input:disabled { opacity: 0; }
 .form-message { min-height: 18px; margin: 5px 0 0; color: var(--danger); font-size: 12px; }
-.form-message:empty { min-height: 0; margin: 0; }
-.rule-list-heading { margin: 9px 0 4px; color: var(--muted); font-size: 12px; line-height: 1.4; }
-.rule-list-heading:not([hidden]) + .rule-list { margin-top: 0; }
+.form-message:empty { display: none; }
+.rule-list-note { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .rule-list { display: grid; gap: 4px; padding: 0; margin: 8px 0 12px; list-style: none; }
 .rule-list li { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 4px 10px; border-radius: 8px; background: var(--surface-raised); }
 .rule-list code { overflow: hidden; color: var(--text); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
-.rule-list .empty { justify-content: flex-start; color: var(--muted); font-size: 13px; background: transparent; padding-left: 0; }
+.rule-list .empty { min-height: 0; justify-content: flex-start; color: var(--muted); font-size: 13px; background: transparent; padding: 0; }
 .caption { margin-bottom: 0; font-size: 12px; }
 .compact { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .compact label { display: grid; gap: 4px; }
@@ -272,7 +271,7 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 @media (max-width: 560px) { .knowledge-row { grid-template-columns: 1fr; gap: 10px; } }
 
 .document-whitelist{padding-top:18px;border-top:1px solid var(--line)}
-.document-whitelist>p{max-width:var(--satellite-copy-width,85%);margin:6px 0 16px;color:var(--muted)}
+.document-whitelist>p:not(.form-message):not(.rule-list-note){max-width:var(--satellite-copy-width,85%);margin:6px 0 16px;color:var(--muted)}
 .document-whitelist .rule-list{margin-bottom:0}
 
 .access-control-options .rule-list,.document-whitelist .rule-list,.website-fixer-translate-options .rule-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}

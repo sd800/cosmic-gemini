@@ -73,50 +73,79 @@ test('Website Fixer registers only allowlisted document-start scripts and unregi
   }));
 });
 
-test('Translate Override removes early and dynamically inserted page opt-outs only', () => {
+test('Translate Override clears page-wide and nested opt-outs, including late rewrites', () => {
   const observers = [];
-  const timers = new Map();
-  const listeners = new Map();
-  let nextTimer = 1;
-  const document = {
-    head: null,
-    readyState: 'loading',
-  };
-  const window = { addEventListener(type, listener) { listeners.set(type, listener); } };
+  const timers = [];
   class Observer {
     constructor(callback) { this.callback = callback; observers.push(this); }
-    observe(target) { this.target = target; this.active = true; }
+    observe(target, options) { this.target = target; this.options = options; this.active = true; }
     disconnect() { this.active = false; }
   }
-  function meta(name, content) {
-    const attributes = { name, content };
+  function element(localName, attributes = {}, children = []) {
+    const values = { ...attributes };
     return {
-      localName: 'meta', connected: true,
-      getAttribute(attribute) { return attributes[attribute] ?? null; },
-      hasAttribute(attribute) { return Object.hasOwn(attributes, attribute); },
-      setAttribute(attribute, value) { attributes[attribute] = value; },
-      removeAttribute(attribute) { delete attributes[attribute]; },
-      remove() { this.connected = false; }
+      nodeType: 1, localName, children, connected: true,
+      getAttribute(attribute) { return values[attribute] ?? null; },
+      hasAttribute(attribute) { return Object.hasOwn(values, attribute); },
+      setAttribute(attribute, value) { values[attribute] = value; },
+      removeAttribute(attribute) { delete values[attribute]; },
+      remove() { this.connected = false; },
+      querySelectorAll() {
+        return this.children.flatMap(child => child.connected ? [child, ...child.querySelectorAll()] : []);
+      }
     };
   }
-  const context = vm.createContext({ document, window, MutationObserver: Observer,
-    setTimeout(callback) { const id = nextTimer++; timers.set(id, callback); return id; },
-    clearTimeout(id) { timers.delete(id); }
+  const denied = element('meta', { name: 'google', content: 'notranslate' });
+  const ordinary = element('meta', { name: 'viewport', content: 'width=device-width' });
+  const nested = element('article', { translate: 'No', class: 'copy notranslate' });
+  const head = element('head', {}, [denied, ordinary]);
+  const body = element('body', { class: 'notranslate layout' }, [nested]);
+  const root = element('html', { translate: 'no', class: 'page notranslate' }, [head, body]);
+  const document = { documentElement: root };
+  const context = vm.createContext({ document, MutationObserver: Observer,
+    setTimeout(callback) { timers.push(callback); return timers.length; }
   });
   vm.runInContext(readFileSync(new URL('../extension/content/website-fixer-translate.js', import.meta.url), 'utf8'), context);
-  const denied = meta('google', 'notranslate');
-  const ordinary = meta('viewport', 'width=device-width');
-  const head = { metas: [denied, ordinary], querySelectorAll() { return this.metas.filter(item => item.connected); } };
-  document.head = head;
-  observers[0].callback();
+
   assert.equal(denied.connected, false);
   assert.equal(ordinary.connected, true);
-  const late = meta('GOOGLE', 'other, NOTRANSLATE');
-  head.metas.push(late);
-  observers[1].callback();
-  assert.equal(late.connected, true);
-  assert.equal(late.getAttribute('content'), 'other');
-  listeners.get('load')();
-  assert.equal(observers.every(observer => !observer.active), true);
-  assert.equal(timers.size, 0);
+  assert.equal(root.hasAttribute('translate'), false, 'the page root must not suppress Chrome Translate');
+  assert.equal(root.getAttribute('class'), 'page');
+  assert.equal(body.getAttribute('class'), 'layout');
+  assert.equal(nested.hasAttribute('translate'), false);
+  assert.equal(nested.getAttribute('class'), 'copy');
+
+  const lateMeta = element('meta', { name: 'GOOGLE', content: 'other, NOTRANSLATE' });
+  const lateSection = element('section', { translate: 'no' }, [lateMeta]);
+  body.children.push(lateSection);
+  observers[0].callback([{ type: 'childList', addedNodes: [lateSection] }]);
+  assert.equal(lateSection.hasAttribute('translate'), false);
+  assert.equal(lateMeta.getAttribute('content'), 'other');
+  root.setAttribute('translate', 'no');
+  observers[0].callback([{ type: 'attributes', target: root }]);
+  assert.equal(root.hasAttribute('translate'), false);
+  assert.deepEqual(Array.from(observers[0].options.attributeFilter), ['name', 'content', 'value', 'translate', 'class']);
+  assert.equal(timers.length, 1, 'the broad mutation watch is time-bounded');
+  timers[0]();
+  assert.equal(observers[0].active, false);
+});
+
+test('Translate Override catches the document root when the script starts before parsing', () => {
+  let callback;
+  const root = {
+    nodeType: 1, localName: 'html', attributes: { translate: 'no' },
+    getAttribute(name) { return this.attributes[name] ?? null; },
+    removeAttribute(name) { delete this.attributes[name]; },
+    querySelectorAll() { return []; }
+  };
+  const document = { documentElement: null };
+  const context = vm.createContext({ document, setTimeout() {}, MutationObserver: class {
+    constructor(listener) { callback = listener; }
+    observe() {}
+    disconnect() {}
+  } });
+  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer-translate.js', import.meta.url), 'utf8'), context);
+  document.documentElement = root;
+  callback([{ type: 'childList', addedNodes: [root] }]);
+  assert.equal(root.getAttribute('translate'), null);
 });

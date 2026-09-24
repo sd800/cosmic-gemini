@@ -265,13 +265,14 @@ test('Access Control renders saved domains and IP addresses at the same list lev
   const section = new Element();
   section.dataset.listSection = 'blockedDomains';
   section.dataset.featureId = 'accessControl';
-  const heading = new Element('p', 'rule-list-heading');
-  heading.hidden = true;
+  const note = new Element('p', 'rule-list-note');
+  note.hidden = true;
   const list = new Element('ul', 'rule-list');
-  section.append(heading, list);
+  section.append(list, note);
   api.renderList(section);
-  assert.equal(heading.hidden, false);
-  assert.equal(heading.textContent, 'generalDomainListHeadingWithIp');
+  assert.equal(note.hidden, false);
+  assert.equal(note.textContent, 'generalDomainListNote');
+  assert.equal(section.children.at(-1), note, 'scope note follows the complete domain list');
   assert.equal(list.children[0].children[0].textContent, 'example.com');
   assert.equal(list.children[1].children[0].textContent, '192.0.2.1');
   assert.equal(list.children[0].children.length, 2, 'domain entries have no repeated scope suffix');
@@ -281,7 +282,7 @@ test('Access Control renders saved domains and IP addresses at the same list lev
   } } });
   api.render();
   api.renderList(section);
-  assert.equal(heading.textContent, 'generalDomainListHeading');
+  assert.equal(note.textContent, 'generalDomainListNote');
   assert.equal(master.checked, true);
   assert.equal(temporaryVisits.checked, true);
   assert.equal(options.disabled, false);
@@ -290,7 +291,13 @@ test('Access Control renders saved domains and IP addresses at the same list lev
     enabled: true, allowTemporaryVisits: true, blockedDomains: []
   } } });
   api.renderList(section);
-  assert.equal(heading.hidden, true);
+  assert.equal(note.hidden, true);
+
+  await api.hydrate({ preferences: { satellites: {}, accessControl: {
+    enabled: true, allowTemporaryVisits: true, blockedDomains: ['192.0.2.1']
+  } } });
+  api.renderList(section);
+  assert.equal(note.hidden, true, 'IP-only lists do not show a subdomain note');
 });
 
 for (const feature of ['clipboardProtect', 'langGoogle']) {

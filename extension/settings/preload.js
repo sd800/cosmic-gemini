@@ -277,11 +277,10 @@
     const sectionState = section.dataset.settingGroup ? sectionFeature[section.dataset.settingGroup] || {} : sectionFeature;
     const list = section.querySelector('.rule-list');
     const rules = Array.isArray(sectionState[listName]) ? sectionState[listName].filter(rule => typeof rule === 'string') : [];
-    const heading = section.querySelector('.rule-list-heading');
-    if (heading) {
-      heading.hidden = rules.length === 0;
-      if (rules.length) heading.textContent = translate(rules.some(isIpRule)
-        ? 'generalDomainListHeadingWithIp' : 'generalDomainListHeading');
+    const note = section.querySelector('.rule-list-note');
+    if (note) {
+      note.hidden = !rules.some(rule => !isIpRule(rule));
+      if (!note.hidden) note.textContent = translate('generalDomainListNote');
     }
     list.replaceChildren();
     if (!rules.length) {

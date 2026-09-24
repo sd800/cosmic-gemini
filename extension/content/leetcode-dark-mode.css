@@ -12,7 +12,7 @@
 :root[data-cg-leetcode-dark] :is(.chapter-list-base .chapter-list-item, .expandable-chapter-list-base .chapter-base):is(.active, .opened) { --cg-lc-chapter-bg: #3a3a3a; }
 :root[data-cg-leetcode-dark] :is(.chapter-list-base, .expandable-chapter-list-base) .description { background-color: var(--cg-lc-chapter-bg, var(--cg-lc-surface)) !important; }
 :root[data-cg-leetcode-dark] :is(.chapter-list-base, .expandable-chapter-list-base) .description::after { background: linear-gradient(to right, transparent, var(--cg-lc-chapter-bg, var(--cg-lc-surface)) 50%) !important; }
-:root[data-cg-leetcode-dark] :is(.chapter-list-base, .expandable-chapter-list-base) .check-mark.completed i { text-shadow: none !important; }
+:root[data-cg-leetcode-dark] :is(.chapter-list-base, .expandable-chapter-list-base, .explore-item-list) .check-mark.completed i { text-shadow: none !important; }
 :root[data-cg-leetcode-dark] :is(.explore-detail, .content-viewer-base, .playground-mini-base) :is(h1,h2,h3,h4,h5,h6,p,li,strong,b,label,.title,.heading,.question-title,.content-title,.chapter-title,.category,.Select-value-label) { color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] :is(.explore-detail, .content-viewer-base, .playground-mini-base) :is(a:not(.btn), .menu-links) { color: #91bdff !important; }
 :root[data-cg-leetcode-dark] :is(.side-status, .view-controller, .text-muted, .CodeMirror-linenumber, .description .label) { color: var(--cg-lc-muted) !important; }

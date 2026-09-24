@@ -8,6 +8,7 @@ export function createLeetcodeDarkModeProduct(pageRuntimeHost, platform) {
     bridge: 'content/leetcode-dark-mode-bridge.js',
     runtime: 'content/leetcode-dark-mode-runtime.js',
     pageStyleFiles,
+    preservePageStylesOnRefresh: true,
     awaitConfiguration: true,
     state: leetcodeDarkModeState,
     async sync(context, settings) {

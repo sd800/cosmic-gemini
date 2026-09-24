@@ -29,9 +29,31 @@ export function createPageRuntimeHost(platform) {
     return requested;
   }
 
+  // Keep the receipt in the isolated document, not worker memory: navigation discards it,
+  // while a service-worker restart must not make an unchanged stylesheet blink off.
+  async function pageStyleReceipt(target, product, operation, files = []) {
+    const results = await chrome.scripting.executeScript({
+      target, world: 'ISOLATED', injectImmediately: true,
+      func: (id, operation, files) => {
+        const key = Symbol.for('cosmic-gemini.page-runtime-styles');
+        if (operation === 'read') return globalThis[key]?.[id] ?? null;
+        if (operation === 'clear') {
+          if (globalThis[key]) delete globalThis[key][id];
+        } else {
+          const receipts = globalThis[key] || (globalThis[key] = Object.create(null));
+          receipts[id] = files;
+        }
+        return true;
+      },
+      args: [product.id, operation, files]
+    });
+    return results[0]?.result ?? null;
+  }
+
   async function removePageStyles(target, product) {
     const files = declaredStyleFiles(product);
     if (!files.length) return;
+    if (product.preservePageStylesOnRefresh === true) await pageStyleReceipt(target, product, 'clear');
     await chrome.scripting.removeCSS({ target, files, origin: 'USER' });
   }
 
@@ -75,7 +97,11 @@ export function createPageRuntimeHost(platform) {
       return;
     }
     try {
-      await removePageStyles(target, product);
+      const preserveStyles = product.preservePageStylesOnRefresh === true;
+      const previousStyles = preserveStyles ? await pageStyleReceipt(target, product, 'read') : null;
+      const reuseStyles = Array.isArray(previousStyles)
+        && JSON.stringify(previousStyles) === JSON.stringify(requestedStyles);
+      if (!reuseStyles) await removePageStyles(target, product);
       await chrome.scripting.executeScript({ target, files: [product.bridge], world: 'ISOLATED', injectImmediately: true });
       await chrome.scripting.executeScript({ target, files: [...(product.runtimeDependencies || []), product.runtime], world: 'MAIN', injectImmediately: true });
       const response = await platform.sendTabMessage(
@@ -86,7 +112,10 @@ export function createPageRuntimeHost(platform) {
       if (product.awaitConfiguration === true && response?.configured !== true) {
         throw new Error('The page runtime did not apply its configuration.');
       }
-      await insertPageStyles(target, requestedStyles);
+      if (!reuseStyles) {
+        await insertPageStyles(target, requestedStyles);
+        if (preserveStyles) await pageStyleReceipt(target, product, 'write', requestedStyles);
+      }
     } catch (error) {
       await platform.sendTabMessage(tabId, { type: 'CG_STOP_CENTRAL_FEATURE', featureId: product.id }, options).catch(() => {});
       await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});

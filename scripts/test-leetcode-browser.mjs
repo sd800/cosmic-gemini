@@ -25,6 +25,7 @@ try{
  </style><body><div class="content-viewer-base">
  <div class="expandable-chapter-list-base"><div class="chapter-item"><div class="chapter-base"><div class="chapter"><b>Introduction</b><div class="description">A long chapter introduction with a fading end</div></div></div></div><div class="item-list-group"><div class="check-mark completed"><i></i> Completed lesson</div></div></div>
  <div class="chapter-list-base"><div class="chapter-list"><div class="chapter-list-item"><b>Course chapter</b><div class="description">Another long chapter introduction with a fading end</div></div></div></div>
+ <div class="chapter-view-base"><div class="list-group explore-item-list"><a class="list-group-item accessible"><div class="status"><div class="check-mark completed"><i></i></div></div>Completed chapter item</a></div></div>
  <div class="article-inner block-markdown"><h1>Explore lesson</h1><p>Readable content</p><pre>Sample code</pre></div>
  <div class="playground-mini-base"><div class="lang-btn-set-base"><div class="lang-btn-set"><button class="btn active">C++</button><button class="btn">Java</button></div></div><div class="CodeMirror"><pre><span class="cm-keyword">return</span> value;</pre></div></div></div>`;
  await context.route('https://leetcode.com/**',route=>{
@@ -61,7 +62,32 @@ try{
  }
  assert.equal(await editor.locator('.lang-btn-set-base').evaluate(n=>getComputedStyle(n).borderTopColor),'rgb(66, 66, 66)');
  assert.notEqual(await editor.locator('.btn.active').evaluate(n=>getComputedStyle(n).backgroundColor),await editor.locator('.btn:not(.active)').evaluate(n=>getComputedStyle(n).backgroundColor));
- assert.deepEqual(await lesson.locator('.check-mark i').evaluate(n=>[getComputedStyle(n).textShadow,getComputedStyle(n,'::before').textShadow,getComputedStyle(n).color]),['none','none','rgb(48, 184, 255)']);
+ for(const result of await lesson.locator('.check-mark i').evaluateAll(nodes=>nodes.map(n=>[getComputedStyle(n).textShadow,getComputedStyle(n,'::before').textShadow,getComputedStyle(n).color])))assert.deepEqual(result,['none','none','rgb(48, 184, 255)']);
+ // Chapter links reuse the same documents. An active refresh must not remove/reinsert
+ // their stylesheet, even though route/configuration messages still run normally.
+ const refresh=()=>worker.evaluate(async()=>{
+  const tab=(await chrome.tabs.query({})).find(t=>t.url?.startsWith('https://leetcode.com/explore/'));
+  await chrome.scripting.executeScript({target:{tabId:tab.id,allFrames:true},world:'ISOLATED',func:async()=>{await globalThis[Symbol.for('cosmic-gemini.central')]?.sync();}});
+ });
+ await refresh();
+ await worker.evaluate(()=>{
+  globalThis.styleChanges=[];
+  for(const name of ['removeCSS','insertCSS']){
+   const original=chrome.scripting[name].bind(chrome.scripting);
+   chrome.scripting[name]=options=>{if(options.files?.includes('content/leetcode-dark-mode.css'))globalThis.styleChanges.push(name);return original(options);};
+  }
+ });
+ await lesson.locator('body').evaluate(n=>{
+  window.flashSamples=[];window.watchFlash=true;
+  const sample=()=>{if(!window.watchFlash)return;window.flashSamples.push(getComputedStyle(n).backgroundColor);requestAnimationFrame(sample);};sample();
+ });
+ for(const chapter of ['hashing','linked-lists','hashing']){
+  await page.evaluate(chapter=>history.pushState({},'',`/explore/featured/card/fixture/${chapter}/`),chapter);
+  await refresh();
+ }
+ assert.deepEqual(await worker.evaluate(()=>globalThis.styleChanges),[],'same-document chapter navigation never tears down unchanged CSS');
+ const samples=await lesson.locator('body').evaluate(()=>{window.watchFlash=false;return window.flashSamples;});
+ assert.ok(samples.length>0);assert.deepEqual([...new Set(samples)],['rgb(26, 26, 26)']);
  await page.screenshot({path:join(artifacts,'dark.png')});
  await page.evaluate(()=>{document.documentElement.className='light';document.documentElement.style.colorScheme='light';});
  await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-cg-leetcode-dark'));
@@ -71,7 +97,7 @@ try{
  await editor.locator(marker).waitFor({state:'detached'});
  assert.match(await lesson.locator('.chapter-base .description').evaluate(n=>getComputedStyle(n,'::after').backgroundImage),/rgb\(255, 255, 255\)/);
  assert.equal(await editor.locator('.lang-btn-set-base').evaluate(n=>getComputedStyle(n).borderTopColor),'rgb(221, 221, 221)');
- assert.notEqual(await lesson.locator('.check-mark i').evaluate(n=>getComputedStyle(n,'::before').textShadow),'none');
+ for(const shadow of await lesson.locator('.check-mark i').evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n,'::before').textShadow)))assert.notEqual(shadow,'none');
  await page.evaluate(()=>{document.documentElement.className='dark';document.documentElement.style.colorScheme='dark';});await page.waitForSelector(marker);
  // Same-document navigation must deactivate on landing and reactivate on entry.
  await page.evaluate(()=>history.pushState({},'','/explore/'));await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-cg-leetcode-dark'));
@@ -87,5 +113,5 @@ try{
  await page.waitForFunction(()=>!window[Symbol.for('cosmic-gemini.leetcode-dark-mode.runtime')]);
  assert.equal(await page.locator('meta[name="darkreader-lock"]').count(),1,'pre-existing lock survives');
  assert.deepEqual(errors,[]);
- console.log('PASS: default off, nested frames, chapter fades/states, editor borders, checkmark shadows, live theme restoration, SPA scope, cleanup, no page errors');
+ console.log('PASS: default off, nested frames, chapter fades/states, editor borders, sidebar/overview checkmarks, flash-free chapter refresh, live theme restoration, SPA scope, cleanup, no page errors');
 }finally{await context.close();await rm(folder,{recursive:true,force:true});}

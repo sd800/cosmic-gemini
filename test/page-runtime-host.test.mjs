@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createContext, runInContext } from 'node:vm';
 import { createPageRuntimeHost } from '../extension/background/features/page-runtime-host.js';
 import { createNativeScrollProduct } from '../extension/background/products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../extension/background/products/standing/no-autoplay.js';
@@ -194,6 +195,54 @@ test('page styles are removed only after a running bridge confirms cleanup', asy
     files: styledProduct.pageStyleFiles,
     origin: 'USER'
   }]);
+});
+
+test('opted-in styles survive refresh and worker restart, but not document changes, stop or failed configuration', async () => {
+  const contexts = new Map(), calls = [];
+  let configured = true;
+  const descriptor = { ...product, awaitConfiguration: true, preservePageStylesOnRefresh: true,
+    pageStyleFiles: ['content/standard.css', 'content/enhanced.css'] };
+  globalThis.chrome = { scripting: {
+    async removeCSS({ files }) { calls.push(['remove', ...files]); },
+    async insertCSS({ files }) { calls.push(['insert', ...files]); },
+    async executeScript(details) {
+      if (!details.func) return [];
+      const id = details.target.documentIds[0];
+      if (!contexts.has(id)) contexts.set(id, createContext({}));
+      const scope = contexts.get(id);
+      scope.args = details.args;
+      return [{ result: runInContext(`(${details.func.toString()})(...args)`, scope) }];
+    }
+  } };
+  const platform = {
+    async sendTabMessage(_tab, message) {
+      return message.type === 'CG_REFRESH_FEATURE_CONFIG' ? { configured } : { disposed: true };
+    },
+    async setFeatureActivity() {}
+  };
+  let host = createPageRuntimeHost(platform);
+  const context = { tabId: 9, frameId: 0, documentId: 'persistent-document' };
+  await host.sync(descriptor, context, true, ['content/standard.css']);
+  calls.length = 0;
+  host = createPageRuntimeHost(platform);
+  await host.sync(descriptor, context, true, ['content/standard.css']);
+  await host.sync(descriptor, context, true, ['content/standard.css']);
+  assert.deepEqual(calls, [], 'no removal, duplicate injection or unbounded worker cache on refresh');
+  await host.sync(descriptor, { ...context, documentId: 'new-document' }, true, ['content/standard.css']);
+  assert.deepEqual(calls.map(c => c[0]), ['remove', 'insert']);
+  calls.length = 0;
+  await host.sync(descriptor, context, true, ['content/enhanced.css']);
+  assert.deepEqual(calls.at(-1), ['insert', 'content/enhanced.css']);
+  calls.length = 0;
+  await host.sync(descriptor, context, false);
+  await host.sync(descriptor, context, true, ['content/enhanced.css']);
+  assert.deepEqual(calls.map(c => c[0]), ['remove', 'remove', 'insert']);
+  calls.length = 0;
+  configured = false;
+  await assert.rejects(host.sync(descriptor, context, true, ['content/enhanced.css']), /did not apply/);
+  configured = true;
+  await host.sync(descriptor, context, true, ['content/enhanced.css']);
+  assert.deepEqual(calls.map(c => c[0]), ['remove', 'remove', 'insert'], 'failed refresh also invalidates the receipt');
 });
 
 test('undeclared page styles are rejected before a runtime touches the page', async () => {

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.8 — 2026-09-24
+
+- Adapt the MathJax loading status message to LeetCode Explore dark mode.
+
 ## 9.8.7 — 2026-09-24
 
 - Remove the brief bright sidebar outline while LeetCode Explore lessons are loading.

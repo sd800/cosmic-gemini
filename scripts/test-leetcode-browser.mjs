@@ -13,6 +13,7 @@ try{
  context.on('page',p=>p.on('pageerror',e=>errors.push(String(e))));
  const child=`<!doctype html><meta charset="utf-8"><style>
  body,.article-inner,.block-markdown,.CodeMirror,pre{background:#fff;color:#111}iframe{height:220px;width:90%}
+ #MathJax_Message{position:fixed;left:1em;bottom:1.5em;background-color:#e6e6e6;border:1px solid #959595;padding:2px 8px;z-index:102;color:black;font-size:80%;white-space:nowrap}
  .chapter-base,.chapter-list-item{padding:12px;background:white;width:320px}
  .description{position:relative;white-space:nowrap;overflow:hidden}
  .description::after{content:"";position:absolute;bottom:0;right:0;width:40%;height:1.3em;background:linear-gradient(to right,rgba(255,255,255,0),white 50%)}
@@ -24,7 +25,7 @@ try{
  .content-viewer-base .view-controller .chapter-list-view:hover{box-shadow:inset 0 4px 7px 1px white,inset 0 -5px 20px rgba(173,186,204,.25),0 0 40px rgba(0,0,0,.2)}
  .playground-mini-base .lang-btn-set-base{display:inline-block;border:1px solid #ddd;border-bottom:none;border-radius:4px 4px 0 0}
  .lang-btn-set button{border:1px solid #ddd;background:#ecf0f1;padding:10px}.lang-btn-set .active{background:white}
- </style><body><div class="content-viewer-base">
+ </style><body><div id="MathJax_Message" style="display:none">Loading mathematical notation</div><div class="content-viewer-base">
  <div class="view-controller"><div class="chapter-list-view"><div class="expandable-chapter-list-base"><div class="chapter-item"><div class="chapter-base"><div class="chapter"><b>Introduction</b><div class="description">A long chapter introduction with a fading end</div></div></div></div><div class="item-list-group"><div class="check-mark completed"><i></i> Completed lesson</div></div></div></div></div>
  <div class="chapter-list-base"><div class="chapter-list"><div class="chapter-list-item"><b>Course chapter</b><div class="description">Another long chapter introduction with a fading end</div></div></div></div>
  <div class="chapter-view-base"><div class="list-group explore-item-list"><a class="list-group-item accessible"><div class="status"><div class="check-mark completed"><i></i></div></div>Completed chapter item</a></div></div>
@@ -48,6 +49,12 @@ try{
  assert.equal(await page.frameLocator('iframe').frameLocator('iframe').locator('.CodeMirror').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(32, 32, 32)');
  assert.equal(await page.locator('meta[name="darkreader-lock"]').count(),1);
  const lesson=page.frameLocator('iframe'),editor=lesson.frameLocator('iframe');
+ const mathStatus=lesson.locator('#MathJax_Message');
+ const mathStatusColors=()=>mathStatus.evaluate(n=>{const s=getComputedStyle(n);return [s.backgroundColor,s.color,s.borderTopColor];});
+ assert.equal(await mathStatus.isVisible(),false);
+ await mathStatus.evaluate(n=>{n.style.display='block';});
+ assert.equal(await mathStatus.isVisible(),true);
+ assert.deepEqual(await mathStatusColors(),['rgb(36, 36, 36)','rgb(229, 229, 229)','rgb(66, 66, 66)']);
  const sidebar=lesson.locator('.chapter-list-view');
  const sidebarStyle=()=>sidebar.evaluate(n=>[getComputedStyle(n).boxShadow,getComputedStyle(n).transitionProperty]);
  const darkSidebar=['rgb(66, 66, 66) -1px 0px 0px 0px inset','left, opacity'];
@@ -104,6 +111,7 @@ try{
  await page.evaluate(()=>{document.documentElement.className='light';document.documentElement.style.colorScheme='light';});
  await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-cg-leetcode-dark'));
  await page.frameLocator('iframe').locator(marker).waitFor({state:'detached'});
+ assert.deepEqual(await mathStatusColors(),['rgb(230, 230, 230)','rgb(0, 0, 0)','rgb(149, 149, 149)']);
  assert.equal(await sidebar.evaluate(n=>getComputedStyle(n).transitionProperty),'all');
  await sidebar.evaluate(n=>Promise.all(n.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
  assert.match(await sidebar.evaluate(n=>getComputedStyle(n).boxShadow),/rgb\(255, 255, 255\)/);
@@ -128,5 +136,5 @@ try{
  await page.waitForFunction(()=>!window[Symbol.for('cosmic-gemini.leetcode-dark-mode.runtime')]);
  assert.equal(await page.locator('meta[name="darkreader-lock"]').count(),1,'pre-existing lock survives');
  assert.deepEqual(errors,[]);
- console.log('PASS: default off, nested frames, loading/hover sidebar shadow, chapter fades/states, editor borders, sidebar/overview checkmarks, flash-free chapter refresh, live theme restoration, SPA scope, cleanup, no page errors');
+ console.log('PASS: default off, nested frames, MathJax loading status, loading/hover sidebar shadow, chapter fades/states, editor borders, sidebar/overview checkmarks, flash-free chapter refresh, live theme restoration, SPA scope, cleanup, no page errors');
 }finally{await context.close();await rm(folder,{recursive:true,force:true});}

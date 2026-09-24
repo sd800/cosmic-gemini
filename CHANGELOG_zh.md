@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.8 — 2026-09-24
+
+- 为 LeetCode Explore 的 MathJax 加载状态提示适配深色背景、文字和边框。
+
 ## 9.8.7 — 2026-09-24
 
 - 去除 LeetCode Explore 文章加载时侧栏短暂出现的浅色亮边。

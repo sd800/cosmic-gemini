@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.24 — 2026-09-24
+
+- Allow Stay on the page rules to be removed by entering a domain or website URL prefixed with `-`, including when no saved rule matches.
+- Clarify the addition and removal confirmations in Website Fixer.
+
 ## 9.8.23 — 2026-09-24
 
 - Remove excess spacing below the XHS Image Dark Mode button-opacity setting.

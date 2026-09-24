@@ -1,4 +1,4 @@
-import { normalizeAccessControlDomain, normalizeRule } from './config.js';
+import { normalizeAccessControlDomain, normalizeRule, normalizeWebsiteFixerSite } from './config.js';
 import { etld } from './etld.js';
 import { siteKey } from './site-key.js';
 
@@ -61,4 +61,14 @@ export function normalizeAccessControlRuleInput(value) {
   if (typeof value !== 'string') throw new Error('Enter a website domain, IP address, or alias.');
   const alias = ACCESS_CONTROL_ALIASES[value.trim().toLowerCase()];
   return normalizeAccessControlDomain(normalizeGeneralDomainInput(alias || value));
+}
+
+export function normalizeStayOnPageCommand(value) {
+  if (typeof value !== 'string') throw new Error('Enter a website domain or URL.');
+  const input = value.trim();
+  const remove = input.startsWith('-');
+  return {
+    type: remove ? 'UI_DELETE_RULE' : 'UI_ADD_RULE',
+    rule: normalizeWebsiteFixerSite(normalizeGeneralDomainInput(remove ? input.slice(1).trim() : input))
+  };
 }

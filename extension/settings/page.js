@@ -1,7 +1,7 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizeWebsiteFixerSite } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
+import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeStayOnPageCommand, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
@@ -637,6 +637,7 @@ function openRuleInputHelp(input) {
     ...(hiddenList ? [] : [helpCommandItem('reset', 'ruleInputResetHelp'),
     helpCommandItem('clean', 'ruleInputCleanHelp'),
     helpCommandItem(t('add'), 'ruleInputLongPressHelp')]),
+    ...(section?.dataset.settingGroup === 'stayOnPage' ? [helpCommandItem('-example.com', 'websiteFixerRemovalHelp')] : []),
     helpCommandItem('? / ？', 'ruleInputQuestionHelp')
   );
   panel.close.textContent = t('close');
@@ -997,6 +998,16 @@ function bindView() {
     const settingGroup = section.dataset.settingGroup;
     const hiddenList = section.dataset.hiddenList === 'true';
     const sectionFeatureId = section.dataset.featureId || featureId;
+    const showWebsiteFixerStatus = key => {
+      const status = section.querySelector('.website-fixer-saved');
+      if (!status) return;
+      clearTimeout(websiteFixerSavedTimers.get(status));
+      status.dataset.i18n = key;
+      status.textContent = t(key);
+      websiteFixerSavedTimers.set(status, setTimeout(() => {
+        status.textContent = ''; delete status.dataset.i18n; websiteFixerSavedTimers.delete(status);
+      }, 1_500));
+    };
     const alphabetize = (clearInput = false) => update(section, async () => {
       await savePreference(sectionFeatureId, {
         type: 'UI_ALPHABETIZE_RULES',
@@ -1040,32 +1051,33 @@ function bindView() {
         return;
       }
       let rule;
+      let commandType = 'UI_ADD_RULE';
       try {
-        rule = sectionFeatureId === 'accessControl'
-          ? normalizeAccessControlRuleInput(input.value)
-          : sectionFeatureId === 'websiteFixer'
-            ? (settingGroup === 'stayOnPage' ? normalizeWebsiteFixerSite : normalizeWebsiteFixerDomain)(normalizeGeneralDomainInput(input.value))
-          : section.dataset.domainScope === 'subdomains'
-            ? normalizeAccessControlDomain(normalizeGeneralDomainInput(input.value))
-            : normalizeWebsiteRuleInput(input.value);
+        if (sectionFeatureId === 'websiteFixer' && settingGroup === 'stayOnPage') {
+          ({ type: commandType, rule } = normalizeStayOnPageCommand(input.value));
+        } else {
+          rule = sectionFeatureId === 'accessControl'
+            ? normalizeAccessControlRuleInput(input.value)
+            : sectionFeatureId === 'websiteFixer'
+              ? normalizeWebsiteFixerDomain(normalizeGeneralDomainInput(input.value))
+              : section.dataset.domainScope === 'subdomains'
+                ? normalizeAccessControlDomain(normalizeGeneralDomainInput(input.value))
+                : normalizeWebsiteRuleInput(input.value);
+        }
       } catch {
         message.textContent = t(sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
         return;
       }
-      if ((sectionState(section)?.[listName] || []).includes(rule)) { message.textContent = t('duplicateRule'); return; }
+      if (commandType === 'UI_ADD_RULE' && (sectionState(section)?.[listName] || []).includes(rule)) {
+        message.textContent = t('duplicateRule'); return;
+      }
       void update(section, async () => {
         await savePreference(sectionFeatureId, sectionFeatureId === 'nsna'
           ? { type: 'UI_ADD_NSNA_WHITELIST_RULE', rule }
-          : { type: 'UI_ADD_RULE', featureId: sectionFeatureId, settingGroup, listName, rule });
+          : { type: commandType, featureId: sectionFeatureId, settingGroup, listName, rule });
         input.value = '';
-        const status = section.querySelector('.website-fixer-saved');
-        if (status) {
-          clearTimeout(websiteFixerSavedTimers.get(status));
-          status.dataset.i18n = 'websiteFixerSaved'; status.textContent = t('websiteFixerSaved');
-          websiteFixerSavedTimers.set(status, setTimeout(() => {
-            status.textContent = ''; delete status.dataset.i18n; websiteFixerSavedTimers.delete(status);
-          }, 1_500));
-        }
+        showWebsiteFixerStatus(commandType === 'UI_DELETE_RULE'
+          ? 'websiteFixerRemovalReceived' : 'websiteFixerAdded');
       }, [input, submit], 'ruleSaveFailed');
     });
   }

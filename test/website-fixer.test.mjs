@@ -10,6 +10,7 @@ import {
   websiteFixerState
 } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
+import { normalizeStayOnPageCommand } from '../extension/core/website-rule-input.js';
 import { createWebsiteFixerProduct } from '../extension/background/products/standing/website-fixer.js';
 import { createStayOnPage } from '../extension/background/products/standing/website-fixer-stay.js';
 
@@ -34,6 +35,16 @@ test('Website Fixer defaults off and matches only selected domains and their sub
   assert.equal(websiteFixerState(normalizeSettings({ websiteFixer: {
     enabled: true, translateOverride: { enabled: false, whitelistDomains: ['ilsos.gov'] }
   } }), 'https://www.ilsos.gov/').active, false);
+});
+
+test('Stay on the page interprets a leading minus as an eTLD+1 removal command', () => {
+  assert.deepEqual(normalizeStayOnPageCommand('example.com'),
+    { type: 'UI_ADD_RULE', rule: 'example.com' });
+  assert.deepEqual(normalizeStayOnPageCommand('-https://www.world.example.com/hello/world'),
+    { type: 'UI_DELETE_RULE', rule: 'example.com' });
+  assert.deepEqual(normalizeStayOnPageCommand('-www.world.example.com'),
+    { type: 'UI_DELETE_RULE', rule: 'example.com' });
+  assert.throws(() => normalizeStayOnPageCommand('-'));
 });
 
 test('Website Fixer registers only allowlisted document-start scripts and unregisters when disabled', async () => {
@@ -209,6 +220,9 @@ test('Stay on the page owns bounded independent rules and preserves per-site add
   assert.deepEqual(network[2].condition.resourceTypes, ['sub_frame']);
   assert.doesNotMatch(network[2].action.responseHeaders[0].value, /allow-popups|allow-top-navigation/);
   const count = writes; await product.initialize(); assert.equal(writes, count, 'unchanged settings do not rewrite network rules');
+  const beforeMissingRemoval = [...settings.websiteFixer.stayOnPage.whitelistDomains];
+  await rule('UI_DELETE_RULE', 'https://not-saved.example.net/page');
+  assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, beforeMissingRemoval);
   await rule('UI_DELETE_RULE', 'example.co.uk');
   assert.equal(registered.length, 0);
   assert.deepEqual(network.map(rule => rule.id), [10]);

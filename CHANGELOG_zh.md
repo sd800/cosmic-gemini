@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.24 — 2026-09-24
+
+- Stay on the page 支持在域名或网站 URL 前加 `-` 移除对应规则；未命中时也接受指令，网站列表保持不变。
+- 调整 Website Fixer 添加和移除指令的提示文案。
+
 ## 9.8.23 — 2026-09-24
 
 - 收紧 XHS Image Dark Mode 设置页「按钮透明度」下方的多余空白。

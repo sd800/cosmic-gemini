@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.7 — 2026-09-24
+
+- Remove the brief bright sidebar outline while LeetCode Explore lessons are loading.
+
 ## 9.8.6 — 2026-09-24
 
 - Prevent dark-mode flashes when switching LeetCode Explore chapters and refine completion icons in chapter overviews.

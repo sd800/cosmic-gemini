@@ -262,7 +262,7 @@ function render() {
     const preference = (states?.preferences || states)?.whiteSofter;
     whiteSofterEnabled.checked = preference?.enabled === true;
     document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
-    document.querySelector('#whiteSofterTone').value = ['warm-plus-1', 'warm-plus-2', 'cool'].includes(preference?.tone) ? preference.tone : 'warm';
+    document.querySelector('#whiteSofterTone').value = ['warm-minus-1', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(preference?.tone) ? preference.tone : 'warm';
   }
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) {

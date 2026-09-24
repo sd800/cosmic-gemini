@@ -7,6 +7,7 @@ import { createWhiteSofterProduct } from '../extension/background/products/stand
 test('White Softer normalizes saved choices and starts inactive in ordinary and incognito contexts', () => {
   assert.deepEqual(normalizeSettings().whiteSofter, { enabled: false, tone: 'warm' });
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.whiteSofter.enabled, false);
+  assert.deepEqual(normalizeSettings({ whiteSofter: { enabled: true, tone: 'warm-minus-1' } }).whiteSofter, { enabled: true, tone: 'warm-minus-1' });
   for (const tone of [null, 'unknown', '#ffffff']) {
     assert.deepEqual(normalizeSettings({ whiteSofter: { enabled: true, tone } }).whiteSofter, { enabled: true, tone: 'warm' });
   }

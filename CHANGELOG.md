@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.13 — 2026-09-24
+
+- Add a lighter warm-white tone to White Softer and mark the original warm ivory as the default.
+- Hide the Page Display popup controls when its master switch is off.
+
 ## 9.8.12 — 2026-09-24
 
 - Add White Softer with four selectable tones to soften webpage whites, including white text.

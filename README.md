@@ -74,7 +74,7 @@ Keep selected text free of content a website adds during copying, such as links,
 
 #### White Softer
 
-Soften bright whites across webpages, including white text, backgrounds, and images. Choose warm ivory in three strengths or cool blue-white. White Softer is off by default and adjusts the appearance locally.
+Soften bright whites across webpages, including white text, backgrounds, and images. Choose from four warm-white tones or cool blue-white. White Softer is off by default and adjusts the appearance locally.
 
 #### Access Control
 

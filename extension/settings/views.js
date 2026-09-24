@@ -169,7 +169,7 @@ export function viewFor(featureId) {
           <legend class="sr-only" data-i18n="whiteSofterTone"></legend>
           <div class="knowledge-row">
             <label for="whiteSofterTone" class="knowledge-label" data-i18n="whiteSofterTone"></label>
-            <select id="whiteSofterTone"><option value="warm" data-i18n="whiteSofterWarm"></option><option value="warm-plus-1" data-i18n="whiteSofterWarmPlus1"></option><option value="warm-plus-2" data-i18n="whiteSofterWarmPlus2"></option><option value="cool" data-i18n="whiteSofterCool"></option></select>
+            <select id="whiteSofterTone"><option value="warm-minus-1" data-i18n="whiteSofterWarmMinus1"></option><option value="warm" data-i18n="whiteSofterWarm" selected></option><option value="warm-plus-1" data-i18n="whiteSofterWarmPlus1"></option><option value="warm-plus-2" data-i18n="whiteSofterWarmPlus2"></option><option value="cool" data-i18n="whiteSofterCool"></option></select>
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="whiteSofterPrivacy"></p></div>

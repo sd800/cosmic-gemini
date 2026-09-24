@@ -125,6 +125,28 @@ test('Page Display popup controls use the unavailable state on unsupported pages
   assert.equal(toggle.title, 'unsupportedTitle');
 });
 
+test('Page Display popup row follows the saved master switch', () => {
+  const row = { hidden: true };
+  const rendered = [];
+  const context = vm.createContext({
+    document: { querySelector: () => row },
+    renderPageDisplayControl: setting => rendered.push(setting)
+  });
+  vm.runInContext(`
+    let state = { preferences: { pageDisplay: { enabled: false } } };
+    ${between(popupSource, 'function renderPageDisplayRow(', 'function renderContextualProducts(')}
+    renderPageDisplayRow();
+    state.preferences.pageDisplay.enabled = true;
+    renderPageDisplayRow();
+    globalThis.visibleWithMasterOn = !document.querySelector('#page-display-row').hidden;
+    state.preferences.pageDisplay.enabled = false;
+    renderPageDisplayRow();
+  `, context);
+  assert.equal(context.visibleWithMasterOn, true);
+  assert.equal(row.hidden, true);
+  assert.deepEqual(rendered, ['reduceWhitePoint', 'greyscale', 'reduceWhitePoint', 'greyscale', 'reduceWhitePoint', 'greyscale']);
+});
+
 test('contextual popup controls keep authorization, operating, and intervention states separate', () => {
   class Element {
     constructor(tag) {

@@ -328,7 +328,7 @@ export function websiteKnowledgeControlState(settings, url) {
 }
 
 export function normalizeWhiteSofterTone(value) {
-  return ['warm', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(value) ? value : 'warm';
+  return ['warm-minus-1', 'warm', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(value) ? value : 'warm';
 }
 
 export function normalizeSettings(value = {}) {

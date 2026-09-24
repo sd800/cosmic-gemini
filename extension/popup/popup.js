@@ -138,6 +138,7 @@ function renderPageDisplayControl(settingName, elementId, nameKey, onTitleKey, o
 }
 
 function renderPageDisplayRow() {
+  document.querySelector('#page-display-row').hidden = state.preferences?.pageDisplay?.enabled !== true;
   renderPageDisplayControl(
     'reduceWhitePoint',
     'reduceWhitePoint-status',

@@ -39,7 +39,7 @@
         // Stay invisible until the USER stylesheet has arrived, even if CSP blocks inline styles.
         this.host.setAttribute('hidden', '');
       }
-      this.host.setAttribute('data-tone', ['warm-plus-1', 'warm-plus-2', 'cool'].includes(message.config.tone) ? message.config.tone : 'warm');
+      this.host.setAttribute('data-tone', ['warm-minus-1', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(message.config.tone) ? message.config.tone : 'warm');
       this.mount();
       document.addEventListener('fullscreenchange', this.mount, true);
       document.addEventListener('toggle', this.onToggle, true);

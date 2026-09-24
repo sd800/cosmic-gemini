@@ -62,7 +62,7 @@ The product protects selected-content copy events, not every possible write to t
 
 ## White Softer
 
-White Softer (`white-softer`) belongs to Standing Province and appears immediately after Clipboard Protect in the general Satellites section. It starts disabled in both ordinary and incognito contexts. The saved `tone` is `warm` (RGB 232/230/227), `warm-plus-1` (216/214/211), `warm-plus-2` (208/206/203), or `cool` (206/224/242), with `warm` as the fallback. The selected tone survives disabling; changing either setting refreshes eligible open pages. Settings preloading, in-page navigation, and developer metadata use the same product identity.
+White Softer (`white-softer`) belongs to Standing Province and appears immediately after Clipboard Protect in the general Satellites section. It starts disabled in both ordinary and incognito contexts. The saved `tone` is `warm-minus-1` (RGB 236/235/233), `warm` (232/230/227), `warm-plus-1` (216/214/211), `warm-plus-2` (208/206/203), or `cool` (206/224/242), with `warm` as the fallback. The selected tone survives disabling; changing either setting refreshes eligible open pages. Settings preloading, in-page navigation, and developer metadata use the same product identity.
 
 Central authorizes one top-frame HTTP(S) runtime. A pointer-transparent, inert manual popover forms a single top-layer surface with CSS `mix-blend-mode: darken`. Per-channel minima cap rendered whites at the selected RGB, including backgrounds, text, images, Canvas, and visible nested frames; lower channel values remain unchanged, while bright channels in other colors can also be reduced. The top layer blends after ancestor filters and transformed stacking contexts. The runtime follows native fullscreen and open-dialog/popover events without content scanning, polling, API patches, or network access. USER-origin CSS avoids page CSP restrictions, and the host starts hidden until that stylesheet arrives. Native controls outside the webpage and restricted browser pages are outside the product's scope.
 
@@ -74,7 +74,7 @@ Page Display is a default-off Operations Province product with its own settings 
 
 The runtime creates one fixed, pointer-transparent visual layer in a closed Shadow DOM. Reduce White Point normally uses a black compositing surface with adjustable opacity. When a page-wide dark-mode filter would invert that surface, it uses the corresponding white pre-inversion surface so the final rendered result still retains or reduces luminance. Greyscale filters the rendered surface through the same host. Both effects cover ordinary page content, images, Canvas, animations, embedded frames, and video without changing layout, wrapping, scroll geometry, focus, selection, or pointer and keyboard input. Fullscreen changes remount the same layer in the active fullscreen root.
 
-Turning off one subfeature removes its visual contribution. Turning off the master or both subfeatures removes the layer and its fullscreen listener before the bridge and runtime are disposed, restoring the page to its prior appearance. The master preserves both child selections while making every child control unavailable. Enabling either popup child can enable the master and that child in one saved action. While the master is off or both child features are disabled, no Page Display code is injected. Reduce White Point observes only root, body, and head appearance changes while active so it can follow page-wide filter changes. It does not observe content nodes. The product uses no page API wrappers, polling timer, network request, or content inspection.
+Turning off one subfeature removes its visual contribution. Turning off the master or both subfeatures removes the layer and its fullscreen listener before the bridge and runtime are disposed, restoring the page to its prior appearance. The master preserves both child selections while disabling their settings controls. The popup row is hidden until the saved master is on; its controls remain disabled on unsupported pages. While the master is off or both child features are disabled, no Page Display code is injected. Reduce White Point observes only root, body, and head appearance changes while active so it can follow page-wide filter changes. It does not observe content nodes. The product uses no page API wrappers, polling timer, network request, or content inspection.
 
 ## XHS Image Dark Mode
 
@@ -251,7 +251,7 @@ For ordinary windows, `chrome.storage.local` stores one versioned settings objec
 - Any Copy: its own site rules
 - Any Copy Enhanced: current-tab activation for the browser session
 - Mailto Capture: one enabled setting
-- White Softer: enabled state and one of four white tones
+- White Softer: enabled state and one of five white tones
 - Page Display: one master authorization, independent Reduce White Point and Greyscale states, plus reduction strength
 - XHS Image Dark Mode: enabled state, page-wide dark-mode override, image-control visibility, and control opacity
 - Image Download: workspace location, default output format, batch-download behavior, and save-location preference

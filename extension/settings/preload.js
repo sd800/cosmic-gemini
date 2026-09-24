@@ -128,7 +128,7 @@
   if (whiteSofterEnabled) {
     whiteSofterEnabled.checked = !incognitoContext && cached.whiteSofter?.enabled === true;
     document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
-    document.querySelector('#whiteSofterTone').value = !incognitoContext && ['warm-plus-1', 'warm-plus-2', 'cool'].includes(cached.whiteSofter?.tone) ? cached.whiteSofter.tone : 'warm';
+    document.querySelector('#whiteSofterTone').value = !incognitoContext && ['warm-minus-1', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(cached.whiteSofter?.tone) ? cached.whiteSofter.tone : 'warm';
   }
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) {

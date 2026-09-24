@@ -13,7 +13,7 @@ const context = await chromium.launchPersistentContext(join(folder, 'profile'), 
   executablePath: process.env.PDF_VIEWER_CHROME, headless: true, viewport: { width: 1000, height: 720 },
   args: [`--disable-extensions-except=${resolve('extension')}`, `--load-extension=${resolve('extension')}`]
 });
-const colors = { warm: [232,230,227], 'warm-plus-1': [216,214,211], 'warm-plus-2': [208,206,203], cool: [206,224,242] };
+const colors = { 'warm-minus-1': [236,235,233], warm: [232,230,227], 'warm-plus-1': [216,214,211], 'warm-plus-2': [208,206,203], cool: [206,224,242] };
 function brightest(buffer) {
   const result = spawnSync('python3', ['-c', 'from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps(max(im.getdata(),key=sum)))'], { input: buffer });
   assert.equal(result.status, 0, String(result.stderr));
@@ -85,25 +85,37 @@ try {
   await settings.reload();
   await settings.waitForFunction(() => document.querySelector('#whiteSofterEnabled')?.checked);
   assert.equal(await settings.locator('#whiteSofterTone').inputValue(), 'warm');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm-minus-1"]').textContent(), 'Warm ivory -1');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm"]').textContent(), 'Warm ivory (default)');
   const card = settings.locator('[data-product="white-softer"]');
   await card.screenshot({ path: join(artifacts, 'settings-en.png') });
   await settings.selectOption('#language', 'zh-CN');
   await settings.waitForFunction(() => document.documentElement.lang === 'zh-CN');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm-minus-1"]').textContent(), '轻微暖白');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm"]').textContent(), '暖米白（默认）');
   await card.screenshot({ path: join(artifacts, 'settings-zh.png') });
   await page.screenshot({ path: join(artifacts, 'warm.png') });
   const command = message => settings.evaluate(async message => {
     const response = await chrome.runtime.sendMessage(message); if (!response.ok) throw Error(response.error);
   }, message);
+  const popup = await context.newPage(); await popup.goto(base + '/popup/index.html');
+  await popup.waitForFunction(() => document.querySelector('#reduceWhitePoint-status')?.hasAttribute('aria-pressed'));
+  assert.equal(await popup.locator('#page-display-row').isVisible(), false);
   await command({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'reduceWhitePointEnabled',value:true});
+  await popup.reload();
+  await popup.locator('#page-display-row').waitFor({ state: 'visible' });
   await page.locator('[data-cosmic-gemini-page-display]').waitFor();
   await settings.locator('.switch:has(#whiteSofterEnabled)').click();
   await page.locator(layer).waitFor({ state: 'detached' });
   assert.equal(await page.locator('[data-cosmic-gemini-page-display]').count(), 1);
   assert.equal(await settings.locator('#whiteSofterTone').isDisabled(), true);
   await command({type:'UI_SET_ENABLED',featureId:'pageDisplay',enabled:false});
+  await popup.reload();
+  await popup.waitForFunction(() => document.querySelector('#reduceWhitePoint-status')?.hasAttribute('aria-pressed'));
+  assert.equal(await popup.locator('#page-display-row').isVisible(), false);
   await page.locator('[data-cosmic-gemini-page-display]').waitFor({ state: 'detached' });
   assert.deepEqual(await screenshotColor('.white'), [255,255,255]);
   assert.deepEqual(await screenshotColor('.text'), [255,255,255]);
   assert.deepEqual(errors, []);
-  console.log('PASS: four exact tones on backgrounds/text/canvas/icons/cross-origin frame, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence/localization, Page Display coexistence, disabled cleanup');
+  console.log('PASS: five exact tones on backgrounds/text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
 } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }

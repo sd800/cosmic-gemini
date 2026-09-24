@@ -153,7 +153,8 @@ export function createPlatform() {
   async function mutateSettings(update, refresh = true) {
     return queueWrite(async () => {
       const current = await readSettings();
-      const next = await writeSettings(typeof update === 'function' ? update(current) : update);
+      const candidate = typeof update === 'function' ? await update(current) : update;
+      const next = await writeSettings(candidate);
       if (refresh) scheduleOpenPageRefresh();
       return next;
     });

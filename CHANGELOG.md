@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.26 — 2026-09-24
+
+- Improve Access Control reliability when website rules change, including after edits to Stay on the page. Its site list and temporary visits remain independent of Website Fixer.
+
 ## 9.8.25 — 2026-09-24
 
 - Restore the Standing Province navigation-request hook and reject unrecognized province hooks instead of silently dropping them.

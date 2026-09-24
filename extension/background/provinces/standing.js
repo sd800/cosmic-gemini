@@ -103,7 +103,12 @@ export function createStandingProvince(platform) {
       if (message.active !== true) await platform.setFeatureActivity(senderTabId, governed.id, false);
       return { updated: true };
     }
-    if ([websiteKnowledgeControl.id, clipboardProtect.id, whiteSofter.id, accessControl.id, websiteFixer.id].includes(governed?.id)) {
+    if (governed?.id === websiteFixer.id) {
+      const result = await websiteFixer.handleMessage(message, context);
+      if (message.type !== 'CG_WEBSITE_FIXER_CONTEXT_MENU') await accessControl.reconcile();
+      return result;
+    }
+    if ([websiteKnowledgeControl.id, clipboardProtect.id, whiteSofter.id, accessControl.id].includes(governed?.id)) {
       return governed.handleMessage(message, context);
     }
     if (message.type === 'UI_SET_ENABLED') {

@@ -14,6 +14,8 @@ const REGULAR_VISIT_RULE_ID_START = 924_001;
 const INCOGNITO_VISIT_RULE_ID_START = 926_001;
 const POPUP_PATH = 'popup/index.html';
 const PENDING_VISIT_PREFIX = 'accessControlPendingVisit:';
+const stable = value => JSON.stringify(value, (_, item) => item && !Array.isArray(item) && typeof item === 'object'
+  ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 
 function ruleIdStart(incognito) {
   return incognito ? INCOGNITO_RULE_ID_START : REGULAR_RULE_ID_START;
@@ -79,10 +81,7 @@ function matchingBlockedDomain(settings, url) {
 }
 
 function sameCondition(left, right) {
-  return left?.urlFilter === right?.urlFilter
-    && left?.regexFilter === right?.regexFilter
-    && JSON.stringify(left?.tabIds || []) === JSON.stringify(right?.tabIds || [])
-    && JSON.stringify(left?.resourceTypes || []) === JSON.stringify(right?.resourceTypes || []);
+  return stable(left) === stable(right);
 }
 
 function isVisitRuleFor(rule, domain, tabId) {
@@ -100,10 +99,8 @@ function rulesMatch(existing, desired) {
   return desired.every(rule => {
     const saved = current.get(rule.id);
     return saved?.priority === rule.priority
-      && saved.action?.type === 'block'
-      && saved.condition?.urlFilter === rule.condition.urlFilter
-      && saved.condition?.regexFilter === rule.condition.regexFilter
-      && JSON.stringify(saved.condition?.resourceTypes || []) === JSON.stringify(rule.condition.resourceTypes);
+      && stable(saved.action) === stable(rule.action)
+      && stable(saved.condition) === stable(rule.condition);
   });
 }
 
@@ -179,7 +176,9 @@ export function createAccessControlProduct(platform) {
   }
 
   async function writeRules(providedSettings) {
-    if (!chrome.declarativeNetRequest?.getSessionRules || !chrome.declarativeNetRequest?.updateSessionRules) return false;
+    if (!chrome.declarativeNetRequest?.getSessionRules || !chrome.declarativeNetRequest?.updateSessionRules) {
+      throw new Error('Access Control network rules are unavailable.');
+    }
     const settings = providedSettings || await platform.readSettings();
     const incognito = platform.isIncognitoContext();
     const existing = await chrome.declarativeNetRequest.getSessionRules();
@@ -199,16 +198,51 @@ export function createAccessControlProduct(platform) {
     if (rulesMatch(owned, addRules) && !staleVisits.length) return addRules.length > 0;
     if (removeRuleIds.length || addRules.length) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds, addRules });
+      const installed = (await chrome.declarativeNetRequest.getSessionRules())
+        .filter(rule => isOwnedRule(rule, incognito));
+      if (!rulesMatch(installed, addRules)) {
+        throw new Error('Access Control could not verify its blocking rules.');
+      }
     }
     return addRules.length > 0;
+  }
+
+  async function ensureRules(settings) {
+    let failure;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try { return await writeRules(settings); }
+      catch (error) {
+        failure = error;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 40 * (attempt + 1)));
+      }
+    }
+    throw failure;
   }
 
   function reconcile(settings) {
     return queueNetwork(async () => {
       const current = settings || await platform.readSettings();
-      const result = await writeRules(current);
+      const result = await ensureRules(current);
       return result;
-    }).then(async result => { await syncOpenTabs(); return result; });
+    }).then(async result => { await syncOpenTabs().catch(() => {}); return result; });
+  }
+
+  async function changeSettings(revise) {
+    try {
+      const settings = await platform.mutateSettings(async current => {
+        const next = { ...current, accessControl: revise(current.accessControl) };
+        // Install the browser rule before the saved list can claim protection.
+        await queueNetwork(() => ensureRules(next));
+        return next;
+      });
+      await syncOpenTabs().catch(() => {});
+      return settings.accessControl;
+    } catch (error) {
+      // Storage can fail after a successful rule update. Restore the rules
+      // from the last saved settings without replacing the original error.
+      await reconcile().catch(() => {});
+      throw error;
+    }
   }
 
   async function visitRules() {
@@ -284,59 +318,32 @@ export function createAccessControlProduct(platform) {
         throw new Error('Access Control can be changed only from Settings.');
       }
       if (message.type === 'UI_SET_ENABLED') {
-        const settings = await platform.mutateSettings(current => ({
-          ...current,
-          accessControl: { ...current.accessControl, enabled: message.enabled === true }
-        }));
-        void reconcile(settings).catch(() => false);
-        return settings.accessControl;
+        return changeSettings(feature => ({ ...feature, enabled: message.enabled === true }));
       }
       if (message.type === 'UI_SET_ACCESS_CONTROL_TEMPORARY_VISITS') {
-        const settings = await platform.mutateSettings(current => ({
-          ...current,
-          accessControl: {
-            ...current.accessControl,
-            allowTemporaryVisits: message.enabled === true
-          }
-        }));
-        void reconcile(settings).catch(() => false);
-        return settings.accessControl;
+        return changeSettings(feature => ({ ...feature, allowTemporaryVisits: message.enabled === true }));
       }
       if (['UI_ALPHABETIZE_RULES', 'UI_CLEAR_RULES'].includes(message.type)
         && message.listName === 'blockedDomains') {
-        const settings = await platform.mutateSettings(current => ({
-          ...current,
-          accessControl: {
-            ...current.accessControl,
-            blockedDomains: message.type === 'UI_CLEAR_RULES'
-              ? []
-              : [...(current.accessControl.blockedDomains || [])].sort((a, b) => a.localeCompare(b))
-          }
+        return changeSettings(feature => ({ ...feature,
+          blockedDomains: message.type === 'UI_CLEAR_RULES'
+            ? [] : [...(feature.blockedDomains || [])].sort((a, b) => a.localeCompare(b))
         }));
-        void reconcile(settings).catch(() => false);
-        return settings.accessControl;
       }
       if (!['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type) || message.listName !== 'blockedDomains') {
         throw new Error('Access Control does not support this command.');
       }
       const domain = normalizeAccessControlDomain(message.rule || '');
-      const settings = await platform.mutateSettings(current => {
-        const domains = current.accessControl.blockedDomains || [];
+      return changeSettings(feature => {
+        const domains = feature.blockedDomains || [];
         if (message.type === 'UI_ADD_RULE' && domains.length >= RULE_LIMIT && !domains.includes(domain)) {
           throw new Error('Access Control has reached its domain limit.');
         }
-        return {
-          ...current,
-          accessControl: {
-            ...current.accessControl,
-            blockedDomains: message.type === 'UI_ADD_RULE'
-              ? addDomain(domains, domain)
-              : domains.filter(item => item !== domain)
-          }
+        return { ...feature,
+          blockedDomains: message.type === 'UI_ADD_RULE'
+            ? addDomain(domains, domain) : domains.filter(item => item !== domain)
         };
       });
-      void reconcile(settings).catch(() => false);
-      return settings.accessControl;
     },
     handleStorageChanged(changes, areaName) {
       const incognito = platform.isIncognitoContext();
@@ -344,7 +351,8 @@ export function createAccessControlProduct(platform) {
       const key = incognito ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       if (areaName !== expectedArea || !changes?.[key]) return false;
       const { oldValue, newValue } = changes[key];
-      if (JSON.stringify(oldValue?.accessControl) === JSON.stringify(newValue?.accessControl)) return false;
+      if (JSON.stringify(oldValue?.accessControl) === JSON.stringify(newValue?.accessControl)
+        && JSON.stringify(oldValue?.websiteFixer) === JSON.stringify(newValue?.websiteFixer)) return false;
       return reconcile();
     },
     handleTabCreated(tab) { return syncTabAction(tab?.id); },

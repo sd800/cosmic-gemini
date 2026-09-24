@@ -111,6 +111,23 @@ test('a failed settings write does not poison later queued updates', async () =>
   assert.equal(mock.local[SETTINGS_KEY].nativeScroll.enabled, false);
 });
 
+test('an async settings revision must finish before storage is changed', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  const platform = createPlatform();
+  await assert.rejects(platform.mutateSettings(async current => {
+    await Promise.resolve();
+    throw new Error('network rule failed');
+  }, false), /network rule failed/);
+  assert.equal(mock.local[SETTINGS_KEY], undefined);
+  const saved = await platform.mutateSettings(async current => {
+    await Promise.resolve();
+    return { ...current, accessControl: { ...current.accessControl, enabled: true } };
+  }, false);
+  assert.equal(saved.accessControl.enabled, true);
+  assert.equal(mock.local[SETTINGS_KEY].accessControl.enabled, true);
+});
+
 test('page-refresh failure does not turn a saved settings update into a failure', async () => {
   const mock = chromeMock();
   globalThis.chrome = mock.api;

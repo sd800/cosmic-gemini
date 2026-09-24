@@ -3,10 +3,12 @@ import test from 'node:test';
 import {
   DEFAULT_INCOGNITO_SETTINGS,
   DEFAULT_SETTINGS,
+  SETTINGS_KEY,
   normalizeAccessControlDomain,
   normalizeSettings
 } from '../extension/core/config.js';
 import { createAccessControlProduct } from '../extension/background/products/standing/access-control.js';
+import { createWebsiteFixerProduct } from '../extension/background/products/standing/website-fixer.js';
 
 test('Access Control starts disabled and stores canonical domains and exact IP addresses', () => {
   assert.deepEqual(DEFAULT_SETTINGS.accessControl, { enabled: false, allowTemporaryVisits: false, blockedDomains: [] });
@@ -45,7 +47,7 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
   const platform = {
     isIncognitoContext: () => false,
     readSettings: async () => settings,
-    mutateSettings: async update => (settings = normalizeSettings(update(settings)))
+    mutateSettings: async update => (settings = normalizeSettings(await update(settings)))
   };
   const product = createAccessControlProduct(platform);
   await product.reconcile();
@@ -133,7 +135,7 @@ test('Access Control rejects changes outside Settings', async () => {
   const product = createAccessControlProduct({
     isIncognitoContext: () => false,
     readSettings: async () => settings,
-    mutateSettings: async update => normalizeSettings(update(settings))
+    mutateSettings: async update => normalizeSettings(await update(settings))
   });
   await assert.rejects(product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }, {
     sender: { url: 'https://example.com/' }
@@ -182,7 +184,7 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   const product = createAccessControlProduct({
     isIncognitoContext: () => false,
     readSettings: async () => settings,
-    mutateSettings: async update => (settings = normalizeSettings(update(settings)))
+    mutateSettings: async update => (settings = normalizeSettings(await update(settings)))
   });
   await product.reconcile();
   assert.equal(typeof errorListener, 'function');
@@ -255,4 +257,108 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   await product.handleActionClicked(tab);
   await product.handleTabRemoved(tab.id);
   assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
+});
+
+test('removing a Stay on the page site leaves Access Control blocks intact and repairs missing blocks', async () => {
+  let settings = normalizeSettings({
+    accessControl: { enabled: true, blockedDomains: ['example.com'] },
+    websiteFixer: { enabled: true, stayOnPage: { enabled: true, whitelistDomains: ['example.com'] } }
+  });
+  let installed = [];
+  globalThis.chrome = {
+    runtime: { getURL: path => 'chrome-extension://test/' + path },
+    tabs: { query: async () => [] },
+    scripting: {
+      getRegisteredContentScripts: async () => [],
+      registerContentScripts: async () => {}
+    },
+    declarativeNetRequest: {
+      getSessionRules: async () => installed,
+      updateSessionRules: async ({ removeRuleIds = [], addRules = [] }) => {
+        installed = installed.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+      }
+    }
+  };
+  const platform = {
+    isIncognitoContext: () => false,
+    readSettings: async () => settings,
+    mutateSettings: async update => (settings = normalizeSettings(await update(settings)))
+  };
+  const access = createAccessControlProduct(platform);
+  const fixer = createWebsiteFixerProduct(platform);
+  await access.reconcile();
+  await fixer.initialize();
+  assert.deepEqual(installed.map(rule => rule.id), [920001, 930002]);
+
+  const before = settings;
+  await fixer.handleMessage({ type: 'UI_DELETE_RULE', listName: 'whitelistDomains',
+    settingGroup: 'stayOnPage', rule: 'https://www.example.com/article' },
+  { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
+  await access.handleStorageChanged({ [SETTINGS_KEY]: { oldValue: before, newValue: settings } }, 'local');
+  assert.deepEqual(settings.accessControl.blockedDomains, ['example.com']);
+  assert.deepEqual(installed.map(rule => rule.id), [920001]);
+
+  installed = [];
+  const changed = { ...settings, websiteFixer: { ...settings.websiteFixer,
+    stayOnPage: { ...settings.websiteFixer.stayOnPage, whitelistDomains: ['another.test'] } } };
+  await access.handleStorageChanged({ [SETTINGS_KEY]: { oldValue: settings, newValue: changed } }, 'local');
+  assert.deepEqual(installed.map(rule => rule.id), [920001], 'related settings changes repair a missing block');
+  installed[0].condition.tabIds = [7];
+  await access.reconcile();
+  assert.equal(installed[0].condition.tabIds, undefined, 'a tab-limited block is not accepted as global');
+});
+
+test('Access Control does not save a new blocked site when network rules cannot be installed', async () => {
+  let settings = normalizeSettings({ accessControl: { enabled: true, blockedDomains: ['example.com'] } });
+  let installed = [], failNetwork = false, transientFailures = 0, ignoreNetworkUpdate = false, failStorage = false;
+  globalThis.chrome = {
+    runtime: { getURL: path => 'chrome-extension://test/' + path },
+    declarativeNetRequest: {
+      getSessionRules: async () => installed,
+      updateSessionRules: async ({ removeRuleIds = [], addRules = [] }) => {
+        if (failNetwork) throw new Error('network rules unavailable');
+        if (transientFailures > 0) {
+          transientFailures -= 1;
+          throw new Error('temporary network rule failure');
+        }
+        if (ignoreNetworkUpdate) return;
+        installed = installed.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+      }
+    }
+  };
+  const access = createAccessControlProduct({
+    isIncognitoContext: () => false,
+    readSettings: async () => settings,
+    mutateSettings: async update => {
+      const next = normalizeSettings(await update(settings));
+      if (failStorage) throw new Error('settings unavailable');
+      return (settings = next);
+    }
+  });
+  await access.reconcile();
+  const message = { type: 'UI_ADD_RULE', listName: 'blockedDomains', rule: 'another.test' };
+  const context = { sender: { url: 'chrome-extension://test/settings/satellites.html' } };
+  failNetwork = true;
+  await assert.rejects(access.handleMessage(message, context), /network rules unavailable/);
+  failNetwork = false;
+  assert.deepEqual(settings.accessControl.blockedDomains, ['example.com']);
+  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), ['||example.com^']);
+
+  transientFailures = 1;
+  const recovered = await access.handleMessage(message, context);
+  assert.deepEqual(recovered.blockedDomains, ['example.com', 'another.test']);
+  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), ['||example.com^', '||another.test^']);
+  await access.handleMessage({ ...message, type: 'UI_DELETE_RULE' }, context);
+
+  ignoreNetworkUpdate = true;
+  await assert.rejects(access.handleMessage(message, context), /could not verify/);
+  ignoreNetworkUpdate = false;
+  assert.deepEqual(settings.accessControl.blockedDomains, ['example.com']);
+
+  failStorage = true;
+  await assert.rejects(access.handleMessage(message, context), /settings unavailable/);
+  failStorage = false;
+  assert.deepEqual(settings.accessControl.blockedDomains, ['example.com']);
+  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), ['||example.com^'],
+    'a failed settings write restores the previous network block list');
 });

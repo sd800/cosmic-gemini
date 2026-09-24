@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.26 — 2026-09-24
+
+- 提升网站规则变更时 Access Control 的可靠性，包括调整 Stay on the page 网站后。Access Control 的网站名单与临时许可仍独立于 Website Fixer。
+
 ## 9.8.25 — 2026-09-24
 
 - 修复 Standing Province 导航请求处理方法未被保留的问题，并避免省级接口静默丢弃未知方法。

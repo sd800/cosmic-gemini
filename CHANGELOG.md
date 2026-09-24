@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.20 — 2026-09-24
+
+- Make browser context-menu actions bypass Stay on the page reliably, including links, images, media and selected-text searches, while keeping unrelated website popups blocked.
+
 ## 9.8.19 — 2026-09-24
 
 - Add an Original choice at the end of both XHS image menu groups, preserving separate choices for one image and the complete post.

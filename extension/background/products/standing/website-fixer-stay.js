@@ -39,14 +39,17 @@ export function createStayOnPage(platform) {
   function contextMatch(url, intent) {
     try {
       const target = new URL(url);
-      if (!/^https?:$/.test(target.protocol)) return false;
-      if (intent.kind === 'link') {
-        const chosen = new URL(intent.url);
-        target.hash = '';
+      target.hash = '';
+      if (intent.urls.some(value => {
+        const chosen = new URL(value);
         chosen.hash = '';
-        if (target.href === chosen.href) return true;
-      }
-      return (intent.kind === 'search' || intent.search === true)
+        return target.href === chosen.href;
+      })) return true;
+      if (intent.image === true && /^https?:$/.test(target.protocol)
+        && (target.hostname === 'lens.google.com'
+          || (/^google\.[a-z.]+$/.test(target.hostname.replace(/^www\./, ''))
+            && target.pathname === '/search'))) return true;
+      return intent.search === true && /^https?:$/.test(target.protocol)
         && /^google\.[a-z.]+$/.test(target.hostname.replace(/^www\./, ''))
         && target.pathname === '/search' && target.searchParams.has('q');
     } catch { return false; }
@@ -70,6 +73,12 @@ export function createStayOnPage(platform) {
       return;
     }
     if (record.intent && contextMatch(url, record.intent)) {
+      pending.delete(tabId);
+      navigationOrigins.delete(tabId);
+      contextIntents.delete(record.openerTabId);
+      return;
+    }
+    if (record.intent && target.protocol === 'view-source:' && siteKey(target.pathname) === record.site) {
       pending.delete(tabId);
       navigationOrigins.delete(tabId);
       contextIntents.delete(record.openerTabId);
@@ -116,17 +125,16 @@ export function createStayOnPage(platform) {
       if (!Number.isInteger(tabId) || !!sender.tab.incognito !== incognito) return false;
       const site = siteKey(sender.tab.url || '');
       if (!stayDomains(await platform.readSettings()).includes(site)) return false;
-      const kind = message.kind;
-      if (kind !== 'link' && kind !== 'search') return false;
-      let url = '';
-      if (kind === 'link') {
+      if (message.kind !== 'browser') return false;
+      const urls = [];
+      for (const value of Array.isArray(message.urls) ? message.urls.slice(0, 8) : []) {
         try {
-          const parsed = new URL(message.url);
-          if (!/^https?:$/.test(parsed.protocol) || siteKey(parsed.href) === site) return false;
-          url = parsed.href;
-        } catch { return false; }
+          const parsed = new URL(value);
+          if (parsed.protocol === 'javascript:' || parsed.href.length > 2048) continue;
+          urls.push(parsed.href);
+        } catch {}
       }
-      contextIntents.set(tabId, { kind, url, search: message.search === true,
+      contextIntents.set(tabId, { urls, search: message.search === true, image: message.image === true,
         until: Date.now() + INTENT_MS });
       return true;
     },

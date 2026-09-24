@@ -16,6 +16,7 @@ const hits = [];
 const server = createServer((req, res) => {
   hits.push({ host: req.headers.host, path: req.url });
   if (req.url === '/redirect') { res.writeHead(302, { Location: `http://outside.test:${server.address().port}/escaped` }); res.end(); return; }
+  if (req.url === '/photo.svg') { res.setHeader('Content-Type', 'image/svg+xml'); res.end('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="blue"/></svg>'); return; }
   res.setHeader('Content-Type', 'text/html');
   res.end(fixtureHtml);
 });
@@ -67,15 +68,37 @@ try {
     tabs.find(tab => tab.url === url)?.id), origin + '/');
   assert.ok(Number.isInteger(sourceTabId));
   const chosenUrl = `http://outside.test:${port}/chosen`;
+  await worker.evaluate(() => {
+    globalThis.__contextMessages = [];
+    chrome.runtime.onMessage.addListener(message => {
+      if (message.type === 'CG_WEBSITE_FIXER_CONTEXT_MENU') globalThis.__contextMessages.push(message);
+    });
+  });
   await page.locator('#link').evaluate((link, url) => { link.href = url; }, chosenUrl);
   await page.locator('#link').click({ button: 'right' });
   await page.waitForTimeout(80);
+  assert.ok((await worker.evaluate(() => globalThis.__contextMessages)).some(message => message.urls.includes(chosenUrl)),
+    'a native link context menu reports its exact target');
   const chosenPage = context.waitForEvent('page');
   await worker.evaluate(({ url, openerTabId }) => chrome.tabs.create({ url, openerTabId, active: false }),
     { url: chosenUrl, openerTabId: sourceTabId });
   const chosenTab = await chosenPage;
   await chosenTab.waitForURL(chosenUrl);
   await chosenTab.close();
+  const imageUrl = `http://outside.test:${port}/photo.svg`;
+  await page.evaluate(url => {
+    const image = document.createElement('img'); image.id = 'photo'; image.src = url; document.body.append(image);
+  }, imageUrl);
+  await page.locator('#photo').click({ button: 'right' });
+  await page.waitForTimeout(80);
+  assert.ok((await worker.evaluate(() => globalThis.__contextMessages)).some(message => message.image && message.urls.includes(imageUrl)),
+    'right-clicking an image records its browser-menu target');
+  await page.locator('#photo').evaluate(image => image.addEventListener('contextmenu', event => event.preventDefault()));
+  const beforeCustomMenu = await worker.evaluate(() => globalThis.__contextMessages.length);
+  await page.locator('#photo').click({ button: 'right' });
+  await page.waitForTimeout(80);
+  assert.equal(await worker.evaluate(() => globalThis.__contextMessages.length), beforeCustomMenu,
+    'a page-owned context menu does not authorize browser actions');
   await page.evaluate(() => {
     const selection = getSelection();
     const range = document.createRange();
@@ -85,6 +108,8 @@ try {
   });
   await page.locator('h1').click({ button: 'right' });
   await page.waitForTimeout(80);
+  assert.ok((await worker.evaluate(() => globalThis.__contextMessages)).some(message => message.search),
+    'right-clicking selected text reports a browser search target');
   const googleUrl = 'https://www.google.com/search?q=Website+Fixer+QA';
   await context.route('https://www.google.com/search**', route => route.fulfill({
     contentType: 'text/html', body: '<!doctype html><title>Search fixture</title>'

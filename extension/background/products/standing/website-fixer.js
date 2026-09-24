@@ -34,7 +34,8 @@ export function createWebsiteFixerProduct(platform) {
     const stayMatches = stayDomains(settings).map(domain => `*://*.${domain}/*`).sort();
     const scripts = [{ id: SCRIPT_ID, matches: translateMatches, js: [SCRIPT_FILE], world: 'ISOLATED', allFrames: false },
       ...STAY_SCRIPTS.map((id, index) => ({ id, matches: stayMatches,
-        js: ['content/website-fixer-site-key.js', 'content/website-fixer-stay.js'],
+        js: index === 0 ? ['content/website-fixer-site-key.js', 'content/website-fixer-stay.js']
+          : ['content/website-fixer-stay-browser-menu.js'],
         world: index === 0 ? 'MAIN' : 'ISOLATED', allFrames: true, matchOriginAsFallback: true }))];
     const registered = await chrome.scripting.getRegisteredContentScripts({ ids: scripts.map(script => script.id) });
     for (const desired of scripts) {

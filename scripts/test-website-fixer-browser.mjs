@@ -96,8 +96,15 @@ try {
   await page.evaluate(url => { location.href = url; }, origin + '/redirect');
   await page.waitForTimeout(200);
   assert.equal(hits.filter(hit => hit.host.startsWith('outside.test') && hit.path === '/escaped').length, 0, 'no external navigation request reaches its server');
-  settings.on('dialog', dialog => dialog.accept());
-  await section.locator('[data-reset-websites]').click();
+  const clearButton = section.locator('[data-reset-websites]');
+  await clearButton.click();
+  assert.equal(await clearButton.textContent(), 'Confirm');
+  assert.equal(await clearButton.getAttribute('data-confirming'), 'true');
+  assert.equal(await section.locator('.website-fixer-count').textContent(), '1 website saved.');
+  await section.locator('.website-fixer-count').click();
+  assert.equal(await clearButton.textContent(), 'Clear website list');
+  await clearButton.click();
+  await clearButton.click();
   await settings.waitForFunction(async () => !(await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.websiteFixer.stayOnPage.whitelistDomains.length);
   await settings.waitForFunction(() => document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-count').textContent === '0 websites saved.');
   assert.equal(await section.locator('.website-fixer-count').textContent(), '0 websites saved.');

@@ -293,4 +293,6 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .website-fixer-saved { color: var(--muted); font-size: 12px; }
 .website-fixer-actions .secondary-button { margin-left: auto; min-height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--text); font-size: 12px; cursor: pointer; }
 .website-fixer-actions .secondary-button:hover { background: var(--surface-raised); }
+.website-fixer-actions .secondary-button[data-confirming="true"] { color: var(--danger); }
+.website-fixer-actions .secondary-button[data-confirming="true"]:hover { background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
 .website-fixer-actions .secondary-button:disabled { opacity: .4; cursor: default; }

@@ -43,6 +43,7 @@ const pendingControls = new Set();
 const settingsState = createSettingsState();
 const listSignatures = new WeakMap();
 const websiteFixerSavedTimers = new WeakMap();
+let pendingWebsiteResetButton = null;
 let storageSyncTimer = 0;
 let settingsUiPort = null;
 let settingsUiReconnectAttempts = 0;
@@ -59,6 +60,22 @@ function sectionState(section) {
   const current = (states?.preferences || states)?.[section.dataset.featureId || featureId];
   return section.dataset.settingGroup ? current?.[section.dataset.settingGroup] || null : current || null;
 }
+
+function disarmWebsiteReset() {
+  if (!pendingWebsiteResetButton) return;
+  const button = pendingWebsiteResetButton;
+  pendingWebsiteResetButton = null;
+  delete button.dataset.confirming;
+  button.dataset.i18n = 'websiteFixerResetList';
+  button.textContent = t('websiteFixerResetList');
+}
+
+document.addEventListener('click', event => {
+  if (pendingWebsiteResetButton && !pendingWebsiteResetButton.contains(event.target)) disarmWebsiteReset();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') disarmWebsiteReset();
+});
 
 function applyLocale() {
   root.lang = locale;
@@ -95,6 +112,7 @@ function renderList(section) {
   const list = section.querySelector('.rule-list');
   const rules = current[listName] || [];
   if (section.dataset.hiddenList === 'true') {
+    if (!rules.length && pendingWebsiteResetButton === section.querySelector('[data-reset-websites]')) disarmWebsiteReset();
     section.querySelector('[data-reset-websites]').disabled = !rules.length;
     section.querySelector('.website-fixer-count').textContent = t(
       rules.length === 1 ? 'websiteFixerSavedCountOne' : 'websiteFixerSavedCountMany', { count: rules.length });
@@ -961,8 +979,18 @@ function bindView() {
       }
     }, [input, submit], 'ruleSaveFailed');
     if (!hiddenList) bindEmptyRuleSort(submit, input, alphabetize);
-    section.querySelector('[data-reset-websites]')?.addEventListener('click', () => {
-      if (confirm(t('websiteFixerResetConfirm'))) void clearRules();
+    section.querySelector('[data-reset-websites]')?.addEventListener('click', event => {
+      const button = event.currentTarget;
+      if (pendingWebsiteResetButton === button) {
+        disarmWebsiteReset();
+        void clearRules();
+      } else {
+        disarmWebsiteReset();
+        pendingWebsiteResetButton = button;
+        button.dataset.confirming = 'true';
+        button.dataset.i18n = 'websiteFixerResetConfirmButton';
+        button.textContent = t('websiteFixerResetConfirmButton');
+      }
     });
     form.addEventListener('submit', event => {
       event.preventDefault();
@@ -1080,6 +1108,7 @@ function syncResetControls() {
 }
 
 function mountView(replace = true) {
+  disarmWebsiteReset();
   document.body.dataset.feature = featureId;
   document.querySelector('.wordmark strong').textContent = PRODUCT_META[featureId].name;
   document.querySelector('.layout').classList.remove('single-column');

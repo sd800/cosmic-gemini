@@ -6,6 +6,13 @@
 :root[data-cg-leetcode-dark] :is(.chapter-list-base, .chapter-list, .list-group-item, .list-group, .item-bg, .table-item.odd-table-child, .question-description, .description, .testcase-input-base) { background-color: var(--cg-lc-surface) !important; color: var(--cg-lc-text) !important; border-color: var(--cg-lc-line) !important; }
 :root[data-cg-leetcode-dark] :is(.item-bg-alt, .table-item.even-table-child, .list-group-item:hover, .Select-option.is-focused, .Select-option.is-selected) { background-color: var(--cg-lc-raised) !important; color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] :is(.list-group-item.active, .chapter-base.active, .chapter-base.opened, .lang-btn-set .btn.active) { background-color: #3a3a3a !important; color: #fff !important; border-color: var(--cg-lc-line) !important; }
+/* Keep truncation fades on the same surface as their chapter, including hover/expanded states. */
+:root[data-cg-leetcode-dark] :is(.chapter-list-base .chapter-list-item, .expandable-chapter-list-base .chapter-base) { --cg-lc-chapter-bg: var(--cg-lc-surface); background-color: var(--cg-lc-chapter-bg) !important; border-color: var(--cg-lc-line) !important; }
+:root[data-cg-leetcode-dark] :is(.chapter-list-base .chapter-list-item, .expandable-chapter-list-base .chapter-base):hover { --cg-lc-chapter-bg: var(--cg-lc-raised); }
+:root[data-cg-leetcode-dark] :is(.chapter-list-base .chapter-list-item, .expandable-chapter-list-base .chapter-base):is(.active, .opened) { --cg-lc-chapter-bg: #3a3a3a; }
+:root[data-cg-leetcode-dark] :is(.chapter-list-base, .expandable-chapter-list-base) .description { background-color: var(--cg-lc-chapter-bg, var(--cg-lc-surface)) !important; }
+:root[data-cg-leetcode-dark] :is(.chapter-list-base, .expandable-chapter-list-base) .description::after { background: linear-gradient(to right, transparent, var(--cg-lc-chapter-bg, var(--cg-lc-surface)) 50%) !important; }
+:root[data-cg-leetcode-dark] :is(.chapter-list-base, .expandable-chapter-list-base) .check-mark.completed i { text-shadow: none !important; }
 :root[data-cg-leetcode-dark] :is(.explore-detail, .content-viewer-base, .playground-mini-base) :is(h1,h2,h3,h4,h5,h6,p,li,strong,b,label,.title,.heading,.question-title,.content-title,.chapter-title,.category,.Select-value-label) { color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] :is(.explore-detail, .content-viewer-base, .playground-mini-base) :is(a:not(.btn), .menu-links) { color: #91bdff !important; }
 :root[data-cg-leetcode-dark] :is(.side-status, .view-controller, .text-muted, .CodeMirror-linenumber, .description .label) { color: var(--cg-lc-muted) !important; }
@@ -14,6 +21,7 @@
 :root[data-cg-leetcode-dark] :is(th,.panel-heading,.well) { background-color: var(--cg-lc-raised) !important; color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] :is(td,.panel-body) { background-color: var(--cg-lc-surface) !important; color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] :is(.btn-default,.btn.menu-btn,.btn.prev,.btn.next,.lang-btn-set .btn,.form-control,.Select-option,textarea,select) { background-color: var(--cg-lc-raised) !important; color: var(--cg-lc-text) !important; border-color: var(--cg-lc-line) !important; }
+:root[data-cg-leetcode-dark] .playground-mini-base .lang-btn-set-base { border-color: var(--cg-lc-line) !important; }
 :root[data-cg-leetcode-dark] :is(.CodeMirror,.CodeMirror-gutters,.CodeMirror pre) { background-color: #202020 !important; color: var(--cg-lc-text) !important; border-color: var(--cg-lc-line) !important; }
 :root[data-cg-leetcode-dark] .CodeMirror-cursor { border-left-color: #eee !important; }
 :root[data-cg-leetcode-dark] :is(.CodeMirror-selected,.CodeMirror-focused .CodeMirror-selected) { background: #37506a !important; }

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.5 — 2026-09-24
+
+- Refine LeetCode Explore dark-mode chapter fades, code-language tab borders, and completion icons.
+
 ## 9.8.3 — 2026-09-24
 
 - Slightly reduce the Google Search language feature icon in Settings.

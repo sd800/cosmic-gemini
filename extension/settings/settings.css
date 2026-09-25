@@ -285,10 +285,11 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 
 .website-fixer-options { display: grid; gap: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 .website-fixer-item + .website-fixer-item { padding-top: 20px; border-top: 1px solid var(--line); }
-#websiteFixerOptions:disabled .website-fixer-heading h3 { color: var(--muted); }
+#websiteFixerOptions:disabled .website-fixer-heading h3, #websiteFixerOptions:disabled .website-fixer-icon { color: var(--muted); }
 #websiteFixerOptions:disabled + .satellite-privacy { opacity: .55; }
-.website-fixer-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.website-fixer-heading h3 { margin: 0; color: var(--text); font-weight: 650; font-size: 14px; }
+.website-fixer-heading { display: flex; align-items: center; gap: 8px; }
+.website-fixer-icon { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; color: var(--blue); }
+.website-fixer-heading h3 { flex: 1; min-width: 0; margin: 0; color: var(--text); font-weight: 650; font-size: 14px; }
 .website-fixer-heading .switch { flex-shrink: 0; }
 .website-fixer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
 .website-fixer-count { color: var(--muted); font-size: 12px; }

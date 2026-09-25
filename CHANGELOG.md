@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.38 — 2026-09-25
+
+- Add distinct settings icons for Translate Override and Stay on the page.
+
 ## 9.8.37 — 2026-09-25
 
 - Add a long-press confirmation on the popup’s All Settings button to reload the extension.

@@ -169,3 +169,107 @@ test('External Links Capture accepts bounded app targets but never executable or
     const capture = parseCapture(url); assert.equal(capture.kind,kind); assert.equal(copyCapture(capture,{}),text);
   }
 });
+
+function paperSample(size = 128, pixel = () => [0, 0, 0, 255]) {
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0, i = 0; y < size; y++) for (let x = 0; x < size; x++, i += 4) data.set(pixel(x, y), i);
+  return { data, width: size, height: size };
+}
+const black = [4, 4, 4, 255], white = [255, 255, 255, 255];
+const { isDarkPaper, createDarkPaperGuard } = await import('../extension/workspaces/pdf-viewer/dark-paper.js');
+test('dark-paper exception requires a uniform neutral bed across the whole page and all edges', () => {
+  for (const size of [128, 257]) {
+    assert.equal(isDarkPaper(paperSample(size, () => black)), true);
+    // Sparse strokes spread across the page, leaving uninterrupted black margins.
+    assert.equal(isDarkPaper(paperSample(size, (x,y) => x > 16 && x < size - 16 && y > 16 && y < size - 16 && x % 12 < 2 && y % 24 < 2 ? white : black)), true);
+    for (const pixel of [
+      () => white, () => [160,160,160,255], () => [3,9,17,255],
+      (x,y) => x < 2 || y < 2 || x >= size-2 || y >= size-2 ? white : black, // star field on white paper
+      (x,y) => x === 0 ? white : black, // even one thin white edge
+      (x,y) => x > size*.45 && x < size*.55 && y > size*.45 && y < size*.55 ? white : black, // small white inset
+      (x,y) => x%2 === y%2 ? white : black,
+      (x,y) => { const n=(x*31+y*17)%16; return [n,n,n,255]; }, // noisy night photograph
+      x => { const n=Math.floor(x/size*16); return [n,n,n,255]; }, // dark gradient
+      (x,y) => x > 16 && x < 32 && y > 16 && y < 32 ? [255,0,0,255] : black,
+      () => [0,0,0,0]
+    ]) assert.equal(isDarkPaper(paperSample(size, pixel)), false);
+  }
+  for (const shade of [0,4,32,64,96,120,127]) {
+    const paper = [shade,shade,shade,255];
+    for (const strength of [.85,.9,.96,1]) assert.equal(isDarkPaper(paperSample(128,()=>paper),strength),true);
+    assert.equal(isDarkPaper(paperSample(128,(x,y)=>x>16&&x<112&&y>16&&y<112&&x%12<2&&y%24<2?[0,0,0,255]:paper)),true);
+    assert.equal(isDarkPaper(paperSample(128,(x,y)=>x<2||y<2||x>=126||y>=126?white:paper)),false);
+  }
+  for (const shade of [128,160,200,240,255]) assert.equal(isDarkPaper(paperSample(128,()=>[shade,shade,shade,255])),false);
+  assert.equal(isDarkPaper(paperSample(128,(x,y)=>{const n=80+(x*31+y*17)%16;return[n,n,n,255];})),false);
+  for (const strength of [.5,NaN,2]) assert.equal(isDarkPaper(paperSample(), strength), false);
+  for (const strength of [.85,.9,.96,1]) assert.equal(isDarkPaper(paperSample(), strength), true);
+  assert.equal(isDarkPaper(), false);
+  assert.equal(isDarkPaper({data:new Uint8ClampedArray(4),width:128,height:128}), false);
+});
+test('black-paper guard stages rare candidates, caches failures and decisions, and releases buffers', () => {
+  const reads = [], source = {width:612,height:842}; let sample = size => paperSample(size, () => white), fail = false;
+  const canvas = {width:0,height:0,getContext:()=>({drawImage(){},getImageData(x,y,size){reads.push(size);if(fail)throw Error('read failed');return sample(size);}})};
+  const guard = createDarkPaperGuard(5,.96,()=>canvas);
+  assert.equal(guard.get(1),0); assert.equal(guard.decide(1,source),1); assert.deepEqual(reads,[32]);
+  sample = size => paperSample(size, () => black);
+  assert.equal(guard.decide(1,source),1); assert.deepEqual(reads,[32]); // cached rejection
+  assert.equal(guard.decide(2,source),2); assert.deepEqual(reads,[32,32,128,257]);
+  assert.equal(canvas.width,0); assert.equal(canvas.height,0);
+  assert.equal(guard.decide(2,{width:4000,height:5000}),2); assert.equal(reads.length,4); // zoom cache
+  assert.equal(guard.reject(2),2); // a later interrupted/failed redraw cannot overturn the original verdict
+  sample = size => paperSample(size, () => size === 257 ? white : black);
+  assert.equal(guard.decide(3,source),1); assert.deepEqual(reads.slice(-3),[32,128,257]); // confirmation veto
+  fail = true; assert.equal(guard.decide(4,source),1); const count=reads.length;
+  assert.equal(guard.decide(4,source),1); assert.equal(reads.length,count); assert.equal(canvas.width,0);
+  assert.equal(guard.decide(5,{width:100,height:100}),1); assert.equal(reads.length,count);
+  guard.destroy(); assert.equal(guard.get(2),1); assert.equal(guard.decide(2,source),1);
+  let allocations=0; const weak=createDarkPaperGuard(1,NaN,()=>{allocations++;return canvas;});
+  assert.equal(weak.decide(1,source),1); assert.equal(allocations,0);
+});
+
+
+test('proven paper permits dense colored content without relaxing the pixel-only fallback', () => {
+  const sample = paperSample(257, (x,y) => x>20&&x<230&&y>20&&y<230&&y%20<5 ? [0,140,120,255] : black);
+  assert.equal(isDarkPaper(sample),false);
+  assert.equal(isDarkPaper(sample,.96,4),true);
+  assert.equal(isDarkPaper(sample,.96,80),false,'fill must match the observed paper edge');
+  assert.equal(isDarkPaper(paperSample(257,(x,y)=>x<4||y<4?white:black),.96,4),false);
+  assert.equal(isDarkPaper(paperSample(257,(x,y)=>x>100&&x<135&&y>100&&y<135?white:black),.96,4),false,'white-panel veto survives structural confirmation');
+  for (const size of [128,257]) {
+    assert.equal(isDarkPaper(paperSample(size,(x,y)=>x>size*.46&&x<size*.54&&y>size*.46&&y<size*.54?white:black),.96,4),false,'white block straddling four tiles');
+    const footer=paperSample(size,(x,y)=>x>10&&x<size-10&&y>size-9&&y<size-1?[0,140,120,255]:black);
+    assert.equal(isDarkPaper(footer),false,'pixels alone cannot prove a colorful footer');
+    assert.equal(isDarkPaper(footer,.96,4),true,'confirmed dark paper allows content near the edge');
+  }
+  let reads=0;
+  const canvas={width:0,height:0,getContext:()=>({drawImage(){},getImageData(x,y,size){return paperSample(size,(x,y)=>x>10&&x<size-10&&y>10&&y<size-10&&y%20<5?[0,140,120,255]:black);}})};
+  const guard=createDarkPaperGuard(2,.96,()=>canvas),source={width:600,height:800};
+  assert.equal(guard.decide(1,source,()=>{reads++;return 4;}),2);assert.equal(reads,1);
+  assert.equal(guard.decide(1,source,()=>{throw Error('cached');}),2);
+  assert.equal(guard.decide(2,source,()=>null),1);
+});
+const { renderedPaperShade } = await import('../extension/workspaces/pdf-viewer/paper-background.js');
+test('paper fill evidence accepts harmless producer setup but rejects painting, transforms and incomplete coverage', () => {
+  const ops = Object.fromEntries(['dependency','transform','beginText','endText','setFont','setLeading','setFillRGBColor','constructPath','endPath','fill','eoFill','showText','save','restore','clip','eoClip','setGState'].map((name,i)=>[name,i+1]));
+  const rectangle={}, discarded={};
+  const setup = [[ops.transform,[1,0,0,1,0,0]], [ops.beginText,null], [ops.dependency,['font']],
+    [ops.setFont,['font',12]], [ops.setLeading,[14.4]], [ops.endText,null],
+    [ops.constructPath,[ops.endPath,[discarded],null]], [ops.setFillRGBColor,['#15171a']]];
+  const fill = [ops.constructPath,[ops.fill,[rectangle],new Float32Array([0,0,600,800])]];
+  const context = {canvas:{width:0,height:0},setTransform(){},save(){},restore(){},clip(){},fill(){},
+    getImageData(){return {data:new Uint8ClampedArray(32*32*4).fill(255)};}};
+  const page = steps => ({view:[0,0,600,800],_intentStates:new Map([['display',{displayReadyCapability:{},operatorList:{lastChunk:true,fnArray:steps.map(s=>s[0]),argsArray:steps.map(s=>s[1])}}]])});
+  const expected=.2126*21+.7152*23+.0722*26;
+  assert.equal(renderedPaperShade(page([...setup,fill]),ops,context),expected);
+  assert.equal(context.canvas.width,0);
+  for(const step of [[ops.transform,[2,0,0,2,0,0]],[ops.showText,[]],[ops.setGState,[]],[-1,[]]]) {
+    assert.equal(renderedPaperShade(page([step,...setup,fill]),ops,context),null);
+  }
+  assert.equal(renderedPaperShade(page([[ops.setFillRGBColor,['#ffffff']],fill,...setup,fill]),ops,context),null,'white paper painted before a dark rectangle');
+  assert.equal(renderedPaperShade(page([...setup,[ops.constructPath,[ops.fill,[rectangle],[10,10,590,790]]]]),ops,context),null,'white margins');
+  context.getImageData=()=>{const data=new Uint8ClampedArray(32*32*4).fill(255);data[3]=0;return {data};};
+  assert.equal(renderedPaperShade(page([...setup,fill]),ops,context),null,'a triangle or clipped rectangle is not full paper');
+  const incomplete=page([...setup,fill]);incomplete._intentStates.get('display').operatorList.lastChunk=false;
+  assert.equal(renderedPaperShade(incomplete,ops,context),null);
+});

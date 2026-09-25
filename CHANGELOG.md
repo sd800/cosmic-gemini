@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.53 — 2026-09-25
+
+- Preserve clearly identified dark-paper PDF pages in dark mode and keep their display consistent after zooming, rotation, and theme changes.
+- Mark the default 4× PDF sampling option in Settings.
+
 ## 9.8.52 — 2026-09-25
 
 - Align the Translate Override icon outline with the settings icon color.

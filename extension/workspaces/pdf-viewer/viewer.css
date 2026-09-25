@@ -39,3 +39,7 @@ button.reader-icon{width:34px;height:34px;min-height:34px;flex:0 0 34px;padding:
 
 /* Waiting feedback belongs to the toolbar divider, never the page interior. */
 .pdfViewer .page.loadingIcon::after{display:none!important;content:none!important;background:none!important}
+/* Resolve rare dark-paper exceptions before exposing an inverted first paint. */
+:root[data-dark=true] .page:not([data-dark-checked]) .canvasWrapper{visibility:hidden}
+:root[data-dark=true] .page[data-original-dark] .canvasWrapper,
+:root[data-dark=true] .thumbnail[data-original-dark] canvas{filter:none}

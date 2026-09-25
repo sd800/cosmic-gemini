@@ -77,6 +77,8 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 
 ## PDF Viewer
 
+- In dark mode, test a dark-paper PDF with colored text, neutral gray paper, and ordinary white paper with a large dark image or a white inset. Preserve only confirmed dark paper. Verify the completed base canvas decides before reveal, the visible page and its thumbnail agree, and zoom/rotation/theme switches reuse the verdict. Opening in light mode must not sample pages until dark mode is enabled; no extra full-page render, operator stream or remote request is allowed.
+
 - Click or keyboard-activate the filename to check Document properties in both languages/themes and narrow windows. Test ISO dates with/without seconds, positive/negative/absent time-zone offsets, original dimensions after display rotation, safe long metadata, Escape/outside-click closure and cached reopening. With a short viewport, scroll properties to the bottom, close and reopen: focus returns to the heading and both scroll offsets reset to zero. Missing metadata and closure during a read must not affect the PDF.
 - Delay document bytes: the themed toolbar/local worker should initialize first, with document controls disabled. After bytes arrive, page one must paint first without a whole-document render; leave/expire during preparation to verify cleanup.
 

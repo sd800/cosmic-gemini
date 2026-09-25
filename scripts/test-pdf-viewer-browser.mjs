@@ -540,7 +540,7 @@ try {
   await settings.goto(`chrome-extension://${id}/settings/satellites.html`);
   await settings.waitForFunction(()=>!document.querySelector('#documentPdfSampling').matches(':disabled'));
   assert.equal(await settings.locator('#documentPdfSampling').inputValue(),'4');
-  assert.deepEqual(await settings.locator('#documentPdfSampling option').allTextContents(),['1×','2×','3×','4×','5×','6×']);
+  assert.deepEqual(await settings.locator('#documentPdfSampling option').allTextContents(),['1×','2×','3×','4× (default)','5×','6×']);
   await settings.locator('#documentPdfSampling').selectOption('1');
   await settings.waitForFunction(async()=>(await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.documentPreview.pdfSampling===1);
   await settings.reload();
@@ -555,6 +555,7 @@ try {
   await settings.reload();
   await settings.waitForFunction(()=>document.documentElement.lang==='zh-CN');
   assert.equal(await settings.locator('#documentPdfSamplingLabel').textContent(),'PDF 采样');
+  assert.equal(await settings.locator('#documentPdfSampling option[value="4"]').textContent(),'4×（默认）');
   await settings.locator('#documentPdfSampling').scrollIntoViewIfNeeded();
   await settings.screenshot({path:join(folder,'sampling-settings-zh.png')});
   await settings.locator('#documentPreviewEnabled').uncheck({force:true});

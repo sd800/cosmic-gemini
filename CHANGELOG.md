@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.31 — 2026-09-24
+
+- Improve temporary media-request isolation, image workspace cleanup, and document-specific XHS activity across delayed page operations.
+
 ## 9.8.30 — 2026-09-24
 
 - Improve navigation and tab-state handling across Website Fixer, Ad Marshal, and Website Knowledge Control, including separation of regular and private browsing rules.

@@ -11,6 +11,8 @@ const SESSION_PREFIX = 'xhsImageDarkModePage:';
 export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
   let localePromise = null;
   const pageStateQueue = createKeyedTaskQueue();
+  const syncGenerations = new Map();
+  let nextSyncGeneration = 0;
   const key = tabId => SESSION_PREFIX + tabId;
 
   function locale() {
@@ -99,11 +101,18 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
         await pageRuntimeHost.sync(product, context, false);
         return false;
       }
+      const generation = ++nextSyncGeneration;
+      syncGenerations.set(context.tabId, generation);
       const state = await product.state(settings, context.topUrl, context.tabId);
       const active = state.active;
-      if (active) await bindPageDocument(context.tabId, context.documentId);
+      if (active && syncGenerations.get(context.tabId) === generation) {
+        await bindPageDocument(context.tabId, context.documentId);
+      }
+      if (syncGenerations.get(context.tabId) !== generation) return false;
       await pageRuntimeHost.sync(product, context, active);
-      if (!active) await product.removeTab(context.tabId);
+      if (!active && syncGenerations.get(context.tabId) === generation) {
+        await product.removeTab(context.tabId, context.documentId);
+      }
       return active;
     },
     async handleMessage(message, context = {}) {
@@ -138,11 +147,13 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
       }
       throw new Error('XHS Image Dark Mode does not support this command.');
     },
-    async removeTab(tabId) {
+    async removeTab(tabId, documentId = '') {
       if (!Number.isInteger(tabId)) return;
+      if (!documentId) syncGenerations.delete(tabId);
       await pageStateQueue.run(tabId, async () => {
         const current = await readPageState(tabId);
         if (!Object.keys(current).length) return;
+        if (documentId && current.documentId && current.documentId !== documentId) return;
         await chrome.storage.session.remove(key(tabId));
         await platform.setFeatureActivity(tabId, product.id, false);
       });

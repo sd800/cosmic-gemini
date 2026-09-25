@@ -34,6 +34,20 @@ import {
   videoSessionKey
 } from '../../../core/video-download.js';
 
+export function mediaHeaderRule(id, urlFilter, referrer, extensionId) {
+  return {
+    id,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [{ operation: 'set', header: 'Referer', value: referrer }]
+    },
+    // Temporary media access belongs only to this extension's fetches. A
+    // website requesting the same URL must keep its own request headers.
+    condition: { urlFilter: `|${urlFilter}`, initiatorDomains: [extensionId], resourceTypes: ['xmlhttprequest'] }
+  };
+}
+
 export function createVideoDownloadProduct(platform, offscreen, observation) {
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi } = platform;
   const activeVideoProcessing = new Map();
@@ -317,15 +331,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         if (nextMediaHeaderRuleId > MEDIA_HEADER_RULE_MAX) nextMediaHeaderRuleId = MEDIA_HEADER_RULE_MIN;
       } while (existing.has(nextMediaHeaderRuleId));
       existing.add(nextMediaHeaderRuleId);
-      return {
-        id: nextMediaHeaderRuleId,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders',
-          requestHeaders: [{ operation: 'set', header: 'Referer', value: referrer }]
-        },
-        condition: { urlFilter, resourceTypes: ['xmlhttprequest'] }
-      };
+      return mediaHeaderRule(nextMediaHeaderRuleId, urlFilter, referrer, chrome.runtime.id);
     });
     const ruleIds = rules.map(rule => rule.id);
     await chrome.declarativeNetRequest.updateSessionRules({ addRules: rules });

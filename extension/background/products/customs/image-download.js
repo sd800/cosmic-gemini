@@ -570,10 +570,10 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     if (Number.isInteger(existing?.id)) {
       await chrome.tabs.update(existing.id, { active: true });
       if (Number.isInteger(existing.windowId)) await chrome.windows.update(existing.windowId, { focused: true });
-      return existing.id;
+      return { tabId: existing.id, created: false };
     }
     const opened = await chrome.tabs.create({ url: imageWorkspaceUrl(tabId, 'page') });
-    return opened.id;
+    return { tabId: opened.id, created: true };
   }
   
   async function openImageWorkspaceSidePanel(tabId) {
@@ -586,7 +586,8 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     if (preferredMode === 'page') {
       preparedImageSidePanels.delete(tabId);
       await disableImageSidePanel(tabId);
-      return { mode: 'page', workspaceTabId: await openImageWorkspacePage(tabId) };
+      const page = await openImageWorkspacePage(tabId);
+      return { mode: 'page', workspaceTabId: page.tabId, workspaceCreated: page.created };
     }
     await openImageWorkspaceSidePanel(tabId);
     return { mode: 'sidePanel', workspaceTabId: 0 };
@@ -816,9 +817,25 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     }
     if (message.type === 'UI_IMAGE_OPEN') {
       const tabId = Number(message.tabId);
-      const workspacePromise = openImageWorkspace(tabId, message.workspaceMode);
-      const sourceTabPromise = chrome.tabs.get(tabId);
-      const [workspace, sourceTab] = await Promise.all([workspacePromise, sourceTabPromise]);
+      let sourceTab, workspace;
+      if (message.workspaceMode === 'page') {
+        // A page workspace can wait for source validation before opening.
+        sourceTab = await chrome.tabs.get(tabId);
+        workspace = await openImageWorkspace(tabId, 'page');
+      } else {
+        // Side Panel opening needs the popup's user gesture. Start it before
+        // the first await, then clean it up if the source tab disappeared.
+        const workspacePromise = openImageWorkspace(tabId, message.workspaceMode);
+        const sourceTabPromise = chrome.tabs.get(tabId);
+        const [workspaceResult, sourceResult] = await Promise.allSettled([workspacePromise, sourceTabPromise]);
+        if (sourceResult.status === 'rejected') {
+          if (workspaceResult.status === 'fulfilled') await disableImageSidePanel(tabId);
+          throw sourceResult.reason;
+        }
+        if (workspaceResult.status === 'rejected') throw workspaceResult.reason;
+        workspace = workspaceResult.value;
+        sourceTab = sourceResult.value;
+      }
       const sourceUrl = String(sourceTab.url || '');
       try {
         await startImageSession(tabId, sourceUrl, sourceTab.title || '');
@@ -830,22 +847,31 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
           await saveImageSession(current);
         });
       } catch (error) {
-        if (workspace.mode === 'page' && Number.isInteger(workspace.workspaceTabId)) {
-          await chrome.tabs.remove(workspace.workspaceTabId).catch(() => {});
+        if (workspace.mode === 'page') {
+          if (workspace.workspaceCreated && Number.isInteger(workspace.workspaceTabId)) {
+            await chrome.tabs.remove(workspace.workspaceTabId).catch(() => {});
+          }
         } else await disableImageSidePanel(tabId);
         throw error;
       }
-      return { active: true, ...workspace };
+      return { active: true, mode: workspace.mode, workspaceTabId: workspace.workspaceTabId };
     }
     if (message.type === 'UI_IMAGE_OPEN_PAGE') {
       const tabId = Number(message.tabId);
-      const workspaceTabId = await openImageWorkspacePage(tabId);
-      await sessionUpdates.run(tabId, async () => {
-        const current = await readImageSession(tabId);
-        if (!current) throw new Error('Image Download is not active in this tab.');
-        current.workspaceTabId = workspaceTabId;
-        await saveImageSession(current);
-      });
+      if (!await readImageSession(tabId)) throw new Error('Image Download is not active in this tab.');
+      const page = await openImageWorkspacePage(tabId);
+      const workspaceTabId = page.tabId;
+      try {
+        await sessionUpdates.run(tabId, async () => {
+          const current = await readImageSession(tabId);
+          if (!current) throw new Error('Image Download is not active in this tab.');
+          current.workspaceTabId = workspaceTabId;
+          await saveImageSession(current);
+        });
+      } catch (error) {
+        if (page.created) await chrome.tabs.remove(workspaceTabId).catch(() => {});
+        throw error;
+      }
       return { active: true, mode: 'page', workspaceTabId };
     }
     if (message.type === 'UI_IMAGE_STATE') {

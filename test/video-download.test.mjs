@@ -26,6 +26,15 @@ import {
 import { md5 } from '../extension/core/md5.js';
 import { expandDashTemplate, parseIsoDuration } from '../extension/core/dash.js';
 import { unwrapObfuscatedHls } from '../extension/core/obfuscated-hls.js';
+import { mediaHeaderRule } from '../extension/background/products/customs/video-download.js';
+
+test('temporary video referrer rules affect only extension-initiated media requests', () => {
+  const rule = mediaHeaderRule(700001, 'https://media.example.com/path/*', 'https://example.com/', 'extension-id');
+  assert.equal(rule.condition.urlFilter, '|https://media.example.com/path/*');
+  assert.deepEqual(rule.condition.initiatorDomains, ['extension-id']);
+  assert.deepEqual(rule.condition.resourceTypes, ['xmlhttprequest']);
+  assert.equal(rule.action.requestHeaders[0].header, 'Referer');
+});
 import { youtubeCandidates } from '../extension/core/youtube-video.js';
 
 test('interrupted video processing recovers after a Service Worker restart', () => {

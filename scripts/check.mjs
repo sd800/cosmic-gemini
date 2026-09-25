@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.8.30');
+assert.equal(manifest.version, '9.8.31');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -366,7 +366,7 @@ assert.match(videoDownload, /mediaKey: candidate\.mediaKey \|\| `hls:/,
   'Expanded HLS formats must retain their parent media identity.');
 assert.match(videoDownload, /mediaKey: candidate\.mediaKey \|\| `dash:/,
   'Expanded DASH formats must retain their parent media identity.');
-assert.match(imageDownload, /const workspacePromise = openImageWorkspace\([\s\S]*?const sourceTabPromise = chrome\.tabs\.get\([\s\S]*?Promise\.all\(\[workspacePromise, sourceTabPromise\]\)/,
+assert.match(imageDownload, /const workspacePromise = openImageWorkspace\([\s\S]*?const sourceTabPromise = chrome\.tabs\.get\([\s\S]*?Promise\.allSettled\(\[workspacePromise, sourceTabPromise\]\)/,
   'Image Download must request its Side Panel before awaiting current-tab validation.');
 assert.match(imageWorkspace, /retryReadUntil\([\s\S]*?value => value\?\.active === true/,
   'Image Download must wait through the Side Panel and session-start handoff.');

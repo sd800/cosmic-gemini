@@ -818,6 +818,70 @@ test('XHS Image Dark Mode resets state only when a new document takes ownership'
   assert.equal(notifications, 3);
 });
 
+test('XHS Image Dark Mode ignores late cleanup from an older document', async () => {
+  const session = {};
+  globalThis.chrome = { storage: { session: {
+    async get(key) { return key in session ? { [key]: session[key] } : {}; },
+    async set(values) { Object.assign(session, values); },
+    async remove(key) { delete session[key]; }
+  } } };
+  const settings = normalizeSettings({ xhsImageDarkMode: { enabled: true } });
+  let releaseOld;
+  const oldWaiting = new Promise(resolve => { releaseOld = resolve; });
+  const product = createXhsImageDarkModeProduct({
+    async sync(_product, context) { if (context.documentId === 'old') await oldWaiting; }
+  }, {
+    async getLocale() { return 'en-US'; },
+    async readSettings() { return settings; },
+    notifyCentralUi() {},
+    async setFeatureActivity() {}
+  });
+  const stale = product.sync({ tabId: 37, frameId: 0, documentId: 'old',
+    topUrl: 'https://example.com/' }, settings);
+  await Promise.resolve();
+  const url = 'https://www.xiaohongshu.com/explore/example';
+  await product.sync({ tabId: 37, frameId: 0, documentId: 'new', topUrl: url }, settings);
+  await product.handleMessage({ type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
+    status: { sequence: 1, darkModeDetected: true, processing: true, intervened: true }
+  }, { sender: { frameId: 0, documentId: 'new', tab: { id: 37, url } } });
+  releaseOld();
+  await stale;
+  const state = await product.state(settings, url, 37);
+  assert.equal(state.intervened, true);
+  assert.equal(state.darkModeDetected, true);
+});
+
+test('XHS Image Dark Mode does not rebind an older document after a newer sync', async () => {
+  const session = {};
+  let releaseFirst;
+  const firstRead = new Promise(resolve => { releaseFirst = resolve; });
+  let reads = 0;
+  globalThis.chrome = { storage: { session: {
+    async get(key) { if (++reads === 1) await firstRead; return key in session ? { [key]: session[key] } : {}; },
+    async set(values) { Object.assign(session, values); },
+    async remove(key) { delete session[key]; }
+  } } };
+  const settings = normalizeSettings({ xhsImageDarkMode: { enabled: true } });
+  const product = createXhsImageDarkModeProduct({ async sync() {} }, {
+    async getLocale() { return 'en-US'; },
+    async readSettings() { return settings; },
+    notifyCentralUi() {},
+    async setFeatureActivity() {}
+  });
+  const url = 'https://www.xiaohongshu.com/explore/example';
+  const older = product.sync({ tabId: 38, frameId: 0, documentId: 'old', topUrl: url }, settings);
+  await product.removeTab(38);
+  await product.sync({ tabId: 38, frameId: 0, documentId: 'new', topUrl: url }, settings);
+  await product.handleMessage({ type: 'CG_XHS_IMAGE_DARK_MODE_STATUS',
+    status: { sequence: 1, darkModeDetected: true, intervened: true }
+  }, { sender: { frameId: 0, documentId: 'new', tab: { id: 38, url } } });
+  releaseFirst();
+  await older;
+  const state = await product.state(settings, url, 38);
+  assert.equal(state.intervened, true);
+  assert.equal(session['xhsImageDarkModePage:38'].documentId, 'new');
+});
+
 test('Page Display master authorization gates its independent top-frame visual features', async () => {
   let settings = normalizeSettings();
   const syncs = [];

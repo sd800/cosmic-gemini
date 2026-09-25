@@ -93,6 +93,94 @@ test('Image Download reclaims its side-panel path and never closes another produ
   } finally { globalThis.chrome = previous; }
 });
 
+test('Image Download does not open a workspace after its source tab disappears', async () => {
+  const previous = globalThis.chrome;
+  let queried = 0, opened = 0;
+  globalThis.chrome = {
+    tabs: {
+      async get() { throw new Error('Tab closed'); },
+      async query() { queried += 1; return []; },
+      async create() { opened += 1; return { id: 41 }; }
+    },
+    runtime: { getURL: path => `chrome-extension://test/${path}` }
+  };
+  try {
+    const product = createImageDownloadProduct({}, {}, {});
+    await assert.rejects(product.handleMessage({ type: 'UI_IMAGE_OPEN', tabId: 7,
+      workspaceMode: 'page' }, { sender: {} }), /Tab closed/);
+    assert.equal(queried, 0);
+    assert.equal(opened, 0);
+  } finally { globalThis.chrome = previous; }
+});
+
+test('Image Download cleans up a side panel opened during source-tab validation', async () => {
+  const previous = globalThis.chrome;
+  const calls = [];
+  let options = {};
+  globalThis.chrome = {
+    tabs: { async get() { calls.push('get'); throw new Error('Tab closed'); } },
+    sidePanel: {
+      async setOptions(value) { calls.push(`enabled:${value.enabled}`); options = { ...options, ...value }; },
+      async getOptions() { return options; },
+      async open() { calls.push('open'); }
+    }
+  };
+  try {
+    const product = createImageDownloadProduct({}, {}, {});
+    await assert.rejects(product.handleMessage({ type: 'UI_IMAGE_OPEN', tabId: 7 },
+      { sender: {} }), /Tab closed/);
+    assert.equal(calls[0], 'enabled:true', 'Side Panel setup starts before the tab read settles');
+    assert.ok(calls.includes('open'));
+    assert.equal(calls.at(-1), 'enabled:false');
+  } finally { globalThis.chrome = previous; }
+});
+
+test('Image Download cleans up only a workspace it created when opening fails', async () => {
+  const previous = globalThis.chrome;
+  const url = 'chrome-extension://test/workspaces/image-download/image-download.html?sourceTab=7&view=page';
+  let reuse = true;
+  const removed = [];
+  globalThis.chrome = {
+    tabs: {
+      async get() { return { id: 7, url: 'chrome://settings' }; },
+      async query() { return reuse ? [{ id: 40, url }] : []; },
+      async update() {},
+      async create() { return { id: 41 }; },
+      async remove(id) { removed.push(id); }
+    },
+    runtime: { getURL: path => `chrome-extension://test/${path}` }
+  };
+  try {
+    const product = createImageDownloadProduct({}, {}, {});
+    const message = { type: 'UI_IMAGE_OPEN', tabId: 7, workspaceMode: 'page' };
+    await assert.rejects(product.handleMessage(message, { sender: {} }), /unavailable on this page/);
+    assert.deepEqual(removed, [], 'a reused workspace belongs to the user');
+    reuse = false;
+    await assert.rejects(product.handleMessage(message, { sender: {} }), /unavailable on this page/);
+    assert.deepEqual(removed, [41], 'only the newly created workspace is removed');
+  } finally { globalThis.chrome = previous; }
+});
+
+test('Image Download does not create a page workspace for an ended session', async () => {
+  const previous = globalThis.chrome;
+  let opened = 0;
+  globalThis.chrome = {
+    storage: { session: { async get() { return {}; } } },
+    tabs: {
+      async query() { return []; },
+      async create() { opened += 1; return { id: 50 }; }
+    },
+    runtime: { getURL: path => `chrome-extension://test/${path}` }
+  };
+  try {
+    const product = createImageDownloadProduct({}, { async maybeClose() {} }, {});
+    await product.initialize();
+    await assert.rejects(product.handleMessage({ type: 'UI_IMAGE_OPEN_PAGE', tabId: 7 },
+      { sender: {} }), /not active/);
+    assert.equal(opened, 0);
+  } finally { globalThis.chrome = previous; }
+});
+
 test('quick page discovery returns direct image sources before source enrichment', () => {
   const priorDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const priorLocation = Object.getOwnPropertyDescriptor(globalThis, 'location');

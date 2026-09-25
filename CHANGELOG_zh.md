@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.31 — 2026-09-24
+
+- 改进临时媒体请求规则的隔离、图片工作区的失败清理，以及 XHS 功能在页面操作延迟时的文档状态处理。
+
 ## 9.8.30 — 2026-09-24
 
 - 改进 Website Fixer、Ad Marshal 和 Website Knowledge Control 的导航及标签页状态处理，并隔离普通窗口与无痕窗口的规则。

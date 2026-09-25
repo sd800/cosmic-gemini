@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.35 — 2026-09-25
+
+- Improve document preview recovery, independent download prompts, and image-capture isolation during navigation and interrupted operations.
+- Harden message validation and page activity handling, and expand automatic regression coverage.
+
 ## 9.8.33 — 2026-09-24
 
 - Update XHS image display icons and Chinese menu wording, and keep image controls stable when dismissing the context menu.

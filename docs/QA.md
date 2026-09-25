@@ -11,6 +11,8 @@ npm run check
 
 The focused suite covers configuration isolation, current-site overrides, exact and wildcard rule precedence, independent Any Copy runtimes, No Autoplay audio permission, direct media-play intent, Mailto Capture parsing and lifecycle cleanup, Page Display composition and cleanup, XHS text-image classification and photographic preservation, image grouping and original-source ranking, download-discovery lifecycle states, Bilibili calendar-day handling, locale selection, page runtimes, Manifest V3 permissions, local-only assets, script syntax, and interface constraints.
 
+`npm test` discovers every `test/*.test.mjs` file and runs the suites serially in separate processes, so new suites cannot be omitted from a manual import list or share their Chrome mocks. The lifecycle regressions include delayed old-document cleanup, repeated document prompts, cache-write rollback, reset during a document lookup, and screenshot navigation/session changes. Screenshot failures before commit must reclaim artifacts; optional activity/focus failures after commit must preserve them.
+
 ## Chrome checks
 
 1. Open `chrome://extensions`, enable Developer mode, and load the `extension` folder as an unpacked extension.

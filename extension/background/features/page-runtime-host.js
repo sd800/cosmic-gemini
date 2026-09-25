@@ -1,5 +1,6 @@
 export function createPageRuntimeHost(platform) {
   const pendingSyncs = new Map();
+  const pendingDocuments = new Map();
 
   function runtimeName(productId) {
     return String(productId).replace(/[A-Z]/g, match => `-${match.toLowerCase()}`);
@@ -80,7 +81,7 @@ export function createPageRuntimeHost(platform) {
     return results.some(result => result?.result === true);
   }
 
-  async function setRuntime(tabId, frameId, documentId, product, active, styleFiles) {
+  async function setRuntime(tabId, frameId, documentId, product, active, styleFiles, document) {
     const options = messageOptions(frameId, documentId);
     const target = executionTarget(tabId, frameId, documentId);
     const requestedStyles = requestedStyleFiles(product, styleFiles);
@@ -92,7 +93,7 @@ export function createPageRuntimeHost(platform) {
       );
       if (response?.disposed === true) {
         await removePageStyles(target, product);
-        if (frameId === 0) await platform.setFeatureActivity(tabId, product.id, false);
+        if (frameId === 0 && !document.retired) await platform.setFeatureActivity(tabId, product.id, false);
       }
       return;
     }
@@ -127,11 +128,23 @@ export function createPageRuntimeHost(platform) {
   async function sync(product, context, active, styleFiles = []) {
     const { tabId, frameId, documentId = '' } = context;
     const key = `${tabId}:${frameId}:${documentId}:${product.id}`;
+    const frameKey = `${tabId}:${frameId}:${product.id}`;
+    let document = pendingDocuments.get(frameKey);
+    if (!document || document.id !== documentId) {
+      if (document) document.retired = true;
+      document = { id: documentId, retired: false, pending: 0 };
+      pendingDocuments.set(frameKey, document);
+    }
+    document.pending += 1;
     const previous = pendingSyncs.get(key) || Promise.resolve();
-    const current = previous.catch(() => {}).then(() => setRuntime(tabId, frameId, documentId, product, active, styleFiles));
+    const current = previous.catch(() => {}).then(() => setRuntime(tabId, frameId, documentId, product, active, styleFiles, document));
     pendingSyncs.set(key, current);
     try { await current; }
-    finally { if (pendingSyncs.get(key) === current) pendingSyncs.delete(key); }
+    finally {
+      if (pendingSyncs.get(key) === current) pendingSyncs.delete(key);
+      document.pending -= 1;
+      if (!document.pending && pendingDocuments.get(frameKey) === document) pendingDocuments.delete(frameKey);
+    }
     return active;
   }
 

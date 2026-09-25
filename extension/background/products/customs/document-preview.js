@@ -7,6 +7,7 @@ import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core
 import { translator } from '../../../shared/localization.js';
 import { showDocumentChoice } from '../../../content/document-preview-dialog.js';
 import { createDocumentRequestIngress } from '../../features/document-request-ingress.js';
+import { formatDocumentBytes } from '../../../core/document-preview.js';
 
 export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const store = dependencies.store || documentStore;
@@ -112,7 +113,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     await initialize();
     const doc = state.documents.find(value => value.id === id);
     if (!doc || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= Date.now())
-      || !(await tabsInContext()).some(tab => siteKey(tab.url) === doc.site)) throw Error('documentExpired');
+      || !(await tabsInContext()).some(tab => siteKey(tab.url) === doc.site)
+      || !state.documents.includes(doc)) throw Error('documentExpired');
     return doc;
   }
   async function prepareDocument(id) {
@@ -133,16 +135,25 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         });
         const buffer = await readDocumentResponse(response, doc.format);
         const blob = new Blob([buffer], { type: DOCUMENT_TYPES[doc.format] });
-        return serial(async () => {
+        return await serial(async () => {
           const current = await currentDocument(doc.id);
-          if (controller.signal.aborted) throw Error('documentPreviewDisabled');
+          if (controller.signal.aborted || !(await platform.readSettings()).documentPreview?.enabled) {
+            throw Error('documentPreviewDisabled');
+          }
           const existing = await store.get(current.id);
           if (current.prepared === true && existing?.blobUrl && existing.context === contextName && existing.epoch === state.epoch) return current;
           const prepared = state.documents.filter(value => value.prepared === true);
           if (prepared.length >= 24 || prepared.reduce((sum, value) => sum + value.size, 0) + blob.size > CACHE_LIMIT) throw Error('documentCacheFull');
           await store.put({ ...current, size: blob.size, prepared: true, blob, context: contextName, epoch: state.epoch });
+          const previousSize = current.size;
           current.size = blob.size; current.prepared = true;
-          await persist(); await scheduleCleanup();
+          try { await persist(); }
+          catch (error) {
+            current.size = previousSize; current.prepared = false;
+            await store.remove(current.id).catch(() => {});
+            throw error;
+          }
+          await scheduleCleanup();
           return current;
         });
       } finally { captures.delete(controller); }
@@ -171,10 +182,10 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   async function present(doc, sourceTabId) {
     const choice = state.choices[doc.site];
     if (choice === 'preview' || choice === 'download') return open(doc, choice, sourceTabId);
-    const t = translator(await platform.getLocale());
+    const locale = await platform.getLocale(), t = translator(locale);
     const payload = {
       id: doc.id, filename: doc.filename, size: doc.size,
-      sizeLabel: doc.size > 0 ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(doc.size / 1024) + ' KiB' : '',
+      sizeLabel: doc.size > 0 ? formatDocumentBytes(doc.size, locale) : '',
       labels: { title: 'Document Preview', close: t('documentClose'), preview: t('documentPreviewAction'), download: t('documentDownloadAction'), remember: t('documentRemember'), failed: t('documentActionFailed'), loading: t('documentLoading') }
     };
     try {
@@ -209,11 +220,15 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         const sites = await prune();
         const settings = (await platform.readSettings()).documentPreview;
         if (!sites.has(site) || !settings?.enabled || documentPreviewWhitelisted(tab.url, settings.whitelistDomains) || released) return;
-        const existing = state.documents.find(doc => doc.site === site && doc.url === url);
+        // Pending choices have independent lifetimes: dismissing one prompt
+        // must not invalidate another prompt for the same download URL.
+        const filename = documentFilename(item), format = documentFormat(filename);
+        const existing = state.documents.find(doc => doc.prepared === true && doc.site === site
+          && doc.url === url && doc.filename === filename && doc.format === format);
         if (existing) { savedDoc = existing; savedDoc.sourceTabId = tab.id; await persist(); }
         else {
           if (state.documents.length >= 64) return;
-          savedDoc = { id: crypto.randomUUID(), site, sourceTabId: tab.id, filename: documentFilename(item), format: documentFormat(documentFilename(item)), size: reportedSize, url, prepared: false, closedAt: Date.now() };
+          savedDoc = { id: crypto.randomUUID(), site, sourceTabId: tab.id, filename, format, size: reportedSize, url, prepared: false, closedAt: Date.now() };
           state.documents.push(savedDoc); await persist();
           await scheduleCleanup();
         }

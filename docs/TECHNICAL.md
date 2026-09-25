@@ -22,6 +22,10 @@ Each injected feature bridge retrieves only its current page state through the a
 
 Settings pages contain their complete first-frame structure. A synchronous locale preloader applies the cached Chrome UI locale and cached control values before the page becomes visible. Asynchronous storage then confirms that selection without rebuilding the initial view. The All Settings page also renders its reset control in the first frame.
 
+The message ingress rejects malformed and unregistered message types before product dispatch. Page events require a valid HTTP(S) tab sender; extension UI and offscreen progress retain their separate sender boundaries. Register any new page event explicitly in `background/message-source.js`.
+
+Page-runtime cleanup remains document-targeted. Pending operations in a retired document cannot clear the newer document's activity; the guard retains only in-flight work and is released when it settles.
+
 ## Native Scroll
 
 Standard protection prevents matching page-level wheel and touch events from reaching website handlers without cancelling the browser's native default action. It preserves pinch zoom, horizontal gestures, interactive controls, maps, editors, media controls, and ordinary nested scroll areas.
@@ -155,6 +159,8 @@ Rendering performance is bounded at conversion time: Office image reads cache on
 
 All converters run in the dedicated 15-second worker with a 24-MiB input and 48-MiB final-output ceiling, plus format-specific tree, record, cell, slide and expansion bounds. HTML output is always rebuilt using the shared allowlist before reaching an opaque-origin frame that runs only fixed packaged UI code. Remote images, styles, fonts, embedded frames and document-linked data are not loaded; retained external links require confirmation through External Links Capture. Both the source dialog and preview header expose an indeterminate loading line with a localized status and no numeric percentage; reduced-motion preferences use a stationary line. Success, failure and expiry hide the line.
 
+Pending document prompts own separate records, even when their source URLs match. Prepared bytes may be reused only for the same site, URL, filename and format. Failed preparation metadata writes roll back the new blob and leave the prompt retryable. Document lookups recheck membership after asynchronous tab queries, so reset/expiry cannot return a removed record. Preparation stays registered for cancellation until its queued commit finishes and rechecks the feature before storing bytes.
+
 ### PDF Viewer (internal)
 
 `workspaces/pdf-viewer` is a reusable Customs reading capability, not a new setting, page runtime, download interceptor or independent product policy. Document Preview dynamically imports its host only for PDF bytes; the host accepts a validated ArrayBuffer and explicit callbacks for download and appearance. Session authorization, original-byte ownership, cache expiry and download decisions remain with Document Preview. It does not import a sibling product or add Central routes.
@@ -216,6 +222,8 @@ Any Copy Enhanced creates a closed-Shadow-DOM reading layer over the original pa
 Any Copy uses a persistent website-rule list. Any Copy Enhanced uses a tab-keyed `chrome.storage.session` state that is removed when the tab closes. They retain separate main-world runtimes, isolated-world bridges, and per-tab intervention flags. Either product can be active by itself, or both can be active together. The static reader visually takes priority while it is present, and turning it off leaves Any Copy unchanged.
 
 ## Image Download
+
+Image-area captures recheck the visible tab's URL after capture and the original session/page before committing the processed artifact. Locale follows the current browsing context. Failed captures reclaim uncommitted artifacts; optional activity updates and workspace focusing cannot undo a committed capture.
 
 Image Download is activated for one source tab from the popup. Its workspace header identifies Cosmic Gemini first, then Image Download, followed by the product wordmark. While the popup loads, the request is routed through Customs Province and the Image Download product prepares a tab-specific `chrome.sidePanel` path before the product control becomes available. The user action therefore opens an already-configured panel instead of racing panel configuration against `chrome.sidePanel.open()`. A transient Side Panel error remains an error and never opens or focuses another tab. A normal extension tab is used only when selected in Settings or requested from the Side Panel. The same workspace document supports both surfaces, with a synchronous view preloader selecting the narrow Side Panel layout before CSS renders.
 

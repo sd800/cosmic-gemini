@@ -4,6 +4,15 @@ import { validateMessageSource, validatePortSource } from '../extension/backgrou
 
 const extensionBase = 'chrome-extension://cosmic-gemini/';
 
+test('central rejects malformed and unregistered messages before product dispatch', () => {
+  const sender = { url: 'https://example.com/', tab: { id: 7 } };
+  for (const message of [null, [], {}, { type: 5 }, { type: '' }, { type: 'CG_UNKNOWN' }]) {
+    assert.throws(() => validateMessageSource(message, sender, extensionBase), /message/i);
+  }
+  assert.throws(() => validateMessageSource({ type: 'CG_SYNC_CENTRAL' },
+    { ...sender, tab: { id: -1 } }, extensionBase), /webpage runtimes/i);
+});
+
 test('central accepts UI commands only from its own extension pages', () => {
   assert.equal(validateMessageSource({ type: 'UI_GET' }, { url: `${extensionBase}popup/index.html` }, extensionBase), true);
   assert.throws(() => validateMessageSource(

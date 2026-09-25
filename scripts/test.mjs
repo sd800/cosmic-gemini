@@ -1,39 +1,13 @@
-import '../test/config.test.mjs';
-import '../test/etld.test.mjs';
-import '../test/website-rule-input.test.mjs';
-import '../test/locale.test.mjs';
-import '../test/native-scroll-runtime.test.mjs';
-import '../test/no-autoplay-runtime.test.mjs';
-import '../test/mailto-capture-runtime.test.mjs';
-import '../test/document-preview.test.mjs';
-import '../test/pdf-viewer.test.mjs';
-import '../test/clipboard-protect-runtime.test.mjs';
-import '../test/access-control.test.mjs';
-import '../test/lang-google.test.mjs';
-import '../test/chinese-response-claude-runtime.test.mjs';
-import '../test/website-knowledge-control.test.mjs';
-import '../test/page-display-runtime.test.mjs';
-import '../test/xhs-image-dark-mode.test.mjs';
-import '../test/any-copy-runtime.test.mjs';
-import '../test/operations-products.test.mjs';
-import '../test/ad-marshal.test.mjs';
-import '../test/ad-marshal-runtime.test.mjs';
-import '../test/bili-daily-login.test.mjs';
-import '../test/video-download.test.mjs';
-import '../test/twitter-video.test.mjs';
-import '../test/image-download.test.mjs';
-import '../test/download-session.test.mjs';
-import '../test/customs-observation.test.mjs';
-import '../test/customs-response-ingress.test.mjs';
-import '../test/customs-offscreen.test.mjs';
-import '../test/platform-settings.test.mjs';
-import '../test/ui-retry.test.mjs';
-import '../test/settings-page.test.mjs';
-import '../test/keyed-task-queue.test.mjs';
-import '../test/message-source.test.mjs';
-import '../test/page-runtime-host.test.mjs';
-import '../test/central-page.test.mjs';
+import { readdirSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-import '../test/follow-list-instagram.test.mjs';
-
-import '../test/leetcode-dark-mode.test.mjs';
+// Discover every suite, and isolate its Chrome mocks from other suites.
+// Run serially to keep resource usage predictable.
+const directory = new URL('../test/', import.meta.url);
+const files = readdirSync(directory).filter(name => name.endsWith('.test.mjs')).sort()
+  .map(name => fileURLToPath(new URL(name, directory)));
+if (!files.length) throw new Error('No test suites found.');
+const child = spawn(process.execPath, ['--test', '--test-concurrency=1', ...files], { stdio: 'inherit' });
+child.on('error', error => { console.error(error); process.exitCode = 1; });
+child.on('exit', code => { process.exitCode = code ?? 1; });

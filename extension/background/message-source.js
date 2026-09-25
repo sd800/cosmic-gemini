@@ -18,14 +18,17 @@ const PAGE_MESSAGE_TYPES = new Set([
 const OFFSCREEN_MESSAGE_TYPES = new Set(['CG_VIDEO_DOWNLOAD_PROGRESS']);
 
 function isWebPageSender(sender) {
-  if (!Number.isInteger(sender?.tab?.id)) return false;
+  if (!Number.isInteger(sender?.tab?.id) || sender.tab.id < 0) return false;
   try {
     return ['http:', 'https:'].includes(new URL(String(sender.url || '')).protocol);
   } catch { return false; }
 }
 
 export function validateMessageSource(message, sender, extensionBase) {
-  const type = String(message?.type || '');
+  if (!message || typeof message !== 'object' || Array.isArray(message) || typeof message.type !== 'string') {
+    throw new Error('Invalid extension message.');
+  }
+  const type = message.type;
   const senderUrl = String(sender?.url || '');
   if (type.startsWith('UI_')) {
     if (!senderUrl.startsWith(extensionBase)) throw new Error('Extension commands are available only to extension pages.');
@@ -41,7 +44,7 @@ export function validateMessageSource(message, sender, extensionBase) {
     }
     return true;
   }
-  return true;
+  throw new Error('Unknown extension message.');
 }
 
 export function validatePortSource(port, extensionBase) {

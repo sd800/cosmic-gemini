@@ -211,16 +211,23 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     return session;
   }
 
-  async function addImageCandidates(tabId, rawCandidates) {
+  async function addImageCandidates(tabId, rawCandidates, expectedCapture = null) {
     if (!Array.isArray(rawCandidates)) return readImageSession(tabId);
     const session = await sessionUpdates.run(tabId, async () => {
       const current = await readImageSession(tabId);
       if (!current) return null;
+      if (expectedCapture) {
+        const live = await chrome.tabs.get(tabId);
+        if (current.pageUrl !== expectedCapture.pageUrl || current.startedAt !== expectedCapture.startedAt
+          || live.url !== expectedCapture.pageUrl || live.pendingUrl) return null;
+      }
       mergeCandidates(current, rawCandidates);
       await saveImageSession(current);
       return current;
     });
-    if (session) await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, session.status === 'found');
+    if (session) {
+      try { await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, session.status === 'found'); } catch {}
+    }
     return session;
   }
 
@@ -460,15 +467,17 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     if (!session) throw new Error('Image Download is not active in this tab.');
     if (expectedPageUrl && session.pageUrl !== expectedPageUrl) throw new Error('The source page changed before the capture completed.');
     const tab = await chrome.tabs.get(tabId);
-    if (expectedPageUrl && tab.url !== expectedPageUrl) throw new Error('The source page changed before the capture completed.');
+    if (tab.pendingUrl || tab.url !== session.pageUrl || (expectedPageUrl && tab.url !== expectedPageUrl)) {
+      throw new Error('The source page changed before the capture completed.');
+    }
     if (!tab.active || !Number.isInteger(tab.windowId)) throw new Error('Keep the source tab visible while capturing an area.');
     const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
     const [visibleTab] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
-    if (visibleTab?.id !== tabId) throw new Error('The source tab changed before the capture completed.');
+    if (visibleTab?.id !== tabId || visibleTab.url !== session.pageUrl || visibleTab.pendingUrl) {
+      throw new Error('The source tab changed before the capture completed.');
+    }
+    const captureTitle = normalizeLocale(await platform.getLocale()) === 'zh-CN' ? '截取的区域' : 'Captured area';
     const artifact = await sendImageArtifact({ type: 'CG_IMAGE_CROP_CAPTURE', dataUrl, rect });
-    const storedLocale = await chrome.storage.local.get('interfaceLocale');
-    const captureTitle = normalizeLocale(storedLocale.interfaceLocale || chrome.i18n.getUILanguage()) === 'zh-CN'
-      ? '截取的区域' : 'Captured area';
     const artifactKey = `imageCaptureArtifact:${tabId}:${artifact.artifactId}`;
     try {
       await chrome.storage.session.set({
@@ -485,7 +494,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         originalHint: 8,
         title: captureTitle,
         artifactId: artifact.artifactId
-      }]);
+      }], session);
       if (!updatedSession) throw new Error('The Image Download session ended before the capture was saved.');
       offscreen.releaseArtifact(artifact.artifactId);
     } catch (error) {
@@ -494,14 +503,17 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       offscreen.releaseArtifact(artifact.artifactId);
       throw error;
     }
-    const updated = await readImageSession(tabId);
-    if (Number.isInteger(updated?.workspaceTabId)) {
-      const workspace = await chrome.tabs.get(updated.workspaceTabId).catch(() => null);
-      if (Number.isInteger(workspace?.id)) {
-        await chrome.tabs.update(workspace.id, { active: true });
-        if (Number.isInteger(workspace.windowId)) await chrome.windows.update(workspace.windowId, { focused: true });
+    // The capture is already committed; optional workspace focus cannot undo it.
+    try {
+      const updated = await readImageSession(tabId);
+      if (Number.isInteger(updated?.workspaceTabId)) {
+        const workspace = await chrome.tabs.get(updated.workspaceTabId).catch(() => null);
+        if (Number.isInteger(workspace?.id)) {
+          await chrome.tabs.update(workspace.id, { active: true });
+          if (Number.isInteger(workspace.windowId)) await chrome.windows.update(workspace.windowId, { focused: true });
+        }
       }
-    }
+    } catch {}
     return artifact;
   }
   
@@ -811,7 +823,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   async function handleMessage(message, context) {
     const senderTabId = context.sender.tab?.id;
     if (message.type === 'CG_IMAGE_CAPTURE_RECT') {
-      if (!Number.isInteger(senderTabId)) throw new Error('The image source tab is unavailable.');
+      if (!Number.isInteger(senderTabId) || context.sender.frameId !== 0) throw new Error('The image source tab is unavailable.');
       const artifact = await completeImageCapture(senderTabId, message.rect || {}, String(context.sender.url || ''));
       return { captured: true, artifactId: artifact.artifactId };
     }

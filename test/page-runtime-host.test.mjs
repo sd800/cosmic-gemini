@@ -91,6 +91,30 @@ test('an existing bridge confirms inactive cleanup before toolbar activity is cl
   assert.equal(activityWrites, 1);
 });
 
+test('delayed cleanup in an old document cannot erase the new document activity', async () => {
+  let release, stopping;
+  const stopped = new Promise(resolve => { stopping = resolve; });
+  const reply = new Promise(resolve => { release = resolve; });
+  let active = true;
+  globalThis.chrome = { scripting: { async executeScript() { return [{ result: true }]; } } };
+  const host = createPageRuntimeHost({
+    async sendTabMessage(_tabId, message) {
+      if (message.type === 'CG_STOP_CENTRAL_FEATURE') { stopping(); return reply; }
+      active = true;
+      return {};
+    },
+    async setFeatureActivity(_tabId, _featureId, value) { active = value; }
+  });
+  const older = host.sync(product, { tabId: 9, frameId: 0, documentId: 'old' }, false);
+  await stopped;
+  await host.sync(product, { tabId: 9, frameId: 0, documentId: 'new' }, true);
+  release({ disposed: true });
+  await older;
+  assert.equal(active, true);
+  await host.sync(product, { tabId: 9, frameId: 0, documentId: 'new' }, false);
+  assert.equal(active, false, 'ordinary current-document cleanup still clears activity');
+});
+
 test('products that require configuration wait for the page bridge to acknowledge it', async () => {
   const acknowledgedProduct = { ...product, awaitConfiguration: true };
   let messages = 0;

@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, normalizeSettings } from '../extension/core/config.js
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { formatDocumentBytes, inspectOffice, validateOfficeContent, documentFilename, documentKind, DOCUMENT_TYPES, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview.js';
 import { siteKey } from '../extension/core/site-key.js';
+import { DOCUMENT_PREVIEW_PATH } from '../extension/core/document-preview.js';
 import { createDocumentRequestIngress } from '../extension/background/features/document-request-ingress.js';
 import { createDocumentPreviewProduct } from '../extension/background/products/customs/document-preview.js';
 import { createCustomsProvince } from '../extension/background/provinces/customs.js';
@@ -174,12 +175,85 @@ test('dismissing an accidental document prompt removes metadata without fetching
   await assert.rejects(env.choose(doc),/documentExpired/);
 });
 
+test('pending prompts for a repeated document URL have independent lifetimes', async () => {
+  const env = environment();
+  await env.capture({ totalBytes: 1234 }); await env.settle();
+  assert.equal(env.calls.find(value => value[0] === 'dialog')[1].sizeLabel, '1.2 KB');
+  const first = env.documents()[0];
+  await env.capture({ id: 2 }); await env.settle();
+  const second = env.documents().at(-1);
+  assert.notEqual(first.id, second.id);
+  await env.choose(first, 'dismiss');
+  await env.choose(second);
+  assert.equal(env.files.size, 1);
+  assert.equal(env.documents()[0].id, second.id);
+
+  await env.capture({ id: 3, filename: 'different.pdf' }); await env.settle();
+  assert.equal(env.documents().length, 2, 'a reused endpoint cannot return a cached file of another format');
+  assert.equal(env.documents().at(-1).format, 'pdf');
+});
+
+test('a failed preparation metadata write rolls back bytes and remains retryable', async () => {
+  const env = environment(); await env.capture(); await env.settle();
+  const save = chrome.storage.session.set;
+  let fail = true;
+  chrome.storage.session.set = async value => {
+    if (fail && value['documentPreview:regular']?.documents.some(doc => doc.prepared)) {
+      fail = false; throw Error('storage unavailable');
+    }
+    return save(value);
+  };
+  const put = env.store.put;
+  env.store.put = async value => {
+    assert.equal(env.files.has(value.id), false, 'the real cache refuses to replace an existing upload');
+    return put(value);
+  };
+  await assert.rejects(env.choose(), /storage unavailable/);
+  assert.equal(env.files.size, 0);
+  assert.equal(env.documents()[0].prepared, false);
+  await env.choose();
+  assert.equal(env.documents()[0].prepared, true);
+});
+
+test('a document read waiting on tabs cannot outlive a completed reset', async () => {
+  const env = environment(); await env.capture(); await env.settle();
+  const doc = env.documents()[0];
+  let release, entered;
+  const waiting = new Promise(resolve => { entered = resolve; });
+  const query = chrome.tabs.query;
+  chrome.tabs.query = async () => {
+    chrome.tabs.query = query;
+    entered();
+    return new Promise(resolve => { release = () => resolve(env.tabs); });
+  };
+  const result = env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, {
+    sender: { url: chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#id=' + doc.id }
+  });
+  const rejected = assert.rejects(result, /documentExpired/);
+  await waiting;
+  await env.product.reset();
+  release();
+  await rejected;
+});
+
 test('turning Document Preview off prevents an outstanding metadata prompt from creating a cache', async () => {
   const env = environment(); await env.capture(); await env.settle();
   const doc = env.documents()[0];
   await env.product.handleMessage({type:'UI_SET_ENABLED',enabled:false},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
   await assert.rejects(env.choose(doc),/documentPreviewDisabled/);
   assert.equal(env.files.size,0); assert.ok(!env.calls.includes('fetch'));
+});
+
+test('preparation rechecks a disabled setting after the response finishes', async () => {
+  const env = environment({ fetchResult: async () => {
+    await env.platform.mutateSettings(settings => ({ ...settings,
+      documentPreview: { ...settings.documentPreview, enabled: false } }));
+    return new Response(sampleDocx());
+  } });
+  await env.capture(); await env.settle();
+  await assert.rejects(env.choose(), /documentPreviewDisabled/);
+  assert.equal(env.files.size, 0);
+  assert.equal(env.documents()[0].prepared, false);
 });
 
 test('website choice spans subdomains and ends only after the last matching tab leaves', async () => {

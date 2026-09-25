@@ -76,7 +76,10 @@ test('quoted phrases, unsupported lists and literal operator-like search text re
   assert.equal(new URL(rewriteGoogleSearchUrl(search('lang:zh'))).searchParams.get('q'), '');
 });
 
-test('Standing Province saves Google language authorization independently, including settings cache', async () => {
+test('Standing Province saves Google language authorization independently, including settings cache', async t => {
+  const previousChrome = globalThis.chrome;
+  t.after(() => { globalThis.chrome = previousChrome; });
+  globalThis.chrome = { webRequest: {} };
   let settings = normalizeSettings();
   assert.equal(settings.langGoogle.enabled, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.langGoogle.enabled, false);

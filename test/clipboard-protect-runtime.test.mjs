@@ -152,7 +152,10 @@ test('disabling and disposing restore hooks, while cached page wrappers become i
   for (const list of f.listeners.values()) assert.equal(list.length, 0);
 });
 
-test('Clipboard Protect has an independent Standing authorization and saved switch', async () => {
+test('Clipboard Protect has an independent Standing authorization and saved switch', async t => {
+  const previousChrome = globalThis.chrome;
+  t.after(() => { globalThis.chrome = previousChrome; });
+  globalThis.chrome = { webRequest: {} };
   let settings = normalizeSettings({ nsna: { whitelistRules: ['*.example.com'] } });
   assert.equal(clipboardProtectState(settings, 'https://example.com').active, false);
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.clipboardProtect.enabled, false);

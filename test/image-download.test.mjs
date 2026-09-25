@@ -223,3 +223,63 @@ test('quick page discovery returns direct image sources before source enrichment
     else delete globalThis.location;
   }
 });
+
+test('area captures reject stale pages and sessions and release uncommitted artifacts', async () => {
+  const originalChrome = globalThis.chrome;
+  try {
+    for (const phase of ['capture', 'processing', 'locale', 'saved']) {
+      const pageUrl = 'https://example.com/source';
+      const tab = { id: 7, url: pageUrl, active: true, windowId: 1 };
+      const saved = { 'imageDownloadSession:7': {
+        active: true, tabId: 7, pageUrl, startedAt: 10, candidates: [], scanState: 'paused', workspaceTabId: 9
+      } };
+      let created = 0, cleaned = 0, released = 0;
+      globalThis.chrome = {
+        storage: { session: {
+          get: async key => structuredClone(key === null ? saved : { [key]: saved[key] }),
+          set: async value => Object.assign(saved, structuredClone(value)),
+          remove: async key => { delete saved[key]; }
+        } },
+        tabs: {
+          query: async () => [{ ...tab }],
+          get: async id => ({ ...tab, id }),
+          captureVisibleTab: async () => {
+            if (phase === 'capture') tab.url = 'https://different.test/';
+            return 'data:image/png;base64,YQ==';
+          },
+          update: async () => { throw Error('optional focus failed'); }
+        }
+      };
+      const product = createImageDownloadProduct({
+        getLocale: async () => { if (phase === 'locale') throw Error('locale unavailable'); return 'zh-CN'; },
+        setFeatureActivity: async () => { throw Error('optional activity failed'); },
+        notifyCentralUi() {}
+      }, {
+        maybeClose: async () => {},
+        sendImageArtifact: async () => {
+          created += 1;
+          if (phase === 'processing') saved['imageDownloadSession:7'].startedAt = 20;
+          return { artifactId: 'area', url: 'blob:chrome-extension://test/area', width: 10, height: 10, bytes: 100 };
+        },
+        sendImage: async () => { cleaned += 1; },
+        releaseArtifact() { released += 1; }
+      }, { setCollecting() {} });
+      await product.initialize();
+      const capture = product.handleMessage({ type: 'CG_IMAGE_CAPTURE_RECT', rect: {} }, {
+        sender: { url: pageUrl, frameId: 0, tab: { id: 7 } }
+      });
+      if (phase === 'saved') {
+        assert.equal((await capture).captured, true);
+        assert.equal(saved['imageDownloadSession:7'].candidates[0].title, '截取的区域');
+        assert.equal(cleaned, 0, 'bookkeeping errors must not delete a saved capture');
+      } else {
+        await assert.rejects(capture, /changed|ended|locale/);
+        assert.equal(saved['imageDownloadSession:7'].candidates.length, 0);
+        assert.equal(cleaned, phase === 'processing' ? 1 : 0);
+        assert.equal(saved['imageCaptureArtifact:7:area'], undefined);
+      }
+      assert.equal(created, phase === 'processing' || phase === 'saved' ? 1 : 0);
+      assert.equal(released, created);
+    }
+  } finally { globalThis.chrome = originalChrome; }
+});

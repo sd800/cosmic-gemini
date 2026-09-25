@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.51 — 2026-09-25
+
+- 将 Translate Override 设置页功能图标的后层页面改为空心轮廓。
+
 ## 9.8.50 — 2026-09-25
 
 - 优化 Translate Override 设置页功能图标的填充样式。

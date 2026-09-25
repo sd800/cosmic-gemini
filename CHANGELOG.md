@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.51 — 2026-09-25
+
+- Adjust the rear sheet of the Translate Override settings icon to an outline.
+
 ## 9.8.50 — 2026-09-25
 
 - Refine the filled appearance of the Translate Override settings icon.

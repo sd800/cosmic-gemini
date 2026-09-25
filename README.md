@@ -120,7 +120,7 @@ Bilibili gives every signed-in account one coin for completing its daily login. 
 
 #### Dark Mode for LeetCode Explore
 
-Read LeetCode Explore courses, lessons, and exercises in dark colors when LeetCode’s own dark mode is on. This optional feature is off by default and leaves the LeetCode Explore landing page unchanged.
+Read LeetCode Explore courses, lessons, and exercises in dark colors when LeetCode’s own dark mode is on. Choose a gentler white text tone for reading. This optional feature is off by default and leaves the LeetCode Explore landing page unchanged.
 
 #### Chinese Response Display Optimization for Claude
 

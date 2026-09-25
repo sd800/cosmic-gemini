@@ -1,5 +1,5 @@
-/* Only the legacy LeetCode Explore surfaces; images, video and course artwork stay intact. */
-:root[data-cg-leetcode-dark] { color-scheme: dark !important; --cg-lc-bg: #1a1a1a; --cg-lc-surface: #242424; --cg-lc-raised: #2c2c2c; --cg-lc-text: #d8d8d8; --cg-lc-muted: #aaa; --cg-lc-line: #424242; }
+/* Scoped LeetCode Explore surfaces; no inversion of artwork or media. */
+:root[data-cg-leetcode-dark] { color-scheme: dark !important; --cg-lc-bg: #1a1a1a; --cg-lc-surface: #242424; --cg-lc-raised: #2c2c2c; --cg-lc-text: var(--cg-lc-tone-text, #d8d8d8); --cg-lc-muted: #aaa; --cg-lc-line: #424242; }
 :root[data-cg-leetcode-dark] body { background-color: var(--cg-lc-bg) !important; color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] #MathJax_Message { background-color: var(--cg-lc-surface) !important; color: var(--cg-lc-text) !important; border-color: var(--cg-lc-line) !important; }
 :root[data-cg-leetcode-dark] :is(.content-wrapper, .explore-detail-base, .explore-detail, .explore-detail-body-base, .content-viewer-base, .content-base, .viewer-base, .question-base, .question-wrapper, .article-base, .playground-mini-base, .card-intro-base) { background-color: var(--cg-lc-bg) !important; color: var(--cg-lc-text) !important; }
@@ -47,3 +47,26 @@
 :root[data-cg-leetcode-dark] :is(.cm-def,.cm-variable-2,.cm-property,.cm-type) { color: #96c8ef !important; }
 :root[data-cg-leetcode-dark] :is(.cm-variable,.cm-operator,.cm-bracket) { color: var(--cg-lc-text) !important; }
 :root[data-cg-leetcode-dark] .cm-comment { color: #a1aa98 !important; }
+
+/* Independent white cap, owned and removed with this product, not White Softer. */
+[data-cg-leetcode-white-cap] {
+  all: initial !important;
+  display: none !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  contain: strict !important;
+  /* Per-channel darken caps whites without lifting black or multiplying every pixel. */
+  mix-blend-mode: darken !important;
+  background-color: var(--cg-white-cap-color) !important;
+}
+[data-cg-leetcode-white-cap]:popover-open { display: block !important; }
+[data-cg-leetcode-white-cap]::backdrop { display: none !important; }

@@ -1,5 +1,5 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeStayOnPageCommand, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
@@ -95,6 +95,7 @@ document.addEventListener('keydown', event => {
 function applyLocale() {
   root.lang = locale;
   t = translator(locale);
+  WHITE_TONES.populateMenus(document, t);
   localizeDocument(t);
   document.title = 'Cosmic Gemini · ' + PRODUCT_META[featureId].name;
   const language = document.querySelector('#language');
@@ -262,7 +263,7 @@ function render() {
     const preference = (states?.preferences || states)?.whiteSofter;
     whiteSofterEnabled.checked = preference?.enabled === true;
     document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
-    document.querySelector('#whiteSofterTone').value = ['warm-minus-1', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(preference?.tone) ? preference.tone : 'warm';
+    document.querySelector('#whiteSofterTone').value = normalizeWhiteSofterTone(preference?.tone);
   }
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) {
@@ -274,7 +275,12 @@ function render() {
   }
   const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
-  if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.checked = (states?.preferences || states)?.leetcodeDarkMode?.enabled === true;
+  if (leetcodeDarkModeEnabled) {
+    const preference = (states?.preferences || states)?.leetcodeDarkMode;
+    leetcodeDarkModeEnabled.checked = preference?.enabled === true;
+    document.querySelector('#leetcodeDarkModeOptions').disabled = !leetcodeDarkModeEnabled.checked;
+    document.querySelector('#leetcodeDarkModeTone').value = normalizeLeetcodeDarkModeTone(preference?.tone);
+  }
   if (langGoogleEnabled) langGoogleEnabled.checked = (states?.preferences || states)?.langGoogle?.enabled === true;
   const accessControl = (states?.preferences || states)?.accessControl;
   const accessControlEnabled = document.querySelector('#accessControlEnabled');
@@ -752,9 +758,16 @@ function bindView() {
   }), [mailtoCaptureEnabled]));
   const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
-  if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.addEventListener('change', () => void update(null, () => savePreference('leetcodeDarkMode', {
-    type: 'UI_SET_ENABLED', featureId: 'leetcodeDarkMode', enabled: leetcodeDarkModeEnabled.checked
-  }), [leetcodeDarkModeEnabled]));
+  if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.addEventListener('change', () => {
+    document.querySelector('#leetcodeDarkModeOptions').disabled = !leetcodeDarkModeEnabled.checked;
+    void update(null, () => savePreference('leetcodeDarkMode', {
+      type: 'UI_SET_ENABLED', featureId: 'leetcodeDarkMode', enabled: leetcodeDarkModeEnabled.checked
+    }), [leetcodeDarkModeEnabled]);
+  });
+  const leetcodeDarkModeTone = document.querySelector('#leetcodeDarkModeTone');
+  if (leetcodeDarkModeTone) leetcodeDarkModeTone.addEventListener('change', () => void update(null, () => savePreference('leetcodeDarkMode', {
+    type: 'UI_SET_LEETCODE_DARK_MODE_TONE', featureId: 'leetcodeDarkMode', tone: leetcodeDarkModeTone.value
+  }), [leetcodeDarkModeTone]));
   if (langGoogleEnabled) langGoogleEnabled.addEventListener('change', () => void update(null, () => savePreference('langGoogle', {
     type: 'UI_SET_ENABLED', featureId: 'langGoogle', enabled: langGoogleEnabled.checked
   }), [langGoogleEnabled]));

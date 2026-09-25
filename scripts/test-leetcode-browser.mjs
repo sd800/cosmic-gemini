@@ -4,6 +4,12 @@ import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { WHITE_TONES } from '../extension/core/config.js';
+function brightest(buffer) {
+ const result=spawnSync('python3',['-c','from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps(max(im.getdata(),key=sum)))'],{input:buffer});
+ assert.equal(result.status,0,String(result.stderr));return JSON.parse(result.stdout);
+}
 const { chromium }=await import(pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGHT).href);
 const folder=await mkdtemp(join(tmpdir(),'cg-leetcode-'));
 const artifacts=resolve('test-dist/leetcode-dark-mode');await mkdir(artifacts,{recursive:true});
@@ -55,7 +61,7 @@ try{
  <div class="global-container__fixture"><div class="loading-box__fixture">Loading</div></div>`;
  await context.route('https://leetcode.com/**',route=>{
   const u=new URL(route.request().url()),frame=u.searchParams.has('iframe')||u.pathname.startsWith('/playground/');
-  route.fulfill({contentType:'text/html',headers:{'Content-Security-Policy':"script-src 'none'; style-src 'unsafe-inline'"},body:frame?child+(u.searchParams.has('iframe')?'<iframe src="/playground/sample/shared"></iframe>':''):`<!doctype html><html class="dark" style="color-scheme:dark"><head></head><body><h1>Native LeetCode shell</h1><iframe style="width:95%;height:650px" src="/explore/interview/card/fixture/?iframe=0"></iframe></body></html>`});
+  route.fulfill({contentType:'text/html',headers:{'Content-Security-Policy':"script-src 'none'; style-src 'unsafe-inline'"},body:frame?child+(u.searchParams.has('iframe')?'<iframe src="/playground/sample/shared"></iframe>':''):`<!doctype html><html class="dark" style="color-scheme:dark"><head></head><body><h1>Native LeetCode shell</h1><span id="white-text" style="display:inline-block;font:bold 40px/1 monospace;color:white;background:black">HH</span><div id="white-box" style="width:40px;height:40px;background:white"></div><iframe style="width:95%;height:650px" src="/explore/interview/card/fixture/?iframe=0"></iframe></body></html>`});
  });
  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
  const base=`chrome-extension://${new URL(worker.url()).host}`;
@@ -70,13 +76,50 @@ try{
  assert.equal(await page.frameLocator('iframe').locator('.article-inner').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(36, 36, 36)');
  assert.equal(await page.frameLocator('iframe').frameLocator('iframe').locator('.CodeMirror').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(32, 32, 32)');
  assert.equal(await page.locator('meta[name="darkreader-lock"]').count(),1);
+ const cap='[data-cg-leetcode-white-cap]';
+ const tones=settings.locator('#leetcodeDarkModeTone');
+ assert.equal(await settings.locator('#whiteSofterEnabled').isChecked(),false);
+ assert.equal(await tones.inputValue(),'warm');
+ assert.deepEqual(await tones.locator('option').evaluateAll(nodes=>nodes.map(n=>n.value)),['off',...WHITE_TONES.tones.map(t=>t.id)]);
+ assert.deepEqual((await tones.locator('option').allTextContents()).slice(1),await settings.locator('#whiteSofterTone option').allTextContents());
+ for(const choice of ['off',...WHITE_TONES.tones.map(t=>t.id)]) {
+  await tones.selectOption(choice);
+  await page.waitForFunction(choice=>document.documentElement.dataset.cgLeetcodeTone===choice,choice);
+  const rgb=choice==='off'?[255,255,255]:WHITE_TONES.get(choice).rgb.split(' ').map(Number);
+  for(const selector of ['#white-text','#white-box'])assert.deepEqual(brightest(await page.locator(selector).screenshot()),rgb,choice+' '+selector);
+  assert.equal(await page.locator(marker).count(),1,'Off affects the tone only');
+  assert.equal(await page.frameLocator('iframe').locator(cap).count(),0,'one top-frame white cap covers nested content');
+ }
+ await tones.selectOption('warm');
+ await page.waitForFunction(()=>document.documentElement.dataset.cgLeetcodeTone==='warm');
+ await settings.reload();await settings.waitForFunction(()=>document.querySelector('#leetcodeDarkModeEnabled')?.checked);
+ assert.equal(await tones.inputValue(),'warm');
+ await settings.locator('[data-product="leetcode-dark-mode"]').screenshot({path:join(artifacts,'settings-en.png')});
+ await settings.selectOption('#language','zh-CN');
+ await settings.waitForFunction(()=>document.documentElement.lang==='zh-CN');
+ assert.equal(await tones.locator('option').first().textContent(),'关闭');
+ assert.deepEqual((await tones.locator('option').allTextContents()).slice(1),await settings.locator('#whiteSofterTone option').allTextContents());
+ await settings.locator('[data-product="leetcode-dark-mode"]').screenshot({path:join(artifacts,'settings-zh.png')});
+ await settings.selectOption('#language','en-US');
+ // Both independent owners can coexist without an endless top-layer toggle loop.
+ await page.evaluate(()=>{window.capToggles=0;document.addEventListener('toggle',()=>window.capToggles++,true);});
+ await settings.locator('.switch:has(#whiteSofterEnabled)').click();
+ await page.locator('[data-cosmic-gemini-white-softer]:popover-open').waitFor();
+ await settings.locator('#whiteSofterTone').selectOption('cool');
+ await page.waitForFunction(()=>document.querySelector('[data-cosmic-gemini-white-softer]')?.dataset.tone==='cool');
+ assert.deepEqual(brightest(await page.locator('#white-text').screenshot()),[206,224,227]);
+ await settings.locator('.switch:has(#whiteSofterEnabled)').click();
+ await page.locator('[data-cosmic-gemini-white-softer]').waitFor({state:'detached'});
+ assert.deepEqual(brightest(await page.locator('#white-text').screenshot()),[232,230,227]);
+ assert.ok(await page.evaluate(()=>window.capToggles<30),'layers never compete in a toggle loop');
+
  const lesson=page.frameLocator('iframe'),editor=lesson.frameLocator('iframe');
  const mathStatus=lesson.locator('#MathJax_Message');
  const mathStatusColors=()=>mathStatus.evaluate(n=>{const s=getComputedStyle(n);return [s.backgroundColor,s.color,s.borderTopColor];});
  assert.equal(await mathStatus.isVisible(),false);
  await mathStatus.evaluate(n=>{n.style.display='block';});
  assert.equal(await mathStatus.isVisible(),true);
- assert.deepEqual(await mathStatusColors(),['rgb(36, 36, 36)','rgb(216, 216, 216)','rgb(66, 66, 66)']);
+ assert.deepEqual(await mathStatusColors(),['rgb(36, 36, 36)','rgb(232, 230, 227)','rgb(66, 66, 66)']);
  const sidebar=lesson.locator('.chapter-list-view');
  const sidebarStyle=()=>sidebar.evaluate(n=>[getComputedStyle(n).boxShadow,getComputedStyle(n).transitionProperty]);
  const darkSidebar=['rgb(66, 66, 66) -1px 0px 0px 0px inset','left, opacity'];
@@ -107,7 +150,7 @@ try{
  const overview=lesson.locator('.explore-detail-base');
  const styles=(locator,properties)=>locator.evaluate((n,properties)=>properties.map(p=>getComputedStyle(n)[p]),properties);
  assert.deepEqual(await styles(overview.locator('.card-intro-base'),['backgroundColor']),['rgb(26, 26, 26)']);
- assert.deepEqual(await styles(overview.locator('.explore-paragraph > div'),['color']),['rgb(216, 216, 216)']);
+ assert.deepEqual(await styles(overview.locator('.explore-paragraph > div'),['color']),['rgb(232, 230, 227)']);
  assert.deepEqual(await styles(overview.locator('.chapter-list-base'),['boxShadow']),['rgb(66, 66, 66) 0px 0px 0px 1px']);
  for(const border of await overview.locator('.table-header,.overview-item-list-base,.table-item').evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).borderBottomColor)))assert.equal(border,'rgb(66, 66, 66)');
  const overviewRow=overview.locator('.table-item.even-table-child.accessible');
@@ -118,7 +161,7 @@ try{
  assert.match(artwork[0],/rgb\(115, 60, 255\)/);
  assert.deepEqual(await styles(lesson.locator('footer'),['backgroundColor','color']),['rgb(26, 26, 26)','rgb(170, 170, 170)']);
  assert.deepEqual(await styles(lesson.locator('footer > div'),['borderTopColor']),['rgb(66, 66, 66)']);
- assert.deepEqual(await styles(lesson.locator('.loading-box__fixture'),['backgroundColor','color']),['rgb(36, 36, 36)','rgb(216, 216, 216)']);
+ assert.deepEqual(await styles(lesson.locator('.loading-box__fixture'),['backgroundColor','color']),['rgb(36, 36, 36)','rgb(232, 230, 227)']);
  await page.mouse.move(0,0);await overview.screenshot({path:join(artifacts,'overview-dark.png')});
  // Chapter links reuse the same documents. An active refresh must not remove/reinsert
  // their stylesheet, even though route/configuration messages still run normally.
@@ -166,9 +209,22 @@ try{
  assert.deepEqual(await styles(lesson.locator('.loading-box__fixture'),['backgroundColor']),['rgba(255, 255, 255, 0.8)']);
  assert.deepEqual(await styles(overview.locator('.course-artwork'),['backgroundImage']),artwork);
  await page.evaluate(()=>{document.documentElement.className='dark';document.documentElement.style.colorScheme='dark';});await page.waitForSelector(marker);
- // Same-document navigation must deactivate on landing and reactivate on entry.
- await page.evaluate(()=>history.pushState({},'','/explore/'));await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-cg-leetcode-dark'));
- await page.evaluate(()=>history.pushState({},'','/explore/featured/card/fixture/'));await page.waitForSelector(marker);
+ // Re-enter twice from excluded routes, without explicitly asking the worker to refresh.
+ for(const exit of ['/explore/','/problems/fixture/','/explore/']) {
+  await page.evaluate(exit=>history.pushState({},'',exit),exit);
+  await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-cg-leetcode-dark'));
+  await page.locator(cap).waitFor({state:'detached'});
+  await page.evaluate(()=>history.pushState({},'','/explore/featured/card/fixture/'));
+  await page.waitForSelector(marker);await page.frameLocator('iframe').locator(marker).waitFor();
+  await page.frameLocator('iframe').frameLocator('iframe').locator(marker).waitFor();
+  await page.locator(cap+':popover-open').waitFor();
+ }
+ // Root reconciliation and a newly replaced lesson iframe also retain their own treatment.
+ await page.evaluate(()=>document.documentElement.removeAttribute('data-cg-leetcode-dark'));
+ await page.waitForSelector(marker);
+ await page.locator('iframe').evaluate(frame=>frame.replaceWith(frame.cloneNode(true)));
+ await page.frameLocator('iframe').locator(marker).waitFor();
+ await page.frameLocator('iframe').frameLocator('iframe').locator(marker).waitFor();
  await settings.locator('.switch:has(#leetcodeDarkModeEnabled)').click();await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-cg-leetcode-dark'));
  assert.equal(await page.locator('meta[name="darkreader-lock"]').count(),0);
  // Native light remains unchanged even when the preference is enabled.
@@ -180,5 +236,5 @@ try{
  await page.waitForFunction(()=>!window[Symbol.for('cosmic-gemini.leetcode-dark-mode.runtime')]);
  assert.equal(await page.locator('meta[name="darkreader-lock"]').count(),1,'pre-existing lock survives');
  assert.deepEqual(errors,[]);
- console.log('PASS: default off, nested frames, loading status, sidebar shadows, chapter fades/states, editor borders, course overview prose/grid/hover/checkmarks, preserved artwork, footer, flash-free chapter refresh, live theme restoration, SPA scope, cleanup, no page errors');
+ console.log('PASS: independent shared color menu/pixels/coexistence, repeated SPA re-entry, shell reconciliation, iframe replacement, default off, nested frames, loading status, sidebar shadows, chapter fades/states, editor borders, course overview prose/grid/hover/checkmarks, preserved artwork, footer, flash-free chapter refresh, live theme restoration, SPA scope, cleanup, no page errors');
 }finally{await context.close();await rm(folder,{recursive:true,force:true});}

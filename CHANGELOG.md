@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.36 — 2026-09-25
+
+- Fix dark-mode recovery during repeated internal navigation in LeetCode Explore.
+- Add an independent white-text tone selector with warm ivory selected by default, sharing White Softer’s color choices.
+
 ## 9.8.35 — 2026-09-25
 
 - Improve document preview recovery, independent download prompts, and image-capture isolation during navigation and interrupted operations.

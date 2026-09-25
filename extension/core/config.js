@@ -1,6 +1,9 @@
 import { normalizePdfSampling } from './pdf-sampling.js';
 import { normalizeDocumentAppearance } from './document-appearance.js';
 import { siteKey } from './site-key.js';
+import '../shared/white-tones.js';
+
+export const WHITE_TONES = globalThis[Symbol.for('cosmic-gemini.white-tones')];
 
 export const SETTINGS_KEY = 'cosmicGeminiSettings';
 export const INCOGNITO_SETTINGS_KEY = 'cosmicGeminiIncognitoSettings';
@@ -92,7 +95,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   whiteSofter: Object.freeze({ enabled: false, tone: 'warm' }),
   documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
-  leetcodeDarkMode: Object.freeze({ enabled: false }),
+  leetcodeDarkMode: Object.freeze({ enabled: false, tone: 'warm' }),
   accessControl: Object.freeze({
     enabled: false,
     allowTemporaryVisits: false,
@@ -328,7 +331,11 @@ export function websiteKnowledgeControlState(settings, url) {
 }
 
 export function normalizeWhiteSofterTone(value) {
-  return ['warm-minus-1', 'warm', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(value) ? value : 'warm';
+  return WHITE_TONES.normalize(value);
+}
+
+export function normalizeLeetcodeDarkModeTone(value) {
+  return WHITE_TONES.normalize(value, true);
 }
 
 export function normalizeSettings(value = {}) {
@@ -357,7 +364,7 @@ export function normalizeSettings(value = {}) {
       }))].slice(0, 1000)
     },
     langGoogle: { enabled: value.langGoogle?.enabled === true },
-    leetcodeDarkMode: { enabled: value.leetcodeDarkMode?.enabled === true },
+    leetcodeDarkMode: { enabled: value.leetcodeDarkMode?.enabled === true, tone: normalizeLeetcodeDarkModeTone(value.leetcodeDarkMode?.tone) },
     accessControl: {
       enabled: value.accessControl?.enabled === true,
       allowTemporaryVisits: value.accessControl?.allowTemporaryVisits === true,

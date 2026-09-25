@@ -15,11 +15,7 @@
   contain: strict !important;
   /* Per-channel darken caps whites without lifting black or multiplying every pixel. */
   mix-blend-mode: darken !important;
-  background-color: rgb(232 230 227) !important;
+  background-color: var(--cg-white-cap-color) !important;
 }
 [data-cosmic-gemini-white-softer]:popover-open { display: block !important; }
-[data-cosmic-gemini-white-softer][data-tone="warm-minus-1"] { background-color: rgb(236 235 233) !important; }
-[data-cosmic-gemini-white-softer][data-tone="warm-plus-1"] { background-color: rgb(216 214 211) !important; }
-[data-cosmic-gemini-white-softer][data-tone="warm-plus-2"] { background-color: rgb(208 206 203) !important; }
-[data-cosmic-gemini-white-softer][data-tone="cool"] { background-color: rgb(206 224 242) !important; }
 [data-cosmic-gemini-white-softer]::backdrop { display: none !important; }

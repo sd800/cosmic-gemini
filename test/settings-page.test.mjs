@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import { createSettingsState } from '../extension/settings/state.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS } from '../extension/core/website-rule-input.js';
 import { PRODUCT_META, featureFromPath, viewFor } from '../extension/settings/views.js';
-import { FEATURE_IDS } from '../extension/core/config.js';
+import { FEATURE_IDS, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../extension/core/config.js';
 import { DEVELOPER_FEATURES, featureAffiliation } from '../extension/settings/developer-mode.js';
 import { translator } from '../extension/shared/localization.js';
 
@@ -166,7 +166,7 @@ function controller(feature = 'satellites') {
     document, chrome: {}, location: { pathname: '' }, performance: { timeOrigin: 100, now: () => 1 }, addEventListener() {},
     featureFromPath: () => feature, translator: () => key => key,
     isIpAddress: value => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || /^\[[0-9a-f:]+\]$/i.test(value),
-    ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, saveSettingsViewCache() {}, icon: () => '',
+    ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES, saveSettingsViewCache() {}, icon: () => '',
     send: message => transport(message),
     retryRead: task => task(), setTimeout: task => { timers.push(task); return timers.length; }, clearTimeout() {}
   });
@@ -351,6 +351,10 @@ for (const feature of ['clipboardProtect', 'langGoogle', 'leetcodeDarkMode']) {
     const control = new Element('input');
     card.append(control);
     nodes.set(`#${feature}Enabled`, control);
+    if (feature === 'leetcodeDarkMode') {
+      nodes.set('#leetcodeDarkModeOptions', new Element('fieldset'));
+      nodes.set('#leetcodeDarkModeTone', new Element('select'));
+    }
     await api.hydrate({ preferences: { satellites: {}, [feature]: { enabled: true } }, [feature]: { enabled: false, supported: false } });
     api.render();
     assert.equal(control.checked, true);

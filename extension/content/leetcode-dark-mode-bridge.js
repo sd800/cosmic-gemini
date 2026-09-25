@@ -9,7 +9,7 @@
   let disposed = false;
   let configFailures = 0;
   let retryTimer = 0;
-  let configRequest = 0;
+  let pendingConfig = null;
 
   const sendRuntimeMessage = message => {
     try {
@@ -25,7 +25,6 @@
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    configRequest += 1;
     if (retryTimer) clearTimeout(retryTimer);
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
@@ -33,15 +32,20 @@
     try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
-  const requestConfig = async () => {
-    if (disposed) return false;
-    const request = ++configRequest;
+  const route = () => {
+    try { return `${window.top.location.href}\n${location.href}`; } catch { return location.href; }
+  };
+  const readConfig = async () => {
     try {
-      const response = await sendRuntimeMessage({
-        type: 'CG_PAGE_STATE',
-        featureId: 'leetcodeDarkMode'
-      });
-      if (disposed || request !== configRequest) return false;
+      let response;
+      // An answer for a previous route must not deactivate the newly entered course.
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const requestedRoute = route();
+        response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'leetcodeDarkMode' });
+        if (disposed) return false;
+        if (requestedRoute === route()) break;
+        if (attempt === 3) throw new Error('Navigation is still changing.');
+      }
       const config = response?.result?.leetcodeDarkMode;
       if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
       if (!config?.active) { dispose(); return false; }
@@ -51,7 +55,7 @@
       dispatchConfig(config);
       return true;
     } catch {
-      if (disposed || request !== configRequest) return false;
+      if (disposed) return false;
       configFailures += 1;
       if (configFailures >= 4 || retryTimer) { if (configFailures >= 4) dispose(); return false; }
       retryTimer = setTimeout(() => {
@@ -60,6 +64,17 @@
       }, [80, 240, 800][configFailures - 1]);
       return false;
     }
+  };
+  const requestConfig = () => {
+    if (disposed) return Promise.resolve(false);
+    // MAIN_READY and the host's explicit refresh commonly overlap during SPA navigation.
+    // Every waiter needs the real result, not a false "superseded" acknowledgement.
+    if (!pendingConfig) {
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = 0;
+      pendingConfig = readConfig().finally(() => { pendingConfig = null; });
+    }
+    return pendingConfig;
   };
   function onMainReady(event) {
     if (typeof event.detail !== 'string' || !event.detail) return;

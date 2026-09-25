@@ -1,5 +1,5 @@
 import { normalizePdfSampling } from './pdf-sampling.js';
-import { normalizeAccessControlDomain, normalizeWebsiteKnowledge, normalizeWhiteSofterTone } from './config.js';
+import { normalizeAccessControlDomain, normalizeWebsiteKnowledge, normalizeWhiteSofterTone, normalizeLeetcodeDarkModeTone } from './config.js';
 import { normalizeDocumentAppearance } from './document-appearance.js';
 
 export const SETTINGS_VIEW_CACHE_KEY = 'cosmicGeminiSettingsViewCache';
@@ -56,7 +56,7 @@ export function settingsViewCache(states = {}) {
       }
     },
     langGoogle: { enabled: states.langGoogle?.enabled === true },
-    leetcodeDarkMode: { enabled: states.leetcodeDarkMode?.enabled === true },
+    leetcodeDarkMode: { enabled: states.leetcodeDarkMode?.enabled === true, tone: normalizeLeetcodeDarkModeTone(states.leetcodeDarkMode?.tone) },
     accessControl: {
       enabled: states.accessControl?.enabled === true,
       allowTemporaryVisits: states.accessControl?.allowTemporaryVisits === true,

@@ -1,4 +1,4 @@
-import { FEATURE_IDS, updateFeature } from '../../../core/config.js';
+import { FEATURE_IDS, normalizeLeetcodeDarkModeTone, updateFeature } from '../../../core/config.js';
 import { isLeetCodeExploreFrame, leetcodeDarkModeState } from '../../../core/leetcode-dark-mode.js';
 
 export function createLeetcodeDarkModeProduct(pageRuntimeHost, platform) {
@@ -7,6 +7,7 @@ export function createLeetcodeDarkModeProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.LEETCODE_DARK_MODE,
     bridge: 'content/leetcode-dark-mode-bridge.js',
     runtime: 'content/leetcode-dark-mode-runtime.js',
+    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/white-cap-layer.js']),
     pageStyleFiles,
     preservePageStylesOnRefresh: true,
     awaitConfiguration: true,
@@ -23,11 +24,13 @@ export function createLeetcodeDarkModeProduct(pageRuntimeHost, platform) {
       if ((await platform.readSettings()).leetcodeDarkMode.enabled) await platform.refreshTabPage(tabId);
     },
     async handleMessage(message) {
-      if (message.type !== 'UI_SET_ENABLED' || message.featureId !== product.id) {
+      if (message.featureId !== product.id || (message.type !== 'UI_SET_ENABLED'
+        && (message.type !== 'UI_SET_LEETCODE_DARK_MODE_TONE' || message.tone !== normalizeLeetcodeDarkModeTone(message.tone)))) {
         throw new Error('Dark Mode for LeetCode Explore does not support this command.');
       }
       const settings = await platform.mutateSettings(current => updateFeature(current, product.id,
-        feature => ({ ...feature, enabled: message.enabled === true })), false);
+        feature => ({ ...feature, ...(message.type === 'UI_SET_ENABLED'
+          ? { enabled: message.enabled === true } : { tone: message.tone }) })), false);
       await platform.refreshOpenPages();
       return settings.leetcodeDarkMode;
     }

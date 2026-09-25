@@ -1,3 +1,5 @@
+import { normalizeLeetcodeDarkModeTone } from './config.js';
+
 function leetcodeUrl(value) {
   try {
     const url = new URL(value);
@@ -18,5 +20,5 @@ export function leetcodeDarkModeState(settings, url) {
   const enabled = settings.leetcodeDarkMode?.enabled === true;
   const supported = isLeetCodeExplorePage(url);
   // Page runtime, not background, owns detection of LeetCode's native theme.
-  return { enabled, supported, active: enabled && supported };
+  return { enabled, supported, active: enabled && supported, tone: normalizeLeetcodeDarkModeTone(settings.leetcodeDarkMode?.tone) };
 }

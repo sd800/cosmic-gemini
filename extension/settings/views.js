@@ -169,7 +169,7 @@ export function viewFor(featureId) {
           <legend class="sr-only" data-i18n="whiteSofterTone"></legend>
           <div class="knowledge-row">
             <label for="whiteSofterTone" class="knowledge-label" data-i18n="whiteSofterTone"></label>
-            <select id="whiteSofterTone"><option value="warm-minus-1" data-i18n="whiteSofterWarmMinus1"></option><option value="warm" data-i18n="whiteSofterWarm" selected></option><option value="warm-plus-1" data-i18n="whiteSofterWarmPlus1"></option><option value="warm-plus-2" data-i18n="whiteSofterWarmPlus2"></option><option value="cool" data-i18n="whiteSofterCool"></option></select>
+            <select id="whiteSofterTone" data-white-tones=""></select>
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="whiteSofterPrivacy"></p></div>
@@ -334,6 +334,13 @@ export function viewFor(featureId) {
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="leetcodeDarkMode" aria-hidden="true"></span><h1 data-i18n="leetcodeDarkModeName"></h1></div><p data-i18n="leetcodeDarkModeDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="leetcodeDarkModeEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="leetcodeDarkModeName"></b></label></div>
         </div>
+        <fieldset id="leetcodeDarkModeOptions" class="knowledge-options white-softer-options" disabled>
+          <legend class="sr-only" data-i18n="leetcodeDarkModeTone"></legend>
+          <div class="knowledge-row">
+            <label for="leetcodeDarkModeTone" class="knowledge-label" data-i18n="leetcodeDarkModeTone"></label>
+            <select id="leetcodeDarkModeTone" data-white-tones="allow-off"></select>
+          </div>
+        </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="leetcodeDarkModePrivacy"></p></div>
       </section>
       <section class="card satellite-card">

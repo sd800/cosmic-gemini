@@ -6,6 +6,7 @@ export function createWhiteSofterProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.WHITE_SOFTER,
     bridge: 'content/white-softer-bridge.js',
     runtime: 'content/white-softer-runtime.js',
+    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/white-cap-layer.js']),
     pageStyleFiles,
     awaitConfiguration: true,
     preservePageStylesOnRefresh: true,

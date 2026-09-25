@@ -118,8 +118,14 @@
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = !incognitoContext && cached.mailtoCapture?.enabled === true;
   }
+  const whiteTones = globalThis[Symbol.for('cosmic-gemini.white-tones')];
+  whiteTones?.populateMenus(document, translate);
   const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
-  if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.checked = !incognitoContext && cached.leetcodeDarkMode?.enabled === true;
+  if (leetcodeDarkModeEnabled) {
+    leetcodeDarkModeEnabled.checked = !incognitoContext && cached.leetcodeDarkMode?.enabled === true;
+    document.querySelector('#leetcodeDarkModeOptions').disabled = !leetcodeDarkModeEnabled.checked;
+    document.querySelector('#leetcodeDarkModeTone').value = whiteTones.normalize(!incognitoContext ? cached.leetcodeDarkMode?.tone : 'warm', true);
+  }
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = !incognitoContext && cached.langGoogle?.enabled === true;
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
@@ -128,7 +134,7 @@
   if (whiteSofterEnabled) {
     whiteSofterEnabled.checked = !incognitoContext && cached.whiteSofter?.enabled === true;
     document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
-    document.querySelector('#whiteSofterTone').value = !incognitoContext && ['warm-minus-1', 'warm-plus-1', 'warm-plus-2', 'cool'].includes(cached.whiteSofter?.tone) ? cached.whiteSofter.tone : 'warm';
+    document.querySelector('#whiteSofterTone').value = whiteTones.normalize(!incognitoContext ? cached.whiteSofter?.tone : 'warm');
   }
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) {

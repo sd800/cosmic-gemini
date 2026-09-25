@@ -28,7 +28,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     const globalPrivacyControl = feature.globalPrivacyControl?.enabled === true;
     return language || globalPrivacyControl ? { language, globalPrivacyControl } : null;
   };
-  const isWebTab = tab => /^https?:/i.test(String(tab?.url || ''));
+  const isWebTab = tab => /^https?:/i.test(String(tab?.pendingUrl || tab?.url || ''));
   const contextTab = tab => Number.isInteger(tab?.id) && tab.id >= 0 && Boolean(tab.incognito) === incognito;
 
   async function persistApplied() {
@@ -84,8 +84,16 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     if (!contextTab({ id: tabId, incognito: tab?.incognito })) return false;
     const settings = await platform.readSettings();
     await loadApplied(settings);
+    // A queued create/update event may finish after the tab has closed or
+    // navigated. Use the live tab, not its event-time snapshot, for DNR scope.
+    const liveTab = chrome.tabs.get ? await chrome.tabs.get(tabId).catch(() => null) : tab;
+    if (!liveTab || !contextTab(liveTab)) {
+      appliedProfiles.delete(tabId);
+      await persistApplied();
+      return syncApplied();
+    }
     const current = selectedProfile(settings);
-    if (current && isWebTab(tab)) appliedProfiles.set(tabId, current);
+    if (current && isWebTab(liveTab)) appliedProfiles.set(tabId, current);
     else appliedProfiles.delete(tabId);
     await persistApplied();
     return syncApplied();

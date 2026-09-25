@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.30 — 2026-09-24
+
+- 改进 Website Fixer、Ad Marshal 和 Website Knowledge Control 的导航及标签页状态处理，并隔离普通窗口与无痕窗口的规则。
+
 ## 9.8.29 — 2026-09-24
 
 - 加强 Access Control 单次访问在延迟导航事件、页面成功加载、重叠网站规则、名单变更及重试失败时的处理；过期的工具栏操作不再跳转已加载的页面。

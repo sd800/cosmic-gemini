@@ -58,11 +58,25 @@ export function createStayOnPage(platform) {
     try { const parsed = new URL(url); return siteKey(parsed.protocol === 'blob:' ? parsed.origin : parsed.href) === site; }
     catch { return false; }
   };
+  const sameNavigation = (left, right) => {
+    try {
+      const a = new URL(left), b = new URL(right);
+      a.hash = '';
+      b.hash = '';
+      return a.href === b.href;
+    } catch { return left === right; }
+  };
   async function checkPopup(tabId, url) {
     const record = pending.get(tabId);
     if (!record) return;
     if (Date.now() > record.until) { pending.delete(tabId); return; }
     if (!url || url === 'about:blank') return;
+    // An earlier navigation event must never authorize closing a tab that the
+    // user has since sent elsewhere (or that has become an extension page).
+    const live = await chrome.tabs.get(tabId).catch(() => null);
+    if (!live || pending.get(tabId) !== record) return;
+    const liveUrl = live.pendingUrl || live.url || '';
+    if (!sameNavigation(liveUrl, url)) return;
     if (permitted(url, record.site)) { pending.delete(tabId); navigationOrigins.delete(tabId); return; }
     let target;
     try { target = new URL(url); } catch { return; }
@@ -87,6 +101,7 @@ export function createStayOnPage(platform) {
     if (/^https?:$/.test(target.protocol)) {
       const navigation = navigationOrigins.get(tabId);
       if (!navigation || Date.now() - navigation.at > 30_000) return;
+      if (!sameNavigation(navigation.url, url)) return;
       if (!navigation.initiator || navigation.initiator.startsWith('chrome-extension:')) {
         pending.delete(tabId);
         navigationOrigins.delete(tabId);
@@ -147,7 +162,7 @@ export function createStayOnPage(platform) {
       if (!Number.isInteger(details?.tabId) || details.tabId < 0) return;
       const now = Date.now();
       for (const [id, record] of navigationOrigins) if (now - record.at > 30_000) navigationOrigins.delete(id);
-      navigationOrigins.set(details.tabId, { initiator: String(details.initiator || ''), at: now });
+      navigationOrigins.set(details.tabId, { initiator: String(details.initiator || ''), url: String(details.url || ''), at: now });
       while (navigationOrigins.size > 256) navigationOrigins.delete(navigationOrigins.keys().next().value);
       if (pending.has(details.tabId)) void checkPopup(details.tabId, details.url);
     },

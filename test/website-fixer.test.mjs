@@ -398,6 +398,30 @@ test('Stay on the page confines network blocking to source tabs and honors brows
     'newly opened external tabs never inherit the source tab network restriction');
 });
 
+test('Stay on the page does not close a tab after its navigation target changes', async () => {
+  const source = { id: 1, url: 'https://stay.test/article', incognito: false };
+  const popup = { id: 2, openerTabId: 1, url: 'about:blank', incognito: false };
+  const tabs = new Map([[1, source], [2, popup]]);
+  const removed = [];
+  const settings = normalizeSettings({ websiteFixer: { enabled: true, stayOnPage: {
+    enabled: true, whitelistDomains: ['stay.test']
+  } } });
+  globalThis.chrome = { tabs: {
+    async get(id) { return tabs.get(id); },
+    async remove(id) { removed.push(id); tabs.delete(id); }
+  } };
+  const stay = createStayOnPage({ readSettings: async () => settings });
+  await stay.handleTabCreated(popup);
+  const first = 'https://outside.test/advertisement';
+  popup.url = first;
+  stay.handleNavigationRequest({ tabId: 2, initiator: source.url, url: first });
+  popup.url = 'https://manual.test/user-choice';
+  await stay.handleTabUpdated(2, { url: popup.url }, popup);
+  assert.deepEqual(removed, [], 'an earlier page navigation cannot close the user’s later destination');
+  stay.handleNavigationRequest({ tabId: 2, initiator: '', url: popup.url });
+  assert.deepEqual(removed, [], 'a browser-directed navigation is allowed');
+});
+
 test('scoped runtime uses the same curated site boundaries as background policy', () => {
   const context = vm.createContext({ URL });
   vm.runInContext(readFileSync(new URL('../extension/content/website-fixer-site-key.js', import.meta.url), 'utf8'), context);

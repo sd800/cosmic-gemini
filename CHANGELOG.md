@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.30 — 2026-09-24
+
+- Improve navigation and tab-state handling across Website Fixer, Ad Marshal, and Website Knowledge Control, including separation of regular and private browsing rules.
+
 ## 9.8.29 — 2026-09-24
 
 - Harden Access Control's one-time visits across delayed navigation events, completed loads, overlapping site rules, list changes, and failed retries. Stale toolbar actions no longer redirect an already loaded page.

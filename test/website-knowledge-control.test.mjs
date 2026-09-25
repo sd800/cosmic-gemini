@@ -104,6 +104,32 @@ test('Website Knowledge Control sends region-neutral Chinese Accept-Language val
   }
 });
 
+test('Website Knowledge Control ignores delayed events for closed or changed tabs', async () => {
+  const snapshot = { id: 9, url: 'https://example.com', incognito: false };
+  const tabs = new Map([[9, snapshot]]);
+  const updates = [];
+  globalThis.chrome = {
+    tabs: {
+      async query() { return [...tabs.values()]; },
+      async get(id) { if (!tabs.has(id)) throw new Error('No tab'); return tabs.get(id); }
+    },
+    declarativeNetRequest: { async updateSessionRules(update) { updates.push(update); } }
+  };
+  const settings = normalizeSettings({ websiteKnowledgeControl: { enabled: true,
+    languages: { enabled: true, value: 'en-US' } } });
+  const product = createWebsiteKnowledgeControlProduct({ sync: async () => true }, {
+    isIncognitoContext: () => false, readSettings: async () => settings
+  });
+  await product.initialize();
+  assert.deepEqual(updates.at(-1).addRules[0].condition.tabIds, [9]);
+  tabs.delete(9);
+  await product.handleTabUpdated(9, { status: 'loading' }, snapshot);
+  assert.deepEqual(updates.at(-1).addRules, [], 'a late update removes the closed tab’s request rule');
+  tabs.set(9, { id: 9, url: 'chrome://settings', incognito: false });
+  await product.handleTabCreated(snapshot);
+  assert.deepEqual(updates.at(-1).addRules, [], 'a stale web snapshot cannot scope a new page');
+});
+
 test('Website Knowledge Control freezes the initial document policy until the next page load', () => {
   const f = runtimeFixture();
   assert.equal(f.run('navigator.language'), 'fr-FR', 'loading an authorized runtime does not apply policy before configuration');

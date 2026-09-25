@@ -128,3 +128,44 @@ test('Ad Marshal routes the Tencent News timeline host through the news.qq.com p
   assert.ok(ruleUpdates[0].addRules.some(rule => rule.condition.requestDomains?.includes('n.ssp.qq.com')));
   assert.ok(ruleUpdates[0].addRules.every(rule => rule.condition.tabIds[0] === 18));
 });
+
+test('Ad Marshal keeps regular and private tab rules independent', async () => {
+  let rules = [];
+  const tabs = [
+    { id: 17, url: 'https://www.zhihu.com/', incognito: false },
+    { id: 18, url: 'https://www.zhihu.com/', incognito: true }
+  ];
+  globalThis.chrome = {
+    declarativeNetRequest: {
+      async getSessionRules() { return rules.map(rule => structuredClone(rule)); },
+      async updateSessionRules({ removeRuleIds, addRules = [] }) {
+        rules = rules.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+      }
+    },
+    tabs: { async query() { return tabs; }, async get(id) { return tabs.find(tab => tab.id === id); } }
+  };
+  let regularSettings = normalizeSettings({ adMarshal: { managedSites: { zhihu: true } } });
+  const privateSettings = normalizeSettings({ adMarshal: { managedSites: { zhihu: true } } });
+  const host = { async sync() {} };
+  const regular = createAdMarshalProduct(host, {
+    isIncognitoContext: () => false, readSettings: async () => regularSettings
+  });
+  const privateProduct = createAdMarshalProduct(host, {
+    isIncognitoContext: () => true, readSettings: async () => privateSettings
+  });
+  await regular.reconcile();
+  await privateProduct.reconcile();
+  assert.equal(rules.filter(rule => rule.condition.tabIds[0] === 17).length, 6);
+  assert.equal(rules.filter(rule => rule.condition.tabIds[0] === 18).length, 6);
+  assert.equal(new Set(rules.map(rule => rule.id)).size, 12);
+  const oldTab = { ...tabs[0] };
+  tabs[0] = { ...tabs[0], url: 'https://outside.test/' };
+  await regular.handleTabUpdated(17, { status: 'loading' }, oldTab);
+  assert.equal(rules.filter(rule => rule.condition.tabIds[0] === 17).length, 0,
+    'a late event cannot retain rules for the previous site');
+  assert.equal(rules.filter(rule => rule.condition.tabIds[0] === 18).length, 6);
+  regularSettings = normalizeSettings();
+  await regular.reconcile();
+  assert.equal(rules.filter(rule => rule.condition.tabIds[0] === 17).length, 0);
+  assert.equal(rules.filter(rule => rule.condition.tabIds[0] === 18).length, 6);
+});

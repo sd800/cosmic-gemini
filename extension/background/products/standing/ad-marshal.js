@@ -9,6 +9,7 @@ import {
 const RULE_ID_START = 1_600_000_000;
 const RULE_ID_GROUPS = 20_000_000;
 const RULES_PER_TAB = 12;
+const RULE_ID_SPAN = RULE_ID_GROUPS * RULES_PER_TAB;
 const stable = value => JSON.stringify(value, (_, item) => item && !Array.isArray(item) && typeof item === 'object'
   ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 const SITE_POLICIES = Object.freeze({
@@ -71,16 +72,10 @@ const ZHIHU_TELEMETRY_DOMAINS = Object.freeze([
   'hm.baidu.com'
 ]);
 
-function isOwnedRule(rule) {
-  return Number.isInteger(rule?.id)
-    && rule.id >= RULE_ID_START
-    && rule.id < RULE_ID_START + RULE_ID_GROUPS * RULES_PER_TAB;
-}
-
-function ruleGroupForTab(tabId, occupied) {
+function ruleGroupForTab(tabId, occupied, start) {
   let group = Math.abs(tabId) % RULE_ID_GROUPS;
   for (let attempt = 0; attempt < RULE_ID_GROUPS; attempt += 1) {
-    const base = RULE_ID_START + group * RULES_PER_TAB;
+    const base = start + group * RULES_PER_TAB;
     if (!Array.from({ length: RULES_PER_TAB }, (_, index) => base + index).some(id => occupied.has(id))) return base;
     group = (group + 1) % RULE_ID_GROUPS;
   }
@@ -178,6 +173,12 @@ function rulesForTab(tabId, base, siteId) {
 }
 
 export function createAdMarshalProduct(pageRuntimeHost, platform) {
+  const incognito = platform.isIncognitoContext?.() === true;
+  // DNR session rules are shared by split-incognito workers. Each worker must
+  // own a disjoint ID range and touch only tabs in its own browser context.
+  const ruleStart = RULE_ID_START + (incognito ? RULE_ID_SPAN : 0);
+  const isOwnedRule = rule => Number.isInteger(rule?.id)
+    && rule.id >= ruleStart && rule.id < ruleStart + RULE_ID_SPAN;
   let networkQueue = Promise.resolve();
   const activeTabs = new Map();
   function queueNetwork(task) {
@@ -220,8 +221,13 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     },
     async handleTabUpdated(tabId, change, tab) {
       if (!change.url && change.status !== 'loading') return;
+      if (!!tab?.incognito !== incognito) return;
       const settings = await platform.readSettings();
-      const state = product.state(settings, tab?.url || change.url || '');
+      // Storage reads can finish after another navigation. Scope temporary
+      // network rules to the tab's present destination, not the old event.
+      const liveTab = chrome.tabs.get ? await chrome.tabs.get(tabId).catch(() => null) : tab;
+      if (!liveTab || !!liveTab.incognito !== incognito) return;
+      const state = product.state(settings, liveTab.pendingUrl || liveTab.url || '');
       await syncTabRules(tabId, state.active ? state.siteId : '');
     },
     handleTabRemoved(tabId) { return syncTabRules(tabId, ''); },
@@ -257,7 +263,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
       .filter(rule => rule.condition?.tabIds?.includes(tabId))
       .map(rule => rule.id);
     const remainingIds = new Set(existing.filter(rule => !removeRuleIds.includes(rule.id)).map(rule => rule.id));
-    const addRules = siteId ? rulesForTab(tabId, ruleGroupForTab(tabId, remainingIds), siteId) : [];
+    const addRules = siteId ? rulesForTab(tabId, ruleGroupForTab(tabId, remainingIds, ruleStart), siteId) : [];
     if (removeRuleIds.length || addRules.length) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds, addRules });
     }
@@ -296,13 +302,13 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     const tabs = new Map();
     for (const result of queryResults) {
       for (const tab of result.tabs) {
-        if (Number.isInteger(tab.id)) tabs.set(tab.id, result.siteId);
+        if (Number.isInteger(tab.id) && !!tab.incognito === incognito) tabs.set(tab.id, result.siteId);
       }
     }
     const occupied = new Set();
     const addRules = [];
     for (const [tabId, siteId] of tabs) {
-      const base = ruleGroupForTab(tabId, occupied);
+      const base = ruleGroupForTab(tabId, occupied, ruleStart);
       const rules = rulesForTab(tabId, base, siteId);
       rules.forEach(rule => occupied.add(rule.id));
       addRules.push(...rules);

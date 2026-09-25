@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.32 — 2026-09-24
+
+- Improve XHS Image Dark Mode when opening comment images and fullscreen post images, reducing bright flashes and preserving image controls and display choices.
+
 ## 9.8.31 — 2026-09-24
 
 - Improve temporary media-request isolation, image workspace cleanup, and document-specific XHS activity across delayed page operations.

@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.8.31');
+assert.equal(manifest.version, '9.8.32');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -588,17 +588,17 @@ assert.match(xhsImageDarkModeRuntime, /togglePostOverride[\s\S]*postOverrides\.s
   'Long presses must alternate a stable post-wide display mode, while a subsequent click restores automatic recognition.');
 assert.match(xhsImageDarkModeRuntime, /recordsForPost\(postKey\)[\s\S]*viewerPostKey\(record\.image\) === postKey[\s\S]*document\.querySelectorAll\?\.\([\s\S]*button\.hidden = !this\.showImageControl \|\| this\.profileProcessingDisabled\(record\)/,
   'Post-wide overrides must include matching feed covers without hiding the image control.');
-assert.match(xhsImageDarkModeRuntime, /inlineCommentImage[\s\S]*#noteContainer, \.note-container[\s\S]*armCommentPreview[\s\S]*pendingCommentPreview[\s\S]*markCommentPreview[\s\S]*hasOpenCommentPreview/,
+assert.match(xhsImageDarkModeRuntime, /inlineCommentImage[\s\S]*#noteContainer, \.note-container[\s\S]*armImagePreview[\s\S]*pendingImagePreview[\s\S]*markImagePreview[\s\S]*hasOpenImagePreview/,
   'Comment images must remain expanded-post-only and preview association must survive resource URL changes.');
-assert.match(xhsImageDarkModeRuntime, /bindCommentControl\(button, record\) \{\s*this\.bindControlGestures\(button, record, false\)[\s\S]*commentPreview \|\| !commentPreviewOpen/,
+assert.match(xhsImageDarkModeRuntime, /bindCommentControl\(button, record\) \{\s*this\.bindControlGestures\(button, record, false\)[\s\S]*imagePreview \|\| !imagePreviewOpen/,
   'Comment previews must own a single-image control while suppressing the post image control.');
 assert.match(xhsImageDarkModeRuntime, /if \(!record\.image\.isConnected\) \{[\s\S]*record\.button\.style\.display = 'none'/,
   'A detached comment preview control must leave the hit-testing layer immediately.');
 assert.match(xhsImageDarkModeRuntime, /touch-action: none[\s\S]*const shield = event =>[\s\S]*event\.stopPropagation/,
   'XHS image controls must isolate their complete pointer gesture from page carousel handlers.');
-assert.match(xhsImageDarkModeRuntime, /checkVisibility[\s\S]*activeCommentPreviewRecord[\s\S]*record === activeCommentPreview/,
+assert.match(xhsImageDarkModeRuntime, /checkVisibility[\s\S]*activeImagePreviewRecord[\s\S]*record === activeImagePreview/,
   'Only the actually visible comment preview may own a control or suppress the post control.');
-assert.match(xhsImageDarkModeRuntime, /commentPreviewRecords[\s\S]*activeCommentPreviewRecord\(\)[\s\S]*this\.commentPreviewRecords/,
+assert.match(xhsImageDarkModeRuntime, /imagePreviewRecords[\s\S]*activeImagePreviewRecord\(\)[\s\S]*this\.imagePreviewRecords/,
   'XHS Image Dark Mode must index comment previews instead of rescanning every image record during control positioning.');
 assert.match(xhsImageDarkModeRuntime, /mutation\.removedNodes\?\.length[\s\S]*needsCleanup[\s\S]*if \(needsCleanup\) this\.scheduleCleanup\(\)/,
   'XHS Image Dark Mode must reserve full record cleanup for DOM removals.');

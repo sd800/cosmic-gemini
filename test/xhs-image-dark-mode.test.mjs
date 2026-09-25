@@ -761,12 +761,12 @@ test('clicking a comment thumbnail associates a preview even when its resource U
     clientY: 300,
     composedPath: () => [thumbnailOverlay]
   });
-  assert.equal(runtime.findPendingCommentPreview(), null);
+  assert.equal(runtime.findPendingImagePreview(), null);
   images = [thumbnail, preview];
   const observed = [];
   runtime.observeImage = image => { observed.push(image); };
   runtime.scheduleControlPositions = () => {};
-  assert.equal(runtime.findPendingCommentPreview(), preview);
+  assert.equal(runtime.findPendingImagePreview(), preview);
   assert.deepEqual(observed, [preview]);
   assert.equal(runtime.commentImageKind(preview), 'preview');
   assert.equal(runtime.isContentImage(preview), true);
@@ -794,9 +794,9 @@ test('an opened comment gallery recognizes a switched image and preloads its nei
     contains(image) { return images.includes(image); },
     querySelectorAll(selector) { return selector === 'img' ? images : []; }
   };
-  runtime.commentPreviewRoot = root;
-  runtime.commentPreviewBounds = bounds;
-  runtime.commentPreviewImages.add(images[1]);
+  runtime.imagePreviewRoot = root;
+  runtime.imagePreviewBounds = bounds;
+  runtime.imagePreviewImages.add(images[1]);
   runtime.records.set(images[1], {
     image: images[1], commentKind: 'preview', result: { kind: 'light-theme' },
     requestKey: runtime.imageRequestKey(images[1])
@@ -811,7 +811,7 @@ test('an opened comment gallery recognizes a switched image and preloads its nei
   runtime.waitForImageLoad = (record, priority) => queued.push([record.image.id, priority]);
   runtime.scheduleControlPositions = () => {};
 
-  runtime.scanCommentPreviewGallery();
+  runtime.scanImagePreviewGallery();
   assert.deepEqual(queued, [['previous', -10], ['next', -10]]);
   assert.equal(runtime.commentImageKind(images[0]), 'preview');
   assert.equal(runtime.commentImageKind(images[2]), 'preview');
@@ -820,7 +820,7 @@ test('an opened comment gallery recognizes a switched image and preloads its nei
   images[1].visible = false;
   images[2].visible = true;
   runtime.records.get(images[2]).result = { kind: 'light-theme' };
-  runtime.scanCommentPreviewGallery();
+  runtime.scanImagePreviewGallery();
   assert.deepEqual(queued.at(-1), ['later', -10]);
   assert.equal(runtime.commentImageKind(images[3]), 'preview');
 });
@@ -900,7 +900,7 @@ test('a comment preview shows its own control while the post image control stays
     button: { style: {} }
   };
   runtime.records.set(preview, previewControl);
-  runtime.commentPreviewRecords.add(previewControl);
+  runtime.imagePreviewRecords.add(previewControl);
   runtime.viewerForImage = image => image === mainImage ? viewer : null;
   runtime.controlPlacement = record => record.image === preview
     ? { left: 850, top: 70 }
@@ -1471,8 +1471,8 @@ test('comment-preview lookup uses its dedicated record index', async () => {
   }
   const preview = { image: { isConnected: true }, commentKind: 'preview' };
   runtime.records.set(preview.image, preview);
-  runtime.commentPreviewRecords.add(preview);
-  assert.equal(runtime.activeCommentPreviewRecord(), preview);
+  runtime.imagePreviewRecords.add(preview);
+  assert.equal(runtime.activeImagePreviewRecord(), preview);
 });
 
 test('profile controls are not rewritten for unrelated mutations on the same profile', async () => {
@@ -2088,4 +2088,133 @@ test('in-flight image samples cannot occupy a second analysis slot', async () =>
   runtime.inFlight.set(image, { source: image.currentSrc, generation: 1 });
   runtime.queueImage(image, -20);
   assert.equal(runtime.queue.length, 0);
+});
+
+async function expandedImageFixture(kind = 'comment', result = { kind: 'light-theme' }) {
+  class Image {}
+  let images = [];
+  const timers = new Map();
+  const document = { querySelectorAll: () => images };
+  const runtime = await runtimeFixture(document, {
+    HTMLImageElement: Image, URL, Node: { ELEMENT_NODE: 1 }, innerWidth: 1200, innerHeight: 800,
+    setTimeout(fn) { const id = timers.size + 1; timers.set(id, fn); return id; },
+    clearTimeout(id) { timers.delete(id); }
+  });
+  const image = (src, width) => {
+    const classes = new Set();
+    return Object.assign(new Image(), {
+      src, complete: true, isConnected: true, nodeType: 1,
+      naturalWidth: 600, naturalHeight: 800,
+      classList: {
+        add: name => classes.add(name), contains: name => classes.has(name),
+        remove: name => classes.delete(name), toggle(name, on) { on ? classes.add(name) : classes.delete(name); }
+      },
+      style: { setProperty() {}, removeProperty() {} }, closest: () => null,
+      getBoundingClientRect: () => ({ left: 200, top: 0, right: 200 + width, bottom: width,
+        width, height: width })
+    });
+  };
+  const thumbnail = image('https://sns-webpic-qc.xhscdn.com/test/original!thumb', 150);
+  const preview = image('blob:https://www.xiaohongshu.com/full-size', 600);
+  const viewer = { querySelector: () => ({ textContent: '1 / 3' }) };
+  images = [thumbnail];
+  runtime.processing = true;
+  runtime.inlineCommentImage = candidate => kind === 'comment' && candidate === thumbnail;
+  runtime.carouselImageContext = candidate => kind === 'post' && candidate === thumbnail
+    ? { viewer, slide: null, mediaRoot: thumbnail } : null;
+  runtime.scheduleControlPositions = () => {};
+  runtime.syncProfileControl = () => {};
+  runtime.createControl = () => {};
+  const sourceRecord = runtime.createRecord(thumbnail, kind === 'comment' ? 'inline' : '', '');
+  Object.assign(sourceRecord, { source: thumbnail.src, result, darkened: result?.kind === 'light-theme' });
+  runtime.openingPostId = 'post-a';
+  runtime.onPostActivation({ composedPath: () => [thumbnail] });
+  images.push(preview);
+  const queued = [];
+  runtime.waitForImageLoad = (record, priority) => queued.push([record.image, priority]);
+  return { runtime, document, thumbnail, preview, sourceRecord, queued, timers, image };
+}
+
+test('comment preview inherits the clicked thumbnail before asynchronous probes or analysis', async () => {
+  const { runtime, preview, queued } = await expandedImageFixture();
+  runtime.onPageMutations([{ type: 'childList', addedNodes: [preview] }]);
+  assert.equal(runtime.records.get(preview).commentKind, 'preview');
+  assert.equal(preview.classList.contains('cg-xhs-image-dark-mode'), true);
+  assert.equal(queued.length, 0);
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
+});
+
+test('matching CDN preview is recognized even before it has opening-animation dimensions', async () => {
+  const { runtime, preview, thumbnail } = await expandedImageFixture();
+  preview.src = thumbnail.src.replace('!thumb', '!full');
+  preview.getBoundingClientRect = () => ({ width: 0, height: 0 });
+  preview.naturalWidth = 0;
+  runtime.observeImage(preview);
+  assert.equal(runtime.records.get(preview)?.darkened, true);
+  assert.equal(preview.classList.contains('cg-xhs-image-dark-mode'), true);
+});
+
+test('post fullscreen copies keep post ownership and manual choices, independently of comments', async () => {
+  const { runtime, preview, sourceRecord } = await expandedImageFixture('post');
+  sourceRecord.imageMode = 'original';
+  sourceRecord.concealed = true;
+  runtime.observeImage(preview);
+  const record = runtime.records.get(preview);
+  assert.equal(record.commentKind, '');
+  assert.equal(runtime.viewerPostKey(preview), 'post-a');
+  assert.equal(runtime.postImageCount(record), 3);
+  assert.equal(record.imageMode, 'original');
+  assert.equal(record.darkened, false);
+  assert.equal(preview.classList.contains('cg-xhs-image-hidden-dark'), true);
+  assert.equal(runtime.imagePreviewRecords.has(record), true);
+  assert.equal(runtime.commentImageKeys.has(runtime.cacheKey(preview.src)), false);
+
+  preview.src = 'blob:https://www.xiaohongshu.com/other-image';
+  assert.equal(runtime.cachedResult(preview, preview.src), null, 'do not inherit the prior slide result');
+  runtime.onPageMutations([{ type: 'attributes', target: preview, attributeName: 'src' }]);
+  assert.equal(record.imageMode, null);
+  assert.equal(record.concealed, null);
+  assert.equal(record.darkened, false);
+});
+
+test('unknown previews wait briefly without displaying white and always release the hold', async () => {
+  const { runtime, preview, queued, timers } = await expandedImageFixture('comment', { kind: 'photo' });
+  runtime.observeImage(preview);
+  const record = runtime.records.get(preview);
+  assert.equal(record.result, null, 'a thumbnail photo verdict cannot skip sharper-image analysis');
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), true);
+  assert.equal(queued[0][1], -20);
+  record.imageMode = 'original';
+  runtime.observeImage(preview);
+  assert.equal(record.imageMode, 'original', 'repeat discovery must not undo a new manual choice');
+  timers.get(record.previewHoldTimer)();
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
+  runtime.holdUnclassifiedPreview(record);
+  runtime.clearRecord(record);
+  assert.equal(record.previewHoldTimer, 0);
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
+});
+
+test('cached images relocate their filter when moved and when entering native fullscreen', async () => {
+  const { runtime, document, thumbnail, sourceRecord, image } = await expandedImageFixture('post');
+  const slide = image('', 600);
+  const viewer = {};
+  runtime.carouselImageContext = () => ({ viewer, slide });
+  runtime.updateRecordVisual(sourceRecord);
+  assert.equal(slide.classList.contains('cg-xhs-image-dark-mode'), true);
+  document.fullscreenElement = thumbnail;
+  assert.equal(runtime.visualTarget(thumbnail), thumbnail);
+  document.fullscreenElement = { contains: node => node === thumbnail };
+  assert.equal(runtime.visualTarget(thumbnail), thumbnail);
+  document.fullscreenElement = null;
+  assert.equal(runtime.visualTarget(thumbnail), slide);
+  runtime.carouselImageContext = () => null;
+  assert.equal(runtime.applyCachedResult(sourceRecord), true);
+  assert.equal(slide.classList.contains('cg-xhs-image-dark-mode'), false);
+  assert.equal(thumbnail.classList.contains('cg-xhs-image-dark-mode'), true);
+
+  runtime.carouselImageContext = () => ({ viewer, slide });
+  assert.equal(runtime.applyCachedResult(sourceRecord), true);
+  assert.equal(thumbnail.classList.contains('cg-xhs-image-dark-mode'), false);
+  assert.equal(slide.classList.contains('cg-xhs-image-dark-mode'), true);
 });

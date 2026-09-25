@@ -135,20 +135,22 @@
       this.records = new Map();
       this.intervenedRecords = new Set();
       this.controlRecords = new Set();
-      this.commentPreviewRecords = new Set();
+      this.imagePreviewRecords = new Set();
       this.postOverrides = new Map();
       this.concealedPosts = new Set();
       this.controlMenu = null;
       this.disabledProfileKeys = new Set();
       this.commentImageKeys = new Set();
-      this.commentPreviewImages = new WeakSet();
-      this.commentPreviewRoot = null;
-      this.commentPreviewBounds = null;
-      this.commentPreviewObserver = null;
-      this.commentPreviewScanFrame = 0;
-      this.commentGalleryProbeTimers = new Set();
-      this.pendingCommentPreview = null;
-      this.commentPreviewProbeTimers = new Set();
+      this.imagePreviewImages = new WeakSet();
+      this.imagePreviewOrigins = new WeakMap();
+      this.imagePreviewOrigin = null;
+      this.imagePreviewRoot = null;
+      this.imagePreviewBounds = null;
+      this.imagePreviewObserver = null;
+      this.imagePreviewScanFrame = 0;
+      this.previewGalleryProbeTimers = new Set();
+      this.pendingImagePreview = null;
+      this.imagePreviewProbeTimers = new Set();
       this.cache = new Map();
       this.queue = [];
       this.queued = new Set();
@@ -189,11 +191,12 @@
       this.onPageMutations = this.onPageMutations.bind(this);
       this.onViewerMutations = this.onViewerMutations.bind(this);
       this.onPostActivation = this.onPostActivation.bind(this);
+      this.onFullscreenChange = this.onFullscreenChange.bind(this);
       this.onIntersections = this.onIntersections.bind(this);
       this.onViewportChange = this.onViewportChange.bind(this);
       this.onControlResize = this.onControlResize.bind(this);
       this.onControlMotion = this.onControlMotion.bind(this);
-      this.onCommentPreviewMutations = this.onCommentPreviewMutations.bind(this);
+      this.onImagePreviewMutations = this.onImagePreviewMutations.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
       window.addEventListener(READY, this.onBridgeReady, true);
@@ -520,6 +523,8 @@
         attributeFilter: ['src', 'srcset', 'sizes', 'media', 'type']
       });
       document.addEventListener('click', this.onPostActivation, true);
+      document.addEventListener('pointerdown', this.onPostActivation, true);
+      document.addEventListener('fullscreenchange', this.onFullscreenChange, true);
       this.collectImages(document);
     }
 
@@ -539,6 +544,8 @@
       this.stopControlPositionTracking();
       this.closeControlMenu();
       document.removeEventListener('click', this.onPostActivation, true);
+      document.removeEventListener('pointerdown', this.onPostActivation, true);
+      document.removeEventListener('fullscreenchange', this.onFullscreenChange, true);
       this.openingPostId = '';
       this.openingProfileKey = '';
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -561,13 +568,14 @@
       this.intervenedRecords.clear();
       this.syncInterventionStatus();
       this.controlRecords.clear();
-      this.commentPreviewRecords.clear();
+      this.imagePreviewRecords.clear();
       this.commentImageKeys.clear();
-      this.commentPreviewImages = new WeakSet();
-      this.clearCommentPreviewGallery();
-      this.pendingCommentPreview = null;
-      for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
-      this.commentPreviewProbeTimers.clear();
+      this.imagePreviewImages = new WeakSet();
+      this.imagePreviewOrigins = new WeakMap();
+      this.clearImagePreviewGallery();
+      this.pendingImagePreview = null;
+      for (const timer of this.imagePreviewProbeTimers) clearTimeout(timer);
+      this.imagePreviewProbeTimers.clear();
       this.profileControl = null;
       this.profileControlKey = '';
       this.profileControlUrl = '';
@@ -599,6 +607,7 @@
         html .cg-xhs-image-dark-mode { filter: invert(1) hue-rotate(180deg) brightness(var(--cg-xhs-image-brightness, 1)) contrast(.92) saturate(.88) !important; }
         html .cg-xhs-image-dark-mode-gray { filter: brightness(var(--cg-xhs-image-brightness, 1)) contrast(6) saturate(.9) !important; }
         html .cg-xhs-image-hidden-dark { filter: url("#${darkFilter}") !important; }
+        html img.cg-xhs-image-pending { opacity: 0 !important; }
         html img.avatar-item, html img[src*="sns-avatar"] { filter: brightness(.72) saturate(.9) !important; }
         html .note-detail-follow-btn .follow-button, html button.follow-button.primary { filter: brightness(.76) saturate(.88) !important; }
       `;
@@ -660,7 +669,7 @@
     rememberCommentImage(image) {
       if (!this.inlineCommentImage(image)) return '';
       const key = this.cacheKey(image.currentSrc || image.src || '');
-      if (key) {
+      if (key && this.imagePreviewOrigins.get(image)?.kind !== 'post') {
         this.commentImageKeys.delete(key);
         this.commentImageKeys.add(key);
         while (this.commentImageKeys.size > CACHE_LIMIT) {
@@ -670,8 +679,9 @@
       return key;
     }
 
-    commentPreviewCandidate(image) {
-      if (!image || this.isAvatar(image) || this.viewerImageContext(image)) return false;
+    imagePreviewCandidate(image) {
+      if (!image || this.isAvatar(image)
+        || (this.viewerImageContext(image) && !this.imagePreviewImages.has(image))) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
       try {
@@ -691,8 +701,9 @@
         && rect.right > 0 && rect.left < viewportWidth);
     }
 
-    commentGalleryCandidate(image) {
-      if (!image || this.isAvatar(image) || this.viewerImageContext(image)) return false;
+    previewGalleryCandidate(image) {
+      if (!image || this.isAvatar(image)
+        || (this.viewerImageContext(image) && !this.imagePreviewImages.has(image))) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
       if (image.closest?.(
@@ -703,7 +714,7 @@
       return width >= 120 && height >= 120 && width * height >= 20_000;
     }
 
-    commentPreviewContainer(image) {
+    imagePreviewContainer(image) {
       let named = null;
       let fixed = null;
       for (let node = image.parentElement, depth = 0;
@@ -715,26 +726,29 @@
       return fixed || named || image.parentElement?.parentElement || image.parentElement || null;
     }
 
-    clearCommentPreviewGallery() {
-      this.commentPreviewObserver?.disconnect();
-      this.commentPreviewObserver = null;
-      if (this.commentPreviewScanFrame) cancelAnimationFrame(this.commentPreviewScanFrame);
-      this.commentPreviewScanFrame = 0;
-      for (const timer of this.commentGalleryProbeTimers) clearTimeout(timer);
-      this.commentGalleryProbeTimers.clear();
-      this.commentPreviewRoot = null;
-      this.commentPreviewBounds = null;
+    clearImagePreviewGallery() {
+      this.imagePreviewObserver?.disconnect();
+      this.imagePreviewObserver = null;
+      if (this.imagePreviewScanFrame) cancelAnimationFrame(this.imagePreviewScanFrame);
+      this.imagePreviewScanFrame = 0;
+      for (const timer of this.previewGalleryProbeTimers) clearTimeout(timer);
+      this.previewGalleryProbeTimers.clear();
+      this.imagePreviewRoot = null;
+      this.imagePreviewBounds = null;
+      this.imagePreviewOrigin = null;
     }
 
-    observeCommentPreviewGallery(image) {
-      if (this.commentPreviewRoot?.contains?.(image)) return false;
-      const root = this.commentPreviewContainer(image);
+    observeImagePreviewGallery(image) {
+      if (this.imagePreviewRoot?.contains?.(image)) return false;
+      const root = this.imagePreviewContainer(image);
       if (!root) return false;
-      this.clearCommentPreviewGallery();
-      this.commentPreviewRoot = root;
+      const origin = this.imagePreviewOrigins.get(image);
+      this.clearImagePreviewGallery();
+      this.imagePreviewRoot = root;
+      this.imagePreviewOrigin = origin;
       if (typeof MutationObserver === 'function') {
-        this.commentPreviewObserver = new MutationObserver(this.onCommentPreviewMutations);
-        this.commentPreviewObserver.observe(root, {
+        this.imagePreviewObserver = new MutationObserver(this.onImagePreviewMutations);
+        this.imagePreviewObserver.observe(root, {
           childList: true,
           subtree: true,
           attributes: true,
@@ -745,9 +759,9 @@
       return true;
     }
 
-    onCommentPreviewMutations(mutations) {
-      if (!this.processing || this.commentPreviewRoot?.isConnected === false) {
-        this.clearCommentPreviewGallery();
+    onImagePreviewMutations(mutations) {
+      if (!this.processing || this.imagePreviewRoot?.isConnected === false) {
+        this.clearImagePreviewGallery();
         return;
       }
       const siteClasses = value => String(value || '').split(/\s+/)
@@ -760,33 +774,35 @@
         || (mutation.attributeName === 'style'
           && siteStyle(mutation.oldValue) !== siteStyle(mutation.target.getAttribute?.('style')))
         || !['class', 'style'].includes(mutation.attributeName))) return;
-      this.scheduleCommentPreviewScan();
+      // Mutation callbacks run before paint; do not defer a newly visible
+      // already-classified image until a later animation frame.
+      this.scanImagePreviewGallery();
     }
 
-    scheduleCommentPreviewScan() {
-      if (!this.processing || !this.commentPreviewRoot || this.commentPreviewScanFrame) return;
-      this.commentPreviewScanFrame = requestAnimationFrame(() => {
-        this.commentPreviewScanFrame = 0;
-        this.scanCommentPreviewGallery();
+    scheduleImagePreviewScan() {
+      if (!this.processing || !this.imagePreviewRoot || this.imagePreviewScanFrame) return;
+      this.imagePreviewScanFrame = requestAnimationFrame(() => {
+        this.imagePreviewScanFrame = 0;
+        this.scanImagePreviewGallery();
       });
     }
 
-    probeCommentPreviewGallery() {
-      for (const timer of this.commentGalleryProbeTimers) clearTimeout(timer);
-      this.commentGalleryProbeTimers.clear();
+    probeImagePreviewGallery() {
+      for (const timer of this.previewGalleryProbeTimers) clearTimeout(timer);
+      this.previewGalleryProbeTimers.clear();
       for (const delay of [0, 100, 350, 800]) {
         const timer = setTimeout(() => {
-          this.commentGalleryProbeTimers.delete(timer);
-          this.scheduleCommentPreviewScan();
+          this.previewGalleryProbeTimers.delete(timer);
+          this.scheduleImagePreviewScan();
         }, delay);
         timer?.unref?.();
-        this.commentGalleryProbeTimers.add(timer);
+        this.previewGalleryProbeTimers.add(timer);
       }
     }
 
-    commentGalleryVisible(image) {
-      if (!this.commentPreviewCandidate(image)) return false;
-      const bounds = this.commentPreviewBounds;
+    previewGalleryVisible(image) {
+      if (!this.imagePreviewCandidate(image)) return false;
+      const bounds = this.imagePreviewBounds;
       const rect = image.getBoundingClientRect?.();
       if (!bounds || !rect) return true;
       const overlapWidth = Math.max(0, Math.min(bounds.right, rect.right) - Math.max(bounds.left, rect.left));
@@ -796,33 +812,33 @@
       ) * 0.35;
     }
 
-    ensureCommentGalleryImage(image, priority, allowHidden = false) {
-      if (!this.commentGalleryCandidate(image)
-        || (!allowHidden && !this.commentGalleryVisible(image))) return;
-      this.markCommentPreview(image, allowHidden);
+    ensurePreviewGalleryImage(image, priority, allowHidden = false) {
+      if (!this.previewGalleryCandidate(image)
+        || (!allowHidden && !this.previewGalleryVisible(image))) return;
+      this.markImagePreview(image, allowHidden);
       this.observeImage(image);
       const record = this.records.get(image);
       if (record && !record.result) this.waitForImageLoad(record, priority);
     }
 
-    scanCommentPreviewGallery() {
-      const root = this.commentPreviewRoot;
+    scanImagePreviewGallery() {
+      const root = this.imagePreviewRoot;
       if (!this.processing || !root || root.isConnected === false || root.hidden
         || root.getAttribute?.('aria-hidden') === 'true'
         || globalThis.getComputedStyle?.(root)?.display === 'none') {
-        this.clearCommentPreviewGallery();
+        this.clearImagePreviewGallery();
         return;
       }
       const images = [...(root.querySelectorAll?.('img') || [])]
-        .filter(image => this.commentGalleryCandidate(image));
+        .filter(image => this.previewGalleryCandidate(image));
       let active = null;
       for (const image of images) {
-        if (!this.commentGalleryVisible(image)) continue;
+        if (!this.previewGalleryVisible(image)) continue;
         active = image;
         const record = this.records.get(image);
-        if (record?.commentKind !== 'preview'
+        if (!this.imagePreviewImages.has(image)
           || record.requestKey !== this.imageRequestKey(image) || !record.result) {
-          this.ensureCommentGalleryImage(image, -20);
+          this.ensurePreviewGalleryImage(image, -20);
         }
       }
       if (!active) return;
@@ -830,47 +846,63 @@
       for (const adjacent of [images[index - 1], images[index + 1]]) {
         if (!adjacent) continue;
         const record = this.records.get(adjacent);
-        if (record?.commentKind !== 'preview'
+        if (!this.imagePreviewImages.has(adjacent)
           || record.requestKey !== this.imageRequestKey(adjacent) || !record.result) {
-          this.ensureCommentGalleryImage(adjacent, -10, true);
+          this.ensurePreviewGalleryImage(adjacent, -10, true);
         }
       }
       this.scheduleControlPositions();
     }
 
-    markCommentPreview(image, allowHidden = false) {
-      if (allowHidden ? !this.commentGalleryCandidate(image)
-        : !this.commentPreviewCandidate(image)) return false;
-      if (this.commentPreviewRoot && this.commentPreviewRoot.isConnected !== false
-        && !this.commentPreviewRoot.contains?.(image) && !this.pendingCommentPreview) return false;
-      const newGallery = this.observeCommentPreviewGallery(image);
-      this.commentPreviewImages.add(image);
-      if (!allowHidden) this.commentPreviewBounds = image.getBoundingClientRect?.() || null;
+    markImagePreview(image, allowHidden = false, matchedSource = false) {
+      if (!matchedSource && (allowHidden ? !this.previewGalleryCandidate(image)
+        : !this.imagePreviewCandidate(image))) return false;
+      if (this.imagePreviewRoot && this.imagePreviewRoot.isConnected !== false
+        && !this.imagePreviewRoot.contains?.(image) && !this.pendingImagePreview) return false;
+      const pending = this.pendingImagePreview;
+      const previous = this.imagePreviewOrigins.get(image);
+      const sourceKey = this.cacheKey(image.currentSrc || image.src || '');
+      if (!previous || previous.sourceKey !== sourceKey) {
+        const base = pending?.origin || this.imagePreviewOrigin;
+        const sourceRecord = pending && (matchedSource || this.imagePreviewCandidate(image))
+          ? this.records.get(pending.thumbnail) : null;
+        this.imagePreviewOrigins.set(image, {
+          kind: base?.kind || 'comment', viewer: base?.viewer || null,
+          postKey: base?.postKey || '', profileKey: base?.profileKey || '', sourceKey,
+          noteKey: sourceRecord ? base?.noteKey || '' : '',
+          result: sourceRecord?.result || null,
+          imageMode: sourceRecord?.imageMode || null,
+          concealed: sourceRecord?.concealed ?? null
+        });
+      }
+      this.imagePreviewImages.add(image);
+      const newGallery = this.observeImagePreviewGallery(image);
+      if (!allowHidden) this.imagePreviewBounds = image.getBoundingClientRect?.() || null;
       const key = this.cacheKey(image.currentSrc || image.src || '');
-      if (key) {
+      if (key && this.imagePreviewOrigins.get(image)?.kind !== 'post') {
         this.commentImageKeys.delete(key);
         this.commentImageKeys.add(key);
         while (this.commentImageKeys.size > CACHE_LIMIT) {
           this.commentImageKeys.delete(this.commentImageKeys.values().next().value);
         }
       }
-      this.pendingCommentPreview = null;
-      for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
-      this.commentPreviewProbeTimers.clear();
-      if (newGallery) this.probeCommentPreviewGallery();
+      this.pendingImagePreview = null;
+      for (const timer of this.imagePreviewProbeTimers) clearTimeout(timer);
+      this.imagePreviewProbeTimers.clear();
+      if (newGallery) this.probeImagePreviewGallery();
       return true;
     }
 
-    findPendingCommentPreview() {
-      const pending = this.pendingCommentPreview;
+    findPendingImagePreview() {
+      const pending = this.pendingImagePreview;
       if (!pending || Date.now() >= pending.expiresAt) {
-        this.pendingCommentPreview = null;
+        this.pendingImagePreview = null;
         return null;
       }
       let best = null;
       let bestScore = -1;
       for (const image of document.querySelectorAll?.('img') || []) {
-        if (!this.commentPreviewCandidate(image)) continue;
+        if (!this.imagePreviewCandidate(image)) continue;
         const key = this.cacheKey(image.currentSrc || image.src || '');
         const rect = image.getBoundingClientRect?.();
         const width = rect?.width || image.clientWidth || image.naturalWidth || 0;
@@ -890,7 +922,7 @@
           bestScore = score;
         }
       }
-      if (!best || !this.markCommentPreview(best)) return null;
+      if (!best || !this.markImagePreview(best)) return null;
       this.observeImage(best);
       const record = this.records.get(best);
       if (record?.result) {
@@ -903,49 +935,72 @@
       return best;
     }
 
-    armCommentPreview(thumbnail) {
+    armImagePreview(thumbnail) {
+      this.pendingImagePreview = null;
       const rect = thumbnail.getBoundingClientRect?.();
       const width = rect?.width || thumbnail.clientWidth || thumbnail.naturalWidth || 0;
       const height = rect?.height || thumbnail.clientHeight || thumbnail.naturalHeight || 0;
-      this.pendingCommentPreview = {
+      this.pendingImagePreview = {
         thumbnail,
+        origin: {
+          kind: this.inlineCommentImage(thumbnail) ? 'comment' : 'post',
+          viewer: this.viewerForImage(thumbnail),
+          postKey: this.viewerPostKey(thumbnail),
+          noteKey: this.noteCacheKey(thumbnail),
+          profileKey: this.records.get(thumbnail)?.profileKey || ''
+        },
         sourceKey: this.cacheKey(thumbnail.currentSrc || thumbnail.src || ''),
         knownImages: new WeakSet(document.querySelectorAll?.('img') || []),
         thumbnailArea: Math.max(1, width * height),
         expiresAt: Date.now() + 2_500
       };
-      for (const timer of this.commentPreviewProbeTimers) clearTimeout(timer);
-      this.commentPreviewProbeTimers.clear();
+      for (const timer of this.imagePreviewProbeTimers) clearTimeout(timer);
+      this.imagePreviewProbeTimers.clear();
       for (const delay of [0, 80, 240, 600, 1_200, 2_600]) {
         const timer = setTimeout(() => {
-          this.commentPreviewProbeTimers.delete(timer);
-          if (this.processing) this.findPendingCommentPreview();
+          this.imagePreviewProbeTimers.delete(timer);
+          if (this.processing) this.findPendingImagePreview();
         }, delay);
         timer?.unref?.();
-        this.commentPreviewProbeTimers.add(timer);
+        this.imagePreviewProbeTimers.add(timer);
       }
     }
 
     commentImageKind(image) {
-      if (this.commentPreviewImages.has(image)
-        && (this.commentPreviewRoot?.contains?.(image)
-          ? this.commentGalleryCandidate(image) : this.commentPreviewCandidate(image))) return 'preview';
-      if (this.commentPreviewRoot?.contains?.(image) && this.commentGalleryVisible(image)) {
-        if (this.markCommentPreview(image)) return 'preview';
+      if (this.imagePreviewOrigins.has(image) && this.carouselImageContext(image)) {
+        this.imagePreviewImages.delete(image);
+        this.imagePreviewOrigins.delete(image);
+        this.imagePreviewRecords.delete(this.records.get(image));
+      }
+      if (this.imagePreviewImages.has(image)) {
+        return this.imagePreviewOrigins.get(image)?.kind === 'post' ? '' : 'preview';
+      }
+      if (this.imagePreviewRoot?.contains?.(image) && this.previewGalleryVisible(image)) {
+        if (this.markImagePreview(image)) {
+          return this.imagePreviewOrigins.get(image)?.kind === 'post' ? '' : 'preview';
+        }
       }
       const inlineKey = this.rememberCommentImage(image);
       if (inlineKey) return 'inline';
-      if (this.pendingCommentPreview && this.commentPreviewCandidate(image)) {
-        const pending = this.pendingCommentPreview;
+      if (this.pendingImagePreview) {
+        const pending = this.pendingImagePreview;
         const key = this.cacheKey(image.currentSrc || image.src || '');
         const rect = image.getBoundingClientRect?.();
         const width = rect?.width || image.clientWidth || image.naturalWidth || 0;
         const height = rect?.height || image.clientHeight || image.naturalHeight || 0;
         const sameImageExpanded = image === pending.thumbnail
-          && width * height > pending.thumbnailArea * 2.25;
+          && (width * height > pending.thumbnailArea * 2.25
+            || (pending.origin?.kind === 'post' && !this.carouselImageContext(image)));
         const sameSourceCopy = image !== pending.thumbnail && key === pending.sourceKey;
-        if (sameImageExpanded || sameSourceCopy || !pending.knownImages.has(image)) {
-          if (this.markCommentPreview(image)) return 'preview';
+        // A CDN copy can begin at thumbnail size, or have no decoded dimensions
+        // yet. Recognize its identity before the opening animation paints it.
+        const matchedSource = sameSourceCopy && !!key && !this.isAvatar(image)
+          && !this.viewerImageContext(image) && !image.closest?.('section.note-item, a.cover');
+        if (matchedSource || (this.imagePreviewCandidate(image)
+          && (sameImageExpanded || !pending.knownImages.has(image)))) {
+          if (this.markImagePreview(image, false, matchedSource)) {
+            return this.imagePreviewOrigins.get(image)?.kind === 'post' ? '' : 'preview';
+          }
         }
       }
       if (!this.isXhsImageSource(image) || this.viewerImageContext(image)) return '';
@@ -957,7 +1012,7 @@
       const width = image.clientWidth || image.naturalWidth;
       const height = image.clientHeight || image.naturalHeight;
       if (width < 120 || height < 120 || width * height < 20_000) return '';
-      this.commentPreviewImages.add(image);
+      this.imagePreviewImages.add(image);
       return 'preview';
     }
 
@@ -969,6 +1024,7 @@
         ? this.commentImageKind(image)
         : knownCommentKind;
       if (commentKind) return true;
+      if (this.imagePreviewImages.has(image)) return true;
       if (this.viewerImageContext(image)) return true;
       // Viewer banners, badges and other overlays may also contain XHS-hosted
       // images. They are not slides and must never receive analysis or controls.
@@ -1062,7 +1118,7 @@
         loadHandler: null
       };
       this.records.set(image, record);
-      if (commentKind === 'preview') this.commentPreviewRecords.add(record);
+      if (commentKind === 'preview' || this.imagePreviewImages.has(image)) this.imagePreviewRecords.add(record);
       this.intersectionObserver?.observe(image);
       return record;
     }
@@ -1072,7 +1128,7 @@
       if (typeof record.commentKind === 'string') return record.commentKind;
       const commentKind = this.commentImageKind(record.image);
       record.commentKind = commentKind;
-      if (commentKind === 'preview') this.commentPreviewRecords.add(record);
+      if (commentKind === 'preview') this.imagePreviewRecords.add(record);
       return commentKind;
     }
 
@@ -1082,8 +1138,8 @@
       let record = this.records.get(image);
       if (record) {
         record.commentKind = commentKind;
-        if (commentKind === 'preview') this.commentPreviewRecords.add(record);
-        else this.commentPreviewRecords.delete(record);
+        if (commentKind === 'preview' || this.imagePreviewImages.has(image)) this.imagePreviewRecords.add(record);
+        else this.imagePreviewRecords.delete(record);
         if (!commentKind) record.profileKey = this.currentProfileKey() || record.profileKey;
       }
       if (!record) {
@@ -1095,11 +1151,19 @@
         this.createControl(record);
         this.scheduleControlPositions();
       }
+      const origin = this.imagePreviewOrigins.get(image);
+      if (origin && !record.source && record.previewStateOrigin !== origin
+        && origin.sourceKey === this.cacheKey(image.currentSrc || image.src || '')) {
+        record.imageMode = origin.imageMode;
+        record.concealed = origin.concealed;
+        record.previewStateOrigin = origin;
+      }
       if (this.applyCachedResult(record)) return;
       record.darkened = this.resolvedDarkened(record);
       if (record.darkened || this.resolvedConcealed(record)) this.updateRecordVisual(record);
-      const viewerPriority = this.viewerForImage(image) ? -20 : null;
+      const viewerPriority = this.viewerForImage(image) || commentKind === 'preview' ? -20 : null;
       if (viewerPriority !== null) {
+        this.holdUnclassifiedPreview(record);
         this.waitForImageLoad(record, viewerPriority);
       } else if (!image.complete || !image.naturalWidth) {
         this.waitForImageLoad(record, 0);
@@ -1167,6 +1231,7 @@
     }
 
     onPostActivation(event) {
+      if (event.type === 'pointerdown' && (event.button !== 0 || event.isPrimary === false)) return;
       const path = event.composedPath?.() || [];
       if (path.includes(this.controlHost)) return;
       if (this.controlRecords.size) this.scheduleControlPositions();
@@ -1187,9 +1252,22 @@
           }
         }
       }
-      if (commentImage) this.armCommentPreview(commentImage);
-      if (this.commentPreviewRoot && path.includes(this.commentPreviewRoot)) {
-        this.probeCommentPreviewGallery();
+      let postImage = !commentImage && path.find(node => typeof HTMLImageElement !== 'undefined'
+        && node instanceof HTMLImageElement
+        && this.viewerForImage(node) && !this.imagePreviewImages.has(node));
+      if (!commentImage && !postImage && this.viewerRoot && path.includes(this.viewerRoot)
+        && !path.some(node => node?.matches?.('button, a, [role="button"]'))) {
+        const x = Number(event.clientX), y = Number(event.clientY);
+        postImage = [...(this.viewerRoot.querySelectorAll?.('img') || [])].find(image => {
+          if (!this.carouselImageContext(image)) return false;
+          const rect = this.visibleImageRect(image);
+          return rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        });
+      }
+      if (commentImage || postImage) this.armImagePreview(commentImage || postImage);
+      if (event.type === 'pointerdown') return;
+      if (this.imagePreviewRoot && path.includes(this.imagePreviewRoot)) {
+        this.probeImagePreviewGallery();
       }
       const anchor = path.find(node => node?.matches?.(
         'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
@@ -1206,6 +1284,19 @@
       }
     }
 
+    onFullscreenChange() {
+      if (!this.processing) return;
+      const fullscreen = document.fullscreenElement;
+      // Native fullscreen is a top layer: the original carousel's filter and
+      // the document-level controls may no longer be part of its rendering tree.
+      const hostParent = fullscreen && !/^(IMG|VIDEO|CANVAS)$/.test(fullscreen.tagName)
+        ? fullscreen : document.documentElement;
+      if (this.controlHost && this.controlHost.parentElement !== hostParent) hostParent.append(this.controlHost);
+      if (fullscreen) this.collectImages(fullscreen);
+      for (const record of this.controlRecords) this.updateRecordVisual(record, false);
+      this.scheduleControlPositions();
+    }
+
     onIntersections(entries) {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
@@ -1216,7 +1307,7 @@
 
     onPageMutations(mutations) {
       let needsCleanup = false;
-      if (this.commentPreviewRoot?.isConnected === false) this.clearCommentPreviewGallery();
+      if (this.imagePreviewRoot?.isConnected === false) this.clearImagePreviewGallery();
       for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
           const image = this.imageForMutation(mutation.target);
@@ -1224,17 +1315,12 @@
           const commentKind = this.commentImageKind(image);
           let record = this.records.get(image);
           if (!record) {
-            if (!this.isContentImage(image, commentKind)) continue;
-            const profileKey = this.profileKeyForImage(image, commentKind);
-            if (profileKey && this.disabledProfileKeys.has(profileKey)) continue;
-            record = this.createRecord(image, commentKind, profileKey);
-            const priority = this.viewerForImage(image) ? -20 : 0;
-            this.waitForImageLoad(record, priority);
+            this.observeImage(image);
             continue;
           }
           record.commentKind = commentKind;
-          if (commentKind === 'preview') this.commentPreviewRecords.add(record);
-          else this.commentPreviewRecords.delete(record);
+          if (commentKind === 'preview' || this.imagePreviewImages.has(image)) this.imagePreviewRecords.add(record);
+          else this.imagePreviewRecords.delete(record);
           if (!commentKind) {
             record.profileKey = this.currentProfileKey() || record.profileKey;
           }
@@ -1255,6 +1341,7 @@
             if (displayedSourceUnchanged) {
               this.waitForImageLoad(record, priority);
             } else if (!this.applyCachedResult(record)) {
+              this.holdUnclassifiedPreview(record);
               this.waitForImageLoad(record, priority);
             }
           }
@@ -1332,7 +1419,7 @@
         record.loadSource = '';
         const queuedPriority = Number.isFinite(record.loadPriority) ? record.loadPriority : priority;
         record.loadPriority = Number.POSITIVE_INFINITY;
-        this.queueImage(image, queuedPriority);
+        if (!this.applyCachedResult(record)) this.queueImage(image, queuedPriority);
         return;
       }
       if (record.loadSource === requestKey) return;
@@ -1351,7 +1438,7 @@
           this.waitForImageLoad(record, queuedPriority);
           return;
         }
-        this.queueImage(image, queuedPriority);
+        if (!this.applyCachedResult(record)) this.queueImage(image, queuedPriority);
       };
       record.loadHandler = onLoad;
       image.addEventListener('load', onLoad, { once: true });
@@ -1451,6 +1538,9 @@
     }
 
     noteCacheKey(image) {
+      const origin = this.imagePreviewOrigins.get(image);
+      if (origin) return origin.sourceKey === this.cacheKey(image?.currentSrc || image?.src || '')
+        ? origin.noteKey : '';
       const slide = image?.closest?.('.swiper-slide');
       if (slide) {
         const id = this.noteId(location.href) || this.openingPostId;
@@ -1463,6 +1553,9 @@
     }
 
     cachedResult(image, source) {
+      const origin = this.imagePreviewOrigins.get(image);
+      if (origin?.result && origin.result.kind !== 'photo'
+        && origin.sourceKey === this.cacheKey(source)) return origin.result;
       const exactResult = this.cache.get(this.exactCacheKey(source));
       if (exactResult?.kind && exactResult.kind !== 'photo') return exactResult;
       const sourceResult = this.cache.get(this.cacheKey(source));
@@ -1513,12 +1606,38 @@
       const source = record?.image?.currentSrc || record?.image?.src || '';
       if (!source) return false;
       const cached = this.cachedResult(record.image, source);
-      if (!cached) return record.source === source && !!record.result;
-      if (record.source === source && record.result === cached) return true;
+      if (!cached || (record.source === source && record.result === cached)) {
+        const ready = record.source === source && !!record.result;
+        // The same element may have moved out of its filtered slide, or the
+        // site may have replaced its class attribute while opening a viewer.
+        if (ready) {
+          this.releasePreviewHold(record);
+          this.updateRecordVisual(record);
+        }
+        return ready;
+      }
       this.adoptSource(record, source);
       record.result = cached;
       this.applyResult(record);
       return true;
+    }
+
+    holdUnclassifiedPreview(record) {
+      if (!this.imagePreviewImages.has(record.image) || record.result || record.previewHoldTimer
+        || record.imageMode || this.resolvedConcealed(record)) return;
+      record.image.classList?.add('cg-xhs-image-pending');
+      // Never leave an image invisible after a failed/slow sample or download.
+      record.previewHoldTimer = setTimeout(() => this.releasePreviewHold(record), 1000);
+      record.previewHoldTimer?.unref?.();
+    }
+
+    releasePreviewHold(record) {
+      if (record.previewHoldTimer) clearTimeout(record.previewHoldTimer);
+      record.previewHoldTimer = 0;
+      if (record.image?.classList?.contains?.('cg-xhs-image-pending')) {
+        record.image.classList.remove('cg-xhs-image-pending');
+        this.scheduleControlPositions();
+      }
     }
 
     adoptSource(record, source) {
@@ -1940,18 +2059,19 @@
 
     applyResult(record) {
       if (!this.processing || !record.image.isConnected || !record.result) return;
+      this.releasePreviewHold(record);
       this.intersectionObserver?.unobserve?.(record.image);
       this.clearVisual(record, false);
       const commentKind = this.recordCommentKind(record);
-      const commentPreview = commentKind === 'preview';
+      const imagePreview = commentKind === 'preview';
       const override = commentKind ? null : this.postOverride(record);
       record.darkened = this.resolvedDarkened(record);
       const viewer = this.viewerForImage(record.image);
-      if (viewer || commentPreview) this.createControl(record);
+      if (viewer || imagePreview) this.createControl(record);
       this.updateRecordVisual(record, false);
-      if (viewer || commentPreview) this.scheduleControlPositions();
+      if (viewer || imagePreview) this.scheduleControlPositions();
       else if (record.result.kind === 'photo' && !override && !this.resolvedConcealed(record)
-        && !commentPreview) {
+        && !imagePreview) {
         this.clearVisual(record, false);
         this.retireRecord(record);
       }
@@ -1959,9 +2079,9 @@
     }
 
     createControl(record) {
-      const commentPreview = this.recordCommentKind(record) === 'preview';
+      const imagePreview = this.recordCommentKind(record) === 'preview';
       if (!this.controlLayer || record.button
-        || (!commentPreview && !this.viewerForImage(record.image))) return;
+        || (!imagePreview && !this.viewerForImage(record.image))) return;
       const button = document.createElement('button');
       button.type = 'button';
       button.setAttribute('aria-haspopup', 'menu');
@@ -1969,7 +2089,7 @@
       // Keep newly discovered controls out of the hit-testing layer until their
       // owning slide has been selected and positioned on the next frame.
       button.style.display = 'none';
-      if (commentPreview) this.bindCommentControl(button, record);
+      if (imagePreview) this.bindCommentControl(button, record);
       else this.bindControlGestures(button, record);
       this.controlLayer.append(button);
       record.button = button;
@@ -1994,6 +2114,8 @@
     }
 
     viewerPostKey(image) {
+      const origin = this.imagePreviewOrigins.get(image);
+      if (origin) return origin.kind === 'post' ? origin.postKey : '';
       if (this.commentImageKind(image)) return '';
       const noteKey = this.noteCacheKey(image);
       const match = /^note:([^:]+):/.exec(noteKey);
@@ -2018,6 +2140,8 @@
         ? this.commentImageKind(image)
         : knownCommentKind;
       if (commentKind) return '';
+      const origin = this.imagePreviewOrigins.get(image);
+      if (origin) return origin.profileKey;
       const currentProfileKey = this.currentProfileKey();
       if (currentProfileKey) return currentProfileKey;
       const postKey = this.viewerForImage(image) ? this.viewerPostKey(image) : '';
@@ -2564,6 +2688,7 @@
     }
 
     updateRecordVisual(record, notify = true) {
+      if (record.imageMode || record.result || this.resolvedConcealed(record)) this.releasePreviewHold(record);
       const grayTheme = record.result?.kind === 'gray-theme';
       const target = this.visualTarget(record.image);
       if (record.visualTarget && record.visualTarget !== target) {
@@ -2631,6 +2756,15 @@
     }
 
     viewerImageContext(image) {
+      const carousel = this.carouselImageContext(image);
+      if (carousel) return carousel;
+      const origin = this.imagePreviewOrigins.get(image);
+      if (origin?.kind === 'post') return { viewer: origin.viewer || this.imagePreviewRoot,
+        slide: null, mediaRoot: image.parentElement };
+      return null;
+    }
+
+    carouselImageContext(image) {
       const viewer = image?.closest?.('#noteContainer');
       if (!viewer?.querySelector?.('.note-slider, .media-container')) return null;
       const slide = image.closest?.('.swiper-slide') || null;
@@ -2648,7 +2782,11 @@
     }
 
     visualTarget(image) {
-      return this.viewerImageContext(image)?.slide || image;
+      const slide = this.viewerImageContext(image)?.slide;
+      const fullscreen = document.fullscreenElement;
+      if (fullscreen && (fullscreen === image || fullscreen.contains?.(image))
+        && !fullscreen.contains?.(slide)) return image;
+      return slide || image;
     }
 
     visibleImageRect(image, minimumSize = 1) {
@@ -2665,7 +2803,9 @@
     }
 
     controlPlacement(record) {
-      if (this.recordCommentKind(record) === 'preview') {
+      const fullscreen = document.fullscreenElement;
+      if (this.recordCommentKind(record) === 'preview' || this.imagePreviewImages.has(record.image)
+        || fullscreen === record.image || fullscreen?.contains?.(record.image)) {
         const rect = this.visibleImageRect(record.image, 120);
         if (!rect) return null;
         return {
@@ -2696,17 +2836,18 @@
       };
     }
 
-    activeCommentPreviewRecord() {
-      for (const record of [...this.commentPreviewRecords].reverse()) {
+    activeImagePreviewRecord() {
+      for (const record of [...this.imagePreviewRecords].reverse()) {
         const image = record.image;
-        if (!image?.isConnected || this.recordCommentKind(record) !== 'preview') continue;
+        if (!image?.isConnected || (this.recordCommentKind(record) !== 'preview'
+          && !this.imagePreviewImages.has(image))) continue;
         if (this.visibleImageRect(image, 120)) return record;
       }
       return null;
     }
 
-    hasOpenCommentPreview() {
-      return !!this.activeCommentPreviewRecord();
+    hasOpenImagePreview() {
+      return !!this.activeImagePreviewRecord();
     }
 
     scheduleControlPositions() {
@@ -2715,8 +2856,8 @@
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
         const positionedOwners = new Set();
-        const activeCommentPreview = this.activeCommentPreviewRecord();
-        const commentPreviewOpen = !!activeCommentPreview;
+        const activeImagePreview = this.activeImagePreviewRecord();
+        const imagePreviewOpen = !!activeImagePreview;
         for (const record of this.controlRecords) {
           if (!record.button) continue;
           if (!record.image.isConnected) {
@@ -2724,11 +2865,12 @@
             if (this.controlMenu?.record === record) this.closeControlMenu();
             continue;
           }
-          const classifiedCommentPreview = this.recordCommentKind(record) === 'preview';
-          const commentPreview = classifiedCommentPreview && record === activeCommentPreview;
+          const classifiedImagePreview = this.recordCommentKind(record) === 'preview'
+            || this.imagePreviewImages.has(record.image);
+          const imagePreview = classifiedImagePreview && record === activeImagePreview;
           const viewer = this.viewerForImage(record.image);
-          const owner = commentPreview ? record.image : classifiedCommentPreview ? null : viewer;
-          const eligible = this.showImageControl && (commentPreview || !commentPreviewOpen)
+          const owner = imagePreview ? record.image : classifiedImagePreview ? null : viewer;
+          const eligible = this.showImageControl && (imagePreview || !imagePreviewOpen)
             && owner && !positionedOwners.has(owner);
           const placement = eligible && !this.hasControlMotion(record)
             ? this.controlPlacement(record) : null;
@@ -2770,6 +2912,7 @@
     }
 
     clearRecord(record) {
+      this.releasePreviewHold(record);
       this.clearVisual(record);
       this.intersectionObserver?.unobserve?.(record.image);
       this.removeQueuedImage(record.image);
@@ -2793,7 +2936,7 @@
       if (record.loadHandler) record.image?.removeEventListener?.('load', record.loadHandler);
       record.loadHandler = null;
       record.loadGeneration = (record.loadGeneration || 0) + 1;
-      this.commentPreviewRecords.delete(record);
+      this.imagePreviewRecords.delete(record);
       this.records.delete(record.image);
     }
 
@@ -2804,7 +2947,7 @@
         for (const [image, record] of this.records) {
           if (image.isConnected) continue;
           this.clearRecord(record);
-          this.commentPreviewRecords.delete(record);
+          this.imagePreviewRecords.delete(record);
           this.records.delete(image);
         }
         this.queue = this.queue.filter(task => {

@@ -925,7 +925,12 @@ test('a comment preview shows its own control while the post image control stays
 });
 
 test('ordinary control clicks never search the complete page for comment images', async () => {
-  const runtime = await runtimeFixture();
+  const runtime = await runtimeFixture({}, {
+    URL, location: { href: 'https://www.xiaohongshu.com/explore/current-post' }
+  });
+  runtime.openingPostId = 'current-post';
+  let suspensions = 0;
+  runtime.suspendControlPositions = () => { suspensions += 1; };
   const ordinaryAncestor = {
     matches() { return false; },
     querySelectorAll() { throw new Error('ordinary ancestors must not be scanned'); }
@@ -935,6 +940,11 @@ test('ordinary control clicks never search the complete page for comment images'
     clientY: 40,
     composedPath: () => [ordinaryAncestor]
   });
+  assert.equal(suspensions, 0, 'a background click must not start the post-opening hide interval');
+  assert.equal(runtime.openingPostId, 'current-post');
+  for (const missing of [undefined, null, '', '   ']) assert.equal(runtime.noteId(missing), '');
+  assert.equal(runtime.noteCacheKey({}), '', 'unrelated images must not inherit a fabricated post ID');
+  assert.equal(runtime.noteId('/explore/another-post'), 'another-post');
 });
 
 test('a comment preview control is positioned inside the preview image corner', async () => {
@@ -1969,6 +1979,8 @@ test('menus group image and all actions but omit all for single-image posts and 
   total = '1 / 8';
   record.commentKind = 'preview';
   assert.equal(runtime.controlMenuGroups(record).length, 1);
+  runtime.locale = 'zh-CN';
+  assert.equal(runtime.controlMenuGroups(record)[0].items[0].label, '隐藏');
 });
 
 test('Original bypasses image adjustment independently for an image or its entire post', async () => {
@@ -1999,6 +2011,26 @@ test('Original bypasses image adjustment independently for an image or its entir
   runtime.setPostMode(first, 'auto');
   assert.equal(first.darkened, true);
   assert.equal(second.darkened, true);
+});
+
+test('explicit Original choices use the switch icon without changing Light or Auto icons', async () => {
+  const runtime = await runtimeFixture();
+  runtime.viewerPostKey = () => 'post';
+  const record = { image: {}, button: { style: {}, setAttribute() {} }, commentKind: '', darkened: false };
+  const icon = () => { runtime.updateControl(record); return record.button.innerHTML; };
+  const switchPattern = /<rect x="3" y="7"/;
+  assert.doesNotMatch(icon(), switchPattern, 'unmodified automatic photos keep the normal toggle');
+  runtime.postOverrides.set('post', 'original');
+  assert.match(icon(), switchPattern);
+  record.imageMode = 'light';
+  assert.doesNotMatch(icon(), switchPattern, 'per-image Light outranks a post Original choice');
+  record.imageMode = 'auto';
+  assert.doesNotMatch(icon(), switchPattern);
+  record.imageMode = 'original';
+  runtime.postOverrides.set('post', true);
+  assert.match(icon(), switchPattern, 'per-image Original outranks a post Dark choice');
+  record.commentKind = 'preview';
+  assert.match(icon(), switchPattern, 'comment Original also uses the switch');
 });
 
 test('a held gesture without a browser click cannot swallow the next independent tap', async () => {

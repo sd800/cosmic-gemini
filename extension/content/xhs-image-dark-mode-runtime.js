@@ -45,7 +45,7 @@
       menuHint: '右键可打开图片菜单',
       menuTitle: '图片显示',
       imageGroup: '本图', allGroup: '所有图片',
-      hide: '关闭', auto: '自动', dark: '深色', light: '浅色', original: '原图',
+      hide: '隐藏', auto: '自动', dark: '深色', light: '浅色', original: '原图',
       holdDark: '长按可将这篇笔记的全部图片切换为深色模式',
       holdLight: '长按可将这篇笔记的全部图片切换为浅色模式',
       profileEnabled: 'XHS Image Dark Mode 已在这个用户主页中开启，点击可暂停处理全部笔记',
@@ -624,6 +624,7 @@
       style.textContent = `
         :host { all: initial; }
         .layer { position: fixed; inset: 0; pointer-events: none; }
+        .menu-dismiss { position: fixed; inset: 0; z-index: 0; pointer-events: auto; }
         button { position: absolute; z-index: 1; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; transition: opacity 120ms ease, background-color 120ms ease; }
         .image-menu { position: fixed; z-index: 2; box-sizing: border-box; padding: 5px; margin: 0; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; overscroll-behavior: contain; border: 1px solid #4a4c50; border-radius: 10px; background: #222428; color: #e8e6e3; box-shadow: 0 4px 18px #0006; pointer-events: auto; font: 14px/1.45 system-ui, sans-serif; outline: none; }
         .image-menu button { position: relative; display: block; width: 100%; height: auto; padding: 7px 12px; border: 0; border-radius: 5px; background: transparent; color: inherit; box-shadow: none; font: inherit; text-align: start; white-space: nowrap; opacity: 1; }
@@ -1530,6 +1531,9 @@
     }
 
     noteId(value) {
+      // URL(undefined, currentPost) creates an "undefined" relative path.
+      // A click with no post link must never be mistaken for opening a post.
+      if (typeof value !== 'string' || !value.trim()) return '';
       try {
         return new URL(value, location.href).pathname.match(/^\/explore\/([^/]+)/)?.[1] || '';
       } catch {
@@ -2416,6 +2420,18 @@
       this.closeControlMenu();
       if (!this.controlLayer || !record.button || record.button.hidden) return;
       const menu = document.createElement('div');
+      const dismiss = document.createElement('div');
+      dismiss.className = 'menu-dismiss';
+      dismiss.setAttribute('aria-hidden', 'true');
+      // Keep the whole dismissal gesture inside our shadow layer. Closing on
+      // window pointerdown lets its later click activate the underlying post,
+      // which can start an opening animation and temporarily hide the control.
+      for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup',
+        'click', 'auxclick', 'contextmenu', 'dblclick']) dismiss.addEventListener(type, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (type === 'click' || type === 'auxclick' || type === 'contextmenu') this.closeControlMenu();
+      });
       menu.className = 'image-menu';
       menu.tabIndex = -1;
       menu.setAttribute('role', 'menu');
@@ -2475,9 +2491,10 @@
       this.controlMenu = { record, element: menu, cleanup: () => {
         window.removeEventListener('pointerdown', outside, true);
         window.removeEventListener('keydown', keydown, true);
+        dismiss.remove();
       } };
       record.button.setAttribute('aria-expanded', 'true');
-      this.controlLayer.append(menu);
+      this.controlLayer.append(dismiss, menu);
       const anchor = record.button.getBoundingClientRect();
       const bounds = menu.getBoundingClientRect();
       menu.style.left = `${Math.max(8, Math.min(innerWidth - bounds.width - 8, anchor.left))}px`;
@@ -2718,10 +2735,11 @@
       button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
       button.style.opacity = String(this.controlOpacity);
       const concealed = this.resolvedConcealed(record);
-      const icon = concealed ? POST_DISABLED_ICON : record.darkened ? LIGHT_ICON : DARK_ICON;
+      const override = this.recordCommentKind(record) ? null : this.postOverride(record);
+      const original = (record.imageMode || override?.mode) === 'original';
+      const icon = concealed || original ? POST_DISABLED_ICON : record.darkened ? LIGHT_ICON : DARK_ICON;
       // Keep the hit target stable throughout a pointer gesture and SPA refresh.
       if (record.controlIcon !== icon) { button.innerHTML = icon; record.controlIcon = icon; }
-      const override = this.recordCommentKind(record) ? null : this.postOverride(record);
       const parts = [concealed
         ? record.concealed === true ? copy.clickRestoreImage : copy.clickRestoreAll
         : override ? copy.clickAutomatic : record.darkened ? copy.clickLight : copy.clickDark];

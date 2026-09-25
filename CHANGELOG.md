@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.33 — 2026-09-24
+
+- Update XHS image display icons and Chinese menu wording, and keep image controls stable when dismissing the context menu.
+
 ## 9.8.32 — 2026-09-24
 
 - Improve XHS Image Dark Mode when opening comment images and fullscreen post images, reducing bright flashes and preserving image controls and display choices.

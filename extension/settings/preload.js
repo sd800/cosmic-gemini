@@ -27,7 +27,7 @@
     accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="M12.4 13.35 15.952 18.318"/>',
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',
     websiteFixer: '<path d="M20 7.5a5.4 5.4 0 0 1-7.2 5.1l-6.6 6.6a2 2 0 0 1-2.8-2.8l6.6-6.6A5.4 5.4 0 0 1 15.1 2l-2.8 2.8.6 3 3 .6L20 4.3a5.4 5.4 0 0 1 0 3.2Z"/>',
-    translateOverride: '<g stroke="none"><path d="M12.4 6H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7.1l-1.2-3.8Z" fill="none" stroke="var(--muted)"/><path d="m11.7 18.2 1.2 3.8 3.4-3.8Z" fill="color-mix(in srgb, currentColor 68%, black)"/><path d="M11.1 2H4a2 2 0 0 0-2 2v12.2a2 2 0 0 0 2 2h12.3Z" fill="currentColor"/></g>',
+    translateOverride: '<g stroke="none"><path d="M12.4 6H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7.1l-1.2-3.8Z" fill="none" stroke="currentColor"/><path d="m11.7 18.2 1.2 3.8 3.4-3.8Z" fill="color-mix(in srgb, currentColor 68%, black)"/><path d="M11.1 2H4a2 2 0 0 0-2 2v12.2a2 2 0 0 0 2 2h12.3Z" fill="currentColor"/></g>',
     stayOnPage: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M10 13v-1a2 2 0 0 1 4 0v1"/><rect x="9" y="13" width="6" height="5" rx="1"/>',
     adMarshal: '<path d="M12 2.75 20 6v5.2c0 5.1-3.1 8.55-8 10.05-4.9-1.5-8-4.95-8-10.05V6Z"/><path d="m8.5 12 2.25 2.25L16 9"/>',
     leetcodeDarkMode: '<path d="m5 6.5 6 5.5-6 5.5M13 17.5h6"/>',

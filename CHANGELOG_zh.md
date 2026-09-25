@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.52 — 2026-09-25
+
+- 统一 Translate Override 图标外轮廓与设置页其他图标的色调。
+
 ## 9.8.51 — 2026-09-25
 
 - 将 Translate Override 设置页功能图标的后层页面改为空心轮廓。

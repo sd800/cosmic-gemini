@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.52 — 2026-09-25
+
+- Align the Translate Override icon outline with the settings icon color.
+
 ## 9.8.51 — 2026-09-25
 
 - Adjust the rear sheet of the Translate Override settings icon to an outline.

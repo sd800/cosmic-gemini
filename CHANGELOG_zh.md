@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.39 — 2026-09-25
+
+- 调整 Translate Override 的设置页功能图标。
+
 ## 9.8.38 — 2026-09-25
 
 - 为 Translate Override 和 Stay on the page 添加独立的设置页功能图标。

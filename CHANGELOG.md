@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.39 — 2026-09-25
+
+- Refine the Translate Override settings icon.
+
 ## 9.8.38 — 2026-09-25
 
 - Add distinct settings icons for Translate Override and Stay on the page.

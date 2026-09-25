@@ -33,6 +33,23 @@ test('popup cache receives saved preferences separately from effective state', a
   assert.equal(result.state.preferences.mailtoCapture.enabled, true);
 });
 
+test('extension reload is popup-only, acknowledged first and scheduled once', async t => {
+  const base = 'chrome-extension://cosmic-gemini/'; let reloads = 0;
+  globalThis.chrome = { runtime: { getURL: path => base + path, reload() { reloads++; } } };
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const product = createAdministrationProduct({});
+  const message = { type: 'UI_RELOAD_EXTENSION' };
+  for (const url of ['https://example.com/', base + 'settings/all-settings.html', base + 'popup/other.html']) {
+    await assert.rejects(product.handleMessage(message, { sender: { url } }), /only.*popup/);
+  }
+  const context = { sender: { url: base + 'popup/index.html' } };
+  assert.deepEqual(await product.handleMessage(message, context), { reloading: true });
+  await product.handleMessage(message, context);
+  assert.equal(reloads, 0, 'the caller receives acknowledgement before losing its extension context');
+  t.mock.timers.tick(100);
+  assert.equal(reloads, 1);
+});
+
 test('Claude response display product saves independently and refreshes page decisions', async () => {
   let settings = normalizeSettings();
   let refreshes = 0;

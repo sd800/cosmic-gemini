@@ -22,6 +22,8 @@ Each injected feature bridge retrieves only its current page state through the a
 
 Settings pages contain their complete first-frame structure. A synchronous locale preloader applies the cached Chrome UI locale and cached control values before the page becomes visible. Asynchronous storage then confirms that selection without rebuilding the initial view. The All Settings page also renders its reset control in the first frame.
 
+The popup’s All Settings button retains ordinary click-to-open behavior. A primary-pointer hold of 550 ms changes it to a red `Reload` label; releasing that press consumes its generated click. A separate click (or keyboard activation) sends `UI_RELOAD_EXTENSION` through Central and Operations to administration, which accepts it only from the exact popup document, acknowledges it, then schedules `chrome.runtime.reload()` once. This restarts the extension without resetting saved settings. Confirmation is ephemeral and clears on Escape, an outside pointer action, blur or popup closure; drag/cancel gestures do not trigger either action.
+
 The message ingress rejects malformed and unregistered message types before product dispatch. Page events require a valid HTTP(S) tab sender; extension UI and offscreen progress retain their separate sender boundaries. Register any new page event explicitly in `background/message-source.js`.
 
 Page-runtime cleanup remains document-targeted. Pending operations in a retired document cannot clear the newer document's activity; the guard retains only in-flight work and is released when it settles.

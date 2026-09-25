@@ -26,6 +26,8 @@ html[lang="en-US"] .video-panel-wordmark strong { letter-spacing: .018em; }
 .popup-footer { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--line); }
 .popup-footer .feature-status { width: 40px; height: 40px; }
 .popup-footer .feature-status svg { width: 26px; height: 26px; }
+.popup-footer #all-settings[data-reload-armed="true"] { width: 62px; color: var(--reload-color, var(--danger)); font-size: 14px; font-weight: 600; }
+@media (prefers-color-scheme: dark) { #all-settings { --reload-color: #ffb4ab; } }
 .video-panel[hidden], .popup-shell[hidden] { display: none; }
 .video-panel { min-height: 190px; max-height: 570px; overflow-y: auto; background: var(--surface); }
 .video-panel-header { position: sticky; z-index: 2; top: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; gap: 8px; min-height: 52px; padding: 8px 11px; border-bottom: 1px solid var(--line); background: var(--surface); align-items: center; }

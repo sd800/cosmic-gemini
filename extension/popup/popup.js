@@ -4,6 +4,7 @@ import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { candidateQuality, formatMediaDuration, groupVideoCandidates, knownVideoFileSize } from '../core/video-download.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
+import { bindSettingsButton } from './settings-button.js';
 
 const root = document.documentElement;
 const live = document.querySelector('#live');
@@ -703,11 +704,18 @@ document.querySelector('#imageDownload-status').innerHTML = icon('imageDownload'
 document.querySelector('#videoDownload-status').innerHTML = icon('videoDownload');
 document.querySelector('#video-panel-product-icon').innerHTML = icon('videoDownload');
 document.querySelector('#all-settings').innerHTML = icon('menu');
-label(document.querySelector('#all-settings'), t?.('allSettingsTitle') || 'All Settings');
-document.querySelector('#all-settings').addEventListener('click', () => void perform(async () => {
-  await send({ type: 'UI_OPEN_ALL_SETTINGS' });
-  window.close();
-}));
+const settingsButton = bindSettingsButton(document.querySelector('#all-settings'), {
+  settingsTitle: 'Open All Settings',
+  reloadTitle: 'Reload extension',
+  openSettings: () => perform(async () => {
+    await send({ type: 'UI_OPEN_ALL_SETTINGS' });
+    window.close();
+  }),
+  reloadExtension: () => perform(async () => {
+    await send({ type: 'UI_RELOAD_EXTENSION' });
+    window.close();
+  })
+});
 
 document.querySelector('#videoDownload-status').addEventListener('click', () => void perform(async () => {
   setVideoViewVisible(true);
@@ -753,7 +761,7 @@ for (const nav of document.querySelectorAll('[data-i18n-aria-label]')) nav.setAt
 label(document.querySelector('#video-back'), t('back'));
 label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
-label(document.querySelector('#all-settings'), t('allSettingsTitle'));
+settingsButton.setLabels(t('allSettingsTitle'), t('reloadExtensionTitle'));
 connectCentralUi();
 try {
   await retryRead(() => reload());

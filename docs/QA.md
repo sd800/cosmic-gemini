@@ -139,3 +139,7 @@ Bridge regressions reproduce overlapping readiness/refresh acknowledgements, mid
 ## White Softer
 
 Run the focused `test/white-softer.test.mjs` with the existing configuration and Settings tests, then `scripts/test-white-softer-browser.mjs` using `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` (plus local Python/Pillow for screenshot color checks). The isolated HTTP fixture uses restrictive CSP and a cross-origin frame. Check exact RGB on backgrounds, white glyphs, Canvas and icons for all five tones; black/mid-grey retention; no duplicate frame layers; input/focus; native dialogs, popovers and fullscreen; ancestor inversion; localized Settings persistence; and independent Page Display cleanup. Synthetic artifacts belong in `test-dist/white-softer/`.
+
+## Popup reload confirmation
+
+Run `node --test test/popup-settings-button.test.mjs test/operations-products.test.mjs test/message-source.test.mjs`. The focused `scripts/test-popup-settings-browser.mjs` uses the existing `PDF_VIEWER_PLAYWRIGHT`/`PDF_VIEWER_CHROME` paths and a disposable browser profile. It verifies ordinary Settings opening, long-press release suppression, separate Reload confirmation, red-text contrast in both appearances, Escape/outside cancellation, an actual service-worker restart with local storage retained, and normal icon restoration in the next popup. Do not reload the user’s running extension during automated QA. Screenshots belong to ignored `test-dist/popup-settings/`.

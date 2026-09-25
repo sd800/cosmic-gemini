@@ -96,7 +96,7 @@ function productForMessage(message) {
   if (/^(?:CG|UI)_IMAGE_|^UI_SET_IMAGE_SETTING$/.test(message.type)) return FEATURE_IDS.IMAGE_DOWNLOAD;
   if (/^(?:CG|UI)_VIDEO_|^UI_SET_VIDEO_SETTING$/.test(message.type)) return FEATURE_IDS.VIDEO_DOWNLOAD;
   if (['UI_GET', 'UI_GET_ACTIVE_PAGE_STATE', 'UI_OPEN_SETTINGS', 'UI_OPEN_ALL_SETTINGS',
-    'UI_GET_LOCALE', 'UI_SET_LOCALE', 'UI_RESET_ALL_SETTINGS'].includes(message.type)) return 'administration';
+    'UI_GET_LOCALE', 'UI_SET_LOCALE', 'UI_RESET_ALL_SETTINGS', 'UI_RELOAD_EXTENSION'].includes(message.type)) return 'administration';
   if (message.featureId) return String(message.featureId);
   return 'administration';
 }

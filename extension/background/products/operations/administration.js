@@ -14,6 +14,7 @@ const SETTINGS_PATHS = Object.freeze({
 
 export function createAdministrationProduct(platform) {
   let settingsUrls;
+  let reloadTimer = 0;
   const isSettingsPage = url => typeof url === 'string' && (settingsUrls ||= new Set([...Object.values(SETTINGS_PATHS), 'settings/all-settings.html'].map(path => chrome.runtime.getURL(path)))).has(url.split(/[?#]/, 1)[0]);
   const registerSettings = createSettingsSurface(isSettingsPage, 'administration-settings-surface');
 
@@ -52,6 +53,14 @@ export function createAdministrationProduct(platform) {
       if (message.type === 'UI_OPEN_ALL_SETTINGS') {
         await chrome.tabs.create({ url: chrome.runtime.getURL('settings/all-settings.html') });
         return { opened: true };
+      }
+      if (message.type === 'UI_RELOAD_EXTENSION') {
+        if (senderUrl !== chrome.runtime.getURL('popup/index.html')) {
+          throw new Error('The extension can only be reloaded from the popup.');
+        }
+        // Acknowledge the command before invalidating popup and worker contexts.
+        if (!reloadTimer) reloadTimer = setTimeout(() => chrome.runtime.reload(), 100);
+        return { reloading: true };
       }
       if (message.type === 'UI_GET_LOCALE') {
         if (!senderUrl.startsWith(chrome.runtime.getURL(''))) {

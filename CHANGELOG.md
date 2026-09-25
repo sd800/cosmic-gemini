@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.37 — 2026-09-25
+
+- Add a long-press confirmation on the popup’s All Settings button to reload the extension.
+
 ## 9.8.36 — 2026-09-25
 
 - Fix dark-mode recovery during repeated internal navigation in LeetCode Explore.

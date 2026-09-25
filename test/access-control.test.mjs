@@ -149,7 +149,7 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   const retried = [];
   const popups = new Map();
   const session = new Map();
-  let errorListener;
+  let errorListener, completeListener;
   let installed = [];
   let settings = normalizeSettings({
     accessControl: { enabled: true, allowTemporaryVisits: true, blockedDomains: ['example.com', 'elsewhere.example'] }
@@ -160,6 +160,8 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
       hasListener: listener => errorListener === listener,
       addListener: listener => { errorListener = listener; },
       removeListener: listener => { if (errorListener === listener) errorListener = undefined; }
+    }, onCompleted: {
+      addListener: listener => { completeListener = listener; }
     } },
     storage: { session: {
       async get(key) { return { [key]: session.get(key) }; },
@@ -173,6 +175,10 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
     tabs: {
       async query() { return [tab]; },
       async get(tabId) { return tabId === tab.id ? tab : null; },
+      async sendMessage() {
+        if (!/^https?:/.test(tab.url)) throw new Error('No page receiver');
+        return { url: tab.url };
+      },
       async update(tabId, options) { retried.push([tabId, options.url]); tab.url = options.url; }
     },
     declarativeNetRequest: {
@@ -190,15 +196,49 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   });
   await product.reconcile();
   assert.equal(typeof errorListener, 'function');
+  assert.equal(typeof completeListener, 'function');
   assert.equal(popups.get(tab.id), undefined, 'normal pages retain the normal popup');
+  const blockRules = installed;
+  installed = [];
   errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide', error: 'net::ERR_CONNECTION_RESET' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(session.has('accessControlPendingVisit:17'), false,
-    'an unrelated network failure is not treated as an Access Control block');
-  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide', error: 'net::ERR_BLOCKED_BY_CLIENT' });
+    'a failed request without an installed Access Control block is not offered as a visit');
+  installed = blockRules;
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide',
+    error: 'net::ERR_BLOCKED_BY_CLIENT', requestId: 'blocked-1', timeStamp: 1000 });
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(session.get('accessControlPendingVisit:17'), 'https://docs.example.com/guide');
+  assert.equal(session.get('accessControlPendingVisit:17').url, 'https://docs.example.com/guide');
   assert.equal(popups.get(tab.id), '', 'the blocked tab routes its toolbar click to the background');
+  completeListener({ tabId: tab.id, requestId: 'older', timeStamp: 999 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(popups.get(tab.id), '', 'an older successful request cannot erase a newer block');
+  completeListener({ tabId: tab.id, requestId: 'newer', timeStamp: 1001 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(session.has('accessControlPendingVisit:17'), false);
+  assert.equal(popups.get(tab.id), 'popup/index.html', 'successful navigation clears the retry action');
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide',
+    error: 'net::ERR_BLOCKED_BY_CLIENT', requestId: 'blocked-late', timeStamp: 1000 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(session.has('accessControlPendingVisit:17'), false,
+    'a delayed error from before the successful navigation cannot restore the retry action');
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide',
+    error: 'net::ERR_BLOCKED_BY_CLIENT', requestId: 'blocked-2', timeStamp: 1002 });
+  await new Promise(resolve => setImmediate(resolve));
+  const beforeRemoval = settings;
+  settings = normalizeSettings({ accessControl: { enabled: true, allowTemporaryVisits: true,
+    blockedDomains: ['elsewhere.example'] } });
+  await product.reconcile();
+  assert.equal(session.has('accessControlPendingVisit:17'), false,
+    'removing a blocked domain discards its pending retry');
+  assert.equal(popups.get(tab.id), 'popup/index.html');
+  settings = beforeRemoval;
+  await product.reconcile();
+  assert.equal(popups.get(tab.id), 'popup/index.html',
+    're-adding a domain does not resurrect its old retry action');
+  errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide',
+    error: 'net::ERR_BLOCKED_BY_CLIENT', requestId: 'blocked-3', timeStamp: 1003 });
+  await new Promise(resolve => setImmediate(resolve));
 
   assert.deepEqual(await product.state(settings, 'https://docs.example.com/guide', tab.id), {
     enabled: true,
@@ -233,7 +273,35 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   assert.equal((await product.state(settings, tab.url, tab.id)).blocked, false);
   assert.equal((await product.state(settings, tab.url, tab.id)).temporarilyAllowed, true);
 
+  const originalSettings = settings;
+  settings = normalizeSettings({ accessControl: { enabled: true, allowTemporaryVisits: true,
+    blockedDomains: ['docs.example.com', 'example.com', 'elsewhere.example'] } });
+  await product.reconcile();
+  assert.equal((await product.state(settings, tab.url, tab.id)).temporarilyAllowed, true,
+    'a parent-domain visit also covers a more specific listed domain');
+  await product.handleTabUpdated(tab.id, { url: tab.url }, tab);
+  assert.ok(installed.some(rule => rule.id === visit.id),
+    'overlapping saved domains cannot accidentally revoke the current visit');
+  settings = originalSettings;
+  await product.reconcile();
+
   installed = installed.filter(rule => rule.action.type !== 'allow');
+  session.set('accessControlPendingVisit:17', { url: 'https://elsewhere.example/', at: 1003, requestId: 'stale' });
+  popups.set(tab.id, '');
+  assert.equal(await product.handleActionClicked(tab), false,
+    'a stale pending destination cannot navigate away from a loaded document');
+  assert.deepEqual(retried, [[17, 'https://docs.example.com/guide']]);
+  session.set('accessControlPendingVisit:17', { url: tab.url, at: 1003, requestId: 'stale' });
+  popups.set(tab.id, '');
+  await product.reconcile();
+  assert.equal(session.has('accessControlPendingVisit:17'), false,
+    'a real loaded document invalidates a stale blocked-navigation record');
+  assert.equal(popups.get(tab.id), 'popup/index.html');
+  errorListener({ tabId: tab.id, url: tab.url, requestId: 'late-error', timeStamp: Date.now() });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(session.has('accessControlPendingVisit:17'), false,
+    'a delayed failure cannot replace the popup on a live document');
+
   await product.reconcile();
   assert.equal(popups.get(tab.id), 'popup/index.html',
     'losing a visit rule does not turn an already loaded page into a retry action');
@@ -244,9 +312,10 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   });
   assert.ok(installed.some(rule => rule.action.type === 'allow'), 'the visit survives within the blocked domain');
   await product.handleTabUpdated(tab.id, { url: 'https://allowed.example.net/' }, {
-    url: 'https://allowed.example.net/'
+    url: 'https://sub.example.com/next'
   });
-  assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
+  assert.equal(installed.some(rule => rule.action.type === 'allow'), false,
+    'the authoritative changed URL wins over a stale tab snapshot when leaving the site');
 
   tab.url = 'https://elsewhere.example/';
   await product.handleTabUpdated(tab.id, { status: 'complete' }, tab);
@@ -257,9 +326,10 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
     'a stale one-time-visit action cannot retry a loaded page');
   assert.deepEqual(retried, [[17, 'https://docs.example.com/guide']]);
   assert.equal(popups.get(tab.id), 'popup/index.html');
-  errorListener({ tabId: tab.id, url: tab.url, error: 'net::ERR_BLOCKED_BY_CLIENT' });
-  await new Promise(resolve => setImmediate(resolve));
+  const blockedElsewhere = tab.url;
   tab.url = 'chrome-error://chromewebdata/';
+  errorListener({ tabId: tab.id, url: blockedElsewhere, error: 'net::ERR_BLOCKED_BY_CLIENT' });
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(popups.get(tab.id), '');
   await product.handleActionClicked(tab);
   assert.deepEqual(retried.at(-1), [17, 'https://elsewhere.example/']);
@@ -280,6 +350,56 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   await product.handleActionClicked(tab);
   await product.handleTabRemoved(tab.id);
   assert.equal(installed.some(rule => rule.action.type === 'allow'), false);
+});
+
+test('Access Control restores the previous visit if a new retry fails', async () => {
+  const tab = { id: 31, windowId: 4, active: true, incognito: false, url: 'chrome-error://chromewebdata/' };
+  const previousVisit = { id: 924001, priority: 200, action: { type: 'allow' },
+    condition: { urlFilter: '||example.com^', tabIds: [tab.id], resourceTypes: ['main_frame', 'sub_frame'] } };
+  let installed = [previousVisit], failRetry = true;
+  const session = new Map();
+  const popups = new Map([[tab.id, '']]);
+  const settings = normalizeSettings({ accessControl: { enabled: true, allowTemporaryVisits: true,
+    blockedDomains: ['example.com', 'other.example'] } });
+  globalThis.chrome = {
+    runtime: { getURL: path => 'chrome-extension://test/' + path },
+    storage: { session: {
+      async get(key) { return { [key]: session.get(key) }; },
+      async set(values) { for (const [key, value] of Object.entries(values)) session.set(key, value); },
+      async remove(key) { session.delete(key); }
+    } },
+    action: {
+      async getPopup({ tabId }) { return popups.get(tabId) ?? 'popup/index.html'; },
+      async setPopup({ tabId, popup }) { popups.set(tabId, popup); }
+    },
+    tabs: {
+      async query() { return [tab]; },
+      async get() { return tab; },
+      async update(_, { url }) { if (failRetry) throw new Error('navigation failed'); tab.url = url; }
+    },
+    declarativeNetRequest: {
+      async getSessionRules() { return installed; },
+      async updateSessionRules({ removeRuleIds = [], addRules = [] }) {
+        installed = installed.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+      }
+    }
+  };
+  const product = createAccessControlProduct({
+    isIncognitoContext: () => false, readSettings: async () => settings
+  });
+  await product.reconcile();
+  session.set('accessControlPendingVisit:31', { url: 'https://other.example/', at: 1, requestId: 'blocked' });
+  popups.set(tab.id, '');
+  await assert.rejects(product.handleActionClicked(tab), /navigation failed/);
+  assert.deepEqual(installed.filter(rule => rule.action.type === 'allow'), [previousVisit]);
+  assert.equal(session.get('accessControlPendingVisit:31').url, 'https://other.example/',
+    'the blocked destination remains available for a later retry');
+
+  failRetry = false;
+  assert.deepEqual(await product.handleActionClicked(tab), { allowed: true, domain: 'other.example' });
+  assert.deepEqual(installed.filter(rule => rule.action.type === 'allow').map(rule => rule.condition.urlFilter),
+    ['||other.example^']);
+  assert.equal(session.has('accessControlPendingVisit:31'), false);
 });
 
 test('removing a Stay on the page site leaves Access Control blocks intact and repairs missing blocks', async () => {

@@ -40,7 +40,11 @@
     })().finally(() => { pending = null; });
     return pending;
   };
-  const onMessage = message => {
+  const onMessage = (message, _sender, sendResponse) => {
+    if (message?.type === 'CG_PAGE_ALIVE') {
+      sendResponse({ url: location.href });
+      return;
+    }
     if (message?.type !== 'CG_REFRESH_CONFIG') return;
     syncFailures = 0;
     if (syncRetry) clearTimeout(syncRetry);

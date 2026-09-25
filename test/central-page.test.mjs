@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 test('Central page synchronization reruns after a newer request arrives in flight', async () => {
   let resolveFirst;
+  let pageListener;
   let requests = 0;
   const first = new Promise(resolve => { resolveFirst = resolve; });
   const context = {
@@ -14,7 +15,7 @@ test('Central page synchronization reruns after a newer request arrives in fligh
           requests += 1;
           return requests === 1 ? first : Promise.resolve({ ok: true });
         },
-        onMessage: { addListener() {} }
+        onMessage: { addListener(listener) { pageListener = listener; } }
       }
     },
     location: { href: 'https://www.xiaohongshu.com/explore' },
@@ -29,6 +30,10 @@ test('Central page synchronization reruns after a newer request arrives in fligh
   const source = await readFile(new URL('../extension/content/central-page.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const controller = context[Symbol.for('cosmic-gemini.central')];
+  let alive;
+  pageListener({ type: 'CG_PAGE_ALIVE' }, {}, response => { alive = response; });
+  assert.equal(alive.url, context.location.href,
+    'an existing page document can be distinguished from a Chrome error page');
   const latest = controller.sync();
   resolveFirst({ ok: true });
   await latest;

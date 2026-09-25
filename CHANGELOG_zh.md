@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.8.50 — 2026-09-25
+
+- 优化 Translate Override 设置页功能图标的填充样式。
+
 ## 9.8.39 — 2026-09-25
 
 - 调整 Translate Override 的设置页功能图标。

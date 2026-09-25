@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.8.50 — 2026-09-25
+
+- Refine the filled appearance of the Translate Override settings icon.
+
 ## 9.8.39 — 2026-09-25
 
 - Refine the Translate Override settings icon.

@@ -273,3 +273,18 @@ test('paper fill evidence accepts harmless producer setup but rejects painting, 
   const incomplete=page([...setup,fill]);incomplete._intentStates.get('display').operatorList.lastChunk=false;
   assert.equal(renderedPaperShade(incomplete,ops,context),null);
 });
+
+import { pdfPageNumber } from '../extension/workspaces/pdf-viewer/model.js';
+test('page edits reject fractional/invalid values and clamp whole page numbers', () => {
+  for (const value of ['', ' ', 'abc', '2.5', 'Infinity', NaN, Infinity]) assert.equal(pdfPageNumber(value, 8, 3), 3);
+  assert.equal(pdfPageNumber('999', 8, 3), 8);
+  assert.equal(pdfPageNumber('-1', 8, 3), 1);
+  assert.equal(pdfPageNumber('5', 8, 3), 5);
+});
+test('reopening a reader dialog clears previous confirmation while preserving focus safety', () => {
+  const dialog = { open:false, inert:false, returnValue:'print', showModal() { assert.equal(this.inert, true); this.open=true; } };
+  let focused=0;
+  const target={focus(options) { assert.equal(dialog.inert,false); assert.equal(options.preventScroll,true); focused++; }};
+  showReaderDialog(dialog,target);assert.equal(dialog.returnValue,'');assert.equal(focused,1);
+  dialog.open=false;dialog.returnValue='open';showReaderDialog(dialog,target);assert.equal(dialog.returnValue,'');
+});

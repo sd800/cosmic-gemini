@@ -1,9 +1,11 @@
+import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import { FEATURE_IDS, anyCopyState, hostnameFromUrl, normalizeRule, updateFeature } from '../../../core/config.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 
 const COORDINATED_PAUSE_PREFIX = 'anyCopyCoordinatedPauseTab:';
 
 export function createAnyCopyProduct(pageRuntimeHost, platform) {
+  const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const tabUpdates = createKeyedTaskQueue();
   const pauseKey = tabId => COORDINATED_PAUSE_PREFIX + tabId;
   const product = Object.freeze({
@@ -13,12 +15,12 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
     async isCoordinatedPaused(tabId) {
       if (!Number.isInteger(tabId)) return false;
       try {
-        return (await chrome.storage.session.get(pauseKey(tabId)))[pauseKey(tabId)]?.paused === true;
+        return (await sessionStorage.get(pauseKey(tabId)))[pauseKey(tabId)]?.paused === true;
       } catch { return false; }
     },
     async setCoordinatedPaused(tabId, paused) {
-      if (paused) await chrome.storage.session.set({ [pauseKey(tabId)]: { paused: true } });
-      else await chrome.storage.session.remove(pauseKey(tabId));
+      if (paused) await sessionStorage.set({ [pauseKey(tabId)]: { paused: true } });
+      else await sessionStorage.remove(pauseKey(tabId));
     },
     async state(settings, url, tabId, directives = {}) {
       const base = anyCopyState(settings, url);
@@ -106,17 +108,17 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
       return settings[product.id];
     },
     async removeTab(tabId) {
-      await tabUpdates.run(tabId, () => chrome.storage.session.remove(pauseKey(tabId)));
+      await tabUpdates.run(tabId, () => sessionStorage.remove(pauseKey(tabId)));
     },
     async cleanupOrphans() {
-      const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       const keys = Object.keys(values).filter(value => {
         if (!value.startsWith(COORDINATED_PAUSE_PREFIX)) return false;
         const tabId = Number(value.slice(COORDINATED_PAUSE_PREFIX.length));
         return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
       });
-      if (keys.length) await chrome.storage.session.remove(keys);
+      if (keys.length) await sessionStorage.remove(keys);
     }
   });
   return product;

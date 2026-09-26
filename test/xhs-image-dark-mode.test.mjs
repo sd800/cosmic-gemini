@@ -2250,3 +2250,23 @@ test('cached images relocate their filter when moved and when entering native fu
   assert.equal(thumbnail.classList.contains('cg-xhs-image-dark-mode'), false);
   assert.equal(slide.classList.contains('cg-xhs-image-dark-mode'), true);
 });
+
+
+test('hung decoding and failed analysis release XHS worker slots', async () => {
+  let timeout, scheduled = 0;
+  const runtime = await runtimeFixture({}, { setTimeout(fn) { timeout = fn; return 1; }, clearTimeout() {} });
+  const image = { isConnected: true, src: 'pending', decode: () => new Promise(() => {}) };
+  runtime.processing = true; runtime.processingGeneration = 1;
+  runtime.records.set(image, { image });
+  runtime.isContentImage = () => true; runtime.profileProcessingDisabled = () => false;
+  runtime.cachedResult = () => null; runtime.sampleImage = () => { throw Error('unexpected sample'); };
+  runtime.schedulePump = () => { scheduled++; };
+  runtime.queue.push({ image }); runtime.pump();
+  assert.equal(runtime.running, 1); timeout();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(runtime.running, 0); assert.equal(runtime.inFlight.has(image), false);
+  runtime.analyze = async () => { throw Error('canvas disappeared'); };
+  runtime.queue.push({ image }); runtime.pump();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(runtime.running, 0); assert.equal(scheduled, 2);
+});

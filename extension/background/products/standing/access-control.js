@@ -1,3 +1,4 @@
+import { createContextSessionStorage, PRIVATE_TABS_KEY, REGULAR_TABS_KEY } from '../../commissions/central-cc.js';
 import {
   FEATURE_IDS,
   INCOGNITO_SETTINGS_KEY,
@@ -47,12 +48,12 @@ function navigationCondition(domain, tabIds = undefined) {
   };
 }
 
-function blockingRule(domain, id) {
+function blockingRule(domain, id, scope) {
   return {
     id,
     priority: 100,
     action: { type: 'block' },
-    condition: navigationCondition(domain)
+    condition: { ...navigationCondition(domain), ...scope }
   };
 }
 
@@ -97,9 +98,11 @@ function isVisitRuleFor(rule, domain, tabId) {
     && sameCondition(rule.condition, navigationCondition(domain, [tabId]));
 }
 
-function isBlockingRuleFor(rule, domain, incognito) {
+function isBlockingRuleFor(rule, domain, incognito, tabId) {
+  const { tabIds, excludedTabIds, ...condition } = rule.condition || {};
   return isOwnedRule(rule, incognito) && rule.priority === 100 && rule.action?.type === 'block'
-    && sameCondition(rule.condition, navigationCondition(domain));
+    && (!tabIds || tabIds.includes(tabId)) && !excludedTabIds?.includes(tabId)
+    && sameCondition(condition, navigationCondition(domain));
 }
 
 function addDomain(domains, domain) {
@@ -118,9 +121,11 @@ function rulesMatch(existing, desired) {
 }
 
 export function createAccessControlProduct(platform) {
+  const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   let networkQueue = Promise.resolve();
   const actionQueue = createKeyedTaskQueue();
   const lastCompletedAt = new Map();
+  const foreignRetries = new Map();
   const pendingKey = tabId => PENDING_VISIT_PREFIX + tabId;
   const pendingRecord = value => typeof value === 'string'
     ? (value ? { url: value, at: 0, requestId: '' } : null)
@@ -135,18 +140,57 @@ export function createAccessControlProduct(platform) {
     } catch { return false; }
   }
 
+  function foreignBlock(rules, tabId, url) {
+    let hostname;
+    try { hostname = new URL(url).hostname.toLowerCase(); } catch { return false; }
+    return rules.some(rule => {
+      if (!isOwnedRule(rule, !platform.isIncognitoContext()) || rule.action?.type !== 'block') return false;
+      if (rule.condition?.excludedTabIds?.includes(tabId)) return false;
+      if (rule.condition?.tabIds && !rule.condition.tabIds.includes(tabId)) return false;
+      const filter = rule.condition?.urlFilter;
+      if (filter?.startsWith('||') && filter.endsWith('^')) return hostnameMatchesDomain(hostname, filter.slice(2, -1));
+      try { return !!rule.condition?.regexFilter && new RegExp(rule.condition.regexFilter).test(url); } catch { return false; }
+    });
+  }
+  async function recoverForeignBlock(details, settings) {
+    if (!platform.networkContextScope || matchingBlockedDomain(settings, details.url)
+      || foreignRetries.get(details.tabId) === details.url) return;
+    const rules = await chrome.declarativeNetRequest.getSessionRules();
+    if (!foreignBlock(rules, details.tabId, details.url)) return;
+    const tab = await chrome.tabs.get(details.tabId).catch(() => null);
+    if (!tab || !!tab.incognito !== platform.isIncognitoContext()
+      || (lastCompletedAt.get(tab.id) || 0) > (Number(details.timeStamp) || 0)
+      || ((tab.pendingUrl || tab.url) && (tab.pendingUrl || tab.url) !== details.url
+        && !(tab.pendingUrl || tab.url).startsWith('chrome-error:'))
+      || await loadedDocument(tab.id, tab.url)) return;
+    foreignRetries.set(tab.id, details.url);
+    if (foreignRetries.size > 256) foreignRetries.delete(foreignRetries.keys().next().value);
+    await queueNetwork(() => ensureRules());
+    for (const delay of [0, 40, 120, 240]) {
+      if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+      if (foreignBlock(await chrome.declarativeNetRequest.getSessionRules(), tab.id, details.url)) continue;
+      if (matchingBlockedDomain(await platform.readSettings(), details.url)) return;
+      const latest = await chrome.tabs.get(tab.id).catch(() => null);
+      if (!latest || latest.url !== tab.url || latest.pendingUrl !== tab.pendingUrl
+        || (lastCompletedAt.get(tab.id) || 0) > (Number(details.timeStamp) || 0)) return;
+      await chrome.tabs.update(tab.id, { url: details.url });
+      return;
+    }
+  }
+
   function observeBlockedNavigation(details) {
     if (!Number.isInteger(details?.tabId) || details.tabId < 0) return;
     const at = Number(details.timeStamp) || Date.now();
     void actionQueue.run(details.tabId, async () => {
       const settings = await platform.readSettings();
+      await recoverForeignBlock(details, settings);
       const domains = matchingBlockedDomains(settings, details.url);
       if (settings.accessControl?.allowTemporaryVisits !== true || !domains.length
         || (lastCompletedAt.get(details.tabId) || 0) > at) return;
       // Chrome does not promise stable network error text. Verify that our own
       // block rule was installed instead of interpreting details.error.
       const rules = await chrome.declarativeNetRequest.getSessionRules();
-      if (!rules.some(rule => domains.some(domain => isBlockingRuleFor(rule, domain, platform.isIncognitoContext())))
+      if (!rules.some(rule => domains.some(domain => isBlockingRuleFor(rule, domain, platform.isIncognitoContext(), details.tabId)))
         || rules.some(rule => domains.some(domain => isVisitRuleFor(rule, domain, details.tabId)))) return;
       const tab = await chrome.tabs.get(details.tabId).catch(() => null);
       if (!tab || !!tab.incognito !== platform.isIncognitoContext()) return;
@@ -154,7 +198,7 @@ export function createAccessControlProduct(platform) {
       // A blocked navigation can leave the tab on a Chrome error page with no
       // readable URL. Keep only this tab's last failed destination for retry.
       if ((lastCompletedAt.get(details.tabId) || 0) > at) return;
-      await chrome.storage.session.set({ [pendingKey(tab.id)]: {
+      await sessionStorage.set({ [pendingKey(tab.id)]: {
         url: details.url, at, requestId: String(details.requestId || '')
       } });
       await setActionPopup(tab.id, true);
@@ -169,11 +213,11 @@ export function createAccessControlProduct(platform) {
     lastCompletedAt.set(details.tabId, latest);
     if (lastCompletedAt.size > 256) lastCompletedAt.delete(lastCompletedAt.keys().next().value);
     void actionQueue.run(details.tabId, async () => {
-      const pending = pendingRecord((await chrome.storage.session.get(pendingKey(details.tabId)))[pendingKey(details.tabId)]);
+      const pending = pendingRecord((await sessionStorage.get(pendingKey(details.tabId)))[pendingKey(details.tabId)]);
       if (!pending || pending.at > at || (pending.requestId && pending.requestId === details.requestId)) return;
       const tab = await chrome.tabs.get(details.tabId).catch(() => null);
       if (!tab || !!tab.incognito !== platform.isIncognitoContext()) return;
-      await chrome.storage.session.remove(pendingKey(details.tabId));
+      await sessionStorage.remove(pendingKey(details.tabId));
       await setActionPopup(details.tabId, false);
     }).catch(() => {});
   }
@@ -200,18 +244,18 @@ export function createAccessControlProduct(platform) {
       const tab = await chrome.tabs.get(tabId).catch(() => null);
       if (!tab || !!tab.incognito !== platform.isIncognitoContext()) return false;
       const settings = await platform.readSettings();
-      let pending = pendingRecord((await chrome.storage.session.get(pendingKey(tabId)))[pendingKey(tabId)]);
+      let pending = pendingRecord((await sessionStorage.get(pendingKey(tabId)))[pendingKey(tabId)]);
       if (changedUrl && changedUrl !== pending?.url && !changedUrl.startsWith('chrome-error:')) {
-        if (pending) await chrome.storage.session.remove(pendingKey(tabId));
+        if (pending) await sessionStorage.remove(pendingKey(tabId));
         pending = null;
       }
       if (settings.accessControl?.enabled !== true || settings.accessControl?.allowTemporaryVisits !== true) {
-        if (pending) await chrome.storage.session.remove(pendingKey(tabId));
+        if (pending) await sessionStorage.remove(pendingKey(tabId));
         return setActionPopup(tabId, false);
       }
       if (pending && tab.status !== 'loading' && !tab.pendingUrl
         && await loadedDocument(tabId, tab.url)) {
-        await chrome.storage.session.remove(pendingKey(tabId));
+        await sessionStorage.remove(pendingKey(tabId));
         pending = null;
       }
       // The current URL may be a page that loaded successfully before a
@@ -219,7 +263,7 @@ export function createAccessControlProduct(platform) {
       // replace the normal popup with the one-time-visit action.
       if (pending && (!matchingBlockedDomain(settings, pending.url)
         || await hasVisitRule(tabId, pending.url, settings))) {
-        await chrome.storage.session.remove(pendingKey(tabId));
+        await sessionStorage.remove(pendingKey(tabId));
         pending = null;
       }
       return setActionPopup(tabId, !!pending);
@@ -258,7 +302,8 @@ export function createAccessControlProduct(platform) {
     }));
     const removeRuleIds = [...owned, ...staleVisits].map(rule => rule.id);
     const start = ruleIdStart(incognito);
-    const addRules = domains.map((domain, index) => blockingRule(domain, start + index));
+    const scope = await platform.networkContextScope?.() || {};
+    const addRules = domains.map((domain, index) => blockingRule(domain, start + index, scope));
     if (rulesMatch(owned, addRules) && !staleVisits.length) return addRules.length > 0;
     if (removeRuleIds.length || addRules.length) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds, addRules });
@@ -333,7 +378,15 @@ export function createAccessControlProduct(platform) {
     return removeRuleIds.length > 0;
   }
 
-  async function allowVisit(tabId, url) {
+  async function assertVisitSource(tabId, expected) {
+    const live = await chrome.tabs.get(tabId);
+    if (!live?.active || live.windowId !== expected.windowId || !!live.incognito !== platform.isIncognitoContext()
+      || live.url !== expected.url || live.pendingUrl !== expected.pendingUrl) {
+      throw new Error('The page changed before the visit was allowed.');
+    }
+  }
+
+  async function allowVisit(tabId, url, expected) {
     if (!chrome.declarativeNetRequest?.updateSessionRules) throw new Error('Access Control is unavailable.');
     const settings = await platform.readSettings();
     if (settings.accessControl?.allowTemporaryVisits !== true) {
@@ -351,11 +404,13 @@ export function createAccessControlProduct(platform) {
     let id = start;
     while (id < start + RULE_LIMIT && occupied.has(id)) id += 1;
     if (id >= start + RULE_LIMIT) throw new Error('Access Control has reached its temporary visit limit.');
+    await assertVisitSource(tabId, expected);
     await chrome.declarativeNetRequest.updateSessionRules({
       ...(removeRuleIds.length ? { removeRuleIds } : {}),
       addRules: [visitRule(domain, id, tabId)]
     });
     try {
+      await assertVisitSource(tabId, expected);
       await chrome.tabs.update(tabId, { url });
     } catch (error) {
       await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id], addRules: replacedVisits });
@@ -415,6 +470,13 @@ export function createAccessControlProduct(platform) {
     },
     handleStorageChanged(changes, areaName) {
       const incognito = platform.isIncognitoContext();
+      if (areaName === 'session' && changes?.[incognito ? REGULAR_TABS_KEY : PRIVATE_TABS_KEY]) return reconcile();
+      if (!incognito && areaName === 'session' && changes?.[INCOGNITO_SETTINGS_KEY]?.newValue === undefined
+        && changes?.[INCOGNITO_SETTINGS_KEY]) return queueNetwork(async () => {
+        const rules = await chrome.declarativeNetRequest.getSessionRules();
+        const ids = rules.filter(rule => isOwnedRule(rule, true) || isVisitRule(rule, true)).map(rule => rule.id);
+        if (ids.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ids });
+      });
       const expectedArea = incognito ? 'session' : 'local';
       const key = incognito ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       if (areaName !== expectedArea || !changes?.[key]) return false;
@@ -423,9 +485,10 @@ export function createAccessControlProduct(platform) {
         && JSON.stringify(oldValue?.websiteFixer) === JSON.stringify(newValue?.websiteFixer)) return false;
       return reconcile();
     },
-    handleTabCreated(tab) { return syncTabAction(tab?.id); },
+    handleTabCreated() { return reconcile(); },
     handleTabUpdated(tabId, change, tab) {
       if (!change?.url && change?.status !== 'complete') return false;
+      if (change?.url && foreignRetries.get(tabId) !== change.url) foreignRetries.delete(tabId);
       const cleanup = change?.url ? queueNetwork(async () => {
         const settings = await platform.readSettings();
         return removeVisitRules(tabId, change.url, settings);
@@ -434,9 +497,13 @@ export function createAccessControlProduct(platform) {
     },
     handleTabRemoved(tabId) {
       lastCompletedAt.delete(tabId);
+      foreignRetries.delete(tabId);
       return Promise.allSettled([
-        queueNetwork(() => removeVisitRules(tabId)),
-        actionQueue.run(tabId, () => chrome.storage.session.remove(pendingKey(tabId)))
+        queueNetwork(async () => {
+          await removeVisitRules(tabId);
+          await ensureRules();
+        }),
+        actionQueue.run(tabId, () => sessionStorage.remove(pendingKey(tabId)))
       ]);
     },
     handleActionClicked(tab) {
@@ -446,8 +513,9 @@ export function createAccessControlProduct(platform) {
         const current = await chrome.tabs.get(tabId).catch(() => null);
         if (!current?.active || current.windowId !== tab.windowId
           || !!current.incognito !== platform.isIncognitoContext()) return false;
+        const expected = { url: current.url, pendingUrl: current.pendingUrl, windowId: current.windowId };
         const settings = await platform.readSettings();
-        const pending = pendingRecord((await chrome.storage.session.get(pendingKey(tabId)))[pendingKey(tabId)]);
+        const pending = pendingRecord((await sessionStorage.get(pendingKey(tabId)))[pendingKey(tabId)]);
         // Never derive a retry destination from the currently loaded URL.
         // A blocked navigation is explicitly recorded by onErrorOccurred.
         const destination = pending?.url || '';
@@ -456,12 +524,12 @@ export function createAccessControlProduct(platform) {
           || await hasVisitRule(tabId, destination, settings)
           || (current.status !== 'loading' && !current.pendingUrl
             && await loadedDocument(tabId, current.url))) {
-          if (pending) await chrome.storage.session.remove(pendingKey(tabId));
+          if (pending) await sessionStorage.remove(pendingKey(tabId));
           await setActionPopup(tabId, false);
           return false;
         }
-        const result = await queueNetwork(() => allowVisit(tabId, destination));
-        await chrome.storage.session.remove(pendingKey(tabId));
+        const result = await queueNetwork(() => allowVisit(tabId, destination, expected));
+        await sessionStorage.remove(pendingKey(tabId));
         await setActionPopup(tabId, false);
         return result;
       });

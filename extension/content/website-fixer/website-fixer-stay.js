@@ -1,4 +1,11 @@
 (() => {
+  const bootstrap = Symbol.for('cosmic-gemini.website-fixer.stay-bootstrap');
+  if (globalThis[bootstrap]) return;
+  globalThis[bootstrap] = true;
+  const prefix = 'cosmic-gemini:website-fixer:stay:';
+  window.addEventListener(prefix + 'activate', activate, { once: true });
+  window.dispatchEvent(new CustomEvent(prefix + 'ready'));
+  function activate() {
   const key = Symbol.for('cosmic-gemini.website-fixer.stay');
   if (globalThis[key]) return;
   const siteKey = globalThis[Symbol.for('cosmic-gemini.stay-site-key')];
@@ -72,4 +79,5 @@
     return nativeApply(original, receiver, args);
   });
   // Meta refreshes also dispatch navigate; no DOM scanning or polling needed.
+  }
 })();

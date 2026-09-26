@@ -146,3 +146,13 @@ Run the focused `test/white-softer.test.mjs` with the existing configuration and
 ## Popup reload confirmation
 
 Run `node --test test/popup-settings-button.test.mjs test/operations-products.test.mjs test/message-source.test.mjs`. The focused `scripts/test-popup-settings-browser.mjs` uses the existing `PDF_VIEWER_PLAYWRIGHT`/`PDF_VIEWER_CHROME` paths and a disposable browser profile. It verifies ordinary Settings opening, long-press release suppression, separate Reload confirmation, red-text contrast in both appearances, Escape/outside cancellation, an actual service-worker restart with local storage retained, and normal icon restoration in the next popup. Do not reload the user’s running extension during automated QA. Screenshots belong to ignored `test-dist/popup-settings/`.
+
+
+## Focused lifecycle and context regressions
+
+- `node --test test/platform-settings.test.mjs test/central-page.test.mjs test/page-runtime-host.test.mjs test/access-control.test.mjs test/website-fixer.test.mjs test/operations-products.test.mjs test/xhs-image-dark-mode.test.mjs` covers stale replies, failed cleanup, context storage/reset, navigation ownership, script registration, and bounded image decoding.
+- `CONTEXT_PLAYWRIGHT=/path/to/playwright/index.mjs CONTEXT_CHROME=/path/to/chrome node scripts/test-context-browser.mjs` uses only a disposable Chrome profile and local HTTP fixture. It checks ordinary/private activation, independent registered scripts, frame-rule scope, and Access Control navigation.
+- `CONTEXT_PLAYWRIGHT=/path/to/playwright/index.mjs CONTEXT_CHROME=/path/to/chrome node scripts/test-document-capture-browser.mjs` exercises a real Chrome download from a cookie-authenticated generic page with a single-use redirected PDF URL. It verifies cancellation without runtime errors, no additional fetch before the choice, a fresh entry-point request after Preview, and first-page rendering. The fixture has no Canvas-specific DOM. Unit coverage in `test/document-preview.test.mjs` also checks cross-request-ID redirect correlation, non-GET rejection, bounded DOM fallback, and failed-preparation retry.
+- `PDF_QA=lifecycle PDF_VIEWER_PLAYWRIGHT=/path/to/playwright/index.mjs PDF_VIEWER_CHROME=/path/to/chrome node scripts/test-pdf-viewer-browser.mjs` runs only dialog reopening/Escape, modal keyboard isolation, invalid page input, and Document Preview teardown/restoration. Omitting `PDF_QA` retains the full renderer suite.
+
+Do not substitute the user's running browser profile. Keep local probe output in ignored `test-dist` with its README; do not commit machine-specific paths or captured browsing data.

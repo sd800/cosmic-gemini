@@ -1,3 +1,4 @@
+import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import { FEATURE_IDS } from '../../../core/config.js';
 import { INSTAGRAM_PANEL_PATH, instagramProfileUrl, instagramRoute, compareInstagramLists } from '../../../core/follow-list-instagram.js';
 import { instagramDomRead } from '../../../content/follow-list-instagram/follow-list-instagram-dom.js';
@@ -12,6 +13,7 @@ const CACHE_INDEX = 'followListInstagram:resultIndex';
 const MAX_CACHED_RESULTS = 8;
 
 export function createFollowListInstagramProduct(platform) {
+  const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const sessions = new Map();
   const busyTabs = new Set();
   const ports = new Map();
@@ -34,7 +36,7 @@ export function createFollowListInstagramProduct(platform) {
 
   async function readCachedResult(username, profile) {
     try {
-      const value = (await chrome.storage.session.get(cacheKey(username)))[cacheKey(username)];
+      const value = (await sessionStorage.get(cacheKey(username)))[cacheKey(username)];
       if (value?.version !== CACHE_VERSION || value.username !== username
         || value.profileFollowingCount !== profile.following || value.profileFollowersCount !== profile.followers
         || !Array.isArray(value.following) || !Array.isArray(value.followers)
@@ -53,11 +55,11 @@ export function createFollowListInstagramProduct(platform) {
     const key = cacheKey(username);
     await queueCacheWrite(async () => {
       try {
-        const stored = await chrome.storage.session.get(CACHE_INDEX);
+        const stored = await sessionStorage.get(CACHE_INDEX);
         const previous = Array.isArray(stored[CACHE_INDEX]) ? stored[CACHE_INDEX] : [];
         const index = [username, ...previous.filter(value => value !== username)].slice(0, MAX_CACHED_RESULTS);
         const evicted = previous.filter(value => !index.includes(value)).map(cacheKey);
-        await chrome.storage.session.set({
+        await sessionStorage.set({
           [key]: {
             version: CACHE_VERSION, username,
             profileFollowingCount: session.profile.following, profileFollowersCount: session.profile.followers,
@@ -67,7 +69,7 @@ export function createFollowListInstagramProduct(platform) {
           },
           [CACHE_INDEX]: index
         });
-        if (evicted.length) await chrome.storage.session.remove(evicted);
+        if (evicted.length) await sessionStorage.remove(evicted);
       } catch {}
     });
   }
@@ -75,12 +77,12 @@ export function createFollowListInstagramProduct(platform) {
   async function clearCachedResult(username) {
     await queueCacheWrite(async () => {
       try {
-        const stored = await chrome.storage.session.get(CACHE_INDEX);
+        const stored = await sessionStorage.get(CACHE_INDEX);
         const previous = Array.isArray(stored[CACHE_INDEX]) ? stored[CACHE_INDEX] : [];
         const index = previous.filter(value => value !== username);
-        await chrome.storage.session.remove(cacheKey(username));
-        if (index.length) await chrome.storage.session.set({ [CACHE_INDEX]: index });
-        else await chrome.storage.session.remove(CACHE_INDEX);
+        await sessionStorage.remove(cacheKey(username));
+        if (index.length) await sessionStorage.set({ [CACHE_INDEX]: index });
+        else await sessionStorage.remove(CACHE_INDEX);
       } catch {}
     });
   }
@@ -88,9 +90,9 @@ export function createFollowListInstagramProduct(platform) {
   async function clearAllCachedResults() {
     await queueCacheWrite(async () => {
       try {
-        const stored = await chrome.storage.session.get(null);
+        const stored = await sessionStorage.get(null);
         const keys = Object.keys(stored).filter(key => key === CACHE_INDEX || key.startsWith(CACHE_PREFIX));
-        if (keys.length) await chrome.storage.session.remove(keys);
+        if (keys.length) await sessionStorage.remove(keys);
       } catch {}
     });
   }

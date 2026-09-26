@@ -1,3 +1,4 @@
+import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import {
   FEATURE_IDS,
   hostnameFromUrl,
@@ -9,6 +10,7 @@ import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 const SESSION_PREFIX = 'xhsImageDarkModePage:';
 
 export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
+  const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   let localePromise = null;
   const pageStateQueue = createKeyedTaskQueue();
   const syncGenerations = new Map();
@@ -22,7 +24,7 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
 
   async function readPageState(tabId) {
     if (!Number.isInteger(tabId)) return {};
-    return (await chrome.storage.session.get(key(tabId)))[key(tabId)] || {};
+    return (await sessionStorage.get(key(tabId)))[key(tabId)] || {};
   }
 
   async function writePageState(tabId, value, documentId = '') {
@@ -48,7 +50,7 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
         || current.intervened !== next.intervened;
       const metadataChanged = !sameDocument || sequence !== currentSequence;
       if (!stateChanged && !metadataChanged) return false;
-      await chrome.storage.session.set({ [key(tabId)]: next });
+      await sessionStorage.set({ [key(tabId)]: next });
       if (stateChanged) {
         platform.notifyCentralUi(tabId);
         await platform.setFeatureActivity(tabId, FEATURE_IDS.XHS_IMAGE_DARK_MODE, next.intervened);
@@ -62,7 +64,7 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
     await pageStateQueue.run(tabId, async () => {
       const current = await readPageState(tabId);
       if (current.documentId === documentId) return;
-      await chrome.storage.session.set({
+      await sessionStorage.set({
         [key(tabId)]: {
           documentId,
           sequence: 0,
@@ -154,19 +156,19 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
         const current = await readPageState(tabId);
         if (!Object.keys(current).length) return;
         if (documentId && current.documentId && current.documentId !== documentId) return;
-        await chrome.storage.session.remove(key(tabId));
+        await sessionStorage.remove(key(tabId));
         await platform.setFeatureActivity(tabId, product.id, false);
       });
     },
     async cleanupOrphans() {
-      const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       const keys = Object.keys(values).filter(value => {
         if (!value.startsWith(SESSION_PREFIX)) return false;
         const tabId = Number(value.slice(SESSION_PREFIX.length));
         return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
       });
-      if (keys.length) await chrome.storage.session.remove(keys);
+      if (keys.length) await sessionStorage.remove(keys);
     },
     clearLocale() { localePromise = null; }
   });

@@ -12,6 +12,7 @@ import { formatDocumentBytes, inspectOffice, validateOfficeContent, documentFile
 import { siteKey } from '../extension/core/site-key.js';
 import { DOCUMENT_PREVIEW_PATH } from '../extension/core/document-preview/document-preview.js';
 import { createDocumentRequestIngress } from '../extension/background/features/document-request-ingress.js';
+import { canvasDocumentSource } from '../extension/content/document-preview/document-preview-source.js';
 import { createDocumentPreviewProduct } from '../extension/background/products/customs/document-preview.js';
 import { createCustomsProvince } from '../extension/background/provinces/customs.js';
 import { createDocumentStatus } from '../extension/workspaces/document-preview/status.js';
@@ -118,18 +119,19 @@ test('DOCX preflight bounds file size, ZIP entries and inflated data and rejects
 
 function environment({ enabled = true, fetchResult, method = 'GET', incognito = false } = {}) {
   const saved = {}, files = new Map(), calls = [], alarms = new Map();
+  let captured;
   const tabs = [{ id: 1, url: 'https://a.example.com/article', incognito }, { id: 2, url: 'https://b.example.com/other', incognito }];
   let settings = normalizeSettings({ documentPreview: { enabled } });
   const store = { get: async id => files.get(id), all: async () => [...files.values()], put: async doc => { files.set(doc.id, { ...doc, blobUrl: 'blob:chrome-extension://test/' + doc.id }); calls.push('store'); }, remove: async id => files.delete(id) };
   const ingress = { setEnabled(value) { calls.push(['enabled', value]); }, take: () => ({ method, tabId: 1 }) };
-  globalThis.fetch = async () => { calls.push('fetch'); return fetchResult ? fetchResult() : new Response(sampleDocx()); };
+  globalThis.fetch = async (...args) => { calls.push('fetch'); return fetchResult ? fetchResult(...args) : new Response(sampleDocx()); };
   globalThis.chrome = {
     runtime: { id: 'test', getURL: path => 'chrome-extension://test/' + path },
     alarms: { get: async name => alarms.get(name), create: async (name, options) => alarms.set(name, { name, scheduledTime: options.when }), clear: async name => alarms.delete(name) },
     storage: { session: { async get(key) { return { [key]: structuredClone(saved[key]) }; }, async set(value) { Object.assign(saved, structuredClone(value)); } } },
     tabs: { query: async () => tabs, get: async id => tabs.find(tab => tab.id === id), create: async value => { calls.push(['open', value]); return { id: 10 }; } },
-    scripting: { executeScript: async value => { calls.push(['dialog', value.args[0]]); return [{ result: true }]; } },
-    downloads: { cancel: async () => calls.push('cancel'), erase: async () => calls.push('erase'), download: async options => { calls.push(['download', options]); return 7; } }
+    scripting: { executeScript: async value => { if (value.func === canvasDocumentSource) return [{result:null}]; calls.push(['dialog', value.args[0]]); return [{ result: true }]; } },
+    downloads: { cancel: async () => calls.push('cancel'), erase: async () => { calls.push('erase'); captured?.(); }, download: async options => { calls.push(['download', options]); return 7; } }
   };
   const platform = { isIncognitoContext: () => incognito, getLocale: async () => 'en-US', readSettings: async () => settings, mutateSettings: async f => settings = f(settings) };
   const product = createDocumentPreviewProduct(platform, { store, ingress });
@@ -139,6 +141,7 @@ function environment({ enabled = true, fetchResult, method = 'GET', incognito = 
     { sender: { url: tabs[0].url, frameId: 0, tab: tabs[0] } }
   );
   const capture = (extra = {}) => new Promise(resolve => {
+    captured = resolve;
     const handled = product.handleDeterminingFilename({ id: 1, url: 'https://cdn.example.com/file', filename: 'sample.docx', state: 'in_progress', ...extra }, () => { calls.push('suggest'); resolve(); });
     if (!handled) resolve();
   });
@@ -185,9 +188,9 @@ test('Document Preview is default-off and preserves unsupported and unprepared d
 
 test('a valid GET DOCX is not fetched or cached until Preview or Download is chosen', async () => {
   const env = environment(); await env.capture(); await env.settle();
-  assert.ok(env.calls.indexOf('cancel') < env.calls.indexOf('suggest'));
+  assert.ok(env.calls.includes('cancel'));
   assert.ok(!env.calls.includes('fetch')); assert.ok(!env.calls.includes('store'));
-  assert.equal(env.calls.filter(value => value === 'suggest').length, 1);
+  assert.equal(env.calls.filter(value => value === 'suggest').length, 0, 'a cancelled task must not receive a late filename callback');
   const dialog = env.calls.find(value => value[0] === 'dialog')[1];
   assert.equal(dialog.filename, 'sample.docx'); assert.equal(dialog.size, 0);
   assert.equal(env.files.size, 0); assert.equal(env.documents().length, 1);
@@ -382,8 +385,11 @@ test('document commands reject unrelated sites and invalid workspace sources', a
 });
 
 test('request correlation is bounded, refuses POST and ambiguous source tabs, and detaches while disabled', () => {
-  let listener;
-  globalThis.chrome = { webRequest: { onBeforeRequest: { hasListener: () => !!listener, addListener: fn => listener = fn, removeListener: () => listener = null } } };
+  let listener, redirect;
+  globalThis.chrome = { webRequest: {
+    onBeforeRequest: { hasListener: () => !!listener, addListener: fn => listener = fn, removeListener: () => listener = null },
+    onBeforeRedirect: { hasListener:()=>!!redirect,addListener:fn=>redirect=fn,removeListener:()=>redirect=null }
+  } };
   const ingress = createDocumentRequestIngress(); ingress.setEnabled(true);
   listener({ requestId: '1', tabId: 1, url: 'https://example.com/a', method: 'GET' });
   assert.equal(ingress.take({ url: 'https://example.com/a' }).tabId, 1);
@@ -391,7 +397,75 @@ test('request correlation is bounded, refuses POST and ambiguous source tabs, an
   assert.equal(ingress.take({ url: 'https://example.com/a' }), null);
   for (const tabId of [1, 2]) listener({ requestId: String(tabId), tabId, url: 'https://example.com/a', method: 'GET' });
   assert.equal(ingress.take({ url: 'https://example.com/a' }), null);
-  ingress.setEnabled(false); assert.equal(listener, null);
+  listener({ requestId:'redirect',tabId:1,url:'https://example.com/download',method:'GET' });
+  listener({ requestId:'redirect',tabId:1,url:'https://cdn.example.test/signed',method:'GET' });
+  assert.equal(ingress.take({url:'https://cdn.example.test/signed'}).originalUrl,'https://example.com/download');
+  listener({ requestId:'post',tabId:1,url:'https://example.com/download',method:'POST' });
+  listener({ requestId:'post',tabId:1,url:'https://cdn.example.test/signed',method:'GET' });
+  assert.equal(ingress.take({url:'https://cdn.example.test/signed'}),null);
+  for (const method of ['GET','POST']) {
+    const url='https://school.example.test/files/12/download',final='https://files.example.test/temporary.pdf?key='+method;
+    listener({requestId:'entry'+method,tabId:1,frameId:0,url,method});
+    redirect({requestId:'entry'+method,tabId:1,url,redirectUrl:final});
+    listener({requestId:'navigation'+method,tabId:1,frameId:0,url:final,method:'GET'});
+    const result=ingress.take({url:final});
+    if(method==='GET')assert.equal(result.originalUrl,url);else assert.equal(result,null);
+  }
+  // A different frame cannot inherit another frame's download authorization.
+  listener({requestId:'frame',tabId:1,frameId:4,url:'https://entry.test/download',method:'GET'});
+  redirect({requestId:'frame',tabId:1,url:'https://entry.test/download',redirectUrl:'https://files.test/other.pdf'});
+  listener({requestId:'newframe',tabId:1,frameId:5,url:'https://files.test/other.pdf',method:'GET'});
+  assert.equal(ingress.take({url:'https://files.test/other.pdf'}).originalUrl,'https://files.test/other.pdf');
+  ingress.setEnabled(false); assert.equal(listener, null);assert.equal(redirect,null);
+});
+
+test('document preparation refreshes the observed GET route, not its transient CDN destination', async () => {
+  const source = 'https://a.example.com/files/12/download?download_frd=1';
+  const env = environment({fetchResult:url=>{assert.equal(url,source); return new Response(sampleDocx());}});
+  env.ingress.take=()=>({method:'GET',tabId:1,originalUrl:source});
+  await env.capture({url:source,finalUrl:'https://cdn.example.test/signed-expired'}); await env.settle();
+  assert.ok(!env.calls.includes('fetch'));
+  await env.choose(); assert.equal(env.files.size,1);
+});
+
+test('Canvas source detection is hostname-independent, bounded and refuses ambiguous or foreign links', () => {
+  const expected='https://learning.example.test/courses/12/files';
+  const link=(href,text='sample.pdf')=>({href,textContent:text,getAttribute:()=>null});
+  const run=(links,observed=[],canvas=true,page=expected)=>runInNewContext(`(${canvasDocumentSource})(${JSON.stringify(expected)}, 'sample.pdf', ${JSON.stringify(observed)})`,{
+    URL,location:{href:page,origin:new URL(page).origin},
+    document:{querySelector:()=>canvas?{}:null,querySelectorAll:()=>links}
+  });
+  const source='https://learning.example.test/files/123/download?download_frd=1';
+  assert.equal(run([link(source)]),source);
+  assert.equal(run([], [source]),source);
+  assert.equal(run([link(source),link('https://learning.example.test/files/456/download')]),null);
+  assert.equal(run([link('https://foreign.test/files/123/download')]),null);
+  assert.equal(run([link(source)],[],false),null);
+  assert.equal(run([link(source)],[],true,expected+'/changed'),null);
+  assert.equal(run([link(source,'different.pdf')]),null);
+});
+
+test('Canvas DOM fallback preserves a stable route when Chrome reports only a CDN address', async () => {
+  const source='https://a.example.com/files/123/download';
+  const env=environment({fetchResult:url=>{assert.equal(url,source);return new Response(sampleDocx());}});
+  const execute=chrome.scripting.executeScript;
+  chrome.scripting.executeScript=value=>value.func===canvasDocumentSource?Promise.resolve([{result:source}]):execute(value);
+  await env.capture();await env.settle();await env.choose();assert.equal(env.files.size,1);
+});
+
+test('a failed download cancellation keeps Chrome in charge and discards pending preview metadata', async () => {
+  const env=environment();chrome.downloads.cancel=async()=>{throw Error('download unavailable');};
+  await env.capture();await env.settle();
+  assert.equal(env.calls.filter(value=>value==='suggest').length,1);
+  assert.equal(env.documents().length,0);assert.ok(!env.calls.includes('erase'));
+});
+
+test('an unavailable download can be explicitly retried without a poisoned preparation or partial cache', async () => {
+  let attempts=0;
+  const env=environment({fetchResult:()=>++attempts===1?new Response('',{status:401}):new Response(sampleDocx())});
+  await env.capture();await env.settle();await assert.rejects(env.choose(),/documentUnavailable/);
+  assert.equal(env.files.size,0);assert.equal(env.documents()[0].prepared,false);
+  await env.choose();assert.equal(attempts,2);assert.equal(env.files.size,1);
 });
 
 let renderer;

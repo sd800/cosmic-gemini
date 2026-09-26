@@ -8,6 +8,7 @@
   let token = '';
   let disposed = false;
   let configFailures = 0;
+  let configRequest = 0;
   let retryTimer = 0;
 
   const sendRuntimeMessage = message => {
@@ -24,6 +25,7 @@
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    configRequest += 1;
     if (retryTimer) clearTimeout(retryTimer);
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
@@ -33,9 +35,10 @@
   };
   const requestConfig = async () => {
     if (disposed) return;
+    const request = ++configRequest;
     try {
       const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'mailtoCapture' });
-      if (disposed) return;
+      if (disposed || request !== configRequest) return;
       const config = response?.result?.mailtoCapture;
       if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
       if (!config?.active) { dispose(); return; }
@@ -44,7 +47,7 @@
       retryTimer = 0;
       dispatchConfig(config);
     } catch {
-      if (disposed) return;
+      if (disposed || request !== configRequest) return;
       configFailures += 1;
       if (configFailures >= 4 || retryTimer) { if (configFailures >= 4) dispose(); return; }
       retryTimer = setTimeout(() => {

@@ -1,9 +1,11 @@
+import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import { FEATURE_IDS, anyCopyEnhancedState, hostnameFromUrl } from '../../../core/config.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 
 const SESSION_PREFIX = 'anyCopyEnhancedTab:';
 
 export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
+  const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const tabUpdates = createKeyedTaskQueue();
   const key = tabId => SESSION_PREFIX + tabId;
   const product = Object.freeze({
@@ -12,11 +14,11 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
     runtime: 'content/any-copy-enhanced/any-copy-enhanced-runtime.js',
     async isActive(tabId) {
       if (!Number.isInteger(tabId)) return false;
-      return (await chrome.storage.session.get(key(tabId)))[key(tabId)]?.active === true;
+      return (await sessionStorage.get(key(tabId)))[key(tabId)]?.active === true;
     },
     async setActive(tabId, active) {
-      if (active) await chrome.storage.session.set({ [key(tabId)]: { active: true } });
-      else await chrome.storage.session.remove(key(tabId));
+      if (active) await sessionStorage.set({ [key(tabId)]: { active: true } });
+      else await sessionStorage.remove(key(tabId));
     },
     async state(_settings, url, tabId) {
       return anyCopyEnhancedState(url, await product.isActive(tabId));
@@ -45,17 +47,17 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
       });
     },
     async removeTab(tabId) {
-      await tabUpdates.run(tabId, () => chrome.storage.session.remove(key(tabId)));
+      await tabUpdates.run(tabId, () => sessionStorage.remove(key(tabId)));
     },
     async cleanupOrphans() {
-      const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       const keys = Object.keys(values).filter(value => {
         if (!value.startsWith(SESSION_PREFIX)) return false;
         const tabId = Number(value.slice(SESSION_PREFIX.length));
         return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
       });
-      if (keys.length) await chrome.storage.session.remove(keys);
+      if (keys.length) await sessionStorage.remove(keys);
     }
   });
   return product;

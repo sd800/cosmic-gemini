@@ -1,3 +1,4 @@
+import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import { FEATURE_IDS } from '../../../core/config.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 import {
@@ -49,6 +50,7 @@ export function mediaHeaderRule(id, urlFilter, referrer, extensionId) {
 }
 
 export function createVideoDownloadProduct(platform, offscreen, observation) {
+  const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi } = platform;
   const activeVideoProcessing = new Map();
   const incognitoContext = chrome.extension?.inIncognitoContext === true;
@@ -161,7 +163,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     try {
       const priorCollecting = new Set(activeTabs);
       const restoredCollecting = new Set();
-      const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       for (const [key, value] of Object.entries(values)) {
         if (!key.startsWith('videoDownloadSession:') || value?.active !== true || !Number.isInteger(value.tabId)) continue;
@@ -186,7 +188,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
             updated = true;
           } catch {}
         }
-        if (updated) await chrome.storage.session.set({ [key]: value });
+        if (updated) await sessionStorage.set({ [key]: value });
         if (liveTabIds.has(value.tabId)) {
           if (observesResponses(value)) {
             restoredCollecting.add(value.tabId);
@@ -199,7 +201,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
           type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId
         })));
         if (cleanup.some(result => result.status === 'rejected')) continue;
-        await chrome.storage.session.remove(key);
+        await sessionStorage.remove(key);
         await chrome.alarms.clear(downloadScanAlarmName('videoDownload', value.tabId));
       }
       for (const [key, value] of Object.entries(values)) {
@@ -212,13 +214,13 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
         if (download?.state === 'in_progress') continue;
         try {
           await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: value.artifactId });
-          await chrome.storage.session.remove(key);
+          await sessionStorage.remove(key);
         } catch {}
       }
       for (const tabId of priorCollecting) {
         if (restoredCollecting.has(tabId)) continue;
         const key = videoSessionKey(tabId);
-        const latest = (await chrome.storage.session.get(key))[key];
+        const latest = (await sessionStorage.get(key))[key];
         if (!liveTabIds.has(tabId) || !observesResponses(latest)) await setCollecting(tabId, false);
       }
       await offscreen.maybeClose();
@@ -380,7 +382,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
   async function readVideoSession(tabId) {
     if (!Number.isInteger(tabId)) return null;
     const key = videoSessionKey(tabId);
-    const session = (await chrome.storage.session.get(key))[key];
+    const session = (await sessionStorage.get(key))[key];
     if (session?.active === true) {
       await setCollecting(tabId, observesResponses(session));
       return session;
@@ -395,7 +397,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     for (const budget of [2_500_000, 1_250_000, 625_000, 312_500]) {
       session.candidates = limitVideoCandidatesForSession(session.candidates, 80, budget);
       try {
-        await chrome.storage.session.set({ [key]: session });
+        await sessionStorage.set({ [key]: session });
         break;
       } catch (error) {
         const quotaError = /quota|max(?:imum)?\s+bytes|exceed/i.test(String(error?.message || error));
@@ -910,7 +912,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     await setCollecting(tabId, false);
     clearPending(tabId);
     await chrome.alarms.clear(downloadScanAlarmName('videoDownload', tabId));
-    await chrome.storage.session.remove(videoSessionKey(tabId));
+    await sessionStorage.remove(videoSessionKey(tabId));
     cancelVideoSizeReads(tabId);
     cancelTwitterDiscovery(tabId);
     await setFeatureActivity(tabId, FEATURE_IDS.VIDEO_DOWNLOAD, false);
@@ -975,12 +977,12 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     for (const delay of [0, 100, 500, 1_500, 3_000]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
-        await chrome.storage.session.set({ [key]: { artifactId } });
+        await sessionStorage.set({ [key]: { artifactId } });
         try {
           const [download] = await chrome.downloads.search({ id: downloadId });
           if (['complete', 'interrupted'].includes(download?.state)) {
             await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId });
-            await chrome.storage.session.remove(key);
+            await sessionStorage.remove(key);
           }
         } catch {}
         return true;
@@ -1178,11 +1180,11 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
       for (const delay of [0, 100, 500, 1_500]) {
         if (delay) await new Promise(resolve => setTimeout(resolve, delay));
         try {
-          const artifact = (await chrome.storage.session.get(artifactKey))[artifactKey];
+          const artifact = (await sessionStorage.get(artifactKey))[artifactKey];
           if (!artifact?.artifactId) break;
           await offscreen.sendVideo({ type: 'CG_VIDEO_CLEANUP_ARTIFACT', artifactId: artifact.artifactId });
           cleanedArtifacts.add(artifact.artifactId);
-          await chrome.storage.session.remove(artifactKey);
+          await sessionStorage.remove(artifactKey);
           await offscreen.maybeClose();
           break;
         } catch {}
@@ -1202,7 +1204,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     let all = null;
     for (const delay of [0, 100, 500]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
-      try { all = await chrome.storage.session.get(null); break; }
+      try { all = await sessionStorage.get(null); break; }
       catch {}
     }
     if (!all) return;
@@ -1507,7 +1509,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     const tabIds = new Set(activeTabs);
     try { await initialize(); } catch {}
     try {
-      const values = await chrome.storage.session.get(null);
+      const values = await sessionStorage.get(null);
       for (const [key, value] of Object.entries(values)) {
         if (key.startsWith('videoDownloadSession:') && Number.isInteger(value?.tabId)) tabIds.add(value.tabId);
       }

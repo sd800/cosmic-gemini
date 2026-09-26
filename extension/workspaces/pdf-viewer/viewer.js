@@ -7,7 +7,7 @@ import { PDFViewer, EventBus, PDFLinkService, RenderingStates } from '../../vend
 import { labels } from './labels.js';
 import { setReaderIcon, setReaderIcons } from './icons.js';
 import { normalizePdfSampling } from '../../core/document-preview/pdf-sampling.js';
-import { PDF_LIMITS, pdfDetailCanvasPixels, pdfOptions, pdfScale, stepPdfScale, printRange, rotateLeft, safePdfLink } from './model.js';
+import { PDF_LIMITS, pdfDetailCanvasPixels, pdfOptions, pdfScale, pdfPageNumber, stepPdfScale, printRange, rotateLeft, safePdfLink } from './model.js';
 
 const $ = id => document.getElementById(id);
 let port, task, pdf, viewer, pdfWorker, parseTimer, destroyed = false, firstPageReady = false, text = labels['en-US'];
@@ -214,7 +214,7 @@ async function open(bytes, sampling) {
   }, { signal });
   viewer.setDocument(pdf);
   click('previous', () => viewer.previousPage()); click('next', () => viewer.nextPage());
-  $('page').onchange = () => { viewer.currentPageNumber = Math.max(1, Math.min(pdf.numPages, Number($('page').value) || 1)); $('page').value = viewer.currentPageNumber; };
+  $('page').onchange = () => { viewer.currentPageNumber = pdfPageNumber($('page').value, pdf.numPages, viewer.currentPageNumber); $('page').value = viewer.currentPageNumber; };
   function zoomTo(scale, origin) { viewer.updateScale({ scaleFactor: pdfScale(scale) / viewer.currentScale, drawingDelay: 180, origin }); }
   click('zoom-in', () => zoomTo(stepPdfScale(viewer.currentScale, 1))); click('zoom-out', () => zoomTo(stepPdfScale(viewer.currentScale, -1)));
   // Position the changing percentage only when the menu opens, not per zoom tick.
@@ -245,7 +245,8 @@ async function open(bytes, sampling) {
   }, { passive: false, signal });
   window.addEventListener('keydown', event => {
     // A modal's keyboard interactions must not navigate/zoom the PDF behind it.
-    if ($('properties-dialog').open) return;
+    if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
+    if (event.altKey) return; // Preserve browser history shortcuts.
     const modifier = event.ctrlKey || event.metaKey, editable = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName);
     if (modifier && event.key.toLowerCase() === 'p') { event.preventDefault(); openPrint(); }
     else if (modifier && event.key.toLowerCase() === 's') { event.preventDefault(); emit('download'); }

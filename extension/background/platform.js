@@ -1,3 +1,4 @@
+import { createCentralCoordinationCommission, PRIVATE_TABS_KEY, REGULAR_TABS_KEY } from './commissions/central-cc.js';
 import {
   DEFAULT_INCOGNITO_SETTINGS,
   DEFAULT_SETTINGS,
@@ -18,6 +19,8 @@ const RETAINED_DOWNLOAD_PREFIXES = ['videoDownloadArtifact:', 'imageDownloadArti
 
 export function createPlatform() {
   const incognitoContext = chrome.extension?.inIncognitoContext === true;
+  const commission = createCentralCoordinationCommission(incognitoContext);
+  const sessionStorage = commission.session;
   const settingsStorage = incognitoContext ? chrome.storage.session : chrome.storage.local;
   const settingsKey = incognitoContext ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
   const localeKey = incognitoContext ? INCOGNITO_LOCALE_KEY : 'interfaceLocale';
@@ -86,6 +89,7 @@ export function createPlatform() {
       && (stored[INCOGNITO_SETTINGS_KEY] !== undefined || stored[INCOGNITO_LOCALE_KEY] !== undefined);
     if (!currentIds.length || staleSettings) {
       await chrome.storage.session.remove([INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY]);
+      await commission.endPrivateSession();
     }
     if (currentIds.length) await chrome.storage.session.set({ [INCOGNITO_WINDOWS_KEY]: currentIds });
     else await chrome.storage.session.remove(INCOGNITO_WINDOWS_KEY);
@@ -163,7 +167,7 @@ export function createPlatform() {
   function activityKey(tabId) { return ACTIVITY_PREFIX + tabId; }
 
   async function readActivityRecord(tabId) {
-    const value = (await chrome.storage.session.get(activityKey(tabId)))[activityKey(tabId)];
+    const value = (await sessionStorage.get(activityKey(tabId)))[activityKey(tabId)];
     return {
       nativeScroll: value?.nativeScroll === true,
       noAutoplay: value?.noAutoplay === true,
@@ -249,8 +253,8 @@ export function createPlatform() {
       const activity = await readActivityRecord(tabId);
       activity[featureId] = value === true;
       const key = activityKey(tabId);
-      if (Object.values(activity).some(Boolean)) await chrome.storage.session.set({ [key]: activity });
-      else await chrome.storage.session.remove(key);
+      if (Object.values(activity).some(Boolean)) await sessionStorage.set({ [key]: activity });
+      else await sessionStorage.remove(key);
       notifyCentralUi(tabId);
       await renderToolbar(tabId, activity);
     });
@@ -259,7 +263,7 @@ export function createPlatform() {
   async function clearTabActivity(tabId) {
     if (resettingStorage || !Number.isInteger(tabId)) return;
     return activityQueue.run(tabId, async () => {
-      await chrome.storage.session.remove(activityKey(tabId));
+      await sessionStorage.remove(activityKey(tabId));
       notifyCentralUi(tabId);
       await renderToolbar(tabId, emptyActivity());
     });
@@ -273,14 +277,14 @@ export function createPlatform() {
   }
 
   async function clearOrphanedActivity() {
-    const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+    const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
     const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
     const keys = Object.keys(values).filter(key => {
       if (!key.startsWith(ACTIVITY_PREFIX)) return false;
       const tabId = Number(key.slice(ACTIVITY_PREFIX.length));
       return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
     });
-    if (keys.length) await chrome.storage.session.remove(keys);
+    if (keys.length) await sessionStorage.remove(keys);
   }
 
   async function getLocale() {
@@ -315,6 +319,7 @@ export function createPlatform() {
       noAutoplay: settings.noAutoplay,
       anyCopy: settings.anyCopy,
       pageDisplay: settings.pageDisplay,
+      leetcodeDarkMode: settings.leetcodeDarkMode,
       xhsImageDarkMode: settings.xhsImageDarkMode,
       mailtoCapture: settings.mailtoCapture,
       websiteKnowledgeControl: settings.websiteKnowledgeControl,
@@ -362,15 +367,16 @@ export function createPlatform() {
       resettingStorage = true;
       try {
         await activityQueue.drain();
-        const sessionValues = await chrome.storage.session.get(null);
+        const sessionValues = await sessionStorage.get(null);
         const disposableSessionKeys = Object.keys(sessionValues)
           .filter(key => !RETAINED_DOWNLOAD_PREFIXES.some(prefix => key.startsWith(prefix)))
-          .filter(key => key !== INCOGNITO_WINDOWS_KEY)
+          .filter(key => key !== INCOGNITO_WINDOWS_KEY && key !== PRIVATE_TABS_KEY && key !== REGULAR_TABS_KEY)
           .filter(key => key !== settingsKey)
+          .filter(key => !/:incognito$|:private$/.test(key))
           .filter(key => incognitoContext || ![INCOGNITO_SETTINGS_KEY, INCOGNITO_LOCALE_KEY].includes(key));
         // Replace preferences successfully before removing any prior settings or session data.
         const settings = await writeSettings(defaultSettings);
-        if (disposableSessionKeys.length) await chrome.storage.session.remove(disposableSessionKeys);
+        if (disposableSessionKeys.length) await sessionStorage.remove(disposableSessionKeys);
         if (incognitoContext) {
           await chrome.storage.session.remove(INCOGNITO_LOCALE_KEY);
         } else {
@@ -404,6 +410,7 @@ export function createPlatform() {
     setLocale,
     runtimeToken,
     isIncognitoContext: () => incognitoContext,
+    networkContextScope: commission.networkScope,
     handleIncognitoWindowChange: () => queueWrite(reconcileIncognitoSession),
     resetStorage
   });

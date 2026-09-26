@@ -110,6 +110,43 @@ try {
     await frame.waitForFunction(() => [...document.querySelectorAll('.page canvas')].every(canvas => getComputedStyle(canvas).filter === 'none'));
   }
 
+  if (process.env.PDF_QA === 'lifecycle') {
+    const frame=await open(viewerPdf(6)); await ready(frame);
+
+  const checkFrame = frame;
+  await checkFrame.locator('#page').fill('2.5'); await checkFrame.locator('#page').blur();
+  assert.equal(await checkFrame.locator('#page').inputValue(),'1');
+  await checkFrame.locator('#page').fill('2'); await checkFrame.locator('#page').blur();
+  await checkFrame.waitForFunction(()=>document.querySelector('#page').value==='2');
+  await checkFrame.evaluate(()=>{window.qaPrintCalls=0;window.print=()=>{qaPrintCalls++;};document.querySelector('#print').click();});
+  await checkFrame.locator('#print-dialog button[value=cancel]').focus();
+  await page.keyboard.press('PageDown');
+  assert.equal(await checkFrame.locator('#page').inputValue(),'2','modal keys cannot navigate the PDF');
+  await checkFrame.locator('#print-dialog button[value=print]').click();
+  await checkFrame.waitForFunction(()=>qaPrintCalls===1&&!document.querySelector('#print').disabled);
+  await checkFrame.evaluate(()=>document.querySelector('#print').click());
+  assert.equal(await checkFrame.locator('#print-dialog').evaluate(d=>d.returnValue),'');
+  await page.keyboard.press('Escape');
+  await checkFrame.waitForFunction(()=>!document.querySelector('#print-dialog').open);
+  await page.waitForTimeout(100);
+  assert.equal(await checkFrame.evaluate(()=>qaPrintCalls),1,'Esc must not repeat a prior Print');
+  assert.equal(await checkFrame.locator('#print').isEnabled(),true);
+
+    await page.evaluate(async bytes => {
+      const doc={id:'lifecycle',site:'example.test',filename:'Lifecycle.pdf',format:'pdf',context:'regular',prepared:true,appearance:'dark',siteTheme:null,
+        blobUrl:URL.createObjectURL(new Blob([new Uint8Array(bytes)],{type:'application/pdf'}))};
+      await chrome.storage.session.set({qaDocument:doc,'documentPreview:regular':{documents:[doc],themes:{}}});
+    },Array.from(viewerPdf(2)));
+    const restored=await context.newPage();restored.on('pageerror',e=>errors.push(e.message));
+    await restored.goto(`chrome-extension://${id}/workspaces/document-preview/document-preview.html#id=lifecycle&mode=preview&appearance=dark`);
+    await restored.waitForSelector('.pdf-viewer-frame');let restoredFrame=await(await restored.locator('.pdf-viewer-frame').elementHandle()).contentFrame();await ready(restoredFrame);
+    await restored.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));
+    assert.equal(await restored.locator('.pdf-viewer-frame').count(),0);
+    await restored.evaluate(()=>dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+    await restored.waitForSelector('.pdf-viewer-frame');restoredFrame=await(await restored.locator('.pdf-viewer-frame').elementHandle()).contentFrame();await ready(restoredFrame);
+    assert.equal(await restored.locator('.pdf-viewer-frame').count(),1);await restored.close();
+    metrics.lifecycle='dialog reopen/Esc, modal keyboard and invalid page inputs and restored Document Preview passed';
+  } else {
   // All non-PDF formats pass through this same sanitized content boundary.
   await page.goto(url);
   const web='https://example.com/captured', app='ms-word:ofe|u|https://example.com/report.docx';
@@ -607,5 +644,7 @@ try {
   metrics.documentPreview='default 4x, all 1x–6x choices, immutable open-reader sampling, theme, fullscreen, reload and expiry passed';
   assert.deepEqual(network, []); assert.deepEqual(failures, []); assert.deepEqual(errors, []);
   await page.evaluate(() => viewer.destroy()); assert.equal(await page.locator('iframe').count(), 0);
+  }
+  assert.deepEqual(errors, []);
   console.log(JSON.stringify({metrics, errors, network, screenshots: folder}, null, 2));
 } catch (error) { console.error('Browser diagnostics', {errors, failures, network, folder}); throw error; } finally { await context.close(); await rm(join(folder, 'profile'), {recursive:true,force:true}); }

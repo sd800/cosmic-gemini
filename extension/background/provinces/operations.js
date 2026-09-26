@@ -103,18 +103,20 @@ export function createOperationsProvince(platform) {
     handleTabCreated(tab) { return chineseResponseClaude.handleTabCreated(tab); },
     async handleTabUpdated(tabId, change, tab) {
       if (change.status === 'loading') {
-        await platform.clearTabActivity(tabId);
+        await platform.clearTabActivity(tabId).catch(() => {});
       }
-      await followListInstagram.handleTabUpdated(tabId, change);
-      await leetcodeDarkMode.handleTabUpdated(tabId, change);
-      await chineseResponseClaude.handleTabUpdated(tabId, change, tab);
+      await Promise.allSettled([
+        followListInstagram.handleTabUpdated(tabId, change),
+        leetcodeDarkMode.handleTabUpdated(tabId, change),
+        chineseResponseClaude.handleTabUpdated(tabId, change, tab)
+      ]);
     },
     async handleTabRemoved(tabId) {
-      await followListInstagram.removeTab(tabId);
-      await anyCopy.removeTab(tabId);
-      await anyCopyEnhanced.removeTab(tabId);
-      await xhsImageDarkMode.removeTab(tabId);
-      await chineseResponseClaude.handleTabRemoved(tabId);
+      await Promise.allSettled([
+        followListInstagram.removeTab(tabId), anyCopy.removeTab(tabId),
+        anyCopyEnhanced.removeTab(tabId), xhsImageDarkMode.removeTab(tabId),
+        chineseResponseClaude.handleTabRemoved(tabId)
+      ]);
       await platform.clearTabActivity(tabId);
     },
     handleWindowCreated() { return platform.handleIncognitoWindowChange(); },

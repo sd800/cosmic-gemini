@@ -1,5 +1,7 @@
 import {
   FEATURE_IDS,
+  hostnameFromUrl,
+  ruleMatches,
   INCOGNITO_SETTINGS_KEY,
   SETTINGS_KEY,
   normalizeWebsiteFixerDomain,
@@ -17,6 +19,9 @@ const DOMAIN_LIMIT = 100;
 const STAY_SCRIPTS = ['cosmic-gemini-website-fixer-stay-main', 'cosmic-gemini-website-fixer-stay-isolated'];
 
 export function createWebsiteFixerProduct(platform) {
+  const incognito = platform.isIncognitoContext?.() === true;
+  const scriptId = id => incognito ? id + '-incognito' : id;
+  const contextFile = kind => `content/website-fixer/website-fixer-${kind}-${incognito ? 'incognito' : 'regular'}.js`;
   const stay = createStayOnPage(platform);
   let queue = Promise.resolve();
   const serialize = task => {
@@ -32,10 +37,10 @@ export function createWebsiteFixerProduct(platform) {
     const translateMatches = translate.enabled && translate.translateOverride.enabled
       ? translate.translateOverride.whitelistDomains.map(domain => `*://*.${domain}/*`).sort() : [];
     const stayMatches = stayDomains(settings).map(domain => `*://*.${domain}/*`).sort();
-    const scripts = [{ id: SCRIPT_ID, matches: translateMatches, js: [SCRIPT_FILE], world: 'ISOLATED', allFrames: false },
-      ...STAY_SCRIPTS.map((id, index) => ({ id, matches: stayMatches,
+    const scripts = [{ id: scriptId(SCRIPT_ID), matches: translateMatches, js: [SCRIPT_FILE, contextFile('translate')], world: 'ISOLATED', allFrames: false },
+      ...STAY_SCRIPTS.map((id, index) => ({ id: scriptId(id), matches: stayMatches,
         js: index === 0 ? ['content/website-fixer/website-fixer-site-key.js', 'content/website-fixer/website-fixer-stay.js']
-          : ['content/website-fixer/website-fixer-stay-browser-menu.js'],
+          : ['content/website-fixer/website-fixer-stay-browser-menu.js', contextFile('stay')],
         world: index === 0 ? 'MAIN' : 'ISOLATED', allFrames: true, matchOriginAsFallback: true }))];
     const registered = await chrome.scripting.getRegisteredContentScripts({ ids: scripts.map(script => script.id) });
     for (const desired of scripts) {
@@ -44,7 +49,7 @@ export function createWebsiteFixerProduct(platform) {
         if (current) await chrome.scripting.unregisterContentScripts({ ids: [desired.id] });
         continue;
       }
-      const script = { ...desired, runAt: 'document_start', persistAcrossSessions: true };
+      const script = { ...desired, runAt: 'document_start', persistAcrossSessions: !incognito };
       if (current && Object.entries(script).every(([key, value]) => JSON.stringify(current[key]) === JSON.stringify(value))) continue;
       if (current) await chrome.scripting.updateContentScripts([script]);
       else await chrome.scripting.registerContentScripts([script]);
@@ -67,6 +72,14 @@ export function createWebsiteFixerProduct(platform) {
     id: FEATURE_IDS.WEBSITE_FIXER,
     state: websiteFixerState,
     async handleMessage(message, context) {
+      if (message.type === 'CG_WEBSITE_FIXER_ACTIVATE') {
+        const settings = await platform.readSettings(); // Also verifies a fresh private-window session.
+        const feature = settings.websiteFixer;
+        const fix = ['translateOverride', 'stayOnPage'].includes(message.kind) ? feature[message.kind] : null;
+        const hostname = hostnameFromUrl(context.sender.url);
+        return { active: !!hostname && feature.enabled && fix?.enabled === true
+          && fix.whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain)) };
+      }
       if (message.type === 'CG_WEBSITE_FIXER_CONTEXT_MENU') {
         return stay.handleContextMenu(message, context.sender);
       }
@@ -133,7 +146,7 @@ export function createWebsiteFixerProduct(platform) {
     },
     reset() { return serialize(async () => {
       await stay.reset();
-      const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID, ...STAY_SCRIPTS] });
+      const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID, ...STAY_SCRIPTS].map(scriptId) });
       if (registered.length) await chrome.scripting.unregisterContentScripts({ ids: registered.map(script => script.id) });
     }); }
   });

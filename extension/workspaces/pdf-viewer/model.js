@@ -7,6 +7,12 @@ export function pdfDetailCanvasPixels(sampling) {
   return Math.min(PDF_LIMITS.detailCanvasPixels, normalizePdfSampling(sampling) ** 2 * 1024 * 1024);
 }
 export { externalLinkTarget as safePdfLink } from '../../shared/external-links-capture/target.js';
+// Ignore partial/invalid edits rather than throwing in PDF.js or jumping to page 1.
+export function pdfPageNumber(value, total, current) {
+  if (typeof value === 'string' && !value.trim()) return current;
+  const number = Number(value);
+  return Number.isSafeInteger(number) ? Math.max(1, Math.min(total, number)) : current;
+}
 export function pdfScale(value) { return Math.max(0.25, Math.min(5, Number(value) || 1)); }
 export function stepPdfScale(value, direction) { return pdfScale((Math.round(value * 100) + Math.sign(direction) * 10) / 100); }
 export function rotateLeft(value) { return ((value - 90) % 360 + 360) % 360; }

@@ -1,5 +1,7 @@
+import { createContextSessionStorage } from '../commissions/central-cc.js';
 import { withOffscreen } from '../features/offscreen-host.js';
 export function createCustomsOffscreenCoordinator() {
+  const sessionStorage = createContextSessionStorage(chrome.extension?.inIncognitoContext === true);
   let activeAssemblies = 0;
   let activeRequests = 0;
   const retainedArtifacts = new Set();
@@ -56,7 +58,7 @@ export function createCustomsOffscreenCoordinator() {
     return queueDocumentLifecycle(async () => {
       try {
         if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
-        const values = await chrome.storage.session.get(null);
+        const values = await sessionStorage.get(null);
         if (activeAssemblies > 0 || activeRequests > 0 || retainedArtifacts.size > 0) return;
         const hasArtifact = Object.entries(values).some(([key, session]) =>
           (key.startsWith('videoDownloadSession:') && session?.candidates?.some(candidate => candidate.artifactId))

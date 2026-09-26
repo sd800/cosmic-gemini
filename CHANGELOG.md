@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.9.2 — 2026-09-25
+
+- Improve coordination and recovery across page features, navigation, and extension lifecycle changes.
+- Strengthen isolation of ordinary and incognito session data, website rules, and cleanup.
+- Prevent stalled image analysis from holding up subsequent images.
+- Improve document preview restoration and PDF dialog and page-navigation reliability.
+- Improve authenticated and redirected document downloads, preview retries, and download cancellation.
+
 ## 9.9.1 — 2026-09-25
 
 - Preserve the browser background during elastic overscroll while White Softer is active.

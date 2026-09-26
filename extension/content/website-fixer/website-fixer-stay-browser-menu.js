@@ -1,4 +1,11 @@
-(() => {
+globalThis[Symbol.for('cosmic-gemini.website-fixer.stay-activate')] = () => {
+  const key = Symbol.for('cosmic-gemini.website-fixer.stay-menu');
+  if (globalThis[key]) return;
+  globalThis[key] = true;
+  const prefix = 'cosmic-gemini:website-fixer:stay:';
+  const activate = () => window.dispatchEvent(new CustomEvent(prefix + 'activate'));
+  window.addEventListener(prefix + 'ready', activate);
+  activate();
   // This runs only in the extension's isolated world. Keep it separate from
   // the MAIN-world navigation guard so Chrome injects both registrations.
   window.addEventListener('contextmenu', event => {
@@ -40,4 +47,4 @@
       } catch {}
     }, 0);
   }, true);
-})();
+};

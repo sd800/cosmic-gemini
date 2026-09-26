@@ -105,7 +105,7 @@ export function createStandingProvince(platform) {
     }
     if (governed?.id === websiteFixer.id) {
       const result = await websiteFixer.handleMessage(message, context);
-      if (message.type !== 'CG_WEBSITE_FIXER_CONTEXT_MENU') await accessControl.reconcile();
+      if (message.type.startsWith('UI_')) await accessControl.reconcile();
       return result;
     }
     if ([websiteKnowledgeControl.id, clipboardProtect.id, whiteSofter.id, accessControl.id].includes(governed?.id)) {

@@ -1,4 +1,4 @@
-(() => {
+globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-activate')] = () => {
   const KEY = Symbol.for('cosmic-gemini.website-fixer.translate');
   if (globalThis[KEY]) return;
   globalThis[KEY] = true;
@@ -56,4 +56,4 @@
   // Cover parser-created nodes and delayed page rewrites, then release the
   // broad DOM watch rather than retaining it while users browse.
   setTimeout(() => observer.disconnect(), 15_000);
-})();
+};

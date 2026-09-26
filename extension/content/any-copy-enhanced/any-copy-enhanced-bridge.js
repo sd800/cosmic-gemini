@@ -9,6 +9,7 @@
   let token = '';
   let disposed = false;
   let configFailures = 0;
+  let configRequest = 0;
   let configRetry = 0;
 
   const sendRuntimeMessage = message => {
@@ -25,6 +26,7 @@
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    configRequest += 1;
     if (configRetry) clearTimeout(configRetry);
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
@@ -35,9 +37,10 @@
   };
   const requestConfig = async () => {
     if (disposed) return;
+    const request = ++configRequest;
     try {
       const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'anyCopyEnhanced' });
-      if (disposed) return;
+      if (disposed || request !== configRequest) return;
       const config = response?.result?.anyCopyEnhanced;
       if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
       if (!config?.active) { dispose(); return; }
@@ -47,7 +50,7 @@
       dispatchConfig(config);
       if (window === top) void sendRuntimeMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'anyCopyEnhanced', active: true }).catch(() => {});
     } catch {
-      if (disposed) return;
+      if (disposed || request !== configRequest) return;
       configFailures += 1;
       if (configFailures >= 4) { dispose(); return; }
       if (!configRetry) configRetry = setTimeout(() => {

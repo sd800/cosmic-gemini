@@ -358,3 +358,31 @@ test('closing the last incognito window removes its temporary settings', async (
   assert.equal(mock.session[INCOGNITO_LOCALE_KEY], undefined);
   assert.equal(mock.session[INCOGNITO_WINDOWS_KEY], undefined);
 });
+
+
+test('the Central Coordination Commission isolates shared session data, reset and network scopes', async () => {
+  const { createContextSessionStorage, createCentralCoordinationCommission, PRIVATE_TABS_KEY } = await import('../extension/background/commissions/central-cc.js');
+  const mock = chromeMock(); globalThis.chrome = mock.api;
+  const ordinary = createContextSessionStorage(false), privateStore = createContextSessionStorage(true);
+  await ordinary.set({ 'followListInstagram:result:account': { owner: 'ordinary' }, 'tabActivity:3': { nativeScroll: true } });
+  await privateStore.set({ 'followListInstagram:result:account': { owner: 'private' }, 'tabActivity:4': { anyCopy: true } });
+  assert.equal((await ordinary.get('followListInstagram:result:account'))['followListInstagram:result:account'].owner, 'ordinary');
+  assert.equal((await privateStore.get(['followListInstagram:result:account']))['followListInstagram:result:account'].owner, 'private');
+  assert.equal(Object.keys(await ordinary.get(null)).length, 2);
+  assert.equal(Object.keys(await privateStore.get(null)).length, 2);
+  const regularPlatform = createPlatform();
+  const privateCommission = createCentralCoordinationCommission(true);
+  mock.setTabs([{ id: 4, incognito: true }]);
+  assert.deepEqual(await privateCommission.networkScope(), {});
+  assert.deepEqual(await createCentralCoordinationCommission(false).networkScope(), { excludedTabIds: [4] });
+  await regularPlatform.clearOrphanedActivity();
+  assert.equal((await privateStore.get('tabActivity:4'))['tabActivity:4'].anyCopy, true);
+  await regularPlatform.resetStorage();
+  assert.equal((await privateStore.get('followListInstagram:result:account'))['followListInstagram:result:account'].owner, 'private');
+  assert.deepEqual(mock.session[PRIVATE_TABS_KEY], [4]);
+  await ordinary.set({ retained: true });
+  await privateCommission.endPrivateSession();
+  assert.deepEqual(await privateStore.get(null), {});
+  assert.equal((await ordinary.get('retained')).retained, true);
+  assert.deepEqual(await createCentralCoordinationCommission(false).networkScope(), {});
+});

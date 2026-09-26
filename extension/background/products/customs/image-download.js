@@ -1,3 +1,4 @@
+import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import { FEATURE_IDS } from '../../../core/config.js';
 import { normalizeLocale } from '../../../core/locale.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
@@ -24,6 +25,7 @@ import {
 } from '../../../core/image-download.js';
 
 export function createImageDownloadProduct(platform, offscreen, observation) {
+  const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi, runtimeToken } = platform;
   const activeTabs = new Set();
   const pendingNetworkCandidates = new Map();
@@ -40,7 +42,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     try {
       const priorCollecting = new Set(activeTabs);
       const restoredCollecting = new Set();
-      const [values, tabs] = await Promise.all([chrome.storage.session.get(null), chrome.tabs.query({})]);
+      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       const liveCaptureArtifacts = new Set();
       for (const [key, value] of Object.entries(values)) {
@@ -56,14 +58,14 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
           continue;
         }
         await cleanupImageCaptureArtifacts(value);
-        await chrome.storage.session.remove(key);
+        await sessionStorage.remove(key);
         await chrome.alarms.clear(downloadScanAlarmName('imageDownload', value.tabId));
       }
       for (const [key, value] of Object.entries(values)) {
         if (!key.startsWith('imageCaptureArtifact:') || !value?.artifactId || liveCaptureArtifacts.has(value.artifactId)) continue;
         try {
           await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: value.artifactId });
-          await chrome.storage.session.remove(key);
+          await sessionStorage.remove(key);
         } catch {}
       }
       for (const [key, value] of Object.entries(values)) {
@@ -76,13 +78,13 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
         if (download?.state === 'in_progress') continue;
         try {
           await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: value.artifactId });
-          await chrome.storage.session.remove(key);
+          await sessionStorage.remove(key);
         } catch {}
       }
       for (const tabId of priorCollecting) {
         if (restoredCollecting.has(tabId)) continue;
         const key = imageSessionKey(tabId);
-        const latest = (await chrome.storage.session.get(key))[key];
+        const latest = (await sessionStorage.get(key))[key];
         if (!liveTabIds.has(tabId) || !downloadScanCollects(latest)) await setCollecting(tabId, false);
       }
       await offscreen.maybeClose();
@@ -164,7 +166,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   async function readImageSession(tabId) {
     if (!Number.isInteger(tabId)) return null;
     const key = imageSessionKey(tabId);
-    const session = (await chrome.storage.session.get(key))[key];
+    const session = (await sessionStorage.get(key))[key];
     if (session?.active === true) {
       await setCollecting(tabId, downloadScanCollects(session));
       return session;
@@ -179,7 +181,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     for (const budget of [2_500_000, 1_250_000, 625_000, 312_500]) {
       session.candidates = limitImageCandidatesForSession(session.candidates, 1200, budget);
       try {
-        await chrome.storage.session.set({ [key]: session });
+        await sessionStorage.set({ [key]: session });
         break;
       } catch (error) {
         const quotaError = /quota|max(?:imum)?\s+bytes|exceed/i.test(String(error?.message || error));
@@ -392,7 +394,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     for (const artifactId of captureArtifacts) {
       try {
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId });
-        await chrome.storage.session.remove(`imageCaptureArtifact:${tabId}:${artifactId}`);
+        await sessionStorage.remove(`imageCaptureArtifact:${tabId}:${artifactId}`);
       } catch {}
     }
   }
@@ -421,7 +423,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       clearPageScan(tabId);
       activePageScans.delete(tabId);
       await chrome.alarms.clear(downloadScanAlarmName('imageDownload', tabId));
-      await chrome.storage.session.remove(imageSessionKey(tabId));
+      await sessionStorage.remove(imageSessionKey(tabId));
       await setFeatureActivity(tabId, FEATURE_IDS.IMAGE_DOWNLOAD, false);
       preparedImageSidePanels.delete(tabId);
       if (!options.preserveWorkspace && current?.workspaceMode === 'sidePanel') await disableImageSidePanel(tabId);
@@ -480,7 +482,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     const artifact = await sendImageArtifact({ type: 'CG_IMAGE_CROP_CAPTURE', dataUrl, rect });
     const artifactKey = `imageCaptureArtifact:${tabId}:${artifact.artifactId}`;
     try {
-      await chrome.storage.session.set({
+      await sessionStorage.set({
         [artifactKey]: { artifactId: artifact.artifactId }
       });
       const updatedSession = await addImageCandidates(tabId, [{
@@ -499,7 +501,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       offscreen.releaseArtifact(artifact.artifactId);
     } catch (error) {
       await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId: artifact.artifactId }).catch(() => {});
-      await chrome.storage.session.remove(artifactKey).catch(() => {});
+      await sessionStorage.remove(artifactKey).catch(() => {});
       offscreen.releaseArtifact(artifact.artifactId);
       throw error;
     }
@@ -642,12 +644,12 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     for (const delay of [0, 100, 500, 1_500, 3_000]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
-        await chrome.storage.session.set({ [key]: { artifactId } });
+        await sessionStorage.set({ [key]: { artifactId } });
         try {
           const [download] = await chrome.downloads.search({ id: downloadId });
           if (['complete', 'interrupted'].includes(download?.state)) {
             await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId });
-            await chrome.storage.session.remove(key);
+            await sessionStorage.remove(key);
           }
         } catch {}
         return true;
@@ -741,11 +743,11 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     for (const delay of [0, 100, 500, 1_500]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       try {
-        const storedArtifactId = (await chrome.storage.session.get(key))[key]?.artifactId || '';
+        const storedArtifactId = (await sessionStorage.get(key))[key]?.artifactId || '';
         const artifactId = storedArtifactId || untrackedDownloadArtifacts.get(delta.id) || '';
         if (!artifactId) return;
         await sendImageOffscreen({ type: 'CG_IMAGE_CLEANUP_ARTIFACT', artifactId });
-        if (storedArtifactId) await chrome.storage.session.remove(key);
+        if (storedArtifactId) await sessionStorage.remove(key);
         untrackedDownloadArtifacts.delete(delta.id);
         offscreen.releaseArtifact(artifactId);
         await offscreen.maybeClose();
@@ -976,7 +978,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     const tabIds = new Set(activeTabs);
     try { await initialize(); } catch {}
     try {
-      const values = await chrome.storage.session.get(null);
+      const values = await sessionStorage.get(null);
       for (const [key, value] of Object.entries(values)) {
         if (key.startsWith('imageDownloadSession:') && Number.isInteger(value?.tabId)) tabIds.add(value.tabId);
       }

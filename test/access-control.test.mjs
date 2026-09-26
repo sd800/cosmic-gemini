@@ -144,6 +144,48 @@ test('Access Control rejects changes outside Settings', async () => {
   }));
 });
 
+test('foreign-context block recovery respects newer navigation and current settings', async () => {
+  for (const scenario of ['retry', 'new-navigation', 'new-block']) {
+    let settings = normalizeSettings(), listener;
+    const url = 'https://blocked.example/file';
+    let installed = [{ id: 922001, priority: 100, action: { type: 'block' },
+      condition: { urlFilter: '||blocked.example^', resourceTypes: ['main_frame', 'sub_frame'] } }];
+    const updates = [];
+    const tab = { id: 7, incognito: false, url,
+      ...(scenario === 'new-navigation' ? { pendingUrl: 'https://another.example/' } : {}) };
+    globalThis.chrome = {
+      webRequest: { onErrorOccurred: { addListener: callback => { listener = callback; } } },
+      tabs: {
+        get: async () => {
+          if (scenario === 'new-block') settings = normalizeSettings({ accessControl: {
+            enabled: true, blockedDomains: ['blocked.example']
+          } });
+          return { ...tab };
+        },
+        update: async (id, value) => updates.push({ id, ...value })
+      },
+      declarativeNetRequest: {
+        getSessionRules: async () => installed,
+        updateSessionRules: async ({ removeRuleIds = [], addRules = [] }) => {
+          installed = installed.filter(rule => !removeRuleIds.includes(rule.id)).concat(addRules);
+        }
+      }
+    };
+    createAccessControlProduct({
+      isIncognitoContext: () => false, readSettings: async () => settings,
+      networkContextScope: async () => {
+        installed[0].condition.excludedTabIds = [7];
+        return {};
+      }
+    });
+    listener({ tabId: 7, url, timeStamp: Date.now() });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(updates, scenario === 'retry' ? [{ id: 7, url }] : [], scenario);
+    if (scenario === 'new-block') assert.ok(installed.some(rule => rule.id === 920001),
+      'recovery must not reinstall stale settings over a newly enabled block');
+  }
+});
+
 test('Access Control uses the toolbar button to retry a blocked navigation in the current tab', async () => {
   const tab = { id: 17, windowId: 2, active: true, incognito: false, url: 'chrome-error://chromewebdata/' };
   const retried = [];
@@ -258,6 +300,15 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   errorListener({ tabId: tab.id, url: 'https://docs.example.com/guide', error: 'net::ERR_BLOCKED_BY_CLIENT' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(popups.get(tab.id), '');
+  const updateRules = chrome.declarativeNetRequest.updateSessionRules;
+  chrome.declarativeNetRequest.updateSessionRules = async update => {
+    await updateRules(update);
+    if (update.addRules?.some(rule => rule.action.type === 'allow')) tab.pendingUrl = 'https://manual.example/new-target';
+  };
+  await assert.rejects(product.handleActionClicked(tab), /page changed/);
+  assert.deepEqual(retried, [], 'a delayed grant cannot replace the user’s new navigation');
+  assert.equal(installed.some(rule => rule.action.type === 'allow'), false, 'cancelled grants leave no permission behind');
+  delete tab.pendingUrl; chrome.declarativeNetRequest.updateSessionRules = updateRules;
   assert.deepEqual(await product.handleActionClicked(tab), {
     allowed: true,
     domain: 'example.com'
@@ -431,7 +482,7 @@ test('removing a Stay on the page site leaves Access Control blocks intact and r
   const fixer = createWebsiteFixerProduct(platform);
   await access.reconcile();
   await fixer.initialize();
-  assert.deepEqual(installed.map(rule => rule.id), [920001, 930002]);
+  assert.deepEqual(installed.map(rule => rule.id), [920001]);
 
   const before = settings;
   await fixer.handleMessage({ type: 'UI_DELETE_RULE', listName: 'whitelistDomains',

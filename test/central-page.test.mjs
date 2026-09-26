@@ -18,6 +18,7 @@ test('Central page synchronization reruns after a newer request arrives in fligh
         onMessage: { addListener(listener) { pageListener = listener; } }
       }
     },
+    window: { addEventListener() {} },
     location: { href: 'https://www.xiaohongshu.com/explore' },
     setTimeout,
     clearTimeout,
@@ -38,4 +39,18 @@ test('Central page synchronization reruns after a newer request arrives in fligh
   resolveFirst({ ok: true });
   await latest;
   assert.equal(requests, 2);
+});
+
+test('history restore refreshes policy and hidden documents do not keep retrying', async () => {
+  const listeners=new Map(),timers=new Map();let requests=0,settle;
+  const context={window:{addEventListener(type,fn){listeners.set(type,fn);}},location:{href:'https://example.com'},
+    setTimeout(fn){timers.set(1,fn);return 1;},clearTimeout(id){timers.delete(id);},
+    chrome:{runtime:{sendMessage(){requests++;return requests===1?new Promise(resolve=>{settle=resolve;}):Promise.resolve({ok:true});},onMessage:{addListener(){}}}}};
+  vm.createContext(context);vm.runInContext(await readFile(new URL('../extension/content/central-page.js',import.meta.url),'utf8'),context);
+  const central=context[Symbol.for('cosmic-gemini.central')];
+  listeners.get('pagehide')();settle({ok:false});await new Promise(resolve=>setImmediate(resolve));
+  await central.sync();assert.equal(requests,1);assert.equal(timers.size,0);
+  listeners.get('pageshow')({persisted:true});await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(requests,2,'returning from BFCache reads the current settings');
+  listeners.get('pageshow')({persisted:false});assert.equal(requests,2,'ordinary initial pageshow does not duplicate startup');
 });

@@ -1037,3 +1037,14 @@ test('Settings keeps the newest registered document without reading general tab 
   const retry=add(8,'retry');failRead=true;await assert.rejects(register(retry,700));await register(retry,700);assert.equal(docs.has('replacement'),false,'queue recovers after API failure');
   const count=removed.length;assert.equal(await register({...retry,frameId:1},800),false);assert.equal(await register({...retry,url:'https://example.com'},800),false);assert.equal(await register(retry,NaN),false);assert.equal(removed.length,count);
 });
+
+test('one product cleanup failure does not strand other Operations products', async () => {
+  const removed=[];let cleared=0;
+  globalThis.chrome={extension:{inIncognitoContext:false},runtime:{getURL:path=>'chrome-extension://test/'+path},
+    storage:{session:{get:async()=>({}),remove:async key=>{removed.push(key);if(String(key).startsWith('anyCopyCoordinatedPauseTab:'))throw Error('transient');},set:async()=>{}}},tabs:{query:async()=>[]}};
+  const province=createOperationsProvince({readSettings:async()=>normalizeSettings(),clearTabActivity:async()=>{cleared++;},notifyCentralUi(){},setFeatureActivity:async()=>{}});
+  await province.handleTabRemoved(88);
+  assert.ok(removed.includes('anyCopyCoordinatedPauseTab:88'));
+  assert.ok(removed.includes('anyCopyEnhancedTab:88'));
+  assert.equal(cleared,1,'final activity cleanup still runs after another product rejects');
+});

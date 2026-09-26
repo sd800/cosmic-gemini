@@ -3,6 +3,7 @@
   if (globalThis[CENTRAL_KEY]) return;
 
   let pending = null;
+  let suspended = false;
   let syncQueued = false;
   let syncFailures = 0;
   let syncRetry = 0;
@@ -23,17 +24,18 @@
       })
       .catch(() => {
         syncFailures += 1;
-        if (syncFailures >= 4 || syncRetry) return;
+        if (suspended || syncFailures >= 4 || syncRetry) return;
         syncRetry = setTimeout(() => {
           syncRetry = 0;
           void sync();
         }, [80, 240, 800][syncFailures - 1]);
       });
   const sync = () => {
+    if (suspended) return Promise.resolve();
     syncQueued = true;
     if (pending) return pending;
     pending = (async () => {
-      while (syncQueued) {
+      while (syncQueued && !suspended) {
         syncQueued = false;
         await synchronizeOnce();
       }
@@ -52,6 +54,18 @@
     void sync();
   };
 
+  // BFCache documents do not rerun content scripts. Refresh current policy on
+  // return, including changes made while this document could not receive messages.
+  window.addEventListener('pagehide', () => {
+    suspended = true; syncQueued = false;
+    if (syncRetry) clearTimeout(syncRetry);
+    syncRetry = 0;
+  });
+  window.addEventListener('pageshow', event => {
+    if (!event.persisted) return;
+    suspended = false; syncFailures = 0;
+    void sync();
+  });
   chrome.runtime.onMessage.addListener(onMessage);
   Object.defineProperty(globalThis, CENTRAL_KEY, { value: { sync }, configurable: false });
   void sync();

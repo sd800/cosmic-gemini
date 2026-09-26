@@ -103,7 +103,7 @@ test('Website Fixer keeps saved sites and installed protection together when reg
   let rules = [], registered = [], failedRegistrations = 3, failStorage = false, ignoreNetworkUpdate = false;
   globalThis.chrome = {
     runtime: { getURL: path => 'chrome-extension://test/' + path },
-    tabs: { query: async () => [] },
+    tabs: { query: async () => [{ id: 7, url: "https://example.com", incognito: false }] },
     declarativeNetRequest: {
       getSessionRules: async () => rules,
       updateSessionRules: async ({ removeRuleIds = [], addRules = [] }) => {
@@ -152,13 +152,13 @@ test('Website Fixer keeps saved sites and installed protection together when reg
   failedRegistrations = 1;
   const recovered = await product.handleMessage(message, context);
   assert.deepEqual(recovered.stayOnPage.whitelistDomains, ['example.com']);
-  assert.deepEqual(rules.map(rule => rule.id), [930002]);
+  assert.deepEqual(rules.map(rule => rule.id), [930001, 930002]);
   assert.equal(registered.length, 2);
 
   ignoreNetworkUpdate = true;
   await assert.rejects(product.handleMessage({ ...message, type: 'UI_DELETE_RULE' }, context), /could not verify/);
   assert.deepEqual(settings.websiteFixer.stayOnPage.whitelistDomains, ['example.com']);
-  assert.deepEqual(rules.map(rule => rule.id), [930002]);
+  assert.deepEqual(rules.map(rule => rule.id), [930001, 930002]);
 });
 
 test('Translate Override clears page-wide and nested opt-outs, including late rewrites', () => {
@@ -194,6 +194,7 @@ test('Translate Override clears page-wide and nested opt-outs, including late re
     setTimeout(callback) { timers.push(callback); return timers.length; }
   });
   vm.runInContext(readFileSync(new URL('../extension/content/website-fixer/website-fixer-translate.js', import.meta.url), 'utf8'), context);
+  vm.runInContext("globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-activate')]()", context);
 
   assert.equal(denied.connected, false);
   assert.equal(ordinary.connected, true);
@@ -233,6 +234,7 @@ test('Translate Override catches the document root when the script starts before
     disconnect() {}
   } });
   vm.runInContext(readFileSync(new URL('../extension/content/website-fixer/website-fixer-translate.js', import.meta.url), 'utf8'), context);
+  vm.runInContext("globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-activate')]()", context);
   document.documentElement = root;
   callback([{ type: 'childList', addedNodes: [root] }]);
   assert.equal(root.getAttribute('translate'), null);
@@ -429,4 +431,20 @@ test('scoped runtime uses the same curated site boundaries as background policy'
   for (const domain of ['a.example.co.uk', 'a.tenant.github.io', 'corporate-server.corp', 'example.com', 'deep.city.kawasaki.jp']) {
     assert.equal(classify('https://' + domain), normalizeWebsiteFixerSite(domain));
   }
+});
+
+test('Stay on the page discards popup work started before a reset', async () => {
+  const source={id:1,url:'https://stay.test/page',incognito:false};
+  const popup={id:2,openerTabId:1,url:'https://outside.test/ad',incognito:false};
+  const settings=normalizeSettings({websiteFixer:{enabled:true,stayOnPage:{enabled:true,whitelistDomains:['stay.test']}}});
+  let resolveSettings;const removed=[];
+  globalThis.chrome={tabs:{get:async id=>id===1?source:popup,remove:async id=>removed.push(id)},
+    declarativeNetRequest:{getSessionRules:async()=>[],updateSessionRules:async()=>{}}};
+  const stay=createStayOnPage({readSettings:()=>new Promise(resolve=>{resolveSettings=resolve;})});
+  const opening=stay.handleTabCreated(popup);
+  await stay.reset();resolveSettings(settings);
+  await opening;
+  stay.handleNavigationRequest({tabId:2,url:popup.url,initiator:source.url});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(removed,[],'a reset cannot be undone by a delayed old settings reply');
 });

@@ -6,6 +6,7 @@ import { siteKey } from '../../../core/site-key.js';
 import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-preview/document-appearance.js';
 import { translator } from '../../../shared/localization.js';
 import { showDocumentChoice } from '../../../content/document-preview/document-preview-dialog.js';
+import { canvasDocumentSource } from '../../../content/document-preview/document-preview-source.js';
 import { createDocumentRequestIngress } from '../../features/document-request-ingress.js';
 import { formatDocumentBytes } from '../../../core/document-preview/document-preview.js';
 
@@ -199,10 +200,15 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   // Filename determination has a browser deadline. Record only bounded request
   // metadata here; bytes are fetched after an explicit Preview / Download choice.
   async function capture(item, suggest) {
-    let released = false;
-    const release = () => { if (!released) { released = true; suggest(); } };
+    let released = false, savedDoc, cancelled = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      // Chrome's internal filename callback rejects cancelled downloads with
+      // an unchecked lastError. Cancellation itself finishes their lifecycle.
+      if (!cancelled) suggest();
+    };
     const deadline = setTimeout(release, 8000);
-    let savedDoc, cancelled = false;
     try {
       await initialize();
       if (!(await platform.readSettings()).documentPreview?.enabled) return;
@@ -212,8 +218,21 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const site = siteKey(tab?.url);
       if (!site || !!tab.incognito !== platform.isIncognitoContext() || state.choices[site] === 'download') return;
       if (documentPreviewWhitelisted(tab.url, (await platform.readSettings()).documentPreview?.whitelistDomains)) return;
-      const url = item.finalUrl || item.url;
+      // Replay the observed GET entry point, allowing it to refresh signed CDN
+      // redirects rather than reusing a stale final URL.
+      let url = request.originalUrl || item.url || item.finalUrl;
       if (!/^https?:\/\//i.test(url)) return;
+      const filename = documentFilename(item), format = documentFormat(filename);
+      if (new URL(url).origin !== new URL(tab.url).origin) try {
+        const [source] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id, frameIds: [0] }, world: 'ISOLATED',
+          func: canvasDocumentSource, args: [tab.url, filename, [request.originalUrl, item.url].filter(Boolean)]
+        });
+        if (typeof source?.result === 'string') {
+          const resolved = new URL(source.result);
+          if (resolved.origin === new URL(tab.url).origin && !resolved.username && !resolved.password) url = resolved.href;
+        }
+      } catch { /* Restricted or departing pages retain the observed GET route. */ }
       const reportedSize = Math.max(0, Number(item.fileSize) || 0, Number(item.totalBytes) || 0);
       if (reportedSize > DOCUMENT_LIMIT) return;
       await serial(async () => {
@@ -222,7 +241,6 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         if (!sites.has(site) || !settings?.enabled || documentPreviewWhitelisted(tab.url, settings.whitelistDomains) || released) return;
         // Pending choices have independent lifetimes: dismissing one prompt
         // must not invalidate another prompt for the same download URL.
-        const filename = documentFilename(item), format = documentFormat(filename);
         const existing = state.documents.find(doc => doc.prepared === true && doc.site === site
           && doc.url === url && doc.filename === filename && doc.format === format);
         if (existing) { savedDoc = existing; savedDoc.sourceTabId = tab.id; await persist(); }

@@ -379,3 +379,26 @@ test('authorized runtime dependencies load in order in the same main-world docum
   assert.deepEqual(executions[1].files, ['content/shared/browser-identity.js', 'content/website-knowledge-control/website-knowledge-control-runtime.js']);
   assert.deepEqual(executions[1].target, { tabId: 3, documentIds: ['identity-frame'] });
 });
+
+// Older page bridges can receive startup and refresh replies out of order.
+for (const [name, featureId] of [['native-scroll','nativeScroll'],['no-autoplay','noAutoplay'],
+  ['any-copy','anyCopy'],['any-copy-enhanced','anyCopyEnhanced'],['mailto-capture','mailtoCapture'],
+  ['clipboard-protect','clipboardProtect'],['ad-marshal','adMarshal']]) {
+  test(`${name} bridge ignores superseded configuration and failure replies`, async () => {
+    const {readFile}=await import('node:fs/promises');
+    const requests=[],events=[],listeners=new Map();let message;
+    const window={addEventListener(type,fn){listeners.set(type,fn);},removeEventListener(type){listeners.delete(type);},dispatchEvent(event){events.push(event);listeners.get(event.type)?.(event);}};
+    const context=createContext({window,location:{href:'https://example.com'},CustomEvent:class {constructor(type,init){this.type=type;this.detail=init?.detail;}},
+      setTimeout,clearTimeout,chrome:{runtime:{sendMessage(input){if(input.type!=='CG_PAGE_STATE')return Promise.resolve({ok:true});return new Promise(resolve=>requests.push(resolve));},onMessage:{addListener(fn){message=fn;},removeListener(){}}}}});
+    runInContext(await readFile(new URL(`../extension/content/${name}/${name}-bridge.js`,import.meta.url),'utf8'),context);
+    window.dispatchEvent({type:`cosmic-gemini:${name}:main-ready`,detail:'token'});
+    message({type:'CG_REFRESH_FEATURE_CONFIG',featureId},{},()=>{});
+    requests[1]({ok:true,result:{[featureId]:{active:true,mode:'enhanced'}}});
+    await new Promise(resolve=>setImmediate(resolve));
+    requests[0]({ok:true,result:{[featureId]:{active:false}}});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.ok(context[Symbol.for(`cosmic-gemini.${name}.bridge`)],'a stale disabled reply cannot tear down the current runtime');
+    assert.equal(events.filter(event=>event.type.endsWith(':configure')).length,1);
+    context[Symbol.for(`cosmic-gemini.${name}.bridge`)].dispose();
+  });
+}

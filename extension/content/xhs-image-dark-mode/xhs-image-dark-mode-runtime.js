@@ -1495,7 +1495,7 @@
         const pending = { source: task.image.currentSrc || task.image.src || '', generation };
         this.inFlight.set(task.image, pending);
         this.running += 1;
-        void this.analyze(task.image, generation).finally(() => {
+        void this.analyze(task.image, generation).catch(() => {}).finally(() => {
           if (generation !== this.processingGeneration) return;
           if (this.inFlight.get(task.image) === pending) this.inFlight.delete(task.image);
           this.running -= 1;
@@ -1667,7 +1667,18 @@
         this.applyResult(record);
         return;
       }
-      try { await image.decode?.(); } catch {}
+      // A source swap can leave decode pending indefinitely. Do not occupy one
+      // of the two analysis slots forever; load/source events can retry later.
+      if (typeof image.decode === 'function') {
+        let timer;
+        try {
+          const decoded = await Promise.race([
+            image.decode().then(() => true, () => true),
+            new Promise(resolve => { timer = setTimeout(() => resolve(false), 2000); })
+          ]);
+          if (!decoded) return;
+        } catch {} finally { clearTimeout(timer); }
+      }
       if (!this.processing || generation !== this.processingGeneration
         || this.profileProcessingDisabled(record)
         || this.records.get(image) !== record || !image.isConnected

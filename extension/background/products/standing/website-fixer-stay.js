@@ -12,19 +12,18 @@ export function stayDomains(settings) {
 
 export function stayRules(domains, incognito = false, tabIdsBySite = new Map()) {
   const start = incognito ? 931_001 : 930_001;
-  return domains.flatMap((domain, index) => [...(tabIdsBySite.get(domain)?.length ? [{
-    id: start + index * 2, priority: 300,
-    action: { type: 'block' },
-    // A browser-created tab has a different ID and must remain free to navigate.
-    condition: { initiatorDomains: [domain], excludedRequestDomains: [domain],
-      resourceTypes: ['main_frame'], tabIds: tabIdsBySite.get(domain) }
-  }] : []), {
-    id: start + index * 2 + 1, priority: 300,
-    // Cross-site embeds may load and play, but cannot escape into top-level
-    // pages/popups. The sandbox is inherited by their descendants and blobs.
-    action: { type: 'modifyHeaders', responseHeaders: [{ header: 'content-security-policy', operation: 'append', value: FRAME_SANDBOX }] },
-    condition: { initiatorDomains: [domain], excludedRequestDomains: [domain], resourceTypes: ['sub_frame'] }
-  }]);
+  return domains.flatMap((domain, index) => {
+    const tabIds = tabIdsBySite.get(domain);
+    if (!tabIds?.length) return [];
+    return [{
+      id: start + index * 2, priority: 300, action: { type: 'block' },
+      condition: { initiatorDomains: [domain], excludedRequestDomains: [domain], resourceTypes: ['main_frame'], tabIds }
+    }, {
+      id: start + index * 2 + 1, priority: 300,
+      action: { type: 'modifyHeaders', responseHeaders: [{ header: 'content-security-policy', operation: 'append', value: FRAME_SANDBOX }] },
+      condition: { initiatorDomains: [domain], excludedRequestDomains: [domain], resourceTypes: ['sub_frame'], tabIds }
+    }];
+  });
 }
 
 export function createStayOnPage(platform) {
@@ -35,6 +34,7 @@ export function createStayOnPage(platform) {
   const contextIntents = new Map();
   const navigationOrigins = new Map();
   let domainSignature = null;
+  let generation = 0;
   const INTENT_MS = 90_000;
   function contextMatch(url, intent) {
     try {
@@ -118,6 +118,7 @@ export function createStayOnPage(platform) {
       const domains = stayDomains(settings);
       const signature = domains.join('\0');
       if (domainSignature !== null && signature !== domainSignature) {
+        generation += 1;
         pending.clear();
         contextIntents.clear();
         navigationOrigins.clear();
@@ -167,13 +168,14 @@ export function createStayOnPage(platform) {
       if (pending.has(details.tabId)) void checkPopup(details.tabId, details.url);
     },
     async handleTabCreated(tab) {
+      const started = generation;
       if (!Number.isInteger(tab.openerTabId) || !!tab.incognito !== incognito) return;
       if (/^(?:chrome:\/\/newtab|about:newtab)/.test(tab.pendingUrl || tab.url || '')) return;
       const domains = stayDomains(await platform.readSettings());
-      if (!domains.length) return;
+      if (!domains.length || started !== generation) return;
       const opener = await chrome.tabs.get(tab.openerTabId).catch(() => null);
       const site = siteKey(opener?.url || '');
-      if (!domains.includes(site)) return;
+      if (!domains.includes(site) || started !== generation) return;
       for (const [id, record] of pending) if (record.until < Date.now()) pending.delete(id);
       const intent = contextIntents.get(tab.openerTabId);
       if (intent && intent.until < Date.now()) contextIntents.delete(tab.openerTabId);
@@ -186,6 +188,7 @@ export function createStayOnPage(platform) {
     handleTabUpdated(tabId, change, tab) { return checkPopup(tabId, change.url || tab.pendingUrl || tab.url); },
     handleTabRemoved(tabId) { pending.delete(tabId); contextIntents.delete(tabId); navigationOrigins.delete(tabId); },
     async reset() {
+      generation += 1;
       pending.clear();
       contextIntents.clear();
       navigationOrigins.clear();

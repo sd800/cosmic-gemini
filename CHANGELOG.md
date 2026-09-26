@@ -2,7 +2,7 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
-## 9.9.2 — 2026-09-25
+## 9.10.1 — 2026-09-25
 
 - Improve coordination and recovery across page features, navigation, and extension lifecycle changes.
 - Strengthen isolation of ordinary and incognito session data, website rules, and cleanup.

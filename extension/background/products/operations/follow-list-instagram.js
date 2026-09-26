@@ -50,12 +50,15 @@ export function createFollowListInstagramProduct(platform) {
   }
 
   async function writeCachedResult(session) {
-    if (session.status !== 'complete' || !session.profile) return;
+    const current = () => sessions.get(session.tabId) === session && !session.stopped && session.status === 'complete';
+    if (!current() || !session.profile) return;
     const username = session.username;
     const key = cacheKey(username);
     await queueCacheWrite(async () => {
       try {
+        if (!current()) return;
         const stored = await sessionStorage.get(CACHE_INDEX);
+        if (!current()) return;
         const previous = Array.isArray(stored[CACHE_INDEX]) ? stored[CACHE_INDEX] : [];
         const index = [username, ...previous.filter(value => value !== username)].slice(0, MAX_CACHED_RESULTS);
         const evicted = previous.filter(value => !index.includes(value)).map(cacheKey);
@@ -76,24 +79,20 @@ export function createFollowListInstagramProduct(platform) {
 
   async function clearCachedResult(username) {
     await queueCacheWrite(async () => {
-      try {
-        const stored = await sessionStorage.get(CACHE_INDEX);
-        const previous = Array.isArray(stored[CACHE_INDEX]) ? stored[CACHE_INDEX] : [];
-        const index = previous.filter(value => value !== username);
-        await sessionStorage.remove(cacheKey(username));
-        if (index.length) await sessionStorage.set({ [CACHE_INDEX]: index });
-        else await sessionStorage.remove(CACHE_INDEX);
-      } catch {}
+      const stored = await sessionStorage.get(CACHE_INDEX);
+      const previous = Array.isArray(stored[CACHE_INDEX]) ? stored[CACHE_INDEX] : [];
+      const index = previous.filter(value => value !== username);
+      await sessionStorage.remove(cacheKey(username));
+      if (index.length) await sessionStorage.set({ [CACHE_INDEX]: index });
+      else await sessionStorage.remove(CACHE_INDEX);
     });
   }
 
   async function clearAllCachedResults() {
     await queueCacheWrite(async () => {
-      try {
-        const stored = await sessionStorage.get(null);
-        const keys = Object.keys(stored).filter(key => key === CACHE_INDEX || key.startsWith(CACHE_PREFIX));
-        if (keys.length) await sessionStorage.remove(keys);
-      } catch {}
+      const stored = await sessionStorage.get(null);
+      const keys = Object.keys(stored).filter(key => key === CACHE_INDEX || key.startsWith(CACHE_PREFIX));
+      if (keys.length) await sessionStorage.remove(keys);
     });
   }
 
@@ -306,8 +305,13 @@ export function createFollowListInstagramProduct(platform) {
           return { cleared: true };
         }
         if (message.type === 'UI_IG_CLEAR_ALL') {
-          await Promise.allSettled([...sessions.keys()].map(id => stop(id, true)));
+          for (const pending of pendingStarts.values()) pending.cancelled = true;
+          const clearing = [...sessions.values()];
+          await Promise.allSettled(clearing.map(value => stop(value.tabId)));
           await clearAllCachedResults();
+          for (const value of clearing) {
+            if (sessions.get(value.tabId) === value) sessions.delete(value.tabId);
+          }
           return { cleared: true };
         }
         if (message.type === 'UI_IG_OPEN_UNFOLLOW_CONFIRMATION') {

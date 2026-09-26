@@ -50,6 +50,24 @@ test('extension reload is popup-only, acknowledged first and scheduled once', as
   assert.equal(reloads, 1);
 });
 
+test('reset confirms default preferences before stopping active products', async () => {
+  const base = 'chrome-extension://cosmic-gemini/';
+  globalThis.chrome = { runtime: { getURL: path => base + path } };
+  const steps = []; let failWrite = true;
+  const product = createAdministrationProduct({
+    isIncognitoContext: () => false,
+    saveSettings: async settings => { if (failWrite) throw Error('write failed'); steps.push('saved'); assert.equal(settings.accessControl.enabled, false); },
+    resetStorage: async () => { steps.push('cleared'); }
+  });
+  const context = { sender: { url: base + 'settings/all-settings.html' },
+    resetProvinces: async () => { steps.push('stopped'); } };
+  await assert.rejects(product.handleMessage({ type: 'UI_RESET_ALL_SETTINGS' }, context), /write failed/);
+  assert.deepEqual(steps, [], 'a rejected reset must leave existing sessions running');
+  failWrite = false;
+  await product.handleMessage({ type: 'UI_RESET_ALL_SETTINGS' }, context);
+  assert.deepEqual(steps, ['saved', 'stopped', 'cleared']);
+});
+
 test('Claude response display product saves independently and refreshes page decisions', async () => {
   let settings = normalizeSettings();
   let refreshes = 0;

@@ -8,7 +8,9 @@ import {
 export function createWebsiteKnowledgeControlProduct(host, platform) {
   const incognito = platform.isIncognitoContext?.() === true;
   const sessionKey = `websiteKnowledgeControlAppliedRequestProfiles:${incognito ? 'incognito' : 'regular'}`;
-  const ruleIds = start => Array.from({ length: 32 }, (_, index) => start + index);
+  // Retained tabs may hold every language with/without GPC, plus GPC alone.
+  // Keep capacity above the complete Settings menu without crossing contexts.
+  const ruleIds = start => Array.from({ length: 64 }, (_, index) => start + index);
   const requestRules = createRequestIdentityRules(platform, {
     regularIds: ruleIds(910_001), incognitoIds: ruleIds(910_101), priority: 10,
     conditions: [{ regexFilter: '^https?://', resourceTypes: [...ALL_REQUEST_RESOURCE_TYPES] }]
@@ -39,8 +41,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
 
   async function loadApplied(settings) {
     if (appliedProfiles) return appliedProfiles;
-    let stored;
-    try { stored = (await chrome.storage.session?.get(sessionKey))?.[sessionKey]; } catch {}
+    const stored = (await chrome.storage?.session?.get(sessionKey))?.[sessionKey];
     const tabs = (await chrome.tabs.query({})).filter(contextTab);
     const openIds = new Set(tabs.map(tab => tab.id));
     appliedProfiles = new Map();
@@ -48,6 +49,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
       for (const [rawId, rawValue] of Object.entries(stored.tabs)) {
         const tabId = Number(rawId);
         if (!openIds.has(tabId)) continue;
+        if (rawValue === null) { appliedProfiles.set(tabId, null); continue; }
         if (!rawValue || typeof rawValue !== 'object') continue;
         let language = '';
         try { if (rawValue.language) language = validateWebsiteKnowledgeValue('languages', rawValue.language); } catch { continue; }
@@ -57,7 +59,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     }
     const current = selectedProfile(settings);
     for (const tab of tabs) {
-      if (!appliedProfiles.has(tab.id) && current && isWebTab(tab)) appliedProfiles.set(tab.id, current);
+      if (!appliedProfiles.has(tab.id)) appliedProfiles.set(tab.id, isWebTab(tab) ? current : null);
     }
     await persistApplied();
     return appliedProfiles;
@@ -66,6 +68,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
   async function syncApplied() {
     const groups = new Map();
     for (const [tabId, profile] of appliedProfiles) {
+      if (!profile) continue;
       const key = JSON.stringify(profile);
       if (!groups.has(key)) groups.set(key, { ...profile, tabIds: [] });
       groups.get(key).tabIds.push(tabId);
@@ -94,7 +97,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     }
     const current = selectedProfile(settings);
     if (current && isWebTab(liveTab)) appliedProfiles.set(tabId, current);
-    else appliedProfiles.delete(tabId);
+    else appliedProfiles.set(tabId, null);
     await persistApplied();
     return syncApplied();
   });
@@ -145,7 +148,13 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     },
     handleTabRemoved: removeTab,
     handleStorageChanged() {},
-    reset: () => requestRules.sync(false)
+    reset: () => serializeApplied(async () => {
+      // A known inactive tab must remain inactive after worker restart, even
+      // if a different preference is saved before that tab next navigates.
+      appliedProfiles = new Map((await chrome.tabs.query({})).filter(contextTab).map(tab => [tab.id, null]));
+      await persistApplied();
+      return requestRules.sync(false);
+    })
   });
   return product;
 }

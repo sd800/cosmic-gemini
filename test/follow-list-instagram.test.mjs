@@ -49,6 +49,55 @@ function harness(replies, sessionStore = new Map()) {
 }
 const completeReplies = own => [profile(2, 2, own), { users: [account(2)], done: false }, { users: [account(2), account(3)], done: true }, { users: [account(3), account(4)], done: true }, profile(2, 2, own)];
 
+test('Instagram cache removal reports storage failure and remains retryable', async () => {
+  for (const type of ['UI_IG_CLEAR_CURRENT', 'UI_IG_CLEAR_ALL']) {
+    const h = harness(completeReplies(true));
+    try {
+      const initial = await h.send('UI_IG_ATTACH'); await turns();
+      const remove = chrome.storage.session.remove;
+      chrome.storage.session.remove = async () => { throw new Error('storage unavailable'); };
+      await assert.rejects(h.send(type, { runId: initial.runId }), /storage unavailable/);
+      assert.ok([...h.sessionStore.keys()].some(key => key.startsWith('followListInstagram:result:')));
+      chrome.storage.session.remove = remove;
+      assert.deepEqual(await h.send(type, { runId: initial.runId }), { cleared: true });
+      assert.equal([...h.sessionStore.keys()].some(key => key.startsWith('followListInstagram:result:')), false);
+    } finally { h.cleanup(); }
+  }
+});
+
+test('Instagram clearing all results cancels starts waiting on another source tab', async () => {
+  const h = harness(completeReplies(true));
+  try {
+    const initial = await h.send('UI_IG_ATTACH'); await turns();
+    const getTab = chrome.tabs.get;
+    let release;
+    chrome.tabs.get = async id => id === 8 ? new Promise(resolve => { release = resolve; }) : getTab(id);
+    const pending = h.send('UI_IG_ATTACH', { tabId: 8 }, panel.replace('=7', '=8'));
+    const cancelled = assert.rejects(pending, /igStopped/);
+    await turns();
+    await h.send('UI_IG_CLEAR_ALL', { runId: initial.runId });
+    release({ id: 8, url: 'https://www.instagram.com/example/', incognito: false });
+    await cancelled;
+    assert.equal(h.calls.filter(call => call.operation === 'profile').length, 2);
+    assert.equal([...h.sessionStore.keys()].some(key => key.startsWith('followListInstagram:result:')), false);
+  } finally { h.cleanup(); }
+});
+
+test('Instagram stopped work cannot finish a delayed cache write', async () => {
+  const h = harness(completeReplies(true));
+  try {
+    const get = chrome.storage.session.get;
+    let release;
+    chrome.storage.session.get = async key => key === 'followListInstagram:resultIndex'
+      ? new Promise(resolve => { release = resolve; }) : get(key);
+    const initial = await h.send('UI_IG_ATTACH'); await turns();
+    assert.equal(typeof release, 'function');
+    await h.send('UI_IG_STOP', {runId:initial.runId});
+    release({}); await turns();
+    assert.equal([...h.sessionStore.keys()].some(key => key.startsWith('followListInstagram:result:')), false);
+  } finally { h.cleanup(); }
+});
+
 test('Instagram profile routing ignores interface language and rejects unrelated routes and lookalike hosts', () => {
   for (const value of ['https://www.instagram.com/Example/?hl=zh-cn', 'https://instagram.com/example/tagged/', 'https://www.instagram.com/example/reels/']) assert.equal(instagramRoute(value).username, 'example');
   for (const path of ['', 'p/ABC/', 'reel/ABC/', 'direct/inbox/', 'accounts/', 'example/p/ABC/']) assert.equal(instagramRoute('https://www.instagram.com/' + path).username, '');

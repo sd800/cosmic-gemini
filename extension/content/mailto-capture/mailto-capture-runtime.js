@@ -495,11 +495,13 @@
     async copy(text, successMessage) {
       const value = String(text || '');
       if (!value) return;
+      const shadow = this.shadow;
       let copied = false;
       try {
         await navigator.clipboard.writeText(value);
         copied = true;
       } catch {
+        if (this.shadow !== shadow) return;
         const input = document.createElement('textarea');
         input.value = value;
         input.setAttribute('readonly', '');
@@ -510,7 +512,8 @@
         try { copied = document.execCommand('copy'); } catch {}
         input.remove();
       }
-      const status = this.shadow?.querySelector('[data-status]');
+      if (this.shadow !== shadow) return;
+      const status = shadow?.querySelector('[data-status]');
       if (status) status.textContent = copied ? successMessage : COPY[this.locale].copyFailed;
     }
 

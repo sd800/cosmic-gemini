@@ -1155,7 +1155,10 @@ function syncResetControls() {
   }
   if (card.dataset.bound === 'true') return;
   card.dataset.bound = 'true';
-  card.querySelector('button').addEventListener('click', () => dialog.showModal());
+  card.querySelector('button').addEventListener('click', () => {
+    dialog.returnValue = '';
+    dialog.showModal();
+  });
   dialog.addEventListener('close', () => {
     if (dialog.returnValue !== 'confirm') return;
     const confirm = dialog.querySelector('.danger-button');

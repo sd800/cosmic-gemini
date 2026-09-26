@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.1 — 2026-09-25
+
+- Improve settings reset, confirmation handling, and recovery from temporary storage failures.
+- Strengthen retained browser-identity rules across page loads and background restarts.
+- Improve reading-layer safety, formatting preservation, and clipboard feedback.
+- Make Instagram result clearing and document-cache cleanup more reliable during interrupted operations.
+
 ## 9.10.1 — 2026-09-25
 
 - Improve coordination and recovery across page features, navigation, and extension lifecycle changes.

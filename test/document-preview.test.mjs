@@ -600,6 +600,42 @@ test('appearance commands reject invalid callers and values, and incognito overr
   assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender})).siteTheme,'light','a failed write cannot change the authoritative session preference');
 });
 
+test('document cleanup retries byte deletion and metadata failures without losing its pending entries', async () => {
+  for (const failure of ['bytes', 'metadata']) {
+    const env = environment(); await env.capture(); await env.settle(); await env.choose();
+    const remove = env.store.remove, save = chrome.storage.session.set;
+    if (failure === 'bytes') env.store.remove = async () => { throw Error('cleanup unavailable'); };
+    else chrome.storage.session.set = async () => { throw Error('cleanup unavailable'); };
+    env.tabs.length = 0;
+    await assert.rejects(env.product.handleTabRemoved(1), /cleanup unavailable/);
+    assert.equal(env.documents().length, 1);
+    const alarm = env.alarms.get(DOCUMENT_CLEANUP_ALARM_PREFIX + 'regular');
+    assert.ok(alarm.scheduledTime > Date.now());
+    env.store.remove = remove; chrome.storage.session.set = save;
+    await env.product.handleAlarm(alarm);
+    assert.equal(env.files.size, 0);
+    assert.equal(env.documents().length, 0);
+    assert.equal(env.alarms.size, 0);
+  }
+});
+
+test('document website choices roll back on failed remember and reset writes', async () => {
+  const env = environment(); await env.capture(); await env.settle(); await env.choose();
+  const doc = env.documents()[0], sender = { url: 'chrome-extension://test/' + DOCUMENT_PREVIEW_PATH + '#id=' + doc.id };
+  const get = () => env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender});
+  const save = chrome.storage.session.set;
+  chrome.storage.session.set = async () => { throw Error('storage unavailable'); };
+  await assert.rejects(env.choose(doc, 'preview', true), /storage unavailable/);
+  assert.equal((await get()).choice, 'ask');
+  chrome.storage.session.set = save;
+  await env.choose(doc, 'preview', true);
+  chrome.storage.session.set = async () => { throw Error('storage unavailable'); };
+  await assert.rejects(env.product.handleMessage({type:'UI_DOCUMENT_RESET_CHOICE',tabId:1},
+    {sender:{url:'chrome-extension://test/popup/popup.html'}}), /storage unavailable/);
+  assert.equal((await get()).choice, 'preview');
+  chrome.storage.session.set = save;
+});
+
 test('closed previews expire after ten minutes, with open copies and source sessions respected', async t => {
   assert.equal(DOCUMENT_CLOSED_RETENTION, 10 * 60 * 1000);
   t.mock.timers.enable({apis:['Date'],now:1800000000000});

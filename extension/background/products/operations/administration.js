@@ -1,5 +1,5 @@
 import { createSettingsSurface } from '../../features/settings-surface.js';
-import { FEATURE_IDS } from '../../../core/config.js';
+import { DEFAULT_INCOGNITO_SETTINGS, DEFAULT_SETTINGS, FEATURE_IDS } from '../../../core/config.js';
 
 const SETTINGS_PATHS = Object.freeze({
   [FEATURE_IDS.NATIVE_SCROLL]: 'settings/native-scroll.html',
@@ -78,6 +78,10 @@ export function createAdministrationProduct(platform) {
         if (!senderUrl.startsWith(chrome.runtime.getURL('settings/'))) {
           throw new Error('All settings can only be reset from the settings page.');
         }
+        // Preserve active sessions when the initial preference write fails.
+        // Product shutdown runs outside the settings queue so a cancelled job
+        // can finish its own queued storage work without deadlocking reset.
+        await platform.saveSettings(platform.isIncognitoContext() ? DEFAULT_INCOGNITO_SETTINGS : DEFAULT_SETTINGS);
         await context.resetProvinces();
         return platform.resetStorage();
       }

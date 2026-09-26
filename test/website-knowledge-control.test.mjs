@@ -104,6 +104,31 @@ test('Website Knowledge Control sends region-neutral Chinese Accept-Language val
   }
 });
 
+test('request-profile capacity covers all Settings language and GPC combinations retained by open tabs', async () => {
+  const html = readFileSync(new URL('../extension/settings/satellites.html', import.meta.url), 'utf8');
+  const menu = html.match(/id="websiteKnowledgeLanguagesValue"[\s\S]*?<\/select>/)[0];
+  const languages = [...menu.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]);
+  const profiles = languages.flatMap(language => [false, true].map(globalPrivacyControl => ({language, globalPrivacyControl})));
+  profiles.push({language:'',globalPrivacyControl:true});
+  const tabs = profiles.map((_, i) => ({id:i + 1,url:'https://example.com/',incognito:false}));
+  const updates = [];
+  globalThis.chrome = {
+    tabs:{query:async()=>tabs},
+    storage:{session:{get:async key=>({[key]:{version:2,tabs:Object.fromEntries(profiles.map((value,i)=>[i+1,value]))}}),set:async()=>{}}},
+    declarativeNetRequest:{updateSessionRules:async update=>updates.push(update)}
+  };
+  const product = createWebsiteKnowledgeControlProduct({}, {isIncognitoContext:()=>false,readSettings:async()=>normalizeSettings()});
+  assert.equal(await product.initialize(),true);
+  assert.equal(updates.at(-1).addRules.length, profiles.length);
+  for (const tab of tabs) {
+    const rule = updates.at(-1).addRules.find(rule=>rule.condition.tabIds.includes(tab.id));
+    const profile = profiles[tab.id-1];
+    assert.equal(rule.action.requestHeaders.find(header=>header.header==='Accept-Language')?.value || '',profile.language);
+    assert.equal(rule.action.requestHeaders.some(header=>header.header==='Sec-GPC'),profile.globalPrivacyControl);
+    assert.ok(rule.id < 910101, 'regular rules cannot overlap incognito rule IDs');
+  }
+});
+
 test('Website Knowledge Control ignores delayed events for closed or changed tabs', async () => {
   const snapshot = { id: 9, url: 'https://example.com', incognito: false };
   const tabs = new Map([[9, snapshot]]);
@@ -128,6 +153,45 @@ test('Website Knowledge Control ignores delayed events for closed or changed tab
   tabs.set(9, { id: 9, url: 'chrome://settings', incognito: false });
   await product.handleTabCreated(snapshot);
   assert.deepEqual(updates.at(-1).addRules, [], 'a stale web snapshot cannot scope a new page');
+});
+
+test('request profiles preserve disabled tabs across worker restart and cannot revive after reset', async () => {
+  let settings = normalizeSettings({ websiteKnowledgeControl: { enabled: true, languages: { enabled: true } } });
+  const tabs = [{ id: 8, url: 'https://example.com', incognito: false }];
+  const stored = {}, updates = [];
+  let failRead = false;
+  globalThis.chrome = {
+    storage: { session: {
+      get: async key => { if (failRead) throw Error('storage unavailable'); return structuredClone({ [key]: stored[key] }); },
+      set: async values => Object.assign(stored, structuredClone(values))
+    } },
+    tabs: { query: async () => tabs, get: async id => tabs.find(tab => tab.id === id) },
+    declarativeNetRequest: { updateSessionRules: async update => updates.push(update) }
+  };
+  const create = () => createWebsiteKnowledgeControlProduct({}, {
+    isIncognitoContext: () => false, readSettings: async () => settings
+  });
+  let product = create();
+  await product.initialize();
+  settings = normalizeSettings();
+  await product.handleTabUpdated(8, { status: 'loading' }, tabs[0]);
+  settings = normalizeSettings({ websiteKnowledgeControl: { enabled: true, languages: { enabled: true, value: 'ja-JP' } } });
+  product = create();
+  await product.initialize();
+  assert.deepEqual(updates.at(-1).addRules, [], 'an explicitly inactive loaded tab waits for its own next load');
+  await product.handleTabUpdated(8, { status: 'loading' }, tabs[0]);
+  assert.equal(updates.at(-1).addRules[0].action.requestHeaders[0].value, 'ja-JP');
+  await product.reset();
+  settings = normalizeSettings();
+  tabs.push({ id: 9, url: 'https://another.example', incognito: false });
+  await product.handleTabCreated(tabs[1]);
+  assert.deepEqual(updates.at(-1).addRules, [], 'reset removes retained profiles before later navigation');
+  failRead = true;
+  product = create();
+  await assert.rejects(product.initialize(), /storage unavailable/);
+  failRead = false;
+  await product.initialize();
+  assert.deepEqual(updates.at(-1).addRules, []);
 });
 
 test('Website Knowledge Control freezes the initial document policy until the next page load', () => {

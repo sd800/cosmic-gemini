@@ -81,8 +81,16 @@
       return NOISE.test(`${element.id || ''} ${element.className || ''}`);
     }
 
-    absoluteUrl(value) {
-      try { return new URL(value, document.baseURI).href; } catch { return ''; }
+    absoluteUrl(value, image = false) {
+      if (!value.trim()) return '';
+      try {
+        const url = new URL(value, document.baseURI);
+        if (['http:', 'https:'].includes(url.protocol)) return url.href;
+        if (image) {
+          if (url.protocol === 'blob:' || /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon);/i.test(url.href)) return url.href;
+        } else if (['mailto:', 'tel:', 'sms:'].includes(url.protocol)) return url.href;
+      } catch {}
+      return '';
     }
 
     copyText(node, target) {
@@ -105,7 +113,7 @@
         } else if (tag === 'img') {
           const source = child.currentSrc || child.getAttribute('src') || child.getAttribute('data-src') ||
             child.getAttribute('data-original') || child.getAttribute('data-lazy-src') || '';
-          const src = this.absoluteUrl(source);
+          const src = this.absoluteUrl(source, true);
           if (!src) continue;
           clone.setAttribute('src', src);
           if (child.getAttribute('alt')) clone.setAttribute('alt', child.getAttribute('alt'));
@@ -117,7 +125,7 @@
           }
         }
         this.copyText(child, clone);
-        if (tag === 'img' || clone.textContent?.trim() || clone.querySelector('img,hr,br')) target.append(clone);
+        if (['img', 'hr', 'br'].includes(tag) || clone.textContent?.trim() || clone.querySelector('img,hr,br')) target.append(clone);
       }
     }
 
@@ -191,7 +199,10 @@
       article.addEventListener('copy', event => this.onReaderCopy(event), true);
       shadow.append(style, article);
       this.readerHost = host;
-      this.originalOverflow = document.documentElement.style.getPropertyValue('overflow');
+      this.originalOverflow = {
+        value: document.documentElement.style.getPropertyValue('overflow'),
+        priority: document.documentElement.style.getPropertyPriority('overflow')
+      };
       document.documentElement.style.setProperty('overflow', 'hidden', 'important');
       document.documentElement.append(host);
       this.readerObserver = new MutationObserver(() => {
@@ -209,7 +220,7 @@
       this.readerHost?.remove();
       this.readerHost = null;
       if (this.originalOverflow !== null) {
-        if (this.originalOverflow) document.documentElement.style.setProperty('overflow', this.originalOverflow);
+        if (this.originalOverflow.value) document.documentElement.style.setProperty('overflow', this.originalOverflow.value, this.originalOverflow.priority);
         else document.documentElement.style.removeProperty('overflow');
       }
       this.originalOverflow = null;

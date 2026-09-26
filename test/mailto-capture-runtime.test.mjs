@@ -79,6 +79,22 @@ async function runtimeFixture() {
   return { context, runtime: context[Symbol.for('cosmic-gemini.mailto-capture.runtime')] };
 }
 
+test('Mailto Capture does not update a replacement dialog or run stale clipboard fallbacks', async () => {
+  const { runtime, context } = await runtimeFixture();
+  for (const rejected of [false, true]) {
+    let finish;
+    context.navigator.clipboard = { writeText: () => new Promise((resolve, reject) => {
+      finish = rejected ? () => reject(new Error('clipboard unavailable')) : resolve;
+    }) };
+    runtime.shadow = { querySelector: () => ({ textContent: '' }) };
+    const copying = runtime.copy('old dialog contents', 'Copied');
+    const status = { textContent: 'new dialog' };
+    runtime.shadow = { querySelector: () => status };
+    finish(); await copying;
+    assert.equal(status.textContent, 'new dialog');
+  }
+});
+
 test('Mailto Capture preserves recipients, message fields, repeated values, and literal plus signs', async () => {
   const { runtime } = await runtimeFixture();
   const parsed = runtime.parseMailto(

@@ -17,6 +17,17 @@ try{
  const ids=await worker.evaluate(async()=>{const a=await chrome.tabs.create({url:chrome.runtime.getURL('settings/native-scroll.html'),active:false});const b=await chrome.tabs.create({url:chrome.runtime.getURL('settings/no-autoplay.html'),active:false});return[a.id,b.id]});
  await worker.evaluate(async ids=>{for(let i=0;i<100;i++){const all=(await chrome.runtime.getContexts({contextTypes:['TAB']})).filter(c=>c.documentUrl?.includes('/settings/'));if(all.length===1&&all[0].tabId===ids[1])return;await new Promise(r=>setTimeout(r,30));}throw Error('Settings not deduplicated')},ids);
  page=context.pages().find(p=>!p.isClosed()&&p.url().endsWith('settings/no-autoplay.html'));assert.ok(page);await page.waitForSelector('#version');
+ // Failed confirmation must not be replayed when the user later presses Escape.
+ await page.goto(base+'settings/all-settings.html');await page.waitForSelector('#reset-settings-card');
+ await page.evaluate(()=>{const send=chrome.runtime.sendMessage;window.qaResetSend=send;window.qaResetCount=0;chrome.runtime.sendMessage=(message,...args)=>{
+  if(message.type==='UI_RESET_ALL_SETTINGS'){window.qaResetCount++;return Promise.resolve({ok:false,error:'QA storage unavailable'});}return send(message,...args);
+ };});
+ await page.locator('#reset-settings-card button').click();await page.locator('#reset-settings-dialog .danger-button').click();
+ await page.waitForFunction(()=>qaResetCount===1&&!document.querySelector('#reset-settings-card button').disabled);
+ await page.locator('#reset-settings-card button').click();await page.keyboard.press('Escape');
+ await page.waitForFunction(()=>!document.querySelector('#reset-settings-dialog').open);
+ assert.equal(await page.evaluate(()=>qaResetCount),1,'Escape must not repeat an earlier confirmed reset');
+ await page.evaluate(()=>{chrome.runtime.sendMessage=qaResetSend;delete window.qaResetSend;});
  const result={settings:'newest tab only across features/windows/rapid creation; same-tab navigation and reload preserved',progress:[]};
  // Invoke the actual injected choice renderer, replacing only the privileged
  // transport so no document is fetched/downloaded and no real tab is opened.

@@ -62,18 +62,36 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         expired.push(doc); continue;
       }
       const closedAt = openIds.has(doc.id) ? null : (doc.closedAt ?? now);
-      if (doc.closedAt !== closedAt) { doc.closedAt = closedAt; lifetimeChanged = true; }
-      retained.push(doc);
+      if (doc.closedAt !== closedAt) lifetimeChanged = true;
+      retained.push(doc.closedAt === closedAt ? doc : { ...doc, closedAt });
     }
     const choiceCount = Object.keys(state.choices).length;
     const themeCount = Object.keys(state.themes).length;
-    state.documents = retained;
-    state.choices = Object.fromEntries(Object.entries(state.choices).filter(([site]) => sites.has(site)));
-    state.themes = Object.fromEntries(Object.entries(state.themes).filter(([site]) => sites.has(site)));
-    if (expired.length || lifetimeChanged || Object.keys(state.choices).length !== choiceCount || Object.keys(state.themes).length !== themeCount) await persist();
-    for (const doc of expired) await store.remove(doc.id);
-    await scheduleCleanup();
+    const previous = state;
+    const next = { ...state, documents: retained,
+      choices: Object.fromEntries(Object.entries(state.choices).filter(([site]) => sites.has(site))),
+      themes: Object.fromEntries(Object.entries(state.themes).filter(([site]) => sites.has(site))) };
+    try {
+      // Keep expired entries discoverable until their bytes have been removed.
+      // A failed deletion or metadata save must remain eligible for retry.
+      for (const doc of expired) await store.remove(doc.id);
+      state = next;
+      if (expired.length || lifetimeChanged || Object.keys(state.choices).length !== choiceCount || Object.keys(state.themes).length !== themeCount) {
+        try { await persist(); } catch (error) { state = previous; throw error; }
+      }
+      await scheduleCleanup();
+    } catch (error) {
+      await chrome.alarms.create(cleanupAlarm, { when: Date.now() + 30000 }).catch(() => {});
+      throw error;
+    }
     return sites;
+  }
+  async function saveChoice(site, choice) {
+    const previous = { ...state.choices };
+    if (choice) state.choices[site] = choice;
+    else delete state.choices[site];
+    try { await persist(); }
+    catch (error) { state.choices = previous; throw error; }
   }
   async function initialize() {
     if (!initialization) initialization = (async () => {
@@ -112,10 +130,10 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   }
   async function currentDocument(id) {
     await initialize();
+    const tabs = await tabsInContext();
     const doc = state.documents.find(value => value.id === id);
     if (!doc || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= Date.now())
-      || !(await tabsInContext()).some(tab => siteKey(tab.url) === doc.site)
-      || !state.documents.includes(doc)) throw Error('documentExpired');
+      || !tabs.some(tab => siteKey(tab.url) === doc.site)) throw Error('documentExpired');
     return doc;
   }
   async function prepareDocument(id) {
@@ -334,7 +352,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
         if (tab?.id !== message.tabId) throw Error('The current page changed.');
         await initialize();
-        await serial(async () => { delete state.choices[siteKey(tab.url)]; await persist(); });
+        await serial(() => saveChoice(siteKey(tab.url)));
         return { reset: true };
       }
       const workspace = senderUrl.split('#')[0] === chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH);
@@ -377,7 +395,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         if (message.action === 'dismiss') { await discardPending(doc.id); return { dismissed: true }; }
         const prepared = await prepareDocument(doc.id);
         if (message.remember) await serial(async () => {
-          await currentDocument(prepared.id); state.choices[prepared.site] = message.action; await persist();
+          await currentDocument(prepared.id); await saveChoice(prepared.site, message.action);
         });
         if (page) await open(prepared, message.action, context.sender.tab?.id);
         return { action: message.action, prepared: true, size: prepared.size };

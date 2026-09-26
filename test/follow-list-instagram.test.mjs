@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { instagramProfileUrl, instagramRoute, compareInstagramLists } from '../extension/core/follow-list-instagram.js';
-import { instagramDomRead } from '../extension/content/follow-list-instagram-dom.js';
+import { instagramDomRead } from '../extension/content/follow-list-instagram/follow-list-instagram-dom.js';
 import { createFollowListInstagramProduct } from '../extension/background/products/operations/follow-list-instagram.js';
 
 const account = (id, verified = false) => ({ id: `account_${id}`, username: `account_${id}`, name: `名称 ${id}`,

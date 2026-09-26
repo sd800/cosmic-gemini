@@ -26,11 +26,20 @@ async function presentation(buffer) {
     const master=await pkg.read(masterPath),masterRels=masterPath?await pkg.relations(masterPath):new Map();
     const themeRoot=await pkg.read(relPath(slideRels,'themeOverride')||relPath(masterRels,'theme')||relPath(rels,'theme')),colors=theme(themeRoot);
     const fontScheme=first(first(themeRoot,'a:themeElements'),'a:fontScheme');
-    const colorMap=first(master,'p:clrMap');
-    for(const alias of ['bg1','tx1','bg2','tx2'])if(attr(colorMap,alias))colors[alias]=colors[attr(colorMap,alias)];
+    const mapping=first(slide,'p:clrMapOvr')||first(layout,'p:clrMapOvr');
+    const colorMap=first(mapping,'a:overrideClrMapping')||first(master,'p:clrMap'),palette={...colors};
+    for(const alias of ['bg1','tx1','bg2','tx2','accent1','accent2','accent3','accent4','accent5','accent6','hlink','folHlink'])if(attr(colorMap,alias))colors[alias]=palette[attr(colorMap,alias)];
     const background=first(first(slide,'p:cSld'),'p:bg')||first(first(layout,'p:cSld'),'p:bg')||first(first(master,'p:cSld'),'p:bg');
     const backgroundProperties=first(background,'p:bgPr');
-    const bg=drawingColor(first(backgroundProperties,'a:solidFill'),colors)||'#ffffff';
+    // Theme-backed paper can be black even when the slide has no direct fill.
+    // Resolve only passive colors; no pixel scan or additional resource load.
+    const reference=first(background,'p:bgRef'),referenceIndex=Number(attr(reference,'idx'));
+    const matrix=first(first(themeRoot,'a:themeElements'),'a:fmtScheme');
+    const fills=first(matrix,referenceIndex>=1001?'a:bgFillStyleLst':'a:fillStyleLst');
+    const fill=Number.isInteger(referenceIndex)&&referenceIndex>0&&referenceIndex!==1000
+      ? fills?.children?.filter(node=>node.type==='element')[referenceIndex-(referenceIndex>=1001?1001:1)] : null;
+    const bg=drawingColor(first(backgroundProperties,'a:solidFill'),colors)||
+      (fill?.name==='a:solidFill'?drawingColor(fill,{...colors,phClr:drawingColor(reference,colors)}):'')||'#ffffff';
     const canvas=registered.add({width:pt(width),height:pt(height),'background-color':bg});
     let count=0;const runFonts=new WeakMap();
     function runStyle(properties={},base={}) {

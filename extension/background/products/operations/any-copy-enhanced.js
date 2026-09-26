@@ -8,8 +8,8 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
   const key = tabId => SESSION_PREFIX + tabId;
   const product = Object.freeze({
     id: FEATURE_IDS.ANY_COPY_ENHANCED,
-    bridge: 'content/any-copy-enhanced-bridge.js',
-    runtime: 'content/any-copy-enhanced-runtime.js',
+    bridge: 'content/any-copy-enhanced/any-copy-enhanced-bridge.js',
+    runtime: 'content/any-copy-enhanced/any-copy-enhanced-runtime.js',
     async isActive(tabId) {
       if (!Number.isInteger(tabId)) return false;
       return (await chrome.storage.session.get(key(tabId)))[key(tabId)]?.active === true;

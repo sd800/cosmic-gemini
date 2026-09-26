@@ -70,7 +70,7 @@ async function runtimeFixture() {
     crypto: { getRandomValues: values => { values.fill(7); return values; } }
   };
   vm.createContext(context);
-  const source = await readFile(new URL('../extension/content/page-display-runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/page-display/page-display-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   return { context, document, runtime: context[Symbol.for('cosmic-gemini.page-display.runtime')] };
 }

@@ -6,7 +6,7 @@ import { clipboardProtectState, normalizeSettings, DEFAULT_INCOGNITO_SETTINGS } 
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 import { createClipboardProtectProduct } from '../extension/background/products/standing/clipboard-protect.js';
 
-const source = await readFile(new URL('../extension/content/clipboard-protect-runtime.js', import.meta.url), 'utf8');
+const source = await readFile(new URL('../extension/content/clipboard-protect/clipboard-protect-runtime.js', import.meta.url), 'utf8');
 const key = Symbol.for('cosmic-gemini.clipboard-protect.runtime');
 
 function fixture() {

@@ -5,11 +5,11 @@ import {
   bilibiliPageContext,
   completeBilibiliPageContext,
   fetchBilibiliPlayInfo
-} from '../../../core/bilibili-video.js';
-import { youtubePageContext } from '../../../core/youtube-video.js';
-import { siteVideoPageDiscovery } from '../../../core/site-video.js';
-import { twitterPostContext, twitterSyndicationUrl, twitterVideoCandidates, twitterVideoPageContext, twitterVideoControlTarget } from '../../../core/twitter-video.js';
-import { unwrapObfuscatedHls } from '../../../core/obfuscated-hls.js';
+} from '../../../core/video-download/bilibili-video.js';
+import { youtubePageContext } from '../../../core/video-download/youtube-video.js';
+import { siteVideoPageDiscovery } from '../../../core/video-download/site-video.js';
+import { twitterPostContext, twitterSyndicationUrl, twitterVideoCandidates, twitterVideoPageContext, twitterVideoControlTarget } from '../../../core/video-download/twitter-video.js';
+import { unwrapObfuscatedHls } from '../../../core/video-download/obfuscated-hls.js';
 import {
   activateDownloadScan,
   deferDownloadScan,
@@ -32,7 +32,7 @@ import {
   recoverInterruptedVideoCandidates,
   sanitizeVideoFilename,
   videoSessionKey
-} from '../../../core/video-download.js';
+} from '../../../core/video-download/video-download.js';
 
 export function mediaHeaderRule(id, urlFilter, referrer, extensionId) {
   return {
@@ -763,7 +763,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     if (twitterPostContext(expectedPageUrl).isTwitter) {
       await chrome.scripting.executeScript({
         target: { tabId }, world: 'ISOLATED', injectImmediately: true,
-        files: ['content/twitter-video-controls.js']
+        files: ['content/video-download/twitter-video-controls.js']
       });
       const locale = await platform.getLocale();
       await sendTabMessage(tabId, { type: 'CG_VIDEO_TWITTER_CONTROLS', locale });
@@ -772,13 +772,13 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId, allFrames: true },
-        files: ['content/video-download-page.js'],
+        files: ['content/video-download/video-download-page.js'],
         world: 'MAIN',
         injectImmediately: true
       });
       const frames = await chrome.scripting.executeScript({
         target: { tabId, allFrames: true },
-        files: ['content/video-download-scanner.js'],
+        files: ['content/video-download/video-download-scanner.js'],
         world: 'ISOLATED',
         injectImmediately: true
       });

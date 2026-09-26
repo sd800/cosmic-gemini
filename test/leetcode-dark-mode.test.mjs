@@ -25,7 +25,7 @@ function bridgeFixture() {
  const context=vm.createContext({window,location,CustomEvent,Promise,setTimeout,clearTimeout,chrome:{runtime:{
   sendMessage:()=>new Promise(resolve=>requests.push(resolve)),onMessage:{addListener(fn){listener=fn;},removeListener(){}}
  }}});
- vm.runInContext(readFileSync(new URL('../extension/content/leetcode-dark-mode-bridge.js',import.meta.url),'utf8'),context);
+ vm.runInContext(readFileSync(new URL('../extension/content/leetcode-dark-mode/leetcode-dark-mode-bridge.js',import.meta.url),'utf8'),context);
  return {requests,configs,location,announce:()=>window.dispatchEvent(new CustomEvent('cosmic-gemini:leetcode-dark-mode:main-ready',{detail:'test-token'})),
   refresh:()=>new Promise(resolve=>listener({type:'CG_REFRESH_FEATURE_CONFIG',featureId:'leetcodeDarkMode'},{},resolve)),
   stop:()=>listener({type:'CG_STOP_CENTRAL_FEATURE',featureId:'leetcodeDarkMode'},{},()=>{})};
@@ -82,6 +82,6 @@ test('default-off preference, scoped activation and SPA refresh belong to Operat
  assert.equal(await p.sync({...context,frameId:2,frameUrl:'https://outside.test/'},settings),false);
  await p.handleTabUpdated(1,{url:'https://leetcode.com/explore/'});assert.equal(refreshes,2);
  await p.handleTabUpdated(1,{url:'https://other.test/'});assert.equal(refreshes,2);
- assert.equal(decisions[1].css[0],'content/leetcode-dark-mode.css');
+ assert.equal(decisions[1].css[0],'content/leetcode-dark-mode/leetcode-dark-mode.css');
  await p.handleMessage({type:'UI_SET_ENABLED',featureId:p.id,enabled:false});assert.equal(settings.leetcodeDarkMode.enabled,false);
 });

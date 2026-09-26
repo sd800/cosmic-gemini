@@ -1,5 +1,5 @@
-import { normalizePdfSampling } from './pdf-sampling.js';
-import { normalizeDocumentAppearance } from './document-appearance.js';
+import { normalizePdfSampling } from './document-preview/pdf-sampling.js';
+import { normalizeDocumentAppearance } from './document-preview/document-appearance.js';
 import { siteKey } from './site-key.js';
 import '../shared/white-tones.js';
 

@@ -210,7 +210,7 @@ test('Ad Marshal removes side modules while suspending article media until expli
   const source = video.appendChild(new FakeElement('source'));
   source.setAttribute('src', 'https://example.com/video-source.mp4');
 
-  const sourceCode = await readFile(new URL('../extension/content/ad-marshal-runtime.js', import.meta.url), 'utf8');
+  const sourceCode = await readFile(new URL('../extension/content/ad-marshal/ad-marshal-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(sourceCode, context);
   const runtime = context[Symbol.for('cosmic-gemini.ad-marshal.runtime')];
   runtime.onConfigure({

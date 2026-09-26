@@ -1,13 +1,13 @@
-import { PDF_SAMPLING_VALUES, normalizePdfSampling } from '../../../core/pdf-sampling.js';
+import { PDF_SAMPLING_VALUES, normalizePdfSampling } from '../../../core/document-preview/pdf-sampling.js';
 import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature, normalizeAccessControlDomain } from '../../../core/config.js';
-import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, documentPreviewWhitelisted, readDocumentResponse } from '../../../core/document-preview.js';
+import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, documentPreviewWhitelisted, readDocumentResponse } from '../../../core/document-preview/document-preview.js';
 import { documentStore } from '../../features/document-cache.js';
 import { siteKey } from '../../../core/site-key.js';
-import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-appearance.js';
+import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-preview/document-appearance.js';
 import { translator } from '../../../shared/localization.js';
-import { showDocumentChoice } from '../../../content/document-preview-dialog.js';
+import { showDocumentChoice } from '../../../content/document-preview/document-preview-dialog.js';
 import { createDocumentRequestIngress } from '../../features/document-request-ingress.js';
-import { formatDocumentBytes } from '../../../core/document-preview.js';
+import { formatDocumentBytes } from '../../../core/document-preview/document-preview.js';
 
 export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const store = dependencies.store || documentStore;

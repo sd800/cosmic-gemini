@@ -193,7 +193,7 @@ test('Translate Override clears page-wide and nested opt-outs, including late re
   const context = vm.createContext({ document, MutationObserver: Observer,
     setTimeout(callback) { timers.push(callback); return timers.length; }
   });
-  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer-translate.js', import.meta.url), 'utf8'), context);
+  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer/website-fixer-translate.js', import.meta.url), 'utf8'), context);
 
   assert.equal(denied.connected, false);
   assert.equal(ordinary.connected, true);
@@ -232,7 +232,7 @@ test('Translate Override catches the document root when the script starts before
     observe() {}
     disconnect() {}
   } });
-  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer-translate.js', import.meta.url), 'utf8'), context);
+  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer/website-fixer-translate.js', import.meta.url), 'utf8'), context);
   document.documentElement = root;
   callback([{ type: 'childList', addedNodes: [root] }]);
   assert.equal(root.getAttribute('translate'), null);
@@ -424,7 +424,7 @@ test('Stay on the page does not close a tab after its navigation target changes'
 
 test('scoped runtime uses the same curated site boundaries as background policy', () => {
   const context = vm.createContext({ URL });
-  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer-site-key.js', import.meta.url), 'utf8'), context);
+  vm.runInContext(readFileSync(new URL('../extension/content/website-fixer/website-fixer-site-key.js', import.meta.url), 'utf8'), context);
   const classify = vm.runInContext('globalThis[Symbol.for("cosmic-gemini.stay-site-key")]', context);
   for (const domain of ['a.example.co.uk', 'a.tenant.github.io', 'corporate-server.corp', 'example.com', 'deep.city.kawasaki.jp']) {
     assert.equal(classify('https://' + domain), normalizeWebsiteFixerSite(domain));

@@ -1,4 +1,4 @@
-import { normalizePdfSampling } from '../../core/pdf-sampling.js';
+import { normalizePdfSampling } from '../../core/document-preview/pdf-sampling.js';
 // Read-only PDF policy shared by the host, viewer and regression tests.
 export const PDF_LIMITS = Object.freeze({ bytes: 64 * 1024 * 1024, pages: 10000, canvasPixels: 4 * 1024 * 1024, detailCanvasPixels: 36 * 1024 * 1024, printPages: 50, printPixels: 64 * 1024 * 1024 });
 // Supersample vectors/text without changing layout, zoom or the browser's DPR.

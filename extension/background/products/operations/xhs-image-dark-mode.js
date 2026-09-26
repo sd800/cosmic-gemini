@@ -89,8 +89,8 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
 
   const product = Object.freeze({
     id: FEATURE_IDS.XHS_IMAGE_DARK_MODE,
-    bridge: 'content/xhs-image-dark-mode-bridge.js',
-    runtime: 'content/xhs-image-dark-mode-runtime.js',
+    bridge: 'content/xhs-image-dark-mode/xhs-image-dark-mode-bridge.js',
+    runtime: 'content/xhs-image-dark-mode/xhs-image-dark-mode-runtime.js',
     awaitConfiguration: true,
     async state(settings, url, tabId) {
       const state = xhsImageDarkModeState(settings, url, await readPageState(tabId));

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { retryRead, retryReadUntil } from '../extension/shared/ui.js';
-import { knownVideoFileSize } from '../extension/core/video-download.js';
+import { knownVideoFileSize } from '../extension/core/video-download/video-download.js';
 
 test('read retries can recover from transient failures', async () => {
   let attempts = 0;

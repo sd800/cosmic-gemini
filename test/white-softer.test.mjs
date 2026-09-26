@@ -27,7 +27,7 @@ test('Standing product applies once per supported page and preserves the selecte
   assert.equal(await product.sync({ ...context, frameId: 1 }, settings), false);
   assert.equal(await product.sync({ ...context, topUrl: 'chrome://settings/' }, settings), false);
   assert.equal(product.state(settings, 'http://example.com/').active, true);
-  assert.deepEqual(decisions[1].styles, ['content/white-softer.css']);
+  assert.deepEqual(decisions[1].styles, ['content/white-softer/white-softer.css']);
   await product.handleMessage({ type: 'UI_SET_WHITE_SOFTER_TONE', tone: 'cool' });
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false });
   assert.deepEqual(settings.whiteSofter, { enabled: false, tone: 'cool' });

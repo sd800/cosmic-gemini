@@ -2,9 +2,9 @@ import { loadLocale } from '../../core/locale.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
 import { icon, send } from '../../shared/ui.js';
 import { createDocumentContent } from './content-host.js';
-import { normalizeDocumentAppearance, toggleDocumentAppearance } from '../../core/document-appearance.js';
+import { normalizeDocumentAppearance, toggleDocumentAppearance } from '../../core/document-preview/document-appearance.js';
 import { createDocumentStatus } from './status.js';
-import { documentKind } from '../../core/document-preview.js';
+import { documentKind } from '../../core/document-preview/document-preview.js';
 
 const params = new URLSearchParams(location.hash.slice(1));
 const id = params.get('id'), mode = params.get('mode');
@@ -18,15 +18,25 @@ const frame = document.querySelector('#document');
 const partControls = document.querySelector('#part-controls'), partSelect = document.querySelector('#document-part');
 const previousPart = document.querySelector('#part-previous'), nextPart = document.querySelector('#part-next');
 previousPart.setAttribute('aria-label', t('documentPreviousPart')); nextPart.setAttribute('aria-label', t('documentNextPart'));
+const isSlides = () => documentKind(metadata?.format) === 'pptx';
+function updatePartControls(index) {
+  partSelect.value = String(index); previousPart.disabled = index === 0; nextPart.disabled = index === rendered.parts.length - 1;
+}
+function ensureContent() {
+  return contentViewer ||= createDocumentContent(frame, locale, () => notices.show(t('documentRenderFailed')), index => {
+    if (!expired && isSlides()) updatePartControls(index);
+  });
+}
 function showContent(html) {
-  contentViewer ||= createDocumentContent(frame, locale, () => notices.show(t('documentRenderFailed')));
-  contentViewer.render(html, rendered.formatting);
+  ensureContent().render(html, rendered.formatting);
 }
 function showPart(index) {
   const parts = rendered?.parts; if (!parts?.length || expired) return;
   index = Math.max(0, Math.min(parts.length - 1, index));
-  partSelect.value = String(index); previousPart.disabled = index === 0; nextPart.disabled = index === parts.length - 1;
-  showContent(parts[index].html);
+  if (!Number.isInteger(index)) return;
+  updatePartControls(index);
+  if (isSlides()) contentViewer?.selectSlide(index);
+  else showContent(parts[index].html);
 }
 partSelect.onchange = () => showPart(Number(partSelect.value));
 previousPart.onclick = () => showPart(Number(partSelect.value) - 1);
@@ -36,9 +46,10 @@ const zoomOut = document.querySelector('#zoom-out'), zoomIn = document.querySele
 let zoom = 100;
 function updateZoom(next) {
   zoom = Math.max(50, Math.min(200, Math.round(next / 10) * 10));
-  // Scale only the embedding frame. The opaque sandbox stays isolated, and the
-  // document is neither converted again nor navigated when zoom changes.
-  frame.style.setProperty('--document-zoom', String(zoom / 100));
+  // Slides zoom within the sandbox so their navigation rail stays the same size.
+  // Other documents retain frame zoom. Neither path reconverts the document.
+  frame.style.setProperty('--document-zoom', String(isSlides() ? 1 : zoom / 100));
+  if (isSlides()) contentViewer?.setZoom(zoom / 100);
   zoomReset.textContent = zoom + '%';
   zoomOut.disabled = zoom === 50; zoomIn.disabled = zoom === 200;
 }
@@ -136,7 +147,13 @@ async function preview() {
         if (rendered.parts.length > 300) throw Error();
         partSelect.replaceChildren(...rendered.parts.map((part, index) => new Option(part.name, String(index))));
         document.querySelector('#part-label').textContent = t(documentKind(metadata.format) === 'xlsx' ? 'documentSheet' : 'documentSlide');
-        partControls.hidden = rendered.parts.length < 2; showPart(0);
+        partControls.hidden = rendered.parts.length < 2;
+        if (isSlides()) {
+          ensureContent().renderSlides(rendered.parts, rendered.formatting, t('documentSlide'));
+          // The sandbox now owns the deck; the host needs only its labels/count.
+          rendered.parts = rendered.parts.map(part => ({name:part.name}));
+          updatePartControls(0); updateZoom(zoom);
+        } else showPart(0);
       } else {
         if (typeof rendered.html !== 'string' || !rendered.html.trim()) throw Error();
         showContent(rendered.html);

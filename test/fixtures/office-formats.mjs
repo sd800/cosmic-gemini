@@ -20,3 +20,15 @@ export function presentationEntries(){return {
  'ppt/slides/_rels/slide2.xml.rels':packageRels([['external','image','https://tracker.invalid/image',true]])
 };}
 export function samplePdf(){return new TextEncoder().encode('%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n').buffer;}
+
+export function darkPresentationEntries() {
+ const entries=presentationEntries();
+ entries['ppt/slides/_rels/slide1.xml.rels']=packageRels([['layout','slideLayout','../slideLayouts/slideLayout1.xml']]);
+ entries['ppt/slideLayouts/slideLayout1.xml']=`<p:sldLayout xmlns:p="${p}" xmlns:a="${a}"><p:cSld/></p:sldLayout>`;
+ entries['ppt/slideLayouts/_rels/slideLayout1.xml.rels']=packageRels([['master','slideMaster','../slideMasters/slideMaster1.xml']]);
+ entries['ppt/slideMasters/slideMaster1.xml']=`<p:sldMaster xmlns:p="${p}" xmlns:a="${a}"><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg></p:cSld><p:clrMap bg1="dk1" tx1="lt1"/></p:sldMaster>`;
+ entries['ppt/slideMasters/_rels/slideMaster1.xml.rels']=packageRels([['theme','theme','../theme/theme1.xml']]);
+ entries['ppt/theme/theme1.xml']=`<a:theme xmlns:a="${a}"><a:themeElements><a:clrScheme name="Test"><a:dk1><a:srgbClr val="101218"/></a:dk1><a:lt1><a:srgbClr val="F4F6FA"/></a:lt1></a:clrScheme><a:fmtScheme name="Test"><a:fillStyleLst><a:solidFill><a:srgbClr val="080A0C"/></a:solidFill></a:fillStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"><a:shade val="50000"/></a:schemeClr></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>`;
+ entries['ppt/slides/slide1.xml']=entries['ppt/slides/slide1.xml'].replace('<a:srgbClr val="DDEEFF"/>','<a:srgbClr val="101218"/>').replace('<a:rPr sz="3200" b="1"/>','<a:rPr sz="3200" b="1"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:rPr>');
+ return entries;
+}

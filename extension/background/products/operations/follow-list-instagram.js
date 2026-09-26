@@ -1,6 +1,6 @@
 import { FEATURE_IDS } from '../../../core/config.js';
 import { INSTAGRAM_PANEL_PATH, instagramProfileUrl, instagramRoute, compareInstagramLists } from '../../../core/follow-list-instagram.js';
-import { instagramDomRead } from '../../../content/follow-list-instagram-dom.js';
+import { instagramDomRead } from '../../../content/follow-list-instagram/follow-list-instagram-dom.js';
 
 const PANEL = INSTAGRAM_PANEL_PATH;
 const MAX_ACCOUNTS = 20000;

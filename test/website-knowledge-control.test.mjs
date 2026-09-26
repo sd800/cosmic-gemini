@@ -26,8 +26,8 @@ function runtimeFixture(crypto = { randomUUID: () => 'test-token' }) {
       offset: new Date('2026-01-15T12:00:00Z').getTimezoneOffset() };
   `, context);
   const load = name => vm.runInContext(readFileSync(new URL('../extension/content/' + name, import.meta.url), 'utf8'), context);
-  load('browser-identity.js');
-  load('website-knowledge-control-runtime.js');
+  load('shared/browser-identity.js');
+  load('website-knowledge-control/website-knowledge-control-runtime.js');
   const run = source => vm.runInContext(source, context);
   const configure = preferences => {
     const settings = normalizeSettings({ websiteKnowledgeControl: {
@@ -149,7 +149,7 @@ test('Website Knowledge Control freezes the initial document policy until the ne
   f.run(`window.dispatchEvent(new CustomEvent('cosmic-gemini:website-knowledge-control:dispose', { detail: 'test-token' }))`);
   assert.equal(f.run('[...window.listeners.values()].flat().length'), 0);
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
-  f.load('website-knowledge-control-runtime.js');
+  f.load('website-knowledge-control/website-knowledge-control-runtime.js');
   f.configure({ languages: { enabled: true, value: 'fr-FR' }, timeZone: { enabled: false } });
   assert.equal(f.run('new Intl.NumberFormat().resolvedOptions().locale'), 'de-DE');
   const nextDocument = runtimeFixture();
@@ -181,7 +181,7 @@ test('Website Knowledge Control time zone follows DST and keeps local Date opera
 test('Claude dedicated identity wins as a whole in either activation order and yields on disposal', () => {
   for (const claudeFirst of [false, true]) {
     const f = runtimeFixture();
-    f.load('chinese-response-claude-runtime.js');
+    f.load('chinese-response-claude/chinese-response-claude-runtime.js');
     f.run(`globalThis.claude = globalThis[Symbol.for('cosmic-gemini.chinese-response-claude.runtime')];
       claude.detectSystemTimeZone = () => 'Europe/Paris'; claude.detectSystemTimeZoneOffset = () => -60;`);
     const startClaude = () => f.run(`claude.onConfigure({ detail: JSON.stringify({ token: claude.token, config: {

@@ -174,7 +174,7 @@ try{
   globalThis.styleChanges=[];
   for(const name of ['removeCSS','insertCSS']){
    const original=chrome.scripting[name].bind(chrome.scripting);
-   chrome.scripting[name]=options=>{if(options.files?.includes('content/leetcode-dark-mode.css'))globalThis.styleChanges.push(name);return original(options);};
+   chrome.scripting[name]=options=>{if(options.files?.includes('content/leetcode-dark-mode/leetcode-dark-mode.css'))globalThis.styleChanges.push(name);return original(options);};
   }
  });
  await lesson.locator('body').evaluate(n=>{

@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.8.53');
+assert.equal(manifest.version, '9.9.1');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -99,10 +99,18 @@ for (const htmlPath of files.filter(path => path.endsWith('.html'))) {
 
 for (const jsPath of files.filter(path => path.endsWith('.js') && !path.includes(join(extension, 'vendor')))) {
   const js = await readFile(jsPath, 'utf8');
-  for (const match of js.matchAll(/(?:from\s+|import\s*)["'](\.\.?\/[^"']+)["']/g)) {
+  for (const match of js.matchAll(/(?:from\s+|import\s*(?:\(\s*)?)["'](\.\.?\/[^"']+)["']/g)) {
     await stat(resolve(dirname(jsPath), match[1]));
   }
+  // Programmatic injections are not module imports. Check their packaged paths
+  // too, so a future move cannot silently leave an enabled product uninjected.
+  for (const match of js.matchAll(/["'](content\/[\w./-]+\.(?:js|css))["']/g)) {
+    assert.ok(files.includes(join(extension, match[1])), `${jsPath}: missing injection ${match[1]}`);
+  }
 }
+assert.deepEqual((await readdir(join(extension, 'content'), { withFileTypes: true }))
+  .filter(entry => entry.isFile() && !isIgnoredPlatformEntry(entry.name)).map(entry => entry.name), ['central-page.js'],
+  'Product page files belong in content/<product>; only the central entry belongs at the root.');
 
 // Vendor PDF text-layer metrics reproduce authored glyphs, not our UI typography.
 for (const cssPath of files.filter(path => path.endsWith('.css') && !path.includes(join(extension, 'vendor')))) {
@@ -135,10 +143,10 @@ assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'background/products/customs/video-download.js'),
   join(extension, 'background/products/operations/satellites.js'),
   join(extension, 'background/products/customs/document-preview.js'),
-  join(extension, 'content/ad-marshal-runtime.js'),
-  join(extension, 'content/video-download-page.js'),
-  join(extension, 'core/site-video.js'),
-  join(extension, 'core/twitter-video.js'),
+  join(extension, 'content/ad-marshal/ad-marshal-runtime.js'),
+  join(extension, 'content/video-download/video-download-page.js'),
+  join(extension, 'core/video-download/site-video.js'),
+  join(extension, 'core/video-download/twitter-video.js'),
   join(extension, 'offscreen/video-download.js'),
   join(extension, 'workspaces/document-preview/document-preview.js'),
   join(extension, 'workspaces/pdf-viewer/worker.js')
@@ -312,37 +320,37 @@ const customsResponseIngress = await source('background', 'provinces', 'customs-
 const offscreenCoordinator = await source('background', 'provinces', 'customs-offscreen.js');
 const runtimeHost = await source('background', 'features', 'page-runtime-host.js');
 const nativeScroll = await source('background', 'products', 'standing', 'native-scroll.js');
-const nativeScrollRuntime = await source('content', 'runtime.js');
+const nativeScrollRuntime = await source('content', 'native-scroll/runtime.js');
 const noAutoplay = await source('background', 'products', 'standing', 'no-autoplay.js');
-const noAutoplayRuntime = await source('content', 'no-autoplay-runtime.js');
+const noAutoplayRuntime = await source('content', 'no-autoplay/no-autoplay-runtime.js');
 const mailtoCapture = await source('background', 'products', 'standing', 'mailto-capture.js');
-const mailtoCaptureRuntime = await source('content', 'mailto-capture-runtime.js');
+const mailtoCaptureRuntime = await source('content', 'mailto-capture/mailto-capture-runtime.js');
 const mailtoCaptureProtocols = await source('shared', 'external-links-capture', 'protocols.js');
-const mailtoCaptureNanp = await source('content', 'mailto-capture-nanp.js');
-const mailtoCapturePhone = await source('content', 'mailto-capture-phone.js');
+const mailtoCaptureNanp = await source('content', 'mailto-capture/mailto-capture-nanp.js');
+const mailtoCapturePhone = await source('content', 'mailto-capture/mailto-capture-phone.js');
 const accessControl = await source('background', 'products', 'standing', 'access-control.js');
 const adMarshal = await source('background', 'products', 'standing', 'ad-marshal.js');
-const adMarshalRuntime = await source('content', 'ad-marshal-runtime.js');
+const adMarshalRuntime = await source('content', 'ad-marshal/ad-marshal-runtime.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
 const anyCopyEnhanced = await source('background', 'products', 'operations', 'any-copy-enhanced.js');
 const satellites = await source('background', 'products', 'operations', 'satellites.js');
 const pageDisplay = await source('background', 'products', 'operations', 'page-display.js');
-const pageDisplayBridge = await source('content', 'page-display-bridge.js');
-const pageDisplayRuntime = await source('content', 'page-display-runtime.js');
-const pageDisplayStyles = await source('content', 'page-display.css');
+const pageDisplayBridge = await source('content', 'page-display/page-display-bridge.js');
+const pageDisplayRuntime = await source('content', 'page-display/page-display-runtime.js');
+const pageDisplayStyles = await source('content', 'page-display/page-display.css');
 const xhsImageDarkMode = await source('background', 'products', 'operations', 'xhs-image-dark-mode.js');
-const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode-runtime.js');
+const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode/xhs-image-dark-mode-runtime.js');
 const followListInstagram = await source('background', 'products', 'operations', 'follow-list-instagram.js');
-const followListInstagramDom = await source('content', 'follow-list-instagram-dom.js');
+const followListInstagramDom = await source('content', 'follow-list-instagram/follow-list-instagram-dom.js');
 const followListInstagramWorkspace = await source('workspaces', 'follow-list-instagram', 'follow-list-instagram.js');
 const followListInstagramHtml = await source('workspaces', 'follow-list-instagram', 'follow-list-instagram.html');
 const chineseResponseClaude = await source('background', 'products', 'operations', 'chinese-response-claude.js');
-const chineseResponseClaudeBridge = await source('content', 'chinese-response-claude-bridge.js');
-const chineseResponseClaudeRuntime = await source('content', 'chinese-response-claude-runtime.js');
+const chineseResponseClaudeBridge = await source('content', 'chinese-response-claude/chinese-response-claude-bridge.js');
+const chineseResponseClaudeRuntime = await source('content', 'chinese-response-claude/chinese-response-claude-runtime.js');
 const administration = await source('background', 'products', 'operations', 'administration.js');
 const imageDownload = await source('background', 'products', 'customs', 'image-download.js');
 const videoDownload = await source('background', 'products', 'customs', 'video-download.js');
-const videoScanner = await source('content', 'video-download-scanner.js');
+const videoScanner = await source('content', 'video-download/video-download-scanner.js');
 const imageWorkspace = await source('workspaces', 'image-download', 'image-download.js');
 
 assert.match(followListInstagram, /UI_IG_OPEN_UNFOLLOW_CONFIRMATION/);
@@ -457,13 +465,13 @@ assert.match(runtimeHost, /documentIds/);
 assert.match(runtimeHost, /response\?\.disposed === true/);
 assert.match(runtimeHost, /catch \(error\)[\s\S]*CG_STOP_CENTRAL_FEATURE[\s\S]*disposeMainRuntime[\s\S]*throw error/);
 assert.match(messageSource, /PAGE_MESSAGE_TYPES[\s\S]*OFFSCREEN_MESSAGE_TYPES[\s\S]*validatePortSource/);
-assert.match(nativeScroll, /content\/native-scroll-bridge\.js[\s\S]*content\/runtime\.js/);
+assert.match(nativeScroll, /content\/native-scroll\/native-scroll-bridge\.js[\s\S]*content\/native-scroll\/runtime\.js/);
 assert.match(nativeScrollRuntime, /usesNativeInteractionCompatibility\(\)[\s\S]*return this\.isXhsHost\(\)/);
 assert.match(nativeScrollRuntime, /if \(this\.usesNativeInteractionCompatibility\(\)\) return;/);
 assert.match(nativeScrollRuntime, /const receiver = owner === window \? window : this[\s\S]*Reflect\.apply\(original, receiver, args\)/,
   'Native Scroll must preserve the Window receiver for wrapped Window scrolling methods.');
 assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRegistry/);
-assert.match(noAutoplay, /content\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay-runtime\.js/);
+assert.match(noAutoplay, /content\/no-autoplay\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay\/no-autoplay-runtime\.js/);
 assert.doesNotMatch(noAutoplay, /topFrameOnly|context\.frameId === 0/,
   'No Autoplay must follow the top-level page policy inside embedded web frames.');
 assert.match(noAutoplayRuntime, /querySelectorAll\('video,audio'\)[\s\S]*media\.paused === false/,
@@ -475,8 +483,8 @@ assert.match(noAutoplayRuntime, /blockedPlayPromise[\s\S]*Promise\.reject\(error
   'Blocked media play requests must not report a false success to custom players.');
 assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
   'Ordinary page interaction must not be treated as playback intent.');
-assert.match(mailtoCapture, /content\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture-runtime\.js/);
-assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture-nanp\.js[\s\S]*content\/mailto-capture-phone\.js/,
+assert.match(mailtoCapture, /content\/mailto-capture\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture\/mailto-capture-runtime\.js/);
+assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture\/mailto-capture-nanp\.js[\s\S]*content\/mailto-capture\/mailto-capture-phone\.js/,
   'Mailto Capture must load its compact offline telephone references before the page runtime.');
 assert.doesNotMatch(mailtoCaptureRuntime, /NANP_LOCATION_LABEL|Area code location/,
   'Mailto Capture must not render numbering-plan locations as a separate labeled field.');
@@ -518,8 +526,8 @@ assert.match(mailtoCaptureRuntime, /user-select:text/);
 assert.match(mailtoCaptureRuntime, /\.status:empty\{display:none\}/);
 assert.match(mailtoCaptureRuntime, /\.heading\{[^}]*align-items:baseline[^}]*\}[\s\S]*\.close\{[^}]*align-self:baseline/);
 assert.doesNotMatch(mailtoCaptureRuntime, /MutationObserver|setInterval|location\.(?:href|assign|replace)|document\.createElement\(['"]a['"]\)|Open mail app/);
-assert.match(pageDisplay, /content\/page-display-bridge\.js[\s\S]*content\/page-display-runtime\.js/);
-assert.match(pageDisplay, /pageStyleFiles[\s\S]*content\/page-display\.css[\s\S]*pageRuntimeHost\.sync/,
+assert.match(pageDisplay, /content\/page-display\/page-display-bridge\.js[\s\S]*content\/page-display\/page-display-runtime\.js/);
+assert.match(pageDisplay, /pageStyleFiles[\s\S]*content\/page-display\/page-display\.css[\s\S]*pageRuntimeHost\.sync/,
   'Page Display must inject its visual layer at Chrome USER origin so page CSP cannot disable it.');
 assert.match(pageDisplay, /context\.frameId === 0[\s\S]*pageRuntimeHost\.sync/);
 assert.match(pageDisplayBridge, /CG_PAGE_STATE'[\s\S]*featureId: 'pageDisplay'/);
@@ -539,7 +547,7 @@ assert.match(pageDisplayRuntime, /observeAppearanceTarget\(document\.documentEle
   'Reduce White Point appearance tracking must stay scoped to theme-bearing page surfaces.');
 assert.match(pageDisplayRuntime, /if \(reduceWhitePoint\) this\.startAppearanceTracking\(\)[\s\S]*else this\.stopAppearanceTracking\(\)/);
 assert.doesNotMatch(pageDisplayRuntime, /IntersectionObserver|ResizeObserver|setInterval|fetch\s*\(|XMLHttpRequest|WebSocket|addEventListener\(['"](?:click|pointer|wheel|touch|key)/);
-assert.match(xhsImageDarkMode, /content\/xhs-image-dark-mode-bridge\.js[\s\S]*content\/xhs-image-dark-mode-runtime\.js/);
+assert.match(xhsImageDarkMode, /content\/xhs-image-dark-mode\/xhs-image-dark-mode-bridge\.js[\s\S]*content\/xhs-image-dark-mode\/xhs-image-dark-mode-runtime\.js/);
 assert.match(xhsImageDarkMode, /hostname !== 'www\.xiaohongshu\.com'/);
 assert.match(xhsImageDarkModeRuntime, /MAX_SAMPLE_PIXELS = 32 \* 32[\s\S]*CACHE_LIMIT = 240/);
 for (const observer of ['IntersectionObserver', 'MutationObserver', 'ResizeObserver']) {
@@ -557,7 +565,7 @@ assert.match(xhsImageDarkModeRuntime, /conversationSurfaceCandidates[\s\S]*conve
   'XHS chat screenshots must require repeated reading surfaces and text-like foreground structure.');
 assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult\.kind !== 'photo'/,
   'Negative feed-cover classifications must not suppress independent viewer analysis.');
-assert.match(chineseResponseClaude, /content\/chinese-response-claude-bridge\.js[\s\S]*content\/chinese-response-claude-runtime\.js/);
+assert.match(chineseResponseClaude, /content\/chinese-response-claude\/chinese-response-claude-bridge\.js[\s\S]*content\/chinese-response-claude\/chinese-response-claude-runtime\.js/);
 assert.match(chineseResponseClaude, /createRequestIdentityRules/);
 assert.match(chineseResponseClaude, /frameId > 0[\s\S]*responseDisplay: false/);
 assert.match(chineseResponseClaudeRuntime, /font-claude-response[\s\S]*MutationObserver/);
@@ -673,9 +681,9 @@ assert.doesNotMatch(adMarshalRuntime, /data-beacon|removeChild/,
   'Ad Marshal must not alter Beacon metadata or use broad node-removal primitives.');
 assert.doesNotMatch(adMarshalRuntime, /Node\.prototype\.(?:appendChild|insertBefore|replaceChild)\s*=/,
   'Ad Marshal must not wrap generic DOM insertion methods.');
-assert.match(anyCopy, /content\/any-copy-bridge\.js[\s\S]*content\/any-copy-runtime\.js/);
+assert.match(anyCopy, /content\/any-copy\/any-copy-bridge\.js[\s\S]*content\/any-copy\/any-copy-runtime\.js/);
 assert.match(anyCopy, /message\.rule \|\| message\.hostname/);
-assert.match(anyCopyEnhanced, /content\/any-copy-enhanced-bridge\.js[\s\S]*content\/any-copy-enhanced-runtime\.js/);
+assert.match(anyCopyEnhanced, /content\/any-copy-enhanced\/any-copy-enhanced-bridge\.js[\s\S]*content\/any-copy-enhanced\/any-copy-enhanced-runtime\.js/);
 assert.match(anyCopyEnhanced, /anyCopyEnhancedTab:/);
 assert.match(anyCopyEnhanced, /createKeyedTaskQueue/);
 assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
@@ -772,7 +780,7 @@ assert.match(centralPage, /cosmic-gemini\.central/);
 assert.match(centralPage, /CG_SYNC_CENTRAL/);
 assert.match(centralPage, /syncFailures/);
 assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|mailtoCapture|adMarshal|anyCopy|pageDisplay|reduceWhitePoint|greyscale|imageDownload|videoDownload|chrome\.storage/);
-for (const bridge of ['clipboard-protect-bridge.js', 'native-scroll-bridge.js', 'no-autoplay-bridge.js', 'mailto-capture-bridge.js', 'ad-marshal-bridge.js', 'any-copy-bridge.js', 'any-copy-enhanced-bridge.js', 'chinese-response-claude-bridge.js']) {
+for (const bridge of ['clipboard-protect/clipboard-protect-bridge.js', 'native-scroll/native-scroll-bridge.js', 'no-autoplay/no-autoplay-bridge.js', 'mailto-capture/mailto-capture-bridge.js', 'ad-marshal/ad-marshal-bridge.js', 'any-copy/any-copy-bridge.js', 'any-copy-enhanced/any-copy-enhanced-bridge.js', 'chinese-response-claude/chinese-response-claude-bridge.js']) {
   const value = await source('content', bridge);
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);
@@ -786,7 +794,7 @@ for (const bridge of ['clipboard-protect-bridge.js', 'native-scroll-bridge.js', 
   assert.doesNotMatch(value, /void chrome\.runtime\.sendMessage/);
 }
 assert.match(centralPage, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/);
-for (const name of ['page-display-bridge.js', 'xhs-image-dark-mode-bridge.js', 'video-download-scanner.js', 'image-capture.js']) {
+for (const name of ['page-display/page-display-bridge.js', 'xhs-image-dark-mode/xhs-image-dark-mode-bridge.js', 'video-download/video-download-scanner.js', 'image-download/image-capture.js']) {
   const value = await source('content', name);
   assert.match(value, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/);
   assert.doesNotMatch(value, /void chrome\.runtime\.sendMessage/);
@@ -795,7 +803,7 @@ for (const name of ['page-display-bridge.js', 'xhs-image-dark-mode-bridge.js', '
 assert.equal(await stat(join(extension, 'workspaces/image-download/image-download.html')).then(() => true), true);
 assert.equal(await stat(join(extension, 'offscreen/video-download.html')).then(() => true), true);
 const videoOffscreen = await source('offscreen', 'video-download.js');
-const videoPageRuntime = await source('content', 'video-download-page.js');
+const videoPageRuntime = await source('content', 'video-download/video-download-page.js');
 const imageDownloadProduct = await source('background', 'products/customs/image-download.js');
 const videoDownloadProduct = await source('background', 'products/customs/video-download.js');
 assert.match(videoOffscreen, /new AbortController\(\)/);
@@ -806,7 +814,7 @@ assert.doesNotMatch(videoOffscreen, /setTimeout\(\(\) => void cleanupArtifact\(a
 assert.match(videoPageRuntime, /removeEventListener\('message', this\.onMessage\)/);
 assert.match(videoPageRuntime, /XMLHttpRequest\.prototype\.open === this\.trackedXhrOpen/);
 assert.match(videoPageRuntime, /delete globalThis\[RUNTIME_KEY\]/);
-const imageCapture = await source('content', 'image-capture.js');
+const imageCapture = await source('content', 'image-download/image-capture.js');
 assert.match(imageCapture, /cosmic-gemini\.image-capture/);
 assert.match(imageCapture, /globalThis\[CAPTURE_KEY\]\?\.dispose\?\.\(\)/);
 assert.match(videoScanner, /chrome\.runtime\.onMessage\.removeListener\(this\.onMessage\)/);

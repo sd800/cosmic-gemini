@@ -9,7 +9,7 @@ const METADATA_URL = `https://raw.githubusercontent.com/catamphetamine/libphonen
 const CHINA_GEOCODING_EN_URL = `https://raw.githubusercontent.com/google/libphonenumber/v${LIBPHONENUMBER_VERSION}/resources/geocoding/en/86.txt`;
 const CHINA_GEOCODING_ZH_URL = `https://raw.githubusercontent.com/google/libphonenumber/v${LIBPHONENUMBER_VERSION}/resources/geocoding/zh/86.txt`;
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const destination = resolve(project, 'extension/content/mailto-capture-phone.js');
+const destination = resolve(project, 'extension/content/mailto-capture/mailto-capture-phone.js');
 
 async function sourceText(path, url) {
   if (path) return readFile(resolve(path), 'utf8');

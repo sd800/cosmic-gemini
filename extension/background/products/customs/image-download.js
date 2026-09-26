@@ -455,7 +455,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     if (Number.isInteger(tab.windowId)) await chrome.windows.update(tab.windowId, { focused: true });
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ['content/image-capture.js'],
+      files: ['content/image-download/image-capture.js'],
       world: 'ISOLATED',
       injectImmediately: true
     });

@@ -47,8 +47,8 @@ async function runtimeFixture(globals = {}) {
     ...globals
   };
   vm.createContext(context);
-  const source = await readFile(new URL('../extension/content/chinese-response-claude-runtime.js', import.meta.url), 'utf8');
-  vm.runInContext(await readFile(new URL('../extension/content/browser-identity.js', import.meta.url), 'utf8'), context);
+  const source = await readFile(new URL('../extension/content/chinese-response-claude/chinese-response-claude-runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(await readFile(new URL('../extension/content/shared/browser-identity.js', import.meta.url), 'utf8'), context);
   vm.runInContext(source, context);
   return { context, runtime: context[Symbol.for('cosmic-gemini.chinese-response-claude.runtime')] };
 }
@@ -229,7 +229,7 @@ test('Claude bridge forwards both live activity transitions to the governed prod
     } }
   };
   vm.createContext(context);
-  const bridgeSource = await readFile(new URL('../extension/content/chinese-response-claude-bridge.js', import.meta.url), 'utf8');
+  const bridgeSource = await readFile(new URL('../extension/content/chinese-response-claude/chinese-response-claude-bridge.js', import.meta.url), 'utf8');
   vm.runInContext(bridgeSource, context);
   window.dispatchEvent({ type: 'cosmic-gemini:chinese-response-claude:main-ready', detail: 'page-token' });
   await Promise.resolve();

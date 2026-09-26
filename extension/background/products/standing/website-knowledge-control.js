@@ -107,9 +107,9 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
   });
   const product = Object.freeze({
     id: FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL,
-    bridge: 'content/website-knowledge-control-bridge.js',
-    runtime: 'content/website-knowledge-control-runtime.js',
-    runtimeDependencies: ['content/browser-identity.js'],
+    bridge: 'content/website-knowledge-control/website-knowledge-control-bridge.js',
+    runtime: 'content/website-knowledge-control/website-knowledge-control-runtime.js',
+    runtimeDependencies: ['content/shared/browser-identity.js'],
     awaitConfiguration: true,
     state: websiteKnowledgeControlState,
     async sync(context, settings) {

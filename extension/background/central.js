@@ -1,6 +1,6 @@
 import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
-import { DOCUMENT_CLEANUP_ALARM_PREFIX } from '../core/document-preview.js';
+import { DOCUMENT_CLEANUP_ALARM_PREFIX } from '../core/document-preview/document-preview.js';
 import { centralPageDirectives, syncCentralPageProducts } from './central-policy.js';
 import { validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';

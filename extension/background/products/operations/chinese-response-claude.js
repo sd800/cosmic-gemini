@@ -79,9 +79,9 @@ export function createChineseResponseClaudeProduct(pageRuntimeHost, platform) {
 
   const product = Object.freeze({
     id: FEATURE_IDS.CHINESE_RESPONSE_CLAUDE,
-    bridge: 'content/chinese-response-claude-bridge.js',
-    runtime: 'content/chinese-response-claude-runtime.js',
-    runtimeDependencies: ['content/browser-identity.js'],
+    bridge: 'content/chinese-response-claude/chinese-response-claude-bridge.js',
+    runtime: 'content/chinese-response-claude/chinese-response-claude-runtime.js',
+    runtimeDependencies: ['content/shared/browser-identity.js'],
     awaitConfiguration: true,
     async state(settings, url, _tabId, frameId = 0) {
       const state = chineseResponseClaudeState(settings, url, {

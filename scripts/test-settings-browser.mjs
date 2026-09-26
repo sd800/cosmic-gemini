@@ -25,7 +25,7 @@ try{
   const before=await page.evaluate(async locale=>{
    const attach=Element.prototype.attachShadow;Element.prototype.attachShadow=function(options){const root=attach.call(this,options);window.qaRoot=root;return root};
    window.qaSend=chrome.runtime.sendMessage;chrome.runtime.sendMessage=()=>new Promise(resolve=>window.qaChoice=resolve);
-   const {showDocumentChoice}=await import('../content/document-preview-dialog.js');const zh=locale==='zh-CN';
+   const {showDocumentChoice}=await import('../content/document-preview/document-preview-dialog.js');const zh=locale==='zh-CN';
    showDocumentChoice({id:'qa',filename:'Example document.docx',labels:{title:'Document Preview',close:zh?'关闭':'Close',preview:zh?'预览':'Preview',download:zh?'下载':'Download',remember:zh?'本网站本次均执行所选操作':'Use this action for this website visit',failed:'Could not prepare',loading:zh?'正在准备文档…':'Preparing the document…'}});
    Element.prototype.attachShadow=attach;const dialog=qaRoot.querySelector('dialog');await Promise.all(dialog.getAnimations().map(animation=>animation.finished));const r=dialog.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};
   },locale);

@@ -1,6 +1,6 @@
-import { normalizePdfSampling } from './pdf-sampling.js';
+import { normalizePdfSampling } from './document-preview/pdf-sampling.js';
 import { normalizeAccessControlDomain, normalizeWebsiteKnowledge, normalizeWhiteSofterTone, normalizeLeetcodeDarkModeTone } from './config.js';
-import { normalizeDocumentAppearance } from './document-appearance.js';
+import { normalizeDocumentAppearance } from './document-preview/document-appearance.js';
 
 export const SETTINGS_VIEW_CACHE_KEY = 'cosmicGeminiSettingsViewCache';
 

@@ -11,7 +11,7 @@ import { normalizeGeneralDomainInput } from '../../../core/website-rule-input.js
 import { createStayOnPage, stayDomains } from './website-fixer-stay.js';
 
 const SCRIPT_ID = 'cosmic-gemini-website-fixer-translate';
-const SCRIPT_FILE = 'content/website-fixer-translate.js';
+const SCRIPT_FILE = 'content/website-fixer/website-fixer-translate.js';
 const DOMAIN_LIMIT = 100;
 
 const STAY_SCRIPTS = ['cosmic-gemini-website-fixer-stay-main', 'cosmic-gemini-website-fixer-stay-isolated'];
@@ -34,8 +34,8 @@ export function createWebsiteFixerProduct(platform) {
     const stayMatches = stayDomains(settings).map(domain => `*://*.${domain}/*`).sort();
     const scripts = [{ id: SCRIPT_ID, matches: translateMatches, js: [SCRIPT_FILE], world: 'ISOLATED', allFrames: false },
       ...STAY_SCRIPTS.map((id, index) => ({ id, matches: stayMatches,
-        js: index === 0 ? ['content/website-fixer-site-key.js', 'content/website-fixer-stay.js']
-          : ['content/website-fixer-stay-browser-menu.js'],
+        js: index === 0 ? ['content/website-fixer/website-fixer-site-key.js', 'content/website-fixer/website-fixer-stay.js']
+          : ['content/website-fixer/website-fixer-stay-browser-menu.js'],
         world: index === 0 ? 'MAIN' : 'ISOLATED', allFrames: true, matchOriginAsFallback: true }))];
     const registered = await chrome.scripting.getRegisteredContentScripts({ ids: scripts.map(script => script.id) });
     for (const desired of scripts) {

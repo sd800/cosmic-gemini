@@ -1,7 +1,7 @@
-import { parseHlsMaster, parseHlsMedia, selectHlsVariant } from '../core/video-download.js';
-import { findDashTracks, parseDashManifest } from '../core/dash.js';
-import { youtubeCandidates } from '../core/youtube-video.js';
-import { unwrapObfuscatedHls } from '../core/obfuscated-hls.js';
+import { parseHlsMaster, parseHlsMedia, selectHlsVariant } from '../core/video-download/video-download.js';
+import { findDashTracks, parseDashManifest } from '../core/video-download/dash.js';
+import { youtubeCandidates } from '../core/video-download/youtube-video.js';
+import { unwrapObfuscatedHls } from '../core/video-download/obfuscated-hls.js';
 import { imageExtension } from '../core/image-download.js';
 import { isProcessorSender, readBoundedBytes } from './security.js';
 import {

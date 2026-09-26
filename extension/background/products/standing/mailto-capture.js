@@ -14,13 +14,13 @@ export function createMailtoCaptureProduct(pageRuntimeHost, platform) {
 
   const product = Object.freeze({
     id: FEATURE_IDS.MAILTO_CAPTURE,
-    bridge: 'content/mailto-capture-bridge.js',
+    bridge: 'content/mailto-capture/mailto-capture-bridge.js',
     runtimeDependencies: [
       'shared/external-links-capture/protocols.js',
-      'content/mailto-capture-nanp.js',
-      'content/mailto-capture-phone.js'
+      'content/mailto-capture/mailto-capture-nanp.js',
+      'content/mailto-capture/mailto-capture-phone.js'
     ],
-    runtime: 'content/mailto-capture-runtime.js',
+    runtime: 'content/mailto-capture/mailto-capture-runtime.js',
     async state(settings, url) {
       const state = mailtoCaptureState(settings, url);
       return state.active ? { ...state, locale: await locale() } : state;

@@ -9,8 +9,8 @@ import { DEFAULT_SETTINGS } from '../extension/core/config.js';
 
 const product = {
   id: 'nativeScroll',
-  bridge: 'content/native-scroll-bridge.js',
-  runtime: 'content/runtime.js'
+  bridge: 'content/native-scroll/native-scroll-bridge.js',
+  runtime: 'content/native-scroll/runtime.js'
 };
 
 test('page runtimes stay bound to the document that requested synchronization', async () => {
@@ -164,7 +164,7 @@ test('page styles use Chrome injection so strict page CSP cannot block them', as
   const calls = [];
   const styledProduct = {
     ...product,
-    pageStyleFiles: ['content/native-scroll-standard.css', 'content/native-scroll-enhanced.css']
+    pageStyleFiles: ['content/native-scroll/native-scroll-standard.css', 'content/native-scroll/native-scroll-enhanced.css']
   };
   globalThis.chrome = {
     scripting: {
@@ -181,7 +181,7 @@ test('page styles use Chrome injection so strict page CSP cannot block them', as
     async setFeatureActivity() {}
   });
   const context = { tabId: 9, frameId: 0, documentId: 'strict-csp-document' };
-  await host.sync(styledProduct, context, true, ['content/native-scroll-enhanced.css']);
+  await host.sync(styledProduct, context, true, ['content/native-scroll/native-scroll-enhanced.css']);
   assert.deepEqual(calls.map(call => call.operation), [
     'removeCSS', 'executeScript', 'executeScript', 'insertCSS'
   ]);
@@ -192,7 +192,7 @@ test('page styles use Chrome injection so strict page CSP cannot block them', as
   });
   assert.deepEqual(calls.at(-1).details, {
     target: { tabId: 9, documentIds: ['strict-csp-document'] },
-    files: ['content/native-scroll-enhanced.css'],
+    files: ['content/native-scroll/native-scroll-enhanced.css'],
     origin: 'USER'
   });
 });
@@ -201,7 +201,7 @@ test('page styles are removed only after a running bridge confirms cleanup', asy
   const removals = [];
   const styledProduct = {
     ...product,
-    pageStyleFiles: ['content/native-scroll-standard.css', 'content/native-scroll-enhanced.css']
+    pageStyleFiles: ['content/native-scroll/native-scroll-standard.css', 'content/native-scroll/native-scroll-enhanced.css']
   };
   globalThis.chrome = {
     scripting: {
@@ -271,7 +271,7 @@ test('opted-in styles survive refresh and worker restart, but not document chang
 
 test('undeclared page styles are rejected before a runtime touches the page', async () => {
   let calls = 0;
-  const styledProduct = { ...product, pageStyleFiles: ['content/native-scroll-standard.css'] };
+  const styledProduct = { ...product, pageStyleFiles: ['content/native-scroll/native-scroll-standard.css'] };
   globalThis.chrome = {
     scripting: {
       async removeCSS() { calls += 1; },
@@ -307,8 +307,8 @@ test('Native Scroll selects one declared mode stylesheet and keeps Xiaohongshu s
     ...DEFAULT_SETTINGS, nativeScroll: { ...DEFAULT_SETTINGS.nativeScroll, enabled: true }
   });
   assert.deepEqual(calls.map(([, , active, files]) => ({ active, files })), [
-    { active: true, files: ['content/native-scroll-standard.css'] },
-    { active: true, files: ['content/native-scroll-enhanced.css'] },
+    { active: true, files: ['content/native-scroll/native-scroll-standard.css'] },
+    { active: true, files: ['content/native-scroll/native-scroll-enhanced.css'] },
     { active: true, files: [] }
   ]);
 });
@@ -371,11 +371,11 @@ test('authorized runtime dependencies load in order in the same main-world docum
   const executions = [];
   globalThis.chrome = { scripting: { async executeScript(details) { executions.push(details); return []; } } };
   const host = createPageRuntimeHost({ sendTabMessage: async () => ({ configured: true }) });
-  const descriptor = { id: 'websiteKnowledgeControl', bridge: 'content/website-knowledge-control-bridge.js',
-    runtime: 'content/website-knowledge-control-runtime.js', runtimeDependencies: ['content/browser-identity.js'], awaitConfiguration: true };
+  const descriptor = { id: 'websiteKnowledgeControl', bridge: 'content/website-knowledge-control/website-knowledge-control-bridge.js',
+    runtime: 'content/website-knowledge-control/website-knowledge-control-runtime.js', runtimeDependencies: ['content/shared/browser-identity.js'], awaitConfiguration: true };
   await host.sync(descriptor, { tabId: 3, frameId: 2, documentId: 'identity-frame' }, true);
   assert.equal(executions[0].world, 'ISOLATED');
   assert.equal(executions[1].world, 'MAIN');
-  assert.deepEqual(executions[1].files, ['content/browser-identity.js', 'content/website-knowledge-control-runtime.js']);
+  assert.deepEqual(executions[1].files, ['content/shared/browser-identity.js', 'content/website-knowledge-control/website-knowledge-control-runtime.js']);
   assert.deepEqual(executions[1].target, { tabId: 3, documentIds: ['identity-frame'] });
 });

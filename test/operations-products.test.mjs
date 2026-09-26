@@ -1006,12 +1006,12 @@ test('Page Display master authorization gates its independent top-frame visual f
   assert.equal(refreshes, 7);
   assert.deepEqual(syncs.map(({ frameId, active, styleFiles }) => ({ frameId, active, styleFiles })), [
     { frameId: 0, active: false, styleFiles: [] },
-    { frameId: 0, active: true, styleFiles: ['content/page-display.css'] },
+    { frameId: 0, active: true, styleFiles: ['content/page-display/page-display.css'] },
     { frameId: 0, active: false, styleFiles: [] },
-    { frameId: 0, active: true, styleFiles: ['content/page-display.css'] },
+    { frameId: 0, active: true, styleFiles: ['content/page-display/page-display.css'] },
     { frameId: 3, active: false, styleFiles: [] },
     { frameId: 0, active: false, styleFiles: [] },
-    { frameId: 0, active: true, styleFiles: ['content/page-display.css'] },
+    { frameId: 0, active: true, styleFiles: ['content/page-display/page-display.css'] },
     { frameId: 0, active: false, styleFiles: [] }
   ]);
 });

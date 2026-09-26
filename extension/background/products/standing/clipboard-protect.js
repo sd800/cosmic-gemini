@@ -3,8 +3,8 @@ import { FEATURE_IDS, clipboardProtectState, updateFeature } from '../../../core
 export function createClipboardProtectProduct(pageRuntimeHost, platform) {
   const product = Object.freeze({
     id: FEATURE_IDS.CLIPBOARD_PROTECT,
-    bridge: 'content/clipboard-protect-bridge.js',
-    runtime: 'content/clipboard-protect-runtime.js',
+    bridge: 'content/clipboard-protect/clipboard-protect-bridge.js',
+    runtime: 'content/clipboard-protect/clipboard-protect-runtime.js',
     state(settings, url, _tabId, directives = {}) {
       const base = clipboardProtectState(settings, url);
       const yieldedToAnyCopy = directives?.[product.id]?.yieldToAnyCopy === true;

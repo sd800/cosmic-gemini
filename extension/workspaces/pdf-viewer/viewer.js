@@ -6,7 +6,7 @@ import * as pdfjs from '../../vendor/pdfjs/pdf.min.mjs';
 import { PDFViewer, EventBus, PDFLinkService, RenderingStates } from '../../vendor/pdfjs/pdf_viewer.mjs';
 import { labels } from './labels.js';
 import { setReaderIcon, setReaderIcons } from './icons.js';
-import { normalizePdfSampling } from '../../core/pdf-sampling.js';
+import { normalizePdfSampling } from '../../core/document-preview/pdf-sampling.js';
 import { PDF_LIMITS, pdfDetailCanvasPixels, pdfOptions, pdfScale, stepPdfScale, printRange, rotateLeft, safePdfLink } from './model.js';
 
 const $ = id => document.getElementById(id);

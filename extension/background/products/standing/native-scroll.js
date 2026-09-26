@@ -1,12 +1,12 @@
 import { FEATURE_IDS, featureState } from '../../../core/config.js';
 
 export function createNativeScrollProduct(pageRuntimeHost) {
-  const standardStylesheet = 'content/native-scroll-standard.css';
-  const enhancedStylesheet = 'content/native-scroll-enhanced.css';
+  const standardStylesheet = 'content/native-scroll/native-scroll-standard.css';
+  const enhancedStylesheet = 'content/native-scroll/native-scroll-enhanced.css';
   const product = Object.freeze({
     id: FEATURE_IDS.NATIVE_SCROLL,
-    bridge: 'content/native-scroll-bridge.js',
-    runtime: 'content/runtime.js',
+    bridge: 'content/native-scroll/native-scroll-bridge.js',
+    runtime: 'content/native-scroll/runtime.js',
     pageStyleFiles: Object.freeze([standardStylesheet, enhancedStylesheet]),
     topFrameOnly: true,
     state(settings, url) { return featureState(settings, product.id, url); },

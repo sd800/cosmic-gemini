@@ -1,7 +1,7 @@
 import { INSTAGRAM_PANEL_PATH } from '../core/follow-list-instagram.js';
 import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { candidateQuality, formatMediaDuration, groupVideoCandidates, knownVideoFileSize } from '../core/video-download.js';
+import { candidateQuality, formatMediaDuration, groupVideoCandidates, knownVideoFileSize } from '../core/video-download/video-download.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { bindSettingsButton } from './settings-button.js';

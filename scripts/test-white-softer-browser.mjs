@@ -11,13 +11,17 @@ const artifacts = resolve('test-dist/white-softer');
 await mkdir(artifacts, { recursive: true });
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), {
   executablePath: process.env.PDF_VIEWER_CHROME, headless: true, viewport: { width: 1000, height: 720 },
-  args: [`--disable-extensions-except=${resolve('extension')}`, `--load-extension=${resolve('extension')}`]
+  args: ['--enable-features=ElasticOverscroll', `--disable-extensions-except=${resolve('extension')}`, `--load-extension=${resolve('extension')}`]
 });
 const colors = { 'warm-minus-1': [236,235,233], warm: [232,230,227], 'warm-plus-1': [216,214,211], 'warm-plus-2': [208,206,203], cool: [206,224,242] };
 function brightest(buffer) {
   const result = spawnSync('python3', ['-c', 'from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps(max(im.getdata(),key=sum)))'], { input: buffer });
   assert.equal(result.status, 0, String(result.stderr));
   return JSON.parse(result.stdout);
+}
+function pixelRow(buffer, y = 0) {
+  const result = spawnSync('python3', ['-c', 'from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps([im.getpixel((x,int(sys.argv[1]))) for x in range(im.width)]))', String(y)], { input: buffer });
+  assert.equal(result.status, 0, String(result.stderr)); return JSON.parse(result.stdout);
 }
 const errors = [];
 try {
@@ -43,6 +47,10 @@ try {
     const canvas = document.querySelector('canvas'); const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0,0,160,100);
     document.querySelector('#click').onclick = () => { document.querySelector('#click').textContent = 'Clicked'; };
     document.querySelector('#fullscreen').onclick = () => document.querySelector('#full').requestFullscreen();
+    const ramp = document.createElement('canvas'); ramp.id = 'gray-ramp'; ramp.width = 256; ramp.height = 2;
+    const rampContext = ramp.getContext('2d');
+    for (let n = 0; n < 256; n++) { rampContext.fillStyle = `rgb(${n},${n},${n})`; rampContext.fillRect(n,0,1,2); }
+    document.body.append(ramp);
   });
   const layer = '[data-cosmic-gemini-white-softer]';
   const screenshotColor = async selector => brightest(await page.locator(selector).screenshot());
@@ -56,11 +64,24 @@ try {
     for (const selector of ['.white','.near-white','.text','.canvas','.icon','iframe']) assert.deepEqual(await screenshotColor(selector), rgb, `${tone}: ${selector}`);
     assert.deepEqual(await screenshotColor('.black'), [0,0,0]);
     assert.deepEqual(await screenshotColor('.mid'), [136,136,136]);
+    assert.deepEqual(pixelRow(await page.locator('#gray-ramp').screenshot()),
+      Array.from({length:256}, (_,n) => rgb.map(cap => Math.min(n,cap))), `${tone}: every grayscale code value`);
     assert.equal(await page.frameLocator('iframe').locator(layer).count(), 0);
   }
   await page.locator('#input').fill('Input still works');
   await settings.locator('#whiteSofterTone').selectOption('warm');
   await page.waitForFunction(layer => document.querySelector(layer)?.getAttribute('data-tone') === 'warm', layer);
+  await page.evaluate(() => { const base = document.createElement('base'); base.href = 'https://unrelated.invalid/'; document.head.append(base); });
+  assert.deepEqual(await screenshotColor('.white'), colors.warm, 'a page base URL must not redirect the local filter');
+  await page.evaluate(() => document.querySelector('base').remove());
+  const overscroll = await context.newCDPSession(page);
+  await page.evaluate(() => { document.body.style.minHeight = '200vh'; window.scrollTo(0,0); });
+  const gesture = overscroll.send('Input.synthesizeScrollGesture', { x:950, y:100, yDistance:450, speed:250, gestureSourceType:'mouse', preventFling:false });
+  await new Promise(resolve => setTimeout(resolve,150));
+  const edge = await page.screenshot({path:join(artifacts,'overscroll.png')});
+  assert.deepEqual(pixelRow(edge)[950], [16,16,16], 'elastic overscroll keeps the dark browser backdrop');
+  await gesture; await overscroll.detach();
+  await page.evaluate(() => document.body.style.removeProperty('min-height'));
   assert.equal(await page.evaluate(() => document.activeElement.id), 'input');
   await page.locator('#click').click(); assert.equal(await page.locator('#click').textContent(), 'Clicked');
   await page.evaluate(() => document.querySelector('dialog').showModal());
@@ -117,5 +138,5 @@ try {
   assert.deepEqual(await screenshotColor('.white'), [255,255,255]);
   assert.deepEqual(await screenshotColor('.text'), [255,255,255]);
   assert.deepEqual(errors, []);
-  console.log('PASS: five exact tones on backgrounds/text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
+  console.log('PASS: five exact tones and all 256 gray levels, elastic overscroll, base URL, backgrounds/text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
 } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }

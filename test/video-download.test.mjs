@@ -14,7 +14,7 @@ import {
   sanitizeVideoFilename,
   selectHlsVariant,
   stableVideoCandidateId
-} from '../extension/core/video-download.js';
+} from '../extension/core/video-download/video-download.js';
 
 import {
   bilibiliDashCandidates,
@@ -22,10 +22,10 @@ import {
   completeBilibiliPageContext,
   fetchBilibiliPlayInfo,
   signedBilibiliQuery
-} from '../extension/core/bilibili-video.js';
-import { md5 } from '../extension/core/md5.js';
-import { expandDashTemplate, parseIsoDuration } from '../extension/core/dash.js';
-import { unwrapObfuscatedHls } from '../extension/core/obfuscated-hls.js';
+} from '../extension/core/video-download/bilibili-video.js';
+import { md5 } from '../extension/core/video-download/md5.js';
+import { expandDashTemplate, parseIsoDuration } from '../extension/core/video-download/dash.js';
+import { unwrapObfuscatedHls } from '../extension/core/video-download/obfuscated-hls.js';
 import { mediaHeaderRule } from '../extension/background/products/customs/video-download.js';
 
 test('temporary video referrer rules affect only extension-initiated media requests', () => {
@@ -35,7 +35,7 @@ test('temporary video referrer rules affect only extension-initiated media reque
   assert.deepEqual(rule.condition.resourceTypes, ['xmlhttprequest']);
   assert.equal(rule.action.requestHeaders[0].header, 'Referer');
 });
-import { youtubeCandidates } from '../extension/core/youtube-video.js';
+import { youtubeCandidates } from '../extension/core/video-download/youtube-video.js';
 
 test('interrupted video processing recovers after a Service Worker restart', () => {
   const ready = { id: 'ready', status: 'ready' };

@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.9.1 — 2026-09-25
+
+- Preserve the browser background during elastic overscroll while White Softer is active.
+- Add thumbnail navigation and continuous scrolling to presentation previews, with smaller, fitted slides and synchronized page selection.
+- Improve presentation background handling, including dark backgrounds inherited from themes.
+- Organize page scripts and supporting modules by function, and strengthen resource-path checks.
+
 ## 9.8.53 — 2026-09-25
 
 - Preserve clearly identified dark-paper PDF pages in dark mode and keep their display consistent after zooming, rotation, and theme changes.

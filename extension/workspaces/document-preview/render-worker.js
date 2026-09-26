@@ -1,7 +1,7 @@
 importScripts('../../vendor/mammoth/mammoth.browser.min.js');
 self.onmessage = async event => {
   try {
-    const { validateOfficeContent, documentKind } = await import('../../core/document-preview.js');
+    const { validateOfficeContent, documentKind } = await import('../../core/document-preview/document-preview.js');
     const { bytes, format, labels } = event.data;
     await validateOfficeContent(bytes, format);
     if (format === 'xls') importScripts('../../vendor/sheetjs/xlsx.full.min.js');

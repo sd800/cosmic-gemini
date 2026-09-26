@@ -34,11 +34,11 @@ function updatePageDisplaySetting(feature, name, value) {
 }
 
 export function createPageDisplayProduct(pageRuntimeHost, platform) {
-  const pageStyleFiles = Object.freeze(['content/page-display.css']);
+  const pageStyleFiles = Object.freeze(['content/page-display/page-display.css']);
   const product = Object.freeze({
     id: FEATURE_IDS.PAGE_DISPLAY,
-    bridge: 'content/page-display-bridge.js',
-    runtime: 'content/page-display-runtime.js',
+    bridge: 'content/page-display/page-display-bridge.js',
+    runtime: 'content/page-display/page-display-runtime.js',
     pageStyleFiles,
     awaitConfiguration: true,
     state(settings, url) { return pageDisplayState(settings, url); },

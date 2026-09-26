@@ -1,12 +1,12 @@
 import { FEATURE_IDS, hostnameFromUrl, normalizeWhiteSofterTone, updateFeature } from '../../../core/config.js';
 
 export function createWhiteSofterProduct(pageRuntimeHost, platform) {
-  const pageStyleFiles = Object.freeze(['content/white-softer.css']);
+  const pageStyleFiles = Object.freeze(['content/white-softer/white-softer.css']);
   const product = Object.freeze({
     id: FEATURE_IDS.WHITE_SOFTER,
-    bridge: 'content/white-softer-bridge.js',
-    runtime: 'content/white-softer-runtime.js',
-    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/white-cap-layer.js']),
+    bridge: 'content/white-softer/white-softer-bridge.js',
+    runtime: 'content/white-softer/white-softer-runtime.js',
+    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/shared/white-cap-layer.js']),
     pageStyleFiles,
     awaitConfiguration: true,
     preservePageStylesOnRefresh: true,

@@ -64,9 +64,9 @@
   pointer-events: none !important;
   overflow: hidden !important;
   contain: strict !important;
-  /* Per-channel darken caps whites without lifting black or multiplying every pixel. */
-  mix-blend-mode: darken !important;
-  background-color: var(--cg-white-cap-color) !important;
+  /* Transparent pixel filtering preserves Chrome's elastic-overscroll backdrop. */
+  background-color: transparent !important;
+  backdrop-filter: var(--cg-white-cap-filter) !important;
 }
 [data-cg-leetcode-white-cap]:popover-open { display: block !important; }
 [data-cg-leetcode-white-cap]::backdrop { display: none !important; }

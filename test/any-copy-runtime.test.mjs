@@ -43,7 +43,7 @@ test('Any Copy writes the original selection and suppresses page copy handlers',
     crypto: { getRandomValues: values => { values.fill(9); return values; } }, getComputedStyle: () => ({ userSelect: 'text', webkitUserSelect: 'text' })
   };
   vm.createContext(context);
-  const source = await readFile(new URL('../extension/content/any-copy-runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/any-copy/any-copy-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = window[Symbol.for('cosmic-gemini.any-copy.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -68,10 +68,10 @@ test('Any Copy writes the original selection and suppresses page copy handlers',
 
 test('Any Copy and Any Copy Enhanced keep separate runtime and bridge boundaries', async () => {
   const [standardRuntime, standardBridge, enhancedRuntime, enhancedBridge] = await Promise.all([
-    readFile(new URL('../extension/content/any-copy-runtime.js', import.meta.url), 'utf8'),
-    readFile(new URL('../extension/content/any-copy-bridge.js', import.meta.url), 'utf8'),
-    readFile(new URL('../extension/content/any-copy-enhanced-runtime.js', import.meta.url), 'utf8'),
-    readFile(new URL('../extension/content/any-copy-enhanced-bridge.js', import.meta.url), 'utf8')
+    readFile(new URL('../extension/content/any-copy/any-copy-runtime.js', import.meta.url), 'utf8'),
+    readFile(new URL('../extension/content/any-copy/any-copy-bridge.js', import.meta.url), 'utf8'),
+    readFile(new URL('../extension/content/any-copy-enhanced/any-copy-enhanced-runtime.js', import.meta.url), 'utf8'),
+    readFile(new URL('../extension/content/any-copy-enhanced/any-copy-enhanced-bridge.js', import.meta.url), 'utf8')
   ]);
   assert.match(standardRuntime, /cosmic-gemini\.any-copy\.runtime/);
   assert.doesNotMatch(standardRuntime, /any-copy-enhanced|readerHost|showReader/);

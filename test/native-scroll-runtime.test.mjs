@@ -94,7 +94,7 @@ function wheelEvent(context, target = context.document.body, path = null) {
 
 test('Native Scroll stays quiet on native pages and suppresses registered takeover code', async () => {
   const context = makeContext();
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -116,7 +116,7 @@ test('Native Scroll skips unload listeners when the document policy disallows th
   context.document.permissionsPolicy = {
     allowsFeature: feature => feature !== 'unload'
   };
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -132,7 +132,7 @@ test('Native Scroll leaves page APIs untouched while inactive and restores them 
   const context = makeContext();
   const originalAdd = context.EventTarget.prototype.addEventListener;
   const originalScroll = context.window.scroll;
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
@@ -155,7 +155,7 @@ test('Native Scroll keeps Window scroll methods bound when pages call them throu
     calls.push(args);
   };
   context.window.scrollTo = originalScrollTo;
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -178,7 +178,7 @@ test('Native Scroll does not create inline page styles on strict-CSP pages', asy
     if (name === 'style') styleElements += 1;
     return new FakeElement(name);
   };
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced' } }) });
@@ -194,7 +194,7 @@ test('Native Scroll does not create inline page styles on strict-CSP pages', asy
 test('Native Scroll becomes inert when a later page wrapper keeps its listener wrapper reachable', async () => {
   const context = makeContext();
   context.document.permissionsPolicy = { allowsFeature: feature => feature !== 'unload' };
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -214,7 +214,7 @@ test('Native Scroll becomes inert when a later page wrapper keeps its listener w
 
 test('Native Scroll recognizes existing hijack listeners after it is disabled and re-enabled', async () => {
   const context = makeContext();
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   const originalAdd = context.EventTarget.prototype.addEventListener;
   vm.runInContext(source, context);
   const firstRuntime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
@@ -240,7 +240,7 @@ test('Native Scroll recognizes existing hijack listeners after it is disabled an
 
 test('Native Scroll preserves Xiaohongshu wheel interactions', async () => {
   const context = makeContext('www.xiaohongshu.com');
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -255,7 +255,7 @@ test('Native Scroll leaves Xiaohongshu page APIs and root styles untouched befor
   const context = makeContext('www.xiaohongshu.com');
   const originalAdd = context.EventTarget.prototype.addEventListener;
   const originalScroll = context.window.scroll;
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -273,7 +273,7 @@ test('Native Scroll leaves Xiaohongshu page APIs and root styles untouched befor
 
 test('Xiaohongshu native-interaction compatibility does not apply to other websites', async () => {
   const context = makeContext('example.com');
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
@@ -286,7 +286,7 @@ test('Xiaohongshu native-interaction compatibility does not apply to other websi
 
 test('Native Scroll Enhanced leaves the Xiaohongshu page intact', async () => {
   const context = makeContext('www.xiaohongshu.com');
-  const source = await readFile(new URL('../extension/content/runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'enhanced' } }) });

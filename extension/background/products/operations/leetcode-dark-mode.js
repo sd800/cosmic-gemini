@@ -2,12 +2,12 @@ import { FEATURE_IDS, normalizeLeetcodeDarkModeTone, updateFeature } from '../..
 import { isLeetCodeExploreFrame, leetcodeDarkModeState } from '../../../core/leetcode-dark-mode.js';
 
 export function createLeetcodeDarkModeProduct(pageRuntimeHost, platform) {
-  const pageStyleFiles = Object.freeze(['content/leetcode-dark-mode.css']);
+  const pageStyleFiles = Object.freeze(['content/leetcode-dark-mode/leetcode-dark-mode.css']);
   const product = Object.freeze({
     id: FEATURE_IDS.LEETCODE_DARK_MODE,
-    bridge: 'content/leetcode-dark-mode-bridge.js',
-    runtime: 'content/leetcode-dark-mode-runtime.js',
-    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/white-cap-layer.js']),
+    bridge: 'content/leetcode-dark-mode/leetcode-dark-mode-bridge.js',
+    runtime: 'content/leetcode-dark-mode/leetcode-dark-mode-runtime.js',
+    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/shared/white-cap-layer.js']),
     pageStyleFiles,
     preservePageStylesOnRefresh: true,
     awaitConfiguration: true,

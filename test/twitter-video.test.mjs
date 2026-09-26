@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { twitterPostContext, twitterSyndicationUrl, twitterVideoCandidates, twitterVideoControlTarget } from '../extension/core/twitter-video.js';
-import { classifyVideoResource, groupVideoCandidates, knownVideoFileSize, readVideoFileSize, videoSessionKey } from '../extension/core/video-download.js';
+import { twitterPostContext, twitterSyndicationUrl, twitterVideoCandidates, twitterVideoControlTarget } from '../extension/core/video-download/twitter-video.js';
+import { classifyVideoResource, groupVideoCandidates, knownVideoFileSize, readVideoFileSize, videoSessionKey } from '../extension/core/video-download/video-download.js';
 import { createVideoDownloadProduct } from '../extension/background/products/customs/video-download.js';
 
 function tweet(id = '123', count = 2) {
@@ -164,7 +164,7 @@ test('feed activation installs controls without fetching videos; click opens exa
   assert.equal((await f.state()).status, 'twitter-open-post');
   assert.equal(f.requests.length, 0);
   assert.equal(f.collecting.length, 0);
-  assert.deepEqual(f.scripts.flatMap(item => item.files || []), ['content/twitter-video-controls.js']);
+  assert.deepEqual(f.scripts.flatMap(item => item.files || []), ['content/video-download/twitter-video-controls.js']);
   f.pageTweets.set('123', tweet());
   assert.equal((await f.send({ type: 'CG_VIDEO_TWITTER_CONTROLS_STATE', pageUrl: f.tab.url })).active, true);
   const selected = await f.send({ type: 'CG_VIDEO_SELECT_TWITTER', pageUrl: f.tab.url,
@@ -188,7 +188,7 @@ test('status activation lists own multiple videos, and a reply arrow replaces th
   await f.send({ type: 'UI_VIDEO_OPEN' });
   await until(async () => (await f.state()).candidates.length === 4);
   assert.equal(groupVideoCandidates((await f.state()).candidates).length, 2);
-  assert.ok(f.scripts.some(item => item.files?.includes('content/twitter-video-controls.js')));
+  assert.ok(f.scripts.some(item => item.files?.includes('content/video-download/twitter-video-controls.js')));
   await f.send({ type: 'CG_VIDEO_SELECT_TWITTER', pageUrl: f.tab.url,
     postUrl: 'https://x.com/reply/status/999', videoIndex: 0 });
   await until(async () => (await f.state()).candidates.some(item => item.url.includes('/999/')));

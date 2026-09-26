@@ -6,7 +6,7 @@ import { PDF_LIMITS, pdfDetailCanvasPixels, pdfScale, stepPdfScale, pdfOptions, 
 import { formatPdfDate } from '../extension/workspaces/pdf-viewer/document-dates.js';
 import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
 import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
-import { toggleDocumentAppearance } from '../extension/core/document-appearance.js';
+import { toggleDocumentAppearance } from '../extension/core/document-preview/document-appearance.js';
 const root = new URL('../extension/', import.meta.url);
 test('PDF properties preserve ISO date order, optional seconds and original offsets', () => {
   assert.equal(formatPdfDate("D:20260102123456+05'30'"), '2026-01-02 12:34:56 (UTC+5:30)');

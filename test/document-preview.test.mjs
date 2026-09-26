@@ -3,19 +3,53 @@ import test from 'node:test';
 import { deflateRawSync } from 'node:zlib';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
-import { spreadsheetEntries, presentationEntries, samplePdf } from './fixtures/office-formats.mjs';
+import { spreadsheetEntries, presentationEntries, darkPresentationEntries, samplePdf } from './fixtures/office-formats.mjs';
 import { formattingEntries, readingEntries } from './fixtures/document-formatting.mjs';
 import { acceptedStyles, formatStylesheet } from '../extension/workspaces/document-preview/format-styles.js';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
-import { formatDocumentBytes, inspectOffice, validateOfficeContent, documentFilename, documentKind, DOCUMENT_TYPES, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview.js';
+import { formatDocumentBytes, inspectOffice, validateOfficeContent, documentFilename, documentKind, DOCUMENT_TYPES, readDocumentResponse, DOCUMENT_LIMIT, DOCUMENT_CLOSED_RETENTION, DOCUMENT_CLEANUP_ALARM_PREFIX } from '../extension/core/document-preview/document-preview.js';
 import { siteKey } from '../extension/core/site-key.js';
-import { DOCUMENT_PREVIEW_PATH } from '../extension/core/document-preview.js';
+import { DOCUMENT_PREVIEW_PATH } from '../extension/core/document-preview/document-preview.js';
 import { createDocumentRequestIngress } from '../extension/background/features/document-request-ingress.js';
 import { createDocumentPreviewProduct } from '../extension/background/products/customs/document-preview.js';
 import { createCustomsProvince } from '../extension/background/provinces/customs.js';
 import { createDocumentStatus } from '../extension/workspaces/document-preview/status.js';
 import { documentStyles } from '../extension/workspaces/document-preview/sanitize.js';
+import { createDocumentContent } from '../extension/workspaces/document-preview/content-host.js';
+
+test('presentation bridge preserves pending selection and zoom and ignores stale or invalid slide feedback', () => {
+  const OriginalChannel = globalThis.MessageChannel, sent = [], selected = [], errors = [];
+  let channel, initialize;
+  globalThis.MessageChannel = class {
+    constructor() { channel = this; this.port1 = {postMessage: value => sent.push(structuredClone(value)), close() {}}; this.port2 = {}; }
+  };
+  const frame = {style:{colorScheme:'dark'}, addEventListener(type, listener) { initialize = listener; },
+    contentWindow:{postMessage() {}}, removeAttribute() {}};
+  const reader = createDocumentContent(frame, 'en-US', () => errors.push(true), index => selected.push(index));
+  try {
+    reader.renderSlides([{html:'one'},{html:'two'}], {kind:'pptx'}, 'Slide');
+    reader.selectSlide(1); reader.setZoom(1.3); initialize();
+    channel.port1.onmessage({data:{type:'ready'}});
+    const first = sent.at(-1);
+    assert.equal(first.type, 'slides'); assert.equal(first.index, 1); assert.equal(first.zoom, 1.3);
+    channel.port1.onmessage({data:{type:'slide',id:first.id,index:1}});
+    channel.port1.onmessage({data:{type:'slide',id:first.id,index:2}});
+    channel.port1.onmessage({data:{type:'slide',id:first.id,index:.5}});
+    assert.deepEqual(selected, [1]);
+    reader.render('<p>Word document</p>', {});
+    channel.port1.onmessage({data:{type:'slide',id:first.id,index:0}});
+    channel.port1.onmessage({data:{type:'error',id:first.id}});
+    assert.deepEqual(selected, [1]); assert.deepEqual(errors, []);
+    assert.equal(frame.style.visibility, 'hidden');
+    channel.port1.onmessage({data:{type:'rendered',id:sent.at(-1).id}});
+    assert.equal(frame.style.visibility, 'visible');
+    reader.destroy();
+    const count = sent.length;
+    reader.selectSlide(0); reader.setZoom(2); reader.renderSlides([{html:'late'}], {kind:'pptx'}, 'Slide');
+    assert.equal(sent.length, count);
+  } finally { reader.destroy(); globalThis.MessageChannel = OriginalChannel; }
+});
 
 export function storedZip(entries, compress = false) {
   let offset = 0;
@@ -631,6 +665,27 @@ test('presentation slides preserve order, static text, coordinates and formattin
   assert.ok(checked.some(style=>style.position==='absolute'&&style.left==='72pt'));
 });
 
+test('presentation paper resolves theme and inherited dark backgrounds without brightening dark fills', async () => {
+  await convert(formattingEntries());
+  const paper=result=>result.formatting.styles[Number(result.parts[0].html.match(/cg-slide cg-f(\d+)/)[1])]['background-color'];
+  for(const [reference,expected] of [[1001,'#101218'],[1002,'#08090c'],[1,'#080a0c'],[0,'#ffffff'],[1000,'#ffffff'],[9999,'#ffffff']]) {
+    const entries=darkPresentationEntries();
+    entries['ppt/slideMasters/slideMaster1.xml']=entries['ppt/slideMasters/slideMaster1.xml'].replace('idx="1001"',`idx="${reference}"`);
+    const result=await renderer.convertPresentation(storedZip(entries));
+    assert.equal(paper(result),expected);
+    const dark=formatStylesheet(result.formatting).split('@media(prefers-color-scheme:dark)')[1];
+    if(reference===1001)assert.ok(dark.includes('background-color:#101218'), 'dark source paper remains dark');
+    const second=result.formatting.styles[Number(result.parts[1].html.match(/cg-slide cg-f(\d+)/)[1])];
+    assert.equal(second['background-color'],'#ffffff','white slides retain independent source paper');
+  }
+  const direct=darkPresentationEntries();
+  direct['ppt/slides/slide1.xml']=direct['ppt/slides/slide1.xml'].replace('<p:cSld>','<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="000000"/></a:solidFill></p:bgPr></p:bg>');
+  assert.equal(paper(await renderer.convertPresentation(storedZip(direct))),'#000000');
+  const override=darkPresentationEntries();
+  override['ppt/slides/slide1.xml']=override['ppt/slides/slide1.xml'].replace('</p:sld>','<p:clrMapOvr><a:overrideClrMapping bg1="lt1" tx1="dk1"/></p:clrMapOvr></p:sld>');
+  assert.equal(paper(await renderer.convertPresentation(storedZip(override))),'#f4f6fa');
+});
+
 test('remembered website actions apply across document formats and require no bytes before choosing', async () => {
   for(const action of ['preview','download']) {
     const env=environment();await env.capture();await env.settle();await env.choose(undefined,action,true);
@@ -794,7 +849,7 @@ test('document loading feedback has no fabricated percentage and clears on succe
 });
 
 test('Document Preview whitelist includes subdomains and ports, preserves order and keeps prepared previews', async () => {
-  const {documentPreviewWhitelisted}=await import('../extension/core/document-preview.js');
+  const {documentPreviewWhitelisted}=await import('../extension/core/document-preview/document-preview.js');
   const settings=normalizeSettings({documentPreview:{whitelistDomains:['B.example.com','*.example.org','b.example.com','192.0.2.1','[2001:db8::1]','https://invalid/path']}});
   const domains=settings.documentPreview.whitelistDomains;
   assert.deepEqual(domains,['b.example.com','example.org','192.0.2.1','[2001:db8::1]']);

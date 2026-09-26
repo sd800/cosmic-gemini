@@ -56,7 +56,7 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
     performance: { now: () => now }, crypto: { getRandomValues: values => { values.fill(8); return values; } }
   };
   vm.createContext(context);
-  const source = await readFile(new URL('../extension/content/no-autoplay-runtime.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../extension/content/no-autoplay/no-autoplay-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
   const assertBlocked = media => assert.rejects(media.play(), error => error?.name === 'NotAllowedError');

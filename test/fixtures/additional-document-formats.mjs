@@ -1,4 +1,4 @@
-import { DOCUMENT_TYPES } from '../../extension/core/document-preview.js';
+import { DOCUMENT_TYPES } from '../../extension/core/document-preview/document-preview.js';
 const uri='urn:oasis:names:tc:opendocument:xmlns:';
 const namespaces=['office','text','table','style','manifest','presentation'].map(n=>`xmlns:${n}="${uri}${n}:1.0"`).join(' ')+` xmlns:draw="${uri}drawing:1.0" xmlns:fo="${uri}xsl-fo-compatible:1.0" xmlns:svg="${uri}svg-compatible:1.0" xmlns:xlink="http://www.w3.org/1999/xlink"`;
 export function odfEntries(format){

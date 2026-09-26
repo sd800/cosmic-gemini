@@ -8,8 +8,8 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
   const pauseKey = tabId => COORDINATED_PAUSE_PREFIX + tabId;
   const product = Object.freeze({
     id: FEATURE_IDS.ANY_COPY,
-    bridge: 'content/any-copy-bridge.js',
-    runtime: 'content/any-copy-runtime.js',
+    bridge: 'content/any-copy/any-copy-bridge.js',
+    runtime: 'content/any-copy/any-copy-runtime.js',
     async isCoordinatedPaused(tabId) {
       if (!Number.isInteger(tabId)) return false;
       try {

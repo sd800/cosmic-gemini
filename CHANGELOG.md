@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.9 — 2026-09-27
+
+- Anchor Settings dropdown panels to their controls, preserving arrow spacing and adapting long choices to narrow windows.
+
 ## 9.11.8 — 2026-09-27
 
 - Align Settings dropdown lists with their controls while retaining the familiar arrow shape and right-side spacing.

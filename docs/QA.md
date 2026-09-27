@@ -147,6 +147,10 @@ Run the focused `test/white-softer.test.mjs` with the existing configuration and
 
 Run `node --test test/popup-settings-button.test.mjs test/operations-products.test.mjs test/message-source.test.mjs`. The focused `scripts/test-popup-settings-browser.mjs` uses the existing `PDF_VIEWER_PLAYWRIGHT`/`PDF_VIEWER_CHROME` paths and a disposable browser profile. It verifies ordinary Settings opening, long-press release suppression, separate Reload confirmation, red-text contrast in both appearances, Escape/outside cancellation, an actual service-worker restart with local storage retained, and normal icon restoration in the next popup. Do not reload the user’s running extension during automated QA. Screenshots belong to ignored `test-dist/popup-settings/`.
 
+## Settings dropdown alignment
+
+Run `SETTINGS_QA=dropdowns node scripts/test-settings-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` pointing to a local runtime and supporting Chrome binary. This focused mode loads the actual Settings CSS and dropdown initializer in a disposable profile without loading an extension or user data. It opens the option panels, measures their left edges and widths, checks viewport-edge fallback and long-list scrolling, keyboard selection, outside/Escape dismissal, disabled controls, single-line current labels, option repopulation and newly inserted controls. Coverage spans both UI languages and appearances at 1000px and 360px widths. Screenshots belong to ignored `test-dist/settings-dropdowns/`. Do not use closed-control screenshots as proof of popup alignment.
+
 
 ## Focused lifecycle and context regressions
 

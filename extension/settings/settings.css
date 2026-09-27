@@ -167,6 +167,48 @@ select {
 @media (prefers-color-scheme: dark) {
   select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M2 2l4 4 4-4' fill='none' stroke='%23aeb4bc' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); }
 }
+/* Keep select semantics, but anchor the options panel instead of using the OS text-aligned menu. */
+@supports (appearance: base-select) {
+  select[data-settings-picker], select[data-settings-picker]::picker(select) { appearance: base-select; }
+  select[data-settings-picker] { display: inline-flex; align-items: center; }
+  select[data-settings-picker] > button { display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: inherit; }
+  select[data-settings-picker] selectedcontent { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  select[data-settings-picker]::picker-icon { display: none; }
+  select[data-settings-picker]::picker(select) {
+    box-sizing: border-box;
+    position-anchor: auto;
+    position-area: none;
+    inset: auto;
+    left: anchor(left);
+    top: calc(anchor(bottom) + 4px);
+    width: anchor-size(width);
+    max-height: min(320px, 40vh);
+    margin: 0;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 8px 22px #0003;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    position-try-fallbacks: flip-block;
+  }
+  select[data-settings-picker] option {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+    min-height: 31px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  select[data-settings-picker] option:checked { background: var(--blue-soft); }
+  select[data-settings-picker] option:hover:not(:disabled), select[data-settings-picker] option:focus-visible { background: var(--surface-raised); outline: none; }
+  select[data-settings-picker] option:disabled { color: var(--muted); }
+  select[data-settings-picker] option::checkmark { order: 1; margin-left: auto; color: var(--blue); }
+}
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: var(--on-blue); cursor: pointer; font-weight: 650; }
 .primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
 .switch input:disabled { opacity: 0; }

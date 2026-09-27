@@ -39,6 +39,8 @@ test('Settings preload the White Softer palette before styles and reconcile enab
     'video-download', 'page-display', 'satellites']) {
     const html = readFileSync(new URL(`../extension/settings/${page}.html`, import.meta.url), 'utf8');
     assert.ok(html.indexOf('palette-preload.js') < html.indexOf('settings.css'), `${page} preloads its palette`);
+    assert.ok(html.includes('dropdowns.js') && html.indexOf('dropdowns.js') < html.indexOf('preload.js"></script>', html.indexOf('<body')),
+      `${page} prepares dropdowns before revealing the localized page`);
   }
   const css = readFileSync(new URL('../extension/settings/settings.css', import.meta.url), 'utf8');
   assert.match(css, /:root\[data-white-softer-tone\] \.switch span::after \{ background: rgb\(var\(--settings-soft-white\)\); \}/);
@@ -48,6 +50,8 @@ test('Settings preload the White Softer palette before styles and reconcile enab
   assert.match(css, /@media \(forced-colors: active\)/, 'high-contrast mode retains native checkbox rendering');
   assert.match(css, /background-position: right 16px center/, 'select arrows retain right-edge breathing room');
   assert.doesNotMatch(css, /border-right-width:\s*8px/, 'selects retain their normal border geometry');
+  assert.match(css, /left: anchor\(left\)/, 'option panels align to the control rather than its text');
+  assert.match(css, /width: anchor-size\(width\)/, 'option panels use the same width as the control');
 });
 
 test('Standing product applies once per supported page and preserves the selected tone while disabled', async () => {

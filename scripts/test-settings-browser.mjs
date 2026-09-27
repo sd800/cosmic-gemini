@@ -1,11 +1,53 @@
 // Real extension-surface QA in a disposable profile; never uses the user's Chrome.
 import assert from 'node:assert/strict';
-import {cp,mkdtemp,rm} from 'node:fs/promises';
+import {cp,mkdtemp,rm,readFile,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';import {join,resolve} from 'node:path';import {pathToFileURL} from 'node:url';
 const {chromium}=await import(pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGHT).href);
-const folder=await mkdtemp(join(tmpdir(),'cg-settings-qa-')),extension=join(folder,'extension');await cp(resolve('extension'),extension,{recursive:true});
-const context=await chromium.launchPersistentContext(join(folder,'profile'),{executablePath:process.env.PDF_VIEWER_CHROME,headless:true,viewport:{width:1000,height:850},args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
+const dropdownsOnly=process.env.SETTINGS_QA==='dropdowns';
+const folder=await mkdtemp(join(tmpdir(),'cg-settings-qa-')),extension=join(folder,'extension');if(!dropdownsOnly)await cp(resolve('extension'),extension,{recursive:true});
+const context=await chromium.launchPersistentContext(join(folder,'profile'),{executablePath:process.env.PDF_VIEWER_CHROME,headless:true,viewport:{width:1000,height:850},args:dropdownsOnly?[]:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
 try{
+ if(dropdownsOnly){
+  const page=await context.newPage(),artifacts=resolve('test-dist/settings-dropdowns');await mkdir(artifacts,{recursive:true});
+  const errors=[];page.on('pageerror',error=>errors.push(String(error)));
+  const css=await readFile('extension/shared/ui.css','utf8')+await readFile('extension/settings/settings.css','utf8');
+  const dropdowns=await readFile('extension/settings/dropdowns.js','utf8');
+  assert.equal(await page.evaluate(()=>CSS.supports('appearance','base-select')),true,'test browser must support anchored select pickers');
+  const result=[];
+  for(const locale of ['en-US','zh-CN'])for(const scheme of ['light','dark'])for(const width of [1000,360]){
+   await page.setViewportSize({width,height:720});await page.emulateMedia({colorScheme:scheme});
+   const labels=locale==='en-US'?['Light warm ivory (default)','Warm ivory','Warm ivory +1','Warm ivory +2','Cool blue-white']:['轻微暖白（默认）','暖米白','柔和米白','柔暖米白','冷蓝白'];
+   const options=labels.map((text,i)=>`<option value="${i}">${text}</option>`).join('');
+   await page.setContent(`<html lang="${locale}" data-white-softer-tone="warm-minus-1"><head><style>${css}</style><style>main{width:min(290px,calc(100% - 40px));margin:70px 20px 0 auto}select{width:100%;font-size:13px}.menu{margin-bottom:24px}#short{width:122px}#edge{position:fixed;right:20px;bottom:12px;width:122px}</style></head><body><main><div class="menu"><select id="tone">${options}</select></div><div class="menu"><select id="long">${Array.from({length:60},(_,i)=>`${i===6?'<hr>':''}<option value="${i}">America/Zone ${i}</option>`).join('')}</select></div><div class="menu"><select id="short"><option value="en">English</option><option value="zh">简体中文</option></select></div><select id="disabled" disabled>${options}</select></main><select id="edge">${options}</select><script>${dropdowns}</script></body></html>`);
+   for(const id of ['tone','long','short','edge']){
+    const select=page.locator('#'+id);await select.click();
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const box=await select.evaluate(s=>{const a=s.getBoundingClientRect(),o=s.options[0].getBoundingClientRect(),p=getComputedStyle(s,'::picker(select)');return{open:s.matches(':open'),left:a.left,width:a.width,top:a.top,pickerLeft:parseFloat(p.left),pickerTop:parseFloat(p.top),pickerWidth:parseFloat(p.width),pickerHeight:parseFloat(p.height),optionLeft:o.left}});
+    assert.equal(box.open,true,id+' did not open');
+    assert.ok(Math.abs(box.pickerLeft-box.left)<1,id+' picker is not left-aligned');
+    assert.ok(Math.abs(box.pickerWidth-box.width)<1,id+' picker width differs from control');
+    assert.ok(Math.abs(box.optionLeft-5-box.left)<1,id+' rendered option is not inside the aligned panel');
+    assert.ok(box.pickerTop>=0&&box.pickerTop+box.pickerHeight<=720,id+' picker overflows the viewport');
+    if(id==='edge')assert.ok(box.pickerTop<box.top,'bottom-edge picker must flip above its control');
+    if(id==='long')assert.ok(await select.evaluate(s=>s.options[59].getBoundingClientRect().bottom>720||s.options[59].getBoundingClientRect().bottom>parseFloat(getComputedStyle(s,'::picker(select)').top)+parseFloat(getComputedStyle(s,'::picker(select)').height)),'long list must be scrollable');
+    if(id==='tone'&&width===1000)await page.screenshot({path:join(artifacts,`${locale}-${scheme}.png`)});
+    await page.keyboard.press('Escape');assert.equal(await select.evaluate(s=>s.matches(':open')),false);
+   }
+   await page.evaluate(()=>{window.qaChanges=[];document.querySelector('#short').addEventListener('change',event=>qaChanges.push(event.target.value))});
+   await page.locator('#short').focus();await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');assert.equal(await page.locator('#short').inputValue(),'zh','keyboard selection failed');
+   assert.deepEqual(await page.evaluate(()=>qaChanges),['zh'],'native change event must fire once');
+   await page.locator('#tone').click();await page.mouse.click(10,10);assert.equal(await page.locator('#tone').evaluate(s=>s.matches(':open')),false,'outside click must dismiss');
+   assert.equal(await page.locator('#disabled').isDisabled(),true);
+   await page.locator('#disabled').click({force:true});assert.equal(await page.locator('#disabled').evaluate(s=>s.matches(':open')),false,'disabled controls must not open');
+   assert.ok(await page.locator('#edge selectedcontent').evaluate(s=>s.getBoundingClientRect().height<22&&s.getBoundingClientRect().right<=s.closest('select').getBoundingClientRect().right-32),'long selected labels must stay on one line before the arrow');
+   await page.evaluate(()=>{const s=document.querySelector('#tone');s.replaceChildren(new Option('Replacement A','a'),new Option('Replacement B','b'));s.value='b';const d=document.createElement('select');d.id='dynamic';d.append(new Option('Dynamic','dynamic'));document.querySelector('main').append(d)});
+   await page.waitForFunction(()=>document.querySelector('#tone > button selectedcontent')?.textContent==='Replacement B'&&document.querySelector('#dynamic')?.hasAttribute('data-settings-picker'));
+   assert.equal(await page.locator('#tone > button').count(),1,'option repopulation must not duplicate the select button');
+   result.push({locale,scheme,width,aligned:true});
+  }
+  assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({dropdowns:result,screenshots:artifacts},null,2));
+ }else{
  const basePage=await context.newPage();await basePage.goto('chrome://extensions');const id=await basePage.evaluate(()=>document.querySelector('extensions-manager').shadowRoot.querySelector('extensions-item-list').shadowRoot.querySelector('extensions-item').id);
  const base=`chrome-extension://${id}/`,worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
  let page=await context.newPage();await page.goto(base+'settings/all-settings.html');await page.waitForSelector('#version');
@@ -48,4 +90,5 @@ try{
   await page.evaluate(()=>{qaRoot.host.remove();delete globalThis[Symbol.for('cosmic-gemini.document-preview.dialog')];});result.progress.push({locale,scheme,width,stable:true});
  }
  console.log(JSON.stringify({...result,screenshots:folder},null,2));
+ }
 }finally{await context.close();await rm(join(folder,'profile'),{recursive:true,force:true})}

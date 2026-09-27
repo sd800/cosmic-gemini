@@ -41,10 +41,18 @@
       if (this.host.getAttribute('data-tone') !== selected.id) {
         this.host.setAttribute('data-tone', selected.id);
         selected.rgb.split(' ').map(Number).forEach((cap, index) => {
-          // One small sRGB lookup table, exact at all 8-bit input levels. The
-          // sub-code-value epsilon avoids floating-point truncation by Skia.
-          this.channels[index].setAttribute('tableValues', Array.from({length:256}, (_,value) =>
-            (Math.min(value, cap) + .01) / 255).join(' '));
+          // A hard cap turns distinct near-white surfaces and borders into the
+          // same color. Compress only the bright shoulder, with a continuous,
+          // monotone curve that reaches the selected tone at pure white.
+          const shoulder = Math.max(0, cap - 32);
+          const span = 255 - shoulder;
+          this.channels[index].setAttribute('tableValues', Array.from({length:256}, (_, value) => {
+            if (value <= shoulder) return (value + .01) / 255;
+            const progress = (value - shoulder) / span;
+            const smooth = progress * progress * (3 - 2 * progress);
+            // The sub-code-value epsilon avoids Skia rounding one level low.
+            return (value - (255 - cap) * smooth + .01) / 255;
+          }).join(' '));
         });
       }
       this.mount();

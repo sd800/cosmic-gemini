@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.2 — 2026-09-27
+
+- Preserve the visual separation of light surfaces and borders while White Softer adjusts white areas and text.
+
 ## 9.11.1 — 2026-09-25
 
 - Improve settings reset, confirmation handling, and recovery from temporary storage failures.

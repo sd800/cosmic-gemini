@@ -23,17 +23,27 @@ function pixelRow(buffer, y = 0) {
   const result = spawnSync('python3', ['-c', 'from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps([im.getpixel((x,int(sys.argv[1]))) for x in range(im.width)]))', String(y)], { input: buffer });
   assert.equal(result.status, 0, String(result.stderr)); return JSON.parse(result.stdout);
 }
+function softened(value, cap) {
+  const shoulder = Math.max(0, cap - 32);
+  if (value <= shoulder) return value;
+  const progress = (value - shoulder) / (255 - shoulder);
+  return Math.round(value - (255 - cap) * progress * progress * (3 - 2 * progress));
+}
+function near(actual, expected, label) {
+  assert.ok(actual.every((channel, index) => Math.abs(channel - expected[index]) <= 1),
+    `${label}: expected ${expected.join(',')}, received ${actual.join(',')}`);
+}
 const errors = [];
 try {
   context.on('page', page => page.on('pageerror', error => errors.push(String(error))));
-  const css = `body{margin:0;background:#101010;color:white;font:18px Arial}header{padding:20px}main{display:grid;grid-template-columns:repeat(4,160px);gap:20px;padding:20px}.tile{width:160px;height:100px}.white,.near-white,.modal-white{background:white}.near-white{background:#f5f5f5}.black{background:black}.mid{background:#888}.text{font:bold 80px/100px monospace;background:black;color:white}.icon{background:black}iframe{width:160px;height:100px;border:0}dialog,#site-popover{border:0;padding:20px}dialog .modal-white,#site-popover .modal-white{width:240px;height:150px}#full{padding:20px}#full:fullscreen{background:white;color:black}.inverted{filter:invert(1) hue-rotate(180deg)}`;
+  const css = `body{margin:0;background:#101010;color:white;font:18px Arial}header{padding:20px}main{display:grid;grid-template-columns:repeat(4,160px);gap:20px;padding:20px}.tile{width:160px;height:100px}.white,.modal-white{background:white}.near-white{background:#f5f5f5}.panel{box-sizing:border-box;background:white;border:2px solid #f0f0f0}.black{background:black}.mid{background:#888}.text{font:bold 80px/100px monospace;background:black;color:white}.icon{background:black}iframe{width:160px;height:100px;border:0}dialog,#site-popover{border:0;padding:20px}dialog .modal-white,#site-popover .modal-white{width:240px;height:150px}#full{padding:20px}#full:fullscreen{background:white;color:black}.inverted{filter:invert(1) hue-rotate(180deg)}`;
   await context.route(/^https?:\/\/(?:frame\.)?white-softer\.test\//, route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/fixture.css') return route.fulfill({ contentType: 'text/css', body: css });
     const child = url.hostname.startsWith('frame.');
     return route.fulfill({ contentType: 'text/html', headers: { 'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self'; frame-src https://frame.white-softer.test" }, body: child
       ? '<!doctype html><link rel="stylesheet" href="/fixture.css"><div class="tile white"></div>'
-      : '<!doctype html><meta charset="utf-8"><title>White Softer fixture</title><link rel="stylesheet" href="/fixture.css"><header><input id="input" aria-label="Type here"><button id="click">Click</button><button id="fullscreen">Full screen</button></header><main><div class="tile white"></div><div class="tile near-white"></div><div class="tile text">HH</div><div class="tile mid"></div><div class="tile black"></div><canvas class="tile canvas" width="160" height="100"></canvas><svg class="tile icon" viewBox="0 0 160 100"><rect x="10" y="10" width="100" height="80" fill="white"/></svg><iframe src="https://frame.white-softer.test/"></iframe></main><div id="full">Fullscreen area</div><dialog><div class="modal-white"></div><button>Dialog action</button></dialog><div id="site-popover" popover="auto"><div class="modal-white"></div></div>' });
+      : '<!doctype html><meta charset="utf-8"><title>White Softer fixture</title><link rel="stylesheet" href="/fixture.css"><header><input id="input" aria-label="Type here"><button id="click">Click</button><button id="fullscreen">Full screen</button></header><main><div class="tile white"></div><div class="tile near-white"></div><div class="tile panel"></div><div class="tile text">HH</div><div class="tile mid"></div><div class="tile black"></div><canvas class="tile canvas" width="160" height="100"></canvas><svg class="tile icon" viewBox="0 0 160 100"><rect x="10" y="10" width="100" height="80" fill="white"/></svg><iframe src="https://frame.white-softer.test/"></iframe></main><div id="full">Fullscreen area</div><dialog><div class="modal-white"></div><button>Dialog action</button></dialog><div id="site-popover" popover="auto"><div class="modal-white"></div></div>' });
   });
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
   const base = `chrome-extension://${new URL(worker.url()).host}`;
@@ -61,11 +71,20 @@ try {
   for (const [tone, rgb] of Object.entries(colors)) {
     await settings.locator('#whiteSofterTone').selectOption(tone);
     await page.waitForFunction(({layer,tone}) => document.querySelector(layer)?.getAttribute('data-tone') === tone, {layer,tone});
-    for (const selector of ['.white','.near-white','.text','.canvas','.icon','iframe']) assert.deepEqual(await screenshotColor(selector), rgb, `${tone}: ${selector}`);
+    for (const selector of ['.white','.text','.canvas','.icon','iframe']) assert.deepEqual(await screenshotColor(selector), rgb, `${tone}: ${selector}`);
+    const nearWhite = await screenshotColor('.near-white');
+    near(nearWhite, rgb.map(cap => softened(245,cap)), `${tone}: near-white surface`);
+    assert.ok(nearWhite.some((value,index) => value < rgb[index] - 1), `${tone}: near-white surface remains distinct from white`);
+    const panel = pixelRow(await page.locator('.panel').screenshot(), 50);
+    near(panel[0], rgb.map(cap => softened(240,cap)), `${tone}: border`);
+    near(panel[10], rgb, `${tone}: panel interior`);
     assert.deepEqual(await screenshotColor('.black'), [0,0,0]);
     assert.deepEqual(await screenshotColor('.mid'), [136,136,136]);
-    assert.deepEqual(pixelRow(await page.locator('#gray-ramp').screenshot()),
-      Array.from({length:256}, (_,n) => rgb.map(cap => Math.min(n,cap))), `${tone}: every grayscale code value`);
+    const ramp = pixelRow(await page.locator('#gray-ramp').screenshot());
+    for (let n = 0; n < 256; n++) {
+      near(ramp[n], rgb.map(cap => softened(n,cap)), `${tone}: gray ${n}`);
+      if (n) assert.ok(ramp[n].every((value,index) => value >= ramp[n-1][index]), `${tone}: grayscale order at ${n}`);
+    }
     assert.equal(await page.frameLocator('iframe').locator(layer).count(), 0);
   }
   await page.locator('#input').fill('Input still works');
@@ -138,5 +157,5 @@ try {
   assert.deepEqual(await screenshotColor('.white'), [255,255,255]);
   assert.deepEqual(await screenshotColor('.text'), [255,255,255]);
   assert.deepEqual(errors, []);
-  console.log('PASS: five exact tones and all 256 gray levels, elastic overscroll, base URL, backgrounds/text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
+  console.log('PASS: five exact white tones, distinct near-white surfaces and borders, all 256 monotone gray levels, elastic overscroll, base URL, text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
 } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }

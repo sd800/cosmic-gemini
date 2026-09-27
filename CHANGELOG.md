@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.6 — 2026-09-27
+
+- Match Settings checkboxes and button text to the selected White Softer tone while preserving readable contrast.
+- Give Settings dropdown arrows more room from the right edge.
+
 ## 9.11.5 — 2026-09-27
 
 - Match Settings switches to the selected White Softer tone.

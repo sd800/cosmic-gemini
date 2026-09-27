@@ -42,6 +42,11 @@ test('Settings preload the White Softer palette before styles and reconcile enab
   }
   const css = readFileSync(new URL('../extension/settings/settings.css', import.meta.url), 'utf8');
   assert.match(css, /:root\[data-white-softer-tone\] \.switch span::after \{ background: rgb\(var\(--settings-soft-white\)\); \}/);
+  assert.match(css, /--on-blue: rgb\(var\(--settings-soft-white\)\)/, 'primary button text uses the selected tone');
+  assert.match(css, /--settings-on-danger: rgb\(var\(--settings-soft-white\)\)/, 'confirmation button text uses the selected tone');
+  assert.match(css, /input\[type="checkbox"\]:not\(\.switch input\):checked::after/, 'native checkbox marks use the selected tone');
+  assert.match(css, /@media \(forced-colors: active\)/, 'high-contrast mode retains native checkbox rendering');
+  assert.match(css, /background-position: right 21px center, right 16px center/, 'select arrows retain right-edge breathing room');
 });
 
 test('Standing product applies once per supported page and preserves the selected tone while disabled', async () => {

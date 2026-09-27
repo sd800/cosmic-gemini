@@ -8,11 +8,22 @@
   --line: color-mix(in srgb, rgb(var(--settings-soft-white)) 62%, #89858a);
   --blue-soft: color-mix(in srgb, rgb(var(--settings-soft-white)) 75%, #a8c4eb);
   --muted: #54565a;
+  --settings-checkbox-blue: #084bb5;
+  --settings-danger-button: #9c201b;
+  --settings-on-danger: rgb(var(--settings-soft-white));
 }
 :root[data-white-softer-tone="warm"] { --settings-soft-white: 232 230 227; }
 :root[data-white-softer-tone="warm-plus-1"] { --settings-soft-white: 216 214 211; }
 :root[data-white-softer-tone="warm-plus-2"] { --settings-soft-white: 208 206 203; }
 :root[data-white-softer-tone="cool"] { --settings-soft-white: 206 224 242; }
+@media (prefers-color-scheme: light) {
+  :root[data-white-softer-tone] {
+    --blue: #084bb5;
+    --on-blue: rgb(var(--settings-soft-white));
+    --switch-blue: #084bb5;
+    --switch-disabled-thumb: rgb(var(--settings-soft-white));
+  }
+}
 @media (prefers-color-scheme: dark) {
   :root[data-white-softer-tone] {
     --surface: #1b1b1e;
@@ -110,6 +121,34 @@ html[lang="en-US"] .adaptive-rule-help span + span { margin-top: 3px; }
 .switch input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
 .switch:has(input:disabled) { cursor: default; }
 .switch input:disabled + span { opacity: .55; }
+:root[data-white-softer-tone] input[type="checkbox"]:not(.switch input) {
+  appearance: none;
+  display: inline-grid;
+  width: 15px;
+  height: 15px;
+  place-content: center;
+  border: 1px solid color-mix(in srgb, var(--text) 55%, var(--surface));
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+}
+:root[data-white-softer-tone] input[type="checkbox"]:not(.switch input):checked {
+  border-color: var(--settings-checkbox-blue);
+  background: var(--settings-checkbox-blue);
+}
+:root[data-white-softer-tone] input[type="checkbox"]:not(.switch input):checked::after {
+  width: 4px;
+  height: 8px;
+  border: solid rgb(var(--settings-soft-white));
+  border-width: 0 2px 2px 0;
+  content: '';
+  transform: translateY(-1px) rotate(45deg);
+}
+:root[data-white-softer-tone] input[type="checkbox"]:not(.switch input):disabled { cursor: default; }
+@media (forced-colors: active) {
+  :root[data-white-softer-tone] input[type="checkbox"]:not(.switch input) { appearance: auto; }
+  :root[data-white-softer-tone] input[type="checkbox"]:not(.switch input)::after { content: none; }
+}
 .rule-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
 .rule-heading { display: flex; align-items: center; gap: 9px; color: var(--text); }
 .rule-heading > span { --icon-surface: var(--surface); display: grid; width: 25px; height: 25px; flex: 0 0 auto; color: currentColor; place-items: center; }
@@ -117,6 +156,14 @@ html[lang="en-US"] .adaptive-rule-help span + span { margin-top: 3px; }
 .rule-heading h2 { margin: 0; color: currentColor; }
 .any-copy-section-heading { margin-bottom: 7px; }
 input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); padding: 0 11px; }
+select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 21px center, right 16px center;
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+}
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: var(--on-blue); cursor: pointer; font-weight: 650; }
 .primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
 .switch input:disabled { opacity: 0; }
@@ -148,7 +195,7 @@ input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(-
 .settings-dialog form { padding: 22px; }
 .settings-dialog p { margin-bottom: 20px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.settings-dialog .danger-button { border-color: transparent; background: var(--danger); color: white; }
+.settings-dialog .danger-button { border-color: transparent; background: var(--settings-danger-button, var(--danger)); color: var(--settings-on-danger, white); }
 .settings-dialog button:disabled { cursor: default; opacity: .55; }
 .rule-input-help-dialog { width: min(560px, calc(100% - 32px)); }
 .rule-input-help-dialog form { display: grid; gap: 13px; }

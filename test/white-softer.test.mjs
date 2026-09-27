@@ -7,13 +7,39 @@ import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { createWhiteSofterProduct } from '../extension/background/products/standing/white-softer.js';
 
 test('White Softer normalizes saved choices and starts inactive in ordinary and incognito contexts', () => {
-  assert.deepEqual(normalizeSettings().whiteSofter, { enabled: false, tone: 'warm' });
+  assert.deepEqual(normalizeSettings().whiteSofter, { enabled: false, tone: 'warm-minus-1' });
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.whiteSofter.enabled, false);
   assert.deepEqual(normalizeSettings({ whiteSofter: { enabled: true, tone: 'warm-minus-1' } }).whiteSofter, { enabled: true, tone: 'warm-minus-1' });
   for (const tone of [null, 'unknown', '#ffffff']) {
-    assert.deepEqual(normalizeSettings({ whiteSofter: { enabled: true, tone } }).whiteSofter, { enabled: true, tone: 'warm' });
+    assert.deepEqual(normalizeSettings({ whiteSofter: { enabled: true, tone } }).whiteSofter, { enabled: true, tone: 'warm-minus-1' });
   }
   assert.deepEqual(settingsViewCache({ whiteSofter: { enabled: true, tone: 'cool', active: false } }).whiteSofter, { enabled: true, tone: 'cool' });
+});
+
+test('Settings preload the White Softer palette before styles and reconcile enabled state', () => {
+  const source = readFileSync(new URL('../extension/settings/palette-preload.js', import.meta.url), 'utf8');
+  const create = (preference, incognito = false) => {
+    const root = { dataset: {} };
+    const context = vm.createContext({ document: { documentElement: root },
+      chrome: { extension: { inIncognitoContext: incognito } },
+      localStorage: { getItem() { return JSON.stringify({ whiteSofter: preference }); } } });
+    vm.runInContext(source, context);
+    return { root, palette: context[Symbol.for('cosmic-gemini.settings.white-softer-palette')] };
+  };
+  const ordinary = create({ enabled: true, tone: 'warm' });
+  assert.equal(ordinary.root.dataset.whiteSofterTone, 'warm', 'a saved choice survives the new default');
+  ordinary.palette.apply({ enabled: true, tone: 'cool' });
+  assert.equal(ordinary.root.dataset.whiteSofterTone, 'cool');
+  ordinary.palette.apply({ enabled: false, tone: 'cool' });
+  assert.equal(ordinary.root.dataset.whiteSofterTone, undefined);
+  assert.equal(create({ enabled: true }, true).root.dataset.whiteSofterTone, undefined,
+    'ordinary preferences do not leak into incognito Settings');
+  assert.equal(create({ enabled: true }).root.dataset.whiteSofterTone, 'warm-minus-1');
+  for (const page of ['all-settings', 'native-scroll', 'no-autoplay', 'any-copy', 'image-download',
+    'video-download', 'page-display', 'satellites']) {
+    const html = readFileSync(new URL(`../extension/settings/${page}.html`, import.meta.url), 'utf8');
+    assert.ok(html.indexOf('palette-preload.js') < html.indexOf('settings.css'), `${page} preloads its palette`);
+  }
 });
 
 test('Standing product applies once per supported page and preserves the selected tone while disabled', async () => {
@@ -40,7 +66,7 @@ test('Standing product applies once per supported page and preserves the selecte
   assert.equal(early.runAt, 'document_start');
   assert.equal(early.world, 'MAIN');
   assert.deepEqual(early.css, ['content/white-softer/white-softer.css']);
-  assert.ok(early.js.includes('content/white-softer/tones/warm.js'));
+  assert.ok(early.js.includes('content/white-softer/tones/warm-minus-1.js'));
   assert.equal(registered.get('cosmic-gemini-white-softer-prepaint-check').world, 'ISOLATED');
   assert.equal(await product.sync(context, settings), true);
   assert.equal(await product.sync({ ...context, frameId: 1 }, settings), false);

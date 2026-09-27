@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.4 — 2026-09-27
+
+- Set Light warm ivory as White Softer’s default tone and give Settings a dedicated, layered palette when White Softer is on.
+
 ## 9.11.3 — 2026-09-27
 
 - Reduce bright flashes during navigation while White Softer is on, including on pages using a dark appearance.

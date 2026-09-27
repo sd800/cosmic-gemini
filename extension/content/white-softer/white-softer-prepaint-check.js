@@ -8,7 +8,7 @@
   const area = incognito ? 'session' : 'local';
   let revision = 0;
   const announce = feature => window.dispatchEvent(new CustomEvent(CHECK, { detail: JSON.stringify({
-    active: feature?.enabled === true, tone: feature?.tone || 'warm'
+    active: feature?.enabled === true, tone: feature?.tone || 'warm-minus-1'
   }) }));
   window.addEventListener(READY, () => { void read(); }, true);
   function read() {

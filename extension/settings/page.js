@@ -12,6 +12,7 @@ claimSettings(performance.timeOrigin);
 addEventListener('pageshow', event => { if (event.persisted) claimSettings(performance.timeOrigin + performance.now()); });
 
 const root = document.documentElement;
+const settingsPalette = globalThis[Symbol.for('cosmic-gemini.settings.white-softer-palette')];
 const LONG_PRESS_MS = 550;
 const LONG_PRESS_MOVE_TOLERANCE = 8;
 const incognitoContext = chrome.extension?.inIncognitoContext === true;
@@ -233,6 +234,7 @@ function renderBehaviorList(section) {
 function render() {
   const current = state();
   if (!current) return;
+  settingsPalette?.apply((states?.preferences || states)?.whiteSofter);
   const pendingValues = [...pendingControls].map(control => ({ control, value: control.value, checked: control.checked }));
   const incognito = incognitoContext || states?.incognito === true;
   const enabled = document.querySelector('#enabled');
@@ -727,14 +729,18 @@ function bindView() {
   const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
   if (whiteSofterEnabled) whiteSofterEnabled.addEventListener('change', () => {
     document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
+    settingsPalette?.apply({ enabled: whiteSofterEnabled.checked, tone: document.querySelector('#whiteSofterTone').value });
     void update(null, () => savePreference('whiteSofter', {
       type: 'UI_SET_ENABLED', featureId: 'whiteSofter', enabled: whiteSofterEnabled.checked
     }), [whiteSofterEnabled]);
   });
   const whiteSofterTone = document.querySelector('#whiteSofterTone');
-  if (whiteSofterTone) whiteSofterTone.addEventListener('change', () => void update(null, () => savePreference('whiteSofter', {
-    type: 'UI_SET_WHITE_SOFTER_TONE', featureId: 'whiteSofter', tone: whiteSofterTone.value
-  }), [whiteSofterTone]));
+  if (whiteSofterTone) whiteSofterTone.addEventListener('change', () => {
+    settingsPalette?.apply({ enabled: whiteSofterEnabled?.checked, tone: whiteSofterTone.value });
+    void update(null, () => savePreference('whiteSofter', {
+      type: 'UI_SET_WHITE_SOFTER_TONE', featureId: 'whiteSofter', tone: whiteSofterTone.value
+    }), [whiteSofterTone]);
+  });
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) documentPreviewEnabled.addEventListener('change', () => {
     document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;

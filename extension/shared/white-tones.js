@@ -11,6 +11,7 @@
   ].map(Object.freeze));
   const get = id => tones.find(tone => tone.id === id) || tones.find(tone => tone.id === 'warm');
   const normalize = (id, allowOff = false) => allowOff && id === 'off' ? 'off' : get(id).id;
+  const normalizeWhiteSofter = id => tones.some(tone => tone.id === id) ? id : 'warm-minus-1';
   function populateMenus(root, translate) {
     for (const select of root.querySelectorAll('select[data-white-tones]')) {
       const options = select.dataset.whiteTones === 'allow-off'
@@ -27,5 +28,5 @@
       select.dataset.toneOptions = signature;
     }
   }
-  Object.defineProperty(globalThis, KEY, { value: Object.freeze({ tones, get, normalize, populateMenus }) });
+  Object.defineProperty(globalThis, KEY, { value: Object.freeze({ tones, get, normalize, normalizeWhiteSofter, populateMenus }) });
 })();

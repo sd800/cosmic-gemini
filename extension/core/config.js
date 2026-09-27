@@ -92,7 +92,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: false
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
-  whiteSofter: Object.freeze({ enabled: false, tone: 'warm' }),
+  whiteSofter: Object.freeze({ enabled: false, tone: 'warm-minus-1' }),
   documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
   leetcodeDarkMode: Object.freeze({ enabled: false, tone: 'warm' }),
@@ -331,7 +331,7 @@ export function websiteKnowledgeControlState(settings, url) {
 }
 
 export function normalizeWhiteSofterTone(value) {
-  return WHITE_TONES.normalize(value);
+  return WHITE_TONES.normalizeWhiteSofter(value);
 }
 
 export function normalizeLeetcodeDarkModeTone(value) {

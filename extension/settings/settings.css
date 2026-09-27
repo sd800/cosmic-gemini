@@ -1,5 +1,28 @@
 :root { --switch-blue: #0b57d0; --switch-disabled-track: #b9bec5; --switch-disabled-thumb: #f1f3f4; }
 @media (prefers-color-scheme: dark) { :root { --switch-blue: #276cd9; --switch-disabled-track: #565c64; --switch-disabled-thumb: #b8bec6; } }
+/* Settings use their own layered palette; webpage color filters would flatten these surfaces. */
+:root[data-white-softer-tone] {
+  --settings-soft-white: 236 235 233;
+  --surface: rgb(var(--settings-soft-white));
+  --surface-raised: color-mix(in srgb, rgb(var(--settings-soft-white)) 88%, #89858a);
+  --line: color-mix(in srgb, rgb(var(--settings-soft-white)) 62%, #89858a);
+  --blue-soft: color-mix(in srgb, rgb(var(--settings-soft-white)) 75%, #a8c4eb);
+  --muted: #54565a;
+}
+:root[data-white-softer-tone="warm"] { --settings-soft-white: 232 230 227; }
+:root[data-white-softer-tone="warm-plus-1"] { --settings-soft-white: 216 214 211; }
+:root[data-white-softer-tone="warm-plus-2"] { --settings-soft-white: 208 206 203; }
+:root[data-white-softer-tone="cool"] { --settings-soft-white: 206 224 242; }
+@media (prefers-color-scheme: dark) {
+  :root[data-white-softer-tone] {
+    --surface: #1b1b1e;
+    --surface-raised: #29282c;
+    --line: #49464b;
+    --text: rgb(var(--settings-soft-white));
+    --muted: color-mix(in srgb, rgb(var(--settings-soft-white)) 70%, #67656b);
+    --blue-soft: #273a55;
+  }
+}
 html { min-height: 100%; overflow-y: scroll; scrollbar-gutter: stable; background: var(--surface-raised); }
 body { min-height: 100vh; background: var(--surface-raised); }
 .topbar { border-bottom: 1px solid var(--line); background: var(--surface); }

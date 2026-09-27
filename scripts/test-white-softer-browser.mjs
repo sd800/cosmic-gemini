@@ -58,6 +58,7 @@ try {
   await toggle.waitFor({ state: 'attached' });
   assert.equal(await toggle.isChecked(), false);
   assert.equal(await settings.locator('#whiteSofterTone').isDisabled(), true);
+  assert.equal(await settings.locator('#whiteSofterTone').inputValue(), 'warm-minus-1');
   const page = await context.newPage(); await page.goto('http://white-softer.test/');
   await page.evaluate(() => {
     const canvas = document.querySelector('canvas'); const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0,0,160,100);
@@ -145,14 +146,14 @@ try {
   await settings.reload();
   await settings.waitForFunction(() => document.querySelector('#whiteSofterEnabled')?.checked);
   assert.equal(await settings.locator('#whiteSofterTone').inputValue(), 'warm');
-  assert.equal(await settings.locator('#whiteSofterTone option[value="warm-minus-1"]').textContent(), 'Warm ivory -1');
-  assert.equal(await settings.locator('#whiteSofterTone option[value="warm"]').textContent(), 'Warm ivory (default)');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm-minus-1"]').textContent(), 'Light warm ivory (default)');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm"]').textContent(), 'Warm ivory');
   const card = settings.locator('[data-product="white-softer"]');
   await card.screenshot({ path: join(artifacts, 'settings-en.png') });
   await settings.selectOption('#language', 'zh-CN');
   await settings.waitForFunction(() => document.documentElement.lang === 'zh-CN');
-  assert.equal(await settings.locator('#whiteSofterTone option[value="warm-minus-1"]').textContent(), '轻微暖白');
-  assert.equal(await settings.locator('#whiteSofterTone option[value="warm"]').textContent(), '暖米白（默认）');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm-minus-1"]').textContent(), '轻微暖白（默认）');
+  assert.equal(await settings.locator('#whiteSofterTone option[value="warm"]').textContent(), '暖米白');
   await card.screenshot({ path: join(artifacts, 'settings-zh.png') });
   await page.screenshot({ path: join(artifacts, 'warm.png') });
   const command = message => settings.evaluate(async message => {

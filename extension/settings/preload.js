@@ -136,7 +136,7 @@
   if (whiteSofterEnabled) {
     whiteSofterEnabled.checked = !incognitoContext && cached.whiteSofter?.enabled === true;
     document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
-    document.querySelector('#whiteSofterTone').value = whiteTones.normalize(!incognitoContext ? cached.whiteSofter?.tone : 'warm');
+    document.querySelector('#whiteSofterTone').value = whiteTones.normalizeWhiteSofter(!incognitoContext ? cached.whiteSofter?.tone : undefined);
   }
   const documentPreviewEnabled = document.querySelector('#documentPreviewEnabled');
   if (documentPreviewEnabled) {

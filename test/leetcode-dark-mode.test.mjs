@@ -63,7 +63,7 @@ test('LeetCode color preference shares every White Softer tone but keeps its own
   await product.handleMessage({type:'UI_SET_LEETCODE_DARK_MODE_TONE',featureId:product.id,tone});
   assert.equal(product.state(settings,url).tone,tone);
   assert.equal(settingsViewCache(settings).leetcodeDarkMode.tone,tone);
-  assert.deepEqual(settings.whiteSofter,{enabled:false,tone:'warm'});
+  assert.deepEqual(settings.whiteSofter,{enabled:false,tone:'warm-minus-1'});
  }
  await assert.rejects(product.handleMessage({type:'UI_SET_LEETCODE_DARK_MODE_TONE',featureId:product.id,tone:'invalid'}));
  await product.handleMessage({type:'UI_SET_ENABLED',featureId:product.id,enabled:false});

@@ -152,6 +152,7 @@ function controller(feature = 'satellites') {
   const nodes = new Map();
   const groups = new Map();
   const timers = [];
+  const paletteUpdates = [];
   let transport = async () => { throw Error('readback unavailable'); };
   const root = { lang: 'en-US' };
   const body = new Element('body');
@@ -170,6 +171,9 @@ function controller(feature = 'satellites') {
     send: message => transport(message),
     retryRead: task => task(), setTimeout: task => { timers.push(task); return timers.length; }, clearTimeout() {}
   });
+  context[Symbol.for('cosmic-gemini.settings.white-softer-palette')] = {
+    apply: preference => paletteUpdates.push(preference)
+  };
   const source = readFileSync(new URL('../extension/settings/page.js', import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '');
   vm.runInContext(source.slice(0, source.indexOf("\nfor (const link of document.querySelectorAll('[data-feature-link]')) {")) + `
@@ -178,7 +182,8 @@ function controller(feature = 'satellites') {
       async hydrate(snapshot) { await settingsState.read(async () => snapshot); states = settingsState.value; },
       pendingControls, listSignatures };
   `, context);
-  return { api: context.controller, body, nodes, groups, timers, setTransport: task => { transport = task; } };
+  return { api: context.controller, body, nodes, groups, timers, paletteUpdates,
+    setTransport: task => { transport = task; } };
 }
 
 test('an empty rule input exposes alphabetizing only through a completed long press', () => {
@@ -556,7 +561,7 @@ test('Website Knowledge Control renders master authorization separately from sav
 
 
 test('White Softer uses saved preferences and retains its tone when the master is off', async () => {
-  const { api, nodes } = controller();
+  const { api, nodes, paletteUpdates } = controller();
   const master = new Element('input');
   const options = new Element('fieldset');
   const tone = new Element('select');
@@ -569,9 +574,12 @@ test('White Softer uses saved preferences and retains its tone when the master i
   assert.equal(master.checked, true);
   assert.equal(options.disabled, false);
   assert.equal(tone.value, 'cool');
+  assert.equal(paletteUpdates.at(-1).enabled, true);
+  assert.equal(paletteUpdates.at(-1).tone, 'cool');
   await api.hydrate({ preferences: { satellites: {}, whiteSofter: { enabled: false, tone: 'cool' } } });
   api.render();
   assert.equal(master.checked, false);
   assert.equal(options.disabled, true);
   assert.equal(tone.value, 'cool');
+  assert.equal(paletteUpdates.at(-1).enabled, false);
 });

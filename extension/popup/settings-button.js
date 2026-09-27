@@ -2,7 +2,7 @@ export function bindSettingsButton(button, { openSettings, reloadExtension, sett
   const document = button.ownerDocument;
   const window = document.defaultView;
   const originalContent = button.innerHTML;
-  let armed = false, pending = false, timer = 0, suppressClick = false, pointer = null;
+  let armed = false, pending = false, timer = 0, continueTimer = 0, suppressClick = false, pointer = null;
   function render() {
     button.dataset.reloadArmed = String(armed);
     if (armed) button.textContent = 'Reload';
@@ -12,26 +12,41 @@ export function bindSettingsButton(button, { openSettings, reloadExtension, sett
   }
   function cancelHold() {
     if (timer) window.clearTimeout(timer);
+    if (continueTimer) window.clearTimeout(continueTimer);
     timer = 0;
+    continueTimer = 0;
     pointer = null;
   }
   function reset() {
     cancelHold();
     if (armed) { armed = false; render(); }
   }
+  async function activate() {
+    if (pending) return;
+    cancelHold();
+    pending = true;
+    button.disabled = true;
+    try { await (armed ? reloadExtension() : openSettings()); }
+    finally { pending = false; button.disabled = false; }
+  }
   button.addEventListener('pointerdown', event => {
     cancelHold();
     if (pending || event.button !== 0 || event.isPrimary === false) return;
     suppressClick = false;
     if (armed) return;
-    pointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
-    try { button.setPointerCapture(event.pointerId); } catch {}
+    const pointerId = event.pointerId;
+    pointer = { id: pointerId, x: event.clientX, y: event.clientY };
+    try { button.setPointerCapture(pointerId); } catch {}
     timer = window.setTimeout(() => {
       timer = 0;
       armed = true;
-      // Releasing this same press must never confirm the reload.
       suppressClick = true;
       render();
+      // A release keeps the existing two-step confirmation; a continued hold confirms in place.
+      continueTimer = window.setTimeout(() => {
+        continueTimer = 0;
+        if (pointer?.id === pointerId && armed) void activate();
+      }, 650);
     }, 550);
   });
   button.addEventListener('pointermove', event => {
@@ -47,19 +62,14 @@ export function bindSettingsButton(button, { openSettings, reloadExtension, sett
   button.addEventListener('contextmenu', event => {
     if (timer || armed || suppressClick) event.preventDefault();
   });
-  button.addEventListener('click', async event => {
+  button.addEventListener('click', event => {
     if (suppressClick && event.detail !== 0) {
       suppressClick = false;
       event.preventDefault();
       return;
     }
-    if (pending) return;
-    cancelHold();
     suppressClick = false;
-    pending = true;
-    button.disabled = true;
-    try { await (armed ? reloadExtension() : openSettings()); }
-    finally { pending = false; button.disabled = false; }
+    return activate();
   });
   document.addEventListener('pointerdown', event => { if (!button.contains(event.target)) reset(); }, true);
   document.addEventListener('keydown', event => { if (event.key === 'Escape') reset(); });

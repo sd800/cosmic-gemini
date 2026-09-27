@@ -40,6 +40,8 @@ test('Settings preload the White Softer palette before styles and reconcile enab
     const html = readFileSync(new URL(`../extension/settings/${page}.html`, import.meta.url), 'utf8');
     assert.ok(html.indexOf('palette-preload.js') < html.indexOf('settings.css'), `${page} preloads its palette`);
   }
+  const css = readFileSync(new URL('../extension/settings/settings.css', import.meta.url), 'utf8');
+  assert.match(css, /:root\[data-white-softer-tone\] \.switch span::after \{ background: rgb\(var\(--settings-soft-white\)\); \}/);
 });
 
 test('Standing product applies once per supported page and preserves the selected tone while disabled', async () => {

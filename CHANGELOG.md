@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.5 — 2026-09-27
+
+- Match Settings switches to the selected White Softer tone.
+- Let a continued hold on the popup Settings button execute Reload after it appears; releasing early still permits a separate confirmation click.
+
 ## 9.11.4 — 2026-09-27
 
 - Set Light warm ivory as White Softer’s default tone and give Settings a dedicated, layered palette when White Softer is on.

@@ -35,6 +35,34 @@ test('short click opens settings; long press arms reload without confirming on r
   await f.click(); assert.deepEqual(f.counts(), [1, 1]);
 });
 
+test('continuing the same hold on Reload executes once before release', async () => {
+  let finish;
+  const f = fixture(() => new Promise(resolve => { finish = resolve; }));
+  f.button.fire('pointerdown');
+  f.hold();
+  assert.equal(f.button.textContent, 'Reload');
+  assert.deepEqual(f.counts(), [0, 0]);
+  f.hold();
+  assert.deepEqual(f.counts(), [0, 1]);
+  assert.equal(f.button.disabled, true);
+  f.button.fire('pointerup');
+  await f.button.fire('click');
+  assert.deepEqual(f.counts(), [0, 1], 'the release click cannot trigger another action');
+  finish();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.button.disabled, false);
+});
+
+test('releasing or moving away after Reload appears cancels continued-hold execution', async () => {
+  for (const stop of [f => f.button.fire('pointerup'),
+    f => f.button.fire('pointermove', { clientX: 40 }),
+    f => f.button.fire('pointercancel')]) {
+    const f = fixture();
+    f.button.fire('pointerdown'); f.hold(); stop(f); f.hold();
+    assert.deepEqual(f.counts(), [0, 0]);
+  }
+});
+
 test('dragging and cancelled pointers never turn the original gesture into an action', async () => {
   for (const cancel of ['pointermove', 'pointercancel']) {
     const f = fixture(); f.button.fire('pointerdown');

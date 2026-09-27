@@ -17,26 +17,177 @@ test('White Softer normalizes saved choices and starts inactive in ordinary and 
 });
 
 test('Standing product applies once per supported page and preserves the selected tone while disabled', async () => {
+  const previousChrome = globalThis.chrome;
+  const registered = new Map();
+  globalThis.chrome = { scripting: {
+    async getRegisteredContentScripts({ ids }) { return ids.map(id => registered.get(id)).filter(Boolean); },
+    async registerContentScripts(scripts) { for (const script of scripts) registered.set(script.id, script); },
+    async updateContentScripts(scripts) { for (const script of scripts) registered.set(script.id, script); },
+    async unregisterContentScripts({ ids }) { for (const id of ids) registered.delete(id); }
+  } };
+  try {
   let settings = normalizeSettings();
   const decisions = [];
   const product = createWhiteSofterProduct({ async sync(_product, context, active, styles) {
     decisions.push({ frame: context.frameId, active, styles });
-  } }, { async mutateSettings(change) { settings = normalizeSettings(change(settings)); return settings; } });
+  } }, { async mutateSettings(change) { settings = normalizeSettings(await change(settings)); return settings; },
+    async readSettings() { return settings; } });
   const context = { topUrl: 'https://example.com/', frameId: 0 };
   assert.equal(await product.sync(context, settings), false);
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true });
+  assert.equal(registered.size, 2);
+  const early = registered.get('cosmic-gemini-white-softer-prepaint');
+  assert.equal(early.runAt, 'document_start');
+  assert.equal(early.world, 'MAIN');
+  assert.deepEqual(early.css, ['content/white-softer/white-softer.css']);
+  assert.ok(early.js.includes('content/white-softer/tones/warm.js'));
+  assert.equal(registered.get('cosmic-gemini-white-softer-prepaint-check').world, 'ISOLATED');
   assert.equal(await product.sync(context, settings), true);
   assert.equal(await product.sync({ ...context, frameId: 1 }, settings), false);
   assert.equal(await product.sync({ ...context, topUrl: 'chrome://settings/' }, settings), false);
   assert.equal(product.state(settings, 'http://example.com/').active, true);
   assert.deepEqual(decisions[1].styles, ['content/white-softer/white-softer.css']);
   await product.handleMessage({ type: 'UI_SET_WHITE_SOFTER_TONE', tone: 'cool' });
+  assert.ok(registered.get('cosmic-gemini-white-softer-prepaint').js.includes('content/white-softer/tones/cool.js'));
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false });
+  assert.equal(registered.size, 0);
   assert.deepEqual(settings.whiteSofter, { enabled: false, tone: 'cool' });
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true });
   assert.equal(product.state(settings, context.topUrl).tone, 'cool');
   await assert.rejects(product.handleMessage({ type: 'UI_SET_WHITE_SOFTER_TONE', tone: '<style>' }));
   assert.deepEqual(settings.whiteSofter, { enabled: true, tone: 'cool' });
+  await product.reset();
+  assert.equal(registered.size, 0);
+  await product.initialize();
+  assert.equal(registered.size, 2, 'saved settings restore document-start registration');
+  settings = normalizeSettings({ ...settings, whiteSofter: { enabled: false, tone: 'cool' } });
+  await product.handleStorageChanged({ cosmicGeminiSettings: { oldValue: { whiteSofter: { enabled: true, tone: 'cool' } },
+    newValue: { whiteSofter: settings.whiteSofter } } }, 'local');
+  assert.equal(registered.size, 0, 'external storage changes remove the early injection');
+  } finally { globalThis.chrome = previousChrome; }
+});
+
+test('document-start prepaint hands its single filter to the normal runtime', () => {
+  const listeners = new Map();
+  const window = {
+    addEventListener(type, listener) { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(listener); },
+    removeEventListener(type, listener) { listeners.get(type)?.delete(listener); },
+    dispatchEvent(event) { for (const listener of listeners.get(event.type) || []) listener(event); }
+  };
+  class Element {
+    constructor() { this.attributes = new Map(); this.style = { setProperty() {} }; this.children = []; this.open = false; }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
+    append(child) { this.children.push(child); child.parentNode = this; }
+    matches(selector) { return selector === ':popover-open' && this.open; }
+    showPopover() { this.open = true; }
+    remove() { this.parentNode?.children.splice(this.parentNode.children.indexOf(this), 1); this.parentNode = null; }
+  }
+  const root = new Element();
+  const rootObservers = [];
+  const document = {
+    documentElement: null, createElement: () => new Element(), createElementNS: () => new Element(),
+    addEventListener() {}, removeEventListener() {}
+  };
+  const context = vm.createContext({ window, document, Symbol, Math, Number, Array, Uint8Array,
+    MutationObserver: class { constructor(callback) { this.callback = callback; rootObservers.push(this); }
+      observe() {} disconnect() {} },
+    crypto: { getRandomValues(bytes) { bytes.fill(1); return bytes; } },
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } }
+  });
+  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js',
+    'content/white-softer/tones/cool.js', 'content/white-softer/white-softer-prepaint.js']) {
+    vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);
+  }
+  const prepaint = context[Symbol.for('cosmic-gemini.white-softer.prepaint')];
+  assert.ok(prepaint);
+  assert.equal(root.children.length, 0);
+  document.documentElement = root;
+  rootObservers[0].callback();
+  const host = root.children[0];
+  assert.equal(host.parentNode, root);
+  assert.equal(host.getAttribute('data-tone'), 'cool');
+  assert.equal(host.open, true);
+  window.dispatchEvent({ type: 'cosmic-gemini:white-softer:prepaint-check', detail: JSON.stringify({
+    active: true, tone: 'warm-minus-1'
+  }) });
+  assert.equal(host.getAttribute('data-tone'), 'warm-minus-1');
+  vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context[Symbol.for('cosmic-gemini.white-softer.runtime')];
+  assert.equal(runtime.layer.host, host);
+  assert.equal(context[Symbol.for('cosmic-gemini.white-softer.prepaint')], undefined);
+  window.dispatchEvent({ type: 'cosmic-gemini:white-softer:configure', detail: JSON.stringify({
+    token: runtime.token, config: { active: true, tone: 'warm' }
+  }) });
+  assert.equal(host.getAttribute('data-tone'), 'warm');
+  assert.equal(root.children.filter(child => child.getAttribute('data-cosmic-gemini-white-softer') === '').length, 1);
+  window.dispatchEvent({ type: 'cosmic-gemini:white-softer:dispose', detail: runtime.token });
+  assert.equal(host.parentNode, null);
+  vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-prepaint.js', import.meta.url), 'utf8'), context);
+  const staleHost = root.children[0];
+  window.dispatchEvent({ type: 'cosmic-gemini:white-softer:prepaint-check', detail: JSON.stringify({ active: false }) });
+  assert.equal(staleHost.parentNode, null);
+  assert.equal(context[Symbol.for('cosmic-gemini.white-softer.prepaint')], undefined);
+});
+
+test('early settings check removes stale prepaint when White Softer was turned off', async () => {
+  const events = [];
+  const listeners = new Map();
+  const window = {
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    dispatchEvent(event) { events.push(event); }
+  };
+  const chrome = {
+    extension: { inIncognitoContext: false },
+    storage: {
+      local: { async get() { return { cosmicGeminiSettings: { whiteSofter: { enabled: false, tone: 'warm' } } }; } },
+      onChanged: { addListener(listener) { listeners.set('storage', listener); } }
+    }
+  };
+  const context = vm.createContext({ window, chrome, Symbol, CustomEvent: class {
+    constructor(type, options) { this.type = type; this.detail = options.detail; }
+  } });
+  vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-prepaint-check.js', import.meta.url), 'utf8'), context);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(JSON.parse(events[0].detail).active, false);
+  listeners.get('storage')({ cosmicGeminiSettings: { newValue: { whiteSofter: { enabled: true, tone: 'cool' } } } }, 'local');
+  assert.deepEqual(JSON.parse(events.at(-1).detail), { active: true, tone: 'cool' });
+});
+
+test('White Softer does not save an enabled preference if early registration fails', async () => {
+  const previousChrome = globalThis.chrome;
+  globalThis.chrome = { scripting: {
+    async getRegisteredContentScripts() { return []; },
+    async registerContentScripts() { throw new Error('registration failed'); }
+  } };
+  let settings = normalizeSettings();
+  const product = createWhiteSofterProduct({ async sync() {} }, {
+    async readSettings() { return settings; },
+    async mutateSettings(change) { settings = normalizeSettings(await change(settings)); return settings; }
+  });
+  try {
+    await assert.rejects(product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }), /registration failed/);
+    assert.equal(settings.whiteSofter.enabled, false);
+  } finally { globalThis.chrome = previousChrome; }
+});
+
+test('private White Softer prepaint is session-scoped and separately registered', async () => {
+  const previousChrome = globalThis.chrome;
+  const scripts = [];
+  globalThis.chrome = { scripting: {
+    async getRegisteredContentScripts() { return []; },
+    async registerContentScripts(batch) { scripts.push(...batch); }
+  } };
+  const settings = normalizeSettings({ whiteSofter: { enabled: true, tone: 'cool' } });
+  const product = createWhiteSofterProduct({ async sync() {} }, {
+    isIncognitoContext: () => true, async readSettings() { return settings; }
+  });
+  try {
+    await product.initialize();
+    assert.equal(scripts.length, 2);
+    assert.ok(scripts.every(script => script.id.endsWith('-incognito') && script.persistAcrossSessions === false));
+    assert.ok(scripts[0].js.includes('content/white-softer/tones/cool.js'));
+  } finally { globalThis.chrome = previousChrome; }
 });
 
 test('White Softer preserves near-white surface and border contrast at every tone', () => {
@@ -57,6 +208,8 @@ test('White Softer preserves near-white surface and border contrast at every ton
   const layer = new Layer('data-test-white-cap');
   layer.mount = () => {};
   for (const tone of context[Symbol.for('cosmic-gemini.white-tones')].tones) {
+    vm.runInContext(readFileSync(new URL(`../extension/content/white-softer/tones/${tone.id}.js`, import.meta.url), 'utf8'), context);
+    assert.equal(vm.runInContext("globalThis[Symbol.for('cosmic-gemini.white-softer.prepaint-tone')]", context), tone.id);
     layer.enable(tone.id);
     const caps = tone.rgb.split(' ').map(Number);
     layer.channels.forEach((channel, index) => {

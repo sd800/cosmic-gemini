@@ -141,7 +141,7 @@ Bridge regressions reproduce overlapping readiness/refresh acknowledgements, mid
 
 ## White Softer
 
-Run the focused `test/white-softer.test.mjs` with the existing configuration and Settings tests, then `scripts/test-white-softer-browser.mjs` using `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` (plus local Python/Pillow for screenshot color checks). The isolated HTTP fixture uses restrictive CSP and a cross-origin frame. Check exact RGB on backgrounds, white glyphs, Canvas and icons for all five tones; black/mid-grey retention; distinct near-white panels and borders across all tones, with monotone gray ramps; no duplicate frame layers; input/focus; native dialogs, popovers and fullscreen; ancestor inversion; localized Settings persistence; and independent Page Display cleanup. Synthetic artifacts belong in `test-dist/white-softer/`.
+Run the focused `test/white-softer.test.mjs` with the existing configuration and Settings tests, then `scripts/test-white-softer-browser.mjs` using `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` (plus local Python/Pillow for screenshot color checks). The isolated HTTP fixture uses restrictive CSP and a cross-origin frame. Check exact RGB on backgrounds, white glyphs, Canvas and icons for all five tones; black/mid-grey retention; distinct near-white panels and borders across all tones, with monotone gray ramps; document-start filter presence before page scripts on new light and dark documents, single-layer runtime handoff and stale-registration cleanup; input/focus; native dialogs, popovers and fullscreen; ancestor inversion; localized Settings persistence; and independent Page Display cleanup. Synthetic artifacts belong in `test-dist/white-softer/`.
 
 ## Popup reload confirmation
 

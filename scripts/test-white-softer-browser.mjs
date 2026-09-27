@@ -40,6 +40,12 @@ try {
   await context.route(/^https?:\/\/(?:frame\.)?white-softer\.test\//, route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/fixture.css') return route.fulfill({ contentType: 'text/css', body: css });
+    if (url.pathname === '/prepaint-light' || url.pathname === '/prepaint-dark') {
+      const dark = url.pathname === '/prepaint-dark';
+      return route.fulfill({ contentType: 'text/html',
+        headers: { 'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" },
+        body: `<!doctype html><html><head><script>window.cgPrepaintAtParse=!!document.querySelector('[data-cosmic-gemini-white-softer]:popover-open')</script></head><body style="margin:0;background:${dark ? '#111' : '#fff'}"><div id="prepaint-surface" style="height:100px;background:${dark ? '#111' : '#fff'};color:white">${dark ? 'Light text on a dark page' : ''}</div></body></html>` });
+    }
     const child = url.hostname.startsWith('frame.');
     return route.fulfill({ contentType: 'text/html', headers: { 'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self'; frame-src https://frame.white-softer.test" }, body: child
       ? '<!doctype html><link rel="stylesheet" href="/fixture.css"><div class="tile white"></div>'
@@ -93,6 +99,20 @@ try {
   await page.evaluate(() => { const base = document.createElement('base'); base.href = 'https://unrelated.invalid/'; document.head.append(base); });
   assert.deepEqual(await screenshotColor('.white'), colors.warm, 'a page base URL must not redirect the local filter');
   await page.evaluate(() => document.querySelector('base').remove());
+  for (const appearance of ['light', 'dark']) {
+    const navigation = await context.newPage();
+    await navigation.goto(`http://white-softer.test/prepaint-${appearance}`);
+    assert.equal(await navigation.evaluate(() => window.cgPrepaintAtParse), true,
+      `${appearance}: the filter exists before the page's first script`);
+    assert.equal(await navigation.locator(layer + ':popover-open').count(), 1,
+      `${appearance}: runtime handoff keeps one filter`);
+    if (appearance === 'dark') {
+      const surface = await navigation.locator('#prepaint-surface').screenshot();
+      assert.deepEqual(pixelRow(surface)[0], [17,17,17], 'dark background remains dark');
+      assert.deepEqual(brightest(surface), colors.warm, 'white text on a dark background is softened');
+    }
+    await navigation.close();
+  }
   const overscroll = await context.newCDPSession(page);
   await page.evaluate(() => { document.body.style.minHeight = '200vh'; window.scrollTo(0,0); });
   const gesture = overscroll.send('Input.synthesizeScrollGesture', { x:950, y:100, yDistance:450, speed:250, gestureSourceType:'mouse', preventFling:false });
@@ -157,5 +177,5 @@ try {
   assert.deepEqual(await screenshotColor('.white'), [255,255,255]);
   assert.deepEqual(await screenshotColor('.text'), [255,255,255]);
   assert.deepEqual(errors, []);
-  console.log('PASS: five exact white tones, distinct near-white surfaces and borders, all 256 monotone gray levels, elastic overscroll, base URL, text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
+  console.log('PASS: five exact white tones, distinct near-white surfaces and borders, all 256 monotone gray levels, document-start light/dark navigation and single-layer handoff, elastic overscroll, base URL, text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
 } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }

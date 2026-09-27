@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.3 — 2026-09-27
+
+- Reduce bright flashes during navigation while White Softer is on, including on pages using a dark appearance.
+
 ## 9.11.2 — 2026-09-27
 
 - Preserve the visual separation of light surfaces and borders while White Softer adjusts white areas and text.

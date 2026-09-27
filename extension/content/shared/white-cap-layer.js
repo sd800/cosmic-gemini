@@ -6,6 +6,7 @@
     constructor(attribute) {
       this.attribute = attribute;
       this.host = null;
+      this.rootObserver = null;
       this.mount = this.mount.bind(this);
       this.onToggle = this.onToggle.bind(this);
     }
@@ -61,13 +62,23 @@
       if (!this.host) return;
       const target = document.fullscreenElement || document.documentElement;
       if (!target) {
-        document.addEventListener('readystatechange', this.mount, { once: true });
+        // document_start can precede <html>; a microtask observer mounts the
+        // filter when the root appears, before the first document paint.
+        if (!this.rootObserver) {
+          this.rootObserver = new MutationObserver(this.mount);
+          this.rootObserver.observe(document, { childList: true });
+        }
         return;
       }
+      this.rootObserver?.disconnect();
+      this.rootObserver = null;
       if (this.host.parentNode !== target) target.append(this.host);
       // Top-layer filtering caps final pixels, including white text and child frames,
       // without changing layout, taking focus or tinting already dark pixels.
-      if (!this.host.matches(':popover-open')) this.host.showPopover();
+      if (!this.host.matches(':popover-open')) {
+        try { this.host.showPopover(); }
+        catch { document.addEventListener('readystatechange', this.mount, { once: true }); }
+      }
     }
     onToggle(event) {
       if (!this.host || event.newState !== 'open' || event.target?.hasAttribute('data-cg-white-cap')) return;
@@ -77,6 +88,8 @@
     }
     disable() {
       document.removeEventListener('readystatechange', this.mount);
+      this.rootObserver?.disconnect();
+      this.rootObserver = null;
       document.removeEventListener('fullscreenchange', this.mount, true);
       document.removeEventListener('toggle', this.onToggle, true);
       this.host?.remove();

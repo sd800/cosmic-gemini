@@ -1,5 +1,6 @@
 (() => {
   const KEY = Symbol.for('cosmic-gemini.white-softer.runtime');
+  const PREPAINT_KEY = Symbol.for('cosmic-gemini.white-softer.prepaint');
   const PREFIX = 'cosmic-gemini:white-softer:';
   if (globalThis[KEY]) { globalThis[KEY].announce(); return; }
 
@@ -12,7 +13,8 @@
   class WhiteSofterRuntime {
     constructor() {
       this.token = randomToken();
-      this.layer = new (globalThis[Symbol.for('cosmic-gemini.white-cap-layer')])('data-cosmic-gemini-white-softer');
+      this.layer = globalThis[PREPAINT_KEY]?.handoff()
+        || new (globalThis[Symbol.for('cosmic-gemini.white-cap-layer')])('data-cosmic-gemini-white-softer');
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.announce = this.announce.bind(this);

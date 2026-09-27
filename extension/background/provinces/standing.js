@@ -230,7 +230,8 @@ export function createStandingProvince(platform) {
     products,
     async initialize() {
       await platform.ensureSettings();
-      await Promise.allSettled([adMarshal.reconcile(), accessControl.reconcile(), websiteKnowledgeControl.initialize(), websiteFixer.initialize()]);
+      await Promise.allSettled([adMarshal.reconcile(), accessControl.reconcile(), websiteKnowledgeControl.initialize(),
+        websiteFixer.initialize(), whiteSofter.initialize()]);
     },
     async getProductState(productId, context) {
       return product(productId).state(
@@ -264,9 +265,11 @@ export function createStandingProvince(platform) {
         adMarshal.handleStorageChanged(changes, areaName),
         accessControl.handleStorageChanged(changes, areaName),
         websiteKnowledgeControl.handleStorageChanged(changes, areaName),
-        websiteFixer.handleStorageChanged(changes, areaName)
+        websiteFixer.handleStorageChanged(changes, areaName),
+        whiteSofter.handleStorageChanged(changes, areaName)
       ]);
     },
-    reset() { return Promise.allSettled([adMarshal.reset(), accessControl.reset(), websiteKnowledgeControl.reset(), websiteFixer.reset()]); }
+    reset() { return Promise.allSettled([adMarshal.reset(), accessControl.reset(), websiteKnowledgeControl.reset(),
+      websiteFixer.reset(), whiteSofter.reset()]); }
   });
 }

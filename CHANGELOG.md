@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.7 — 2026-09-27
+
+- Restore the original Settings dropdown arrow while retaining its added right-side spacing.
+
 ## 9.11.6 — 2026-09-27
 
 - Match Settings checkboxes and button text to the selected White Softer tone while preserving readable contrast.

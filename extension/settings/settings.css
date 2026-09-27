@@ -156,14 +156,8 @@ html[lang="en-US"] .adaptive-rule-help span + span { margin-top: 3px; }
 .rule-heading h2 { margin: 0; color: currentColor; }
 .any-copy-section-heading { margin-bottom: 7px; }
 input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); padding: 0 11px; }
-select {
-  appearance: none;
-  padding-right: 32px;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position: right 21px center, right 16px center;
-  background-repeat: no-repeat;
-  background-size: 5px 5px;
-}
+/* Preserve Chrome's native arrow while giving it room from the visible right edge. */
+select { border-color: transparent; border-right-width: 8px; outline: 1px solid var(--line); outline-offset: -1px; }
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: var(--on-blue); cursor: pointer; font-weight: 650; }
 .primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
 .switch input:disabled { opacity: 0; }

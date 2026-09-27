@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.8 — 2026-09-27
+
+- Align Settings dropdown lists with their controls while retaining the familiar arrow shape and right-side spacing.
+
 ## 9.11.7 — 2026-09-27
 
 - Restore the original Settings dropdown arrow while retaining its added right-side spacing.

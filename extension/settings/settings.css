@@ -156,8 +156,17 @@ html[lang="en-US"] .adaptive-rule-help span + span { margin-top: 3px; }
 .rule-heading h2 { margin: 0; color: currentColor; }
 .any-copy-section-heading { margin-bottom: 7px; }
 input[type="text"], select { min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); padding: 0 11px; }
-/* Preserve Chrome's native arrow while giving it room from the visible right edge. */
-select { border-color: transparent; border-right-width: 8px; outline: 1px solid var(--line); outline-offset: -1px; }
+select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M2 2l4 4 4-4' fill='none' stroke='%235f6368' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+  background-position: right 16px center;
+  background-repeat: no-repeat;
+  background-size: 12px 8px;
+}
+@media (prefers-color-scheme: dark) {
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M2 2l4 4 4-4' fill='none' stroke='%23aeb4bc' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); }
+}
 .primary-button { height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--blue); color: var(--on-blue); cursor: pointer; font-weight: 650; }
 .primary-button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
 .switch input:disabled { opacity: 0; }

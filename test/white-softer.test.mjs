@@ -46,8 +46,8 @@ test('Settings preload the White Softer palette before styles and reconcile enab
   assert.match(css, /--settings-on-danger: rgb\(var\(--settings-soft-white\)\)/, 'confirmation button text uses the selected tone');
   assert.match(css, /input\[type="checkbox"\]:not\(\.switch input\):checked::after/, 'native checkbox marks use the selected tone');
   assert.match(css, /@media \(forced-colors: active\)/, 'high-contrast mode retains native checkbox rendering');
-  assert.match(css, /select \{ border-color: transparent; border-right-width: 8px; outline: 1px solid var\(--line\)/,
-    'selects keep the native arrow with additional right-side spacing');
+  assert.match(css, /background-position: right 16px center/, 'select arrows retain right-edge breathing room');
+  assert.doesNotMatch(css, /border-right-width:\s*8px/, 'selects retain their normal border geometry');
 });
 
 test('Standing product applies once per supported page and preserves the selected tone while disabled', async () => {

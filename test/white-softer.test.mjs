@@ -276,9 +276,9 @@ test('white caps ignore disclosures and coalesce actual top-layer openings befor
   const layer = new Layer('data-test-white-cap'); layer.enable('warm');
   const host = layer.host;
   const disclosure = new Element('details'); disclosure.open = true;
-  const opened = target => ({ target, newState: 'open' });
+  const opened = target => ({ target, newState: 'open', isTrusted: true });
   layer.onBeforeToggle(opened(disclosure)); layer.onToggle(opened(disclosure));
-  layer.onToggle({ target: {}, newState: 'open' });
+  layer.onToggle({ target: {}, newState: 'open', isTrusted: true });
   assert.equal(host.hides, 0); assert.equal(microtasks.length, 0);
 
   const popup = new Element(); popup.setAttribute('popover', 'manual');
@@ -288,6 +288,11 @@ test('white caps ignore disclosures and coalesce actual top-layer openings befor
   assert.equal(host.hides, 1, 'raise once before rendering, without replacing the surface');
   layer.onToggle(opened(popup));
   assert.equal(host.hides, 1, 'the later toggle task must not raise it again');
+  const notifications = { target: popup, newState: 'open', isTrusted: false };
+  layer.onBeforeToggle(notifications); layer.onToggle(notifications);
+  layer.onFullscreenChange({ isTrusted: false });
+  assert.equal(microtasks.length, 0);
+  assert.equal(host.hides, 1, 'synthetic notifications retain the open cap');
   const dialog = new Element('dialog');
   layer.onBeforeToggle(opened(popup));
   layer.onBeforeToggle(opened(dialog)); dialog.open = true; dialog.modal = true;
@@ -295,7 +300,7 @@ test('white caps ignore disclosures and coalesce actual top-layer openings befor
   dialog.modal = false; // A closed last target must not obscure the earlier open popup.
   microtasks.shift()();
   assert.equal(host.hides, 2);
-  layer.onToggle(opened(popup)); layer.onToggle({ target: dialog, newState: 'closed' });
+  layer.onToggle(opened(popup)); layer.onToggle({ target: dialog, newState: 'closed', isTrusted: true });
   const cancelled = new Element(); cancelled.setAttribute('popover', 'manual');
   layer.onBeforeToggle(opened(cancelled)); microtasks.shift()();
   layer.onBeforeToggle(opened(dialog)); microtasks.shift()();
@@ -309,8 +314,19 @@ test('white caps ignore disclosures and coalesce actual top-layer openings befor
   microtasks.shift()();
   assert.equal(layer.host, replacement); assert.equal(replacement.hides, 0, 'a retired opening cannot touch the new surface');
   microtasks.shift()(); assert.equal(replacement.hides, 1);
+  context.document.fullscreenElement = new Element('canvas');
+  layer.onFullscreenChange({ isTrusted: false });
+  assert.equal(replacement.hides, 1, 'a synthetic event cannot consume a genuine pending fullscreen change');
+  layer.onFullscreenChange({ isTrusted: true });
+  assert.equal(replacement.hides, 2, 'actual fullscreen entry still promotes');
+  layer.onFullscreenChange({ isTrusted: true });
+  assert.equal(replacement.hides, 3, 'native transitions inside a shadow host must not be suppressed');
+  context.document.fullscreenElement = null;
+  layer.onFullscreenChange({ isTrusted: true });
+  assert.equal(replacement.hides, 4, 'actual fullscreen exit still promotes');
   layer.disable();
   assert.equal(listeners.has('beforetoggle'), false); assert.equal(listeners.has('toggle'), false);
+  assert.equal(listeners.has('fullscreenchange'), false);
 });
 
 function whiteBridgeFixture() {

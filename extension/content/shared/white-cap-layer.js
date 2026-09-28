@@ -12,6 +12,7 @@
       this.pendingPromotion = null;
       this.beforeToggleTargets = new WeakSet();
       this.mount = this.mount.bind(this);
+      this.onFullscreenChange = this.onFullscreenChange.bind(this);
       this.onBeforeToggle = this.onBeforeToggle.bind(this);
       this.onToggle = this.onToggle.bind(this);
       this.onDocumentReady = this.onDocumentReady.bind(this);
@@ -93,7 +94,7 @@
       if (document.contentType !== 'text/html' && !this.hasHtmlSurface()) return;
       // document.open() clears Document listeners; root mutation remounts and
       // reattaches these same bound handlers without creating duplicates.
-      document.addEventListener('fullscreenchange', this.promote, true);
+      document.addEventListener('fullscreenchange', this.onFullscreenChange, true);
       document.addEventListener('beforetoggle', this.onBeforeToggle, true);
       document.addEventListener('toggle', this.onToggle, true);
       // Observe the document and direct HTML shell only, never the content tree.
@@ -126,9 +127,19 @@
       try { return target?.matches(':popover-open, :modal') === true; }
       catch { return false; }
     }
+    onFullscreenChange(event) {
+      if (!this.host || event.isTrusted !== true) return;
+      // A fullscreen target can change inside a shadow root while Document's
+      // fullscreenElement remains the same host. Trust the native transition,
+      // rather than deduplicating only by that retargeted element.
+      this.promote();
+    }
     onBeforeToggle(event) {
       const target = event.target;
-      if (!this.host || event.newState !== 'open' || target?.hasAttribute?.('data-cg-white-cap')) return;
+      // Only browser-issued transitions change top-layer ordering. Synthetic
+      // notifications can repeat while scrolling or idle; rebuilding for them
+      // needlessly invalidates the full-viewport composited backdrop.
+      if (!this.host || event.isTrusted !== true || event.newState !== 'open' || target?.hasAttribute?.('data-cg-white-cap')) return;
       // Details and non-modal disclosure widgets also emit toggle events. They
       // are ordinary page content and must never rebuild the composited cap.
       try { if (!target?.matches('[popover], dialog')) return; }
@@ -152,7 +163,7 @@
     }
     onToggle(event) {
       const target = event.target;
-      if (!this.host || target?.hasAttribute?.('data-cg-white-cap')) return;
+      if (!this.host || event.isTrusted !== true || target?.hasAttribute?.('data-cg-white-cap')) return;
       const handledBeforePaint = this.beforeToggleTargets.delete(target);
       if (event.newState !== 'open' || handledBeforePaint || !this.isOpenTopLayer(target)) return;
       // Fallback for engines that do not send beforetoggle for native dialogs.
@@ -173,7 +184,7 @@
       this.rootObserver?.disconnect();
       this.rootObserver = null;
       this.observedRoot = null;
-      document.removeEventListener('fullscreenchange', this.promote, true);
+      document.removeEventListener('fullscreenchange', this.onFullscreenChange, true);
       document.removeEventListener('beforetoggle', this.onBeforeToggle, true);
       document.removeEventListener('toggle', this.onToggle, true);
       this.host?.remove();

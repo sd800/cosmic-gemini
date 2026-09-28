@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.17 — 2026-09-28
+
+- Prevent repeated page notifications from unnecessarily rebuilding White Softer's color layer, while preserving native floating content and fullscreen behavior.
+
 ## 9.11.16 — 2026-09-28
 
 - Reduce White Softer flashes during long-page scrolling, tab switching and dynamic content updates, avoiding unnecessary layer rebuilds and softening floating content before its first paint.

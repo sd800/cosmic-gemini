@@ -653,13 +653,17 @@ async function checkScrollingSurfaces() {
     context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
     await context.route('https://white-scroll.test/**', route => {
       const mode = new URL(route.request().url()).pathname.slice(1);
-      const nested = mode === 'nested', dark = mode === 'dark';
+      const app = mode.startsWith('app-'), nested = mode === 'nested' || app, dark = mode === 'dark' || mode === 'app-dark';
       return route.fulfill({ contentType: 'text/html', body: `<!doctype html><style>
         html,body{margin:0;background:${dark ? '#111' : '#fff'};color:${dark ? '#fff' : '#111'};font:18px Arial}
         .page{height:${nested ? '100vh' : 'auto'};overflow:${nested ? 'auto' : 'visible'}}
         section{height:700px;border:1px solid #aaa;contain:content}section:nth-child(2n){background:#111;color:white}
         header{position:sticky;top:0;background:inherit;padding:16px}.composer{position:fixed;bottom:0;left:0;width:100%;background:inherit;height:50px}
         #popup{position:fixed;left:500px;top:200px;margin:0;background:white;color:black;width:300px;height:180px}
+        ${app ? `html,body{height:100%;overflow:hidden;background:${dark ? '#111' : '#f4f2ee'}}
+        .page{position:fixed;top:52px;left:0;right:0;height:calc(100% - 52px);overflow:hidden scroll;background:transparent}
+        main{width:65%;margin:auto}section{background:${dark ? '#171717' : '#fff'}}
+        header{background:${dark ? '#111' : '#f4f2ee'}}.composer{left:20%;width:60%}` : ''}
         </style><div class="page"><header>Long page</header><main>${Array.from({length:45}, (_,i) => '<section>Content '+i+'<details><summary>Details</summary>Expanded content</details></section>').join('')}</main></div>
         <div class="composer"><input aria-label="Composer"></div><div id="popup" popover="manual">Popover</div><dialog>Modal dialog</dialog>` });
     });
@@ -668,16 +672,24 @@ async function checkScrollingSurfaces() {
     const settings = await context.newPage(); await settings.goto(`chrome-extension://${id}/settings/satellites.html`);
     await settings.locator('#whiteSofterEnabled').check();
     const page = await context.newPage();
-    for (const mode of ['light', 'dark', 'nested']) {
+    for (const mode of ['light', 'dark', 'nested', 'app-light', 'app-dark']) {
       await page.goto('https://white-scroll.test/' + mode);
       await page.locator('[data-cosmic-gemini-white-softer]:popover-open').waitFor();
       await page.evaluate(mode => {
         const cap = document.querySelector('[data-cosmic-gemini-white-softer]'), hide = cap.hidePopover;
-        window.scrollStats = { hides: 0, opens: 0, closedFrames: 0, events: 0, samples: 0 };
+        window.scrollStats = { hides: 0, opens: 0, closedFrames: 0, events: 0, samples: 0, notifications: 0 };
         cap.hidePopover = function (...args) { scrollStats.hides += 1; return Reflect.apply(hide, this, args); };
-        const area = mode === 'nested' ? document.querySelector('.page') : window;
+        const area = mode === 'nested' || mode.startsWith('app-') ? document.querySelector('.page') : window;
+        window.notifyWithoutTransition = () => {
+          const popup = document.querySelector('#popup');
+          popup.dispatchEvent(new ToggleEvent('beforetoggle', { oldState: 'closed', newState: 'open', bubbles: true }));
+          popup.dispatchEvent(new ToggleEvent('toggle', { oldState: 'closed', newState: 'open', bubbles: true }));
+          document.dispatchEvent(new Event('fullscreenchange'));
+          scrollStats.notifications += 1;
+        };
         area.addEventListener('scroll', () => {
           scrollStats.events += 1;
+          notifyWithoutTransition();
           const details = document.querySelector('details:not([open])'); if (details) details.open = true;
           if (scrollStats.events % 10 === 0) {
             scrollStats.opens += 1; document.querySelector('#popup').showPopover();
@@ -701,6 +713,15 @@ async function checkScrollingSurfaces() {
       await cdp.send('Page.startScreencast', { format: 'png', maxWidth: 1000, maxHeight: 720, everyNthFrame: 1 });
       await cdp.send('Input.synthesizeScrollGesture', { x: 800, y: 400, yDistance: -6500, speed: 2600, gestureSourceType: 'mouse', preventFling: false });
       await page.waitForTimeout(100);
+      await page.evaluate(async () => {
+        const before = scrollStats.hides;
+        for (let i = 0; i < 6; i++) {
+          notifyWithoutTransition();
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        scrollStats.idleRebuilds = scrollStats.hides - before;
+      });
+      const scrollFrameCount = frames.length;
       // Keep recording through the modal's first paint too, not just a settled
       // screenshot after its later toggle task has run.
       await page.evaluate(() => { scrollStats.opens += 1; document.querySelector('dialog').showModal(); });
@@ -710,21 +731,25 @@ async function checkScrollingSurfaces() {
       await cdp.send('Page.stopScreencast'); await cdp.detach();
       const stats = await page.evaluate(mode => {
         recordScrollFrames = false;
-        return { ...scrollStats, y: mode === 'nested' ? document.querySelector('.page').scrollTop : scrollY };
+        return { ...scrollStats, y: mode === 'nested' || mode.startsWith('app-') ? document.querySelector('.page').scrollTop : scrollY };
       }, mode);
-      const check = spawnSync('python3', ['-c', 'from PIL import Image\nimport io,sys,json,base64\nframes=json.load(sys.stdin)\nbad=[]\nfor n,data in enumerate(frames):\n im=Image.open(io.BytesIO(base64.b64decode(data))).convert("RGB")\n if any(maximum>cap+1 for (_,maximum),cap in zip(im.getextrema(),[236,235,233])):bad.append(n)\nprint(json.dumps(bad))'], { input: JSON.stringify(frames), encoding: 'utf8', maxBuffer: 1024 * 1024 });
-      assert.equal(check.status, 0, check.stderr); const bad = JSON.parse(check.stdout);
+      const expectedBackground = mode === 'app-light' ? [227,225,221] : mode === 'app-dark' ? [17,17,17] : null;
+      const check = spawnSync('python3', ['-c', 'from PIL import Image\nimport io,sys,json,base64\ncase=json.load(sys.stdin)\nbad=[]\npulses=[]\nfor n,data in enumerate(case["frames"]):\n im=Image.open(io.BytesIO(base64.b64decode(data))).convert("RGB")\n if any(maximum>cap+1 for (_,maximum),cap in zip(im.getextrema(),[236,235,233])):bad.append(n)\n if case["background"] and n<case["scrollFrames"]:\n  region=im.crop((15,150,95,im.height-100))\n  if any(abs(v-c)>1 for rgb in region.getdata() for v,c in zip(rgb,case["background"])):pulses.append(n)\nprint(json.dumps({"bad":bad,"pulses":pulses}))'], { input: JSON.stringify({ frames, scrollFrames: scrollFrameCount, background: expectedBackground }), encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      assert.equal(check.status, 0, check.stderr); const { bad, pulses } = JSON.parse(check.stdout);
       if (bad.length) await writeFile(join(artifacts, `scroll-${mode}-flash.png`), Buffer.from(frames[bad[0]], 'base64'));
+      if (pulses.length) await writeFile(join(artifacts, `scroll-${mode}-pulse.png`), Buffer.from(frames[pulses[0]], 'base64'));
       assert.ok(frames.length > 20 && stats.y > 6000, mode + ': capture a real long scroll');
       assert.ok(stats.opens > 3, mode + ': open floating layers during scrolling');
       assert.equal(bad.length, 0, mode + ': no unfiltered white frame');
       assert.equal(stats.closedFrames, 0, mode + ': keep the same cap open');
       assert.equal(stats.hides, stats.opens, mode + ': disclosures must not rebuild the cap, and a popup has one promotion');
-      results.push({ mode, frames: frames.length, ...stats, unfilteredFrames: bad.length });
+      assert.equal(stats.idleRebuilds, 0, mode + ': idle notifications must not rebuild the cap');
+      assert.equal(pulses.length, 0, mode + ': the empty background must not brighten or darken while scrolling');
+      results.push({ mode, frames: frames.length, ...stats, unfilteredFrames: bad.length, backgroundPulses: pulses.length });
     }
     assert.deepEqual(errors, []);
     await writeFile(join(artifacts, 'scroll-results.json'), JSON.stringify(results, null, 2) + '\n');
-    console.log('PASS: real extension, light/dark/nested long-page scrolling at 2×; every captured frame softened, no disclosure rebuilds or duplicate popup promotion; modal first-paint colors; no page errors.');
+    console.log('PASS: real extension, light/dark/nested/application scrolling at 2×; stable background RGB, no scrolling/idle notification rebuilds, genuine popup/modal first-paint colors; no page errors.');
   } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }
 }
 

@@ -43,6 +43,7 @@
       this.frame = 0;
       this.normalizedWrappers = new Set();
       this.originalMethods = [];
+      this.originalProperties = [];
       const retainedListeners = window[RETAINED_LISTENERS_KEY];
       this.listenerRegistry = retainedListeners instanceof WeakMap ? retainedListeners : new WeakMap();
       try { delete window[RETAINED_LISTENERS_KEY]; } catch {}
@@ -105,7 +106,11 @@
       this.reported = false;
       if (this.usesNativeInteractionCompatibility()) return;
       if (!this.listenerMethodsPatched) this.patchListenerMethods();
-      if (!this.originalMethods.length) this.patchScrollMethods();
+      if (!this.originalMethods.length) {
+        this.patchScrollMethods();
+        this.patchWheelCancellation();
+        this.patchRootScrollTop();
+      }
       this.originalAddEventListener.call(window, 'wheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'mousewheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'touchstart', this.onTouchStart, { capture: true, passive: true });
@@ -115,7 +120,7 @@
     }
 
     disable() {
-      if (!this.active && this.normalizedWrappers.size === 0 && this.originalMethods.length === 0 && !this.listenerMethodsPatched) return;
+      if (!this.active && this.normalizedWrappers.size === 0 && this.originalMethods.length === 0 && this.originalProperties.length === 0 && !this.listenerMethodsPatched) return;
       this.active = false;
       this.reported = false;
       this.touchY = null;
@@ -348,13 +353,17 @@
     }
 
     shouldHandleWheel(event) {
+      return this.isPageWheel(event) && this.hasHijackListener(event, 'wheel');
+    }
+
+    isPageWheel(event) {
       if (!this.active || !event.isTrusted || event.defaultPrevented || event.ctrlKey || event.metaKey) return false;
-      const deltaX = Number(event.deltaX || 0);
-      const deltaY = Number(event.deltaY || 0);
+      const deltaX = Number(event.deltaX ?? -(event.wheelDeltaX || 0));
+      const deltaY = Number(event.deltaY ?? -(event.wheelDeltaY || event.wheelDelta || 0));
+      if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return false;
       if (Math.abs(deltaY) < 0.5 || Math.abs(deltaX) > Math.abs(deltaY)) return false;
       if (this.isSafeEvent(event)) return false;
       if (this.mode === 'standard' && this.hasScrollableAncestor(event, deltaY)) return false;
-      if (!this.hasHijackListener(event, 'wheel')) return false;
       return true;
     }
 
@@ -426,6 +435,47 @@
       }
     }
 
+    patchWheelCancellation() {
+      const owner = Event.prototype;
+      const original = owner.preventDefault;
+      if (typeof original !== 'function') return;
+      const runtime = this;
+      function guardedCancel(...args) {
+        // Existing page listeners cannot be enumerated. Catch their actual
+        // cancellation attempt instead of blocking every wheel listener.
+        if (this instanceof Event && (this.type === 'wheel' || this.type === 'mousewheel') && runtime.isPageWheel(this)) {
+          runtime.beginGesture();
+          this.stopImmediatePropagation();
+          runtime.reportSuppression();
+          return undefined;
+        }
+        return Reflect.apply(original, this, args);
+      }
+      try {
+        owner.preventDefault = guardedCancel;
+        this.originalMethods.push([owner, 'preventDefault', original, guardedCancel]);
+      } catch {}
+    }
+
+    patchRootScrollTop() {
+      const owner = Element.prototype;
+      const descriptor = Object.getOwnPropertyDescriptor(owner, 'scrollTop');
+      if (!descriptor?.configurable || typeof descriptor.set !== 'function') return;
+      const runtime = this;
+      function guardedTop(value) {
+        if ((this === document.documentElement || this === document.body)
+          && runtime.shouldBlockScriptedScroll(this, 'scrollTop', [value])) {
+          runtime.reportSuppression();
+          return;
+        }
+        return Reflect.apply(descriptor.set, this, [value]);
+      }
+      try {
+        Object.defineProperty(owner, 'scrollTop', { ...descriptor, set: guardedTop });
+        this.originalProperties.push([owner, 'scrollTop', descriptor, guardedTop]);
+      } catch {}
+    }
+
     restoreScrollMethods() {
       for (const [owner, name, original, guarded] of this.originalMethods) {
         try {
@@ -433,6 +483,12 @@
         } catch {}
       }
       this.originalMethods = [];
+      for (const [owner, name, descriptor, guarded] of this.originalProperties) {
+        try {
+          if (Object.getOwnPropertyDescriptor(owner, name)?.set === guarded) Object.defineProperty(owner, name, descriptor);
+        } catch {}
+      }
+      this.originalProperties = [];
     }
 
     shouldBlockScriptedScroll(receiver, name, args) {

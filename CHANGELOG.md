@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.15 — 2026-09-28
+
+- Restore Native Scroll protection when websites register scrolling handlers before activation, while preserving native controls and gesture behavior.
+
 ## 9.11.13 — 2026-09-27
 
 - Reduce visual flashes during configuration refresh and navigation, preserving active page effects through temporary background failures.

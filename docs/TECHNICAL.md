@@ -56,7 +56,9 @@ White Softer, Dark Mode for LeetCode Explore, Page Display and Native Scroll ret
 
 Standard protection prevents matching page-level wheel and touch events from reaching website handlers without cancelling the browser's native default action. It preserves pinch zoom, horizontal gestures, interactive controls, maps, editors, media controls, and ordinary nested scroll areas.
 
-Enhanced protection also handles scripted nested movement and narrowly detected full-page transformed wrappers. Inline style changes are recorded and restored when protection becomes inactive. Listener records use weak references, and DOM observation is limited to structural roots.
+Earlier wheel handlers cannot be enumerated through the DOM API. A scoped `Event.preventDefault()` guard therefore catches their actual cancellation attempts, including capture-phase handlers registered before activation. It preserves the native default action and opens the same bounded gesture window used by scroll-method guards. Root `scrollTop` writes from queued takeover animations are also guarded; nested element setters remain unchanged in behavior. Synthetic events, horizontal gestures, pinch zoom, interactive controls and Standard-mode scrollable ancestors keep their original cancellation behavior. Legacy `mousewheel` deltas use the same eligibility rules.
+
+Enhanced protection also handles scripted nested movement and narrowly detected full-page transformed wrappers. USER-origin styles and reversible normalization markers avoid inline style injection. Listener records use weak references, and DOM observation is limited to structural roots. API restoration only replaces wrappers still owned by the runtime, preserving later page wrappers; any retained wrapper becomes inert after deactivation.
 
 Native Scroll restores its page API wrappers, event hooks, observers, and recorded style changes whenever it becomes inactive, then disposes its runtime and bridge.
 

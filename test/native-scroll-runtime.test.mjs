@@ -53,9 +53,16 @@ class FakeElement extends SimpleEventTarget {
   scrollTo() {}
   scrollBy() {}
   scrollIntoView() {}
+  get scrollTop() { return this.savedScrollTop || 0; }
+  set scrollTop(value) { this.savedScrollTop = value; }
 }
 
 class FakeMutationObserver { observe() {} disconnect() {} }
+class FakeEvent {
+  constructor(type) { this.type = type; this.defaultPrevented = false; this.stopped = false; }
+  preventDefault() { this.defaultPrevented = true; }
+  stopImmediatePropagation() { this.stopped = true; }
+}
 class FakeCustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.target = null; } }
 
 function makeContext(hostname = 'example.com') {
@@ -70,7 +77,7 @@ function makeContext(hostname = 'example.com') {
   window.scrollBy = () => {};
   const context = {
     window, document, EventTarget: SimpleEventTarget, Element: FakeElement,
-    MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
+    MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent, Event: FakeEvent,
     WeakMap, WeakRef, Map, Set, Symbol, JSON, Reflect, Number, String, Math,
     crypto: { getRandomValues: values => { values.fill(7); return values; } }, performance: { now: () => 100 },
     location: { hostname },
@@ -83,14 +90,96 @@ function makeContext(hostname = 'example.com') {
 }
 
 function wheelEvent(context, target = context.document.body, path = null) {
-  let stopped = false;
-  return {
+  return Object.assign(new FakeEvent('wheel'), {
     isTrusted: true, defaultPrevented: false, ctrlKey: false, metaKey: false,
     deltaX: 0, deltaY: 30, target,
     composedPath: () => path || [target, context.document.body, context.document.documentElement, context.document, context.window],
-    stopImmediatePropagation: () => { stopped = true; }, get stopped() { return stopped; }
-  };
+  });
 }
+
+test('late activation preserves native wheel scrolling and rejects queued root takeover movement', async () => {
+  const context = makeContext();
+  let scriptedMoves = 0;
+  context.window.scrollBy = () => { scriptedMoves += 1; };
+  const originalCancel = context.Event.prototype.preventDefault;
+  const originalTop = Object.getOwnPropertyDescriptor(context.Element.prototype, 'scrollTop');
+  const earlierListener = event => event.preventDefault();
+  context.window.addEventListener('wheel', earlierListener);
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  const event = wheelEvent(context);
+  assert.equal(runtime.hasHijackListener(event, 'wheel'), false, 'the earlier listener is unknown');
+  runtime.onWheel(event);
+  assert.equal(event.stopped, false, 'ordinary wheel observers are not blocked');
+  earlierListener(event);
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(event.stopped, true);
+  assert.equal(runtime.reported, true);
+  context.window.scrollBy(0, 80);
+  context.document.documentElement.scrollTop = 80;
+  context.document.body.scrollTop = 80;
+  assert.equal(scriptedMoves, 0);
+  assert.equal(context.document.documentElement.scrollTop, 0);
+  assert.equal(context.document.body.scrollTop, 0);
+  const nested = new FakeElement('div');
+  nested.scrollTop = 25;
+  assert.equal(nested.scrollTop, 25, 'nested scrolling remains native');
+  context.performance.now = () => 1000;
+  context.document.documentElement.scrollTop = 60;
+  assert.equal(context.document.documentElement.scrollTop, 60, 'ordinary later programmatic movement is allowed');
+  runtime.onDispose({ detail: runtime.token });
+  assert.equal(context.Event.prototype.preventDefault, originalCancel);
+  assert.deepEqual(Object.getOwnPropertyDescriptor(context.Element.prototype, 'scrollTop'), originalTop);
+  const inactiveEvent = wheelEvent(context);
+  earlierListener(inactiveEvent);
+  assert.equal(inactiveEvent.defaultPrevented, true);
+});
+
+test('wheel cancellation fallback preserves controls, zoom, horizontal and nested gestures', async () => {
+  const context = makeContext();
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  const safe = new FakeElement('input');
+  safe.matches = () => true;
+  const nested = new FakeElement('div');
+  nested.computed = { overflowY: 'auto' };
+  for (const event of [
+    Object.assign(wheelEvent(context), { isTrusted: false }),
+    Object.assign(wheelEvent(context), { type: 'click' }),
+    Object.assign(wheelEvent(context), { ctrlKey: true }),
+    Object.assign(wheelEvent(context), { metaKey: true }),
+    Object.assign(wheelEvent(context), { deltaX: 60 }),
+    wheelEvent(context, safe),
+    wheelEvent(context, nested)
+  ]) {
+    event.preventDefault();
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.stopped, false);
+  }
+  assert.equal(runtime.reported, false);
+  nested.scrollTop = 200;
+  const atEnd = wheelEvent(context, nested);
+  atEnd.preventDefault();
+  assert.equal(atEnd.defaultPrevented, false, 'a completed nested scroller can chain to the page');
+  runtime.onDispose({ detail: runtime.token });
+});
+
+test('legacy mousewheel deltas share protection without intercepting horizontal movement', async () => {
+  const context = makeContext();
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  const event = Object.assign(wheelEvent(context), { type: 'mousewheel', deltaX: undefined, deltaY: undefined, wheelDelta: -120 });
+  event.preventDefault();
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(event.stopped, true);
+  const horizontal = Object.assign(wheelEvent(context), { type: 'mousewheel', deltaX: undefined, deltaY: undefined, wheelDeltaX: -240, wheelDeltaY: -120 });
+  horizontal.preventDefault();
+  assert.equal(horizontal.defaultPrevented, true);
+  runtime.onDispose({ detail: runtime.token });
+});
 
 test('Native Scroll stays quiet on native pages and suppresses registered takeover code', async () => {
   const context = makeContext();
@@ -193,6 +282,8 @@ test('Native Scroll does not create inline page styles on strict-CSP pages', asy
 
 test('Native Scroll becomes inert when a later page wrapper keeps its listener wrapper reachable', async () => {
   const context = makeContext();
+  const originalCancel = context.Event.prototype.preventDefault;
+  const originalTop = Object.getOwnPropertyDescriptor(context.Element.prototype, 'scrollTop');
   context.document.permissionsPolicy = { allowsFeature: feature => feature !== 'unload' };
   const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
@@ -202,6 +293,13 @@ test('Native Scroll becomes inert when a later page wrapper keeps its listener w
   context.EventTarget.prototype.addEventListener = function laterPageWrapper(...args) {
     return Reflect.apply(nativeScrollWrapper, this, args);
   };
+  const nativeCancel = context.Event.prototype.preventDefault;
+  const laterCancel = function (...args) { return Reflect.apply(nativeCancel, this, args); };
+  context.Event.prototype.preventDefault = laterCancel;
+  const nativeTop = Object.getOwnPropertyDescriptor(context.Element.prototype, 'scrollTop').set;
+  const laterTop = function (value) { return Reflect.apply(nativeTop, this, [value]); };
+  Object.defineProperty(context.Element.prototype, 'scrollTop', { ...originalTop, set: laterTop });
+  runtime.beginGesture();
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) });
   assert.equal(runtime.active, false);
   const listener = () => {};
@@ -209,7 +307,16 @@ test('Native Scroll becomes inert when a later page wrapper keeps its listener w
   assert.equal(context.window.listeners.get('custom')?.includes(listener), true);
   Reflect.apply(nativeScrollWrapper, context.window, ['unload', listener]);
   assert.equal(context.window.listeners.get('unload').includes(listener), true);
+  assert.equal(context.Event.prototype.preventDefault, laterCancel);
+  assert.equal(Object.getOwnPropertyDescriptor(context.Element.prototype, 'scrollTop').set, laterTop);
+  const event = wheelEvent(context);
+  event.preventDefault();
+  assert.equal(event.defaultPrevented, true, 'retained cancellation wrapper must become inert');
+  context.document.documentElement.scrollTop = 35;
+  assert.equal(context.document.documentElement.scrollTop, 35, 'retained setter must become inert');
   runtime.onDispose({ detail: runtime.token });
+  context.Event.prototype.preventDefault = originalCancel;
+  Object.defineProperty(context.Element.prototype, 'scrollTop', originalTop);
 });
 
 test('Native Scroll recognizes existing hijack listeners after it is disabled and re-enabled', async () => {

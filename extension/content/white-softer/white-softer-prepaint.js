@@ -1,6 +1,8 @@
 (() => {
   const KEY = Symbol.for('cosmic-gemini.white-softer.prepaint');
-  if (globalThis[KEY]) return;
+  // Immediate runtime injection may beat this registered document-start script.
+  // The configured runtime already owns the layer and its newer preference.
+  if (globalThis[KEY] || globalThis[Symbol.for('cosmic-gemini.white-softer.runtime')]) return;
   const CHECK = 'cosmic-gemini:white-softer:prepaint-check';
   const READY = 'cosmic-gemini:white-softer:prepaint-ready';
   const tone = globalThis[Symbol.for('cosmic-gemini.white-softer.prepaint-tone')] || 'warm-minus-1';

@@ -54,3 +54,19 @@ test('history restore refreshes policy and hidden documents do not keep retrying
   assert.equal(requests,2,'returning from BFCache reads the current settings');
   listeners.get('pageshow')({persisted:false});assert.equal(requests,2,'ordinary initial pageshow does not duplicate startup');
 });
+
+test('history restore cannot remain blocked behind a message from before pagehide', async () => {
+  const listeners = new Map(), timers = new Map(); let requests = 0, oldReply;
+  const context = { window: { addEventListener(type, fn) { listeners.set(type, fn); } }, location: { href: 'https://example.com' },
+    setTimeout(fn) { timers.set(1, fn); return 1; }, clearTimeout(id) { timers.delete(id); },
+    chrome: { runtime: { sendMessage() { requests += 1; return requests === 1 ? new Promise(resolve => { oldReply = resolve; }) : Promise.resolve({ ok: true }); },
+      onMessage: { addListener() {} } } } };
+  vm.createContext(context); vm.runInContext(await readFile(new URL('../extension/content/central-page.js', import.meta.url), 'utf8'), context);
+  listeners.get('pagehide')();
+  listeners.get('pageshow')({ persisted: true }); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests, 2, 'cache return starts a fresh synchronization without waiting for a frozen channel');
+  oldReply({ ok: false }); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(timers.size, 0, 'a retired error cannot schedule retries for the restored document');
+  await context[Symbol.for('cosmic-gemini.central')].sync();
+  assert.equal(requests, 3, 'the retired finally callback cannot disturb later synchronizations');
+});

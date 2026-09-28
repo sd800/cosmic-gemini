@@ -170,6 +170,21 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   window.dispatchEvent({ type: 'cosmic-gemini:white-softer:prepaint-check', detail: JSON.stringify({ active: false }) });
   assert.equal(staleHost.parentNode, null);
   assert.equal(context[Symbol.for('cosmic-gemini.white-softer.prepaint')], undefined);
+  // Immediate runtime injection can beat the registered document-start script.
+  vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-runtime.js', import.meta.url), 'utf8'), context);
+  const earlyRuntime = context[Symbol.for('cosmic-gemini.white-softer.runtime')];
+  window.dispatchEvent({ type: 'cosmic-gemini:white-softer:configure', detail: JSON.stringify({
+    token: earlyRuntime.token, config: { active: true, tone: 'warm' }
+  }) });
+  vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-prepaint.js', import.meta.url), 'utf8'), context);
+  assert.equal(replacement.children.length, 1, 'late prepaint must not stack a second filter over the configured runtime');
+  assert.equal(earlyRuntime.layer.host.getAttribute('data-tone'), 'warm', 'late prepaint cannot restore its older tone');
+  listeners.clear(); // document.open() clears Window listeners, not runtime globals.
+  vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-runtime.js', import.meta.url), 'utf8'), context);
+  window.dispatchEvent({ type: 'cosmic-gemini:white-softer:configure', detail: JSON.stringify({
+    token: earlyRuntime.token, config: { active: true, tone: 'cool' }
+  }) });
+  assert.equal(earlyRuntime.layer.host.getAttribute('data-tone'), 'cool', 'runtime reinjection reconnects cleared configuration listeners');
 });
 
 test('XML waits for the native viewer, retains the latest tone and cancels deferred work when disabled', () => {
@@ -263,6 +278,22 @@ test('overlapping White Softer refreshes share a final acknowledgement and disca
   assert.equal(fixture.configs[0].config.tone, 'cool'); fixture.stop();
 });
 
+test('valid configuration supersessions do not exhaust the transient-failure budget', async () => {
+  const fixture = whiteBridgeFixture(); fixture.announce();
+  const results = [];
+  for (let change = 0; change < 6; change += 1) {
+    results.push(fixture.refresh());
+    fixture.requests[change].resolve(whiteResponse('warm'));
+    await settleBridge();
+    assert.equal(fixture.requests.length, change + 2, 'a changed preference still needs a current read');
+    assert.equal(fixture.configs.length, 0, 'no stale tone is dispatched');
+  }
+  fixture.requests[6].resolve(whiteResponse('cool'));
+  assert.ok((await Promise.all(results)).every(result => result.configured));
+  assert.equal(fixture.configs[0].config.tone, 'cool');
+  fixture.stop();
+});
+
 test('transient White Softer configuration failure retries before the runtime host can remove styles', async () => {
   const fixture = whiteBridgeFixture(); const result = fixture.refresh();
   fixture.requests[0].reject(new Error('worker restarting')); await settleBridge();
@@ -315,6 +346,69 @@ test('early settings check removes stale prepaint when White Softer was turned o
   assert.equal(JSON.parse(events[0].detail).active, false);
   listeners.get('storage')({ cosmicGeminiSettings: { newValue: { whiteSofter: { enabled: true, tone: 'cool' } } } }, 'local');
   assert.deepEqual(JSON.parse(events.at(-1).detail), { active: true, tone: 'cool' });
+});
+
+test('prepaint checks tolerate synchronous extension invalidation and discard superseded storage reads', async () => {
+  for (const incognito of [false, true]) {
+    const events = [], listeners = new Map(), reads = [];
+    let fail = true;
+    const lookup = () => {
+      if (fail) throw new Error('Extension context invalidated.');
+      return new Promise(resolve => reads.push(resolve));
+    };
+    const context = vm.createContext({ Symbol, JSON, Promise,
+      window: { addEventListener: (type, listener) => listeners.set(type, listener), dispatchEvent: event => events.push(JSON.parse(event.detail)) },
+      CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
+      chrome: { extension: { inIncognitoContext: incognito }, runtime: { sendMessage: lookup },
+        storage: { local: { get: lookup }, onChanged: { addListener: listener => listeners.set('storage', listener) } } }
+    });
+    assert.doesNotThrow(() => vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-prepaint-check.js', import.meta.url), 'utf8'), context));
+    await settleBridge();
+    assert.equal(events.length, 0, 'failed reads must not disable a valid prepaint');
+    fail = false; listeners.get('cosmic-gemini:white-softer:prepaint-ready')(); await settleBridge();
+    const key = incognito ? 'cosmicGeminiIncognitoSettings' : 'cosmicGeminiSettings';
+    listeners.get('storage')({ [key]: { newValue: { whiteSofter: { enabled: true, tone: 'cool' } } } }, incognito ? 'session' : 'local');
+    reads[0](incognito ? whiteResponse('warm') : { [key]: { whiteSofter: { enabled: false, tone: 'warm' } } });
+    await settleBridge();
+    assert.deepEqual(events, [{ active: true, tone: 'cool' }]);
+  }
+});
+
+test('prepaint check listeners retire after handoff or confirmed stale-layer removal, including late reads', async () => {
+  for (const handoff of [true, false]) {
+    const window = new EventTarget(), storageListeners = new Set(), reads = [], messages = [], checks = [];
+    class CustomEvent extends Event { constructor(type, init) { super(type); this.detail = init?.detail; } }
+    window.addEventListener('cosmic-gemini:white-softer:prepaint-check', event => checks.push(JSON.parse(event.detail)));
+    const context = vm.createContext({ window, CustomEvent, Symbol, JSON, Object, Promise, setTimeout, clearTimeout,
+      chrome: { storage: { local: { get: () => new Promise(resolve => reads.push(resolve)) },
+        onChanged: { addListener: listener => storageListeners.add(listener), removeListener: listener => storageListeners.delete(listener) } },
+      runtime: { sendMessage: () => Promise.resolve(whiteResponse('cool')),
+        onMessage: { addListener: listener => messages.push(listener), removeListener() {} } } }
+    });
+    const checkSource = readFileSync(new URL('../extension/content/white-softer/white-softer-prepaint-check.js', import.meta.url), 'utf8');
+    vm.runInContext(checkSource, context); await settleBridge();
+    assert.equal(storageListeners.size, 1);
+    if (handoff) {
+      vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-bridge.js', import.meta.url), 'utf8'), context);
+      window.dispatchEvent(new CustomEvent('cosmic-gemini:white-softer:main-ready', { detail: 'token' }));
+      await settleBridge();
+      assert.equal(storageListeners.size, 0, 'the configured bridge owns updates after handoff');
+      reads[0]({ cosmicGeminiSettings: { whiteSofter: { enabled: false } } }); await settleBridge();
+      assert.equal(checks.length, 0, 'late startup reads cannot disable the configured runtime');
+      vm.runInContext(checkSource, context);
+      assert.equal(storageListeners.size, 0, 'a late check script cannot restart obsolete startup observers');
+      messages[0]({ type: 'CG_STOP_CENTRAL_FEATURE', featureId: 'whiteSofter' }, {}, () => {});
+    } else {
+      reads[0]({ cosmicGeminiSettings: { whiteSofter: { enabled: false } } }); await settleBridge();
+      assert.equal(storageListeners.size, 1, 'disabled before prepaint readiness must still catch a late layer');
+      window.dispatchEvent(new CustomEvent('cosmic-gemini:white-softer:prepaint-ready'));
+      await settleBridge(); reads[1]({ cosmicGeminiSettings: { whiteSofter: { enabled: false } } }); await settleBridge();
+      assert.equal(checks.at(-1).active, false);
+      assert.equal(storageListeners.size, 0, 'confirmed stale-layer removal retires startup listeners');
+    }
+    window.dispatchEvent(new CustomEvent('cosmic-gemini:white-softer:prepaint-ready')); await settleBridge();
+    assert.equal(reads.length, handoff ? 1 : 2, 'disposed readiness listeners cannot start another read');
+  }
 });
 
 test('White Softer does not save an enabled preference if early registration fails', async () => {
@@ -382,7 +476,10 @@ test('White Softer preserves near-white surface and border contrast at every ton
       assert.equal(values.length, 256);
       assert.equal(values[255], cap, `${tone.id}: white must equal the selected color`);
       for (let n = 0; n <= shoulder; n++) assert.equal(values[n], n, `${tone.id}: midtones stay unchanged`);
-      for (let n = 1; n < 256; n++) assert.ok(values[n] >= values[n-1], `${tone.id}: grayscale order ${n}`);
+      for (let n = 1; n < 256; n++) {
+        assert.ok(values[n] >= values[n-1], `${tone.id}: grayscale order ${n}`);
+        assert.ok(values[n] <= n, `${tone.id}: softening must never brighten an original channel ${n}`);
+      }
       assert.ok(values[240] < values[255], `${tone.id}: a light border remains distinct from its white panel`);
       assert.ok(values[245] < values[255], `${tone.id}: near-white and white surfaces remain distinct`);
     });

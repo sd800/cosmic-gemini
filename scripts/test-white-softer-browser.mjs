@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 const { chromium } = await import(pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGHT).href);
+const colors = { 'warm-minus-1': [236,235,233], warm: [232,230,227], 'warm-plus-1': [216,214,211], 'warm-plus-2': [208,206,203], cool: [206,224,242] };
 if (process.env.WHITE_SOFTER_QA === 'documents') {
   await checkDocumentSurfaces();
   process.exit(0);
@@ -15,10 +16,9 @@ const artifacts = resolve('test-dist/white-softer');
 await mkdir(artifacts, { recursive: true });
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), {
   executablePath: process.env.PDF_VIEWER_CHROME, headless: true, viewport: { width: 1000, height: 720 },
-  ignoreDefaultArgs: ['--disable-extensions'],
+  ignoreDefaultArgs: ['--disable-extensions', '--disable-back-forward-cache'],
   args: ['--enable-features=ElasticOverscroll', '--enable-unsafe-extension-debugging']
 });
-const colors = { 'warm-minus-1': [236,235,233], warm: [232,230,227], 'warm-plus-1': [216,214,211], 'warm-plus-2': [208,206,203], cool: [206,224,242] };
 function brightest(buffer) {
   const result = spawnSync('python3', ['-c', 'from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps(max(im.getdata(),key=sum)))'], { input: buffer });
   assert.equal(result.status, 0, String(result.stderr));
@@ -83,6 +83,7 @@ try {
   assert.equal(await page.locator(layer).count(), 0);
   await settings.locator('.switch:has(#whiteSofterEnabled)').click();
   await page.locator(layer + ':popover-open').waitFor();
+  await settings.emulateMedia({ colorScheme: 'dark' });
   for (const [tone, rgb] of Object.entries(colors)) {
     await settings.locator('#whiteSofterTone').selectOption(tone);
     await page.waitForFunction(({layer,tone}) => document.querySelector(layer)?.getAttribute('data-tone') === tone, {layer,tone});
@@ -101,9 +102,72 @@ try {
       if (n) assert.ok(ramp[n].every((value,index) => value >= ramp[n-1][index]), `${tone}: grayscale order at ${n}`);
     }
     assert.equal(await page.frameLocator('iframe').locator(layer).count(), 0);
+    const settingsAppearance = await settings.evaluate(() => ({ dark: matchMedia('(prefers-color-scheme: dark)').matches,
+      background: getComputedStyle(document.body).backgroundColor, scheme: getComputedStyle(document.documentElement).colorScheme }));
+    assert.equal(settingsAppearance.dark, true);
+    assert.ok(settingsAppearance.background.match(/[\d.]+/g).slice(0,3).every(channel => Number(channel) < 70), tone + ': Settings keep a dark background');
   }
+  await settings.emulateMedia({ colorScheme: 'light' });
   await page.locator('#input').fill('Input still works');
   await settings.locator('#whiteSofterTone').selectOption('warm');
+  await page.waitForFunction(layer => document.querySelector(layer)?.getAttribute('data-tone') === 'warm', layer);
+  const rewritePage = await context.newPage(); await rewritePage.goto('http://white-softer.test/rewrite');
+  await rewritePage.locator(layer + ':popover-open').waitFor();
+  await rewritePage.evaluate(() => {
+    document.open(); document.write('<!doctype html><body style="margin:0;background:white"><button id="fullscreen">Fullscreen</button><canvas id="full-canvas" width="1000" height="720"></canvas></body>'); document.close();
+    const canvas = document.querySelector('canvas'), context = canvas.getContext('2d'); context.fillStyle = 'white'; context.fillRect(0,0,1000,720);
+    document.querySelector('#fullscreen').onclick = () => canvas.requestFullscreen();
+  });
+  await settings.locator('#whiteSofterTone').selectOption('cool');
+  await rewritePage.waitForFunction(layer => document.querySelector(layer)?.getAttribute('data-tone') === 'cool', layer);
+  assert.equal(await rewritePage.locator(layer).count(), 1, 'document.open reconnects the existing runtime, without a second layer');
+  await rewritePage.locator('#fullscreen').click(); await rewritePage.waitForFunction(() => !!document.fullscreenElement);
+  assert.deepEqual(brightest(await rewritePage.locator('canvas').screenshot()), colors.cool, 'document.open reconnects fullscreen promotion');
+  await rewritePage.close();
+  await settings.locator('#whiteSofterTone').selectOption('warm');
+  await page.waitForFunction(layer => document.querySelector(layer)?.getAttribute('data-tone') === 'warm', layer);
+  const historyPage = await context.newPage();
+  await historyPage.goto('http://white-softer.test/history-a');
+  await historyPage.locator(layer + ':popover-open').waitFor();
+  await historyPage.goto('http://white-softer.test/history-b');
+  await historyPage.locator(layer + ':popover-open').waitFor();
+  await settings.locator('#whiteSofterTone').selectOption('cool');
+  await historyPage.waitForFunction(layer => document.querySelector(layer)?.getAttribute('data-tone') === 'cool', layer);
+  await historyPage.goBack({ waitUntil: 'commit' });
+  try {
+    await historyPage.waitForFunction(layer => document.querySelector(layer)?.getAttribute('data-tone') === 'cool', layer, { timeout: 5000 });
+  } catch (error) {
+    console.log('History restore diagnostic:', await historyPage.evaluate(() => ({ url: location.href, ready: document.readyState,
+      layers: [...document.querySelectorAll('[data-cosmic-gemini-white-softer]')].map(node => ({ tone: node.getAttribute('data-tone'), open: node.matches(':popover-open') })),
+      runtime: !!globalThis[Symbol.for('cosmic-gemini.white-softer.runtime')] })));
+    const worker = context.serviceWorkers()[0];
+    if (worker) console.log('Isolated restore diagnostic:', await worker.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ url: 'http://white-softer.test/history-a' });
+      if (!tab) return 'No matching tab';
+      const values = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'ISOLATED', func: () => ({
+        central: !!globalThis[Symbol.for('cosmic-gemini.central')], bridge: !!globalThis[Symbol.for('cosmic-gemini.white-softer.bridge')],
+        receipt: globalThis[Symbol.for('cosmic-gemini.page-runtime-styles')]?.whiteSofter,
+        check: !!globalThis[Symbol.for('cosmic-gemini.white-softer.prepaint-check')]
+      }) });
+      return values;
+    }));
+    throw error;
+  }
+  assert.equal(await historyPage.locator(layer + ':popover-open').count(), 1, 'history return uses the current tone and one layer');
+  await historyPage.goForward({ waitUntil: 'commit' });
+  await settings.locator('.switch:has(#whiteSofterEnabled)').click();
+  await historyPage.locator(layer).waitFor({ state: 'detached' });
+  await historyPage.goBack({ waitUntil: 'commit' });
+  await historyPage.locator(layer).waitFor({ state: 'detached' });
+  assert.deepEqual(brightest(await historyPage.locator('.white').screenshot()), [255,255,255], 'returning after disable cannot revive an older cap');
+  await historyPage.close();
+  // Tone selection is disabled with the feature; restore the saved tone through
+  // its normal command before enabling again.
+  await settings.evaluate(async () => {
+    const response = await chrome.runtime.sendMessage({ type: 'UI_SET_WHITE_SOFTER_TONE', featureId: 'whiteSofter', tone: 'warm' });
+    if (!response?.ok) throw Error(response?.error || 'Could not restore the fixture tone.');
+  });
+  await settings.locator('.switch:has(#whiteSofterEnabled)').click();
   await page.waitForFunction(layer => document.querySelector(layer)?.getAttribute('data-tone') === 'warm', layer);
   await page.evaluate(() => { const base = document.createElement('base'); base.href = 'https://unrelated.invalid/'; document.head.append(base); });
   assert.deepEqual(await screenshotColor('.white'), colors.warm, 'a page base URL must not redirect the local filter');
@@ -186,7 +250,7 @@ try {
   assert.deepEqual(await screenshotColor('.white'), [255,255,255]);
   assert.deepEqual(await screenshotColor('.text'), [255,255,255]);
   assert.deepEqual(errors, []);
-  console.log('PASS: five exact white tones, distinct near-white surfaces and borders, all 256 monotone gray levels, document-start light/dark navigation and single-layer handoff, elastic overscroll, base URL, text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
+  console.log('PASS: five exact white tones, distinct near-white surfaces and borders, all 256 monotone gray levels, document-start light/dark navigation and single-layer handoff, history return with changed tone/disabled feature, document.open reconfiguration/fullscreen, elastic overscroll, base URL, text/canvas/icons/cross-origin frame, localized choices, CSP, HTTP, input/focus, popovers/dialogs/fullscreen/inversion, persistence, Page Display popup visibility and coexistence, disabled cleanup');
 } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }
 
 // Browser-engine regressions do not need extension loading or any personal
@@ -210,6 +274,10 @@ async function checkDocumentSurfaces() {
     '/authored.css': ['text/css', 'document{display:block;background:#222;color:#eee}line{display:block}'],
     '/drawing.svg': ['image/svg+xml', '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="100"><rect width="120" height="100" fill="white"/></svg>'],
     '/text.txt': ['text/plain', 'Plain text fixture'],
+    '/data.json': ['application/json', '{"fixture":"JSON document","value":42}'],
+    '/source.js': ['application/javascript', 'const fixture = "Source text";'],
+    '/white.png': ['image/png', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAN0lEQVR4nO3RwQ0AMAjDwJT9d05HMB9+vgGCZF7bXJrT9XhgwR8gEyETIRMhEyETIRMhEyEThXzH8QM9OMM6fAAAAABJRU5ErkJggg==', 'base64')],
+    '/theme.html': ['text/html', '<!doctype html><style>:root{color-scheme:light dark;background:#fafafa}body{margin:0;height:100vh;background:white;color:#111}@media(prefers-color-scheme:dark){:root,body{background:#111;color:white}}</style><body>Theme fixture</body>'],
     '/html': ['text/html', html],
     '/frame.html': ['text/html', '<!doctype html><body style="margin:0;background:white"></body>']
   };
@@ -262,6 +330,22 @@ async function checkDocumentSurfaces() {
       await page.goto('https://white-softer.test/sitemap.xml?disabled');
       assert.equal(await page.locator('#xml-viewer-style').count(), 1, 'disabled pending prepaint still permits the native viewer');
       assert.equal(await page.locator(layer).count(), 0, 'disabled during parsing does not remount later');
+      for (const path of ['/data.json', '/source.js', '/white.png']) {
+        await page.goto('https://white-softer.test' + path);
+        await page.locator(layer + ':popover-open').waitFor({ state: 'attached', timeout: 5000 });
+        assert.equal(await page.evaluate(() => document.documentElement.namespaceURI), htmlNS, path + ': browser generates the native HTML surface');
+        await styleSurface();
+        if (path.endsWith('.png')) {
+          await page.locator('img').evaluate(image => image.decode());
+          assert.deepEqual(brightest(await page.locator('img').screenshot()), [236,235,233], 'native image viewer softens white image pixels');
+        } else assert.match(await page.locator('body').textContent(), path.endsWith('.json') ? /JSON document/ : /Source text/);
+        const capped = pixelRow(await page.screenshot(), 700)[950];
+        await page.evaluate(() => configureWhite(false));
+        const original = pixelRow(await page.screenshot(), 700)[950];
+        near(capped, original.map((value, index) => softened(value, [236,235,233][index])), path + ': native backdrop is only softened, never recolored into another appearance');
+        await page.evaluate(() => configureWhite(true));
+        assert.equal(await page.locator(layer + ':popover-open').count(), 1);
+      }
       await page.goto('https://white-softer.test/html');
       assert.equal(await page.evaluate(() => window.prepaintAtParse), true, 'HTML retains document-start softening');
       await styleSurface();
@@ -286,11 +370,26 @@ async function checkDocumentSurfaces() {
       await page.evaluate(() => { document.querySelector('#fullscreen').onclick=()=>document.querySelector('#white').requestFullscreen(); });
       await page.locator('#fullscreen').click();
       await page.waitForFunction(() => !!document.fullscreenElement);
-      await page.locator('#white > ' + layer + ':popover-open').waitFor({ state: 'attached', timeout: 5000 });
-      assert.equal(await page.locator('#white > ' + layer + ':popover-open').count(), 1, 'fullscreen reuses the same filter');
+      await page.locator('html > ' + layer + ':popover-open').waitFor({ state: 'attached', timeout: 5000 });
+      assert.equal(await page.locator('html > ' + layer + ':popover-open').count(), 1, 'fullscreen keeps the same root-mounted filter');
       assert.deepEqual(brightest(await page.locator('#white').screenshot()), [206,224,242]);
       await page.evaluate(() => document.exitFullscreen());
       await page.waitForFunction(() => !document.fullscreenElement);
+      await page.evaluate(() => {
+        const canvas = document.createElement('canvas'); canvas.id = 'full-canvas'; canvas.width = 1000; canvas.height = 720;
+        const context = canvas.getContext('2d'); context.fillStyle = 'white'; context.fillRect(0, 0, 1000, 720);
+        const image = document.createElement('img'); image.id = 'full-image'; image.src = canvas.toDataURL();
+        document.body.append(canvas, image);
+      });
+      for (const selector of ['#full-canvas', '#full-image', 'iframe']) {
+        await page.evaluate(selector => { document.querySelector('#fullscreen').onclick = () => document.querySelector(selector).requestFullscreen(); }, selector);
+        await page.locator('#fullscreen').click();
+        await page.waitForFunction(() => !!document.fullscreenElement);
+        assert.deepEqual(brightest(await page.locator(selector).screenshot()), [206,224,242], selector + ': fullscreen replaced elements remain softened');
+        assert.equal(await page.locator('html > ' + layer + ':popover-open').count(), 1);
+        await page.evaluate(() => document.exitFullscreen()); await page.waitForFunction(() => !document.fullscreenElement);
+      }
+      await page.evaluate(() => { document.querySelector('#full-canvas').remove(); document.querySelector('#full-image').remove(); });
       await page.evaluate(() => { document.documentElement.style.filter='invert(1)'; document.querySelector('#dark').style.background='black'; });
       assert.deepEqual(brightest(await page.locator('#dark').screenshot()), [206,224,242], 'filter caps pixels after a Dark Reader style inversion');
       assert.deepEqual(brightest(await page.locator('#white').screenshot()), [0,0,0]);
@@ -315,12 +414,43 @@ async function checkDocumentSurfaces() {
       await styleSurface();
       assert.equal(await page.locator(layer).count(), 1, 'root replacement reuses one filter');
       assert.deepEqual(brightest(await page.locator('#white').screenshot()), [206,224,242]);
+      await page.evaluate(layer => {
+        window.ownedWhiteLayer = document.querySelector(layer);
+        ownedWhiteLayer.remove();
+      }, layer);
+      await page.locator(layer + ':popover-open').waitFor({ state: 'attached', timeout: 5000 });
+      assert.equal(await page.locator(layer).evaluate(node => node === window.ownedWhiteLayer), true, 'direct shell removal remounts the existing layer');
+      await page.evaluate(() => { document.documentElement.innerHTML = '<head></head><body style="margin:0;background:white"><div id="white" style="width:100px;height:80px;background:white"></div></body>'; });
+      await page.locator(layer + ':popover-open').waitFor({ state: 'attached', timeout: 5000 });
+      await styleSurface();
+      assert.equal(await page.locator(layer).count(), 1, 'replacing the HTML shell retains one filter');
+      assert.deepEqual(brightest(await page.locator('#white').screenshot()), [206,224,242]);
       await page.evaluate(() => configureWhite(false));
       assert.equal(await page.locator(layer).count(), 0);
       assert.deepEqual(brightest(await page.locator('#white').screenshot()), [255,255,255]);
+      if (scheme === 'dark') {
+        await page.goto('https://white-softer.test/theme.html'); await styleSurface();
+        const appearance = () => page.evaluate(() => ({ dark: matchMedia('(prefers-color-scheme:dark)').matches,
+          scheme: getComputedStyle(document.documentElement).colorScheme,
+          root: getComputedStyle(document.documentElement).backgroundColor, body: getComputedStyle(document.body).backgroundColor,
+          rootStyle: document.documentElement.getAttribute('style'), bodyStyle: document.body.getAttribute('style') }));
+        for (const tone of Object.keys(colors)) {
+          for (const mode of ['dark', 'light', 'dark']) {
+            await page.emulateMedia({ colorScheme: mode });
+            await page.evaluate(() => configureWhite(false)); const original = await appearance();
+            await page.evaluate(tone => configureWhite(true, tone), tone);
+            assert.deepEqual(await appearance(), original, tone + ': filtering cannot alter the page theme, scheme or backgrounds');
+            assert.deepEqual(pixelRow(await page.screenshot(), 700)[950], mode === 'dark' ? [17,17,17] : colors[tone], tone + ': dark stays dark through theme transitions');
+          }
+        }
+        await page.evaluate(() => { document.documentElement.style.filter = 'invert(1)'; document.body.style.background = 'white'; });
+        assert.deepEqual(pixelRow(await page.screenshot(), 700)[950], [0,0,0], 'inverted white stays black with a transparent cap');
+        await page.evaluate(() => configureWhite(false));
+        assert.deepEqual(pixelRow(await page.screenshot(), 700)[950], [0,0,0], 'disabled cleanup also keeps the inverted dark background');
+      }
       await context.close();
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: light/dark XML native viewer, sitemap/RSS/plain-text, XHTML controls and real HTML namespace, authored XML/SVG untouched, canceled prepaint, five tones/dark pixels, focus, child frames, base URL, dialogs/popovers/fullscreen/inversion, independent cap coexistence, root replacement, disable/re-enable, no page errors');
+    console.log('PASS: light/dark XML/JSON/source/image native viewers, sitemap/RSS/plain-text, XHTML controls and real HTML namespace, authored XML/SVG untouched, canceled prepaint, five tones/dark pixels, theme transitions without scheme/style changes or dark brightening, focus, child frames, base URL, dialogs/popovers/container/canvas/image/iframe fullscreen/inversion, independent cap coexistence, root/shell replacement and layer removal, disable/re-enable, no page errors');
   } finally { await browser.close(); }
 }

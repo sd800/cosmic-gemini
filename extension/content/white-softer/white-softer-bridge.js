@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = Symbol.for('cosmic-gemini.white-softer.bridge');
-  if (globalThis[BRIDGE_KEY]) return;
+  if (globalThis[BRIDGE_KEY]) { globalThis[BRIDGE_KEY].reconnect?.(); return; }
   const READY = 'cosmic-gemini:white-softer:bridge-ready';
   const MAIN_READY = 'cosmic-gemini:white-softer:main-ready';
   const CONFIGURE = 'cosmic-gemini:white-softer:configure';
@@ -23,6 +23,7 @@
   const dispatchConfig = config => {
     if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
   };
+  const stopPrepaintCheck = () => globalThis[Symbol.for('cosmic-gemini.white-softer.prepaint-check')]?.dispose?.();
   const finishRetry = () => {
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = 0;
@@ -35,6 +36,7 @@
     disposed = true;
     configRevision += 1;
     finishRetry();
+    stopPrepaintCheck();
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
@@ -42,22 +44,27 @@
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
   const readConfig = async () => {
-    for (let attempt = 0; attempt < 4 && !disposed; attempt += 1) {
+    let failures = 0;
+    while (!disposed) {
       const revision = configRevision;
       try {
         const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'whiteSofter' });
         if (disposed) return false;
-        if (revision !== configRevision) continue;
+        if (revision !== configRevision) { if (response?.ok) failures = 0; continue; }
         const config = response?.result?.whiteSofter;
         if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
         if (!config?.active) { dispose(); return false; }
         dispatchConfig(config);
+        stopPrepaintCheck();
         return true;
       } catch {
         if (disposed) return false;
-        if (attempt < 3) await new Promise(resolve => {
+        if (revision !== configRevision) continue;
+        failures += 1;
+        if (failures >= 4) break;
+        await new Promise(resolve => {
           retryResolve = resolve;
-          retryTimer = setTimeout(finishRetry, [80, 240, 800][attempt]);
+          retryTimer = setTimeout(finishRetry, [80, 240, 800][failures - 1]);
         });
       }
     }
@@ -90,8 +97,12 @@
     return false;
   }
 
-  window.addEventListener(MAIN_READY, onMainReady, true);
+  function reconnect() {
+    if (disposed) return;
+    window.addEventListener(MAIN_READY, onMainReady, true);
+    window.dispatchEvent(new CustomEvent(READY));
+  }
   chrome.runtime.onMessage.addListener(onMessage);
-  Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose }, configurable: true });
-  window.dispatchEvent(new CustomEvent(READY));
+  Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose, reconnect }, configurable: true });
+  reconnect();
 })();

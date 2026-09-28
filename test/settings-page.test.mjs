@@ -583,3 +583,22 @@ test('White Softer uses saved preferences and retains its tone when the master i
   assert.equal(tone.value, 'cool');
   assert.equal(paletteUpdates.at(-1).enabled, false);
 });
+
+test('White Softer pending palette and subordinate availability survive unrelated Settings renders', async () => {
+  const { api, nodes, paletteUpdates } = controller();
+  const master = new Element('input'), options = new Element('fieldset'), tone = new Element('select');
+  nodes.set('#whiteSofterEnabled', master); nodes.set('#whiteSofterOptions', options); nodes.set('#whiteSofterTone', tone);
+  await api.hydrate({ preferences: { satellites: {}, whiteSofter: { enabled: true, tone: 'cool' } } });
+  api.render();
+  api.pendingControls.add(tone); tone.value = 'warm';
+  api.render();
+  assert.equal(paletteUpdates.at(-1).tone, 'warm', 'an unrelated render cannot undo the pending color');
+  api.pendingControls.add(master); master.checked = false;
+  api.render();
+  assert.equal(paletteUpdates.at(-1).enabled, false, 'pending disable keeps the palette inactive');
+  assert.equal(options.disabled, true, 'subordinate controls follow the pending master value');
+  api.pendingControls.clear(); api.render();
+  assert.equal(paletteUpdates.at(-1).tone, 'cool', 'a failed save rolls back to confirmed preferences');
+  assert.equal(paletteUpdates.at(-1).enabled, true);
+  assert.equal(options.disabled, false);
+});

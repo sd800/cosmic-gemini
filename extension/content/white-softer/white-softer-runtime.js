@@ -18,11 +18,15 @@
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.announce = this.announce.bind(this);
+    }
+    announce() {
+      // document.open() clears Window listeners without replacing this runtime.
+      // Idempotent reattachment keeps reinjection able to configure it again.
       window.addEventListener(PREFIX + 'configure', this.onConfigure, true);
       window.addEventListener(PREFIX + 'dispose', this.onDispose, true);
       window.addEventListener(PREFIX + 'bridge-ready', this.announce, true);
+      window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: this.token }));
     }
-    announce() { window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: this.token })); }
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }

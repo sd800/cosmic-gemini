@@ -7,10 +7,12 @@
       this.attribute = attribute;
       this.host = null;
       this.rootObserver = null;
+      this.observedRoot = null;
       this.pendingTone = null;
       this.mount = this.mount.bind(this);
       this.onToggle = this.onToggle.bind(this);
       this.onDocumentReady = this.onDocumentReady.bind(this);
+      this.promote = this.promote.bind(this);
     }
     enable(tone = 'warm') {
       // Inserting SVG while raw XML is parsing suppresses Chrome's native XML
@@ -51,8 +53,6 @@
         filter.append(transfer); svg.append(filter); host.append(svg);
         host.style.setProperty('--cg-white-cap-filter', `url("#${id}")`, 'important');
         this.host = host;
-        document.addEventListener('fullscreenchange', this.mount, true);
-        document.addEventListener('toggle', this.onToggle, true);
       }
       const selected = globalThis[Symbol.for('cosmic-gemini.white-tones')].get(tone);
       if (this.host.getAttribute('data-tone') !== selected.id) {
@@ -88,14 +88,26 @@
     mount() {
       if (!this.host) return;
       if (document.contentType !== 'text/html' && !this.hasHtmlSurface()) return;
-      // Observe only document-level root replacement, never page content. Keep
-      // the same filter when an HTML page replaces its <html> element.
+      // document.open() clears Document listeners; root mutation remounts and
+      // reattaches these same bound handlers without creating duplicates.
+      document.addEventListener('fullscreenchange', this.promote, true);
+      document.addEventListener('toggle', this.onToggle, true);
+      // Observe the document and direct HTML shell only, never the content tree.
+      // Repair root/shell replacement or removal of the owned surface.
       if (!this.rootObserver) {
         this.rootObserver = new MutationObserver(this.mount);
         this.rootObserver.observe(document, { childList: true });
       }
-      const target = document.fullscreenElement || document.documentElement;
+      const target = document.documentElement;
+      if (target !== this.observedRoot) {
+        this.rootObserver.disconnect();
+        this.rootObserver.observe(document, { childList: true });
+        if (target) this.rootObserver.observe(target, { childList: true });
+        this.observedRoot = target;
+      }
       if (!target) return;
+      // Children of fullscreen img/video/canvas/iframe elements are not rendered.
+      // Keep the surface on HTML and raise it above the fullscreen top layer.
       if (this.host.parentNode !== target) target.append(this.host);
       // Top-layer filtering caps final pixels, including white text and child frames,
       // without changing layout, taking focus or tinting already dark pixels.
@@ -109,6 +121,10 @@
     onToggle(event) {
       if (!this.host || event.newState !== 'open' || event.target?.hasAttribute('data-cg-white-cap')) return;
       // Independent caps must not repeatedly raise one another through toggle events.
+      this.promote();
+    }
+    promote() {
+      if (!this.host) return;
       if (this.host.matches(':popover-open')) this.host.hidePopover();
       this.mount();
     }
@@ -118,7 +134,8 @@
       document.removeEventListener('readystatechange', this.mount);
       this.rootObserver?.disconnect();
       this.rootObserver = null;
-      document.removeEventListener('fullscreenchange', this.mount, true);
+      this.observedRoot = null;
+      document.removeEventListener('fullscreenchange', this.promote, true);
       document.removeEventListener('toggle', this.onToggle, true);
       this.host?.remove();
       this.host = null;

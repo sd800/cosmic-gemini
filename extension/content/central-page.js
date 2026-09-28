@@ -7,6 +7,7 @@
   let syncQueued = false;
   let syncFailures = 0;
   let syncRetry = 0;
+  let syncGeneration = 0;
   const sendRuntimeMessage = message => {
     try {
       return Promise.resolve(chrome.runtime.sendMessage(message));
@@ -15,14 +16,16 @@
     }
   };
 
-  const synchronizeOnce = () => sendRuntimeMessage({ type: 'CG_SYNC_CENTRAL', url: location.href })
+  const synchronizeOnce = generation => sendRuntimeMessage({ type: 'CG_SYNC_CENTRAL', url: location.href })
       .then(response => {
+        if (generation !== syncGeneration) return;
         if (!response?.ok) throw new Error(response?.error || 'Central is temporarily unavailable.');
         syncFailures = 0;
         if (syncRetry) clearTimeout(syncRetry);
         syncRetry = 0;
       })
       .catch(() => {
+        if (generation !== syncGeneration) return;
         syncFailures += 1;
         if (suspended || syncFailures >= 4 || syncRetry) return;
         syncRetry = setTimeout(() => {
@@ -34,13 +37,15 @@
     if (suspended) return Promise.resolve();
     syncQueued = true;
     if (pending) return pending;
-    pending = (async () => {
-      while (syncQueued && !suspended) {
+    const generation = syncGeneration;
+    const current = (async () => {
+      while (syncQueued && !suspended && generation === syncGeneration) {
         syncQueued = false;
-        await synchronizeOnce();
+        await synchronizeOnce(generation);
       }
-    })().finally(() => { pending = null; });
-    return pending;
+    })().finally(() => { if (pending === current) pending = null; });
+    pending = current;
+    return current;
   };
   const onMessage = (message, _sender, sendResponse) => {
     if (message?.type === 'CG_PAGE_ALIVE') {
@@ -58,6 +63,9 @@
   // return, including changes made while this document could not receive messages.
   window.addEventListener('pagehide', () => {
     suspended = true; syncQueued = false;
+    // A channel frozen by BFCache may never settle in the restored context.
+    // Retire its promise; return must be able to request current policy afresh.
+    syncGeneration += 1; pending = null;
     if (syncRetry) clearTimeout(syncRetry);
     syncRetry = 0;
   });

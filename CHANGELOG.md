@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.11 — 2026-09-27
+
+- Improve White Softer fullscreen handling, configuration synchronization and resilience during document rewrites and history navigation.
+
 ## 9.11.10 — 2026-09-27
 
 - Improve White Softer compatibility with XML documents and stabilize initialization, configuration updates and page lifecycle handling.

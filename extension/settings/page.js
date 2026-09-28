@@ -234,7 +234,6 @@ function renderBehaviorList(section) {
 function render() {
   const current = state();
   if (!current) return;
-  settingsPalette?.apply((states?.preferences || states)?.whiteSofter);
   const pendingValues = [...pendingControls].map(control => ({ control, value: control.value, checked: control.checked }));
   const incognito = incognitoContext || states?.incognito === true;
   const enabled = document.querySelector('#enabled');
@@ -393,6 +392,13 @@ function render() {
     control.value = value;
     control.checked = checked;
   }
+  // Keep optimistic controls and their palette together during unrelated renders.
+  // On failure, the final render returns both to the confirmed saved preference.
+  if (whiteSofterEnabled) {
+    document.querySelector('#whiteSofterOptions').disabled = !whiteSofterEnabled.checked;
+    settingsPalette?.apply({ enabled: whiteSofterEnabled.checked,
+      tone: normalizeWhiteSofterTone(document.querySelector('#whiteSofterTone').value) });
+  } else settingsPalette?.apply((states?.preferences || states)?.whiteSofter);
   const noAutoplayAudioOptions = document.querySelector('#noAutoplayAudioOptions');
   if (noAutoplayAudioOptions) noAutoplayAudioOptions.disabled = !enabled?.checked;
   if (reduceWhitePointReduction) {

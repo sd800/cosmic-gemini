@@ -1,13 +1,13 @@
 // Isolated real-extension checks for rendered whites, including white text and page UI.
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 const { chromium } = await import(pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGHT).href);
 const colors = { 'warm-minus-1': [236,235,233], warm: [232,230,227], 'warm-plus-1': [216,214,211], 'warm-plus-2': [208,206,203], cool: [206,224,242] };
-if (process.env.WHITE_SOFTER_QA === 'documents') {
+if (['documents', 'xml', 'native'].includes(process.env.WHITE_SOFTER_QA)) {
   await checkDocumentSurfaces();
   process.exit(0);
 }
@@ -284,6 +284,10 @@ async function checkDocumentSurfaces() {
   const browser = await chromium.launch({ executablePath: process.env.PDF_VIEWER_CHROME, headless: true });
   const errors = [];
   try {
+    if (['xml', 'native'].includes(process.env.WHITE_SOFTER_QA)) {
+      await checkXmlRelatedSurfaces(browser, code, css, htmlNS, layer, fixtures);
+      return;
+    }
     for (const scheme of ['dark', 'light']) {
       const context = await browser.newContext({ colorScheme: scheme, viewport: { width: 1000, height: 720 } });
       context.on('page', page => page.on('pageerror', error => errors.push(String(error))));
@@ -453,4 +457,174 @@ async function checkDocumentSurfaces() {
     assert.deepEqual(errors, []);
     console.log('PASS: light/dark XML/JSON/source/image native viewers, sitemap/RSS/plain-text, XHTML controls and real HTML namespace, authored XML/SVG untouched, canceled prepaint, five tones/dark pixels, theme transitions without scheme/style changes or dark brightening, focus, child frames, base URL, dialogs/popovers/container/canvas/image/iframe fullscreen/inversion, independent cap coexistence, root/shell replacement and layer removal, disable/re-enable, no page errors');
   } finally { await browser.close(); }
+}
+
+async function checkXmlRelatedSurfaces(browser, code, css, htmlNS, layer, fixtures) {
+  Object.assign(fixtures, {
+    '/atom.xml': ['application/atom+xml', '<feed xmlns="http://www.w3.org/2005/Atom"><title>订阅 &amp; feed</title><entry><title>Entry</title></entry></feed>'],
+    '/rss.xml': ['application/rss+xml', '<rss version="2.0"><channel><title>RSS fixture</title></channel></rss>'],
+    '/vendor.xml': ['application/vnd.cosmic+xml', '<envelope><value>Vendor XML</value></envelope>'],
+    '/index.xml': ['application/xml', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://example.invalid/sitemap.xml</loc></sitemap></sitemapindex>'],
+    '/namespaced.xml': ['text/xml', '<s:root xmlns:s="urn:cosmic-test"><!-- comment --><s:value><![CDATA[<raw>文字 & text]]></s:value></s:root>'],
+    '/entities.xml': ['application/xml', '<!DOCTYPE root [<!ENTITY local "Local entity">]><root><value>&local;</value></root>'],
+    '/schema.xsd': ['application/xml', '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>'],
+    '/search.xml': ['application/opensearchdescription+xml', '<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><ShortName>Search fixture</ShortName></OpenSearchDescription>'],
+    '/broken.xml': ['application/xml', '<root><value>Unclosed root'],
+    '/empty.xml': ['application/xml', ''],
+    '/missing-style.xml': ['application/xml', '<?xml-stylesheet type="text/css" href="/absent.css"?><document>Missing stylesheet</document>'],
+    '/light-authored.xml': ['application/xml', '<?xml-stylesheet type="text/css" href="/light.css"?><document><line>Styled XML</line></document>'],
+    '/light.css': ['text/css', 'document{display:block;min-height:100vh;background:#fff;color:#111}line{display:block}'],
+    '/dark-authored.xml': ['application/xml', '<?xml-stylesheet type="text/css" href="/dark.css"?><document><line>Styled XML</line></document>'],
+    '/dark.css': ['text/css', 'document{display:block;min-height:100vh;background:#111;color:#eee}line{display:block}'],
+    '/foreign.svg': ['image/svg+xml', `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720"><rect width="1000" height="720" fill="#111"/><foreignObject x="0" y="0" width="100" height="100"><div xmlns="${htmlNS}" style="color:white">SVG HTML text</div></foreignObject></svg>`],
+    '/headless.xhtml': ['application/xhtml+xml', `<html xmlns="${htmlNS}"><body style="margin:0;min-height:100vh;background:#111;color:white">No head</body></html>`],
+    '/prefixed.xhtml': ['application/xhtml+xml', `<x:html xmlns:x="${htmlNS}"><x:head/><x:body style="margin:0;min-height:100vh;background:#111;color:white">Prefixed XHTML</x:body></x:html>`],
+    '/broken.xhtml': ['application/xhtml+xml', `<html xmlns="${htmlNS}"><body>Unclosed body`],
+    '/transformed.xml': ['application/xml', '<?xml-stylesheet type="text/xsl" href="/transform.xsl"?><document><line>Transformed XML</line></document>'],
+    '/transform.xsl': ['application/xml', `<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0"><xsl:template match="/"><html xmlns="${htmlNS}"><head><title>Transform fixture</title></head><body style="margin:0;min-height:100vh;background:#111;color:white"><xsl:value-of select="document/line"/></body></html></xsl:template></xsl:stylesheet>`]
+  });
+  const paths = Object.keys(fixtures).filter(path => /\.(xml|xsd|xhtml|svg)$/.test(path));
+  if (process.env.WHITE_SOFTER_QA === 'native') {
+    Object.assign(fixtures, {
+      '/robots.txt': ['text/plain', 'User-agent: *\nDisallow: /private\n<literal>中文 & text</literal>'],
+      '/style.css': ['text/css', 'body { background: white; color: black; } /* stylesheet text */'],
+      '/module.mjs': ['text/javascript', 'export const source = "Plain source; no execution";'],
+      '/unicode.json': ['application/json; charset=utf-8', '{"标题":"JSON 示例","value":null}'],
+      '/manifest.webmanifest': ['application/manifest+json', '{"name":"Synthetic manifest","start_url":"/"}'],
+      '/table.csv': ['text/csv', 'Name,Value\nFixture,42\n'],
+      '/readme.md': ['text/markdown', '# Synthetic Markdown\n\nText fixture.'],
+      '/download.bin': ['application/octet-stream', 'Synthetic binary download'],
+      '/xhtml-as-html.html': ['text/html', `<html xmlns="${htmlNS}"><body style="margin:0;min-height:100vh;background:#111;color:white">XHTML served as HTML</body></html>`]
+    });
+    paths.splice(0, paths.length, '/text.txt', '/data.json', '/source.js', '/white.png', '/html',
+      '/robots.txt', '/style.css', '/module.mjs', '/unicode.json', '/manifest.webmanifest', '/table.csv', '/readme.md', '/download.bin', '/xhtml-as-html.html');
+    const assets = resolve('test-dist/white-softer/native-assets');
+    await mkdir(assets, {recursive:true});
+    const images = spawnSync('python3', ['-c', `from PIL import Image, ImageDraw
+from pathlib import Path
+import sys
+folder=Path(sys.argv[1]); image=Image.new('RGB',(256,128),'white')
+ImageDraw.Draw(image).rectangle((128,0,255,127),fill='black')
+for suffix,fmt in [('jpg','JPEG'),('gif','GIF'),('bmp','BMP'),('webp','WEBP'),('avif','AVIF'),('ico','ICO')]:
+    path=folder/('contrast.'+suffix)
+    if not path.exists(): image.save(path,format=fmt)`, assets]);
+    assert.equal(images.status, 0, String(images.stderr));
+    for (const [suffix, mime] of [['jpg','image/jpeg'],['gif','image/gif'],['bmp','image/bmp'],['webp','image/webp'],['avif','image/avif'],['ico','image/x-icon']]) {
+      const path = '/contrast.' + suffix;
+      fixtures[path] = [mime, await readFile(join(assets, 'contrast.' + suffix))]; paths.push(path);
+    }
+    const wav = Buffer.alloc(44 + 44100);
+    wav.write('RIFF',0); wav.writeUInt32LE(wav.length-8,4); wav.write('WAVEfmt ',8);
+    wav.writeUInt32LE(16,16); wav.writeUInt16LE(1,20); wav.writeUInt16LE(1,22);
+    wav.writeUInt32LE(22050,24); wav.writeUInt32LE(44100,28); wav.writeUInt16LE(2,32); wav.writeUInt16LE(16,34);
+    wav.write('data',36); wav.writeUInt32LE(44100,40);
+    fixtures['/silence.wav'] = ['audio/wav', wav]; paths.push('/silence.wav');
+    const videoPage = await browser.newPage();
+    try {
+      for (const [suffix, mime] of [['webm','video/webm'], ['mp4','video/mp4']]) {
+        const file = join(assets, 'white.' + suffix);
+        let bytes;
+        try { bytes = await readFile(file); }
+        catch (error) {
+          if (error.code !== 'ENOENT') throw error;
+          const recorded = await videoPage.evaluate(async mime => {
+            if (!MediaRecorder.isTypeSupported(mime)) return null;
+            const canvas = document.createElement('canvas'); canvas.width=canvas.height=64;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle='white'; ctx.fillRect(0,0,64,64);
+            const stream = canvas.captureStream(10), recorder = new MediaRecorder(stream, {mimeType:mime});
+            try {
+              const chunks = [];
+              await new Promise((resolve, reject) => {
+                recorder.ondataavailable = event => chunks.push(event.data);
+                recorder.onstop = resolve; recorder.onerror = reject;
+                recorder.start(); setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 200);
+              });
+              return Array.from(new Uint8Array(await new Blob(chunks).arrayBuffer()));
+            } finally { stream.getTracks().forEach(track => track.stop()); }
+          }, mime);
+          if (!recorded) continue;
+          bytes = Buffer.from(recorded); await writeFile(file, bytes);
+        }
+        const path = '/white.' + suffix; fixtures[path] = [mime, bytes]; paths.push(path);
+      }
+    } finally { await videoPage.close(); }
+  }
+  const errors = [];
+  const opened = [];
+  const navigate = async (page, url) => {
+    let download, timer, resolveDownload;
+    const started = new Promise(resolve => { resolveDownload = resolve; });
+    const onDownload = item => { download = item; resolveDownload(item); };
+    page.on('download', onDownload);
+    try { await page.goto(url); }
+    catch (error) {
+      if (!/Download is starting|ERR_ABORTED/.test(error.message)) throw error;
+      download ||= await Promise.race([started, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(error), 5000);
+      })]);
+    } finally { clearTimeout(timer); page.off('download', onDownload); }
+    if (!download) return 'view';
+    const name = download.suggestedFilename(); await download.cancel();
+    return 'download:' + name;
+  };
+  const snapshot = page => page.evaluate(() => {
+    const root = document.documentElement, body = document.body;
+    return { type: document.contentType, name: root?.localName || null, ns: root?.namespaceURI || null,
+      viewer: !!document.querySelector('#xml-viewer-style'), error: !!document.querySelector('parsererror'),
+      text: body?.innerText ?? root?.textContent ?? '',
+      scheme: root ? getComputedStyle(root).colorScheme : null,
+      background: root ? getComputedStyle(root).backgroundColor : null,
+      bodyBackground: body ? getComputedStyle(body).backgroundColor : null,
+      rootStyle: root?.getAttribute('style') ?? null, bodyStyle: body?.getAttribute('style') ?? null };
+  });
+  for (const scheme of ['dark', 'light']) {
+    const context = await browser.newContext({ colorScheme: scheme, viewport: { width: 1000, height: 720 } });
+    try {
+      context.on('page', page => page.on('pageerror', error => errors.push(String(error))));
+      await context.route('https://white-softer.test/**', route => {
+        const fixture = fixtures[new URL(route.request().url()).pathname];
+        return route.fulfill(fixture ? { contentType: fixture[0], body: fixture[1] } : { status: 404, body: '' });
+      });
+      const original = await context.newPage(), active = await context.newPage();
+      await active.addInitScript({ content: `if (window.top === window) {\n${code}\n}` });
+      for (const path of paths) {
+        const url = 'https://white-softer.test' + path;
+        const previous = await snapshot(active);
+        const ordinaryMode = await navigate(original, url), activeMode = await navigate(active, url);
+        assert.equal(activeMode, ordinaryMode, path + ': preserve Chrome view/download decision');
+        opened.push({scheme, path, mode:ordinaryMode});
+        if (ordinaryMode !== 'view') {
+          assert.deepEqual(await snapshot(active), previous, path + ': a download does not mutate the previous document');
+          assert.equal(await active.locator(layer).count(), 0, path + ': download navigation does not leave a cap behind');
+          continue;
+        }
+        const expected = await snapshot(original);
+        assert.deepEqual(await snapshot(active), expected, scheme + path + ': preserve native/authored content, errors and theme');
+        const htmlSurface = expected.ns === htmlNS && expected.name === 'html';
+        assert.equal(await active.locator(layer).count(), htmlSurface ? 1 : 0, path + ': HTML-only mounting');
+        if (htmlSurface) await active.evaluate(({css, htmlNS}) => {
+          const style = document.createElementNS(htmlNS, 'style'); style.textContent = css; style.dataset.testWhiteStyle = '';
+          (document.head || document.documentElement).append(style);
+        }, {css, htmlNS});
+        const before = pixelRow(await original.screenshot(), 700), after = pixelRow(await active.screenshot(), 700);
+        for (let x = 0; x < before.length; x++) {
+          if (!htmlSurface) assert.deepEqual(after[x], before[x], path + ': authored non-HTML pixels untouched');
+          else assert.ok(after[x].every((value, channel) => value <= before[x][channel] + 1), scheme + path + ': backdrop never brightens');
+        }
+        await active.evaluate(() => {
+          const rt = globalThis[Symbol.for('cosmic-gemini.white-softer.runtime')];
+          rt?.onDispose({ detail: rt.token });
+          document.querySelector('[data-test-white-style]')?.remove();
+        });
+        assert.equal(await active.locator(layer).count(), 0, path + ': dispose removes owned nodes');
+        assert.deepEqual(await snapshot(active), expected, path + ': disposal preserves original content/theme');
+      }
+    } finally { await context.close(); }
+  }
+  assert.deepEqual(errors, []);
+  console.log(JSON.stringify(opened));
+  const coverage = process.env.WHITE_SOFTER_QA === 'native'
+    ? 'text/JSON/source/styles/Markdown, manifest, HTML, JPEG/PNG/GIF/BMP/WebP/AVIF/ICO, WAV/WebM/MP4 and download-only types (PDF excluded)'
+    : 'MIME variants, Atom/RSS/sitemap index, namespaces/CDATA/entities/schema, malformed/empty XML/XHTML, CSS/XSLT, missing styles, headless/prefixed XHTML and SVG foreignObject';
+  console.log(`PASS: ${paths.length} surfaces in dark/light; ${coverage}; native/authored content, theme and view/download decisions preserved, HTML-only mounting, no backdrop brightening or page errors, clean disposal`);
 }

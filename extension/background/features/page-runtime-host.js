@@ -102,7 +102,11 @@ export function createPageRuntimeHost(platform) {
       const previousStyles = preserveStyles ? await pageStyleReceipt(target, product, 'read') : null;
       const reuseStyles = Array.isArray(previousStyles)
         && JSON.stringify(previousStyles) === JSON.stringify(requestedStyles);
-      if (!reuseStyles) await removePageStyles(target, product);
+      // Disjoint mode styles can be swapped without an unstyled interval. Keep
+      // overlap/reordering on the reset path so stylesheet cascade order stays exact.
+      const swapStyles = preserveStyles && Array.isArray(previousStyles) && previousStyles.length > 0
+        && previousStyles.every(file => declaredStyleFiles(product).includes(file) && !requestedStyles.includes(file));
+      if (!reuseStyles && !swapStyles) await removePageStyles(target, product);
       await chrome.scripting.executeScript({ target, files: [product.bridge], world: 'ISOLATED', injectImmediately: true });
       await chrome.scripting.executeScript({ target, files: [...(product.runtimeDependencies || []), product.runtime], world: 'MAIN', injectImmediately: true });
       const response = await platform.sendTabMessage(
@@ -115,6 +119,7 @@ export function createPageRuntimeHost(platform) {
       }
       if (!reuseStyles) {
         await insertPageStyles(target, requestedStyles);
+        if (swapStyles) await chrome.scripting.removeCSS({ target, files: previousStyles, origin: 'USER' });
         if (preserveStyles) await pageStyleReceipt(target, product, 'write', requestedStyles);
       }
     } catch (error) {

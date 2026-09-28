@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.13 — 2026-09-27
+
+- Reduce visual flashes during configuration refresh and navigation, preserving active page effects through temporary background failures.
+- Stabilize Page Display during document rebuilds and fullscreen transitions, and preserve Native Scroll layout during refresh.
+
 ## 9.11.12 — 2026-09-27
 
 - Expand XHS image-control click and context-menu targets without changing their appearance.

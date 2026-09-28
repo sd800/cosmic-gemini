@@ -256,7 +256,8 @@ test('opted-in styles survive refresh and worker restart, but not document chang
   assert.deepEqual(calls.map(c => c[0]), ['remove', 'insert']);
   calls.length = 0;
   await host.sync(descriptor, context, true, ['content/enhanced.css']);
-  assert.deepEqual(calls.at(-1), ['insert', 'content/enhanced.css']);
+  assert.deepEqual(calls, [['insert', 'content/enhanced.css'], ['remove', 'content/standard.css']],
+    'a mode change installs the incoming stylesheet before removing the old one');
   calls.length = 0;
   await host.sync(descriptor, context, false);
   await host.sync(descriptor, context, true, ['content/enhanced.css']);
@@ -402,3 +403,86 @@ for (const [name, featureId] of [['native-scroll','nativeScroll'],['no-autoplay'
     context[Symbol.for(`cosmic-gemini.${name}.bridge`)].dispose();
   });
 }
+
+// Visual runtimes must keep the final acknowledgement pending during retries.
+for (const [name, featureId] of [['page-display', 'pageDisplay'], ['xhs-image-dark-mode', 'xhsImageDarkMode'],
+  ['leetcode-dark-mode', 'leetcodeDarkMode'], ['chinese-response-claude', 'chineseResponseClaude'],
+  ['website-knowledge-control', 'websiteKnowledgeControl']]) {
+  test(`${name} refresh preserves effects through overlapping reads, transient failure and navigation`, async () => {
+    const { readFile } = await import('node:fs/promises');
+    const window = new EventTarget(), requests = [], configs = [], timers = new Map();
+    let message, timerId = 0;
+    class CustomEvent extends Event { constructor(type, init = {}) { super(type); this.detail = init.detail; } }
+    window.addEventListener(`cosmic-gemini:${name}:configure`, event => configs.push(JSON.parse(event.detail).config));
+    const location = { href: 'https://example.com/one' }; window.location = location; window.top = window;
+    const context = createContext({ window, top: window, location, CustomEvent,
+      setTimeout(callback) { timers.set(++timerId, callback); return timerId; }, clearTimeout(id) { timers.delete(id); },
+      chrome: { runtime: { sendMessage() { return new Promise((resolve, reject) => requests.push({ resolve, reject })); },
+        onMessage: { addListener(fn) { message = fn; }, removeListener() {} } } } });
+    runInContext(await readFile(new URL(`../extension/content/${name}/${name}-bridge.js`, import.meta.url), 'utf8'), context);
+    const refresh = () => new Promise(resolve => message({ type: 'CG_REFRESH_FEATURE_CONFIG', featureId }, {}, resolve));
+    const settle = () => new Promise(resolve => setImmediate(resolve));
+    const response = active => ({ ok: true, result: { [featureId]: { active } } });
+    window.dispatchEvent(new CustomEvent(`cosmic-gemini:${name}:main-ready`, { detail: 'token' }));
+    const first = refresh(), second = refresh();
+    assert.equal(requests.length, 1, 'overlapping waiters share one current lookup');
+    requests[0].resolve(response(false)); await settle();
+    assert.equal(configs.length, 0, 'refresh invalidates the older startup answer');
+    requests[1].reject(Error('worker restarting')); await settle();
+    let completed = false; first.then(() => { completed = true; }); await settle();
+    assert.equal(completed, false, 'the host must not tear down effects before a bounded retry');
+    assert.equal(timers.size, 1); timers.values().next().value(); await settle();
+    location.href = 'https://example.com/two'; requests[2].resolve(response(false)); await settle();
+    assert.equal(configs.length, 0, 'a reply for the previous route cannot disable the new route');
+    requests[3].resolve(response(true));
+    assert.deepEqual((await Promise.all([first, second])).map(result => result.configured), [true, true]);
+    assert.equal(configs.length, 1); assert.equal(configs[0].active, true);
+    const last = refresh(); requests[4].reject(Error('restarting again')); await settle();
+    message({ type: 'CG_STOP_CENTRAL_FEATURE', featureId }, {}, () => {});
+    assert.equal((await last).configured, false); assert.equal(timers.size, 0);
+    assert.equal(context[Symbol.for(`cosmic-gemini.${name}.bridge`)], undefined);
+    requests.length = 0;
+    runInContext(await readFile(new URL(`../extension/content/${name}/${name}-bridge.js`, import.meta.url), 'utf8'), context);
+    const exhausted = refresh();
+    for (let attempt = 0; attempt < 4; attempt++) {
+      requests[attempt].reject(Error('unavailable')); await settle();
+      if (attempt < 3) { timers.values().next().value(); await settle(); }
+    }
+    assert.equal((await exhausted).configured, false, 'persistent errors stop after four genuine failures');
+    assert.equal(requests.length, 4); assert.equal(timers.size, 0);
+  });
+}
+
+test('Page Display and Native Scroll keep their actual USER styles across delayed refresh and worker restart', async () => {
+  const { createPageDisplayProduct } = await import('../extension/background/products/operations/page-display.js');
+  const contexts = new Map(), calls = []; let release, waiting;
+  globalThis.chrome = { scripting: {
+    async removeCSS({ files }) { calls.push(['remove', ...files]); },
+    async insertCSS({ files }) { calls.push(['insert', ...files]); },
+    async executeScript(details) {
+      if (!details.func) return [];
+      const id = details.target.documentIds[0];
+      if (!contexts.has(id)) contexts.set(id, createContext({}));
+      const scope = contexts.get(id); scope.args = details.args;
+      return [{ result: runInContext(`(${details.func.toString()})(...args)`, scope) }];
+    }
+  } };
+  const platform = { async sendTabMessage(_tab, message) {
+    if (message.type === 'CG_REFRESH_FEATURE_CONFIG' && waiting) { waiting(); return new Promise(resolve => { release = resolve; }); }
+    return { configured: true, disposed: true };
+  }, async setFeatureActivity() {} };
+  for (const create of [createPageDisplayProduct, createNativeScrollProduct]) {
+    let host = createPageRuntimeHost(platform); const descriptor = create(host, platform);
+    const context = { tabId: 9, frameId: 0, documentId: descriptor.id };
+    const files = descriptor.pageStyleFiles.slice(0, 1);
+    await host.sync(descriptor, context, true, files); calls.length = 0;
+    host = createPageRuntimeHost(platform);
+    const started = new Promise(resolve => { waiting = resolve; });
+    const pending = host.sync(descriptor, context, true, files); await started;
+    assert.deepEqual(calls, [], 'no unstyled frame while the refreshed configuration is pending');
+    waiting = null; release({ configured: true }); await pending;
+    assert.deepEqual(calls, [], 'unchanged USER CSS is neither removed nor duplicated');
+    await host.sync(descriptor, context, false);
+    assert.equal(calls[0][0], 'remove', 'an explicit stop still removes the styles'); calls.length = 0;
+  }
+});

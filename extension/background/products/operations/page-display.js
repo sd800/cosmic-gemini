@@ -40,6 +40,7 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
     bridge: 'content/page-display/page-display-bridge.js',
     runtime: 'content/page-display/page-display-runtime.js',
     pageStyleFiles,
+    preservePageStylesOnRefresh: true,
     awaitConfiguration: true,
     state(settings, url) { return pageDisplayState(settings, url); },
     async sync(context, settings) {

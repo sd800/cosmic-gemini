@@ -33,9 +33,11 @@ function bridgeFixture() {
 const activeResponse={ok:true,result:{leetcodeDarkMode:{active:true}}};
 test('overlapping ready and refresh requests acknowledge the same successful configuration',async()=>{
  const fixture=bridgeFixture();fixture.announce();const response=fixture.refresh();fixture.announce();
- for(const resolve of fixture.requests)resolve(activeResponse);
+ fixture.requests[0](activeResponse);await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(fixture.configs.length,0,'the explicit refresh invalidates the preceding startup read');
+ fixture.requests[1](activeResponse);
  assert.equal((await response).configured,true,'a newer ready event must not make the host remove valid styles');
- assert.equal(fixture.requests.length,1,'concurrent lookups are coalesced');
+ assert.equal(fixture.requests.length,2,'concurrent waiters share one follow-up read of the current preference');
  assert.equal(fixture.configs.filter(message=>message.config.active).length,1);
  fixture.stop();
 });

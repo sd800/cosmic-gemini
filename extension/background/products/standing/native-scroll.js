@@ -8,6 +8,7 @@ export function createNativeScrollProduct(pageRuntimeHost) {
     bridge: 'content/native-scroll/native-scroll-bridge.js',
     runtime: 'content/native-scroll/runtime.js',
     pageStyleFiles: Object.freeze([standardStylesheet, enhancedStylesheet]),
+    preservePageStylesOnRefresh: true,
     topFrameOnly: true,
     state(settings, url) { return featureState(settings, product.id, url); },
     async sync(context, settings) {

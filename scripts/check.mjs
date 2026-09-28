@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.11.12');
+assert.equal(manifest.version, '9.11.13');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -780,7 +780,7 @@ assert.match(centralPage, /cosmic-gemini\.central/);
 assert.match(centralPage, /CG_SYNC_CENTRAL/);
 assert.match(centralPage, /syncFailures/);
 assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|mailtoCapture|adMarshal|anyCopy|pageDisplay|reduceWhitePoint|greyscale|imageDownload|videoDownload|chrome\.storage/);
-for (const bridge of ['clipboard-protect/clipboard-protect-bridge.js', 'native-scroll/native-scroll-bridge.js', 'no-autoplay/no-autoplay-bridge.js', 'mailto-capture/mailto-capture-bridge.js', 'ad-marshal/ad-marshal-bridge.js', 'any-copy/any-copy-bridge.js', 'any-copy-enhanced/any-copy-enhanced-bridge.js', 'chinese-response-claude/chinese-response-claude-bridge.js']) {
+for (const bridge of ['clipboard-protect/clipboard-protect-bridge.js', 'native-scroll/native-scroll-bridge.js', 'no-autoplay/no-autoplay-bridge.js', 'mailto-capture/mailto-capture-bridge.js', 'ad-marshal/ad-marshal-bridge.js', 'any-copy/any-copy-bridge.js', 'any-copy-enhanced/any-copy-enhanced-bridge.js']) {
   const value = await source('content', bridge);
   assert.doesNotMatch(value, /chrome\.storage/);
   assert.match(value, /CG_PAGE_STATE', featureId:/);
@@ -792,6 +792,17 @@ for (const bridge of ['clipboard-protect/clipboard-protect-bridge.js', 'native-s
   assert.match(value, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/,
     `${bridge} must catch synchronous extension-context invalidation before returning a rejected promise`);
   assert.doesNotMatch(value, /void chrome\.runtime\.sendMessage/);
+}
+for (const name of ['page-display', 'xhs-image-dark-mode', 'leetcode-dark-mode', 'chinese-response-claude', 'website-knowledge-control']) {
+  const bridge = await source('content', `${name}/${name}-bridge.js`);
+  assert.doesNotMatch(bridge, /chrome\.storage/);
+  assert.match(bridge, /pendingConfig = readConfig\(\)\.finally/,
+    `${name} must share the final configuration acknowledgement, including retries.`);
+  assert.match(bridge, /revision !== configRevision \|\| requestedRoute !== route\(\)/);
+  assert.match(bridge, /failures >= 4[\s\S]*await new Promise/);
+  assert.match(bridge, /if \(disposed\) return false/);
+  assert.match(bridge, /finishRetry\(\)[\s\S]*sendResponse\(\{ disposed: true \}\)/);
+  assert.match(bridge, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/);
 }
 assert.match(centralPage, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/);
 for (const name of ['page-display/page-display-bridge.js', 'xhs-image-dark-mode/xhs-image-dark-mode-bridge.js', 'video-download/video-download-scanner.js', 'image-download/image-capture.js']) {

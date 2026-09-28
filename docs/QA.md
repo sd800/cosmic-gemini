@@ -172,3 +172,10 @@ Run `SETTINGS_QA=dropdowns node scripts/test-settings-browser.mjs` with `PDF_VIE
 - `PDF_QA=lifecycle PDF_VIEWER_PLAYWRIGHT=/path/to/playwright/index.mjs PDF_VIEWER_CHROME=/path/to/chrome node scripts/test-pdf-viewer-browser.mjs` runs only dialog reopening/Escape, modal keyboard isolation, invalid page input, and Document Preview teardown/restoration. Omitting `PDF_QA` retains the full renderer suite.
 
 Do not substitute the user's running browser profile. Keep local probe output in ignored `test-dist` with its README; do not commit machine-specific paths or captured browsing data.
+
+
+## Focused visual-refresh checks
+
+Run `node --test test/page-runtime-host.test.mjs test/page-display-runtime.test.mjs test/leetcode-dark-mode.test.mjs` for overlapping configuration reads, stale route/preference responses, bounded genuine failures, cancellation during retry, identical USER style retention, worker restart, layer removal/shell replacement, XML readiness and replaced-element fullscreen. XHS first-frame regressions can be selected with `--test-name-pattern='comment preview inherits|matching CDN preview|post fullscreen copies|unknown previews wait|cached images relocate'` on `test/xhs-image-dark-mode.test.mjs`; do not rerun unrelated conversion suites for a bridge-only change.
+
+The reusable local probe `test-dist/flash-audit/browser.mjs` (instructions in that ignored folder’s README) runs the actual Chrome USER-origin injection path in a temporary extension/profile. It holds acknowledgements, forces a transient failure, remounts after document.open/layer removal, records animation-frame style/geometry stability and verifies screenshot pixels including fullscreen. It also checks PDF first-page/zoom/navigation/theme and spreadsheet replacement in the packaged opaque readers. These checks assert current rendered states rather than treating a successful injection as proof that no flash occurred. Never connect this probe to a personal Chrome profile. It cannot control Chrome-owned new-tab/internal surfaces or a site’s original navigation animations.

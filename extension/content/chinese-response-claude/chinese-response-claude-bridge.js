@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = Symbol.for('cosmic-gemini.chinese-response-claude.bridge');
-  if (globalThis[BRIDGE_KEY]) return;
+  if (globalThis[BRIDGE_KEY]) { globalThis[BRIDGE_KEY].reconnect?.(); return; }
   const READY = 'cosmic-gemini:chinese-response-claude:bridge-ready';
   const MAIN_READY = 'cosmic-gemini:chinese-response-claude:main-ready';
   const CONFIGURE = 'cosmic-gemini:chinese-response-claude:configure';
@@ -8,9 +8,10 @@
   const ACTIVITY = 'cosmic-gemini:chinese-response-claude:activity';
   let token = '';
   let disposed = false;
-  let configFailures = 0;
   let retryTimer = 0;
-  let configRequest = 0;
+  let retryResolve = null;
+  let pendingConfig = null;
+  let configRevision = 0;
 
   const sendRuntimeMessage = message => {
     try {
@@ -23,11 +24,18 @@
   const dispatchConfig = config => {
     if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
   };
+  const finishRetry = () => {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = 0;
+    const resolve = retryResolve;
+    retryResolve = null;
+    resolve?.();
+  };
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    configRequest += 1;
-    if (retryTimer) clearTimeout(retryTimer);
+    configRevision += 1;
+    finishRetry();
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
@@ -35,34 +43,46 @@
     try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
-  const requestConfig = async () => {
-    if (disposed) return;
-    const request = ++configRequest;
-    try {
-      const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'chineseResponseClaude' });
-      if (disposed) return;
-      if (request !== configRequest) return false;
-      const config = response?.result?.chineseResponseClaude;
-      if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
-      if (!config?.active) { dispose(); return false; }
-      configFailures = 0;
-      if (retryTimer) clearTimeout(retryTimer);
-      retryTimer = 0;
-      dispatchConfig(config);
-      return true;
-    } catch {
-      if (disposed || request !== configRequest) return false;
-      configFailures += 1;
-      if (configFailures >= 4 || retryTimer) { if (configFailures >= 4) dispose(); return false; }
-      retryTimer = setTimeout(() => {
-        retryTimer = 0;
-        void requestConfig();
-      }, [80, 240, 800][configFailures - 1]);
-      return false;
+  const route = () => {
+    try { return `${window.top.location.href}\n${location.href}`; } catch { return location.href; }
+  };
+  const readConfig = async () => {
+    let failures = 0;
+    while (!disposed) {
+      const revision = configRevision, requestedRoute = route();
+      try {
+        const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'chineseResponseClaude' });
+        if (disposed) return false;
+        if (revision !== configRevision || requestedRoute !== route()) { if (response?.ok) failures = 0; continue; }
+        const config = response?.result?.chineseResponseClaude;
+        if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
+        if (!config?.active) { dispose(); return false; }
+        dispatchConfig(config);
+        return true;
+      } catch {
+        if (disposed) return false;
+        if (revision !== configRevision || requestedRoute !== route()) continue;
+        failures += 1;
+        if (failures >= 4) break;
+        await new Promise(resolve => {
+          retryResolve = resolve;
+          retryTimer = setTimeout(finishRetry, [80, 240, 800][failures - 1]);
+        });
+      }
     }
+    dispose();
+    return false;
+  };
+  const requestConfig = () => {
+    if (disposed) return Promise.resolve(false);
+    // Readiness and host refreshes overlap. All waiters must receive the final
+    // result; a transient failure must not tear down styles before retrying.
+    if (!pendingConfig) pendingConfig = readConfig().finally(() => { pendingConfig = null; });
+    return pendingConfig;
   };
   function onMainReady(event) {
     if (typeof event.detail !== 'string' || !event.detail) return;
+    if (token && token !== event.detail) configRevision += 1;
     token = event.detail;
     void requestConfig();
   }
@@ -82,15 +102,21 @@
       dispose();
       sendResponse({ disposed: true });
     } else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'chineseResponseClaude') {
+      configRevision += 1;
+      finishRetry();
       void requestConfig().then(configured => sendResponse({ configured }));
       return true;
     }
     return false;
   }
 
-  window.addEventListener(MAIN_READY, onMainReady, true);
-  window.addEventListener(ACTIVITY, onActivity, true);
+  function reconnect() {
+    if (disposed) return;
+    window.addEventListener(MAIN_READY, onMainReady, true);
+    window.addEventListener(ACTIVITY, onActivity, true);
+    window.dispatchEvent(new CustomEvent(READY));
+  }
   chrome.runtime.onMessage.addListener(onMessage);
-  Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose }, configurable: true });
-  window.dispatchEvent(new CustomEvent(READY));
+  Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose, reconnect }, configurable: true });
+  reconnect();
 })();

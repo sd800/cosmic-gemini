@@ -145,7 +145,11 @@ In a synthetic post viewer, right-click approximately 6px beyond each image butt
 
 ## White Softer
 
+`WHITE_SOFTER_QA=tabs` uses a disposable Chrome process with normal background throttling and a `noDefaults` CDP connection, avoiding Playwright focus emulation that reports all tabs as visible. It asserts actual hidden/visible transitions, keeps the same cap across repeated light/dark tab switches, mutates a background page and opens popovers on restoration, then checks compositor frames for unfiltered white pixels and unnecessary promotions. No personal profile is attached.
+
 Run the focused `test/white-softer.test.mjs` with the existing configuration and Settings tests, then `scripts/test-white-softer-browser.mjs` using `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` (plus local Python/Pillow for screenshot color checks). The isolated HTTP fixture uses restrictive CSP and a cross-origin frame. Check exact RGB on backgrounds, white glyphs, Canvas and icons for all five tones; black/mid-grey retention; distinct near-white panels and borders across all tones, with monotone gray ramps; document-start filter presence before page scripts on new light and dark documents, single-layer runtime handoff and stale-registration cleanup; input/focus; native dialogs, popovers and fullscreen; ancestor inversion; localized Settings persistence; and independent Page Display cleanup. Synthetic artifacts belong in `test-dist/white-softer/`.
+
+Use `WHITE_SOFTER_QA=scroll` for focused long-page regressions. It loads the actual extension in a disposable 2× Chrome profile and captures compositor frames through light/dark page scrolling, internal scrolling, dynamic details, popovers and a modal opening. No frame may expose unfiltered white pixels, ordinary disclosures must not rebuild the cap, and each actual opening needs only one promotion. The unit fixture also covers canceled/non-modal openings, coalesced bursts, independent caps and disposal while a promotion is queued.
 
 The real-extension fixture uses Chrome's `Extensions.loadUnpacked` debugging loader with extension debugging enabled only in a disposable profile, because newer installed Chrome versions ignore `--load-extension`. It must never attach this debugger to the user's running browser or reload their extension. The profile is removed after the check.
 

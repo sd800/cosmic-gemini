@@ -4,11 +4,19 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 const { chromium } = await import(pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGHT).href);
 const colors = { 'warm-minus-1': [236,235,233], warm: [232,230,227], 'warm-plus-1': [216,214,211], 'warm-plus-2': [208,206,203], cool: [206,224,242] };
 if (['documents', 'xml', 'native'].includes(process.env.WHITE_SOFTER_QA)) {
   await checkDocumentSurfaces();
+  process.exit(0);
+}
+if (process.env.WHITE_SOFTER_QA === 'scroll') {
+  await checkScrollingSurfaces();
+  process.exit(0);
+}
+if (process.env.WHITE_SOFTER_QA === 'tabs') {
+  await checkTabSwitching();
   process.exit(0);
 }
 const folder = await mkdtemp(join(tmpdir(), 'cg-white-softer-'));
@@ -627,4 +635,191 @@ for suffix,fmt in [('jpg','JPEG'),('gif','GIF'),('bmp','BMP'),('webp','WEBP'),('
     ? 'text/JSON/source/styles/Markdown, manifest, HTML, JPEG/PNG/GIF/BMP/WebP/AVIF/ICO, WAV/WebM/MP4 and download-only types (PDF excluded)'
     : 'MIME variants, Atom/RSS/sitemap index, namespaces/CDATA/entities/schema, malformed/empty XML/XHTML, CSS/XSLT, missing styles, headless/prefixed XHTML and SVG foreignObject';
   console.log(`PASS: ${paths.length} surfaces in dark/light; ${coverage}; native/authored content, theme and view/download decisions preserved, HTML-only mounting, no backdrop brightening or page errors, clean disposal`);
+}
+
+// Capture actual compositor frames while a long page changes, rather than only
+// taking a settled screenshot that would miss one-frame unfiltered popovers.
+async function checkScrollingSurfaces() {
+  const folder = await mkdtemp(join(tmpdir(), 'cg-white-scroll-'));
+  const artifacts = resolve('test-dist/white-softer');
+  await mkdir(artifacts, { recursive: true });
+  const context = await chromium.launchPersistentContext(join(folder, 'profile'), {
+    executablePath: process.env.PDF_VIEWER_CHROME, headless: true,
+    viewport: { width: 1000, height: 720 }, deviceScaleFactor: 2,
+    ignoreDefaultArgs: ['--disable-extensions'], args: ['--enable-unsafe-extension-debugging']
+  });
+  const errors = [], results = [];
+  try {
+    context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
+    await context.route('https://white-scroll.test/**', route => {
+      const mode = new URL(route.request().url()).pathname.slice(1);
+      const nested = mode === 'nested', dark = mode === 'dark';
+      return route.fulfill({ contentType: 'text/html', body: `<!doctype html><style>
+        html,body{margin:0;background:${dark ? '#111' : '#fff'};color:${dark ? '#fff' : '#111'};font:18px Arial}
+        .page{height:${nested ? '100vh' : 'auto'};overflow:${nested ? 'auto' : 'visible'}}
+        section{height:700px;border:1px solid #aaa;contain:content}section:nth-child(2n){background:#111;color:white}
+        header{position:sticky;top:0;background:inherit;padding:16px}.composer{position:fixed;bottom:0;left:0;width:100%;background:inherit;height:50px}
+        #popup{position:fixed;left:500px;top:200px;margin:0;background:white;color:black;width:300px;height:180px}
+        </style><div class="page"><header>Long page</header><main>${Array.from({length:45}, (_,i) => '<section>Content '+i+'<details><summary>Details</summary>Expanded content</details></section>').join('')}</main></div>
+        <div class="composer"><input aria-label="Composer"></div><div id="popup" popover="manual">Popover</div><dialog>Modal dialog</dialog>` });
+    });
+    const loader = await context.browser().newBrowserCDPSession();
+    const { id } = await loader.send('Extensions.loadUnpacked', { path: resolve('extension') });
+    const settings = await context.newPage(); await settings.goto(`chrome-extension://${id}/settings/satellites.html`);
+    await settings.locator('#whiteSofterEnabled').check();
+    const page = await context.newPage();
+    for (const mode of ['light', 'dark', 'nested']) {
+      await page.goto('https://white-scroll.test/' + mode);
+      await page.locator('[data-cosmic-gemini-white-softer]:popover-open').waitFor();
+      await page.evaluate(mode => {
+        const cap = document.querySelector('[data-cosmic-gemini-white-softer]'), hide = cap.hidePopover;
+        window.scrollStats = { hides: 0, opens: 0, closedFrames: 0, events: 0, samples: 0 };
+        cap.hidePopover = function (...args) { scrollStats.hides += 1; return Reflect.apply(hide, this, args); };
+        const area = mode === 'nested' ? document.querySelector('.page') : window;
+        area.addEventListener('scroll', () => {
+          scrollStats.events += 1;
+          const details = document.querySelector('details:not([open])'); if (details) details.open = true;
+          if (scrollStats.events % 10 === 0) {
+            scrollStats.opens += 1; document.querySelector('#popup').showPopover();
+            setTimeout(() => document.querySelector('#popup').hidePopover(), 60);
+          }
+        }, { passive: true });
+        window.recordScrollFrames = true;
+        const sample = () => {
+          if (!recordScrollFrames) return;
+          scrollStats.samples += 1; if (!cap.matches(':popover-open')) scrollStats.closedFrames += 1;
+          requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      }, mode);
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const cdp = await context.newCDPSession(page), frames = [];
+      cdp.on('Page.screencastFrame', ({ sessionId, data }) => {
+        void cdp.send('Page.screencastFrameAck', { sessionId });
+        if (frames.length < 180) frames.push(data);
+      });
+      await cdp.send('Page.startScreencast', { format: 'png', maxWidth: 1000, maxHeight: 720, everyNthFrame: 1 });
+      await cdp.send('Input.synthesizeScrollGesture', { x: 800, y: 400, yDistance: -6500, speed: 2600, gestureSourceType: 'mouse', preventFling: false });
+      await page.waitForTimeout(100);
+      // Keep recording through the modal's first paint too, not just a settled
+      // screenshot after its later toggle task has run.
+      await page.evaluate(() => { scrollStats.opens += 1; document.querySelector('dialog').showModal(); });
+      await page.waitForTimeout(60);
+      assert.deepEqual(brightest(await page.locator('dialog').screenshot()), colors['warm-minus-1']);
+      await page.evaluate(() => document.querySelector('dialog').close());
+      await cdp.send('Page.stopScreencast'); await cdp.detach();
+      const stats = await page.evaluate(mode => {
+        recordScrollFrames = false;
+        return { ...scrollStats, y: mode === 'nested' ? document.querySelector('.page').scrollTop : scrollY };
+      }, mode);
+      const check = spawnSync('python3', ['-c', 'from PIL import Image\nimport io,sys,json,base64\nframes=json.load(sys.stdin)\nbad=[]\nfor n,data in enumerate(frames):\n im=Image.open(io.BytesIO(base64.b64decode(data))).convert("RGB")\n if any(maximum>cap+1 for (_,maximum),cap in zip(im.getextrema(),[236,235,233])):bad.append(n)\nprint(json.dumps(bad))'], { input: JSON.stringify(frames), encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      assert.equal(check.status, 0, check.stderr); const bad = JSON.parse(check.stdout);
+      if (bad.length) await writeFile(join(artifacts, `scroll-${mode}-flash.png`), Buffer.from(frames[bad[0]], 'base64'));
+      assert.ok(frames.length > 20 && stats.y > 6000, mode + ': capture a real long scroll');
+      assert.ok(stats.opens > 3, mode + ': open floating layers during scrolling');
+      assert.equal(bad.length, 0, mode + ': no unfiltered white frame');
+      assert.equal(stats.closedFrames, 0, mode + ': keep the same cap open');
+      assert.equal(stats.hides, stats.opens, mode + ': disclosures must not rebuild the cap, and a popup has one promotion');
+      results.push({ mode, frames: frames.length, ...stats, unfilteredFrames: bad.length });
+    }
+    assert.deepEqual(errors, []);
+    await writeFile(join(artifacts, 'scroll-results.json'), JSON.stringify(results, null, 2) + '\n');
+    console.log('PASS: real extension, light/dark/nested long-page scrolling at 2×; every captured frame softened, no disclosure rebuilds or duplicate popup promotion; modal first-paint colors; no page errors.');
+  } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }
+}
+
+// Playwright's normal focus emulation makes every tab appear visible. Connect
+// without those overrides so the regression exercises real hidden/visible tabs.
+async function checkTabSwitching() {
+  const folder = await mkdtemp(join(tmpdir(), 'cg-white-tabs-'));
+  const artifacts = resolve('test-dist/white-softer');
+  const profile = join(folder, 'profile');
+  await mkdir(profile); await mkdir(artifacts, { recursive: true });
+  const chromeProcess = spawn(process.env.PDF_VIEWER_CHROME, [
+    '--user-data-dir=' + profile, '--remote-debugging-port=0', '--headless=new',
+    '--window-size=1000,850', '--enable-unsafe-extension-debugging', '--no-first-run', '--no-default-browser-check'
+  ], { stdio: 'ignore' });
+  const exited = new Promise(resolve => { chromeProcess.once('exit', resolve); chromeProcess.once('error', resolve); });
+  let browser, loader;
+  const errors = [], results = [];
+  try {
+    let endpoint;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        const [port] = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n');
+        endpoint = 'http://127.0.0.1:' + port; break;
+      } catch { await new Promise(resolve => setTimeout(resolve, 100)); }
+    }
+    assert.ok(endpoint, 'temporary Chrome debugging endpoint');
+    browser = await chromium.connectOverCDP(endpoint, { noDefaults: true });
+    const context = browser.contexts()[0];
+    context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
+    await context.route('https://white-tabs.test/**', route => {
+      const dark = new URL(route.request().url()).pathname === '/dark';
+      return route.fulfill({ contentType: 'text/html', body: `<!doctype html><style>
+        html,body{margin:0;background:${dark ? '#111' : '#fff'};color:${dark ? '#fff' : '#111'};scrollbar-width:none}
+        main{height:50000px}aside{background:#111;color:white;height:150px;position:fixed;bottom:0;width:100%}
+        #popup{background:white;color:black;position:fixed;right:20px;top:180px;margin:0;width:260px;height:150px}
+        </style><main>Long page<details><summary>Details</summary>Expanded</details></main><aside>White text</aside><div id="popup" popover="manual">Popover</div>` });
+    });
+    loader = await browser.newBrowserCDPSession();
+    const { id } = await loader.send('Extensions.loadUnpacked', { path: resolve('extension') });
+    const settings = await context.newPage(); await settings.goto(`chrome-extension://${id}/settings/satellites.html`);
+    await settings.locator('#whiteSofterEnabled').check();
+    const page = await context.newPage(), other = await context.newPage();
+    await other.goto('https://white-tabs.test/other');
+    for (const mode of ['light', 'dark']) {
+      await page.goto('https://white-tabs.test/' + mode);
+      await page.locator('[data-cosmic-gemini-white-softer]:popover-open').waitFor();
+      await page.evaluate(() => {
+        const cap = document.querySelector('[data-cosmic-gemini-white-softer]'), hide = cap.hidePopover;
+        window.tabStats = { hides: 0, opens: 0, resumed: 0, sameCap: true };
+        window.resumePopup = false;
+        cap.hidePopover = function (...args) { tabStats.hides += 1; return Reflect.apply(hide, this, args); };
+        document.addEventListener('visibilitychange', () => {
+          const popup = document.querySelector('#popup');
+          if (document.hidden) { popup.hidePopover(); return; }
+          tabStats.resumed += 1;
+          tabStats.sameCap &&= document.querySelector('[data-cosmic-gemini-white-softer]') === cap;
+          document.querySelector('details').open = true;
+          if (resumePopup) { tabStats.opens += 1; popup.showPopover(); }
+        });
+      });
+      const cdp = await context.newCDPSession(page), frames = [];
+      cdp.on('Page.screencastFrame', ({ sessionId, data }) => {
+        void cdp.send('Page.screencastFrameAck', { sessionId });
+        if (frames.length < 180) frames.push(data);
+      });
+      await cdp.send('Page.startScreencast', { format: 'png', everyNthFrame: 1 });
+      for (let cycle = 0; cycle < 12; cycle += 1) {
+        await other.bringToFront();
+        assert.equal(await page.evaluate(() => document.visibilityState), 'hidden', 'actually background the tab');
+        await page.evaluate(cycle => {
+          scrollTo(0, cycle * 800); resumePopup = cycle % 3 === 2;
+          document.querySelector('details').open = false;
+          if (cycle % 3 === 1) { tabStats.opens += 1; document.querySelector('#popup').showPopover(); }
+        }, cycle);
+        await page.waitForTimeout(120); await page.bringToFront();
+        assert.equal(await page.evaluate(() => document.visibilityState), 'visible', 'actually restore the tab');
+        await page.waitForTimeout(70);
+      }
+      await cdp.send('Page.stopScreencast'); await cdp.detach();
+      const stats = await page.evaluate(() => tabStats);
+      const check = spawnSync('python3', ['-c', 'from PIL import Image\nimport io,sys,json,base64\nbad=[]\nfor n,data in enumerate(json.load(sys.stdin)):\n im=Image.open(io.BytesIO(base64.b64decode(data))).convert("RGB")\n if any(b>c+1 for (_,b),c in zip(im.getextrema(),[236,235,233])):bad.append(n)\nprint(json.dumps(bad))'], { input: JSON.stringify(frames), encoding: 'utf8' });
+      assert.equal(check.status, 0, check.stderr); const bad = JSON.parse(check.stdout);
+      if (bad.length) await writeFile(join(artifacts, `tabs-${mode}-flash.png`), Buffer.from(frames[bad[0]], 'base64'));
+      assert.ok(frames.length >= 10 && stats.resumed >= 12 && stats.sameCap, mode + ': cover repeated real tab restoration');
+      assert.equal(bad.length, 0, mode + ': no unfiltered return frame');
+      assert.equal(stats.hides, stats.opens, mode + ': tab changes and disclosures do not rebuild the cap');
+      results.push({ mode, frames: frames.length, ...stats, unfilteredFrames: bad.length });
+    }
+    assert.deepEqual(errors, []);
+    await writeFile(join(artifacts, 'tabs-results.json'), JSON.stringify(results, null, 2) + '\n');
+    console.log('PASS: real hidden/visible tabs in light/dark pages, stable layer during plain return, background mutations and resume popovers; no unfiltered frames, redundant rebuilds or page errors.');
+  } finally {
+    await loader?.send('Browser.close').catch(() => {});
+    await browser?.close().catch(() => {});
+    if (chromeProcess.exitCode === null) chromeProcess.kill();
+    await exited; await rm(folder, { recursive: true, force: true });
+  }
 }

@@ -240,6 +240,79 @@ test('XML waits for the native viewer, retains the latest tone and cancels defer
   assert.equal(layer.rootObserver, null);
 });
 
+test('white caps ignore disclosures and coalesce actual top-layer openings before paint', () => {
+  const microtasks = [], listeners = new Map();
+  class Element {
+    constructor(name = 'div') {
+      this.name = name; this.attributes = new Map(); this.children = [];
+      this.style = { setProperty() {} }; this.open = false; this.modal = false; this.hides = 0;
+    }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    getAttribute(name) { return this.attributes.get(name) ?? null; }
+    hasAttribute(name) { return this.attributes.has(name); }
+    append(child) { this.children.push(child); child.parentNode = this; }
+    matches(selector) {
+      if (selector === '[popover], dialog') return this.hasAttribute('popover') || this.name === 'dialog';
+      if (selector === ':popover-open, :modal') return (this.hasAttribute('popover') && this.open) || this.modal;
+      return selector === ':popover-open' && this.open;
+    }
+    showPopover() { this.open = true; }
+    hidePopover() { this.open = false; this.hides += 1; }
+    remove() { this.parentNode = null; }
+  }
+  const root = new Element('html');
+  const context = vm.createContext({ Symbol, Math, Number, Array,
+    queueMicrotask(callback) { microtasks.push(callback); },
+    document: { contentType: 'text/html', documentElement: root,
+      createElementNS: (_ns, name) => new Element(name),
+      addEventListener(type, listener) { listeners.set(type, listener); },
+      removeEventListener(type, listener) { if (listeners.get(type) === listener) listeners.delete(type); } },
+    MutationObserver: class { observe() {} disconnect() {} }
+  });
+  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js']) {
+    vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);
+  }
+  const Layer = context[Symbol.for('cosmic-gemini.white-cap-layer')];
+  const layer = new Layer('data-test-white-cap'); layer.enable('warm');
+  const host = layer.host;
+  const disclosure = new Element('details'); disclosure.open = true;
+  const opened = target => ({ target, newState: 'open' });
+  layer.onBeforeToggle(opened(disclosure)); layer.onToggle(opened(disclosure));
+  layer.onToggle({ target: {}, newState: 'open' });
+  assert.equal(host.hides, 0); assert.equal(microtasks.length, 0);
+
+  const popup = new Element(); popup.setAttribute('popover', 'manual');
+  layer.onBeforeToggle(opened(popup)); popup.open = true;
+  assert.equal(host.hides, 0, 'wait for the target to enter the top layer');
+  microtasks.shift()();
+  assert.equal(host.hides, 1, 'raise once before rendering, without replacing the surface');
+  layer.onToggle(opened(popup));
+  assert.equal(host.hides, 1, 'the later toggle task must not raise it again');
+  const dialog = new Element('dialog');
+  layer.onBeforeToggle(opened(popup));
+  layer.onBeforeToggle(opened(dialog)); dialog.open = true; dialog.modal = true;
+  assert.equal(microtasks.length, 1, 'a burst has one queued promotion');
+  dialog.modal = false; // A closed last target must not obscure the earlier open popup.
+  microtasks.shift()();
+  assert.equal(host.hides, 2);
+  layer.onToggle(opened(popup)); layer.onToggle({ target: dialog, newState: 'closed' });
+  const cancelled = new Element(); cancelled.setAttribute('popover', 'manual');
+  layer.onBeforeToggle(opened(cancelled)); microtasks.shift()();
+  layer.onBeforeToggle(opened(dialog)); microtasks.shift()();
+  assert.equal(host.hides, 2, 'cancelled openings and non-modal dialogs need no promotion');
+  const sibling = new Element(); sibling.setAttribute('popover', 'manual'); sibling.setAttribute('data-cg-white-cap', ''); sibling.open = true;
+  layer.onBeforeToggle(opened(sibling)); layer.onToggle(opened(sibling));
+  assert.equal(microtasks.length, 0, 'independent caps do not promote one another');
+  layer.onBeforeToggle(opened(popup)); layer.disable(); layer.enable('cool');
+  const replacement = layer.host;
+  layer.onBeforeToggle(opened(popup));
+  microtasks.shift()();
+  assert.equal(layer.host, replacement); assert.equal(replacement.hides, 0, 'a retired opening cannot touch the new surface');
+  microtasks.shift()(); assert.equal(replacement.hides, 1);
+  layer.disable();
+  assert.equal(listeners.has('beforetoggle'), false); assert.equal(listeners.has('toggle'), false);
+});
+
 function whiteBridgeFixture() {
   const window = new EventTarget(), requests = [], configs = [], timers = new Map();
   let messageListener, timerId = 0;

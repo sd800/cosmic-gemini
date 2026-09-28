@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.16 — 2026-09-28
+
+- Reduce White Softer flashes during long-page scrolling, tab switching and dynamic content updates, avoiding unnecessary layer rebuilds and softening floating content before its first paint.
+
 ## 9.11.15 — 2026-09-28
 
 - Restore Native Scroll protection when websites register scrolling handlers before activation, while preserving native controls and gesture behavior.

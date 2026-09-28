@@ -9,7 +9,10 @@
       this.rootObserver = null;
       this.observedRoot = null;
       this.pendingTone = null;
+      this.pendingPromotion = null;
+      this.beforeToggleTargets = new WeakSet();
       this.mount = this.mount.bind(this);
+      this.onBeforeToggle = this.onBeforeToggle.bind(this);
       this.onToggle = this.onToggle.bind(this);
       this.onDocumentReady = this.onDocumentReady.bind(this);
       this.promote = this.promote.bind(this);
@@ -91,6 +94,7 @@
       // document.open() clears Document listeners; root mutation remounts and
       // reattaches these same bound handlers without creating duplicates.
       document.addEventListener('fullscreenchange', this.promote, true);
+      document.addEventListener('beforetoggle', this.onBeforeToggle, true);
       document.addEventListener('toggle', this.onToggle, true);
       // Observe the document and direct HTML shell only, never the content tree.
       // Repair root/shell replacement or removal of the owned surface.
@@ -118,9 +122,41 @@
         }
       }
     }
+    isOpenTopLayer(target) {
+      try { return target?.matches(':popover-open, :modal') === true; }
+      catch { return false; }
+    }
+    onBeforeToggle(event) {
+      const target = event.target;
+      if (!this.host || event.newState !== 'open' || target?.hasAttribute?.('data-cg-white-cap')) return;
+      // Details and non-modal disclosure widgets also emit toggle events. They
+      // are ordinary page content and must never rebuild the composited cap.
+      try { if (!target?.matches('[popover], dialog')) return; }
+      catch { return; }
+      this.beforeToggleTargets.add(target);
+      if (this.pendingPromotion?.host === this.host) {
+        this.pendingPromotion.alreadyOpen ||= this.isOpenTopLayer(this.pendingPromotion.target);
+        this.pendingPromotion.target = target;
+        return;
+      }
+      const pending = { host: this.host, target, alreadyOpen: false };
+      this.pendingPromotion = pending;
+      // beforetoggle runs before the target enters the top layer. Raise our
+      // existing surface after showPopover/showModal returns, but before paint;
+      // the later toggle task can otherwise expose an unfiltered white frame.
+      queueMicrotask(() => {
+        if (this.pendingPromotion !== pending) return;
+        this.pendingPromotion = null;
+        if (this.host === pending.host && (pending.alreadyOpen || this.isOpenTopLayer(pending.target))) this.promote();
+      });
+    }
     onToggle(event) {
-      if (!this.host || event.newState !== 'open' || event.target?.hasAttribute('data-cg-white-cap')) return;
-      // Independent caps must not repeatedly raise one another through toggle events.
+      const target = event.target;
+      if (!this.host || target?.hasAttribute?.('data-cg-white-cap')) return;
+      const handledBeforePaint = this.beforeToggleTargets.delete(target);
+      if (event.newState !== 'open' || handledBeforePaint || !this.isOpenTopLayer(target)) return;
+      // Fallback for engines that do not send beforetoggle for native dialogs.
+      // Independent caps must not repeatedly raise one another through events.
       this.promote();
     }
     promote() {
@@ -130,12 +166,15 @@
     }
     disable() {
       this.pendingTone = null;
+      this.pendingPromotion = null;
+      this.beforeToggleTargets = new WeakSet();
       document.removeEventListener('readystatechange', this.onDocumentReady);
       document.removeEventListener('readystatechange', this.mount);
       this.rootObserver?.disconnect();
       this.rootObserver = null;
       this.observedRoot = null;
       document.removeEventListener('fullscreenchange', this.promote, true);
+      document.removeEventListener('beforetoggle', this.onBeforeToggle, true);
       document.removeEventListener('toggle', this.onToggle, true);
       this.host?.remove();
       this.host = null;

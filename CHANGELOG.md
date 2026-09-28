@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.18 — 2026-09-28
+
+- Improve Native Scroll compatibility with page-wide smooth-scroll handlers, preserving browser horizontal gestures, linked content and local scrolling controls.
+
 ## 9.11.17 — 2026-09-28
 
 - Prevent repeated page notifications from unnecessarily rebuilding White Softer's color layer, while preserving native floating content and fullscreen behavior.

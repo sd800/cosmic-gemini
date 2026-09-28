@@ -20,12 +20,13 @@
   }
 
   const SAFE_SELECTOR = [
-    'input', 'textarea', 'select', 'button', 'a[href]', 'summary',
+    'input', 'textarea', 'select', 'button', 'summary',
     '[contenteditable="true"]', '[role="application"]', '[role="slider"]',
     '[role="dialog"]', '[aria-modal="true"]', 'iframe', 'canvas', 'video', 'audio',
     '.monaco-editor', '.CodeMirror', '.mapboxgl-map', '.leaflet-container',
     '[data-native-scroll-allow]'
   ].join(',');
+  const SCROLL_API_SAFE_SELECTOR = SAFE_SELECTOR + ',a[href]';
   const PATCH_FLAG = Symbol('native-scroll-patched');
 
   class NativeScrollRuntime {
@@ -109,7 +110,7 @@
       if (!this.originalMethods.length) {
         this.patchScrollMethods();
         this.patchWheelCancellation();
-        this.patchRootScrollTop();
+        this.patchRootScrollPositions();
       }
       this.originalAddEventListener.call(window, 'wheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'mousewheel', this.onWheel, { capture: true, passive: true });
@@ -361,19 +362,27 @@
       const deltaX = Number(event.deltaX ?? -(event.wheelDeltaX || 0));
       const deltaY = Number(event.deltaY ?? -(event.wheelDeltaY || event.wheelDelta || 0));
       if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return false;
-      if (Math.abs(deltaY) < 0.5 || Math.abs(deltaX) > Math.abs(deltaY)) return false;
+      const horizontal = Math.abs(deltaX) > Math.abs(deltaY);
+      if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 0.5) return false;
       if (this.isSafeEvent(event)) return false;
-      if (this.mode === 'standard' && this.hasScrollableAncestor(event, deltaY)) return false;
+      // A page-wide smooth-scroll handler must not consume browser history
+      // gestures. Local horizontal scrollers retain their own wheel behavior
+      // in both modes, including at their edges and in RTL layouts.
+      if (horizontal && this.hasScrollableAncestor(event, deltaX, 'x')) return false;
+      if (!horizontal && this.mode === 'standard' && this.hasScrollableAncestor(event, deltaY)) return false;
       return true;
     }
 
     isSafeEvent(event) {
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
-      return path.some(node => node instanceof Element && this.isSafeElement(node));
+      return path.some(node => node instanceof Element && this.isSafeElement(node, false));
     }
 
-    isSafeElement(element) {
-      try { return element.matches(SAFE_SELECTOR) || !!element.closest(SAFE_SELECTOR); }
+    isSafeElement(element, includeLinks = true) {
+      // Links are ordinary wheel surfaces, but retain their explicit scripted
+      // scrollIntoView behavior and remain excluded from layout normalization.
+      const selector = includeLinks ? SCROLL_API_SAFE_SELECTOR : SAFE_SELECTOR;
+      try { return element.matches(selector) || !!element.closest(selector); }
       catch { return false; }
     }
 
@@ -385,15 +394,19 @@
       return this.isXhsHost();
     }
 
-    hasScrollableAncestor(event, deltaY) {
+    hasScrollableAncestor(event, delta, axis = 'y') {
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
       for (const node of path) {
         if (!(node instanceof Element) || node === document.body || node === document.documentElement) continue;
         const style = getComputedStyle(node);
+        if (axis === 'x') {
+          if (/(auto|scroll|overlay)/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1) return true;
+          continue;
+        }
         if (!/(auto|scroll|overlay)/.test(style.overflowY)) continue;
         if (node.scrollHeight <= node.clientHeight + 1) continue;
-        if (deltaY < 0 && node.scrollTop > 0) return true;
-        if (deltaY > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) return true;
+        if (delta < 0 && node.scrollTop > 0) return true;
+        if (delta > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) return true;
       }
       return false;
     }
@@ -457,23 +470,25 @@
       } catch {}
     }
 
-    patchRootScrollTop() {
+    patchRootScrollPositions() {
       const owner = Element.prototype;
-      const descriptor = Object.getOwnPropertyDescriptor(owner, 'scrollTop');
-      if (!descriptor?.configurable || typeof descriptor.set !== 'function') return;
       const runtime = this;
-      function guardedTop(value) {
-        if ((this === document.documentElement || this === document.body)
-          && runtime.shouldBlockScriptedScroll(this, 'scrollTop', [value])) {
-          runtime.reportSuppression();
-          return;
+      for (const name of ['scrollTop', 'scrollLeft']) {
+        const descriptor = Object.getOwnPropertyDescriptor(owner, name);
+        if (!descriptor?.configurable || typeof descriptor.set !== 'function') continue;
+        function guardedPosition(value) {
+          if ((this === document.documentElement || this === document.body)
+            && runtime.shouldBlockScriptedScroll(this, name, [value])) {
+            runtime.reportSuppression();
+            return;
+          }
+          return Reflect.apply(descriptor.set, this, [value]);
         }
-        return Reflect.apply(descriptor.set, this, [value]);
+        try {
+          Object.defineProperty(owner, name, { ...descriptor, set: guardedPosition });
+          this.originalProperties.push([owner, name, descriptor, guardedPosition]);
+        } catch {}
       }
-      try {
-        Object.defineProperty(owner, 'scrollTop', { ...descriptor, set: guardedTop });
-        this.originalProperties.push([owner, 'scrollTop', descriptor, guardedTop]);
-      } catch {}
     }
 
     restoreScrollMethods() {

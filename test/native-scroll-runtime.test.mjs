@@ -41,7 +41,10 @@ class FakeElement extends SimpleEventTarget {
     this.isConnected = true;
     this.scrollHeight = 1000;
     this.clientHeight = 800;
+    this.scrollWidth = 800;
+    this.clientWidth = 800;
     this.scrollTop = 0;
+    this.scrollLeft = 0;
   }
   append(child) { child.isConnected = true; this.children.push(child); }
   remove() { this.isConnected = false; }
@@ -55,6 +58,8 @@ class FakeElement extends SimpleEventTarget {
   scrollIntoView() {}
   get scrollTop() { return this.savedScrollTop || 0; }
   set scrollTop(value) { this.savedScrollTop = value; }
+  get scrollLeft() { return this.savedScrollLeft || 0; }
+  set scrollLeft(value) { this.savedScrollLeft = value; }
 }
 
 class FakeMutationObserver { observe() {} disconnect() {} }
@@ -136,7 +141,7 @@ test('late activation preserves native wheel scrolling and rejects queued root t
   assert.equal(inactiveEvent.defaultPrevented, true);
 });
 
-test('wheel cancellation fallback preserves controls, zoom, horizontal and nested gestures', async () => {
+test('wheel cancellation fallback preserves controls, zoom and nested gestures', async () => {
   const context = makeContext();
   vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
@@ -150,7 +155,6 @@ test('wheel cancellation fallback preserves controls, zoom, horizontal and neste
     Object.assign(wheelEvent(context), { type: 'click' }),
     Object.assign(wheelEvent(context), { ctrlKey: true }),
     Object.assign(wheelEvent(context), { metaKey: true }),
-    Object.assign(wheelEvent(context), { deltaX: 60 }),
     wheelEvent(context, safe),
     wheelEvent(context, nested)
   ]) {
@@ -166,7 +170,7 @@ test('wheel cancellation fallback preserves controls, zoom, horizontal and neste
   runtime.onDispose({ detail: runtime.token });
 });
 
-test('legacy mousewheel deltas share protection without intercepting horizontal movement', async () => {
+test('legacy mousewheel deltas protect both native page-scrolling axes', async () => {
   const context = makeContext();
   vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
@@ -177,7 +181,79 @@ test('legacy mousewheel deltas share protection without intercepting horizontal 
   assert.equal(event.stopped, true);
   const horizontal = Object.assign(wheelEvent(context), { type: 'mousewheel', deltaX: undefined, deltaY: undefined, wheelDeltaX: -240, wheelDeltaY: -120 });
   horizontal.preventDefault();
-  assert.equal(horizontal.defaultPrevented, true);
+  assert.equal(horizontal.defaultPrevented, false);
+  assert.equal(horizontal.stopped, true);
+  runtime.onDispose({ detail: runtime.token });
+});
+
+test('horizontal page gestures survive earlier cancellation and queued root movement, including over links', async () => {
+  const context = makeContext();
+  const originalLeft = Object.getOwnPropertyDescriptor(context.Element.prototype, 'scrollLeft');
+  let scriptedMoves = 0;
+  context.window.scrollBy = () => { scriptedMoves += 1; };
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
+  const link = new FakeElement('a');
+  link.matches = selector => selector.includes('a[href]');
+  const event = Object.assign(wheelEvent(context, link), { deltaX: -80, deltaY: 2 });
+  runtime.onWheel(event);
+  assert.equal(event.stopped, false, 'no known page listener means no proactive suppression');
+  event.preventDefault();
+  assert.equal(event.defaultPrevented, false, 'ordinary links must not let page handlers consume history gestures');
+  assert.equal(event.stopped, true);
+  assert.equal(runtime.shouldBlockScriptedScroll(link, 'scrollIntoView', []), false, 'explicit link navigation keeps its scrolling API behavior');
+  context.window.scrollBy(-80, 0);
+  context.document.documentElement.scrollLeft = -80;
+  context.document.body.scrollLeft = -80;
+  assert.equal(scriptedMoves, 0);
+  assert.equal(context.document.documentElement.scrollLeft, 0);
+  assert.equal(context.document.body.scrollLeft, 0);
+  const nested = new FakeElement('div');
+  nested.scrollLeft = 20;
+  assert.equal(nested.scrollLeft, 20);
+  context.performance.now = () => 1000;
+  context.document.documentElement.scrollLeft = 60;
+  assert.equal(context.document.documentElement.scrollLeft, 60, 'ordinary later scrolling remains allowed');
+  runtime.onDispose({ detail: runtime.token });
+  assert.deepEqual(Object.getOwnPropertyDescriptor(context.Element.prototype, 'scrollLeft'), originalLeft);
+  const inactiveEvent = Object.assign(wheelEvent(context), { deltaX: 80, deltaY: 0 });
+  inactiveEvent.preventDefault();
+  assert.equal(inactiveEvent.defaultPrevented, true);
+});
+
+test('both modes preserve horizontal containers at either edge, RTL layouts and protected controls', async () => {
+  const context = makeContext();
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  const scroller = new FakeElement('div');
+  scroller.scrollWidth = 1200;
+  const control = new FakeElement('input');
+  control.matches = () => true;
+  for (const mode of ['standard', 'enhanced']) {
+    runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode } }) });
+    context.window.addEventListener('wheel', () => {});
+    for (const direction of ['ltr', 'rtl']) {
+      scroller.computed = { overflowX: 'auto', direction };
+      for (const position of [0, direction === 'rtl' ? -400 : 400]) {
+        scroller.scrollLeft = position;
+        for (const deltaX of [-80, 80]) {
+          const event = Object.assign(wheelEvent(context, scroller), { deltaX, deltaY: 0 });
+          runtime.onWheel(event);
+          event.preventDefault();
+          assert.equal(event.defaultPrevented, true);
+          assert.equal(event.stopped, false);
+        }
+      }
+    }
+    const protectedEvent = Object.assign(wheelEvent(context, control), { deltaX: 80, deltaY: 0 });
+    protectedEvent.preventDefault();
+    assert.equal(protectedEvent.defaultPrevented, true);
+    const pageEvent = Object.assign(wheelEvent(context), { deltaX: 80, deltaY: 0 });
+    runtime.onWheel(pageEvent);
+    assert.equal(pageEvent.stopped, true, 'only the page-wide takeover handler is suppressed');
+    assert.equal(pageEvent.defaultPrevented, false);
+  }
   runtime.onDispose({ detail: runtime.token });
 });
 

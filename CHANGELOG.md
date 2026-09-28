@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.12 — 2026-09-27
+
+- Expand XHS image-control click and context-menu targets without changing their appearance.
+
 ## 9.11.11 — 2026-09-27
 
 - Improve White Softer fullscreen handling, configuration synchronization and resilience during document rewrites and history navigation.

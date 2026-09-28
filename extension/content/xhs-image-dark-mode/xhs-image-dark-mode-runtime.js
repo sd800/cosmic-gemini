@@ -626,6 +626,8 @@
         .layer { position: fixed; inset: 0; pointer-events: none; }
         .menu-dismiss { position: fixed; inset: 0; z-index: 0; pointer-events: auto; }
         button { position: absolute; z-index: 1; display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(18,20,24,.82); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.24); cursor: pointer; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; transition: opacity 120ms ease, background-color 120ms ease; }
+        /* Expand hit testing only; keep the visual and positioning bounds stable. */
+        button.image-control::before { content: ''; position: absolute; inset: -8px; background: transparent; pointer-events: auto; }
         .image-menu { position: fixed; z-index: 2; box-sizing: border-box; padding: 5px; margin: 0; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; overscroll-behavior: contain; border: 1px solid #4a4c50; border-radius: 10px; background: #222428; color: #e8e6e3; box-shadow: 0 4px 18px #0006; pointer-events: auto; font: 14px/1.45 system-ui, sans-serif; outline: none; }
         .image-menu button { position: relative; display: block; width: 100%; height: auto; padding: 7px 12px; border: 0; border-radius: 5px; background: transparent; color: inherit; box-shadow: none; font: inherit; text-align: start; white-space: nowrap; opacity: 1; }
         .image-menu button:hover, .image-menu button:focus-visible { background: #383b42; }
@@ -2099,6 +2101,7 @@
         || (!imagePreview && !this.viewerForImage(record.image))) return;
       const button = document.createElement('button');
       button.type = 'button';
+      button.className = 'image-control';
       button.setAttribute('aria-haspopup', 'menu');
       button.setAttribute('aria-expanded', 'false');
       // Keep newly discovered controls out of the hit-testing layer until their

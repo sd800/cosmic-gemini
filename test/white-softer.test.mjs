@@ -124,7 +124,7 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   const root = new Element();
   const rootObservers = [];
   const document = {
-    documentElement: null, createElement: () => new Element(), createElementNS: () => new Element(),
+    contentType: 'text/html', documentElement: null, createElement: () => new Element(), createElementNS: () => new Element(),
     addEventListener() {}, removeEventListener() {}
   };
   const context = vm.createContext({ window, document, Symbol, Math, Number, Array, Uint8Array,
@@ -159,13 +159,138 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   }) });
   assert.equal(host.getAttribute('data-tone'), 'warm');
   assert.equal(root.children.filter(child => child.getAttribute('data-cosmic-gemini-white-softer') === '').length, 1);
+  const replacement = new Element();
+  document.documentElement = replacement;
+  rootObservers[0].callback();
+  assert.equal(host.parentNode, replacement, 'root replacement retains the same filter');
   window.dispatchEvent({ type: 'cosmic-gemini:white-softer:dispose', detail: runtime.token });
   assert.equal(host.parentNode, null);
   vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-prepaint.js', import.meta.url), 'utf8'), context);
-  const staleHost = root.children[0];
+  const staleHost = replacement.children[0];
   window.dispatchEvent({ type: 'cosmic-gemini:white-softer:prepaint-check', detail: JSON.stringify({ active: false }) });
   assert.equal(staleHost.parentNode, null);
   assert.equal(context[Symbol.for('cosmic-gemini.white-softer.prepaint')], undefined);
+});
+
+test('XML waits for the native viewer, retains the latest tone and cancels deferred work when disabled', () => {
+  const htmlNS = 'http://www.w3.org/1999/xhtml';
+  const listeners = new Map(), created = [];
+  class Element {
+    constructor(ns, name) {
+      this.namespaceURI = ns; this.localName = name; this.attributes = new Map(); this.children = [];
+      if (ns === htmlNS || ns === 'http://www.w3.org/2000/svg') this.style = { setProperty() {} };
+    }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    getAttribute(name) { return this.attributes.get(name) || null; }
+    append(child) { this.children.push(child); child.parentNode = this; }
+    matches() { return this.open === true; }
+    showPopover() { this.open = true; }
+    remove() { this.parentNode = null; }
+  }
+  const document = {
+    contentType: 'text/xml', readyState: 'loading', documentElement: new Element('urn:sitemap', 'urlset'),
+    createElementNS(ns, name) { created.push([ns, name]); return new Element(ns, name); },
+    addEventListener(type, listener) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+    },
+    removeEventListener(type, listener) { listeners.get(type)?.delete(listener); }
+  };
+  const context = vm.createContext({ document, Symbol, Math, Number, Array,
+    MutationObserver: class { observe() {} disconnect() {} } });
+  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js']) {
+    vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);
+  }
+  const Layer = context[Symbol.for('cosmic-gemini.white-cap-layer')];
+  const layer = new Layer('data-test-white-cap');
+  layer.enable('warm'); layer.enable('cool');
+  assert.equal(created.length, 0, 'raw XML must receive no SVG or HTML nodes');
+  assert.equal(listeners.get('readystatechange').size, 1, 'repeated configuration has one readiness listener');
+  document.readyState = 'interactive';
+  for (const listener of listeners.get('readystatechange')) listener();
+  assert.equal(created.length, 0, 'interactive is still too early for the XML viewer');
+  document.documentElement = new Element(htmlNS, 'html');
+  document.readyState = 'complete';
+  for (const listener of listeners.get('readystatechange')) listener();
+  assert.equal(layer.host.namespaceURI, htmlNS, 'XML creates a real HTMLElement, not a generic Element');
+  assert.equal(layer.host.getAttribute('data-tone'), 'cool');
+  assert.equal(layer.host.open, true);
+  layer.disable();
+  document.readyState = 'loading'; document.documentElement = new Element('urn:sitemap', 'urlset');
+  layer.enable('warm'); layer.disable();
+  assert.equal(listeners.get('readystatechange').size, 0, 'turning off cancels the pending XML mount');
+  document.readyState = 'complete';
+  layer.enable();
+  assert.equal(layer.host, null, 'authored non-HTML XML and standalone SVG stay untouched');
+  assert.equal(layer.rootObserver, null);
+});
+
+function whiteBridgeFixture() {
+  const window = new EventTarget(), requests = [], configs = [], timers = new Map();
+  let messageListener, timerId = 0;
+  class CustomEvent extends Event { constructor(type, options = {}) { super(type); this.detail = options.detail; } }
+  window.addEventListener('cosmic-gemini:white-softer:configure', event => configs.push(JSON.parse(event.detail)));
+  const context = vm.createContext({ window, CustomEvent, Symbol, JSON, Promise,
+    setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
+    clearTimeout(id) { timers.delete(id); },
+    chrome: { runtime: {
+      sendMessage: () => new Promise((resolve, reject) => requests.push({ resolve, reject })),
+      onMessage: { addListener(listener) { messageListener = listener; }, removeListener() {} }
+    } }
+  });
+  vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-bridge.js', import.meta.url), 'utf8'), context);
+  return { requests, configs, timers,
+    announce: () => window.dispatchEvent(new CustomEvent('cosmic-gemini:white-softer:main-ready', { detail: 'token' })),
+    refresh: () => new Promise(resolve => messageListener({ type: 'CG_REFRESH_FEATURE_CONFIG', featureId: 'whiteSofter' }, {}, resolve)),
+    stop: () => messageListener({ type: 'CG_STOP_CENTRAL_FEATURE', featureId: 'whiteSofter' }, {}, () => {}),
+    retry: () => timers.values().next().value?.()
+  };
+}
+const whiteResponse = tone => ({ ok: true, result: { whiteSofter: { active: true, tone } } });
+const settleBridge = () => new Promise(resolve => setImmediate(resolve));
+
+test('overlapping White Softer refreshes share a final acknowledgement and discard stale colors', async () => {
+  const fixture = whiteBridgeFixture(); fixture.announce();
+  const first = fixture.refresh(), second = fixture.refresh(); fixture.announce();
+  assert.equal(fixture.requests.length, 1);
+  fixture.requests[0].resolve(whiteResponse('warm')); await settleBridge();
+  assert.equal(fixture.requests.length, 2, 'a refresh during the lookup rereads the current preference');
+  assert.equal(fixture.configs.length, 0, 'the old tone is never applied');
+  fixture.requests[1].resolve(whiteResponse('cool'));
+  assert.equal((await first).configured, true);
+  assert.equal((await second).configured, true);
+  assert.equal(fixture.configs.length, 1);
+  assert.equal(fixture.configs[0].config.tone, 'cool'); fixture.stop();
+});
+
+test('transient White Softer configuration failure retries before the runtime host can remove styles', async () => {
+  const fixture = whiteBridgeFixture(); const result = fixture.refresh();
+  fixture.requests[0].reject(new Error('worker restarting')); await settleBridge();
+  assert.equal(fixture.timers.size, 1); assert.equal(fixture.configs.length, 0);
+  fixture.retry(); await settleBridge(); fixture.requests[1].resolve(whiteResponse('warm'));
+  assert.equal((await result).configured, true); assert.equal(fixture.timers.size, 0); fixture.stop();
+});
+
+test('White Softer disposal settles pending retries and ignores late configuration replies', async () => {
+  const fixture = whiteBridgeFixture(); const result = fixture.refresh();
+  fixture.requests[0].reject(new Error('temporarily unavailable')); await settleBridge();
+  fixture.stop();
+  assert.equal((await result).configured, false); assert.equal(fixture.timers.size, 0);
+  assert.equal(fixture.requests.length, 1);
+  const late = whiteBridgeFixture(); const pending = late.refresh(); late.stop();
+  late.requests[0].resolve(whiteResponse('cool'));
+  assert.equal((await pending).configured, false);
+  assert.equal(late.configs.some(message => message.config.active), false);
+});
+
+test('White Softer configuration failures are bounded and finish without a lingering timer', async () => {
+  const fixture = whiteBridgeFixture(); const result = fixture.refresh();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    fixture.requests[attempt].reject(new Error('unavailable')); await settleBridge();
+    if (attempt < 3) { fixture.retry(); await settleBridge(); }
+  }
+  assert.equal((await result).configured, false); assert.equal(fixture.requests.length, 4);
+  assert.equal(fixture.timers.size, 0);
 });
 
 test('early settings check removes stale prepaint when White Softer was turned off', async () => {
@@ -236,7 +361,8 @@ test('White Softer preserves near-white surface and border contrast at every ton
     append(child) { this.children.push(child); child.parentNode = this; }
   }
   const context = vm.createContext({
-    document: { createElement: () => new Element(), createElementNS: () => new Element(), addEventListener() {} },
+    document: { contentType: 'text/html', createElement: () => new Element(), createElementNS: () => new Element(),
+      addEventListener() {}, removeEventListener() {} },
     Symbol, Math, Number, Array
   });
   for (const file of ['white-tones.js', '../content/shared/white-cap-layer.js']) {

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.10 — 2026-09-27
+
+- Improve White Softer compatibility with XML documents and stabilize initialization, configuration updates and page lifecycle handling.
+
 ## 9.11.9 — 2026-09-27
 
 - Anchor Settings dropdown panels to their controls, preserving arrow spacing and adapting long choices to narrow windows.

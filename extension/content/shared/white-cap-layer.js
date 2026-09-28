@@ -7,15 +7,30 @@
       this.attribute = attribute;
       this.host = null;
       this.rootObserver = null;
+      this.pendingTone = null;
       this.mount = this.mount.bind(this);
       this.onToggle = this.onToggle.bind(this);
+      this.onDocumentReady = this.onDocumentReady.bind(this);
     }
     enable(tone = 'warm') {
+      // Inserting SVG while raw XML is parsing suppresses Chrome's native XML
+      // viewer. Wait for that viewer (or an authored XHTML view) to exist first.
+      if (document.contentType !== 'text/html') {
+        if (document.readyState !== 'complete') {
+          this.pendingTone = tone;
+          document.addEventListener('readystatechange', this.onDocumentReady);
+          return;
+        }
+        if (!this.hasHtmlSurface()) return;
+      }
+      this.pendingTone = null;
+      document.removeEventListener('readystatechange', this.onDocumentReady);
       if (!this.host) {
-        this.host = document.createElement('div');
+        // createElement() produces an unstyled generic Element in XML documents.
+        const host = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
         for (const [name, value] of [[this.attribute, ''], ['data-cg-white-cap', ''],
           ['popover', 'manual'], ['aria-hidden', 'true'], ['inert', ''], ['hidden', '']]) {
-          this.host.setAttribute(name, value);
+          host.setAttribute(name, value);
         }
         // Filter existing pixels, rather than paint an opaque blend layer. A
         // fixed blend surface exposes its light fill over Chrome's elastic
@@ -33,8 +48,9 @@
           const fn = document.createElementNS(ns, 'feFunc' + channel);
           fn.setAttribute('type', 'table'); transfer.append(fn); return fn;
         });
-        filter.append(transfer); svg.append(filter); this.host.append(svg);
-        this.host.style.setProperty('--cg-white-cap-filter', `url("#${id}")`, 'important');
+        filter.append(transfer); svg.append(filter); host.append(svg);
+        host.style.setProperty('--cg-white-cap-filter', `url("#${id}")`, 'important');
+        this.host = host;
         document.addEventListener('fullscreenchange', this.mount, true);
         document.addEventListener('toggle', this.onToggle, true);
       }
@@ -58,26 +74,36 @@
       }
       this.mount();
     }
+    hasHtmlSurface() {
+      const root = document.documentElement;
+      return root?.namespaceURI === 'http://www.w3.org/1999/xhtml' && root.localName === 'html';
+    }
+    onDocumentReady() {
+      if (document.readyState !== 'complete') return;
+      document.removeEventListener('readystatechange', this.onDocumentReady);
+      const tone = this.pendingTone;
+      this.pendingTone = null;
+      if (tone !== null) this.enable(tone);
+    }
     mount() {
       if (!this.host) return;
-      const target = document.fullscreenElement || document.documentElement;
-      if (!target) {
-        // document_start can precede <html>; a microtask observer mounts the
-        // filter when the root appears, before the first document paint.
-        if (!this.rootObserver) {
-          this.rootObserver = new MutationObserver(this.mount);
-          this.rootObserver.observe(document, { childList: true });
-        }
-        return;
+      if (document.contentType !== 'text/html' && !this.hasHtmlSurface()) return;
+      // Observe only document-level root replacement, never page content. Keep
+      // the same filter when an HTML page replaces its <html> element.
+      if (!this.rootObserver) {
+        this.rootObserver = new MutationObserver(this.mount);
+        this.rootObserver.observe(document, { childList: true });
       }
-      this.rootObserver?.disconnect();
-      this.rootObserver = null;
+      const target = document.fullscreenElement || document.documentElement;
+      if (!target) return;
       if (this.host.parentNode !== target) target.append(this.host);
       // Top-layer filtering caps final pixels, including white text and child frames,
       // without changing layout, taking focus or tinting already dark pixels.
       if (!this.host.matches(':popover-open')) {
         try { this.host.showPopover(); }
-        catch { document.addEventListener('readystatechange', this.mount, { once: true }); }
+        catch {
+          if (document.readyState !== 'complete') document.addEventListener('readystatechange', this.mount, { once: true });
+        }
       }
     }
     onToggle(event) {
@@ -87,6 +113,8 @@
       this.mount();
     }
     disable() {
+      this.pendingTone = null;
+      document.removeEventListener('readystatechange', this.onDocumentReady);
       document.removeEventListener('readystatechange', this.mount);
       this.rootObserver?.disconnect();
       this.rootObserver = null;

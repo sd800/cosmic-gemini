@@ -610,6 +610,11 @@
         html img.cg-xhs-image-pending { opacity: 0 !important; }
         html img.avatar-item, html img[src*="sns-avatar"] { filter: brightness(.72) saturate(.9) !important; }
         html .note-detail-follow-btn .follow-button, html button.follow-button.primary { filter: brightness(.76) saturate(.88) !important; }
+        /* Keep comment momentum inside the opened post instead of chaining
+           scrolls into the feed underneath when this area hits an edge. */
+        html :is(#noteContainer, .note-container) :is(.note-scroller, .interaction-container, [class*="comment"]) {
+          overscroll-behavior-y: contain !important;
+        }
       `;
       (document.head || document.documentElement).append(style);
       this.style = style;
@@ -2729,12 +2734,15 @@
       if (target !== record.image) {
         this.removeVisualClasses(record.image);
       }
-      target?.style?.setProperty?.('--cg-xhs-image-brightness', String(this.imageBrightness));
-      target?.classList?.toggle('cg-xhs-image-dark-mode', record.darkened && !grayTheme);
-      target?.classList?.toggle('cg-xhs-image-dark-mode-gray', record.darkened && grayTheme);
+      const brightness = String(this.imageBrightness);
+      if (target?.style?.getPropertyValue?.('--cg-xhs-image-brightness') !== brightness) {
+        target?.style?.setProperty?.('--cg-xhs-image-brightness', brightness);
+      }
+      this.setVisualClass(target, 'cg-xhs-image-dark-mode', record.darkened && !grayTheme);
+      this.setVisualClass(target, 'cg-xhs-image-dark-mode-gray', record.darkened && grayTheme);
       record.visualTarget = target;
       const concealed = this.resolvedConcealed(record);
-      target?.classList?.toggle('cg-xhs-image-hidden-dark', concealed);
+      this.setVisualClass(target, 'cg-xhs-image-hidden-dark', concealed);
       const transformed = record.darkened || concealed;
       if (transformed) this.intervenedRecords.add(record);
       else this.intervenedRecords.delete(record);
@@ -2746,8 +2754,10 @@
       const button = record.button;
       if (!button) return;
       const copy = COPY[this.locale];
-      button.hidden = !this.showImageControl || this.profileProcessingDisabled(record);
-      button.style.opacity = String(this.controlOpacity);
+      const hidden = !this.showImageControl || this.profileProcessingDisabled(record);
+      if (button.hidden !== hidden) button.hidden = hidden;
+      const opacity = String(this.controlOpacity);
+      if (button.style.opacity !== opacity) button.style.opacity = opacity;
       const concealed = this.resolvedConcealed(record);
       const override = this.recordCommentKind(record) ? null : this.postOverride(record);
       const original = (record.imageMode || override?.mode) === 'original';
@@ -2784,7 +2794,15 @@
 
     onViewportChange(event) {
       if (!event?.composedPath?.().includes(this.controlHost)) this.closeControlMenu();
-      if (this.controlRecords.size) this.scheduleControlPositions();
+      if (!this.controlRecords.size) return;
+      const target = event?.target;
+      // A sibling comment scroller cannot move the post image or a fixed
+      // preview. Avoid layout/animation reads and control-layer updates on its
+      // scroll frames; root scrolling and real image ancestors still reposition.
+      if (event?.type === 'scroll' && target && target !== window && target !== document
+        && target !== document.documentElement && target !== document.body
+        && ![...this.controlRecords].some(record => target.contains?.(record.image))) return;
+      this.scheduleControlPositions();
     }
 
     viewerImageContext(image) {
@@ -2893,7 +2911,7 @@
         for (const record of this.controlRecords) {
           if (!record.button) continue;
           if (!record.image.isConnected) {
-            record.button.style.display = 'none';
+            if (record.button.style.display !== 'none') record.button.style.display = 'none';
             if (this.controlMenu?.record === record) this.closeControlMenu();
             continue;
           }
@@ -2906,15 +2924,18 @@
             && owner && !positionedOwners.has(owner);
           const placement = eligible && !this.hasControlMotion(record)
             ? this.controlPlacement(record) : null;
-          record.button.style.display = placement ? 'grid' : 'none';
+          const display = placement ? 'grid' : 'none';
+          if (record.button.style.display !== display) record.button.style.display = display;
           if (!placement) {
             record.cancelGesture?.();
             if (this.controlMenu?.record === record) this.closeControlMenu();
             continue;
           }
           positionedOwners.add(owner);
-          record.button.style.left = `${placement.left}px`;
-          record.button.style.top = `${placement.top}px`;
+          const left = `${Math.round(placement.left * 1000) / 1000}px`;
+          const top = `${Math.round(placement.top * 1000) / 1000}px`;
+          if (record.button.style.left !== left) record.button.style.left = left;
+          if (record.button.style.top !== top) record.button.style.top = top;
         }
       });
     }
@@ -2934,6 +2955,12 @@
         'cg-xhs-image-hidden-dark']) {
         if (target?.classList?.contains?.(name)) target.classList.remove(name);
       }
+    }
+
+    setVisualClass(target, name, enabled) {
+      const classes = target?.classList;
+      if (typeof classes?.contains === 'function' && classes.contains(name) === enabled) return;
+      classes?.toggle?.(name, enabled);
     }
 
     syncInterventionStatus() {

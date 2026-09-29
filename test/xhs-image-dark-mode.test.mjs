@@ -1547,6 +1547,66 @@ test('feed scrolling has no viewport listener until an expanded-view control nee
   assert.equal(documentTarget.listeners.get('transitionrun')?.length, 0);
 });
 
+test('comment-only scrolling does not reposition stationary post controls, but image ancestors and root scrolls do', async () => {
+  const document = { documentElement: {}, body: {} };
+  const window = new SimpleEventTarget();
+  const runtime = await runtimeFixture(document, { window });
+  const image = { getBoundingClientRect() { throw new Error('comment scroll must not read image layout'); } };
+  runtime.controlRecords.add({ image, button: {} });
+  let positions = 0, dismissed = 0;
+  runtime.scheduleControlPositions = () => { positions += 1; };
+  runtime.closeControlMenu = () => { dismissed += 1; };
+  runtime.onViewportChange({ type: 'scroll', target: { contains: () => false }, composedPath: () => [] });
+  assert.equal(positions, 0);
+  assert.equal(dismissed, 1, 'scrolling outside a menu still dismisses it');
+  for (const target of [window, document, document.body, document.documentElement, { contains: node => node === image }]) {
+    runtime.onViewportChange({ type: 'scroll', target });
+  }
+  runtime.onViewportChange({ type: 'resize', target: window });
+  assert.equal(positions, 6);
+});
+
+test('unchanged control placement performs no style writes and a real move changes only its coordinate', async () => {
+  let frame;
+  const runtime = await runtimeFixture({}, { requestAnimationFrame(callback) { frame = callback; return 1; } });
+  runtime.processing = true;
+  const values = { display: 'grid', left: '100px', top: '40px' }, writes = [];
+  const style = {};
+  for (const name of Object.keys(values)) Object.defineProperty(style, name, {
+    get: () => values[name], set(value) { writes.push([name, value]); values[name] = value; }
+  });
+  const record = { image: { isConnected: true }, button: { style }, commentKind: '' };
+  const viewer = {};
+  runtime.controlRecords.add(record);
+  runtime.viewerForImage = () => viewer;
+  let top = 40;
+  runtime.controlPlacement = () => ({ left: 100, top });
+  for (let i = 0; i < 3; i += 1) { runtime.scheduleControlPositions(); frame(); }
+  assert.deepEqual(writes, []);
+  top = 41;
+  runtime.scheduleControlPositions(); frame();
+  assert.deepEqual(writes, [['top', '41px']]);
+});
+
+test('no-op image refresh preserves the existing filter classes and brightness declaration', async () => {
+  const runtime = await runtimeFixture();
+  const classes = new Set(['cg-xhs-image-dark-mode']), writes = [];
+  const image = {
+    classList: { contains: name => classes.has(name), toggle(name, active) {
+      writes.push(name); active ? classes.add(name) : classes.delete(name);
+    } },
+    style: { getPropertyValue: () => '1', setProperty: name => writes.push(name) },
+    closest: () => null
+  };
+  const record = { image, result: { kind: 'light-theme' }, darkened: true, commentKind: '' };
+  runtime.updateRecordVisual(record, false);
+  runtime.updateRecordVisual(record, false);
+  assert.deepEqual(writes, []);
+  record.darkened = false;
+  runtime.updateRecordVisual(record, false);
+  assert.deepEqual(writes, ['cg-xhs-image-dark-mode']);
+});
+
 test('unrelated viewer animations do not hide or cancel the image control', async () => {
   const runtime = await runtimeFixture();
   runtime.processing = true;

@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.11.18');
+assert.equal(manifest.version, '9.11.19');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -594,7 +594,7 @@ assert.match(xhsImageDarkModeRuntime, /const positionedOwners = new Set\(\)[\s\S
   'A viewer must never display overlapping image controls.');
 assert.match(xhsImageDarkModeRuntime, /togglePostOverride[\s\S]*postOverrides\.set\(postKey, darkened\)[\s\S]*applyPostMode\(postKey, darkened\)[\s\S]*restorePostAutomatic[\s\S]*postOverrides\.delete\(postKey\)/,
   'Long presses must alternate a stable post-wide display mode, while a subsequent click restores automatic recognition.');
-assert.match(xhsImageDarkModeRuntime, /recordsForPost\(postKey\)[\s\S]*viewerPostKey\(record\.image\) === postKey[\s\S]*document\.querySelectorAll\?\.\([\s\S]*button\.hidden = !this\.showImageControl \|\| this\.profileProcessingDisabled\(record\)/,
+assert.match(xhsImageDarkModeRuntime, /recordsForPost\(postKey\)[\s\S]*viewerPostKey\(record\.image\) === postKey[\s\S]*document\.querySelectorAll\?\.\([\s\S]*const hidden = !this\.showImageControl \|\| this\.profileProcessingDisabled\(record\)[\s\S]*if \(button\.hidden !== hidden\) button\.hidden = hidden/,
   'Post-wide overrides must include matching feed covers without hiding the image control.');
 assert.match(xhsImageDarkModeRuntime, /inlineCommentImage[\s\S]*#noteContainer, \.note-container[\s\S]*armImagePreview[\s\S]*pendingImagePreview[\s\S]*markImagePreview[\s\S]*hasOpenImagePreview/,
   'Comment images must remain expanded-post-only and preview association must survive resource URL changes.');

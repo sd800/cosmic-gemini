@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.19 — 2026-09-28
+
+- Stabilize comment scrolling in opened Xiaohongshu posts, avoiding background feed scrolling and unnecessary image-control updates, including when White Softer is enabled.
+
 ## 9.11.18 — 2026-09-28
 
 - Improve Native Scroll compatibility with page-wide smooth-scroll handlers, preserving browser horizontal gestures, linked content and local scrolling controls.

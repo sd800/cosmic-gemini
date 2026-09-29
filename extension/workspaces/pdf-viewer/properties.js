@@ -4,19 +4,19 @@ import { pdfFileSize } from './model.js';
 
 // Reuse Cosmic PDF's on-demand dialog; metadata is bounded plain text, never
 // markup. Opening it reads the existing document, without new file requests.
-export function createProperties({ pdf, viewer, filename, byteLength, locale, text, signal }) {
+export function createProperties({ pdf, viewer, filename, documentUrl, byteLength, locale, text, signal }) {
   const dialog = document.getElementById('properties-dialog');
   const list = document.getElementById('properties-list'), status = document.getElementById('properties-status');
   const numbers = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
   let metadata, generation = 0;
   const fields = new Map();
-  for (const key of ['fileName', 'fileSize', 'documentTitle', 'author', 'subject', 'keywords', 'created', 'modified', 'application', 'producer', 'pdfVersion', 'pageCount', 'pageSize', 'fastWebView']) {
+  for (const key of ['fileName', 'fileUrl', 'fileSize', 'documentTitle', 'author', 'subject', 'keywords', 'created', 'modified', 'application', 'producer', 'pdfVersion', 'pageCount', 'pageSize', 'fastWebView']) {
     const name = document.createElement('dt'), value = document.createElement('dd');
     name.textContent = text[key]; value.dataset.property = key;
     list.append(name, value); fields.set(key, value);
   }
   function set(key, value) {
-    fields.get(key).textContent = typeof value === 'string' && value.trim() ? value.slice(0, 4096) : '—';
+    fields.get(key).textContent = typeof value === 'string' && value.trim() ? value.slice(0, key === 'fileUrl' ? 8192 : 4096) : '—';
   }
   document.getElementById('properties-close').addEventListener('click', () => dialog.close(), { signal });
   dialog.addEventListener('close', () => { generation++; }, { signal });
@@ -31,7 +31,7 @@ export function createProperties({ pdf, viewer, filename, byteLength, locale, te
       if (signal.aborted || dialog.open) return;
       const run = ++generation, pageNumber = viewer.currentPageNumber;
       for (const key of fields.keys()) set(key, '');
-      set('fileName', filename); set('fileSize', pdfFileSize(byteLength, locale)); set('pageCount', numbers.format(pdf.numPages));
+      set('fileName', filename); set('fileUrl', documentUrl); set('fileSize', pdfFileSize(byteLength, locale)); set('pageCount', numbers.format(pdf.numPages));
       // Focus the heading rather than scrolling to the bottom Close button.
       status.textContent = text.propertiesLoading; showReaderDialog(dialog, document.getElementById('properties-title'));
       dialog.scrollTop = 0; dialog.scrollLeft = 0;

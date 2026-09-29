@@ -44,7 +44,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 });`);
 await writeFile(join(extension, 'qa.html'), '<!doctype html><style>body{margin:0;background:#121416}main{height:100vh;display:flex}iframe{border:0;width:100%;height:100%}</style><main></main><script type="module" src="qa.js"></script>');
 await writeFile(join(extension, 'qa.js'), `import {createPdfViewer} from './workspaces/pdf-viewer/host.js';
-window.openDocument=async(html,formatting)=>{const {createDocumentContent}=await import('./workspaces/document-preview/content-host.js');const frame=document.createElement('iframe');document.querySelector('main').replaceChildren(frame);window.contentReader=createDocumentContent(frame,'en-US',()=>events.push('content-error'));contentReader.render(html,formatting);};window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6)=>{window.qaDark=true;window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:bytes===undefined?undefined:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',site:'example.com',locale,sampling,dark:true,onDownload:()=>events.push('download'),onTheme:()=>{window.qaDark=!window.qaDark;viewer.setTheme(window.qaDark);},onError:()=>events.push('error')});};`);
+window.openDocument=async(html,formatting)=>{const {createDocumentContent}=await import('./workspaces/document-preview/content-host.js');const frame=document.createElement('iframe');document.querySelector('main').replaceChildren(frame);window.contentReader=createDocumentContent(frame,'en-US',()=>events.push('content-error'));contentReader.render(html,formatting);};window.events=[];window.openPdf=(bytes, locale='en-US', sampling=6)=>{window.qaDark=true;window.viewer?.destroy();window.viewer=createPdfViewer({container:document.querySelector('main'),bytes:bytes===undefined?undefined:new Uint8Array(bytes).buffer,filename:'PDF Viewer — reading and zoom.pdf',documentUrl:'https://example.test/sample.pdf?sig=a%2Bb&part=1',site:'example.com',locale,sampling,dark:true,onDownload:()=>events.push('download'),onTheme:()=>{window.qaDark=!window.qaDark;viewer.setTheme(window.qaDark);},onError:()=>events.push('error')});};`);
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), { executablePath: process.env.PDF_VIEWER_CHROME, headless: true, deviceScaleFactor: 2, viewport: { width: 1280, height: 1000 }, args: ['--force-device-scale-factor=2', `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 try {
   const page = await context.newPage();
@@ -53,6 +53,7 @@ try {
   page.on('request', request => { if (/^https?:/.test(request.url())) network.push(request.url()); });
   page.on('requestfailed', request => failures.push(request.url()));
   await page.goto('chrome://extensions');
+  await page.waitForFunction(() => document.querySelector('extensions-manager')?.shadowRoot?.querySelector('extensions-item-list')?.shadowRoot?.querySelector('extensions-item')?.id);
   const id = await page.evaluate(() => document.querySelector('extensions-manager').shadowRoot.querySelector('extensions-item-list').shadowRoot.querySelector('extensions-item').id);
   const url = `chrome-extension://${id}/qa.html`;
   async function open(bytes, locale, sampling) {
@@ -110,7 +111,21 @@ try {
     await frame.waitForFunction(() => [...document.querySelectorAll('.page canvas')].every(canvas => getComputedStyle(canvas).filter === 'none'));
   }
 
-  if (process.env.PDF_QA === 'lifecycle') {
+  if (process.env.PDF_QA === 'properties') {
+    const sourceUrl='https://example.test/source.pdf?token=a%2Bb&part=2';
+    await page.evaluate(async ({ bytes, sourceUrl }) => {
+      const doc={id:'source-url',site:'example.test',filename:'Source.pdf',url:sourceUrl,format:'pdf',context:'regular',prepared:true,appearance:'dark',siteTheme:null,
+        blobUrl:URL.createObjectURL(new Blob([new Uint8Array(bytes)],{type:'application/pdf'}))};
+      await chrome.storage.session.set({qaDocument:doc,'documentPreview:regular':{documents:[doc],themes:{}}});
+    },{bytes:Array.from(viewerPdf(2)),sourceUrl});
+    await page.goto(`chrome-extension://${id}/workspaces/document-preview/document-preview.html#id=source-url&mode=preview&appearance=dark`);
+    const frame=await(await page.waitForSelector('.pdf-viewer-frame')).contentFrame();await ready(frame);
+    await frame.locator('#filename').click();await frame.waitForSelector('#properties-dialog[open]');
+    assert.equal(await frame.locator('#properties-list dt').nth(1).textContent(),'File URL');
+    assert.equal(await frame.locator('[data-property=fileUrl]').textContent(),sourceUrl);
+    assert.equal(await frame.locator('#properties-list a').count(),0);
+    metrics.properties='captured source URL appears below File name as inert text';
+  } else if (process.env.PDF_QA === 'lifecycle') {
     const frame=await open(viewerPdf(6)); await ready(frame);
 
   const checkFrame = frame;
@@ -348,6 +363,9 @@ try {
   await frame.waitForFunction(() => document.querySelector('[data-property=author]').textContent === 'Cosmic Gemini tests');
   assert.equal(await frame.locator('#properties-title').textContent(), 'Document properties');
   assert.equal(await frame.locator('[data-property=fileName]').textContent(), 'PDF Viewer — reading and zoom.pdf');
+  assert.equal(await frame.locator('#properties-list dt').nth(1).textContent(), 'File URL');
+  assert.equal(await frame.locator('[data-property=fileUrl]').textContent(), 'https://example.test/sample.pdf?sig=a%2Bb&part=1');
+  assert.equal(await frame.locator('#properties-list a').count(), 0, 'the URL is selectable text, not an active link');
   assert.match(await frame.locator('[data-property=fileSize]').textContent(), /^\d+(\.\d)? KB$/);
   assert.equal(await frame.locator('[data-property=documentTitle]').textContent(), 'QA <b>metadata</b>');
   assert.equal(await frame.locator('#properties-list b').count(), 0);

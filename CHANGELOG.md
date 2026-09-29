@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.20 — 2026-09-29
+
+- Show the source file URL below the file name in PDF Document properties.
+
 ## 9.11.19 — 2026-09-28
 
 - Stabilize comment scrolling in opened Xiaohongshu posts, avoiding background feed scrolling and unnecessary image-control updates, including when White Softer is enabled.

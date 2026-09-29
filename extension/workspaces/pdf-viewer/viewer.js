@@ -21,7 +21,7 @@ const workerReady = createPdfWorker(pdfjs, signal).then(worker => {
 void workerReady.catch(() => {});
 let thumbnailObserver, thumbnailTask, thumbnailBusy = false, thumbnailGeneration = 0, outlineLoaded = false;
 const nearThumbnails = new Set(), thumbnailCache = new Map(), printUrls = new Set();
-let documentFilename, documentBytes = 0, properties;
+let documentFilename, documentUrl = '', documentBytes = 0, properties;
 let customZoomScale = null;
 let darkPaper, themeDark = false;
 let printing = false, printTask, zoomFrame = 0, wheelFactor = 1, wheelOrigin, passwordCancelled = false;
@@ -76,6 +76,7 @@ window.addEventListener('pagehide', destroy, { once: true });
 window.addEventListener('message', event => {
   if (event.source !== parent || port || event.data?.type !== 'CG_PDF_INIT' || event.ports.length !== 1) return;
   const input = event.data;
+  documentUrl = typeof input.documentUrl === 'string' ? input.documentUrl : '';
   port = event.ports[0];
   let opened = false;
   for (const control of document.querySelectorAll('header nav button:not(#fullscreen), header nav input, header nav select, #print, #download')) control.disabled = true;
@@ -266,7 +267,7 @@ async function open(bytes, sampling) {
   click('print', openPrint);
   click('filename', () => {
     properties ||= import('./properties.js').then(({ createProperties }) => destroyed ? null :
-      createProperties({ pdf, viewer, filename: documentFilename, byteLength: documentBytes, locale: document.documentElement.lang, text, signal }));
+      createProperties({ pdf, viewer, filename: documentFilename, documentUrl, byteLength: documentBytes, locale: document.documentElement.lang, text, signal }));
     void properties.then(dialog => dialog?.open()).catch(() => { if (!destroyed) status('propertiesUnavailable'); });
   });
   $('print-dialog').addEventListener('close', () => { if ($('print-dialog').returnValue === 'print') void printDocument(); }, { signal });

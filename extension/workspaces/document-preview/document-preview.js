@@ -117,7 +117,7 @@ async function preparePdfViewer() {
   if (!current(started) || pdfViewer) return;
   const theme = siteTheme || defaultTheme;
   pdfViewer = createPdfViewer({ container: document.querySelector('main'),
-    filename: metadata.filename, locale, sampling: metadata.pdfSampling,
+    filename: metadata.filename, documentUrl: metadata.url, locale, sampling: metadata.pdfSampling,
     dark: theme === 'dark' || (theme === 'auto' && appearance.matches),
     onDownload: () => void download(),
     onTheme: () => void setSiteTheme(toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)),

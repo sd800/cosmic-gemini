@@ -60,6 +60,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   });
   assert.deepEqual(settings.xhsImageDarkMode, {
     enabled: false,
+    keyboardNavigationEnabled: false,
     overrideDarkMode: false,
     showImageControl: true,
     controlOpacity: 0.5
@@ -348,6 +349,13 @@ test('Claude reply display and browser identity settings authorize independently
   assert.equal(disabled.supported, true);
   assert.equal(disabled.enabled, false);
   assert.equal(disabled.active, false);
+
+  const navigationOnly = xhsImageDarkModeState({
+    xhsImageDarkMode: { keyboardNavigationEnabled: true }
+  }, 'https://www.xiaohongshu.com/explore');
+  assert.equal(navigationOnly.active, true);
+  assert.equal(navigationOnly.imageActive, false);
+  assert.equal(navigationOnly.processing, false);
   const enabled = { chineseResponseClaude: { enabled: true } };
   assert.equal(chineseResponseClaudeState(enabled, 'https://claude.ai/chat/example').active, true);
   assert.equal(chineseResponseClaudeState(enabled, 'https://www.claude.ai/').supported, true);
@@ -416,6 +424,7 @@ test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
     processing: false
   });
   assert.equal(waiting.active, true);
+  assert.equal(waiting.imageActive, true);
   assert.equal(waiting.processing, false);
   assert.equal(waiting.intervened, false);
   const processing = xhsImageDarkModeState(enabled, 'https://www.xiaohongshu.com/explore', {

@@ -24,6 +24,7 @@ export const DEVELOPER_FEATURES = Object.freeze({
   translateOverride: { title: 'websiteFixerTranslateName', tag: 'translate-override', parent: 'websiteFixer' },
   stayOnPage: { title: 'websiteFixerStayName', tag: 'stay-on-page', parent: 'websiteFixer' },
   xhsImageDarkMode: { title: 'xhsImageDarkModeSettingsName', name: 'xhsImageDarkModeName', tag: 'xhs-image-dark-mode', province: 'operations' },
+  xhsNavigation: { title: 'xhsNavigationName', tag: 'xhs-navigation', parent: 'xhsImageDarkMode' },
   biliDailyLogin: { title: 'biliDailyLoginName', tag: 'bili-daily-login', parent: 'satellites' },
   chineseResponseClaude: { title: 'chineseResponseClaudeName', tag: 'chinese-response-claude', province: 'operations' },
   followListInstagram: { title: 'followListInstagramName', tag: 'follow-list-instagram', province: 'operations' },
@@ -85,7 +86,9 @@ export function createDeveloperMode(document) {
         affiliationValue.textContent = featureAffiliation(id, t);
         affiliation.append(affiliationValue);
         details.append(tagLine, affiliation);
-        if (title.parentElement.matches('.intro-title, .satellite-title, .rule-heading, .website-fixer-heading')) {
+        if (title.parentElement.matches('.preference-title-with-icon')) {
+          title.parentElement.after(details);
+        } else if (title.parentElement.matches('.intro-title, .satellite-title, .rule-heading, .website-fixer-heading')) {
           const titleRow = title.parentElement;
           const anchor = titleRow.parentElement.matches('.section-heading') ? titleRow.parentElement : titleRow;
           anchor.after(details);

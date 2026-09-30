@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.22 — 2026-09-30
+
+- Add independently controlled XHS Keyboard Navigation with a dedicated directional-arrow icon, mapping W/S/A/D to the Up/Down/Left/Right arrow keys while leaving text entry untouched.
+
 ## 9.11.21 — 2026-09-30
 
 - Keep Xiaohongshu feed-to-detail opening inside the site's own navigation flow, without allowing image handling to trigger a full-page fallback.

@@ -211,7 +211,9 @@
       try { message = JSON.parse(event.detail); } catch { return; }
       if (message?.token !== this.token) return;
       const config = message.config || {};
-      const nextActive = config.active === true && location.hostname === 'www.xiaohongshu.com';
+      const nextActive = (config.imageActive === true
+        || (config.imageActive === undefined && config.active === true))
+        && location.hostname === 'www.xiaohongshu.com';
       this.closeControlMenu();
       this.locale = config.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
       this.overrideDarkMode = config.overrideDarkMode === true;

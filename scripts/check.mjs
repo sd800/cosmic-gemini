@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.11.21');
+assert.equal(manifest.version, '9.11.22');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -280,6 +280,11 @@ assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZ
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
 assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
 assert.match(satellitesSettings, /xhsImageDarkModeDescription[\s\S]*experimentalFeature/);
+assert.match(satellitesSettings, /id="xhsImageDarkModeOpacity"[\s\S]*id="xhsNavigationEnabled"/,
+  'XHS Keyboard Navigation must appear after Button opacity.');
+assert.match(satellitesSettings, /class="preference-feature-icon" data-section-icon="xhsNavigation"/);
+assert.match(sharedUi, /xhsNavigation:/);
+assert.match(settingsPreload, /xhsNavigation:/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
 assert.match(settingsSource, /UI_SET_AD_MARSHAL_SITE/);
 assert.match(settingsSource, /featureId: 'mailtoCapture'/);
@@ -340,6 +345,7 @@ const pageDisplayRuntime = await source('content', 'page-display/page-display-ru
 const pageDisplayStyles = await source('content', 'page-display/page-display.css');
 const xhsImageDarkMode = await source('background', 'products', 'operations', 'xhs-image-dark-mode.js');
 const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode/xhs-image-dark-mode-runtime.js');
+const xhsNavigationRuntime = await source('content', 'xhs-navigation/xhs-navigation-runtime.js');
 const followListInstagram = await source('background', 'products', 'operations', 'follow-list-instagram.js');
 const followListInstagramDom = await source('content', 'follow-list-instagram/follow-list-instagram-dom.js');
 const followListInstagramWorkspace = await source('workspaces', 'follow-list-instagram', 'follow-list-instagram.js');
@@ -548,7 +554,11 @@ assert.match(pageDisplayRuntime, /observeAppearanceTarget\(document\.documentEle
 assert.match(pageDisplayRuntime, /if \(reduceWhitePoint\) this\.startAppearanceTracking\(\)[\s\S]*else this\.stopAppearanceTracking\(\)/);
 assert.doesNotMatch(pageDisplayRuntime, /IntersectionObserver|ResizeObserver|setInterval|fetch\s*\(|XMLHttpRequest|WebSocket|addEventListener\(['"](?:click|pointer|wheel|touch|key)/);
 assert.match(xhsImageDarkMode, /content\/xhs-image-dark-mode\/xhs-image-dark-mode-bridge\.js[\s\S]*content\/xhs-image-dark-mode\/xhs-image-dark-mode-runtime\.js/);
+assert.match(xhsImageDarkMode, /content\/xhs-navigation\/xhs-navigation-runtime\.js/);
 assert.match(xhsImageDarkMode, /hostname !== 'www\.xiaohongshu\.com'/);
+assert.match(xhsNavigationRuntime, /KeyW[\s\S]*ArrowUp[\s\S]*KeyS[\s\S]*ArrowDown|ArrowUp[\s\S]*ArrowDown[\s\S]*KeyW[\s\S]*KeyS/);
+assert.match(xhsNavigationRuntime, /KeyA[\s\S]*KeyD[\s\S]*EDITABLE_SELECTOR[\s\S]*isComposing|EDITABLE_SELECTOR[\s\S]*KeyA[\s\S]*KeyD[\s\S]*isComposing/);
+assert.doesNotMatch(xhsNavigationRuntime, /MutationObserver|IntersectionObserver|ResizeObserver|setInterval/);
 assert.match(xhsImageDarkModeRuntime, /MAX_SAMPLE_PIXELS = 32 \* 32[\s\S]*CACHE_LIMIT = 240/);
 for (const observer of ['IntersectionObserver', 'MutationObserver', 'ResizeObserver']) {
   assert.match(xhsImageDarkModeRuntime, new RegExp(observer));

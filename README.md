@@ -112,6 +112,8 @@ Website Fixer improves website behavior with selectable fixes. Translate Overrid
 
 Dim bright text cards and chat screenshots on Xiaohongshu when page-wide dark mode is active, while leaving photos unchanged. Automatic adjustment covers feeds and opened posts; comment images are handled after their post opens. Image controls and a right-click menu let you choose automatic, dark or light display, or hide images, individually or for a whole post. A profile control can pause adjustments for that profile. **Always on** allows adjustment without detecting page-wide dark mode.
 
+The independently controlled XHS Keyboard Navigation option maps W/S/A/D to the Up/Down/Left/Right arrow keys without taking over text entry.
+
 This is an experimental feature.
 
 #### Bili Daily Login
@@ -196,7 +198,7 @@ Discovery stays active while a download workspace is visible and for two minutes
 
 All Settings links to Native Scroll, No Autoplay, Any Copy, Image Download, Video Download, Page Display, and Satellites. Every feature starts off in a new installation, including Native Scroll, No Autoplay, Mailto Capture, and the Website Knowledge Control categories. Existing choices are preserved. Ad Marshal lets each managed website group be selected independently.
 
-On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can keep image adjustment always on, hide the per-image theme controls shown only in expanded posts, or adjust their opacity.
+On `www.xiaohongshu.com`, the popup adds a contextual XHS Image Dark Mode control below the fixed product rows. Its open-book-and-bulb icon remains blue without a background while waiting for page-wide dark mode, then fills the bulb and gains a blue background while image adaptation is running. Settings can keep image adjustment always on, hide the per-image theme controls shown only in expanded posts, adjust their opacity, or independently enable W/S/A/D arrow-key navigation.
 
 After you enable Bili Daily Login, the task runs on its own schedule while Chrome and the computer are running.
 

@@ -112,6 +112,8 @@ Website Fixer 通过可选的修复功能改善网站的使用体验。Translate
 
 在小红书网页启用页面深色模式时，调暗刺眼的文字卡片和聊天截图，保留照片原貌。瀑布流和展开的笔记都会自动调整；评论图片在笔记展开后处理。图片按钮和右键菜单支持为单张图片或整篇笔记选择自动、深色或浅色显示，也可以关闭图片显示。用户主页上的开关可暂停调整该主页的笔记；「始终启用」允许不检测页面深色模式而直接处理图片。
 
+独立控制的 XHS Keyboard Navigation 可将 W/S/A/D 映射为上/下/左/右方向键，并避开文字输入状态。
+
 这是一项实验性功能。
 
 #### Bili Daily Login
@@ -196,7 +198,7 @@ Reduce White Point 与 Greyscale 是全局开关。在控制窗口中开启其�
 
 全部设置页面集中提供 Native Scroll、No Autoplay、Any Copy、Image Download、Video Download、Page Display 与 Satellites 的入口。新安装时所有功能均默认关闭，包括 Native Scroll、No Autoplay、Mailto Capture 及 Website Knowledge Control 的各项子功能；已有用户的设置不会被重置。Ad Marshal 允许单独选择每一组管制网站。
 
-访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Mode 的动态开关。功能开启但尚未检测到页面深色模式时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终启用图片处理、隐藏仅在展开笔记后显示的图片切换按钮，或调整按钮透明度。
+访问 `www.xiaohongshu.com` 时，控制窗口会在固定功能下方显示 XHS Image Dark Mode 的动态开关。功能开启但尚未检测到页面深色模式时，按钮为无背景的蓝色。开始调整图片后，按钮会增加蓝色背景。您还可以在设置中选择始终启用图片处理、隐藏仅在展开笔记后显示的图片切换按钮、调整按钮透明度，或单独开启 W/S/A/D 方向键导航。
 
 开启 Bili Daily Login 后，它会在电脑已唤醒且 Chrome 正在运行时按日程执行。
 

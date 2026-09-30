@@ -10,7 +10,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 40,
+    version: 41,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -79,6 +79,7 @@ export function settingsViewCache(states = {}) {
     },
     xhsImageDarkMode: {
       enabled: states.xhsImageDarkMode?.enabled === true,
+      keyboardNavigationEnabled: states.xhsImageDarkMode?.keyboardNavigationEnabled === true,
       overrideDarkMode: states.xhsImageDarkMode?.overrideDarkMode === true,
       showImageControl: states.xhsImageDarkMode?.showImageControl !== false,
       controlOpacity: states.xhsImageDarkMode?.controlOpacity || 0.5

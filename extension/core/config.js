@@ -75,7 +75,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 40,
+  version: 41,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -119,6 +119,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   xhsImageDarkMode: Object.freeze({
     enabled: false,
+    keyboardNavigationEnabled: false,
     overrideDarkMode: false,
     showImageControl: true,
     controlOpacity: 0.5
@@ -341,7 +342,7 @@ export function normalizeLeetcodeDarkModeTone(value) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 40,
+    version: 41,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -388,6 +389,7 @@ export function normalizeSettings(value = {}) {
     },
     xhsImageDarkMode: {
       enabled: value.xhsImageDarkMode?.enabled === true,
+      keyboardNavigationEnabled: value.xhsImageDarkMode?.keyboardNavigationEnabled === true,
       overrideDarkMode: value.xhsImageDarkMode?.overrideDarkMode === true,
       showImageControl: value.xhsImageDarkMode?.showImageControl !== false,
       controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkMode?.controlOpacity) || 0.5))
@@ -667,6 +669,7 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
   const hostname = hostnameFromUrl(url);
   const supported = hostname === 'www.xiaohongshu.com';
   const enabled = feature.enabled === true;
+  const keyboardNavigationEnabled = feature.keyboardNavigationEnabled === true;
   const darkModeDetected = pageState.darkModeDetected === true;
   const processing = supported && enabled && (feature.overrideDarkMode === true || darkModeDetected);
   const intervened = processing && pageState.intervened === true;
@@ -675,7 +678,8 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
     hostname,
     supported,
     enabled,
-    active: supported && enabled,
+    active: supported && (enabled || keyboardNavigationEnabled),
+    imageActive: supported && enabled,
     darkModeDetected,
     processing,
     intervened,

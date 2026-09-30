@@ -662,6 +662,14 @@ test('XHS Image Dark Mode settings synchronize open pages before returning', asy
   });
   assert.equal(result.overrideDarkMode, true);
   assert.equal(refreshes, 1);
+
+  const navigation = await product.handleMessage({
+    type: 'UI_SET_XHS_NAVIGATION_ENABLED',
+    enabled: true
+  });
+  assert.equal(navigation.keyboardNavigationEnabled, true);
+  assert.equal(navigation.enabled, true, 'keyboard navigation must not alter the image feature switch');
+  assert.equal(refreshes, 2);
 });
 
 test('XHS Image Dark Mode keeps the newest status report for the current document', async () => {

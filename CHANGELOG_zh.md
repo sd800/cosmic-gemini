@@ -2,7 +2,7 @@
 
 [English](CHANGELOG.md)
 
-## 9.11.23 — 2026-09-30
+## 9.12.1 — 2026-09-30
 
 - 修复 XHS Keyboard Navigation 开关无法保存的问题，将其升级为 Operations Province 下的独立产品，拥有标准 Central 路由、独立桥接、运行时和保存状态；已有选择会自动迁移。
 - 在同一 XHS 卡片中将 XHS Keyboard Navigation 作为带分隔的产品级功能展示，采用与 XHS Image Dark Mode 一致的带背景功能图标，并统一上下间距、同级功能说明对齐及单段 Privacy 排版。

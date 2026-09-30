@@ -2,7 +2,7 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
-## 9.11.23 — 2026-09-30
+## 9.12.1 — 2026-09-30
 
 - Fix XHS Keyboard Navigation setting saves by promoting it to an independent Operations Province product with its own standard Central route, bridge, runtime, and saved state. Existing selections migrate automatically.
 - Present XHS Keyboard Navigation as a separated product-level section within the XHS card, with the same backed feature-icon treatment as XHS Image Dark Mode, balanced spacing, peer-aligned help copy, and one shared Privacy paragraph.

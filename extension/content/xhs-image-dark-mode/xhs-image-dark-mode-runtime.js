@@ -165,6 +165,7 @@
       this.positionFrame = 0;
       this.controlTransitionUntil = 0;
       this.controlTransitionTimer = 0;
+      this.postActivationTimer = 0;
       this.watchedControlAnimations = new WeakMap();
       this.viewerRefreshFrame = 0;
       this.cleanupTimer = 0;
@@ -522,8 +523,11 @@
         attributes: true,
         attributeFilter: ['src', 'srcset', 'sizes', 'media', 'type']
       });
-      document.addEventListener('click', this.onPostActivation, true);
-      document.addEventListener('pointerdown', this.onPostActivation, true);
+      // Post links belong to Xiaohongshu's router. Observe them passively so
+      // the extension can never turn an in-page detail opening into the
+      // anchor's full-document fallback navigation.
+      document.addEventListener('click', this.onPostActivation, { capture: true, passive: true });
+      document.addEventListener('pointerdown', this.onPostActivation, { capture: true, passive: true });
       document.addEventListener('fullscreenchange', this.onFullscreenChange, true);
       this.collectImages(document);
     }
@@ -552,6 +556,8 @@
       this.positionFrame = 0;
       if (this.controlTransitionTimer) clearTimeout(this.controlTransitionTimer);
       this.controlTransitionTimer = 0;
+      if (this.postActivationTimer) clearTimeout(this.postActivationTimer);
+      this.postActivationTimer = 0;
       this.controlTransitionUntil = 0;
       this.watchedControlAnimations = new WeakMap();
       if (this.viewerRefreshFrame) cancelAnimationFrame(this.viewerRefreshFrame);
@@ -1242,6 +1248,36 @@
       if (event.type === 'pointerdown' && (event.button !== 0 || event.isPrimary === false)) return;
       const path = event.composedPath?.() || [];
       if (path.includes(this.controlHost)) return;
+      const postAnchor = path.find(node => node?.matches?.(
+        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
+      ));
+      if (postAnchor) {
+        const plainPrimary = (event.button === undefined || event.button === 0)
+          && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+        if (plainPrimary && !event.defaultPrevented) {
+          const id = this.noteId(postAnchor.href || postAnchor.getAttribute?.('href'));
+          if (id) {
+            this.openingProfileKey = this.currentProfileKey();
+            this.openingPostId = id;
+            // Do not write to any DOM node while the site's delegated click
+            // handler is still deciding between its SPA viewer and the
+            // anchor's browser fallback. The next task runs only after that
+            // dispatch and only hides controls when a detail view actually
+            // appeared in this document.
+            if (event.type !== 'pointerdown') {
+              if (this.postActivationTimer) clearTimeout(this.postActivationTimer);
+              this.postActivationTimer = setTimeout(() => {
+                this.postActivationTimer = 0;
+                if (!this.processing) return;
+                const routeMatches = this.noteId(location.href) === this.openingPostId;
+                const viewerOpened = !!document.querySelector?.('#noteContainer, .note-container');
+                if (routeMatches || viewerOpened) this.suspendControlPositions(POST_OPEN_TRANSITION_MS);
+              }, 0);
+            }
+          }
+        }
+        return;
+      }
       if (this.controlRecords.size) this.scheduleControlPositions();
       let commentImage = path.find(node => this.inlineCommentImage(node));
       if (!commentImage) {
@@ -1277,15 +1313,7 @@
       if (this.imagePreviewRoot && path.includes(this.imagePreviewRoot)) {
         this.probeImagePreviewGallery();
       }
-      const anchor = path.find(node => node?.matches?.(
-        'a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]'
-      ));
-      const id = this.noteId(anchor?.href || anchor?.getAttribute?.('href'));
-      if (id) {
-        this.openingProfileKey = this.currentProfileKey();
-        this.openingPostId = id;
-        this.suspendControlPositions(POST_OPEN_TRANSITION_MS);
-      } else if (this.viewerRoot && path.some(node => node?.matches?.(
+      if (this.viewerRoot && path.some(node => node?.matches?.(
         'button[aria-label*="close" i], .close, [class*="close-btn"], [class*="close-icon"]'
       ) && node.closest?.('#noteContainer, .note-container'))) {
         this.suspendControlPositions(POST_OPEN_TRANSITION_MS);

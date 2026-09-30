@@ -947,6 +947,50 @@ test('ordinary control clicks never search the complete page for comment images'
   assert.equal(runtime.noteId('/explore/another-post'), 'another-post');
 });
 
+test('feed post activation stays passive until Xiaohongshu finishes its route', async () => {
+  let deferred = null;
+  const document = { querySelector: () => ({}) };
+  const runtime = await runtimeFixture(document, {
+    URL,
+    location: {
+      hostname: 'www.xiaohongshu.com',
+      href: 'https://www.xiaohongshu.com/explore/opened-post'
+    },
+    setTimeout(callback, delay) { deferred = { callback, delay }; return 7; },
+    clearTimeout() { deferred = null; }
+  });
+  runtime.processing = true;
+  runtime.currentProfileKey = () => 'profile-1';
+  let suspensions = 0;
+  runtime.suspendControlPositions = () => { suspensions += 1; };
+  runtime.armImagePreview = () => { throw new Error('a feed cover must not enter the preview path'); };
+  const anchor = {
+    href: 'https://www.xiaohongshu.com/explore/opened-post',
+    matches: selector => selector.includes('a[href^="/explore/"]')
+  };
+  const activation = type => ({
+    type,
+    button: 0,
+    isPrimary: true,
+    defaultPrevented: false,
+    composedPath: () => [anchor],
+    preventDefault() { throw new Error('the extension must not cancel post navigation'); },
+    stopPropagation() { throw new Error('the extension must not intercept post navigation'); }
+  });
+
+  runtime.onPostActivation(activation('pointerdown'));
+  assert.equal(runtime.openingPostId, 'opened-post');
+  assert.equal(runtime.openingProfileKey, 'profile-1');
+  assert.equal(deferred, null, 'pointerdown must make no deferred visual change');
+  assert.equal(suspensions, 0);
+
+  runtime.onPostActivation(activation('click'));
+  assert.equal(deferred.delay, 0);
+  assert.equal(suspensions, 0, 'capture-phase click must make no synchronous DOM change');
+  deferred.callback();
+  assert.equal(suspensions, 1);
+});
+
 test('a comment preview control is positioned inside the preview image corner', async () => {
   const runtime = await runtimeFixture({}, { URL, innerWidth: 1200, innerHeight: 800 });
   const source = 'https://sns-webpic-qc.xhscdn.com/comment/control-preview!nd_dft_wlteh_webp_3';

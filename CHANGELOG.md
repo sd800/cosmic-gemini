@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.21 — 2026-09-30
+
+- Keep Xiaohongshu feed-to-detail opening inside the site's own navigation flow, without allowing image handling to trigger a full-page fallback.
+
 ## 9.11.20 — 2026-09-29
 
 - Show the source file URL below the file name in PDF Document properties.

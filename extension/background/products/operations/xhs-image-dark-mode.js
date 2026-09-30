@@ -93,7 +93,6 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.XHS_IMAGE_DARK_MODE,
     bridge: 'content/xhs-image-dark-mode/xhs-image-dark-mode-bridge.js',
     runtime: 'content/xhs-image-dark-mode/xhs-image-dark-mode-runtime.js',
-    runtimeDependencies: Object.freeze(['content/xhs-navigation/xhs-navigation-runtime.js']),
     awaitConfiguration: true,
     async state(settings, url, tabId) {
       const state = xhsImageDarkModeState(settings, url, await readPageState(tabId));
@@ -146,15 +145,6 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
         const requestedTabId = Number(message.tabId);
         const tabId = Number.isInteger(requestedTabId) ? requestedTabId : null;
         const settings = await updateSettings(feature => ({ ...feature, [name]: value }), tabId);
-        return settings.xhsImageDarkMode;
-      }
-      if (message.type === 'UI_SET_XHS_NAVIGATION_ENABLED') {
-        const requestedTabId = Number(message.tabId);
-        const tabId = Number.isInteger(requestedTabId) ? requestedTabId : null;
-        const settings = await updateSettings(feature => ({
-          ...feature,
-          keyboardNavigationEnabled: message.enabled === true
-        }), tabId);
         return settings.xhsImageDarkMode;
       }
       throw new Error('XHS Image Dark Mode does not support this command.');

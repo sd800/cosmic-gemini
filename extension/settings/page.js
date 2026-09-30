@@ -346,8 +346,9 @@ function render() {
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;
   }
   const xhsSettings = (states?.preferences || states)?.xhsImageDarkMode;
+  const xhsNavigationSettings = (states?.preferences || states)?.xhsNavigation;
   const xhsNavigationEnabled = document.querySelector('#xhsNavigationEnabled');
-  if (xhsNavigationEnabled) xhsNavigationEnabled.checked = xhsSettings?.keyboardNavigationEnabled === true;
+  if (xhsNavigationEnabled) xhsNavigationEnabled.checked = xhsNavigationSettings?.enabled === true;
   const xhsImageDarkModeEnabled = document.querySelector('#xhsImageDarkModeEnabled');
   const xhsEnabled = xhsSettings?.enabled === true;
   if (xhsImageDarkModeEnabled) xhsImageDarkModeEnabled.checked = xhsEnabled;
@@ -924,8 +925,8 @@ function bindView() {
     type: 'UI_SET_XHS_IMAGE_DARK_MODE_ENABLED', enabled: xhsImageDarkModeEnabled.checked
   }), [xhsImageDarkModeEnabled]));
   const xhsNavigationEnabled = document.querySelector('#xhsNavigationEnabled');
-  if (xhsNavigationEnabled) xhsNavigationEnabled.addEventListener('change', () => void update(null, () => savePreference('xhsImageDarkMode', {
-    type: 'UI_SET_XHS_NAVIGATION_ENABLED', enabled: xhsNavigationEnabled.checked
+  if (xhsNavigationEnabled) xhsNavigationEnabled.addEventListener('change', () => void update(null, () => savePreference('xhsNavigation', {
+    type: 'UI_SET_ENABLED', featureId: 'xhsNavigation', enabled: xhsNavigationEnabled.checked
   }), [xhsNavigationEnabled]));
   const xhsImageDarkModeOverride = document.querySelector('#xhsImageDarkModeOverride');
   if (xhsImageDarkModeOverride) xhsImageDarkModeOverride.addEventListener('change', () => void update(null, () => savePreference('xhsImageDarkMode', {

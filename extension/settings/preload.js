@@ -218,7 +218,7 @@
   const xhsEnabled = cached.xhsImageDarkMode?.enabled === true;
   if (xhsImageDarkModeEnabled) xhsImageDarkModeEnabled.checked = xhsEnabled;
   const xhsNavigationEnabled = document.querySelector('#xhsNavigationEnabled');
-  if (xhsNavigationEnabled) xhsNavigationEnabled.checked = cached.xhsImageDarkMode?.keyboardNavigationEnabled === true;
+  if (xhsNavigationEnabled) xhsNavigationEnabled.checked = cached.xhsNavigation?.enabled === true;
   const xhsImageDarkModeOverride = document.querySelector('#xhsImageDarkModeOverride');
   if (xhsImageDarkModeOverride) {
     xhsImageDarkModeOverride.checked = cached.xhsImageDarkMode?.overrideDarkMode === true;

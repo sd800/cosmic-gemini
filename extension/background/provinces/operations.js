@@ -7,6 +7,7 @@ import { createChineseResponseClaudeProduct } from '../products/operations/chine
 import { createSatellitesProduct } from '../products/operations/satellites.js';
 import { createPageDisplayProduct } from '../products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../products/operations/xhs-image-dark-mode.js';
+import { createXhsNavigationProduct } from '../products/operations/xhs-navigation.js';
 import { createFollowListInstagramProduct } from '../products/operations/follow-list-instagram.js';
 import { createLeetcodeDarkModeProduct } from '../products/operations/leetcode-dark-mode.js';
 import { defineProvince } from './interface.js';
@@ -19,6 +20,7 @@ export function createOperationsProvince(platform) {
   const leetcodeDarkMode = createLeetcodeDarkModeProduct(host, platform);
   const pageDisplay = createPageDisplayProduct(host, platform);
   const xhsImageDarkMode = createXhsImageDarkModeProduct(host, platform);
+  const xhsNavigation = createXhsNavigationProduct(host, platform);
   const chineseResponseClaude = createChineseResponseClaudeProduct(host, platform);
   const followListInstagram = createFollowListInstagramProduct(platform);
   const administration = createAdministrationProduct(platform);
@@ -29,6 +31,7 @@ export function createOperationsProvince(platform) {
     [pageDisplay.id]: pageDisplay,
     [leetcodeDarkMode.id]: leetcodeDarkMode,
     [xhsImageDarkMode.id]: xhsImageDarkMode,
+    [xhsNavigation.id]: xhsNavigation,
     [chineseResponseClaude.id]: chineseResponseClaude,
     [followListInstagram.id]: followListInstagram,
     [administration.id]: administration

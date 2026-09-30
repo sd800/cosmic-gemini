@@ -5,6 +5,7 @@ import { createAnyCopyProduct } from '../extension/background/products/operation
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
 import { createPageDisplayProduct } from '../extension/background/products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../extension/background/products/operations/xhs-image-dark-mode.js';
+import { createXhsNavigationProduct } from '../extension/background/products/operations/xhs-navigation.js';
 import { createChineseResponseClaudeProduct } from '../extension/background/products/operations/chinese-response-claude.js';
 import { createOperationsProvince } from '../extension/background/provinces/operations.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
@@ -644,7 +645,7 @@ test('popup website actions stop when the source tab has navigated elsewhere', a
   assert.equal(writes, 0);
 });
 
-test('XHS Image Dark Mode settings synchronize open pages before returning', async () => {
+test('XHS image and keyboard navigation settings synchronize independently before returning', async () => {
   let settings = normalizeSettings({ xhsImageDarkMode: { enabled: true } });
   let refreshes = 0;
   const product = createXhsImageDarkModeProduct({ sync: async () => true }, {
@@ -663,12 +664,21 @@ test('XHS Image Dark Mode settings synchronize open pages before returning', asy
   assert.equal(result.overrideDarkMode, true);
   assert.equal(refreshes, 1);
 
-  const navigation = await product.handleMessage({
-    type: 'UI_SET_XHS_NAVIGATION_ENABLED',
+  const navigationProduct = createXhsNavigationProduct({ sync: async () => true }, {
+    async mutateSettings(update, refresh) {
+      assert.equal(refresh, false);
+      settings = normalizeSettings(update(settings));
+      return settings;
+    },
+    async refreshOpenPages() { refreshes += 1; }
+  });
+  const navigation = await navigationProduct.handleMessage({
+    type: 'UI_SET_ENABLED',
+    featureId: 'xhsNavigation',
     enabled: true
   });
-  assert.equal(navigation.keyboardNavigationEnabled, true);
-  assert.equal(navigation.enabled, true, 'keyboard navigation must not alter the image feature switch');
+  assert.equal(navigation.enabled, true);
+  assert.equal(settings.xhsImageDarkMode.enabled, true, 'keyboard navigation must not alter the image feature switch');
   assert.equal(refreshes, 2);
 });
 

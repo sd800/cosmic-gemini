@@ -40,14 +40,15 @@ async function fixture({ scope = null } = {}) {
       preventDefault() { this.defaultPrevented = true; }
     },
     CustomEvent: class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
-    Symbol, JSON, Number, String, Object, Math
+    crypto: { getRandomValues(bytes) { bytes.fill(7); return bytes; } },
+    Uint8Array, Array, Symbol, JSON, Number, String, Object, Math
   };
   vm.createContext(context);
   const source = await readFile(new URL('../extension/content/xhs-navigation/xhs-navigation-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context[Symbol.for('cosmic-gemini.xhs-navigation.runtime')];
-  window.dispatchEvent(new context.CustomEvent('cosmic-gemini:xhs-image-dark-mode:configure', {
-    detail: JSON.stringify({ token: 'token', config: { keyboardNavigationEnabled: true } })
+  window.dispatchEvent(new context.CustomEvent('cosmic-gemini:xhs-navigation:configure', {
+    detail: JSON.stringify({ token: runtime.token, config: { active: true } })
   }));
   return { runtime, window, document, root, vertical: () => vertical };
 }
@@ -86,7 +87,7 @@ test('W and S dispatch ArrowUp and ArrowDown with native scrolling fallback', as
 });
 
 test('A and D dispatch ArrowLeft and ArrowRight and stop after disposal', async () => {
-  const { window, document } = await fixture();
+  const { runtime, window, document } = await fixture();
   const target = new EventTarget();
   const arrows = [];
   target.addEventListener('keydown', event => { arrows.push(event.key); });
@@ -95,7 +96,7 @@ test('A and D dispatch ArrowLeft and ArrowRight and stop after disposal', async 
   assert.deepEqual(arrows, ['ArrowRight']);
   assert.equal(next.defaultPrevented, true);
 
-  window.dispatchEvent({ type: 'cosmic-gemini:xhs-image-dark-mode:dispose', detail: 'token' });
+  window.dispatchEvent({ type: 'cosmic-gemini:xhs-navigation:dispose', detail: runtime.token });
   document.dispatchEvent({ ...keyEvent('KeyA'), target });
   assert.deepEqual(arrows, ['ArrowRight']);
 });

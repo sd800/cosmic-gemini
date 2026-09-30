@@ -1,8 +1,13 @@
 (() => {
-  const CONFIGURE = 'cosmic-gemini:xhs-image-dark-mode:configure';
-  const DISPOSE = 'cosmic-gemini:xhs-image-dark-mode:dispose';
+  const CONFIGURE = 'cosmic-gemini:xhs-navigation:configure';
+  const DISPOSE = 'cosmic-gemini:xhs-navigation:dispose';
+  const READY = 'cosmic-gemini:xhs-navigation:bridge-ready';
+  const MAIN_READY = 'cosmic-gemini:xhs-navigation:main-ready';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.xhs-navigation.runtime');
-  if (globalThis[RUNTIME_KEY]) return;
+  if (globalThis[RUNTIME_KEY]) { globalThis[RUNTIME_KEY].announce(); return; }
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  const token = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
 
   const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]';
   const ARROWS = Object.freeze({
@@ -35,21 +40,26 @@
 
   class XhsKeyboardNavigationRuntime {
     constructor() {
-      this.token = '';
+      this.token = token;
       this.enabled = false;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
+      this.onBridgeReady = this.onBridgeReady.bind(this);
       this.onKeyDown = this.onKeyDown.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
     }
+
+    announce() { window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token })); }
+    onBridgeReady() { this.announce(); }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
       if (typeof message?.token !== 'string' || !message.token) return;
-      this.token = message.token;
-      const enabled = message.config?.keyboardNavigationEnabled === true
+      if (message.token !== this.token) return;
+      const enabled = message.config?.active === true
         && location.hostname === 'www.xiaohongshu.com';
       if (enabled === this.enabled) return;
       this.enabled = enabled;
@@ -67,6 +77,7 @@
       document.removeEventListener('keydown', this.onKeyDown, true);
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
+      window.removeEventListener(READY, this.onBridgeReady, true);
       try { delete globalThis[RUNTIME_KEY]; } catch {}
     }
 
@@ -174,8 +185,7 @@
     }
   }
 
-  Object.defineProperty(globalThis, RUNTIME_KEY, {
-    value: new XhsKeyboardNavigationRuntime(),
-    configurable: true
-  });
+  const runtime = new XhsKeyboardNavigationRuntime();
+  Object.defineProperty(globalThis, RUNTIME_KEY, { value: runtime, configurable: true });
+  runtime.announce();
 })();

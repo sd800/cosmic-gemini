@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.11.22');
+assert.equal(manifest.version, '9.11.23');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -282,7 +282,7 @@ assert.match(satellitesSettings, /xhsImageDarkModeSettingsName[\s\S]*experimenta
 assert.match(satellitesSettings, /xhsImageDarkModeDescription[\s\S]*experimentalFeature/);
 assert.match(satellitesSettings, /id="xhsImageDarkModeOpacity"[\s\S]*id="xhsNavigationEnabled"/,
   'XHS Keyboard Navigation must appear after Button opacity.');
-assert.match(satellitesSettings, /class="preference-feature-icon" data-section-icon="xhsNavigation"/);
+assert.match(satellitesSettings, /class="xhs-navigation-item"[\s\S]*class="section-heading xhs-navigation-heading"[\s\S]*class="satellite-feature-icon" data-section-icon="xhsNavigation"[\s\S]*id="xhsNavigationTitle"[\s\S]*id="xhsNavigationEnabled"/);
 assert.match(sharedUi, /xhsNavigation:/);
 assert.match(settingsPreload, /xhsNavigation:/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);
@@ -345,6 +345,7 @@ const pageDisplayRuntime = await source('content', 'page-display/page-display-ru
 const pageDisplayStyles = await source('content', 'page-display/page-display.css');
 const xhsImageDarkMode = await source('background', 'products', 'operations', 'xhs-image-dark-mode.js');
 const xhsImageDarkModeRuntime = await source('content', 'xhs-image-dark-mode/xhs-image-dark-mode-runtime.js');
+const xhsNavigation = await source('background', 'products', 'operations', 'xhs-navigation.js');
 const xhsNavigationRuntime = await source('content', 'xhs-navigation/xhs-navigation-runtime.js');
 const followListInstagram = await source('background', 'products', 'operations', 'follow-list-instagram.js');
 const followListInstagramDom = await source('content', 'follow-list-instagram/follow-list-instagram-dom.js');
@@ -554,8 +555,10 @@ assert.match(pageDisplayRuntime, /observeAppearanceTarget\(document\.documentEle
 assert.match(pageDisplayRuntime, /if \(reduceWhitePoint\) this\.startAppearanceTracking\(\)[\s\S]*else this\.stopAppearanceTracking\(\)/);
 assert.doesNotMatch(pageDisplayRuntime, /IntersectionObserver|ResizeObserver|setInterval|fetch\s*\(|XMLHttpRequest|WebSocket|addEventListener\(['"](?:click|pointer|wheel|touch|key)/);
 assert.match(xhsImageDarkMode, /content\/xhs-image-dark-mode\/xhs-image-dark-mode-bridge\.js[\s\S]*content\/xhs-image-dark-mode\/xhs-image-dark-mode-runtime\.js/);
-assert.match(xhsImageDarkMode, /content\/xhs-navigation\/xhs-navigation-runtime\.js/);
+assert.doesNotMatch(xhsImageDarkMode, /xhs-navigation|keyboardNavigation/);
 assert.match(xhsImageDarkMode, /hostname !== 'www\.xiaohongshu\.com'/);
+assert.match(xhsNavigation, /FEATURE_IDS\.XHS_NAVIGATION[\s\S]*content\/xhs-navigation\/xhs-navigation-bridge\.js[\s\S]*content\/xhs-navigation\/xhs-navigation-runtime\.js/);
+assert.match(xhsNavigation, /message\.type !== 'UI_SET_ENABLED'/);
 assert.match(xhsNavigationRuntime, /KeyW[\s\S]*ArrowUp[\s\S]*KeyS[\s\S]*ArrowDown|ArrowUp[\s\S]*ArrowDown[\s\S]*KeyW[\s\S]*KeyS/);
 assert.match(xhsNavigationRuntime, /KeyA[\s\S]*KeyD[\s\S]*EDITABLE_SELECTOR[\s\S]*isComposing|EDITABLE_SELECTOR[\s\S]*KeyA[\s\S]*KeyD[\s\S]*isComposing/);
 assert.doesNotMatch(xhsNavigationRuntime, /MutationObserver|IntersectionObserver|ResizeObserver|setInterval/);
@@ -803,7 +806,7 @@ for (const bridge of ['clipboard-protect/clipboard-protect-bridge.js', 'native-s
     `${bridge} must catch synchronous extension-context invalidation before returning a rejected promise`);
   assert.doesNotMatch(value, /void chrome\.runtime\.sendMessage/);
 }
-for (const name of ['page-display', 'xhs-image-dark-mode', 'leetcode-dark-mode', 'chinese-response-claude', 'website-knowledge-control']) {
+for (const name of ['page-display', 'xhs-image-dark-mode', 'xhs-navigation', 'leetcode-dark-mode', 'chinese-response-claude', 'website-knowledge-control']) {
   const bridge = await source('content', `${name}/${name}-bridge.js`);
   assert.doesNotMatch(bridge, /chrome\.storage/);
   assert.match(bridge, /pendingConfig = readConfig\(\)\.finally/,

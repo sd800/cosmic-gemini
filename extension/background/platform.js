@@ -321,6 +321,7 @@ export function createPlatform() {
       pageDisplay: settings.pageDisplay,
       leetcodeDarkMode: settings.leetcodeDarkMode,
       xhsImageDarkMode: settings.xhsImageDarkMode,
+      xhsNavigation: settings.xhsNavigation,
       mailtoCapture: settings.mailtoCapture,
       websiteKnowledgeControl: settings.websiteKnowledgeControl,
       clipboardProtect: settings.clipboardProtect,

@@ -17,6 +17,7 @@ export const FEATURE_IDS = Object.freeze({
   ANY_COPY_ENHANCED: 'anyCopyEnhanced',
   PAGE_DISPLAY: 'pageDisplay',
   XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
+  XHS_NAVIGATION: 'xhsNavigation',
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   FOLLOW_LIST_INSTAGRAM: 'followListInstagram',
   LANG_GOOGLE: 'langGoogle',
@@ -45,6 +46,7 @@ export const FEATURE_SLOTS = Object.freeze({
   ACCESS_CONTROL: 41,
   PAGE_DISPLAY: 33,
   XHS_IMAGE_DARK_MODE: 34,
+  XHS_NAVIGATION: 48,
   AD_MARSHAL: 35,
   CHINESE_RESPONSE_CLAUDE: 36,
   WEBSITE_KNOWLEDGE_CONTROL: 37,
@@ -75,7 +77,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 41,
+  version: 42,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -119,11 +121,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   xhsImageDarkMode: Object.freeze({
     enabled: false,
-    keyboardNavigationEnabled: false,
     overrideDarkMode: false,
     showImageControl: true,
     controlOpacity: 0.5
   }),
+  xhsNavigation: Object.freeze({ enabled: false }),
   chineseResponseClaude: Object.freeze({
     enabled: false,
     browserIdentityEnabled: false
@@ -342,7 +344,7 @@ export function normalizeLeetcodeDarkModeTone(value) {
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   return {
-    version: 41,
+    version: 42,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -389,10 +391,13 @@ export function normalizeSettings(value = {}) {
     },
     xhsImageDarkMode: {
       enabled: value.xhsImageDarkMode?.enabled === true,
-      keyboardNavigationEnabled: value.xhsImageDarkMode?.keyboardNavigationEnabled === true,
       overrideDarkMode: value.xhsImageDarkMode?.overrideDarkMode === true,
       showImageControl: value.xhsImageDarkMode?.showImageControl !== false,
       controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkMode?.controlOpacity) || 0.5))
+    },
+    xhsNavigation: {
+      enabled: value.xhsNavigation?.enabled === true
+        || value.xhsImageDarkMode?.keyboardNavigationEnabled === true
     },
     chineseResponseClaude: {
       enabled: value.chineseResponseClaude?.enabled === true,
@@ -669,7 +674,6 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
   const hostname = hostnameFromUrl(url);
   const supported = hostname === 'www.xiaohongshu.com';
   const enabled = feature.enabled === true;
-  const keyboardNavigationEnabled = feature.keyboardNavigationEnabled === true;
   const darkModeDetected = pageState.darkModeDetected === true;
   const processing = supported && enabled && (feature.overrideDarkMode === true || darkModeDetected);
   const intervened = processing && pageState.intervened === true;
@@ -678,12 +682,24 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
     hostname,
     supported,
     enabled,
-    active: supported && (enabled || keyboardNavigationEnabled),
-    imageActive: supported && enabled,
+    active: supported && enabled,
     darkModeDetected,
     processing,
     intervened,
     status: !supported ? 'unavailable' : !enabled ? 'off' : processing ? 'active' : 'waiting'
+  };
+}
+
+export function xhsNavigationState(settings, url) {
+  const feature = normalizeSettings(settings).xhsNavigation;
+  const hostname = hostnameFromUrl(url);
+  const supported = hostname === 'www.xiaohongshu.com';
+  return {
+    ...feature,
+    hostname,
+    supported,
+    active: supported && feature.enabled,
+    status: !supported ? 'unavailable' : feature.enabled ? 'active' : 'off'
   };
 }
 

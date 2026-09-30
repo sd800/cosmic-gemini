@@ -10,7 +10,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 41,
+    version: 42,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -79,11 +79,11 @@ export function settingsViewCache(states = {}) {
     },
     xhsImageDarkMode: {
       enabled: states.xhsImageDarkMode?.enabled === true,
-      keyboardNavigationEnabled: states.xhsImageDarkMode?.keyboardNavigationEnabled === true,
       overrideDarkMode: states.xhsImageDarkMode?.overrideDarkMode === true,
       showImageControl: states.xhsImageDarkMode?.showImageControl !== false,
       controlOpacity: states.xhsImageDarkMode?.controlOpacity || 0.5
     },
+    xhsNavigation: { enabled: states.xhsNavigation?.enabled === true },
     chineseResponseClaude: {
       enabled: states.chineseResponseClaude?.enabled === true,
       browserIdentityEnabled: states.chineseResponseClaude?.browserIdentityEnabled === true

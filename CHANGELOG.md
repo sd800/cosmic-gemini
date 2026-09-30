@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.11.23 — 2026-09-30
+
+- Fix XHS Keyboard Navigation setting saves by promoting it to an independent Operations Province product with its own standard Central route, bridge, runtime, and saved state. Existing selections migrate automatically.
+- Present XHS Keyboard Navigation as a separated product-level section within the XHS card, with the same backed feature-icon treatment as XHS Image Dark Mode, balanced spacing, peer-aligned help copy, and one shared Privacy paragraph.
+
 ## 9.11.22 — 2026-09-30
 
 - Add independently controlled XHS Keyboard Navigation with a dedicated directional-arrow icon, mapping W/S/A/D to the Up/Down/Left/Right arrow keys while leaving text entry untouched.

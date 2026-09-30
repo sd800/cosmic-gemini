@@ -18,14 +18,15 @@ import {
   pageDisplayState,
   ruleMatches,
   updateFeature,
-  xhsImageDarkModeState
+  xhsImageDarkModeState,
+  xhsNavigationState
 } from '../extension/core/config.js';
 
 test('ordinary and incognito defaults keep automatic products and regional categories inactive', () => {
   for (const settings of [DEFAULT_SETTINGS, DEFAULT_INCOGNITO_SETTINGS]) {
     for (const product of ['nativeScroll', 'noAutoplay', 'mailtoCapture', 'clipboardProtect', 'whiteSofter',
       'documentPreview', 'langGoogle', 'leetcodeDarkMode', 'accessControl', 'websiteKnowledgeControl',
-      'pageDisplay', 'xhsImageDarkMode', 'chineseResponseClaude']) {
+      'pageDisplay', 'xhsImageDarkMode', 'xhsNavigation', 'chineseResponseClaude']) {
       assert.equal(settings[product].enabled, false, product);
     }
     assert.equal(settings.websiteKnowledgeControl.languages.enabled, false);
@@ -60,11 +61,11 @@ test('persistent products start with independent settings while Any Copy Enhance
   });
   assert.deepEqual(settings.xhsImageDarkMode, {
     enabled: false,
-    keyboardNavigationEnabled: false,
     overrideDarkMode: false,
     showImageControl: true,
     controlOpacity: 0.5
   });
+  assert.deepEqual(settings.xhsNavigation, { enabled: false });
   assert.deepEqual(settings.adMarshal, {
     managedSites: { tencentNews: false, zhihu: false }
   });
@@ -350,12 +351,6 @@ test('Claude reply display and browser identity settings authorize independently
   assert.equal(disabled.enabled, false);
   assert.equal(disabled.active, false);
 
-  const navigationOnly = xhsImageDarkModeState({
-    xhsImageDarkMode: { keyboardNavigationEnabled: true }
-  }, 'https://www.xiaohongshu.com/explore');
-  assert.equal(navigationOnly.active, true);
-  assert.equal(navigationOnly.imageActive, false);
-  assert.equal(navigationOnly.processing, false);
   const enabled = { chineseResponseClaude: { enabled: true } };
   assert.equal(chineseResponseClaudeState(enabled, 'https://claude.ai/chat/example').active, true);
   assert.equal(chineseResponseClaudeState(enabled, 'https://www.claude.ai/').supported, true);
@@ -424,7 +419,6 @@ test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
     processing: false
   });
   assert.equal(waiting.active, true);
-  assert.equal(waiting.imageActive, true);
   assert.equal(waiting.processing, false);
   assert.equal(waiting.intervened, false);
   const processing = xhsImageDarkModeState(enabled, 'https://www.xiaohongshu.com/explore', {
@@ -450,6 +444,20 @@ test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
   assert.equal(override.processing, true);
   assert.equal(override.intervened, false);
   assert.equal(override.status, 'active');
+});
+
+test('XHS Keyboard Navigation is an independent exact-host product and migrates its former child setting', () => {
+  assert.equal(xhsNavigationState(DEFAULT_SETTINGS, 'https://www.xiaohongshu.com/explore').active, false);
+  assert.equal(xhsNavigationState({ xhsNavigation: { enabled: true } },
+    'https://www.xiaohongshu.com/explore').active, true);
+  assert.equal(xhsNavigationState({ xhsNavigation: { enabled: true } },
+    'https://xiaohongshu.com/explore').supported, false);
+  const migrated = normalizeSettings({
+    xhsImageDarkMode: { enabled: false, keyboardNavigationEnabled: true }
+  });
+  assert.equal(migrated.xhsImageDarkMode.enabled, false);
+  assert.equal(migrated.xhsNavigation.enabled, true);
+  assert.equal(settingsViewCache(migrated).xhsNavigation.enabled, true);
 });
 
 test('Ad Marshal enables only explicitly selected managed-site groups', () => {

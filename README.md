@@ -112,7 +112,7 @@ Website Fixer improves website behavior with selectable fixes. Translate Overrid
 
 Dim bright text cards and chat screenshots on Xiaohongshu when page-wide dark mode is active, while leaving photos unchanged. Automatic adjustment covers feeds and opened posts; comment images are handled after their post opens. Image controls and a right-click menu let you choose automatic, dark or light display, or hide images, individually or for a whole post. A profile control can pause adjustments for that profile. **Always on** allows adjustment without detecting page-wide dark mode.
 
-The independently controlled XHS Keyboard Navigation option maps W/S/A/D to the Up/Down/Left/Right arrow keys without taking over text entry.
+XHS Keyboard Navigation is a separate feature presented in the same settings card. It maps W/S/A/D to the Up/Down/Left/Right arrow keys without taking over text entry.
 
 This is an experimental feature.
 

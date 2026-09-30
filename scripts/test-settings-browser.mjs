@@ -50,11 +50,21 @@ try{
  }else{
  const basePage=await context.newPage();await basePage.goto('chrome://extensions');const id=await basePage.evaluate(()=>document.querySelector('extensions-manager').shadowRoot.querySelector('extensions-item-list').shadowRoot.querySelector('extensions-item').id);
  const base=`chrome-extension://${id}/`,worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+ const assertSatelliteDirectory=async page=>{
+  const directory=page.locator('#satellites-directory');await directory.waitFor();
+  assert.equal(await directory.locator('[data-satellite-target]').count(),15);
+  const placement=await page.evaluate(()=>{const language=document.querySelector('.language-card').getBoundingClientRect(),directory=document.querySelector('#satellites-directory').getBoundingClientRect();return{languageBottom:language.bottom,directoryTop:directory.top}});
+  assert.ok(placement.directoryTop>=placement.languageBottom,'Satellites directory must follow Language');
+  const button=directory.locator('[data-satellite-target="satellite-document-preview"]');await button.focus();await page.keyboard.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('#satellite-document-preview').getBoundingClientRect().top<=32);
+  assert.equal(await button.getAttribute('aria-current'),'location');
+ };
  let page=await context.newPage();await page.goto(base+'settings/all-settings.html');await page.waitForSelector('#version');
  for(const path of ['satellites.html','any-copy.html','all-settings.html']){
-  const closed=page.waitForEvent('close'),next=await context.newPage();await next.goto(base+'settings/'+path);await closed;page=next;await page.waitForSelector('#version');assert.equal(basePage.isClosed(),false);
+  const closed=page.waitForEvent('close'),next=await context.newPage();await next.goto(base+'settings/'+path);await closed;page=next;await page.waitForSelector('#version');assert.equal(basePage.isClosed(),false);if(path==='satellites.html')await assertSatelliteDirectory(page);
  }
- await page.locator('[data-feature-link=pageDisplay]').click();await page.waitForURL('**/settings/page-display.html');await page.reload();await page.waitForSelector('#version');
+ await page.locator('[data-feature-link=satellites]').click();await page.waitForURL('**/settings/satellites.html');await assertSatelliteDirectory(page);
+ await page.locator('[data-feature-link=pageDisplay]').click();await page.waitForURL('**/settings/page-display.html');assert.equal(await page.locator('#satellites-directory').count(),0);await page.reload();await page.waitForSelector('#version');
  const closed=page.waitForEvent('close'),opened=context.waitForEvent('page');await worker.evaluate(()=>chrome.windows.create({url:chrome.runtime.getURL('settings/satellites.html'),focused:false}));page=await opened;await closed;await page.waitForSelector('#version');
  const ids=await worker.evaluate(async()=>{const a=await chrome.tabs.create({url:chrome.runtime.getURL('settings/native-scroll.html'),active:false});const b=await chrome.tabs.create({url:chrome.runtime.getURL('settings/no-autoplay.html'),active:false});return[a.id,b.id]});
  await worker.evaluate(async ids=>{for(let i=0;i<100;i++){const all=(await chrome.runtime.getContexts({contextTypes:['TAB']})).filter(c=>c.documentUrl?.includes('/settings/'));if(all.length===1&&all[0].tabId===ids[1])return;await new Promise(r=>setTimeout(r,30));}throw Error('Settings not deduplicated')},ids);

@@ -5,7 +5,7 @@ import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalize
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
-import { PRODUCT_META, featureFromPath, viewFor } from './views.js';
+import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesDirectoryMarkup, viewFor } from './views.js';
 
 const claimSettings = openedAt => void send({ type: 'UI_SETTINGS_OPENED', openedAt }).catch(() => {});
 claimSettings(performance.timeOrigin);
@@ -54,6 +54,7 @@ let localeGeneration = 0;
 let ruleInputHelpPanel = null;
 let developerMode = null;
 let developerModeModule = null;
+let satelliteDirectoryCleanup = null;
 
 document.addEventListener('keydown', event => {
   if (event.key !== '1' || event.repeat || event.isComposing || event.defaultPrevented
@@ -1194,6 +1195,67 @@ function syncResetControls() {
   });
 }
 
+function setSatelliteDirectoryCurrent(card, targetId) {
+  for (const button of card.querySelectorAll('[data-satellite-target]')) {
+    const current = button.dataset.satelliteTarget === targetId;
+    button.classList.toggle('current', current);
+    if (current) button.setAttribute('aria-current', 'location');
+    else button.removeAttribute('aria-current');
+  }
+}
+
+function syncSatelliteDirectory() {
+  satelliteDirectoryCleanup?.();
+  satelliteDirectoryCleanup = null;
+  let card = document.querySelector('#satellites-directory');
+  if (featureId !== 'satellites') {
+    card?.remove();
+    return;
+  }
+  if (!card) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = satellitesDirectoryMarkup();
+    card = wrapper.firstElementChild;
+    document.querySelector('.language-card').after(card);
+  }
+
+  const targetIds = SATELLITES_DIRECTORY_GROUPS.flatMap(group => group.items.map(item => item.target));
+  const targets = targetIds.map(id => document.getElementById(id)).filter(Boolean);
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let frame = 0;
+  const refreshCurrent = () => {
+    frame = 0;
+    if (!targets.length) return;
+    let current = targets[0];
+    for (const target of targets) {
+      if (target.getBoundingClientRect().top > 30) break;
+      current = target;
+    }
+    setSatelliteDirectoryCurrent(card, current.id);
+  };
+  const scheduleRefresh = () => {
+    if (!frame) frame = requestAnimationFrame(refreshCurrent);
+  };
+  const onClick = event => {
+    const button = event.target.closest('[data-satellite-target]');
+    if (!button || !card.contains(button)) return;
+    const target = document.getElementById(button.dataset.satelliteTarget);
+    if (!target) return;
+    setSatelliteDirectoryCurrent(card, target.id);
+    target.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  };
+  card.addEventListener('click', onClick);
+  addEventListener('scroll', scheduleRefresh, { passive: true });
+  addEventListener('resize', scheduleRefresh, { passive: true });
+  refreshCurrent();
+  satelliteDirectoryCleanup = () => {
+    card.removeEventListener('click', onClick);
+    removeEventListener('scroll', scheduleRefresh);
+    removeEventListener('resize', scheduleRefresh);
+    if (frame) cancelAnimationFrame(frame);
+  };
+}
+
 function mountView(replace = true) {
   disarmWebsiteReset();
   document.body.dataset.feature = featureId;
@@ -1205,6 +1267,7 @@ function mountView(replace = true) {
     primary.innerHTML = view.primary;
     helpPanel.innerHTML = view.help;
   }
+  syncSatelliteDirectory();
   for (const element of document.querySelectorAll('[data-section-icon]')) {
     element.innerHTML = icon(element.dataset.sectionIcon);
   }

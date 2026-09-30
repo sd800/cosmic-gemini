@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.2 — 2026-09-30
+
+- Add a localized feature directory below Language in the Satellites sidebar, with the existing feature icons, grouped product names, smooth keyboard-accessible navigation, and a current-section indicator.
+
 ## 9.12.1 — 2026-09-30
 
 - Fix XHS Keyboard Navigation setting saves by promoting it to an independent Operations Province product with its own standard Central route, bridge, runtime, and saved state. Existing selections migrate automatically.

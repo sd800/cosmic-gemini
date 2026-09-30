@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.12.1');
+assert.equal(manifest.version, '9.12.2');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -201,6 +201,7 @@ assert.match(popupSource, /scanState === 'paused' \? 'off' : 'active'/);
 assert.match(popupSource, /dataset\.persistent = String\(scanState === 'active'\)/);
 
 const settingsSource = await source('settings', 'page.js');
+const settingsViews = await source('settings', 'views.js');
 const settingsPreload = await source('settings', 'preload.js');
 const settingsStyle = await source('settings', 'settings.css');
 const popupStyle = await source('popup', 'popup.css');
@@ -263,6 +264,31 @@ assert.doesNotMatch(readme, /PSL PRIVATE DOMAINS-sector geographic eTLD rules/i,
 assert.doesNotMatch(readmeZh, /PSL PRIVATE DOMAINS-sector geographic eTLD rules/i,
   'Chinese README must not expose the internal geographic eTLD category.');
 assert.match(settingsStyle, /\.satellite-category-heading \{[^}]*font-size: 16px[^}]*font-weight: 700[^}]*\}[\s\S]*\.satellite-category-heading::after/);
+const satelliteDirectoryTargets = [
+  'mailto-capture', 'clipboard-protect', 'white-softer', 'access-control',
+  'website-knowledge-control', 'document-preview', 'ad-marshal', 'website-fixer',
+  'xhs-image-dark-mode', 'xhs-navigation', 'bili-daily-login', 'leetcode-dark-mode',
+  'chinese-response-claude', 'follow-list-instagram', 'lang-google'
+];
+assert.match(satellitesSettings, /class="card compact language-card"[\s\S]*id="language"[\s\S]*id="satellites-directory" class="card satellites-directory"/,
+  'The Satellites feature directory must render directly below Language on the first frame.');
+for (const target of satelliteDirectoryTargets) {
+  assert.match(satellitesSettings, new RegExp(`id="satellite-${target}"[^>]*data-satellite-section`),
+    `Missing first-frame Satellites target: ${target}`);
+  assert.match(satellitesSettings, new RegExp(`data-satellite-target="satellite-${target}"`),
+    `Missing first-frame Satellites directory entry: ${target}`);
+  assert.match(settingsViews, new RegExp(`target: 'satellite-${target}'`),
+    `Missing dynamic Satellites directory entry: ${target}`);
+}
+assert.match(settingsSource, /target\.scrollIntoView\(\{ behavior: reducedMotion\.matches \? 'auto' : 'smooth', block: 'start' \}\)/);
+assert.match(settingsSource, /addEventListener\('scroll', scheduleRefresh, \{ passive: true \}\)/);
+assert.match(settingsStyle, /body\[data-feature="satellites"\] \.sidebar \{[^}]*max-height: calc\(100vh - 36px\)[^}]*grid-template-rows: auto auto minmax\(0, 1fr\)/);
+assert.match(settingsStyle, /\.satellites-directory-scroll \{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*\}/);
+assert.match(settingsStyle, /@media \(max-width: 740px\)[\s\S]*\.satellites-directory-scroll \{ max-height: none; overflow: visible;/);
+for (const iconName of ['mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'documentPreview', 'adMarshal', 'websiteFixer', 'xhsImageDarkMode', 'xhsNavigation', 'biliDailyLogin', 'leetcodeDarkMode', 'chineseResponseClaude', 'followListInstagram', 'langGoogle']) {
+  assert.match(sharedUi, new RegExp(`\\b${iconName}:`), `Missing shared directory icon: ${iconName}`);
+  assert.match(settingsPreload, new RegExp(`\\b${iconName}:`), `Missing first-frame directory icon: ${iconName}`);
+}
 for (const iconName of ['mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin', 'leetcodeDarkMode', 'followListInstagram', 'langGoogle']) {
   assert.match(satellitesSettings, new RegExp(`class="satellite-feature-icon" data-section-icon="${iconName}"`));
   assert.match(sharedUi, new RegExp(`\\b${iconName}:`));

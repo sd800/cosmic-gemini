@@ -70,7 +70,8 @@ document.addEventListener('keydown', event => {
 });
 
 function state() {
-  return (states?.preferences || states)?.[featureId] || null;
+  const preferences = states?.preferences || states;
+  return featureId === 'satellites' ? preferences : preferences?.[featureId] || null;
 }
 
 function sectionState(section) {
@@ -248,7 +249,7 @@ function render() {
   if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
   if (biliDailyLogin) {
-    const available = states?.satellites?.biliDailyLogin?.available !== false && !incognito;
+    const available = states?.biliDailyLogin?.available !== false && !incognito;
     biliDailyLogin.checked = available && current.biliDailyLogin?.enabled === true;
     biliDailyLogin.closest('.switch').hidden = !available;
     const status = biliDailyLogin.closest('.satellite-control')?.querySelector('.incognito-status');
@@ -731,9 +732,9 @@ function bindView() {
     type: 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES', enabled: audioAutoplayAllSites.checked
   }), [audioAutoplayAllSites]));
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
-  if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => savePreference('satellites', {
+  if (biliDailyLogin) biliDailyLogin.addEventListener('change', () => void update(null, () => savePreference('biliDailyLogin', {
     type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
-  }, biliDailyLogin => ({ biliDailyLogin })), [biliDailyLogin]));
+  }), [biliDailyLogin]));
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
@@ -1195,13 +1196,28 @@ function syncResetControls() {
   });
 }
 
-function setSatelliteDirectoryCurrent(card, targetId) {
-  for (const button of card.querySelectorAll('[data-satellite-target]')) {
-    const current = button.dataset.satelliteTarget === targetId;
-    button.classList.toggle('current', current);
-    if (current) button.setAttribute('aria-current', 'location');
-    else button.removeAttribute('aria-current');
+function setSatelliteDirectoryCurrent(card, targetId, reveal = false) {
+  const currentButton = card.querySelector(`[data-satellite-target="${targetId}"]`);
+  if (!currentButton) return;
+  if (!currentButton.classList.contains('current')) {
+    for (const button of card.querySelectorAll('[data-satellite-target]')) {
+      const current = button.dataset.satelliteTarget === targetId;
+      button.classList.toggle('current', current);
+      if (current) button.setAttribute('aria-current', 'location');
+      else button.removeAttribute('aria-current');
+    }
   }
+  if (!reveal) return;
+  const list = card.querySelector('.satellites-directory-scroll');
+  if (list.scrollHeight <= list.clientHeight + 1) return;
+  const listRect = list.getBoundingClientRect();
+  const itemRect = currentButton.getBoundingClientRect();
+  const inset = 8;
+  const distance = itemRect.top < listRect.top + inset
+    ? itemRect.top - listRect.top - inset
+    : itemRect.bottom > listRect.bottom - inset
+      ? itemRect.bottom - listRect.bottom + inset : 0;
+  if (distance) list.scrollBy({ top: distance, behavior: 'auto' });
 }
 
 function syncSatelliteDirectory() {
@@ -1222,19 +1238,39 @@ function syncSatelliteDirectory() {
   const targetIds = SATELLITES_DIRECTORY_GROUPS.flatMap(group => group.items.map(item => item.target));
   const targets = targetIds.map(id => document.getElementById(id)).filter(Boolean);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const narrowLayout = matchMedia('(max-width: 740px)');
+  const sidebar = card.closest('.sidebar');
   let frame = 0;
+  let navigationTimeout = 0;
+  let navigating = false;
   const refreshCurrent = () => {
     frame = 0;
-    if (!targets.length) return;
-    let current = targets[0];
-    for (const target of targets) {
-      if (target.getBoundingClientRect().top > 30) break;
-      current = target;
+    if (sidebar && !narrowLayout.matches) {
+      const top = Math.max(18, sidebar.getBoundingClientRect().top);
+      sidebar.style.setProperty('--satellites-sidebar-available-height', `${Math.max(0, innerHeight - top - 18)}px`);
     }
-    setSatelliteDirectoryCurrent(card, current.id);
+    if (!targets.length || navigating) return;
+    let current = targets[0];
+    if (Math.ceil(window.scrollY + innerHeight) >= document.documentElement.scrollHeight - 2) {
+      current = targets.at(-1);
+    } else {
+      for (const target of targets) {
+        if (target.getBoundingClientRect().top > 30) break;
+        current = target;
+      }
+    }
+    setSatelliteDirectoryCurrent(card, current.id, true);
   };
   const scheduleRefresh = () => {
     if (!frame) frame = requestAnimationFrame(refreshCurrent);
+  };
+  const finishNavigation = () => {
+    if (!navigating) return;
+    navigating = false;
+    clearTimeout(navigationTimeout);
+    navigationTimeout = 0;
+    removeEventListener('scrollend', finishNavigation);
+    scheduleRefresh();
   };
   const onClick = event => {
     const button = event.target.closest('[data-satellite-target]');
@@ -1242,6 +1278,12 @@ function syncSatelliteDirectory() {
     const target = document.getElementById(button.dataset.satelliteTarget);
     if (!target) return;
     setSatelliteDirectoryCurrent(card, target.id);
+    finishNavigation();
+    if (!reducedMotion.matches) {
+      navigating = true;
+      addEventListener('scrollend', finishNavigation, { once: true });
+      navigationTimeout = setTimeout(finishNavigation, 1600);
+    }
     target.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
   };
   card.addEventListener('click', onClick);
@@ -1249,6 +1291,8 @@ function syncSatelliteDirectory() {
   addEventListener('resize', scheduleRefresh, { passive: true });
   refreshCurrent();
   satelliteDirectoryCleanup = () => {
+    finishNavigation();
+    sidebar?.style.removeProperty('--satellites-sidebar-available-height');
     card.removeEventListener('click', onClick);
     removeEventListener('scroll', scheduleRefresh);
     removeEventListener('resize', scheduleRefresh);

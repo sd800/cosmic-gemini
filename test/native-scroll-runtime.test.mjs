@@ -297,11 +297,13 @@ test('Native Scroll leaves page APIs untouched while inactive and restores them 
   const context = makeContext();
   const originalAdd = context.EventTarget.prototype.addEventListener;
   const originalScroll = context.window.scroll;
+  const originalScrollBy = context.window.scrollBy;
   const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
   assert.equal(context.window.scroll, originalScroll);
+  assert.equal(context.window.scrollBy, originalScrollBy);
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode: 'standard' } }) });
   assert.notEqual(context.EventTarget.prototype.addEventListener, originalAdd);
   assert.notEqual(context.window.scroll, originalScroll);
@@ -438,6 +440,7 @@ test('Native Scroll leaves Xiaohongshu page APIs and root styles untouched befor
   const context = makeContext('www.xiaohongshu.com');
   const originalAdd = context.EventTarget.prototype.addEventListener;
   const originalScroll = context.window.scroll;
+  const originalScrollBy = context.window.scrollBy;
   const source = await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
@@ -445,6 +448,7 @@ test('Native Scroll leaves Xiaohongshu page APIs and root styles untouched befor
   assert.equal(runtime.active, true);
   assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
   assert.equal(context.window.scroll, originalScroll);
+  assert.equal(context.window.scrollBy, originalScrollBy);
   assert.equal(context.document.documentElement.style.getPropertyValue('scroll-behavior'), '');
   assert.equal(context.document.body.style.getPropertyValue('overscroll-behavior'), '');
   assert.equal(runtime.observer, null);

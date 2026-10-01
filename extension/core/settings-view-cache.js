@@ -10,7 +10,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 42,
+    version: 43,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -98,9 +98,7 @@ export function settingsViewCache(states = {}) {
       preferredQuality: states.videoDownload?.preferredQuality || 'best',
       askWhereToSave: states.videoDownload?.askWhereToSave !== false
     },
-    satellites: {
-      biliDailyLogin: { enabled: states.satellites?.biliDailyLogin?.enabled === true }
-    },
+    biliDailyLogin: { enabled: states.biliDailyLogin?.enabled === true },
     adMarshal: {
       managedSites: {
         tencentNews: states.adMarshal?.managedSites?.tencentNews === true,

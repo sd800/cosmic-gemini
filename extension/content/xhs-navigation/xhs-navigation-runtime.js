@@ -179,7 +179,10 @@
         || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || this.editing(event)) return;
       const direction = this.keyDirection(event);
       if (!direction) return;
-      this.dispatchArrow(direction, event);
+      // The site's ArrowUp/ArrowDown handlers may scroll instantly. W/S own
+      // vertical scrolling so the same short movement remains smooth.
+      if (direction === 'up' || direction === 'down') this.defaultArrowAction(direction);
+      else this.dispatchArrow(direction, event);
       event.preventDefault();
       event.stopImmediatePropagation();
     }

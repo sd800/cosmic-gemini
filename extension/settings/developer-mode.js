@@ -25,7 +25,7 @@ export const DEVELOPER_FEATURES = Object.freeze({
   stayOnPage: { title: 'websiteFixerStayName', tag: 'stay-on-page', parent: 'websiteFixer' },
   xhsImageDarkMode: { title: 'xhsImageDarkModeSettingsName', name: 'xhsImageDarkModeName', tag: 'xhs-image-dark-mode', province: 'operations' },
   xhsNavigation: { title: 'xhsNavigationName', tag: 'xhs-navigation', province: 'operations' },
-  biliDailyLogin: { title: 'biliDailyLoginName', tag: 'bili-daily-login', parent: 'satellites' },
+  biliDailyLogin: { title: 'biliDailyLoginName', tag: 'bili-daily-login', province: 'operations' },
   chineseResponseClaude: { title: 'chineseResponseClaudeName', tag: 'chinese-response-claude', province: 'operations' },
   followListInstagram: { title: 'followListInstagramName', tag: 'follow-list-instagram', province: 'operations' },
   leetcodeDarkMode: { title: 'leetcodeDarkModeName', tag: 'leetcode-dark-mode', province: 'operations' },

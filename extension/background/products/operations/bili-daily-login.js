@@ -6,12 +6,12 @@ import {
   browserReportsOffline,
   nextBilibiliPlan
 } from '../../../core/bili-daily-login.js';
-import { SETTINGS_KEY } from '../../../core/config.js';
+import { FEATURE_IDS, SETTINGS_KEY } from '../../../core/config.js';
 
 const BILI_DAILY_HEADER_RULE_ID = 800_001;
 const BILI_DAILY_REQUEST_TIMEOUT_MS = 30_000;
 
-export function createSatellitesProduct(platform) {
+export function createBiliDailyLoginProduct(platform) {
   const ownsDailySchedule = chrome.extension?.inIncognitoContext !== true;
   let running = null;
   let runController = null;
@@ -102,7 +102,7 @@ export function createSatellitesProduct(platform) {
       return;
     }
     const settings = await platform.readSettings();
-    const feature = settings.satellites.biliDailyLogin;
+    const feature = settings.biliDailyLogin;
     if (!feature.enabled) {
       await clearDisabledState();
       return;
@@ -111,7 +111,7 @@ export function createSatellitesProduct(platform) {
     if (existing?.scheduledTime > Date.now()) return;
     await scheduleNext();
     const latest = await platform.readSettings();
-    if (!latest.satellites.biliDailyLogin.enabled) await clearDisabledState();
+    if (!latest.biliDailyLogin.enabled) await clearDisabledState();
   }
 
   function repairSchedule() {
@@ -143,7 +143,7 @@ export function createSatellitesProduct(platform) {
   }
 
   function dailySettingsSignature(value) {
-    const feature = value?.satellites?.biliDailyLogin;
+    const feature = value?.biliDailyLogin;
     return JSON.stringify({
       enabled: feature?.enabled === true,
       lastCompletedDate: String(feature?.lastCompletedDate || '')
@@ -179,7 +179,7 @@ export function createSatellitesProduct(platform) {
 
   async function run(signal) {
     const settings = await platform.readSettings();
-    const feature = settings.satellites.biliDailyLogin;
+    const feature = settings.biliDailyLogin;
     if (!feature.enabled) {
       await clearDisabledState();
       return;
@@ -207,20 +207,17 @@ export function createSatellitesProduct(platform) {
       });
     } catch {}
     const latest = await platform.readSettings();
-    if (signal.aborted || !latest.satellites.biliDailyLogin.enabled) {
+    if (signal.aborted || !latest.biliDailyLogin.enabled) {
       await clearDisabledState();
       return;
     }
     await chrome.storage.local.set({ [BILI_DAILY_ATTEMPT_KEY]: plan.id });
-    if (completed && latest.satellites.biliDailyLogin.lastCompletedDate !== today) {
+    if (completed && latest.biliDailyLogin.lastCompletedDate !== today) {
       const saved = await platform.mutateSettings(current => ({
         ...current,
-        satellites: {
-          ...current.satellites,
-          biliDailyLogin: { ...current.satellites.biliDailyLogin, lastCompletedDate: today }
-        }
+        biliDailyLogin: { ...current.biliDailyLogin, lastCompletedDate: today }
       }), false);
-      if (!saved.satellites.biliDailyLogin.enabled) {
+      if (!saved.biliDailyLogin.enabled) {
         await clearDisabledState();
         return;
       }
@@ -246,21 +243,18 @@ export function createSatellitesProduct(platform) {
   }
 
   return Object.freeze({
-    id: 'satellites',
+    id: FEATURE_IDS.BILI_DAILY_LOGIN,
     async state(settings) {
-      if (ownsDailySchedule) return settings.satellites;
+      if (ownsDailySchedule) return settings.biliDailyLogin;
       return {
-        ...settings.satellites,
-        biliDailyLogin: {
-          ...settings.satellites.biliDailyLogin,
-          enabled: false,
-          available: false
-        }
+        ...settings.biliDailyLogin,
+        enabled: false,
+        available: false
       };
     },
     ensureSchedule,
     async handleMessage(message) {
-      if (message.type !== 'UI_SET_BILI_DAILY_LOGIN') throw new Error('Satellites does not support this command.');
+      if (message.type !== 'UI_SET_BILI_DAILY_LOGIN') throw new Error('Bili Daily Login does not support this command.');
       if (!ownsDailySchedule) {
         await clearUnavailableState();
         cancelScheduleRepair();
@@ -269,10 +263,7 @@ export function createSatellitesProduct(platform) {
       const enabled = message.enabled === true;
       const settings = await platform.mutateSettings(current => ({
         ...current,
-        satellites: {
-          ...current.satellites,
-          biliDailyLogin: { ...current.satellites.biliDailyLogin, enabled }
-        }
+        biliDailyLogin: { ...current.biliDailyLogin, enabled }
       }), false);
       try {
         if (!enabled) await stopRun();
@@ -280,7 +271,7 @@ export function createSatellitesProduct(platform) {
         if (enabled) await ensureSchedule();
         else cancelScheduleRepair();
       } catch { repairSchedule(); }
-      return settings.satellites.biliDailyLogin;
+      return settings.biliDailyLogin;
     },
     async handleAlarm(alarm) {
       if (alarm.name !== BILI_DAILY_ALARM) return false;

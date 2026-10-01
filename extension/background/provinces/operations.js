@@ -4,7 +4,7 @@ import { createAdministrationProduct } from '../products/operations/administrati
 import { createAnyCopyProduct } from '../products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../products/operations/any-copy-enhanced.js';
 import { createChineseResponseClaudeProduct } from '../products/operations/chinese-response-claude.js';
-import { createSatellitesProduct } from '../products/operations/satellites.js';
+import { createBiliDailyLoginProduct } from '../products/operations/bili-daily-login.js';
 import { createPageDisplayProduct } from '../products/operations/page-display.js';
 import { createXhsImageDarkModeProduct } from '../products/operations/xhs-image-dark-mode.js';
 import { createXhsNavigationProduct } from '../products/operations/xhs-navigation.js';
@@ -16,7 +16,7 @@ export function createOperationsProvince(platform) {
   const host = createPageRuntimeHost(platform);
   const anyCopy = createAnyCopyProduct(host, platform);
   const anyCopyEnhanced = createAnyCopyEnhancedProduct(host, platform);
-  const satellites = createSatellitesProduct(platform);
+  const biliDailyLogin = createBiliDailyLoginProduct(platform);
   const leetcodeDarkMode = createLeetcodeDarkModeProduct(host, platform);
   const pageDisplay = createPageDisplayProduct(host, platform);
   const xhsImageDarkMode = createXhsImageDarkModeProduct(host, platform);
@@ -27,7 +27,7 @@ export function createOperationsProvince(platform) {
   const products = {
     [anyCopy.id]: anyCopy,
     [anyCopyEnhanced.id]: anyCopyEnhanced,
-    [satellites.id]: satellites,
+    [biliDailyLogin.id]: biliDailyLogin,
     [pageDisplay.id]: pageDisplay,
     [leetcodeDarkMode.id]: leetcodeDarkMode,
     [xhsImageDarkMode.id]: xhsImageDarkMode,
@@ -90,11 +90,11 @@ export function createOperationsProvince(platform) {
         xhsImageDarkMode.cleanupOrphans(),
         chineseResponseClaude.initialize()
       ]);
-      await satellites.ensureSchedule();
+      await biliDailyLogin.ensureSchedule();
     },
     async getProductState(productId, context) {
       if (productId === chineseResponseClaude.id) return chineseResponseClaude.state(context.settings, context.frameUrl || context.url, context.tabId, context.frameId);
-      if (productId === satellites.id) return satellites.state(context.settings);
+      if (productId === biliDailyLogin.id) return biliDailyLogin.state(context.settings);
       if (productId === administration.id) return null;
       return product(productId).state(context.settings, context.url, context.tabId, context.directives);
     },
@@ -124,16 +124,16 @@ export function createOperationsProvince(platform) {
     },
     handleWindowCreated() { return platform.handleIncognitoWindowChange(); },
     handleWindowRemoved() { return platform.handleIncognitoWindowChange(); },
-    handleAlarm(alarm) { return satellites.handleAlarm(alarm); },
+    handleAlarm(alarm) { return biliDailyLogin.handleAlarm(alarm); },
     async handleStorageChanged(changes, areaName) {
       platform.handleStorageChanged(changes, areaName);
       const localeKey = platform.isIncognitoContext() ? 'cosmicGeminiIncognitoLocale' : 'interfaceLocale';
       const localeArea = platform.isIncognitoContext() ? 'session' : 'local';
       if (areaName === localeArea && changes?.[localeKey]) xhsImageDarkMode.clearLocale();
-      return satellites.handleStorageChanged(changes, areaName);
+      return biliDailyLogin.handleStorageChanged(changes, areaName);
     },
     async reset() {
-      await Promise.allSettled([satellites.reset(), chineseResponseClaude.reset(), followListInstagram.reset()]);
+      await Promise.allSettled([biliDailyLogin.reset(), chineseResponseClaude.reset(), followListInstagram.reset()]);
     }
   });
 }

@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md)
 
+## 9.12.3 — 2026-09-30
+
+- 让 XHS Keyboard Navigation 的上下移动平滑进行，并保持与 Native Scroll 兼容。
+- 让 Satellites 功能目录自动露出当前高亮项，并在侧栏逐渐吸顶时保持卡片底边可见。
+- 将 Bili Daily Login 调整为 Operations Province 直属产品，同时保留已有设置与定时任务。
+
 ## 9.12.2 — 2026-09-30
 
 - 在 Satellites 右侧栏的语言设置下新增本地化功能目录，以现有功能图标及分组名称展示各产品，支持键盘操作、平滑定位和当前区段提示。

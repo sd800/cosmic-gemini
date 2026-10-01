@@ -111,7 +111,8 @@
   if (audioAutoplayAllSites) audioAutoplayAllSites.checked = current.audioAutoplayAllSites === true;
   const biliDailyLogin = document.querySelector('#biliDailyLogin');
   if (biliDailyLogin) {
-    biliDailyLogin.checked = !incognitoContext && current.biliDailyLogin?.enabled === true;
+    biliDailyLogin.checked = !incognitoContext
+      && (cached.biliDailyLogin || current.biliDailyLogin)?.enabled === true;
     if (incognitoContext) {
       biliDailyLogin.closest('.switch').hidden = true;
       const status = biliDailyLogin.closest('.satellite-control')?.querySelector('.incognito-status');

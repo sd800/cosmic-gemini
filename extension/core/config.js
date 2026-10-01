@@ -18,6 +18,7 @@ export const FEATURE_IDS = Object.freeze({
   PAGE_DISPLAY: 'pageDisplay',
   XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
   XHS_NAVIGATION: 'xhsNavigation',
+  BILI_DAILY_LOGIN: 'biliDailyLogin',
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   FOLLOW_LIST_INSTAGRAM: 'followListInstagram',
   LANG_GOOGLE: 'langGoogle',
@@ -77,7 +78,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 42,
+  version: 43,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -151,12 +152,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     preferredQuality: 'best',
     askWhereToSave: true
   }),
-  satellites: Object.freeze({
-    biliDailyLogin: Object.freeze({
-      enabled: false,
-      lastCompletedDate: ''
-    })
-  })
+  biliDailyLogin: Object.freeze({ enabled: false, lastCompletedDate: '' })
 });
 
 export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
@@ -173,12 +169,7 @@ export const DEFAULT_INCOGNITO_SETTINGS = Object.freeze({
     enabled: false
   }),
   adMarshal: DEFAULT_SETTINGS.adMarshal,
-  satellites: Object.freeze({
-    biliDailyLogin: Object.freeze({
-      enabled: false,
-      lastCompletedDate: ''
-    })
-  })
+  biliDailyLogin: Object.freeze({ enabled: false, lastCompletedDate: '' })
 });
 
 const IPV4_ADDRESS = /^\d{1,3}(?:\.\d{1,3}){3}$/;
@@ -343,8 +334,9 @@ export function normalizeLeetcodeDarkModeTone(value) {
 
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
+  const biliDailyLogin = value.biliDailyLogin || value.satellites?.biliDailyLogin || {};
   return {
-    version: 42,
+    version: 43,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -440,13 +432,10 @@ export function normalizeSettings(value = {}) {
         : 'best',
       askWhereToSave: value.videoDownload?.askWhereToSave !== false
     },
-    satellites: {
-      biliDailyLogin: {
-        enabled: value.satellites?.biliDailyLogin?.enabled === true,
-        lastCompletedDate: /^\d{4}-\d{2}-\d{2}$/.test(value.satellites?.biliDailyLogin?.lastCompletedDate || '')
-          ? value.satellites.biliDailyLogin.lastCompletedDate
-          : ''
-      }
+    biliDailyLogin: {
+      enabled: biliDailyLogin.enabled === true,
+      lastCompletedDate: /^\d{4}-\d{2}-\d{2}$/.test(biliDailyLogin.lastCompletedDate || '')
+        ? biliDailyLogin.lastCompletedDate : ''
     }
   };
 }

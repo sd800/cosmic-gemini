@@ -7,7 +7,8 @@ import {
   nextBilibiliPlan,
   nextBilibiliSchedule
 } from '../extension/core/bili-daily-login.js';
-import { createSatellitesProduct } from '../extension/background/products/operations/satellites.js';
+import { FEATURE_IDS } from '../extension/core/config.js';
+import { createBiliDailyLoginProduct } from '../extension/background/products/operations/bili-daily-login.js';
 
 function storageArea(values = {}) {
   return {
@@ -68,17 +69,18 @@ test('Bili Daily Login skips requests when Chrome explicitly reports offline', (
 test('Bili Daily Login ordinary state preserves the saved switch', async () => {
   globalThis.chrome = { extension: { inIncognitoContext: false } };
   const settings = {
-    satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } }
+    biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' }
   };
-  const product = createSatellitesProduct({});
-  assert.deepEqual(await product.state(settings), settings.satellites);
+  const product = createBiliDailyLoginProduct({});
+  assert.equal(product.id, FEATURE_IDS.BILI_DAILY_LOGIN);
+  assert.deepEqual(await product.state(settings), settings.biliDailyLogin);
 });
 
 test('disabling Bili Daily Login aborts an in-flight request without rescheduling it', async () => {
   const local = storageArea({ [BILI_DAILY_ATTEMPT_KEY]: '2026-08-30:daytime' });
   const createdAlarms = [];
   let settings = {
-    satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '' } }
+    biliDailyLogin: { enabled: true, lastCompletedDate: '' }
   };
   globalThis.chrome = {
     extension: { inIncognitoContext: false },
@@ -106,12 +108,12 @@ test('disabling Bili Daily Login aborts an in-flight request without reschedulin
     }
   };
   try {
-    const product = createSatellitesProduct(platform);
+    const product = createBiliDailyLoginProduct(platform);
     const alarmRun = product.handleAlarm({ name: 'satellites:biliDailyLogin' });
     await started;
     await product.handleMessage({ type: 'UI_SET_BILI_DAILY_LOGIN', enabled: false });
     await alarmRun;
-    assert.equal(settings.satellites.biliDailyLogin.enabled, false);
+    assert.equal(settings.biliDailyLogin.enabled, false);
     assert.equal(BILI_DAILY_ATTEMPT_KEY in local.values, false);
     assert.deepEqual(createdAlarms, []);
   } finally {
@@ -121,7 +123,7 @@ test('disabling Bili Daily Login aborts an in-flight request without reschedulin
 });
 
 test('Bili Daily Login never schedules from the split incognito background context', async () => {
-  let settings = { satellites: { biliDailyLogin: { enabled: false, lastCompletedDate: '' } } };
+  let settings = { biliDailyLogin: { enabled: false, lastCompletedDate: '' } };
   const createdAlarms = [];
   const local = storageArea({ [BILI_DAILY_ATTEMPT_KEY]: '2026-08-30:daytime' });
   globalThis.chrome = {
@@ -133,7 +135,7 @@ test('Bili Daily Login never schedules from the split incognito background conte
       async get() { return null; }
     }
   };
-  const product = createSatellitesProduct({
+  const product = createBiliDailyLoginProduct({
     async readSettings() { return structuredClone(settings); },
     async mutateSettings(update) {
       settings = update(settings);
@@ -143,10 +145,8 @@ test('Bili Daily Login never schedules from the split incognito background conte
   const result = await product.handleMessage({ type: 'UI_SET_BILI_DAILY_LOGIN', enabled: true });
   await product.handleStorageChanged({ cosmicGeminiSettings: { newValue: settings } }, 'local');
   assert.deepEqual(result, { enabled: false, lastCompletedDate: '', available: false });
-  assert.equal(settings.satellites.biliDailyLogin.enabled, false);
-  assert.deepEqual(await product.state(settings), {
-    biliDailyLogin: { enabled: false, lastCompletedDate: '', available: false }
-  });
+  assert.equal(settings.biliDailyLogin.enabled, false);
+  assert.deepEqual(await product.state(settings), { enabled: false, lastCompletedDate: '', available: false });
   assert.equal(local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30:daytime');
   assert.deepEqual(createdAlarms, []);
 });
@@ -155,7 +155,7 @@ test('Bili Daily Login waits when no regular Chrome window is open', async () =>
   const local = storageArea();
   const createdAlarms = [];
   let requests = 0;
-  const settings = { satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '' } } };
+  const settings = { biliDailyLogin: { enabled: true, lastCompletedDate: '' } };
   globalThis.chrome = {
     extension: { inIncognitoContext: false },
     windows: { async getAll() { return []; } },
@@ -171,7 +171,7 @@ test('Bili Daily Login waits when no regular Chrome window is open', async () =>
   Date.now = () => Date.parse('2026-08-30T04:00:00Z');
   globalThis.fetch = async () => { requests += 1; throw new Error('unexpected request'); };
   try {
-    const product = createSatellitesProduct({ async readSettings() { return structuredClone(settings); } });
+    const product = createBiliDailyLoginProduct({ async readSettings() { return structuredClone(settings); } });
     await product.handleAlarm({ name: 'satellites:biliDailyLogin' });
     assert.equal(requests, 0);
     assert.equal(BILI_DAILY_ATTEMPT_KEY in local.values, false);
@@ -187,7 +187,7 @@ test('Bili Daily Login verifies completion and still schedules the second daily 
   const createdAlarms = [];
   const requests = [];
   const ruleUpdates = [];
-  let settings = { satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '' } } };
+  let settings = { biliDailyLogin: { enabled: true, lastCompletedDate: '' } };
   globalThis.chrome = {
     extension: { inIncognitoContext: false },
     runtime: { id: 'cosmic-gemini-test' },
@@ -220,14 +220,14 @@ test('Bili Daily Login verifies completion and still schedules the second daily 
     }
   };
   try {
-    const product = createSatellitesProduct(platform);
+    const product = createBiliDailyLoginProduct(platform);
     await product.handleAlarm({ name: 'satellites:biliDailyLogin' });
     assert.deepEqual(requests, [
       'https://api.bilibili.com/x/web-interface/nav',
       'https://api.bilibili.com/x/member/web/exp/reward'
     ]);
     assert.equal(local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30:daytime');
-    assert.equal(settings.satellites.biliDailyLogin.lastCompletedDate, '2026-08-30');
+    assert.equal(settings.biliDailyLogin.lastCompletedDate, '2026-08-30');
     assert.equal(createdAlarms.at(-1).options.when, Date.parse('2026-08-30T10:05:00Z'));
     assert.deepEqual(ruleUpdates[1].addRules[0].condition, {
       initiatorDomains: ['cosmic-gemini-test'],

@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.3 — 2026-09-30
+
+- Smooth XHS Keyboard Navigation's vertical movement while preserving Native Scroll compatibility.
+- Keep the Satellites feature directory's active item visible and its card fully within the viewport as the sidebar moves into place.
+- Move Bili Daily Login directly under Operations Province while preserving existing saved choices and scheduled checks.
+
 ## 9.12.2 — 2026-09-30
 
 - Add a localized feature directory below Language in the Satellites sidebar, with the existing feature icons, grouped product names, smooth keyboard-accessible navigation, and a current-section indicator.

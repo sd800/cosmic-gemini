@@ -63,20 +63,25 @@ function keyEvent(code, path = []) {
   };
 }
 
-test('W and S dispatch ArrowUp and ArrowDown with native scrolling fallback', async () => {
-  const { document, vertical } = await fixture();
+test('W and S scroll smoothly without invoking site arrow handlers', async () => {
+  const { document, root, vertical } = await fixture();
   const target = new EventTarget();
   let translated = null;
   target.addEventListener('keydown', event => { translated = event; });
   const down = { ...keyEvent('KeyS'), target };
   document.dispatchEvent(down);
-  assert.equal(translated.key, 'ArrowDown');
-  assert.equal(translated.code, 'ArrowDown');
-  assert.equal(translated.keyCode, 40);
+  assert.equal(translated, null);
   assert.equal(vertical().top, 40);
   assert.equal(vertical().behavior, 'smooth');
   assert.equal(down.defaultPrevented, true);
   assert.equal(down.stopped, true);
+
+  root.scrollTop = 40;
+  const up = { ...keyEvent('KeyW'), target };
+  document.dispatchEvent(up);
+  assert.equal(vertical().top, -40);
+  assert.equal(vertical().behavior, 'smooth');
+  assert.equal(translated, null);
 
   const before = vertical();
   const input = { matches: selector => selector.includes('input') };

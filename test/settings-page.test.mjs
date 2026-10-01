@@ -13,6 +13,8 @@ test('developer metadata follows Central ownership and attaches only to existing
   const central = readFileSync(new URL('../extension/background/central.js', import.meta.url), 'utf8');
   const expression = central.match(/export const PROVINCE_PRODUCTS = (Object\.freeze\([\s\S]*?\n\}\));/)[1];
   const provinces = vm.runInNewContext(expression, { FEATURE_IDS });
+  assert.ok(provinces.operations.includes(FEATURE_IDS.BILI_DAILY_LOGIN));
+  assert.ok(!provinces.operations.includes('satellites'));
   for (const [province, products] of Object.entries(provinces)) {
     for (const id of products.filter(id => id !== 'administration')) {
       assert.equal(DEVELOPER_FEATURES[id]?.province, province, `${id} ownership must match Central`);
@@ -25,7 +27,7 @@ test('developer metadata follows Central ownership and attaches only to existing
   }
   const t = translator('en-US');
   assert.equal(featureAffiliation('stayOnPage', t), 'Central > Standing Province > Website Fixer > Stay on the page');
-  assert.equal(featureAffiliation('biliDailyLogin', t), 'Central > Operations Province > Satellites > Bili Daily Login');
+  assert.equal(featureAffiliation('biliDailyLogin', t), 'Central > Operations Province > Bili Daily Login');
 });
 
 function settingsRegion(html, pattern, label) {

@@ -15,7 +15,7 @@ export const PROVINCE_PRODUCTS = Object.freeze({
     FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.WEBSITE_FIXER, FEATURE_IDS.LANG_GOOGLE]),
   operations: Object.freeze([
     FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.PAGE_DISPLAY, FEATURE_IDS.LEETCODE_DARK_MODE, FEATURE_IDS.XHS_IMAGE_DARK_MODE, FEATURE_IDS.XHS_NAVIGATION,
-    FEATURE_IDS.CHINESE_RESPONSE_CLAUDE, FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, 'satellites', 'administration'
+    FEATURE_IDS.CHINESE_RESPONSE_CLAUDE, FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, FEATURE_IDS.BILI_DAILY_LOGIN, 'administration'
   ]),
   customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD, FEATURE_IDS.DOCUMENT_PREVIEW])
 });
@@ -28,7 +28,7 @@ const PAGE_PRODUCTS = Object.freeze([
 const STATE_PRODUCTS = Object.freeze([
   ...PAGE_PRODUCTS, FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.DOCUMENT_PREVIEW, FEATURE_IDS.WEBSITE_FIXER,
   FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD,
-  'satellites'
+  FEATURE_IDS.BILI_DAILY_LOGIN
 ]);
 const EVENT_PROVINCES = Object.freeze({
   initialize: Object.freeze(['standing', 'operations', 'customs']),
@@ -61,7 +61,7 @@ function provinceForProduct(productId) {
 }
 
 function unavailableProductState(productId, settings) {
-  const configured = productId === 'satellites' ? settings.satellites : settings[productId];
+  const configured = settings[productId];
   return {
     ...(configured && typeof configured === 'object' ? configured : {}),
     supported: false,
@@ -87,7 +87,7 @@ function productForMessage(message) {
   }
   if (message.type === 'UI_SET_AUDIO_AUTOPLAY_ALL_SITES') return FEATURE_IDS.NO_AUTOPLAY;
   if (message.type === 'UI_SET_AD_MARSHAL_SITE') return FEATURE_IDS.AD_MARSHAL;
-  if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return 'satellites';
+  if (message.type === 'UI_SET_BILI_DAILY_LOGIN') return FEATURE_IDS.BILI_DAILY_LOGIN;
   if (message.type === 'UI_SET_WEBSITE_KNOWLEDGE_SETTING') return FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL;
   if (message.type === 'UI_SET_CLAUDE_BROWSER_IDENTITY') return FEATURE_IDS.CHINESE_RESPONSE_CLAUDE;
   if (message.type === 'UI_SET_PAGE_DISPLAY_SETTING') return FEATURE_IDS.PAGE_DISPLAY;

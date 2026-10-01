@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.12.2');
+assert.equal(manifest.version, '9.12.3');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -141,7 +141,7 @@ const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join
   && /fetch\s*\(|XMLHttpRequest|WebSocket\s*\(/.test(value));
 assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'background/products/customs/video-download.js'),
-  join(extension, 'background/products/operations/satellites.js'),
+  join(extension, 'background/products/operations/bili-daily-login.js'),
   join(extension, 'background/products/customs/document-preview.js'),
   join(extension, 'content/ad-marshal/ad-marshal-runtime.js'),
   join(extension, 'content/video-download/video-download-page.js'),
@@ -282,7 +282,8 @@ for (const target of satelliteDirectoryTargets) {
 }
 assert.match(settingsSource, /target\.scrollIntoView\(\{ behavior: reducedMotion\.matches \? 'auto' : 'smooth', block: 'start' \}\)/);
 assert.match(settingsSource, /addEventListener\('scroll', scheduleRefresh, \{ passive: true \}\)/);
-assert.match(settingsStyle, /body\[data-feature="satellites"\] \.sidebar \{[^}]*max-height: calc\(100vh - 36px\)[^}]*grid-template-rows: auto auto minmax\(0, 1fr\)/);
+assert.match(settingsStyle, /body\[data-feature="satellites"\] \.sidebar \{[^}]*max-height: var\(--satellites-sidebar-available-height, calc\(100vh - 36px\)\)[^}]*grid-template-rows: auto auto minmax\(0, 1fr\)/);
+assert.match(settingsSource, /sidebar\.style\.setProperty\('--satellites-sidebar-available-height'/);
 assert.match(settingsStyle, /\.satellites-directory-scroll \{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*\}/);
 assert.match(settingsStyle, /@media \(max-width: 740px\)[\s\S]*\.satellites-directory-scroll \{ max-height: none; overflow: visible;/);
 for (const iconName of ['mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'documentPreview', 'adMarshal', 'websiteFixer', 'xhsImageDarkMode', 'xhsNavigation', 'biliDailyLogin', 'leetcodeDarkMode', 'chineseResponseClaude', 'followListInstagram', 'langGoogle']) {
@@ -364,7 +365,7 @@ const adMarshal = await source('background', 'products', 'standing', 'ad-marshal
 const adMarshalRuntime = await source('content', 'ad-marshal/ad-marshal-runtime.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
 const anyCopyEnhanced = await source('background', 'products', 'operations', 'any-copy-enhanced.js');
-const satellites = await source('background', 'products', 'operations', 'satellites.js');
+const biliDailyLogin = await source('background', 'products', 'operations', 'bili-daily-login.js');
 const pageDisplay = await source('background', 'products', 'operations', 'page-display.js');
 const pageDisplayBridge = await source('content', 'page-display/page-display-bridge.js');
 const pageDisplayRuntime = await source('content', 'page-display/page-display-runtime.js');
@@ -473,7 +474,7 @@ assert.match(accessControl, /updateSessionRules\([\s\S]*chrome\.tabs\.update/,
   'Access Control must install the temporary rule before retrying the blocked destination.');
 assert.doesNotMatch(accessControl, /chrome\.tabs\.reload|scripting\.executeScript|UI_ACCESS_CONTROL_ALLOW_VISIT/);
 assert.doesNotMatch(popupSource, /access-control-visit|UI_ACCESS_CONTROL_ALLOW_VISIT/);
-assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createSatellitesProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
+assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createBiliDailyLoginProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /restorationTask[\s\S]*if \(restorationTask\) return restorationTask/,
   'Customs Province must coalesce concurrent session restoration.');
@@ -725,10 +726,10 @@ assert.match(anyCopy, /message\.rule \|\| message\.hostname/);
 assert.match(anyCopyEnhanced, /content\/any-copy-enhanced\/any-copy-enhanced-bridge\.js[\s\S]*content\/any-copy-enhanced\/any-copy-enhanced-runtime\.js/);
 assert.match(anyCopyEnhanced, /anyCopyEnhancedTab:/);
 assert.match(anyCopyEnhanced, /createKeyedTaskQueue/);
-assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
-assert.match(satellites, /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/reward/);
-assert.match(satellites, /AbortController[\s\S]*signal[\s\S]*stopRun/);
-assert.match(satellites, /mutateSettings\([\s\S]*\), false\)/);
+assert.match(biliDailyLogin, /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
+assert.match(biliDailyLogin, /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/reward/);
+assert.match(biliDailyLogin, /AbortController[\s\S]*signal[\s\S]*stopRun/);
+assert.match(biliDailyLogin, /mutateSettings\([\s\S]*\), false\)/);
 assert.match(administration, /UI_GET_ACTIVE_PAGE_STATE[\s\S]*UI_OPEN_ALL_SETTINGS[\s\S]*UI_RESET_ALL_SETTINGS/);
 assert.match(administration, /UI_GET[\s\S]*includePreferences: true/);
 assert.match(central, /includePreferences === true \? \{ preferences: settings \} : \{\}/);
@@ -746,9 +747,9 @@ assert.match(administration, /PAGE_DISPLAY\]: 'settings\/page-display\.html'/);
 assert.match(platform, /INCOGNITO_SETTINGS_KEY[\s\S]*chrome\.storage\.session[\s\S]*INCOGNITO_WINDOWS_KEY/);
 assert.match(platform, /handleIncognitoWindowChange/);
 assert.match(platform, /refreshToolbarTitles[\s\S]*readActivity\(tab\.id\)[\s\S]*renderToolbar[\s\S]*setLocale/);
-assert.match(satellites, /inIncognitoContext[\s\S]*ownsDailySchedule/);
-assert.match(satellites, /available: false/);
-assert.match(satellites, /if \(ownsDailySchedule\) return settings\.satellites/);
+assert.match(biliDailyLogin, /inIncognitoContext[\s\S]*ownsDailySchedule/);
+assert.match(biliDailyLogin, /available: false/);
+assert.match(biliDailyLogin, /if \(ownsDailySchedule\) return settings\.biliDailyLogin/);
 assert.match(settingsSource, /disabledByDefaultInIncognito/);
 assert.match(popupStyle, /#video-stop, #video-stop:hover \{ background: transparent; color: var\(--danger\); \}/);
 assert.match(imageDownloadStyle, /#stop, #stop:hover \{ background: transparent; color: var\(--danger\); \}/);

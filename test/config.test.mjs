@@ -35,7 +35,7 @@ test('ordinary and incognito defaults keep automatic products and regional categ
     assert.equal(settings.chineseResponseClaude.browserIdentityEnabled, false);
     assert.equal(settings.pageDisplay.reduceWhitePoint.enabled, false);
     assert.equal(settings.pageDisplay.greyscale.enabled, false);
-    assert.equal(settings.satellites.biliDailyLogin.enabled, false);
+    assert.equal(settings.biliDailyLogin.enabled, false);
     assert.equal(Object.values(settings.adMarshal.managedSites).some(Boolean), false);
   }
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.anyCopy.siteRules, []);
@@ -72,7 +72,20 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.equal('anyCopyEnhanced' in settings, false);
   assert.deepEqual(settings.imageDownload, { workspaceMode: 'sidePanel', batchMode: 'zip', outputFormat: 'original', askWhereToSave: true });
   assert.deepEqual(settings.videoDownload, { preferredQuality: 'best', askWhereToSave: true });
-  assert.deepEqual(settings.satellites.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
+  assert.deepEqual(settings.biliDailyLogin, { enabled: false, lastCompletedDate: '' });
+});
+
+test('legacy Satellites login state migrates to the independent product', () => {
+  const migrated = normalizeSettings({
+    satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } }
+  });
+  assert.deepEqual(migrated.biliDailyLogin, { enabled: true, lastCompletedDate: '2026-08-30' });
+  assert.equal('satellites' in migrated, false);
+  const direct = normalizeSettings({
+    biliDailyLogin: { enabled: false, lastCompletedDate: '2026-08-31' },
+    satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } }
+  });
+  assert.deepEqual(direct.biliDailyLogin, { enabled: false, lastCompletedDate: '2026-08-31' });
 });
 
 test('explicitly enabled saved features survive the new off-by-default initialization', () => {
@@ -302,7 +315,7 @@ test('feature updates do not mutate other products', () => {
   assert.equal(next.nativeScroll.enabled, false);
   assert.deepEqual(next.noAutoplay, current.noAutoplay);
   assert.deepEqual(next.anyCopy, current.anyCopy);
-  assert.deepEqual(next.satellites, current.satellites);
+  assert.deepEqual(next.biliDailyLogin, current.biliDailyLogin);
 });
 
 test('saved settings switches remain independent from effective page state', () => {
@@ -517,7 +530,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     },
     imageDownload: { workspaceMode: 'page', batchMode: 'separate', outputFormat: 'png', askWhereToSave: false },
     videoDownload: { preferredQuality: '1080', askWhereToSave: false },
-    satellites: { biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' } },
+    biliDailyLogin: { enabled: true, lastCompletedDate: '2026-08-30' },
     adMarshal: { managedSites: { tencentNews: true } },
     activity: { nativeScroll: true }
   });
@@ -528,7 +541,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
     standardRules: ['read.example']
   });
   assert.deepEqual(cache.nsna, { whitelistRules: ['*.private.example'] });
-  assert.deepEqual(cache.satellites, { biliDailyLogin: { enabled: true } });
+  assert.deepEqual(cache.biliDailyLogin, { enabled: true });
   assert.deepEqual(cache.adMarshal, {
     managedSites: { tencentNews: true, zhihu: false }
   });

@@ -226,7 +226,7 @@ select {
 .compact small { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .compact select { width: 150px; }
 .sidebar { position: sticky; top: 18px; display: grid; gap: 18px; }
-body[data-feature="satellites"] .sidebar { max-height: calc(100vh - 36px); grid-template-rows: auto auto minmax(0, 1fr); }
+body[data-feature="satellites"] .sidebar { max-height: var(--satellites-sidebar-available-height, calc(100vh - 36px)); grid-template-rows: auto auto minmax(0, 1fr); }
 .language-card { min-height: 62px; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
 .language-card label { display: block; }
 .language-card select { width: 122px; height: 34px; }

@@ -16,6 +16,7 @@ import { createMailtoCaptureProduct } from '../products/standing/mailto-capture.
 import { createLangGoogleProduct } from '../products/standing/lang-google.js';
 import { createNativeScrollProduct } from '../products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../products/standing/no-autoplay.js';
+import { createBiliDailyLoginProduct } from '../products/standing/bili-daily-login.js';
 import { defineProvince } from './interface.js';
 
 const WEBSITE_BEHAVIORS = new Set(['inactive', 'standard', 'enhanced']);
@@ -51,6 +52,7 @@ export function createStandingProvince(platform) {
   const adMarshal = createAdMarshalProduct(host, platform);
   const websiteKnowledgeControl = createWebsiteKnowledgeControlProduct(host, platform);
   const websiteFixer = createWebsiteFixerProduct(platform);
+  const biliDailyLogin = createBiliDailyLoginProduct(platform);
   const products = {
     [nativeScroll.id]: nativeScroll,
     [noAutoplay.id]: noAutoplay,
@@ -61,7 +63,8 @@ export function createStandingProvince(platform) {
     [accessControl.id]: accessControl,
     [websiteKnowledgeControl.id]: websiteKnowledgeControl,
     [adMarshal.id]: adMarshal,
-    [websiteFixer.id]: websiteFixer
+    [websiteFixer.id]: websiteFixer,
+    [biliDailyLogin.id]: biliDailyLogin
   };
 
   function product(productId) {
@@ -108,6 +111,7 @@ export function createStandingProvince(platform) {
       if (message.type.startsWith('UI_')) await accessControl.reconcile();
       return result;
     }
+    if (governed?.id === biliDailyLogin.id) return biliDailyLogin.handleMessage(message, context);
     if ([websiteKnowledgeControl.id, clipboardProtect.id, whiteSofter.id, accessControl.id].includes(governed?.id)) {
       return governed.handleMessage(message, context);
     }
@@ -232,6 +236,7 @@ export function createStandingProvince(platform) {
       await platform.ensureSettings();
       await Promise.allSettled([adMarshal.reconcile(), accessControl.reconcile(), websiteKnowledgeControl.initialize(),
         websiteFixer.initialize(), whiteSofter.initialize()]);
+      await biliDailyLogin.ensureSchedule();
     },
     async getProductState(productId, context) {
       return product(productId).state(
@@ -259,6 +264,7 @@ export function createStandingProvince(platform) {
     ]); },
     handleNavigationRequest(details) { return websiteFixer.handleNavigationRequest(details); },
     handleActionClicked(tab) { return accessControl.handleActionClicked(tab); },
+    handleAlarm(alarm) { return biliDailyLogin.handleAlarm(alarm); },
     handleStorageChanged(changes, areaName) {
       mailtoCapture.handleStorageChanged(changes, areaName);
       return Promise.allSettled([
@@ -266,10 +272,11 @@ export function createStandingProvince(platform) {
         accessControl.handleStorageChanged(changes, areaName),
         websiteKnowledgeControl.handleStorageChanged(changes, areaName),
         websiteFixer.handleStorageChanged(changes, areaName),
-        whiteSofter.handleStorageChanged(changes, areaName)
+        whiteSofter.handleStorageChanged(changes, areaName),
+        biliDailyLogin.handleStorageChanged(changes, areaName)
       ]);
     },
     reset() { return Promise.allSettled([adMarshal.reset(), accessControl.reset(), websiteKnowledgeControl.reset(),
-      websiteFixer.reset(), whiteSofter.reset()]); }
+      websiteFixer.reset(), whiteSofter.reset(), biliDailyLogin.reset()]); }
   });
 }

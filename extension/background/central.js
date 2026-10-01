@@ -1,4 +1,5 @@
 import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
+import { BILI_DAILY_ALARM } from '../core/bili-daily-login.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
 import { DOCUMENT_CLEANUP_ALARM_PREFIX } from '../core/document-preview/document-preview.js';
 import { centralPageDirectives, syncCentralPageProducts } from './central-policy.js';
@@ -12,10 +13,10 @@ import { createStandingProvince } from './provinces/standing.js';
 export const PROVINCE_PRODUCTS = Object.freeze({
   standing: Object.freeze([FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY, FEATURE_IDS.MAILTO_CAPTURE,
     FEATURE_IDS.CLIPBOARD_PROTECT, FEATURE_IDS.WHITE_SOFTER, FEATURE_IDS.ACCESS_CONTROL, FEATURE_IDS.WEBSITE_KNOWLEDGE_CONTROL,
-    FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.WEBSITE_FIXER, FEATURE_IDS.LANG_GOOGLE]),
+    FEATURE_IDS.AD_MARSHAL, FEATURE_IDS.WEBSITE_FIXER, FEATURE_IDS.LANG_GOOGLE, FEATURE_IDS.BILI_DAILY_LOGIN]),
   operations: Object.freeze([
     FEATURE_IDS.ANY_COPY, FEATURE_IDS.ANY_COPY_ENHANCED, FEATURE_IDS.PAGE_DISPLAY, FEATURE_IDS.LEETCODE_DARK_MODE, FEATURE_IDS.XHS_IMAGE_DARK_MODE, FEATURE_IDS.XHS_NAVIGATION,
-    FEATURE_IDS.CHINESE_RESPONSE_CLAUDE, FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, FEATURE_IDS.BILI_DAILY_LOGIN, 'administration'
+    FEATURE_IDS.CHINESE_RESPONSE_CLAUDE, FEATURE_IDS.FOLLOW_LIST_INSTAGRAM, 'administration'
   ]),
   customs: Object.freeze([FEATURE_IDS.IMAGE_DOWNLOAD, FEATURE_IDS.VIDEO_DOWNLOAD, FEATURE_IDS.DOCUMENT_PREVIEW])
 });
@@ -239,13 +240,11 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   return provinces.customs.handleDeterminingFilename(item, suggest);
 });
 chrome.alarms.onAlarm.addListener(alarm => {
-  const province = alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) ? provinces.customs
-    : alarm.name.startsWith(DOCUMENT_CLEANUP_ALARM_PREFIX) ? provinces.customs : provinces.operations;
+  const province = alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) || alarm.name.startsWith(DOCUMENT_CLEANUP_ALARM_PREFIX)
+    ? provinces.customs : alarm.name === BILI_DAILY_ALARM ? provinces.standing : provinces.operations;
   void province.handleAlarm(alarm).catch(() => {});
 });
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  void dispatchEvent('storageChanged', changes, areaName);
-});
+chrome.storage.onChanged.addListener((changes, areaName) => void dispatchEvent('storageChanged', changes, areaName));
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (['video-download-offscreen', 'image-download-offscreen', 'ephemeral-blob-cache', 'offscreen-resource-status'].includes(message?.target)) return false;

@@ -8,7 +8,7 @@ import {
   nextBilibiliSchedule
 } from '../extension/core/bili-daily-login.js';
 import { FEATURE_IDS } from '../extension/core/config.js';
-import { createBiliDailyLoginProduct } from '../extension/background/products/operations/bili-daily-login.js';
+import { createBiliDailyLoginProduct } from '../extension/background/products/standing/bili-daily-login.js';
 
 function storageArea(values = {}) {
   return {

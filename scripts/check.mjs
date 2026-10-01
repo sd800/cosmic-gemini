@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.12.3');
+assert.equal(manifest.version, '9.12.4');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -141,7 +141,7 @@ const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join
   && /fetch\s*\(|XMLHttpRequest|WebSocket\s*\(/.test(value));
 assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'background/products/customs/video-download.js'),
-  join(extension, 'background/products/operations/bili-daily-login.js'),
+  join(extension, 'background/products/standing/bili-daily-login.js'),
   join(extension, 'background/products/customs/document-preview.js'),
   join(extension, 'content/ad-marshal/ad-marshal-runtime.js'),
   join(extension, 'content/video-download/video-download-page.js'),
@@ -365,7 +365,7 @@ const adMarshal = await source('background', 'products', 'standing', 'ad-marshal
 const adMarshalRuntime = await source('content', 'ad-marshal/ad-marshal-runtime.js');
 const anyCopy = await source('background', 'products', 'operations', 'any-copy.js');
 const anyCopyEnhanced = await source('background', 'products', 'operations', 'any-copy-enhanced.js');
-const biliDailyLogin = await source('background', 'products', 'operations', 'bili-daily-login.js');
+const biliDailyLogin = await source('background', 'products', 'standing', 'bili-daily-login.js');
 const pageDisplay = await source('background', 'products', 'operations', 'page-display.js');
 const pageDisplayBridge = await source('content', 'page-display/page-display-bridge.js');
 const pageDisplayRuntime = await source('content', 'page-display/page-display-runtime.js');
@@ -474,7 +474,9 @@ assert.match(accessControl, /updateSessionRules\([\s\S]*chrome\.tabs\.update/,
   'Access Control must install the temporary rule before retrying the blocked destination.');
 assert.doesNotMatch(accessControl, /chrome\.tabs\.reload|scripting\.executeScript|UI_ACCESS_CONTROL_ALLOW_VISIT/);
 assert.doesNotMatch(popupSource, /access-control-visit|UI_ACCESS_CONTROL_ALLOW_VISIT/);
-assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createBiliDailyLoginProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
+assert.match(operations, /createAnyCopyProduct[\s\S]*createAnyCopyEnhancedProduct[\s\S]*createPageDisplayProduct[\s\S]*createXhsImageDarkModeProduct[\s\S]*createAdministrationProduct/);
+assert.match(standing, /createBiliDailyLoginProduct[\s\S]*biliDailyLogin\.ensureSchedule\(\)[\s\S]*handleAlarm\(alarm\) \{ return biliDailyLogin\.handleAlarm\(alarm\); \}/);
+assert.match(central, /alarm\.name === BILI_DAILY_ALARM \? provinces\.standing/);
 assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProduct[\s\S]*createCustomsOffscreenCoordinator/);
 assert.match(customs, /restorationTask[\s\S]*if \(restorationTask\) return restorationTask/,
   'Customs Province must coalesce concurrent session restoration.');

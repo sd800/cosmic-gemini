@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.4 — 2026-09-30
+
+- Transfer Bili Daily Login to Standing Province, including its scheduling, alarm handling, settings commands, and developer-mode affiliation. Existing preferences and scheduled checks remain intact.
+
 ## 9.12.3 — 2026-09-30
 
 - Smooth XHS Keyboard Navigation's vertical movement while preserving Native Scroll compatibility.

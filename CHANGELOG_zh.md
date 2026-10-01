@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.12.4 — 2026-09-30
+
+- 将 Bili Daily Login 转隶 Standing Province，统一移交日程、闹钟、设置命令及开发者模式归属显示；保留已有偏好和已排定的检查。
+
 ## 9.12.3 — 2026-09-30
 
 - 让 XHS Keyboard Navigation 的上下移动平滑进行，并保持与 Native Scroll 兼容。

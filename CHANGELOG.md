@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.5 — 2026-10-02
+
+- Keep ASCII periods in file extensions and domain suffixes when optimizing Chinese responses on Claude.
+
 ## 9.12.4 — 2026-09-30
 
 - Transfer Bili Daily Login to Standing Province, including its scheduling, alarm handling, settings commands, and developer-mode affiliation. Existing preferences and scheduled checks remain intact.

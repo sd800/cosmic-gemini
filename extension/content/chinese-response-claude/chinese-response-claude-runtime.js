@@ -185,6 +185,8 @@
         if ((character === ',' || character === '.' || character === ':') && /\d/.test(previous) && /\d/.test(next)) continue;
         if ((character === ',' || character === '.' || character === ':' || character === ';')
           && withinAsciiPhrase) continue;
+        // A leading dot in a file suffix or domain may be its own text node.
+        if (character === '.' && ASCII_WORD_CHARACTER.test(next)) continue;
         if (character === '.' && (previous === '.' || next === '.')) continue;
         if (character === '.') {
           characters[index] = '。';

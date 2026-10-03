@@ -283,6 +283,15 @@ test('Claude Chinese punctuation optimization preserves structured ASCII content
   );
 });
 
+test('Claude response optimization preserves leading dots in suffixes and domains', async () => {
+  const { runtime } = await runtimeFixture();
+  assert.equal(runtime.optimizeText('请打开.docx文件.', true), '请打开.docx 文件。');
+  assert.equal(runtime.optimizeText('网站后缀是.com, 文档后缀是.docx.', true), '网站后缀是.com， 文档后缀是.docx。');
+  assert.equal(runtime.optimizeText('.docx', true), '.docx');
+  assert.equal(runtime.optimizeText('.com', true), '.com');
+  assert.equal(runtime.optimizeText('请打开.1文件.', true), '请打开.1 文件。');
+});
+
 test('Claude Chinese response optimization inserts stable Chinese, Latin, and numeric spacing', async () => {
   const { runtime } = await runtimeFixture();
   assert.equal(runtime.optimizeText('使用Claude3回答, 共2项.', true), '使用 Claude3 回答， 共 2 项。');

@@ -309,6 +309,10 @@ Before any request, the product waits for a regular Chrome window and skips netw
 
 Settings pages receive two separate views of state. A normalized, read-only preference snapshot is the sole source for persistent switches, rules, and selectors. Product state separately describes current-page support, matching, activity, availability, schedules, scans, and browser-rule reconciliation. Derived state can inform status presentation but cannot redefine a saved preference.
 
+Extension surfaces install lifecycle cleanup before their initial asynchronous reads. A departing popup, Settings page or download workspace retires its foreground generation and subscription; late replies cannot publish notices or release newer action locks. Persisted Settings/Image Download history restoration reconnects subscriptions and rereads authoritative state without replaying mutations or downloads. Settings keeps pending saves locked until they settle, then reconciles restored state; state-recovery timers cannot outlive their page. Image cards and metadata batches belong to their gallery/view generation, and cancelled unflushed metadata can be submitted after restoration.
+
+The Instagram sidebar stops its own confirmation polling on departure without stopping the background list scan. Source-tab reads are revalidated before beginning a scan; pushed and mutation snapshots share revision/run checks, and a replacement run retires older action ownership. Successfully cleared results dismiss queued snapshots from that run until a new explicit attachment/scan.
+
 For ordinary windows, `chrome.storage.local` stores one versioned settings object:
 
 - NSNA: one shared whitelist that deactivates both Native Scroll and No Autoplay

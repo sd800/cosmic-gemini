@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.8 — 2026-10-11
+
+- Restore Settings subscriptions after history navigation and prevent delayed replies from updating closed extension surfaces.
+- Stabilize Image Download controls and image callbacks across stop/restart and workspace restoration.
+- Keep Instagram results and confirmation checks bound to the current sidebar run, without interrupting background reading when the sidebar closes.
+
 ## 9.12.7 — 2026-10-11
 
 - Stabilize Document Preview appearance and controls across history restoration, delayed saves/downloads and preview failures.

@@ -156,6 +156,7 @@ function controller(feature = 'satellites') {
   const groups = new Map();
   const timers = [];
   const paletteUpdates = [];
+  const events = new Map(), ports = [], cacheWrites = [];
   let transport = async () => { throw Error('readback unavailable'); };
   const root = { lang: 'en-US' };
   const body = new Element('body');
@@ -167,10 +168,16 @@ function controller(feature = 'satellites') {
     createElement: tag => new Element(tag)
   };
   const context = vm.createContext({
-    document, chrome: {}, location: { pathname: '' }, performance: { timeOrigin: 100, now: () => 1 }, addEventListener() {},
+    document, chrome: { runtime: { connect() {
+      const port = { disconnected: false, onMessage: { addListener() {} }, onDisconnect: { addListener() {} },
+        disconnect() { this.disconnected = true; } };
+      ports.push(port); return port;
+    } } }, location: { pathname: '' }, performance: { timeOrigin: 100, now: () => 1 },
+    addEventListener: (type, listener) => events.set(type, listener),
     featureFromPath: () => feature, translator: () => key => key,
     isIpAddress: value => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || /^\[[0-9a-f:]+\]$/i.test(value),
-    ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES, saveSettingsViewCache() {}, icon: () => '',
+    ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES,
+    loadLocale: async () => 'en-US', saveSettingsViewCache: value => cacheWrites.push(value), icon: () => '',
     send: message => transport(message),
     retryRead: task => task(), setTimeout: task => { timers.push(task); return timers.length; }, clearTimeout() {}
   });
@@ -181,11 +188,13 @@ function controller(feature = 'satellites') {
     .replace(/^import .*;\n/gm, '');
   vm.runInContext(source.slice(0, source.indexOf("\nfor (const link of document.querySelectorAll('[data-feature-link]')) {")) + `
     globalThis.controller = { render, renderList, renderBehaviorList, bindView, update, savePreference,
+      reload, reloadAfterUpdate, connectSettingsUi, scheduleStoredStateSync,
       bindEmptyRuleSort, bindRuleInputHelp, isRuleOrderReset, isRuleListClean, isRuleInputHelpRequest,
       async hydrate(snapshot) { await settingsState.read(async () => snapshot); states = settingsState.value; },
       pendingControls, listSignatures };
   `, context);
-  return { api: context.controller, body, nodes, groups, timers, paletteUpdates,
+  return { api: context.controller, body, nodes, groups, timers, paletteUpdates, ports, cacheWrites,
+    fire: (type, event = {}) => events.get(type)?.(event),
     setTransport: task => { transport = task; } };
 }
 
@@ -209,6 +218,38 @@ test('an empty rule input exposes alphabetizing only through a completed long pr
   input.value = 'later.example';
   button.events.pointerdown({ button: 0, isPrimary: true, clientX: 10, clientY: 10, pointerId: 2 });
   assert.equal(timers.length, 1, 'a non-empty input keeps the ordinary Add behavior');
+});
+
+test('Settings suspends late reads and reconnects after a persisted history return', async () => {
+  const f = controller('nativeScroll');
+  const old = deferred(); const calls = [];
+  f.setTransport(message => { calls.push(message.type); return old.promise; });
+  f.api.connectSettingsUi();
+  const reading = f.api.reload();
+  f.fire('pagehide');
+  assert.equal(f.ports[0].disconnected, true);
+  old.resolve({ preferences: { nativeScroll: { enabled: true } } });
+  await reading;
+  assert.equal(f.cacheWrites.length, 0, 'the departed page cannot publish an old read');
+  await f.api.reload();
+  assert.equal(calls.filter(type => type === 'UI_GET').length, 1, 'closed views do not request state');
+  f.setTransport(async () => ({ preferences: { nativeScroll: { enabled: false } } }));
+  f.fire('pageshow', { persisted: true });
+  assert.equal(f.ports.length, 2, 'history return renews the Central subscription');
+  await f.api.reload();
+  assert.equal(f.cacheWrites.at(-1).nativeScroll.enabled, false);
+});
+
+test('a save failure after Settings teardown cannot display an error or enqueue recovery', async () => {
+  const f = controller('nativeScroll');
+  const section = new Element('section'), button = new Element('button'); section.append(button);
+  const old = deferred();
+  const saving = f.api.update(section, () => old.promise, [button]);
+  f.fire('pagehide');
+  old.reject(Error('late failure')); await saving;
+  assert.equal(section.querySelector('.form-message').hidden, true);
+  assert.equal(f.timers.length, 0);
+  assert.equal(f.api.pendingControls.has(button), false);
 });
 
 test('the reset rule command accepts Add or Enter input without becoming a domain', () => {

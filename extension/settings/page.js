@@ -9,7 +9,6 @@ import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesD
 
 const claimSettings = openedAt => void send({ type: 'UI_SETTINGS_OPENED', openedAt }).catch(() => {});
 claimSettings(performance.timeOrigin);
-addEventListener('pageshow', event => { if (event.persisted) claimSettings(performance.timeOrigin + performance.now()); });
 
 const root = document.documentElement;
 const settingsPalette = globalThis[Symbol.for('cosmic-gemini.settings.white-softer-palette')];
@@ -49,21 +48,46 @@ let storageSyncTimer = 0;
 let settingsUiPort = null;
 let settingsUiReconnectAttempts = 0;
 let pageClosing = false;
+let pageLifetime = 0;
+let stateRecoveryTimer = 0;
 let localeSaving = false;
 let localeGeneration = 0;
 let ruleInputHelpPanel = null;
 let developerMode = null;
 let developerModeModule = null;
 let satelliteDirectoryCleanup = null;
+const currentPage = ticket => !pageClosing && ticket === pageLifetime;
+// Register before the first storage/state await, including BFCache restoration.
+addEventListener('pagehide', () => {
+  pageClosing = true; pageLifetime += 1;
+  clearTimeout(storageSyncTimer); clearTimeout(stateRecoveryTimer);
+  storageSyncTimer = stateRecoveryTimer = 0;
+  const port = settingsUiPort; settingsUiPort = null;
+  try { port?.disconnect(); } catch {}
+  satelliteDirectoryCleanup?.(); satelliteDirectoryCleanup = null;
+});
+addEventListener('pageshow', event => {
+  if (!event.persisted) return;
+  pageClosing = false;
+  claimSettings(performance.timeOrigin + performance.now());
+  connectSettingsUi();
+  syncSatelliteDirectory();
+  scheduleStoredStateSync();
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) connectSettingsUi();
+});
 
 document.addEventListener('keydown', event => {
-  if (event.key !== '1' || event.repeat || event.isComposing || event.defaultPrevented
+  if (pageClosing || event.key !== '1' || event.repeat || event.isComposing || event.defaultPrevented
     || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
   // Keep typed website addresses and other editable text untouched.
   if (event.target.closest?.('textarea, [contenteditable]:not([contenteditable="false"]), input:not([type]), input:is([type="text"], [type="search"], [type="url"], [type="email"], [type="tel"], [type="number"], [type="password"])')) return;
   event.preventDefault();
+  const ticket = pageLifetime;
   developerModeModule ||= import('./developer-mode.js');
   void developerModeModule.then(({ createDeveloperMode }) => {
+    if (!currentPage(ticket)) return;
     developerMode ||= createDeveloperMode(document);
     developerMode.toggle(t);
   }).catch(() => { developerModeModule = null; });
@@ -429,28 +453,34 @@ function render() {
 }
 
 async function reload() {
+  if (pageClosing) return;
+  const ticket = pageLifetime;
   if (storageSyncTimer) clearTimeout(storageSyncTimer);
   storageSyncTimer = 0;
-  if (!await settingsState.read(() => send({ type: 'UI_GET', url: '' }))) return;
+  if (!await settingsState.read(() => send({ type: 'UI_GET', url: '' })) || !currentPage(ticket)) return;
   states = settingsState.value;
   if (!incognitoContext) saveSettingsViewCache(states.preferences || states);
   render();
 }
 
 function scheduleStoredStateSync() {
+  if (pageClosing) return;
   if (storageSyncTimer) clearTimeout(storageSyncTimer);
   storageSyncTimer = setTimeout(() => {
     storageSyncTimer = 0;
+    if (pageClosing) return;
     void (async () => {
+      const ticket = pageLifetime;
       const localeTicket = localeGeneration;
       const storedLocale = await loadLocale({ cacheResult: false });
+      if (!currentPage(ticket)) return;
       if (!localeSaving && localeTicket === localeGeneration && storedLocale !== locale) {
         locale = storedLocale;
         cacheLocale();
         applyLocale();
       }
       await reloadAfterUpdate();
-    })();
+    })().catch(() => {});
   }, 120);
 }
 
@@ -474,12 +504,23 @@ function connectSettingsUi() {
 }
 
 async function reloadAfterUpdate() {
+  if (pageClosing) return;
+  const ticket = pageLifetime;
   try { await retryRead(() => reload()); }
-  catch { setTimeout(() => { void retryRead(() => reload()).catch(() => {}); }, 800); }
+  catch {
+    if (!currentPage(ticket)) return;
+    clearTimeout(stateRecoveryTimer);
+    stateRecoveryTimer = setTimeout(() => {
+      stateRecoveryTimer = 0;
+      if (currentPage(ticket)) void retryRead(() => reload()).catch(() => {});
+    }, 800);
+  }
 }
 
 async function savePreference(preference, command, toPreference) {
+  const ticket = pageLifetime;
   const result = await settingsState.write(preference, () => send(command), toPreference);
+  if (!currentPage(ticket)) return result;
   states = settingsState.value;
   if (!incognitoContext && settingsState.loaded) saveSettingsViewCache(states.preferences);
   return result;
@@ -679,6 +720,8 @@ function bindRuleInputHelp(input) {
 }
 
 async function update(section, task, controls = [], errorKey = 'settingsSaveFailed') {
+  if (pageClosing) return;
+  const ticket = pageLifetime;
   const actionable = controls.filter(Boolean);
   if (actionable.some(control => pendingControls.has(control))) return;
   for (const control of actionable) {
@@ -687,19 +730,20 @@ async function update(section, task, controls = [], errorKey = 'settingsSaveFail
   }
   const message = actionMessage(section, actionable);
   if (message) { message.textContent = ''; message.hidden = message.className.includes('action-message'); }
-  try { await task(); await reloadAfterUpdate(); }
+  try { await task(); if (currentPage(ticket)) await reloadAfterUpdate(); }
   catch {
     for (const control of actionable) {
       const list = control.closest('.rule-list');
       if (list) listSignatures.delete(list);
     }
-    if (message?.isConnected) { message.textContent = t(errorKey); message.hidden = false; }
+    if (currentPage(ticket) && message?.isConnected) { message.textContent = t(errorKey); message.hidden = false; }
   } finally {
     for (const control of actionable) {
       pendingControls.delete(control);
       if (control.isConnected) control.disabled = false;
     }
-    render();
+    if (currentPage(ticket)) render();
+    else if (!pageClosing) scheduleStoredStateSync();
   }
 }
 
@@ -1125,18 +1169,20 @@ function bindView() {
 
   document.querySelector('#language').onchange = event => {
     const control = event.currentTarget;
-    if (localeSaving) return;
+    if (pageClosing || localeSaving) return;
+    const ticket = pageLifetime;
     localeSaving = true;
     localeGeneration += 1;
     void update(null, async () => {
       try {
         const result = await send({ type: 'UI_SET_LOCALE', locale: control.value });
+        if (!currentPage(ticket)) return;
         locale = result.locale;
         cacheLocale();
       } finally {
         localeSaving = false;
         localeGeneration += 1;
-        applyLocale();
+        if (currentPage(ticket)) applyLocale();
       }
     }, [control]);
   };
@@ -1349,26 +1395,16 @@ window.addEventListener('popstate', () => {
 mountView(false);
 connectSettingsUi();
 try {
+  const ticket = pageLifetime;
   const localeTicket = localeGeneration;
   const storedLocale = await loadLocale({ cacheResult: false });
-  if (!localeSaving && localeTicket === localeGeneration && storedLocale !== locale) {
+  if (currentPage(ticket) && !localeSaving && localeTicket === localeGeneration && storedLocale !== locale) {
     locale = storedLocale;
     cacheLocale();
     applyLocale();
     render();
   }
-  await retryRead(() => reload());
+  if (currentPage(ticket)) await retryRead(() => reload());
 } catch {
   // Keep the localized defaults if stored settings are temporarily unavailable.
 }
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) connectSettingsUi();
-});
-window.addEventListener('pagehide', () => {
-  pageClosing = true;
-  if (storageSyncTimer) clearTimeout(storageSyncTimer);
-  storageSyncTimer = 0;
-  const port = settingsUiPort;
-  settingsUiPort = null;
-  try { port?.disconnect(); } catch {}
-}, { once: true });

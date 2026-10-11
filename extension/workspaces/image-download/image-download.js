@@ -33,7 +33,17 @@ let stateReadGeneration = 0;
 let scanActionGeneration = 0;
 let downloadPending = false;
 let workspaceClosing = false;
-const pendingControls = new WeakSet();
+let viewGeneration = 0;
+let pendingControls = new WeakSet();
+const currentView = ticket => !workspaceClosing && ticket === viewGeneration;
+window.addEventListener('pagehide', suspendWorkspace);
+window.addEventListener('pageshow', event => {
+  if (!event.persisted) return;
+  workspaceClosing = false;
+  root.dataset.workspaceClosing = 'false';
+  setWorkspaceVisible(!document.hidden);
+  scheduleReload(true);
+});
 
 function setWorkspaceVisible(visible) {
   if (workspaceClosing) return;
@@ -69,11 +79,13 @@ function scheduleReload(force = false) {
   if (document.hidden || reloadTimer) return;
   reloadTimer = setTimeout(() => {
     reloadTimer = 0;
-    if (!reloadPending) return;
+    if (workspaceClosing || document.hidden || !reloadPending) return;
     const nextForce = reloadPendingForce;
+    const ticket = viewGeneration;
     reloadPending = false;
     reloadPendingForce = false;
     void retryRead(() => reload(nextForce)).catch(() => {
+      if (!currentView(ticket)) return;
       reloadPending = true;
       reloadPendingForce ||= nextForce;
     });
@@ -105,15 +117,16 @@ function scheduleMetadataFlush() {
   metadataFlushTimer = setTimeout(async () => {
     metadataFlushTimer = 0;
     if (workspaceClosing) return;
+    const ticket = viewGeneration;
     const updates = [...pendingMetadata.entries()].slice(0, 500)
       .map(([candidateId, metadata]) => ({ candidateId, metadata }));
     for (const update of updates) pendingMetadata.delete(update.candidateId);
     try {
       await send({ type: 'UI_IMAGE_UPDATE_METADATA_BATCH', tabId: sourceTabId, updates });
     } catch {
-      for (const update of updates) metadataSent.delete(update.candidateId);
+      if (currentView(ticket)) for (const update of updates) metadataSent.delete(update.candidateId);
     }
-    if (pendingMetadata.size) scheduleMetadataFlush();
+    if (currentView(ticket) && pendingMetadata.size) scheduleMetadataFlush();
   }, 140);
 }
 
@@ -192,7 +205,8 @@ function updateTypeOptions() {
 }
 
 async function download(selections) {
-  if (downloadPending || !selections.length) return;
+  if (workspaceClosing || downloadPending || !selections.length) return;
+  const ticket = viewGeneration;
   downloadPending = true;
   const button = document.querySelector('#download-selected');
   button.disabled = true;
@@ -207,19 +221,23 @@ async function download(selections) {
         batchMode: document.querySelector('#batch-mode').value
       }
     });
-    setStatus(t('imageDownloadStarted', { count: selections.length }));
+    if (currentView(ticket)) setStatus(t('imageDownloadStarted', { count: selections.length }));
   } catch {
-    setStatus(t('imageDownloadFailed'));
+    if (currentView(ticket)) setStatus(t('imageDownloadFailed'));
   } finally {
-    downloadPending = false;
-    for (const control of document.querySelectorAll('.image-card-actions button')) control.disabled = false;
-    updateSelectionBar();
+    if (currentView(ticket)) {
+      downloadPending = false;
+      for (const control of document.querySelectorAll('.image-card-actions button')) control.disabled = false;
+      updateSelectionBar();
+    }
   }
 }
 
 function createCard(group, index) {
+  const generation = galleryRenderGeneration;
   const candidate = candidateFor(group);
   const card = document.createElement('article');
+  const currentCard = () => !workspaceClosing && generation === galleryRenderGeneration && card.isConnected;
   card.className = 'image-card';
   card.dataset.selected = String(selected.has(group.id));
   const preview = document.createElement('div');
@@ -241,6 +259,7 @@ function createCard(group, index) {
   image.alt = candidate.alt || '';
   image.src = candidate.url;
   image.addEventListener('error', () => {
+    if (!currentCard()) return;
     failedCandidates.add(candidate.id);
     const fallback = group.candidates.find(item => !failedCandidates.has(item.id));
     if (!fallback) {
@@ -252,7 +271,7 @@ function createCard(group, index) {
     renderGallery();
   });
   image.addEventListener('load', () => {
-    if (!image.naturalWidth || metadataSent.has(candidate.id)) return;
+    if (!currentCard() || !image.naturalWidth || metadataSent.has(candidate.id)) return;
     if (image.naturalWidth === candidate.width && image.naturalHeight === candidate.height) return;
     metadataSent.add(candidate.id);
     pendingMetadata.set(candidate.id, { width: image.naturalWidth, height: image.naturalHeight });
@@ -359,6 +378,7 @@ function renderState(force = false) {
 }
 
 async function reload(force = false) {
+  if (workspaceClosing) return;
   const ticket = ++stateReadGeneration;
   const snapshot = await send({ type: 'UI_IMAGE_STATE', tabId: sourceTabId });
   if (ticket !== stateReadGeneration || workspaceClosing) return;
@@ -367,16 +387,18 @@ async function reload(force = false) {
 }
 
 async function loadInitialSession() {
+  const view = viewGeneration;
   let ticket;
   const snapshot = await retryReadUntil(
     () => {
+      if (!currentView(view)) return null;
       ticket = ++stateReadGeneration;
       return send({ type: 'UI_IMAGE_STATE', tabId: sourceTabId });
     },
-    value => value?.active === true,
+    value => !currentView(view) || value?.active === true,
     [0, 75, 150, 300, 600, 1_200, 2_400]
   );
-  if (ticket !== stateReadGeneration || workspaceClosing) return;
+  if (ticket !== stateReadGeneration || !currentView(view)) return;
   state = snapshot;
   renderState(true);
 }
@@ -387,7 +409,7 @@ async function reloadAfterAction(force = false) {
 }
 
 async function rescan(deep) {
-  if (scanPending) return;
+  if (workspaceClosing || scanPending) return;
   scanPending = true;
   const action = ++scanActionGeneration;
   stateReadGeneration += 1;
@@ -400,10 +422,12 @@ async function rescan(deep) {
       state = snapshot;
       renderState(true);
     }
-  } catch { if (action === scanActionGeneration) setStatus(t('imageUnavailablePage')); }
+  } catch { if (action === scanActionGeneration && !workspaceClosing) setStatus(t('imageUnavailablePage')); }
   finally {
-    scanPending = false;
-    updateWorkspaceControls();
+    if (action === scanActionGeneration && !workspaceClosing) {
+      scanPending = false;
+      updateWorkspaceControls();
+    }
   }
 }
 
@@ -419,18 +443,22 @@ function updateWorkspaceControls() {
 }
 
 async function runWorkspaceAction(button, task) {
-  if (pendingControls.has(button)) return;
+  if (workspaceClosing || pendingControls.has(button)) return;
+  const ticket = viewGeneration;
+  const ownedControls = pendingControls;
   pendingControls.add(button);
   updateWorkspaceControls();
   try { await task(); }
-  catch { setStatus(t('imageUnavailablePage')); }
+  catch { if (currentView(ticket)) setStatus(t('imageUnavailablePage')); }
   finally {
-    pendingControls.delete(button);
-    updateWorkspaceControls();
+    ownedControls.delete(button);
+    if (currentView(ticket)) updateWorkspaceControls();
   }
 }
 
 async function stopSession() {
+  if (workspaceClosing) return;
+  const ticket = viewGeneration;
   scanActionGeneration += 1;
   stateReadGeneration += 1;
   scanPending = false;
@@ -443,11 +471,13 @@ async function stopSession() {
     tabId: sourceTabId,
     preserveWorkspace: closeSidePanel
   });
+  if (!currentView(ticket)) return;
   if (closeSidePanel) {
     workspaceClosing = true;
     root.dataset.workspaceClosing = 'true';
     const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     await new Promise(resolve => setTimeout(resolve, reducedMotion ? 0 : 140));
+    if (ticket !== viewGeneration) return;
     void send({ type: 'UI_IMAGE_CLOSE_SIDE_PANEL', tabId: sourceTabId }).catch(() => {});
     return;
   }
@@ -515,15 +545,16 @@ try {
   setWorkspaceVisible(!document.hidden);
   await loadInitialSession();
 } catch {
-  setStatus(t('imageUnavailablePage'));
-  updateWorkspaceControls();
+  if (!workspaceClosing) { setStatus(t('imageUnavailablePage')); updateWorkspaceControls(); }
 } finally { root.dataset.localePending = 'false'; }
 document.addEventListener('visibilitychange', () => {
   setWorkspaceVisible(!document.hidden);
   if (!document.hidden) scheduleReload(true);
 });
-window.addEventListener('pagehide', () => {
-  workspaceClosing = true;
+function suspendWorkspace() {
+  workspaceClosing = true; viewGeneration += 1;
+  stateReadGeneration += 1; scanActionGeneration += 1;
+  scanPending = downloadPending = false; pendingControls = new WeakSet();
   try { viewPort?.postMessage({ visible: false }); } catch {}
   try { viewPort?.disconnect(); } catch {}
   viewPort = null;
@@ -532,9 +563,10 @@ window.addEventListener('pagehide', () => {
   if (metadataFlushTimer) clearTimeout(metadataFlushTimer);
   metadataFlushTimer = 0;
   pendingMetadata.clear();
+  metadataSent.clear();
   if (galleryRenderFrame) cancelAnimationFrame(galleryRenderFrame);
   galleryRenderFrame = 0;
   galleryRenderGeneration += 1;
   reloadPending = false;
   reloadPendingForce = false;
-}, { once: true });
+}

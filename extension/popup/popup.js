@@ -39,6 +39,18 @@ let stateReadGeneration = 0;
 let popupClosing = false;
 let centralUiPort = null;
 let centralUiReconnectAttempts = 0;
+let viewRevision = 0;
+// Install cleanup before locale/state awaits: the popup can close while either
+// request is pending, before its initial module evaluation has completed.
+window.addEventListener('pagehide', () => {
+  popupClosing = true; stateReadGeneration += 1;
+  if (reloadTimer) clearTimeout(reloadTimer);
+  reloadTimer = 0;
+  const centralPort = centralUiPort; centralUiPort = null;
+  try { centralPort?.disconnect(); } catch {}
+  const videoPort = videoViewPort; videoViewPort = null;
+  try { videoPort?.disconnect(); } catch {}
+}, { once: true });
 
 function label(element, value) {
   element.title = value;
@@ -522,6 +534,8 @@ function renderVideoRow() {
 }
 
 function showView(mode) {
+  if (popupClosing) return;
+  viewRevision += 1;
   viewMode = mode;
   document.body.dataset.view = mode;
   document.querySelector('.popup-shell').hidden = mode === 'video';
@@ -599,6 +613,7 @@ function render() {
 }
 
 async function reload(selectInitialView = true) {
+  if (popupClosing) return;
   const ticket = ++stateReadGeneration;
   const snapshot = await send({ type: 'UI_GET_ACTIVE_PAGE_STATE' });
   if (ticket !== stateReadGeneration || popupClosing) return;
@@ -622,21 +637,22 @@ async function reloadAfterAction(selectInitialView = true) {
 }
 
 async function perform(task, reloadAfter = false) {
-  if (actionPending) return false;
+  if (popupClosing || actionPending) return false;
   actionPending = true;
   stateReadGeneration += 1;
   document.body.setAttribute('aria-busy', 'true');
   live.textContent = '';
   try {
     await task();
+    if (popupClosing) return false;
     if (reloadAfter) await reloadAfterAction();
     return true;
   } catch {
-    live.textContent = t('unavailable');
+    if (!popupClosing) live.textContent = t('unavailable');
     return false;
   } finally {
     actionPending = false;
-    document.body.removeAttribute('aria-busy');
+    if (!popupClosing) document.body.removeAttribute('aria-busy');
   }
 }
 
@@ -765,22 +781,14 @@ settingsButton.setLabels(t('allSettingsTitle'), t('reloadExtensionTitle'));
 connectCentralUi();
 try {
   await retryRead(() => reload());
-  const request = Number.isInteger(currentTab?.id)
-    ? await send({ type: 'UI_VIDEO_CONSUME_OPEN_REQUEST', tabId: currentTab.id }).catch(() => null) : null;
-  if (request?.open) showView('video');
+  const requestedTabId = currentTab?.id, requestedView = viewRevision;
+  const request = !popupClosing && Number.isInteger(requestedTabId)
+    ? await send({ type: 'UI_VIDEO_CONSUME_OPEN_REQUEST', tabId: requestedTabId }).catch(() => null) : null;
+  if (!popupClosing && request?.open && requestedTabId === currentTab?.id && requestedView === viewRevision) showView('video');
 }
 catch {
-  for (const control of document.querySelectorAll('.feature-toggle')) control.disabled = true;
-  live.textContent = t('unavailable');
+  if (!popupClosing) {
+    for (const control of document.querySelectorAll('.feature-toggle')) control.disabled = true;
+    live.textContent = t('unavailable');
+  }
 } finally { root.dataset.localePending = 'false'; }
-window.addEventListener('pagehide', () => {
-  popupClosing = true;
-  if (reloadTimer) clearTimeout(reloadTimer);
-  reloadTimer = 0;
-  const centralPort = centralUiPort;
-  centralUiPort = null;
-  try { centralPort?.disconnect(); } catch {}
-  const videoPort = videoViewPort;
-  videoViewPort = null;
-  try { videoPort?.disconnect(); } catch {}
-}, { once: true });

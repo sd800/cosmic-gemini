@@ -26,15 +26,21 @@ function updatePartControls(index) {
   partSelect.value = String(index); previousPart.disabled = index === 0; nextPart.disabled = index === rendered.parts.length - 1;
 }
 function ensureContent() {
-  return contentViewer ||= createDocumentContent(frame, locale, () => notices.show(t('documentRenderFailed')), index => {
-    if (!expired && isSlides()) updatePartControls(index);
-  });
+  if (!contentViewer) {
+    const started = generation;
+    contentViewer = createDocumentContent(frame, locale, () => {
+      if (current(started)) notices.show(t('documentRenderFailed'));
+    }, index => {
+      if (current(started) && isSlides()) updatePartControls(index);
+    });
+  }
+  return contentViewer;
 }
 function showContent(html) {
   ensureContent().render(html, rendered.formatting);
 }
 function showPart(index) {
-  const parts = rendered?.parts; if (!parts?.length || expired) return;
+  const parts = rendered?.parts; if (!parts?.length || expired || suspended) return;
   index = Math.max(0, Math.min(parts.length - 1, index));
   if (!Number.isInteger(index)) return;
   updatePartControls(index);
@@ -62,7 +68,7 @@ zoomReset.onclick = () => updateZoom(100);
 for (const [button, key] of [[zoomOut, 'documentZoomOut'], [zoomIn, 'documentZoomIn'], [zoomReset, 'documentZoomReset']]) button.title = t(key);
 const themeToggle = document.querySelector('#theme-toggle'), themeAuto = document.querySelector('#theme-auto');
 const appearance = matchMedia('(prefers-color-scheme: dark)');
-let defaultTheme = normalizeDocumentAppearance(params.get('appearance')), siteTheme = null, themeSaving = false;
+let defaultTheme = normalizeDocumentAppearance(params.get('appearance')), siteTheme = null, themeSaving = false, themeRevision = 0;
 function updateTheme() {
   if (suspended) return;
   const theme = siteTheme || defaultTheme;
@@ -87,12 +93,16 @@ function updateTheme() {
   themeToggle.disabled = themeAuto.disabled = !metadata || expired || themeSaving;
 }
 async function setSiteTheme(value) {
-  if (themeSaving || expired || !metadata) return;
-  const previous = siteTheme;
+  const started = generation;
+  if (themeSaving || !current(started) || !metadata) return;
+  const previous = siteTheme, revision = themeRevision;
   siteTheme = value; themeSaving = true; updateTheme();
   try { await command('UI_DOCUMENT_SET_THEME', { theme: value }); }
-  catch { siteTheme = previous; if (!expired) notices.show(t('documentActionFailed'), true); }
-  finally { themeSaving = false; updateTheme(); }
+  catch { if (current(started)) {
+    if (revision === themeRevision) siteTheme = previous;
+    notices.show(t('documentActionFailed'), true);
+  } }
+  finally { if (current(started)) { themeSaving = false; updateTheme(); } }
 }
 themeToggle.onclick = () => {
   const theme = siteTheme || defaultTheme;
@@ -105,11 +115,13 @@ const blobDownloads = new Set();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
 
 function expire() {
+  frame.hidden = true;
   generation += 1; expired = true; contentViewer?.destroy(); contentViewer = null; blob = null; rendered = null; pdfViewer?.destroy(); pdfViewer = null; worker?.terminate(); clearTimeout(workerTimer);
+  worker = null; blobDownloads.clear();
   document.body.classList.remove('pdf-active');
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
   zoomControls.hidden = true; partControls.hidden = true;
-  frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); frame.hidden = true; notices.show(t('documentExpired')); updateTheme();
+  frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); notices.show(t('documentExpired')); updateTheme();
 }
 async function preparePdfViewer() {
   const started = generation;
@@ -117,12 +129,16 @@ async function preparePdfViewer() {
   const { createPdfViewer } = await import('../pdf-viewer/host.js');
   if (!current(started) || pdfViewer) return;
   const theme = siteTheme || defaultTheme;
-  pdfViewer = createPdfViewer({ container: document.querySelector('main'),
+  const ownedViewer = pdfViewer = createPdfViewer({ container: document.querySelector('main'),
     filename: metadata.filename, documentUrl: metadata.url, locale, sampling: metadata.pdfSampling,
     dark: theme === 'dark' || (theme === 'auto' && appearance.matches),
-    onDownload: () => void download(),
-    onTheme: () => void setSiteTheme(toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)),
-    onError: () => { if (!expired) { document.body.classList.remove('pdf-active'); notices.show(t('documentRenderFailed')); } }
+    onDownload: () => { if (current(started)) void download(); },
+    onTheme: () => { if (current(started)) void setSiteTheme(toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)); },
+    onError: () => {
+      if (!current(started) || pdfViewer !== ownedViewer) return;
+      ownedViewer.destroy(); pdfViewer = null;
+      document.body.classList.remove('pdf-active'); notices.show(t('documentRenderFailed'));
+    }
   });
   document.body.classList.add('pdf-active');
   zoomControls.hidden = true; partControls.hidden = true;
@@ -172,29 +188,37 @@ async function preview() {
       notices.show('');
     } catch { notices.show(t('documentRenderFailed')); }
   };
-  const bytes = await blob.arrayBuffer();
-  if (worker === ownedWorker && current(started)) ownedWorker.postMessage({ bytes, format: metadata.format, labels: {
-    from: t('documentEmailFrom'), to: t('documentEmailTo'), cc: t('documentEmailCc'),
-    date: t('documentEmailDate'), attachments: t('documentEmailAttachments'), noSubject: t('documentEmailNoSubject')
-  } }, [bytes]);
+  try {
+    const bytes = await blob.arrayBuffer();
+    if (worker === ownedWorker && current(started)) ownedWorker.postMessage({ bytes, format: metadata.format, labels: {
+      from: t('documentEmailFrom'), to: t('documentEmailTo'), cc: t('documentEmailCc'),
+      date: t('documentEmailDate'), attachments: t('documentEmailAttachments'), noSubject: t('documentEmailNoSubject')
+    } }, [bytes]);
+    else finish();
+  } catch (error) { finish(); throw error; }
 }
 async function download() {
-  if (expired || downloadPending) return;
+  const started = generation;
+  if (!current(started) || downloadPending || !metadata) return;
   downloadPending = true; downloadButton.disabled = true;
   try {
     const result = await command('UI_DOCUMENT_DOWNLOAD');
+    // The accepted download belongs to the background product. A departing
+    // view must not repaint, close a restored tab, or unlock a newer action.
+    if (!current(started)) return;
     blobDownloads.add(result.downloadId);
-    if (!expired) notices.show(t('documentDownloadStarted'), true);
+    notices.show(t('documentDownloadStarted'), true);
     // Chrome already accepted the download. Optional bookkeeping must not
     // turn that success into a failure message or encourage a duplicate retry.
     try {
       const [item] = await chrome.downloads.search({ id: result.downloadId });
-      if (item && item.state !== 'in_progress') releaseDownload(result.downloadId);
+      if (current(started) && item && item.state !== 'in_progress') releaseDownload(result.downloadId);
     } catch {}
-  } catch { if (!expired) notices.show(t('documentActionFailed'), true); }
-  finally { downloadPending = false; downloadButton.disabled = expired; }
+  } catch { if (current(started)) notices.show(t('documentActionFailed'), true); }
+  finally { if (current(started)) { downloadPending = false; downloadButton.disabled = false; } }
 }
 function releaseDownload(downloadId) {
+  if (suspended || expired) return;
   if (!blobDownloads.delete(downloadId)) return;
   if (mode === 'download' && !blobDownloads.size) window.close();
 }
@@ -205,7 +229,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
     const changed = changes['documentPreview:' + metadata.context];
     if (changed) {
       if (!changed.newValue?.documents?.some(doc => doc.id === id)) { expire(); return; }
-      siteTheme = changed.newValue.themes?.[metadata.site] || null;
+      const nextTheme = changed.newValue.themes?.[metadata.site] || null;
+      if (nextTheme !== siteTheme) { siteTheme = nextTheme; themeRevision += 1; }
       updateTheme();
     }
   }
@@ -220,6 +245,7 @@ window.addEventListener('pagehide', () => {
   suspended = true; generation += 1;
   contentViewer?.destroy(); contentViewer = null; pdfViewer?.destroy(); pdfViewer = null;
   worker?.terminate(); worker = null; clearTimeout(workerTimer); blob = null; rendered = null; notices.clear();
+  themeSaving = downloadPending = false; blobDownloads.clear();
 });
 window.addEventListener('pageshow', event => {
   if (!event.persisted || expired) return;
@@ -230,12 +256,13 @@ window.addEventListener('pageshow', event => {
     metadata = restored; showMetadata();
     if (previewRequested) { await loadPreparedDocument(true); assertCurrent(started); await preview(); }
     // Never replay a download or a remembered choice during history restoration.
-    else { document.querySelectorAll('#choice button').forEach(button => button.disabled = false); notices.show(''); }
+    else { downloadButton.disabled = !metadata.prepared; document.querySelectorAll('#choice button').forEach(button => button.disabled = false); notices.show(''); }
   })().catch(() => { if (current(started)) expire(); });
 });
 downloadButton.addEventListener('click', () => void download());
 async function choose(action) {
   const started = generation;
+  if (!current(started)) return;
   notices.loading(t('documentLoading'));
   const controls = [...document.querySelectorAll('#choice button')]; controls.forEach(button => button.disabled = true);
   try {
@@ -255,7 +282,7 @@ document.querySelector('#preview').onclick = () => void choose('preview');
 document.querySelector('#choice-download').onclick = () => void choose('download');
 function showMetadata() {
   document.body.dataset.format = metadata.format;
-  defaultTheme = normalizeDocumentAppearance(metadata.appearance); siteTheme = metadata.siteTheme;
+  defaultTheme = normalizeDocumentAppearance(metadata.appearance); siteTheme = metadata.siteTheme; themeRevision += 1;
   updateTheme();
   document.querySelector('#filename').textContent = metadata.filename;
   document.querySelector('#filename').title = metadata.filename;

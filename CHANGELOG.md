@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.7 — 2026-10-11
+
+- Stabilize Document Preview appearance and controls across history restoration, delayed saves/downloads and preview failures.
+- Stop stale PDF thumbnail and print work after hiding or closing the reader, and release cancelled canvases.
+
 ## 9.12.6 — 2026-10-11
 
 - Prevent a white flash when closing dark-mode Document Preview tabs, and keep departing previews stable during delayed appearance updates.

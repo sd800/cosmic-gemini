@@ -13,6 +13,7 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
   iframe.allow = 'clipboard-write *';
   iframe.style.visibility = 'hidden';
   iframe.style.background = dark ? '#121416' : '#e8eaed';
+  iframe.style.colorScheme = dark ? 'dark' : 'light';
   const url = new URL('viewer.html', import.meta.url);
   url.hash = new URLSearchParams({ dark: dark ? '1' : '0', locale });
   iframe.src = url.href;
@@ -49,7 +50,7 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
       const operation = document.fullscreenElement === container ? document.exitFullscreen() : container.requestFullscreen();
       void operation.catch(() => { if (!closed) channel.port1.postMessage({ type: 'fullscreen-error' }); });
     }
-    else if (data.type === 'error') { clearTimeout(timeout); onError(); }
+    else if (data.type === 'error') { destroy(); onError(); }
   };
   iframe.addEventListener('load', () => {
     if (closed) return;
@@ -62,7 +63,13 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
       if (closed || opened || !validBytes(data)) throw Error('Invalid PDF open');
       opened = true; pending = data; armTimeout(); sendDocument();
     },
-    setTheme(value) { dark = !!value; if (!closed) channel.port1.postMessage({ type: 'theme', dark }); },
+    setTheme(value) {
+      if (closed) return;
+      dark = !!value;
+      iframe.style.background = dark ? '#121416' : '#e8eaed';
+      iframe.style.colorScheme = dark ? 'dark' : 'light';
+      channel.port1.postMessage({ type: 'theme', dark });
+    },
     destroy
   };
 }

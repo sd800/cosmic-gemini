@@ -31,6 +31,7 @@ window.addEventListener('message', event => {
   if (port || event.source !== parent || event.data?.type !== 'CG_DOCUMENT_CONTENT_INIT' || event.ports.length !== 1) return;
   port = event.ports[0];
   port.onmessage = ({data}) => {
+    if (signal.aborted) return;
     if (data?.type === 'theme' && typeof data.dark === 'boolean') { dark = data.dark; applyTheme(); return; }
     if (data?.type === 'select-slide' && data.id === renderId && Number.isInteger(data.index)) {
       slideIndex = data.index; slides?.select(slideIndex); return;

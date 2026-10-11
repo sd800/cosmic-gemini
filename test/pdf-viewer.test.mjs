@@ -6,6 +6,33 @@ import { PDF_LIMITS, pdfDetailCanvasPixels, pdfScale, stepPdfScale, pdfOptions, 
 import { formatPdfDate } from '../extension/workspaces/pdf-viewer/document-dates.js';
 import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
 import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
+
+test('PDF bridge synchronizes its backdrop and closes failed readers exactly once', () => {
+  const originalDocument = globalThis.document, OriginalChannel = globalThis.MessageChannel;
+  const sent = [], initialized = [], events = [], frame = {style:{}, addEventListener(type, listener) { this.load = listener; },
+    contentWindow:{postMessage: value => initialized.push(value)}, remove() { events.push('removed'); }};
+  let channel;
+  globalThis.document = {createElement: () => frame, addEventListener() {}, removeEventListener() {}};
+  globalThis.MessageChannel = class {
+    constructor() { channel = this; this.port1 = {postMessage: value => sent.push(value), close() {events.push('closed');}}; this.port2 = {}; }
+  };
+  const reader = createPdfViewer({container:{append() {}},bytes:new ArrayBuffer(8),locale:'en-US',dark:false,
+    onDownload:()=>events.push('download'),onTheme:()=>events.push('theme'),onError:()=>events.push('error')});
+  try {
+    reader.setTheme(true);
+    assert.equal(frame.style.background, '#121416'); assert.equal(frame.style.colorScheme, 'dark');
+    frame.load(); assert.equal(initialized[0].dark, true, 'initialization uses the latest appearance');
+    channel.port1.onmessage({data:{type:'shell-ready'}}); assert.equal(frame.style.visibility, 'visible');
+    reader.setTheme(false); assert.equal(frame.style.background, '#e8eaed');
+    channel.port1.onmessage({data:{type:'error'}});
+    for (const type of ['error','theme','download','shell-ready']) channel.port1.onmessage({data:{type}});
+    reader.destroy(); reader.setTheme(true); frame.load();
+    assert.deepEqual(events, ['closed','removed','error']);
+    assert.equal(frame.style.background, '#e8eaed', 'late appearance updates cannot change a retired frame');
+    assert.equal(initialized.length, 1);
+    assert.throws(()=>reader.open(new ArrayBuffer(8)));
+  } finally {reader.destroy();globalThis.document = originalDocument;globalThis.MessageChannel = OriginalChannel;}
+});
 import { toggleDocumentAppearance } from '../extension/core/document-preview/document-appearance.js';
 const root = new URL('../extension/', import.meta.url);
 test('PDF properties preserve ISO date order, optional seconds and original offsets', () => {

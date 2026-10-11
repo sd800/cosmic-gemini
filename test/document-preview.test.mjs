@@ -59,6 +59,75 @@ test('presentation bridge preserves pending selection and zoom and ignores stale
   } finally { reader.destroy(); globalThis.MessageChannel = OriginalChannel; }
 });
 
+async function previewWorkspace() {
+  const elements = new Map(), listeners = new Map(), pending = [], searched = [];
+  const element = selector => {
+    if (!elements.has(selector)) elements.set(selector, {style:{setProperty() {}},dataset:{},hidden:false,disabled:false,
+      setAttribute() {},removeAttribute() {},classList:{add() {},remove() {}},addEventListener() {}});
+    return elements.get(selector);
+  };
+  const metadata = {id:'fixture',context:'regular',site:'example.test',filename:'Fixture.rtf',format:'rtf',prepared:true,appearance:'dark',siteTheme:'light'};
+  const root = element('root');
+  const dispatch = (type, event = {}) => listeners.get(type)?.(event);
+  const source = (await readFile(new URL('../extension/workspaces/document-preview/document-preview.js', import.meta.url), 'utf8'))
+    .replace(/^import .*;\n/gm, '');
+  const workspace = await runInNewContext(`(async()=>{${source}\nreturn {setSiteTheme,download};})()`, {
+    URLSearchParams, setTimeout, clearTimeout,
+    location:{hash:'#id=fixture&mode=choose&appearance=dark'}, history:{replaceState() {}},
+    window:{addEventListener:(type,callback)=>listeners.set(type,callback),close() {throw Error('unexpected close');}},
+    document:{documentElement:root,body:element('body'),querySelector:element,querySelectorAll:()=>[]},
+    matchMedia:()=>({matches:false,addEventListener() {}}),
+    loadLocale:async()=> 'en-US',localizeDocument() {},translator:()=>key=>key,icon:()=>'',
+    normalizeDocumentAppearance:value=>['dark','light'].includes(value)?value:'auto',toggleDocumentAppearance() {},documentKind:()=> 'docx',
+    createDocumentStatus,createDocumentContent() {throw Error('unexpected render');},
+    chrome:{runtime:{getURL:path=>'chrome-extension://fixture/'+path},storage:{onChanged:{addListener:callback=>listeners.set('storage',callback)}},
+      downloads:{onChanged:{addListener() {}},search:async({id})=>{searched.push(id);return [{state:'in_progress'}];}}},
+    send:async message=> {
+      if (message.type === 'UI_DOCUMENT_GET') return {...metadata};
+      return new Promise((resolve,reject)=>pending.push({type:message.type,resolve,reject}));
+    }
+  });
+  return {...workspace,metadata,pending,searched,element,root,hide:()=>dispatch('pagehide'),
+    storedTheme:theme=>listeners.get('storage')({'documentPreview:regular':{newValue:{documents:[metadata],themes:{[metadata.site]:theme}}}},'session'),
+    restore:async()=>{dispatch('pageshow',{persisted:true});await new Promise(resolve=>setImmediate(resolve));}};
+}
+
+test('late appearance failures cannot repaint a restored preview or unlock its newer action', async t => {
+  const view = await previewWorkspace(); t.after(view.hide);
+  const old = view.setSiteTheme('dark'); view.hide(); view.metadata.siteTheme = 'dark'; await view.restore();
+  assert.equal(view.root.style.backgroundColor, '#24262a');
+  assert.equal(view.element('#theme-toggle').disabled, false, 'restoration does not wait for a departed action');
+  const next = view.setSiteTheme('light');
+  view.pending[0].reject(Error('delayed failure')); await old;
+  assert.equal(view.root.style.backgroundColor, '#f7f8fa');
+  assert.equal(view.element('#status').textContent, '');
+  assert.equal(view.element('#theme-toggle').disabled, true, 'old completion cannot unlock the new save');
+  view.pending[1].resolve({}); await next;
+  assert.equal(view.element('#theme-toggle').disabled, false);
+});
+
+test('a failed appearance save cannot roll back a newer shared website appearance', async t => {
+  const view = await previewWorkspace(); t.after(view.hide);
+  const save = view.setSiteTheme('dark'); view.storedTheme(null);
+  view.pending[0].reject(Error('save failed')); await save;
+  assert.equal(view.root.style.backgroundColor, '#24262a', 'the newer default-following preference survives');
+  assert.equal(view.element('#theme-auto').hidden, true);
+  assert.equal(view.element('#theme-toggle').disabled, false);
+});
+
+test('late download replies cannot affect restored controls or register stale close bookkeeping', async t => {
+  const view = await previewWorkspace(); t.after(view.hide);
+  const old = view.download(); view.hide(); await view.restore();
+  assert.equal(view.element('#download').disabled, false);
+  const next = view.download();
+  view.pending[0].resolve({downloadId:1}); await old;
+  assert.deepEqual(view.searched, []); assert.equal(view.element('#status').textContent, '');
+  assert.equal(view.element('#download').disabled, true);
+  view.pending[1].resolve({downloadId:2}); await next;
+  assert.deepEqual(view.searched, [2]); assert.equal(view.element('#download').disabled, false);
+  assert.equal(view.element('#status').textContent, 'documentDownloadStarted');
+});
+
 export function storedZip(entries, compress = false) {
   let offset = 0;
   const locals = [], directory = [];

@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.9 — 2026-10-11
+
+- Strengthen Bili Daily Login cancellation and request timeout handling, including delayed response bodies and setting changes.
+- Recover download response observation after listener updates fail instead of treating pending changes as complete.
+- Isolate Video Download results across stop/restart, rescans, pauses and navigation, and cancel obsolete discovery requests.
+- Bound playlist reads and expansion to avoid oversized responses and cyclic requests.
+
 ## 9.12.8 — 2026-10-11
 
 - Restore Settings subscriptions after history navigation and prevent delayed replies from updating closed extension surfaces.

@@ -78,3 +78,29 @@ test('Customs observes exactly the tabs collecting for either download product',
   registry.setCollecting('videoDownload', 9, false);
   assert.deepEqual(states, [[], [5], [5, 9], [9], []]);
 });
+
+test('Customs retries unacknowledged listener changes even when the requested sessions are unchanged', () => {
+  const states = [];
+  let fail = false;
+  const registry = createCustomsObservationRegistry({
+    setTabs(tabIds) {
+      states.push([...tabIds]);
+      if (fail) { fail = false; throw new Error('listener registration failed'); }
+      return tabIds.size;
+    }
+  });
+  registry.completeInitialization([true, true]);
+  fail = true;
+  assert.throws(() => registry.setCollecting('videoDownload', 9, true), /registration failed/);
+  assert.equal(registry.needsRestoration(), true);
+  assert.equal(registry.setCollecting('videoDownload', 9, true), false);
+  assert.equal(registry.needsRestoration(), false);
+  assert.deepEqual(states, [[], [9], [9]]);
+
+  // A failed transition can partially modify Chrome's listeners. Returning to
+  // the previous target must not trust a signature from before that failure.
+  fail = true;
+  assert.throws(() => registry.setCollecting('videoDownload', 9, false), /registration failed/);
+  registry.setCollecting('videoDownload', 9, true);
+  assert.deepEqual(states.slice(-2), [[], [9]]);
+});

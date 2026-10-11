@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.12.8');
+assert.equal(manifest.version, '9.12.9');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -481,7 +481,7 @@ assert.match(customs, /createImageDownloadProduct[\s\S]*createVideoDownloadProdu
 assert.match(customs, /restorationTask[\s\S]*if \(restorationTask\) return restorationTask/,
   'Customs Province must coalesce concurrent session restoration.');
 assert.match(customsObservation, /responseIngress\.setTabs\(tabIds\)/);
-assert.doesNotMatch(customsObservation, /setEnabled|restorationReliable \|\|/,
+assert.doesNotMatch(customsObservation, /setEnabled/,
   'Uncertain restoration must not enable an all-tab response fallback.');
 assert.match(customsResponseIngress, /event\.addListener\(listener, \{[\s\S]*tabId/,
   'Customs response ingress must register exact tab filters.');

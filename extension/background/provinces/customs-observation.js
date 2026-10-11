@@ -12,15 +12,26 @@ export function createCustomsObservationRegistry(responseIngress) {
       .filter(tabId => Number.isInteger(tabId) && tabId >= 0));
     const signature = [...tabIds].sort((left, right) => left - right).join(',');
     if (signature === ingressSignature) return tabIds.size;
-    ingressSignature = signature;
-    return responseIngress.setTabs(tabIds);
+    try {
+      const result = responseIngress.setTabs(tabIds);
+      ingressSignature = signature;
+      return result;
+    } catch (error) {
+      // Listener updates may have partially succeeded. Do not reuse any prior
+      // signature until Chrome acknowledges the complete desired tab set.
+      ingressSignature = null;
+      throw error;
+    }
   }
 
   function setCollecting(productId, tabId, active) {
-    if (!productId || !Number.isInteger(tabId)) return false;
+    if (!productId || !Number.isInteger(tabId) || tabId < 0) return false;
     const sessionKey = key(productId, tabId);
     const changed = active === true ? !collecting.has(sessionKey) : collecting.has(sessionKey);
-    if (!changed) return false;
+    if (!changed) {
+      if (initialized) syncIngress();
+      return false;
+    }
     if (active === true) collecting.add(sessionKey);
     else collecting.delete(sessionKey);
     if (initialized) syncIngress();
@@ -37,7 +48,7 @@ export function createCustomsObservationRegistry(responseIngress) {
   return Object.freeze({
     setCollecting,
     completeInitialization,
-    needsRestoration() { return !initialized || !restorationReliable; },
+    needsRestoration() { return !initialized || !restorationReliable || ingressSignature === null; },
     isCollecting(productId, tabId) { return collecting.has(key(productId, tabId)); },
     size() { return collecting.size; }
   });

@@ -13,7 +13,8 @@ import {
   recoverInterruptedVideoCandidates,
   sanitizeVideoFilename,
   selectHlsVariant,
-  stableVideoCandidateId
+  stableVideoCandidateId,
+  videoSessionKey
 } from '../extension/core/video-download/video-download.js';
 
 import {
@@ -26,7 +27,127 @@ import {
 import { md5 } from '../extension/core/video-download/md5.js';
 import { expandDashTemplate, parseIsoDuration } from '../extension/core/video-download/dash.js';
 import { unwrapObfuscatedHls } from '../extension/core/video-download/obfuscated-hls.js';
-import { mediaHeaderRule } from '../extension/background/products/customs/video-download.js';
+import { createVideoDownloadProduct, mediaHeaderRule } from '../extension/background/products/customs/video-download.js';
+
+function deferred() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function discoveryFixture(t) {
+  const previous = { chrome: globalThis.chrome, fetch: globalThis.fetch };
+  const data = {};
+  const tab = { id: 61, url: 'https://example.test/video', title: 'Test' };
+  const hooks = { page: async () => ({}), fetch: async () => ({ ok: false }) };
+  globalThis.chrome = {
+    extension: {},
+    storage: { session: {
+      async get(key) { return structuredClone(key === null ? data : { [key]: data[key] }); },
+      async set(values) { Object.assign(data, structuredClone(values)); },
+      async remove(key) { delete data[key]; }
+    } },
+    tabs: { async get() { return { ...tab }; }, async query() { return [{ ...tab }]; } },
+    alarms: { async clear() {}, async create() {} },
+    scripting: { async executeScript(options) {
+      return options.func?.name === 'siteVideoPageDiscovery'
+        ? [{ frameId: 0, result: await hooks.page() }] : [];
+    } }
+  };
+  globalThis.fetch = (...args) => hooks.fetch(...args);
+  const product = createVideoDownloadProduct({
+    async readSettings() { return { videoDownload: {} }; },
+    async sendTabMessage() {}, async setFeatureActivity() {}, notifyCentralUi() {}
+  }, { async maybeClose() {} }, { setCollecting() {} });
+  await product.initialize();
+  const send = message => product.handleMessage({ tabId: tab.id, ...message }, {
+    sender: { frameId: 0, tab: { ...tab }, url: tab.url }
+  });
+  t.after(async () => { await send({ type: 'UI_VIDEO_STOP' }); Object.assign(globalThis, previous); });
+  return { tab, product, hooks, send, stored: () => data[videoSessionKey(tab.id)] };
+}
+
+for (const transition of ['stop/restart', 'rescan', 'reload']) {
+test(`a late page discovery cannot repopulate a video session after ${transition} at the same URL`, async t => {
+  const f = await discoveryFixture(t);
+  const entered = deferred(), release = deferred();
+  f.hooks.page = async () => { entered.resolve(); return release.promise; };
+  const oldOpen = f.send({ type: 'UI_VIDEO_OPEN' });
+  await entered.promise;
+  const oldDiscoveryId = f.stored().discoveryId;
+  assert.equal(typeof oldDiscoveryId, 'string');
+  f.hooks.page = async () => ({});
+  if (transition === 'stop/restart') {
+    await f.send({ type: 'UI_VIDEO_STOP' });
+    await f.send({ type: 'UI_VIDEO_OPEN' });
+  } else if (transition === 'rescan') {
+    await f.send({ type: 'UI_VIDEO_RESCAN' });
+  } else {
+    await f.product.handleTabUpdated(f.tab.id, { status: 'loading' }, f.tab);
+    await f.product.handleTabUpdated(f.tab.id, { status: 'complete' }, f.tab);
+  }
+  assert.notEqual(f.stored().discoveryId, oldDiscoveryId);
+  release.resolve({ candidates: [{ url: 'https://media.test/old.mp4' }] });
+  await oldOpen;
+  assert.deepEqual(f.stored().candidates, []);
+});
+}
+
+test('a paused video session rejects both delayed discovery and subsequent page candidates', async t => {
+  const f = await discoveryFixture(t);
+  const entered = deferred(), release = deferred();
+  f.hooks.page = async () => { entered.resolve(); return release.promise; };
+  const open = f.send({ type: 'UI_VIDEO_OPEN' });
+  await entered.promise;
+  await f.product.handleAlarm({ name: 'downloadScanPause:videoDownload:61' });
+  release.resolve({ candidates: [{ url: 'https://media.test/old.mp4' }] });
+  await open;
+  assert.equal((await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [{ url: 'https://media.test/late.mp4' }], pageUrl: f.tab.url })).accepted, 0);
+  assert.equal(f.stored().scanState, 'paused');
+  assert.deepEqual(f.stored().candidates, []);
+});
+
+for (const transition of ['stop/restart', 'pause/resume']) {
+test(`video manifest reads are cancelled on ${transition} and can restart at the same URL`, async t => {
+  const f = await discoveryFixture(t);
+  await f.send({ type: 'UI_VIDEO_OPEN' });
+  const entered = deferred(), release = deferred();
+  let firstSignal;
+  f.hooks.fetch = async (_url, options) => {
+    firstSignal = options.signal;
+    entered.resolve();
+    await release.promise;
+    return new Response('#EXTM3U\n#EXTINF:99,\nold.ts\n#EXT-X-ENDLIST');
+  };
+  const candidate = { url: 'https://media.test/video.m3u8' };
+  await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [candidate], pageUrl: f.tab.url });
+  await entered.promise;
+  if (transition === 'stop/restart') await f.send({ type: 'UI_VIDEO_STOP' });
+  else await f.product.handleAlarm({ name: 'downloadScanPause:videoDownload:61' });
+  f.hooks.fetch = async () => new Response('#EXTM3U\n#EXTINF:7,\nnew.ts\n#EXT-X-ENDLIST');
+  await f.send({ type: 'UI_VIDEO_OPEN' });
+  await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [candidate], pageUrl: f.tab.url });
+  try { assert.equal(firstSignal?.aborted, true); }
+  finally { release.resolve(); }
+  for (let i = 0; i < 25 && f.stored().candidates[0]?.duration !== 7; i += 1) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(f.stored().candidates[0].duration, 7);
+});
+}
+
+test('cyclic HLS playlists do not cause repeated manifest requests', async t => {
+  const f = await discoveryFixture(t);
+  await f.send({ type: 'UI_VIDEO_OPEN' });
+  const requests = [];
+  f.hooks.fetch = async url => {
+    requests.push(url);
+    return new Response(`#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=500000\n${url.endsWith('/a.m3u8') ? 'b' : 'a'}.m3u8`);
+  };
+  await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [{ url: 'https://media.test/a.m3u8' }], pageUrl: f.tab.url });
+  for (let i = 0; i < 15; i += 1) await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(requests, ['https://media.test/a.m3u8', 'https://media.test/b.m3u8']);
+});
 
 test('temporary video referrer rules affect only extension-initiated media requests', () => {
   const rule = mediaHeaderRule(700001, 'https://media.example.com/path/*', 'https://example.com/', 'extension-id');

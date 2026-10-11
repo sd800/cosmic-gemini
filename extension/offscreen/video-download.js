@@ -3,7 +3,8 @@ import { findDashTracks, parseDashManifest } from '../core/video-download/dash.j
 import { youtubeCandidates } from '../core/video-download/youtube-video.js';
 import { unwrapObfuscatedHls } from '../core/video-download/obfuscated-hls.js';
 import { imageExtension } from '../core/image-download.js';
-import { isProcessorSender, readBoundedBytes } from './security.js';
+import { isProcessorSender } from './security.js';
+import { readBoundedBytes } from '../core/bounded-response.js';
 import {
   ALL_FORMATS,
   BlobSource,
@@ -560,7 +561,8 @@ function dashManifestForCandidate(candidate, pageUrl) {
 
 async function expandDash(message) {
   const manifest = dashManifestForCandidate(message.candidate, message.pageUrl)
-    || await fetchDashManifest(message.candidate.manifestUrl || message.candidate.url, message.pageUrl);
+    || await fetchDashManifest(message.candidate.manifestUrl || message.candidate.url, message.pageUrl, message.requestId);
+  throwIfVideoRequestCancelled(message.requestId);
   return parseDashManifest(manifest.text, manifest.url, message.candidate.title || '').map(candidate => ({
     ...candidate,
     ...(message.candidate.manifestText ? {
@@ -573,11 +575,17 @@ async function expandDash(message) {
 async function discoverYoutube(message) {
   youtubeModulePromise ||= import('../vendor/youtubei/browser.js');
   const { Innertube } = await youtubeModulePromise;
-  const fetchWithSession = (input, init = {}) => fetch(input, {
-    ...init,
-    credentials: 'include',
-    cache: init.cache || 'no-store'
-  });
+  throwIfVideoRequestCancelled(message.requestId);
+  const fetchWithSession = (input, init = {}) => {
+    throwIfVideoRequestCancelled(message.requestId);
+    const signal = videoRequest(message.requestId)?.controller.signal;
+    return fetch(input, {
+      ...init,
+      credentials: 'include',
+      cache: init.cache || 'no-store',
+      signal: signal && init.signal ? AbortSignal.any([signal, init.signal]) : signal || init.signal
+    });
+  };
   const innertube = await Innertube.create({
     fetch: fetchWithSession,
     visitor_data: message.context.visitorData || undefined,
@@ -588,6 +596,7 @@ async function discoverYoutube(message) {
   let lastError;
   let best = [];
   for (const client of clients) {
+    throwIfVideoRequestCancelled(message.requestId);
     try {
       const info = await innertube.getBasicInfo(message.context.videoId, { client });
       const candidates = await youtubeCandidates(info, innertube, message.context.title);
@@ -595,6 +604,7 @@ async function discoverYoutube(message) {
       if (candidates.some(candidate => candidate.kind === 'muxed') || candidates.some(candidate => candidate.kind === 'hls')) break;
     } catch (error) { lastError = error; }
   }
+  throwIfVideoRequestCancelled(message.requestId);
   if (!best.length && lastError) throw lastError;
   return best;
 }
@@ -901,11 +911,11 @@ export function handleMediaMessage(message, sender, sendResponse) {
       return;
     }
     if (message.type === 'CG_VIDEO_EXPAND_DASH') {
-      sendResponse({ ok: true, result: await expandDash(message) });
+      sendResponse({ ok: true, result: await runVideoRequest(message, () => expandDash(message)) });
       return;
     }
     if (message.type === 'CG_VIDEO_DISCOVER_YOUTUBE') {
-      sendResponse({ ok: true, result: await discoverYoutube(message) });
+      sendResponse({ ok: true, result: await runVideoRequest(message, () => discoverYoutube(message)) });
       return;
     }
     if (message.type === 'CG_VIDEO_ASSEMBLE_DASH') {

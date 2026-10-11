@@ -7,7 +7,7 @@ import {
   nextBilibiliPlan,
   nextBilibiliSchedule
 } from '../extension/core/bili-daily-login.js';
-import { FEATURE_IDS } from '../extension/core/config.js';
+import { FEATURE_IDS, SETTINGS_KEY } from '../extension/core/config.js';
 import { createBiliDailyLoginProduct } from '../extension/background/products/standing/bili-daily-login.js';
 
 function storageArea(values = {}) {
@@ -20,6 +20,120 @@ function storageArea(values = {}) {
     }
   };
 }
+
+function deferred() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+function dailyFixture(t) {
+  const previous = { chrome: globalThis.chrome, fetch: globalThis.fetch, now: Date.now };
+  const local = storageArea();
+  const alarms = [];
+  let settings = { biliDailyLogin: { enabled: true, lastCompletedDate: '' } };
+  globalThis.chrome = {
+    extension: { inIncognitoContext: false },
+    storage: { local },
+    windows: { async getAll() { return [{ incognito: false }]; } },
+    alarms: {
+      async create(name, options) { alarms.push({ name, options }); },
+      async clear() { return true; },
+      async get() { return null; }
+    }
+  };
+  Date.now = () => Date.parse('2026-08-30T04:00:00Z');
+  const product = createBiliDailyLoginProduct({
+    async readSettings() { return structuredClone(settings); },
+    async mutateSettings(update) { settings = update(settings); return structuredClone(settings); }
+  });
+  t.after(() => { globalThis.chrome = previous.chrome; globalThis.fetch = previous.fetch; Date.now = previous.now; });
+  return { product, local, alarms,
+    start: () => product.handleAlarm({ name: 'satellites:biliDailyLogin' }),
+    disableInStorage() {
+      const oldValue = structuredClone(settings);
+      settings.biliDailyLogin.enabled = false;
+      return product.handleStorageChanged({ [SETTINGS_KEY]: { oldValue, newValue: structuredClone(settings) } }, 'local');
+    }
+  };
+}
+
+for (const phase of ['window lookup', 'request-header installation']) {
+  test(`Bili Daily Login cancellation during ${phase} prevents a subsequent request`, async t => {
+    const f = dailyFixture(t);
+    const entered = deferred(), release = deferred();
+    let requests = 0;
+    globalThis.fetch = async () => { requests += 1; return { ok: true, async json() { return { code: -1 }; } }; };
+    if (phase === 'window lookup') {
+      chrome.windows.getAll = async () => { entered.resolve(); await release.promise; return []; };
+    } else {
+      chrome.runtime = { id: 'test' };
+      chrome.declarativeNetRequest = { async updateSessionRules(update) {
+        if (update.addRules) { entered.resolve(); await release.promise; }
+      } };
+    }
+    const run = f.start();
+    await entered.promise;
+    const stop = f.product.reset();
+    release.resolve();
+    await Promise.all([run, stop]);
+    assert.equal(requests, 0);
+    assert.deepEqual(f.alarms, []);
+    assert.equal(BILI_DAILY_ATTEMPT_KEY in f.local.values, false);
+  });
+}
+
+test('a storage disable cancels Bili Daily Login while its response body is still being read', async t => {
+  const f = dailyFixture(t);
+  const entered = deferred(), release = deferred();
+  let requestSignal;
+  globalThis.fetch = async (_url, options) => {
+    requestSignal = options.signal;
+    return { ok: true, json() {
+      entered.resolve();
+      return new Promise((resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+        release.promise.then(() => resolve({ code: -1 }));
+      });
+    } };
+  };
+  const run = f.start();
+  await entered.promise;
+  const stop = f.disableInStorage();
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(requestSignal.aborted, true);
+  } finally {
+    release.resolve();
+    await Promise.all([run, stop]);
+  }
+  assert.deepEqual(f.alarms, []);
+  assert.equal(BILI_DAILY_ATTEMPT_KEY in f.local.values, false);
+});
+
+test('Bili Daily Login keeps its request timeout active through response-body parsing', async t => {
+  const f = dailyFixture(t);
+  const entered = deferred(), release = deferred();
+  let timeout, cleared = false;
+  t.mock.method(globalThis, 'setTimeout', (callback, ms) => {
+    assert.equal(ms, 30_000);
+    timeout = callback;
+    return 1;
+  });
+  t.mock.method(globalThis, 'clearTimeout', () => { cleared = true; });
+  globalThis.fetch = async (_url, options) => ({ ok: true, json() {
+    entered.resolve();
+    return new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new Error('timeout')), { once: true });
+      release.promise.then(() => resolve({ code: -1 }));
+    });
+  } });
+  const run = f.start();
+  await entered.promise;
+  try { assert.equal(cleared, false); timeout(); }
+  finally { release.resolve(); await run; }
+  assert.equal(cleared, true);
+});
 
 test('Bili Daily Login uses Bilibili calendar days in China Standard Time', () => {
   assert.equal(bilibiliDateKey(Date.parse('2026-08-29T15:59:59Z')), '2026-08-29');

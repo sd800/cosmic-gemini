@@ -1,6 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createCustomsOffscreenCoordinator } from '../extension/background/provinces/customs-offscreen.js';
+import { handleMediaMessage } from '../extension/offscreen/video-download.js';
+
+test('manifest discovery requests share offscreen cancellation with media processing', async t => {
+  const previous = { chrome: globalThis.chrome, fetch: globalThis.fetch };
+  globalThis.chrome = { runtime: { id: 'test', getURL: path => `chrome-extension://test/${path}` } };
+  t.after(() => Object.assign(globalThis, previous));
+  const sender = { id: 'test', url: 'chrome-extension://test/background/central.js' };
+  let started;
+  const entered = new Promise(resolve => { started = resolve; });
+  let signal;
+  globalThis.fetch = (_url, options) => new Promise((_resolve, reject) => {
+    signal = options.signal;
+    started();
+    signal.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true });
+  });
+  const result = new Promise(resolve => {
+    assert.equal(handleMediaMessage({ target: 'video-download-offscreen', type: 'CG_VIDEO_EXPAND_DASH', requestId: 'manifest-test',
+      pageUrl: 'https://example.test/video', candidate: { url: 'https://media.test/video.mpd' } }, sender, resolve), true);
+  });
+  await entered;
+  const cancel = await new Promise(resolve => handleMediaMessage({ target: 'video-download-offscreen',
+    type: 'CG_VIDEO_CANCEL_REQUEST', requestId: 'manifest-test' }, sender, resolve));
+  assert.equal(cancel.result.cancelled, true);
+  assert.equal(signal.aborted, true);
+  assert.equal((await result).cancelled, true);
+});
 
 test('Customs does not close its offscreen document while a new request is starting', async () => {
   const previousChrome = globalThis.chrome;
@@ -131,7 +157,7 @@ test('offscreen processing accepts only Central, not content scripts or extensio
 });
 
 test('media byte limits cancel oversized streams even without a trustworthy content length', async () => {
-  const {readBoundedBytes}=await import('../extension/offscreen/security.js');
+  const {readBoundedBytes}=await import('../extension/core/bounded-response.js');
   assert.deepEqual([...await readBoundedBytes(new Response(new Uint8Array([1,2,3])),3)],[1,2,3]);
   let cancelled=false;
   const response=new Response(new ReadableStream({pull(controller){controller.enqueue(new Uint8Array(4));},cancel(){cancelled=true;}}),{headers:{'content-length':'1'}});

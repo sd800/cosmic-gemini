@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.6 — 2026-10-11
+
+- Prevent a white flash when closing dark-mode Document Preview tabs, and keep departing previews stable during delayed appearance updates.
+
 ## 9.12.5 — 2026-10-02
 
 - Keep ASCII periods in file extensions and domain suffixes when optimizing Chinese responses on Claude.

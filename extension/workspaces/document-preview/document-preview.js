@@ -64,6 +64,7 @@ const themeToggle = document.querySelector('#theme-toggle'), themeAuto = documen
 const appearance = matchMedia('(prefers-color-scheme: dark)');
 let defaultTheme = normalizeDocumentAppearance(params.get('appearance')), siteTheme = null, themeSaving = false;
 function updateTheme() {
+  if (suspended) return;
   const theme = siteTheme || defaultTheme;
   const dark = theme === 'dark' || (theme === 'auto' && appearance.matches);
   document.documentElement.dataset.appearance = theme;
@@ -199,7 +200,7 @@ function releaseDownload(downloadId) {
 }
 chrome.downloads.onChanged.addListener(delta => { if (['complete', 'interrupted'].includes(delta.state?.current)) releaseDownload(delta.id); });
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (!metadata || expired) return;
+  if (!metadata || expired || suspended) return;
   if (area === 'session') {
     const changed = changes['documentPreview:' + metadata.context];
     if (changed) {

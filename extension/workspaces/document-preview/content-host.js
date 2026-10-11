@@ -39,6 +39,12 @@ export function createDocumentContent(frame, locale, onError, onSlide = () => {}
       else if (!closed && ready && slideCount) channel.port1.postMessage({type:'slide-zoom',id:renderId,zoom});
     },
     setTheme(value) { dark = value === true; if (!closed && ready) channel.port1.postMessage({type:'theme',dark}); },
-    destroy() { closed = true; pending = null; clearTimeout(timeout); channel.port1.close(); frame.removeAttribute('src'); }
+    destroy() {
+      if (closed) return;
+      closed = true; pending = null; clearTimeout(timeout); channel.port1.close();
+      // Removing src navigates to a white about:blank, even in a dark sandbox.
+      // Hide before releasing it so the host's themed background stays visible.
+      frame.style.visibility = 'hidden'; frame.removeAttribute('src');
+    }
   };
 }

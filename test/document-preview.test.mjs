@@ -26,7 +26,10 @@ test('presentation bridge preserves pending selection and zoom and ignores stale
     constructor() { channel = this; this.port1 = {postMessage: value => sent.push(structuredClone(value)), close() {}}; this.port2 = {}; }
   };
   const frame = {style:{colorScheme:'dark'}, addEventListener(type, listener) { initialize = listener; },
-    contentWindow:{postMessage() {}}, removeAttribute() {}};
+    contentWindow:{postMessage() {}}, removeAttribute(name) {
+      assert.equal(this.style.visibility, 'hidden', 'hide the dark document before navigation to blank');
+      delete this[name];
+    }};
   const reader = createDocumentContent(frame, 'en-US', () => errors.push(true), index => selected.push(index));
   try {
     reader.renderSlides([{html:'one'},{html:'two'}], {kind:'pptx'}, 'Slide');
@@ -46,6 +49,10 @@ test('presentation bridge preserves pending selection and zoom and ignores stale
     channel.port1.onmessage({data:{type:'rendered',id:sent.at(-1).id}});
     assert.equal(frame.style.visibility, 'visible');
     reader.destroy();
+    assert.equal(frame.style.visibility, 'hidden');
+    frame.src = 'replacement-reader';
+    reader.destroy();
+    assert.equal(frame.src, 'replacement-reader', 'repeated cleanup cannot clear a replacement reader');
     const count = sent.length;
     reader.selectSlide(0); reader.setZoom(2); reader.renderSlides([{html:'late'}], {kind:'pptx'}, 'Slide');
     assert.equal(sent.length, count);

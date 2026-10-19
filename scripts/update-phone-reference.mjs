@@ -5,7 +5,12 @@ import { fileURLToPath } from 'node:url';
 
 const METADATA_VERSION = '1.13.13';
 const LIBPHONENUMBER_VERSION = '9.0.39';
-const METADATA_URL = `https://raw.githubusercontent.com/catamphetamine/libphonenumber-js/v${METADATA_VERSION}/metadata.min.json`;
+const REGION_NAME_OVERRIDES = Object.freeze({
+  HK: ['Hong Kong, China', '中国香港'],
+  MO: ['Macau, China', '中国澳门'],
+  TW: ['Chinese Taipei', '中华台北']
+});
+const METADATA_URL = `https://unpkg.com/libphonenumber-js@${METADATA_VERSION}/metadata.min.json`;
 const CHINA_GEOCODING_EN_URL = `https://raw.githubusercontent.com/google/libphonenumber/v${LIBPHONENUMBER_VERSION}/resources/geocoding/en/86.txt`;
 const CHINA_GEOCODING_ZH_URL = `https://raw.githubusercontent.com/google/libphonenumber/v${LIBPHONENUMBER_VERSION}/resources/geocoding/zh/86.txt`;
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -60,7 +65,9 @@ function chineseAreaParts(value) {
 function chineseCountryNames(metadata) {
   const displayNames = new Intl.DisplayNames(['zh-CN'], { type: 'region' });
   const countries = new Set(Object.values(metadata.country_calling_codes).flat());
-  const overrides = Object.freeze({ HK: '香港', MO: '澳门', PS: '巴勒斯坦' });
+  const overrides = Object.freeze({ PS: '巴勒斯坦', ...Object.fromEntries(
+    Object.entries(REGION_NAME_OVERRIDES).map(([country, names]) => [country, names[1]])
+  ) });
   return Object.fromEntries([...countries].map(country => [
     country,
     overrides[country] || displayNames.of(country) || country
@@ -152,6 +159,7 @@ const output = `(() => {
   //          ${CHINA_GEOCODING_ZH_URL}
   // Licenses: MIT and Apache License 2.0. Combined source SHA-256: ${digest}
   const data = ${data};
+  const regionNameOverrides = Object.freeze(${JSON.stringify(REGION_NAME_OVERRIDES)});
   const nonGeographicNames = Object.freeze({
     800: ['International Freephone Service', '国际免费电话业务'],
     808: ['International Shared Cost Service', '国际分摊付费业务'],
@@ -241,6 +249,8 @@ const output = `(() => {
 
   function countryName(country, locale) {
     if (!country) return '';
+    const fixedNames = regionNameOverrides[country];
+    if (fixedNames) return fixedNames[chinese(locale) ? 1 : 0];
     if (chinese(locale)) return data.countryNamesZh[country] || country;
     try {
       englishDisplayNames ||= new Intl.DisplayNames(['en'], { type: 'region' });

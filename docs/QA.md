@@ -197,6 +197,8 @@ Run `node --test test/page-runtime-host.test.mjs test/page-display-runtime.test.
 
 The reusable local probe `test-dist/flash-audit/browser.mjs` (instructions in that ignored folder’s README) runs the actual Chrome USER-origin injection path in a temporary extension/profile. It holds acknowledgements, forces a transient failure, remounts after document.open/layer removal, records animation-frame style/geometry stability and verifies screenshot pixels including fullscreen. It also checks PDF first-page/zoom/navigation/theme and spreadsheet replacement in the packaged opaque readers. These checks assert current rendered states rather than treating a successful injection as proof that no flash occurred. Never connect this probe to a personal Chrome profile. It cannot control Chrome-owned new-tab/internal surfaces or a site’s original navigation animations.
 
+Telephone locale checks must cover +852/+853/+886 in both interface languages, including a fixture where browser region-name data is unavailable. Confirm that fixed telephone labels match university-region labels and that telephone formatting/copy behavior stays unchanged.
+
 ## Mailto Capture university reference
 
 The display-name regression cases lock SUNY full names, the conventional CUNY system name, UNC connecting words, the requested UIC spelling, leading-article display policy and distinctive/internal-article retention, UC San Diego’s comma, institutional internal capitals, native Hawaiian punctuation, Taiwan English-name spacing and reviewed campus separators. Check the generated lookup in both interface languages; do not normalize the original source-membership evidence.

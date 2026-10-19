@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.21 — 2026-10-19
+
+- Refine locale names and display consistency.
+
 ## 9.12.20 — 2026-10-19
 
 - Refine offline institution recognition.

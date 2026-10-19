@@ -41,7 +41,7 @@ function renderedText(element) {
   )).join('');
 }
 
-async function runtimeFixture() {
+async function runtimeFixture({ intl = Intl } = {}) {
   const window = new SimpleEventTarget();
   const context = {
     window,
@@ -61,7 +61,7 @@ async function runtimeFixture() {
     Math,
     Object,
     Promise,
-    Intl,
+    Intl: intl,
     URL,
     atob: value => Buffer.from(value, 'base64').toString('binary'),
     decodeURIComponent,
@@ -508,6 +508,27 @@ test('Mailto Capture recognizes and formats compact international telephone refe
   assert.equal(runtime.parseTel('tel:+44-20-7946-0958').location, '英国');
   assert.equal(runtime.parseSms('sms:+86-571-1234-5678').locations[0].location, '中国 浙江 杭州');
   assert.equal(runtime.parseTel('tel:+1-312-555-0100').location, 'Chicago, Illinois, USA');
+});
+
+test('Telephone region names stay consistent across locales and browser name data', async () => {
+  const { context, runtime } = await runtimeFixture({ intl: {
+    DisplayNames: class { constructor() { throw new Error('Browser region names are unavailable.'); } }
+  } });
+  const phone = context[Symbol.for('cosmic-gemini.mailto-capture.phone')];
+  const universities = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  for (const [number, domain, english, chinese] of [
+    ['+852 2345 6789', 'hku.hk', 'Hong Kong, China', '中国香港'],
+    ['+853 2831 2345', 'um.edu.mo', 'Macau, China', '中国澳门'],
+    ['+886 2 2345 6789', 'ntu.edu.tw', 'Chinese Taipei', '中华台北']
+  ]) {
+    assert.equal(phone.inspect(number, 'en-US').location, english);
+    assert.equal(phone.inspect(number, 'zh-CN').location, chinese);
+    assert.equal(phone.inspect(number, 'en-US').location, universities.lookup(`person@${domain}`).region);
+    assert.equal(phone.inspect(number, 'zh-CN').location, universities.lookup(`person@${domain}`, 'zh-CN').region);
+  }
+  assert.equal(runtime.parseTel('tel:+85223456789').location, 'Hong Kong, China');
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } }) });
+  assert.equal(runtime.parseSms('sms:+85328312345').locations[0].location, '中国澳门');
 });
 
 test('Mailto Capture standardizes NANP display without changing copied dialing targets', async () => {

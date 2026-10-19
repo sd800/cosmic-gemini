@@ -129,6 +129,7 @@ test('University references cover every reviewed cohort and resolve all explicit
 
 test('University display names retain reviewed full names, capitalization and institution-specific separators', async () => {
   const { context } = await runtimeFixture();
+  const displayRows = vm.runInContext("globalThis[Symbol.for('cosmic-gemini.mailto-capture.university-data')]", context);
   const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
   for (const [domain, name] of [
     ['albany.edu', 'State University of New York at Albany'],
@@ -143,19 +144,28 @@ test('University display names retain reviewed full names, capitalization and in
     ['mec.cuny.edu', 'Medgar Evers College'],
     ['unc.edu', 'University of North Carolina at Chapel Hill'],
     ['uncg.edu', 'University of North Carolina at Greensboro'],
-    ['charlotte.edu', 'The University of North Carolina at Charlotte'],
+    ['charlotte.edu', 'University of North Carolina at Charlotte'],
+    ['uncc.edu', 'University of North Carolina at Charlotte'],
     ['uic.edu', 'University of Illinois at Chicago'],
     ['ucsd.edu', 'University of California, San Diego'],
     ['manoa.hawaii.edu', 'University of Hawaiʻi at Mānoa'],
     ['pacific.edu', 'University of the Pacific'],
-    ['uab.edu', 'The University of Alabama at Birmingham'],
-    ['uah.edu', 'The University of Alabama in Huntsville'],
+    ['uab.edu', 'University of Alabama at Birmingham'],
+    ['uah.edu', 'University of Alabama in Huntsville'],
     ['uark.edu', 'University of Arkansas at Fayetteville'],
-    ['uta.edu', 'The University of Texas at Arlington'],
-    ['utdallas.edu', 'The University of Texas at Dallas'],
-    ['utep.edu', 'The University of Texas at El Paso'],
-    ['utsa.edu', 'The University of Texas at San Antonio'],
-    ['utexas.edu', 'The University of Texas at Austin'],
+    ['uta.edu', 'University of Texas at Arlington'],
+    ['utdallas.edu', 'University of Texas at Dallas'],
+    ['utep.edu', 'University of Texas at El Paso'],
+    ['utsa.edu', 'University of Texas at San Antonio'],
+    ['utexas.edu', 'University of Texas at Austin'],
+    ['anu.edu.au', 'Australian National University'],
+    ['gwu.edu', 'George Washington University'],
+    ['lse.ac.uk', 'London School of Economics and Political Science'],
+    ['ccny.cuny.edu', 'City College of New York'],
+    ['wooster.edu', 'College of Wooster'],
+    ['osu.edu', 'The Ohio State University'],
+    ['newschool.edu', 'The New School, New York City & Paris'],
+    ['sewanee.edu', 'Sewanee: The University of the South'],
     ['depaul.edu', 'DePaul University'],
     ['desales.edu', 'DeSales University'],
     ['dyu.edu', "D'Youville University"],
@@ -170,6 +180,10 @@ test('University display names retain reviewed full names, capitalization and in
     ['uml.edu', 'University of Massachusetts Lowell']
   ]) {
     for (const locale of ['en-US', 'zh-CN']) assert.equal(lookup(`person@${domain}`, locale).name, name, `${domain}: ${locale}`);
+  }
+  for (const row of displayRows) {
+    assert.doesNotMatch(row[0], /^The University of\b/i);
+    if (row[5]) assert.doesNotMatch(row[5], /^The University of\b/i);
   }
   for (const [domain, name] of [
     ['nutc.edu.tw', 'National Taichung University of Science and Technology'],
@@ -217,7 +231,7 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).name, name, address);
     assert.equal(lookup(address).region, region, address);
   }
-  for (const [alias, primary] of [['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['uic.edu.cn', 'bnbu.edu.cn'], ['dku.edu.cn', 'dukekunshan.edu.cn']]) {
+  for (const [alias, primary] of [['uncc.edu', 'charlotte.edu'], ['department.uncc.edu', 'charlotte.edu'], ['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['uic.edu.cn', 'bnbu.edu.cn'], ['dku.edu.cn', 'dukekunshan.edu.cn']]) {
     assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`))), JSON.parse(JSON.stringify(lookup(`contact@${primary}`))), alias);
   }
   assert.equal(lookup('student@cs.nyu.edu').name, 'New York University');
@@ -225,7 +239,7 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('contact@CCCCO.EDU').name, 'California Community Colleges Chancellor’s Office');
   assert.equal(lookup('contact@office.cccco.edu', 'zh-CN').region, 'California, USA');
   assert.equal(lookup('contact@cuny.edu').name, 'City University of New York');
-  assert.equal(lookup('contact@ccny.cuny.edu').name, 'The City College of New York');
+  assert.equal(lookup('contact@ccny.cuny.edu').name, 'City College of New York');
   assert.equal(lookup('contact@suny.edu').region, 'New York, USA');
   assert.equal(lookup('contact@uwsa.edu').name, 'Universities of Wisconsin');
   for (const [address, en, zh] of [
@@ -243,6 +257,7 @@ test('University matching respects DNS boundaries, campus identity and localized
   for (const address of ['alice@example.com', 'alice@edu', 'alice@edu.cn', 'alice@harvard.edu.example.com',
     'alice@fakeharvard.edu', 'student@umd.umich.edu.evil.test', 'student@umdumich.edu',
     'contact@fakecccco.edu', 'contact@cccco.edu.evil.test',
+    'contact@uncc.edu.evil.test', 'contact@fakeuncc.edu',
     'alice@harvаrd.edu', 'alice@harvard.edu@evil.test', 'alice@harvard.edu:80',
     'alice@harvard.edu/path', 'alice@harvard.edu?test', 'alice@harvard.edu%2eevil.test',
     'alice@fakecuhk.edu.cn', 'alice@hkust-gz.edu.cn.evil.test', 'alice@fakewustl.edu',
@@ -269,7 +284,7 @@ test('Mailto Capture places school and region on separate lines without altering
   const bilingual = new FakeElement('div');
   runtime.appendEmailField(bilingual, 'To', ['student@hku.edu', 'student@um.edu.mo', 'student@ntu.edu.tw', 'student@cuhk.edu.cn', 'unknown@example.com']);
   assert.deepEqual(bilingual.children[0].children[1].children.map(entry => entry.children.map(renderedText)), [
-    ['student@hku.edu', '香港大学', 'The University of Hong Kong', 'Hong Kong, China'],
+    ['student@hku.edu', '香港大学', 'University of Hong Kong', 'Hong Kong, China'],
     ['student@um.edu.mo', '澳门大学', 'University of Macau', 'Macau, China'],
     ['student@ntu.edu.tw', '国立台湾大学', 'National Taiwan University', 'Chinese Taipei'],
     ['student@cuhk.edu.cn', '香港中文大学（深圳）', 'China'],

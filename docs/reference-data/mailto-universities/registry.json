@@ -596,7 +596,7 @@
     },
     {
       "id": "anu.edu.au",
-      "en": "The Australian National University",
+      "en": "Australian National University",
       "zh": "澳大利亚国立大学",
       "region": "AU",
       "subdivision": "",
@@ -805,7 +805,7 @@
     },
     {
       "id": "auckland.ac.nz",
-      "en": "The University of Auckland",
+      "en": "University of Auckland",
       "zh": "奥克兰大学",
       "region": "NZ",
       "subdivision": "",
@@ -1922,7 +1922,7 @@
     },
     {
       "id": "catholic.edu",
-      "en": "The Catholic University of America",
+      "en": "Catholic University of America",
       "zh": "",
       "region": "US",
       "subdivision": "District of Columbia",
@@ -2051,7 +2051,7 @@
     },
     {
       "id": "ccny.cuny.edu",
-      "en": "The City College of New York",
+      "en": "City College of New York",
       "zh": "",
       "region": "US",
       "subdivision": "New York",
@@ -2278,12 +2278,13 @@
     },
     {
       "id": "charlotte.edu",
-      "en": "The University of North Carolina at Charlotte",
+      "en": "University of North Carolina at Charlotte",
       "zh": "",
       "region": "US",
       "subdivision": "North Carolina",
       "domains": [
-        "charlotte.edu"
+        "charlotte.edu",
+        "uncc.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -2293,7 +2294,13 @@
       },
       "nameEvidence": [
         "https://brand.charlotte.edu/"
-      ]
+      ],
+      "evidence": [
+        "https://oneit.charlotte.edu/2024/02/08/google-account-rename/"
+      ],
+      "aliasNotes": {
+        "uncc.edu": "Official retained email alias of charlotte.edu; both hosts identify University of North Carolina at Charlotte."
+      }
     },
     {
       "id": "chatham.edu",
@@ -2338,7 +2345,7 @@
     },
     {
       "id": "chntheatre.edu.cn",
-      "en": "The Central Academy of Drama",
+      "en": "Central Academy of Drama",
       "zh": "中央戏剧学院",
       "region": "CN",
       "subdivision": "",
@@ -3137,7 +3144,7 @@
     },
     {
       "id": "cuhk.edu.cn",
-      "en": "The Chinese University of Hong Kong, Shenzhen",
+      "en": "Chinese University of Hong Kong, Shenzhen",
       "zh": "香港中文大学（深圳）",
       "region": "CN",
       "subdivision": "",
@@ -3167,7 +3174,7 @@
     },
     {
       "id": "cuhk.edu.hk",
-      "en": "The Chinese University of Hong Kong",
+      "en": "Chinese University of Hong Kong",
       "zh": "香港中文大学",
       "region": "HK",
       "subdivision": "",
@@ -3953,7 +3960,7 @@
     },
     {
       "id": "ed.ac.uk",
-      "en": "The University of Edinburgh",
+      "en": "University of Edinburgh",
       "zh": "爱丁堡大学",
       "region": "GB",
       "subdivision": "",
@@ -3972,7 +3979,7 @@
     },
     {
       "id": "eduhk.hk",
-      "en": "The Education University of Hong Kong",
+      "en": "Education University of Hong Kong",
       "zh": "香港教育大学",
       "region": "HK",
       "subdivision": "",
@@ -4105,7 +4112,7 @@
     },
     {
       "id": "ex.ac.uk",
-      "en": "The University of Exeter",
+      "en": "University of Exeter",
       "zh": "埃克塞特大学",
       "region": "GB",
       "subdivision": "",
@@ -4718,7 +4725,7 @@
     },
     {
       "id": "gwu.edu",
-      "en": "The George Washington University",
+      "en": "George Washington University",
       "zh": "",
       "region": "US",
       "subdivision": "District of Columbia",
@@ -5356,7 +5363,7 @@
     },
     {
       "id": "hku.hk",
-      "en": "The University of Hong Kong",
+      "en": "University of Hong Kong",
       "zh": "香港大学",
       "region": "HK",
       "subdivision": "",
@@ -5402,7 +5409,7 @@
     },
     {
       "id": "hkust-gz.edu.cn",
-      "en": "The Hong Kong University of Science and Technology (Guangzhou)",
+      "en": "Hong Kong University of Science and Technology (Guangzhou)",
       "zh": "香港科技大学（广州）",
       "region": "CN",
       "subdivision": "",
@@ -5569,7 +5576,7 @@
     },
     {
       "id": "hsu.edu.hk",
-      "en": "The Hang Seng University of Hong Kong",
+      "en": "Hang Seng University of Hong Kong",
       "zh": "香港恒生大学",
       "region": "HK",
       "subdivision": "",
@@ -5608,7 +5615,7 @@
     },
     {
       "id": "huji.ac.il",
-      "en": "The Hebrew University of Jerusalem",
+      "en": "Hebrew University of Jerusalem",
       "zh": "希伯来大学",
       "region": "IL",
       "subdivision": "",
@@ -6914,7 +6921,7 @@
     },
     {
       "id": "lse.ac.uk",
-      "en": "The London School of Economics and Political Science",
+      "en": "London School of Economics and Political Science",
       "zh": "伦敦经济政治学院",
       "region": "GB",
       "subdivision": "",
@@ -7043,7 +7050,7 @@
     },
     {
       "id": "man.ac.uk",
-      "en": "The University of Manchester",
+      "en": "University of Manchester",
       "zh": "曼彻斯特大学",
       "region": "GB",
       "subdivision": "",
@@ -7241,7 +7248,7 @@
     },
     {
       "id": "memphis.edu",
-      "en": "The University of Memphis",
+      "en": "University of Memphis",
       "zh": "",
       "region": "US",
       "subdivision": "Tennessee",
@@ -8312,7 +8319,7 @@
     },
     {
       "id": "newcastle.edu.au",
-      "en": "The University of Newcastle, Australia",
+      "en": "University of Newcastle, Australia",
       "zh": "纽卡斯尔大学",
       "region": "AU",
       "subdivision": "",
@@ -10040,7 +10047,7 @@
     },
     {
       "id": "polyu.edu.hk",
-      "en": "The Hong Kong Polytechnic University",
+      "en": "Hong Kong Polytechnic University",
       "zh": "香港理工大学",
       "region": "HK",
       "subdivision": "",
@@ -11288,7 +11295,7 @@
     },
     {
       "id": "shef.ac.uk",
-      "en": "The University of Sheffield",
+      "en": "University of Sheffield",
       "zh": "谢菲尔德大学",
       "region": "GB",
       "subdivision": "",
@@ -12589,7 +12596,7 @@
     },
     {
       "id": "sydney.edu.au",
-      "en": "The University of Sydney",
+      "en": "University of Sydney",
       "zh": "悉尼大学",
       "region": "AU",
       "subdivision": "",
@@ -12707,7 +12714,7 @@
     {
       "id": "tamus.edu",
       "kind": "system",
-      "en": "The Texas A&M University System",
+      "en": "Texas A&M University System",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -13520,7 +13527,7 @@
     },
     {
       "id": "u-tokyo.ac.jp",
-      "en": "The University of Tokyo",
+      "en": "University of Tokyo",
       "zh": "东京大学",
       "region": "JP",
       "subdivision": "",
@@ -13539,7 +13546,7 @@
     },
     {
       "id": "ua.edu",
-      "en": "The University of Alabama, Tuscaloosa",
+      "en": "University of Alabama, Tuscaloosa",
       "zh": "",
       "region": "US",
       "subdivision": "Alabama",
@@ -13555,7 +13562,7 @@
     },
     {
       "id": "uab.edu",
-      "en": "The University of Alabama at Birmingham",
+      "en": "University of Alabama at Birmingham",
       "zh": "",
       "region": "US",
       "subdivision": "Alabama",
@@ -13615,7 +13622,7 @@
     },
     {
       "id": "uah.edu",
-      "en": "The University of Alabama in Huntsville",
+      "en": "University of Alabama in Huntsville",
       "zh": "",
       "region": "US",
       "subdivision": "Alabama",
@@ -15618,7 +15625,7 @@
     },
     {
       "id": "unimelb.edu",
-      "en": "The University of Melbourne",
+      "en": "University of Melbourne",
       "zh": "墨尔本大学",
       "region": "AU",
       "subdivision": "",
@@ -15936,7 +15943,7 @@
     },
     {
       "id": "unm.edu",
-      "en": "The University of New Mexico, Albuquerque",
+      "en": "University of New Mexico, Albuquerque",
       "zh": "",
       "region": "US",
       "subdivision": "New Mexico",
@@ -15984,7 +15991,7 @@
     },
     {
       "id": "unsw.edu.au",
-      "en": "The University of New South Wales",
+      "en": "University of New South Wales",
       "zh": "新南威尔士大学",
       "region": "AU",
       "subdivision": "",
@@ -16252,7 +16259,7 @@
     },
     {
       "id": "uq.edu.au",
-      "en": "The University of Queensland",
+      "en": "University of Queensland",
       "zh": "昆士兰大学",
       "region": "AU",
       "subdivision": "",
@@ -16473,7 +16480,7 @@
     },
     {
       "id": "ust.hk",
-      "en": "The Hong Kong University of Science and Technology",
+      "en": "Hong Kong University of Science and Technology",
       "zh": "香港科技大学",
       "region": "HK",
       "subdivision": "",
@@ -16587,7 +16594,7 @@
     },
     {
       "id": "uta.edu",
-      "en": "The University of Texas at Arlington",
+      "en": "University of Texas at Arlington",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -16665,7 +16672,7 @@
     },
     {
       "id": "utdallas.edu",
-      "en": "The University of Texas at Dallas",
+      "en": "University of Texas at Dallas",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -16685,7 +16692,7 @@
     },
     {
       "id": "utep.edu",
-      "en": "The University of Texas at El Paso",
+      "en": "University of Texas at El Paso",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -16704,7 +16711,7 @@
     },
     {
       "id": "utexas.edu",
-      "en": "The University of Texas at Austin",
+      "en": "University of Texas at Austin",
       "zh": "德克萨斯大学奥斯汀分校",
       "region": "US",
       "subdivision": "Texas",
@@ -16887,7 +16894,7 @@
     },
     {
       "id": "utsa.edu",
-      "en": "The University of Texas at San Antonio",
+      "en": "University of Texas at San Antonio",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -16909,7 +16916,7 @@
     },
     {
       "id": "utsouthwestern.edu",
-      "en": "The University of Texas Southwestern Medical Center",
+      "en": "University of Texas Southwestern Medical Center",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -16927,7 +16934,7 @@
     {
       "id": "utsystem.edu",
       "kind": "system",
-      "en": "The University of Texas System",
+      "en": "University of Texas System",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -17106,7 +17113,7 @@
     },
     {
       "id": "uwa.edu.au",
-      "en": "The University of Western Australia",
+      "en": "University of Western Australia",
       "zh": "西澳大学",
       "region": "AU",
       "subdivision": "",
@@ -17453,7 +17460,7 @@
     },
     {
       "id": "warwick.ac.uk",
-      "en": "The University of Warwick",
+      "en": "University of Warwick",
       "zh": "华威大学",
       "region": "GB",
       "subdivision": "",
@@ -19093,7 +19100,7 @@
     },
     {
       "id": "findlay.edu",
-      "en": "The University of Findlay",
+      "en": "University of Findlay",
       "zh": "",
       "region": "US",
       "subdivision": "Ohio",
@@ -19366,7 +19373,7 @@
     },
     {
       "id": "uttyler.edu",
-      "en": "The University of Texas at Tyler",
+      "en": "University of Texas at Tyler",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -19807,7 +19814,7 @@
     },
     {
       "id": "umt.edu",
-      "en": "The University of Montana",
+      "en": "University of Montana",
       "zh": "",
       "region": "US",
       "subdivision": "Montana",
@@ -20903,7 +20910,7 @@
     },
     {
       "id": "uthsc.edu",
-      "en": "The University of Tennessee Health Science Center",
+      "en": "University of Tennessee Health Science Center",
       "zh": "",
       "region": "US",
       "subdivision": "Tennessee",
@@ -20924,7 +20931,7 @@
     },
     {
       "id": "uth.edu",
-      "en": "The University of Texas Health Science Center at Houston",
+      "en": "University of Texas Health Science Center at Houston",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -20945,7 +20952,7 @@
     },
     {
       "id": "utmb.edu",
-      "en": "The University of Texas Medical Branch at Galveston",
+      "en": "University of Texas Medical Branch at Galveston",
       "zh": "",
       "region": "US",
       "subdivision": "Texas",
@@ -21832,7 +21839,7 @@
     },
     {
       "id": "wooster.edu",
-      "en": "The College of Wooster",
+      "en": "College of Wooster",
       "zh": "",
       "region": "US",
       "subdivision": "Ohio",
@@ -22924,7 +22931,7 @@
     },
     {
       "id": "collegeofidaho.edu",
-      "en": "The College of Idaho",
+      "en": "College of Idaho",
       "zh": "",
       "region": "US",
       "subdivision": "Idaho",
@@ -23530,7 +23537,7 @@
     },
     {
       "id": "evergreen.edu",
-      "en": "The Evergreen State College",
+      "en": "Evergreen State College",
       "zh": "",
       "region": "US",
       "subdivision": "Washington",
@@ -68326,7 +68333,7 @@
     },
     {
       "id": "scs.cuhk.edu.hk",
-      "en": "The Chinese University of Hong Kong – School of Continuing and Professional Studies",
+      "en": "Chinese University of Hong Kong – School of Continuing and Professional Studies",
       "zh": "香港中文大学专业进修学院",
       "region": "HK",
       "subdivision": "",
@@ -68368,7 +68375,7 @@
     },
     {
       "id": "speed-polyu.edu.hk",
-      "en": "The Hong Kong Polytechnic University – School of Professional Education and Executive Development",
+      "en": "Hong Kong Polytechnic University – School of Professional Education and Executive Development",
       "zh": "香港理工大学专业进修学院",
       "region": "HK",
       "subdivision": "",

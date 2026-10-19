@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.18 — 2026-10-19
+
+- Refine university display names and email-domain aliases.
+
 ## 9.12.17 — 2026-10-19
 
 - Refine university name display.

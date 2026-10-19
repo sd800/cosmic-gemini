@@ -46,6 +46,7 @@ const rows = records.map(record => {
   // mechanically title-cased or rewritten with one campus separator.
   assert.equal(record.en, record.en.trim().replace(/\s+/gu, ' '), `Normalize display-name spacing: ${record.id}`);
   assert.doesNotMatch(record.en, /,\S/u, `Missing space after a display-name comma: ${record.id}`);
+  assert.doesNotMatch(record.en, /^The University of\b/i, `Omit the leading article in university display names: ${record.id}`);
   if (record.nameEvidence) {
     assert.ok(Array.isArray(record.nameEvidence) && record.nameEvidence.length);
     for (const url of record.nameEvidence) assert.equal(new URL(url).protocol, 'https:');

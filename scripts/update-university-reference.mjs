@@ -15,7 +15,9 @@ const ids = new Set();
 const domains = new Map();
 const addresses = new Set();
 const coverage = new Map(Object.keys(registry.sources).map(key => [key, new Set()]));
-const broadSuffixes = new Set(['edu', 'edu.cn', 'ac.cn', 'edu.hk', 'edu.mo', 'edu.tw', 'ac.uk', 'ac.jp', 'ac.kr', 'edu.au', 'gov.mo', 'cuny.edu', 'suny.edu', 'google.com', 'outlook.com', 'gmail.com']);
+const broadSuffixes = new Set(['edu', 'edu.cn', 'ac.cn', 'edu.hk', 'edu.mo', 'edu.tw', 'ac.uk', 'ac.jp', 'ac.kr', 'edu.au', 'gov.mo', 'google.com', 'outlook.com', 'gmail.com']);
+// Shared system roots describe the system, never an arbitrarily chosen campus.
+const sharedSystemSuffixes = new Set(['cuny.edu', 'suny.edu']);
 function hostname(value) {
   assert.equal(typeof value, 'string');
   assert.ok(value.includes('.') && value.length <= 253 && !broadSuffixes.has(value), `Unsafe institution suffix: ${value}`);
@@ -29,10 +31,16 @@ const rows = records.map(record => {
   assert.ok(typeof record.zh === 'string' && record.zh.length < 240);
   assert.match(record.region, /^[A-Z]{2}$/);
   assert.equal(typeof record.subdivision, 'string');
-  if (['US', 'CA'].includes(record.region)) assert.ok(record.subdivision, `Missing principal-campus location: ${record.id}`);
+  if (['US', 'CA'].includes(record.region)) assert.ok(record.subdivision, `Missing institution location: ${record.id}`);
+  if (record.kind === 'system') {
+    assert.equal(record.region, 'US');
+    assert.ok(record.coverage['us-systems']?.length && record.evidence?.length, `Missing official system evidence: ${record.id}`);
+    for (const url of record.evidence) assert.equal(new URL(url).protocol, 'https:');
+  }
   assert.ok(record.domains.length || record.addresses.length);
   for (const domain of record.domains) {
     hostname(domain);
+    if (sharedSystemSuffixes.has(domain)) assert.equal(record.kind, 'system', `Do not assign a system root to one campus: ${domain}`);
     assert.ok(!domains.has(domain), `Domain belongs to more than one institution: ${domain}`);
     domains.set(domain, record.id);
   }

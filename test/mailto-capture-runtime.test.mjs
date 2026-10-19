@@ -122,6 +122,12 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('"alice@unit"@mit.edu').name, 'Massachusetts Institute of Technology');
   assert.equal(lookup('student@ucla.edu').name, 'University of California, Los Angeles');
   assert.equal(lookup('student@umich.edu').name, 'University of Michigan');
+  assert.equal(lookup('contact@CCCCO.EDU').name, 'California Community Colleges Chancellor’s Office');
+  assert.equal(lookup('contact@office.cccco.edu', 'zh-CN').region, 'California, USA');
+  assert.equal(lookup('contact@cuny.edu').name, 'The City University of New York');
+  assert.equal(lookup('contact@ccny.cuny.edu').name, 'The City College of New York');
+  assert.equal(lookup('contact@suny.edu').region, 'New York, USA');
+  assert.equal(lookup('contact@uwsa.edu').name, 'Universities of Wisconsin');
   for (const [address, en, zh] of [
     ['student@pku.edu.cn', 'China', '中国'],
     ['student@link.cuhk.edu.hk', 'Hong Kong, China', '中国香港'],
@@ -135,7 +141,8 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.match(lookup('student@centennialcollege.hku.hk').name, /明德/);
   assert.equal(lookup('esfsm-info@fsm.gov.mo').name, '澳门保安部队高等院校');
   for (const address of ['alice@example.com', 'alice@edu', 'alice@edu.cn', 'alice@harvard.edu.example.com',
-    'alice@fakeharvard.edu', 'alice@harvаrd.edu', 'alice@harvard.edu@evil.test', 'alice@harvard.edu:80',
+    'alice@fakeharvard.edu', 'contact@fakecccco.edu', 'contact@cccco.edu.evil.test',
+    'alice@harvаrd.edu', 'alice@harvard.edu@evil.test', 'alice@harvard.edu:80',
     'alice@harvard.edu/path', 'alice@harvard.edu?test', 'alice@harvard.edu%2eevil.test',
     'alice@cuhk.edu.cn', 'other@fsm.gov.mo', '<alice@harvard.edu> trailing', 'a\n@mit.edu', 'not an email', null]) {
     assert.equal(lookup(address), null, String(address));

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.12.12 — 2026-10-19
+
+- 扩充 Mailto Capture 的离线邮箱域名识别，支持美国大学及社区学院系统和相关管理机构，并显示所在州。
+
 ## 9.12.11 — 2026-10-19
 
 - Mailto Capture 中的校名统一显示为 University of Michigan。

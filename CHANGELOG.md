@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.12 — 2026-10-19
+
+- Expand Mailto Capture’s offline email-domain reference to U.S. university and community-college systems and their administrative offices, including state information.
+
 ## 9.12.11 — 2026-10-19
 
 - Display the university name as University of Michigan in Mailto Capture.

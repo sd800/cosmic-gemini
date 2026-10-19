@@ -151,6 +151,36 @@
       "sha256": {
         "tw.csv": "c06b7d2e4efc740e6264133c7d72a3fe3db19c6b0a90a99dee229510b8371fe4"
       }
+    },
+    "us-systems": {
+      "edition": "Official system and administrative-office directories, reviewed 2026-10-19",
+      "expectedMembers": 16,
+      "urls": [
+        "https://www.cccco.edu/about-us/",
+        "https://www.cccco.edu/about-us/contact/",
+        "https://www.calstate.edu/Pages/contact.aspx",
+        "https://www.ucop.edu/contacts/index.html",
+        "https://www.ucop.edu/uc-legal/index.html",
+        "https://www.suny.edu/contact/",
+        "https://www.cuny.edu/about/",
+        "https://www.cuny.edu/about/administration/offices/",
+        "https://utsystem.edu/contact",
+        "https://www.tamus.edu/site-map/",
+        "https://usg.edu/contact/",
+        "https://www.northcarolina.edu/offices-and-services/information-technology/",
+        "https://myapps.northcarolina.edu/directory/",
+        "https://www.wisconsin.edu/about/contact/",
+        "https://www.wisconsin.edu/uwsa/ots-helpdesk/",
+        "https://kb.wisconsin.edu/dle/117207",
+        "https://www.vccs.edu/contact-us/",
+        "https://www.nccommunitycolleges.edu/about-us/system-office/contact/",
+        "https://www.tcsg.edu/about-tcsg/contact-us/",
+        "https://www.accs.edu/contact/",
+        "https://kctcs.edu/contact-us.aspx",
+        "https://www.minnstate.edu/system/ogc/index.html",
+        "https://www.minnstate.edu/system/finance/taxinformation/other/1098tdisclosurefor.html"
+      ],
+      "method": "Curated U.S. public university systems, community-college systems and central administrative offices. Record the organization and its official headquarters state, not one constituent campus. Per-record evidence documents official identities, domains and locations."
     }
   },
   "domainReference": {
@@ -241,6 +271,26 @@
           "University of Aberdeen"
         ]
       }
+    },
+    {
+      "id": "accs.edu",
+      "kind": "system",
+      "en": "Alabama Community College System",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Alabama",
+      "domains": [
+        "accs.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "Alabama Community College System"
+        ]
+      },
+      "evidence": [
+        "https://www.accs.edu/contact/"
+      ]
     },
     {
       "id": "adelaide.edu.au",
@@ -1355,6 +1405,26 @@
       }
     },
     {
+      "id": "calstate.edu",
+      "kind": "system",
+      "en": "California State University",
+      "zh": "",
+      "region": "US",
+      "subdivision": "California",
+      "domains": [
+        "calstate.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "California State University"
+        ]
+      },
+      "evidence": [
+        "https://www.calstate.edu/Pages/contact.aspx"
+      ]
+    },
+    {
       "id": "calstatela.edu",
       "en": "California State University, Los Angeles",
       "zh": "",
@@ -1549,6 +1619,27 @@
           "Caritas Bianchi College of Careers"
         ]
       }
+    },
+    {
+      "id": "cccco.edu",
+      "kind": "system",
+      "en": "California Community Colleges Chancellor’s Office",
+      "zh": "",
+      "region": "US",
+      "subdivision": "California",
+      "domains": [
+        "cccco.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "California Community Colleges Chancellor’s Office"
+        ]
+      },
+      "evidence": [
+        "https://www.cccco.edu/about-us/",
+        "https://www.cccco.edu/about-us/contact/"
+      ]
     },
     {
       "id": "ccmusic.edu.cn",
@@ -2555,6 +2646,27 @@
           "Charles University"
         ]
       }
+    },
+    {
+      "id": "cuny.edu",
+      "kind": "system",
+      "en": "The City University of New York",
+      "zh": "",
+      "region": "US",
+      "subdivision": "New York",
+      "domains": [
+        "cuny.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "The City University of New York"
+        ]
+      },
+      "evidence": [
+        "https://www.cuny.edu/about/",
+        "https://www.cuny.edu/about/administration/offices/"
+      ]
     },
     {
       "id": "cup.edu.cn",
@@ -5125,6 +5237,26 @@
       }
     },
     {
+      "id": "kctcs.edu",
+      "kind": "system",
+      "en": "Kentucky Community and Technical College System",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Kentucky",
+      "domains": [
+        "kctcs.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "Kentucky Community and Technical College System"
+        ]
+      },
+      "evidence": [
+        "https://kctcs.edu/contact-us.aspx"
+      ]
+    },
+    {
       "id": "kent.edu",
       "en": "Kent State University",
       "zh": "",
@@ -6095,6 +6227,27 @@
       }
     },
     {
+      "id": "minnstate.edu",
+      "kind": "system",
+      "en": "Minnesota State Colleges and Universities",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Minnesota",
+      "domains": [
+        "minnstate.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "Minnesota State Colleges and Universities"
+        ]
+      },
+      "evidence": [
+        "https://www.minnstate.edu/system/ogc/index.html",
+        "https://www.minnstate.edu/system/finance/taxinformation/other/1098tdisclosurefor.html"
+      ]
+    },
+    {
       "id": "missouri.edu",
       "en": "University of Missouri, Columbia",
       "zh": "",
@@ -6490,6 +6643,26 @@
           "North Carolina A&t State University"
         ]
       }
+    },
+    {
+      "id": "nccommunitycolleges.edu",
+      "kind": "system",
+      "en": "North Carolina Community College System",
+      "zh": "",
+      "region": "US",
+      "subdivision": "North Carolina",
+      "domains": [
+        "nccommunitycolleges.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "North Carolina Community College System"
+        ]
+      },
+      "evidence": [
+        "https://www.nccommunitycolleges.edu/about-us/system-office/contact/"
+      ]
     },
     {
       "id": "nccu.edu.tw",
@@ -7088,6 +7261,27 @@
           "New Mexico State University"
         ]
       }
+    },
+    {
+      "id": "northcarolina.edu",
+      "kind": "system",
+      "en": "University of North Carolina System",
+      "zh": "",
+      "region": "US",
+      "subdivision": "North Carolina",
+      "domains": [
+        "northcarolina.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "University of North Carolina System"
+        ]
+      },
+      "evidence": [
+        "https://www.northcarolina.edu/offices-and-services/information-technology/",
+        "https://myapps.northcarolina.edu/directory/"
+      ]
     },
     {
       "id": "northeastern.edu",
@@ -10053,6 +10247,26 @@
       }
     },
     {
+      "id": "suny.edu",
+      "kind": "system",
+      "en": "State University of New York",
+      "zh": "",
+      "region": "US",
+      "subdivision": "New York",
+      "domains": [
+        "suny.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "State University of New York"
+        ]
+      },
+      "evidence": [
+        "https://www.suny.edu/contact/"
+      ]
+    },
+    {
       "id": "surrey.ac.uk",
       "en": "University of Surrey",
       "zh": "萨里大学",
@@ -10354,6 +10568,26 @@
       }
     },
     {
+      "id": "tamus.edu",
+      "kind": "system",
+      "en": "The Texas A&M University System",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Texas",
+      "domains": [
+        "tamus.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "The Texas A&M University System"
+        ]
+      },
+      "evidence": [
+        "https://www.tamus.edu/site-map/"
+      ]
+    },
+    {
       "id": "tau.ac.il",
       "en": "Tel Aviv University",
       "zh": "特拉维夫大学",
@@ -10406,6 +10640,26 @@
           "Trinity College Dublin (TCD)"
         ]
       }
+    },
+    {
+      "id": "tcsg.edu",
+      "kind": "system",
+      "en": "Technical College System of Georgia",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Georgia",
+      "domains": [
+        "tcsg.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "Technical College System of Georgia"
+        ]
+      },
+      "evidence": [
+        "https://www.tcsg.edu/about-tcsg/contact-us/"
+      ]
     },
     {
       "id": "tcu.edu",
@@ -11610,6 +11864,27 @@
           "University of Connecticut"
         ]
       }
+    },
+    {
+      "id": "ucop.edu",
+      "kind": "system",
+      "en": "University of California Office of the President",
+      "zh": "",
+      "region": "US",
+      "subdivision": "California",
+      "domains": [
+        "ucop.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "University of California Office of the President"
+        ]
+      },
+      "evidence": [
+        "https://www.ucop.edu/contacts/index.html",
+        "https://www.ucop.edu/uc-legal/index.html"
+      ]
     },
     {
       "id": "ucr.edu",
@@ -13710,6 +13985,26 @@
       }
     },
     {
+      "id": "usg.edu",
+      "kind": "system",
+      "en": "University System of Georgia",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Georgia",
+      "domains": [
+        "usg.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "University System of Georgia"
+        ]
+      },
+      "evidence": [
+        "https://usg.edu/contact/"
+      ]
+    },
+    {
       "id": "usj.edu.mo",
       "en": "University of Saint Joseph",
       "zh": "圣若瑟大学",
@@ -14182,6 +14477,26 @@
       }
     },
     {
+      "id": "utsystem.edu",
+      "kind": "system",
+      "en": "The University of Texas System",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Texas",
+      "domains": [
+        "utsystem.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "The University of Texas System"
+        ]
+      },
+      "evidence": [
+        "https://utsystem.edu/contact"
+      ]
+    },
+    {
       "id": "utulsa.edu",
       "en": "University of Tulsa",
       "zh": "",
@@ -14484,6 +14799,26 @@
           "Vassar College"
         ]
       }
+    },
+    {
+      "id": "vccs.edu",
+      "kind": "system",
+      "en": "Virginia Community College System",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Virginia",
+      "domains": [
+        "vccs.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "Virginia Community College System"
+        ]
+      },
+      "evidence": [
+        "https://www.vccs.edu/contact-us/"
+      ]
     },
     {
       "id": "vcu.edu",
@@ -15002,6 +15337,29 @@
           "University of Wisconsin–Madison"
         ]
       }
+    },
+    {
+      "id": "wisconsin.edu",
+      "kind": "system",
+      "en": "Universities of Wisconsin",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Wisconsin",
+      "domains": [
+        "wisconsin.edu",
+        "uwsa.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "us-systems": [
+          "Universities of Wisconsin"
+        ]
+      },
+      "evidence": [
+        "https://www.wisconsin.edu/about/contact/",
+        "https://www.wisconsin.edu/uwsa/ots-helpdesk/",
+        "https://kb.wisconsin.edu/dle/117207"
+      ]
     },
     {
       "id": "wits.ac.za",

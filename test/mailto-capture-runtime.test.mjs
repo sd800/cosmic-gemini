@@ -105,7 +105,11 @@ test('University references cover every reviewed cohort and resolve all explicit
       for (const name of names) coverage.get(group).add(name);
     }
     for (const domain of institution.domains) {
-      if (['CN', 'TW'].includes(institution.region)) assert.match(domain, /\.(?:edu|ac|gov|mil)(?:\.[a-z]{2})?$/, domain);
+      if (['CN', 'TW'].includes(institution.region) && institution.kind !== 'research-organization') {
+        const academicClass = /\.(?:edu|ac|gov|mil)(?:\.[a-z]{2})?$/;
+        assert.ok(institution.domains.some(host => academicClass.test(host)), institution.id);
+        if (!academicClass.test(domain)) assert.ok(institution.aliasEvidence?.[domain]?.length, domain);
+      }
       assert.equal(lookup(`fixture@${domain}`).name, expected, domain);
       assert.equal(lookup(`fixture@${domain}`, 'zh-CN').name, expected, domain);
       const bilingual = chineseName && (institution.region !== 'CN' || qualified(institution));
@@ -164,7 +168,7 @@ test('University display names retain reviewed full names, capitalization and in
     ['ccny.cuny.edu', 'City College of New York'],
     ['wooster.edu', 'College of Wooster'],
     ['osu.edu', 'The Ohio State University'],
-    ['newschool.edu', 'The New School, New York City & Paris'],
+    ['newschool.edu', 'The New School, New York City and Paris'],
     ['sewanee.edu', 'Sewanee: The University of the South'],
     ['depaul.edu', 'DePaul University'],
     ['desales.edu', 'DeSales University'],
@@ -177,19 +181,37 @@ test('University display names retain reviewed full names, capitalization and in
     ['uwm.edu', 'University of Wisconsin–Milwaukee'],
     ['unl.edu', 'University of Nebraska–Lincoln'],
     ['newark.rutgers.edu', 'Rutgers University–Newark'],
-    ['uml.edu', 'University of Massachusetts Lowell']
+    ['uml.edu', 'University of Massachusetts Lowell'],
+    ['ohsu.edu', 'Oregon Health and Science University'],
+    ['tamu.edu', 'Texas A and M University'],
+    ['fandm.edu', 'Franklin and Marshall College'],
+    ['pratt.edu', 'Pratt Institute'],
+    ['rose-hulman.edu', 'Rose-Hulman Institute of Technology'],
+    ['olin.edu', 'Franklin W. Olin College of Engineering'],
+    ['cooper.edu', 'Cooper Union for the Advancement of Science and Art'],
+    ['london.edu', 'London Business School'],
+    ['mayo.edu', 'Mayo Clinic College of Medicine and Science'],
+    ['noordacom.org', 'Noorda College of Osteopathic Medicine'],
+    ['alwmedschool.org', 'Alice L. Walton School of Medicine'],
+    ['uri.edu', 'University of Rhode Island'],
+    ['trinitydc.edu', 'Trinity Washington University'],
+    ['umes.edu', 'University of Maryland Eastern Shore']
   ]) {
     for (const locale of ['en-US', 'zh-CN']) assert.equal(lookup(`person@${domain}`, locale).name, name, `${domain}: ${locale}`);
   }
   for (const row of displayRows) {
+    assert.doesNotMatch(row[0], /&/u);
     assert.doesNotMatch(row[0], /^The University of\b/i);
-    if (row[5]) assert.doesNotMatch(row[5], /^The University of\b/i);
+    if (row[5]) {
+      assert.doesNotMatch(row[5], /&/u);
+      assert.doesNotMatch(row[5], /^The University of\b/i);
+    }
   }
   for (const [domain, name] of [
     ['nutc.edu.tw', 'National Taichung University of Science and Technology'],
     ['ntub.edu.tw', 'National Taipei University of Business'],
     ['nhu.edu.tw', 'Nanhua University'],
-    ['ctcn.edu.tw', 'Cardinal Tien Junior College of Healthcare & Management']
+    ['ctcn.edu.tw', 'Cardinal Tien Junior College of Healthcare and Management']
   ]) {
     assert.equal(lookup(`person@${domain}`).englishName, name, domain);
     assert.equal(lookup(`person@${domain}`, 'zh-CN').englishName, undefined, domain);
@@ -231,7 +253,7 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).name, name, address);
     assert.equal(lookup(address).region, region, address);
   }
-  for (const [alias, primary] of [['uncc.edu', 'charlotte.edu'], ['department.uncc.edu', 'charlotte.edu'], ['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['uic.edu.cn', 'bnbu.edu.cn'], ['dku.edu.cn', 'dukekunshan.edu.cn']]) {
+  for (const [alias, primary] of [['uncc.edu', 'charlotte.edu'], ['department.uncc.edu', 'charlotte.edu'], ['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['uic.edu.cn', 'bnbu.edu.cn'], ['dku.edu.cn', 'dukekunshan.edu.cn'], ['oxford.edu', 'ox.ac.uk'], ['uir.cn', 'uir.edu.cn']]) {
     assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`))), JSON.parse(JSON.stringify(lookup(`contact@${primary}`))), alias);
   }
   assert.equal(lookup('student@cs.nyu.edu').name, 'New York University');
@@ -242,6 +264,33 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('contact@ccny.cuny.edu').name, 'City College of New York');
   assert.equal(lookup('contact@suny.edu').region, 'New York, USA');
   assert.equal(lookup('contact@uwsa.edu').name, 'Universities of Wisconsin');
+  for (const [domain, name] of [
+    ['cu.edu', 'University of Colorado'],
+    ['office.cu.edu', 'University of Colorado'],
+    ['colorado.edu', 'University of Colorado Boulder'],
+    ['ucdenver.edu', 'University of Colorado Denver'],
+    ['uccs.edu', 'University of Colorado Colorado Springs'],
+    ['cuanschutz.edu', 'University of Colorado Anschutz Medical Campus']
+  ]) {
+    assert.equal(lookup(`person@${domain}`).name, name, domain);
+    assert.equal(lookup(`person@${domain}`).region, 'Colorado, USA', domain);
+  }
+  assert.equal(lookup('person@hawaii.edu').name, 'University of Hawaiʻi System');
+  assert.equal(lookup('person@hilo.hawaii.edu').name, 'University of Hawaiʻi at Hilo');
+  assert.equal(lookup('person@med.umich.edu').name, 'University of Michigan');
+  assert.equal(lookup('person@weill.cornell.edu').name, 'Cornell University');
+  assert.equal(lookup('person@medicine.okstate.edu').name, 'Oklahoma State University');
+  assert.equal(lookup('person@college.mayo.edu').name, 'Mayo Clinic College of Medicine and Science');
+  assert.equal(lookup('person@uri.edu').name, 'University of Rhode Island');
+  assert.equal(lookup('person@arbitrary-department.uri.edu').name, 'University of Rhode Island');
+  assert.equal(lookup('person@student.keio.jp').name, 'Keio University');
+  assert.equal(lookup('person@sunysb.edu').name, 'State University of New York at Stony Brook');
+  assert.equal(lookup('person@upr.edu').name, 'University of Puerto Rico');
+  assert.equal(lookup('person@rcm.upr.edu').name, 'University of Puerto Rico Medical Sciences Campus');
+  assert.equal(lookup('person@afats.khc.edu.tw').name, '空军航空技术学院');
+  assert.equal(lookup('person@cas.cn').name, '中国科学院');
+  assert.equal(lookup('person@ucas.ac.cn').name, '中国科学院大学');
+  assert.equal(lookup('person@ceibs.edu').name, '中欧国际工商学院');
   for (const [address, en, zh] of [
     ['student@pku.edu.cn', 'China', '中国'],
     ['student@link.cuhk.edu.hk', 'Hong Kong, China', '中国香港'],
@@ -258,6 +307,9 @@ test('University matching respects DNS boundaries, campus identity and localized
     'alice@fakeharvard.edu', 'student@umd.umich.edu.evil.test', 'student@umdumich.edu',
     'contact@fakecccco.edu', 'contact@cccco.edu.evil.test',
     'contact@uncc.edu.evil.test', 'contact@fakeuncc.edu',
+    'contact@fakecu.edu', 'contact@cu.edu.evil.test', 'person@mayo.edu.evil.test',
+    'person@kp.org', 'person@hshs.org',
+    'person@ernet.in', 'person@khc.edu.tw', 'person@e21.edu.cn',
     'alice@harvаrd.edu', 'alice@harvard.edu@evil.test', 'alice@harvard.edu:80',
     'alice@harvard.edu/path', 'alice@harvard.edu?test', 'alice@harvard.edu%2eevil.test',
     'alice@fakecuhk.edu.cn', 'alice@hkust-gz.edu.cn.evil.test', 'alice@fakewustl.edu',

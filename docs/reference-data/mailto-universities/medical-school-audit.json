@@ -1,0 +1,1431 @@
+{
+  "schema": 1,
+  "source": "Admit.org medical school directory",
+  "url": "https://med.admit.org/school-rankings",
+  "sourceCount": 237,
+  "schools": [
+    {
+      "sourceId": 1,
+      "name": "University of Alabama School of Medicine",
+      "status": "mapped",
+      "institution": "uab.edu"
+    },
+    {
+      "sourceId": 2,
+      "name": "Albany Medical College",
+      "status": "mapped",
+      "institution": "amc.edu"
+    },
+    {
+      "sourceId": 3,
+      "name": "University of Arkansas for Medical Sciences College of Medicine",
+      "status": "mapped",
+      "institution": "uams.edu"
+    },
+    {
+      "sourceId": 4,
+      "name": "Baylor College of Medicine",
+      "status": "mapped",
+      "institution": "bcm.edu"
+    },
+    {
+      "sourceId": 5,
+      "name": "Boston University School of Medicine",
+      "status": "mapped",
+      "institution": "bu.edu"
+    },
+    {
+      "sourceId": 6,
+      "name": "Wake Forest School of Medicine of Wake Forest Baptist Medical Center",
+      "status": "mapped",
+      "institution": "wfusm.edu"
+    },
+    {
+      "sourceId": 7,
+      "name": "Jacobs School of Medicine and Biomedical Sciences at the University at Buffalo",
+      "status": "mapped",
+      "institution": "buffalo.edu"
+    },
+    {
+      "sourceId": 8,
+      "name": "University of California, San Francisco, School of Medicine",
+      "status": "mapped",
+      "institution": "ucsf.edu"
+    },
+    {
+      "sourceId": 9,
+      "name": "University of California, Los Angeles David Geffen School of Medicine",
+      "status": "mapped",
+      "institution": "ucla.edu"
+    },
+    {
+      "sourceId": 11,
+      "name": "University of Chicago Division of the Biological Sciences The Pritzker School of Medicine",
+      "status": "mapped",
+      "institution": "uchicago.edu"
+    },
+    {
+      "sourceId": 12,
+      "name": "University of Cincinnati College of Medicine",
+      "status": "mapped",
+      "institution": "uc.edu"
+    },
+    {
+      "sourceId": 13,
+      "name": "University of Colorado School of Medicine",
+      "status": "mapped",
+      "institution": "cuanschutz.edu"
+    },
+    {
+      "sourceId": 14,
+      "name": "Columbia University Vagelos College of Physicians and Surgeons",
+      "status": "mapped",
+      "institution": "columbia.edu"
+    },
+    {
+      "sourceId": 15,
+      "name": "Weill Cornell Medicine",
+      "status": "mapped",
+      "institution": "cornell.edu"
+    },
+    {
+      "sourceId": 17,
+      "name": "University of Florida College of Medicine",
+      "status": "mapped",
+      "institution": "ufl.edu"
+    },
+    {
+      "sourceId": 18,
+      "name": "Geisel School of Medicine at Dartmouth",
+      "status": "mapped",
+      "institution": "dartmouth.edu"
+    },
+    {
+      "sourceId": 19,
+      "name": "Duke University School of Medicine",
+      "status": "mapped",
+      "institution": "duke.edu"
+    },
+    {
+      "sourceId": 20,
+      "name": "Albert Einstein College of Medicine",
+      "status": "mapped",
+      "institution": "einsteinmed.edu"
+    },
+    {
+      "sourceId": 21,
+      "name": "Emory University School of Medicine",
+      "status": "mapped",
+      "institution": "emory.edu"
+    },
+    {
+      "sourceId": 22,
+      "name": "Georgetown University School of Medicine",
+      "status": "mapped",
+      "institution": "georgetown.edu"
+    },
+    {
+      "sourceId": 23,
+      "name": "George Washington University School of Medicine and Health Sciences",
+      "status": "mapped",
+      "institution": "gwu.edu"
+    },
+    {
+      "sourceId": 24,
+      "name": "Medical College of Georgia at Augusta University",
+      "status": "mapped",
+      "institution": "augusta.edu"
+    },
+    {
+      "sourceId": 25,
+      "name": "Harvard Medical School",
+      "status": "mapped",
+      "institution": "harvard.edu"
+    },
+    {
+      "sourceId": 26,
+      "name": "Howard University College of Medicine",
+      "status": "mapped",
+      "institution": "howard.edu"
+    },
+    {
+      "sourceId": 27,
+      "name": "University of Illinois College of Medicine",
+      "status": "mapped",
+      "institution": "uic.edu"
+    },
+    {
+      "sourceId": 28,
+      "name": "Indiana University School of Medicine",
+      "status": "mapped",
+      "institution": "iu.edu"
+    },
+    {
+      "sourceId": 29,
+      "name": "University of California, Irvine, School of Medicine",
+      "status": "mapped",
+      "institution": "uci.edu"
+    },
+    {
+      "sourceId": 30,
+      "name": "University of Iowa Roy J. and Lucille A. Carver College of Medicine",
+      "status": "mapped",
+      "institution": "uiowa.edu"
+    },
+    {
+      "sourceId": 31,
+      "name": "Sidney Kimmel Medical College at Thomas Jefferson University",
+      "status": "mapped",
+      "institution": "jefferson.edu"
+    },
+    {
+      "sourceId": 32,
+      "name": "Johns Hopkins University School of Medicine",
+      "status": "mapped",
+      "institution": "jhu.edu"
+    },
+    {
+      "sourceId": 33,
+      "name": "University of Kansas School of Medicine",
+      "status": "mapped",
+      "institution": "kumc.edu"
+    },
+    {
+      "sourceId": 34,
+      "name": "University of Kentucky College of Medicine",
+      "status": "mapped",
+      "institution": "uky.edu"
+    },
+    {
+      "sourceId": 37,
+      "name": "University of Louisville School of Medicine",
+      "status": "mapped",
+      "institution": "louisville.edu"
+    },
+    {
+      "sourceId": 39,
+      "name": "University of Miami Leonard M. Miller School of Medicine",
+      "status": "mapped",
+      "institution": "miami.edu"
+    },
+    {
+      "sourceId": 40,
+      "name": "Medical College of Wisconsin",
+      "status": "mapped",
+      "institution": "mcw.edu"
+    },
+    {
+      "sourceId": 41,
+      "name": "University of Maryland School of Medicine",
+      "status": "mapped",
+      "institution": "umaryland.edu"
+    },
+    {
+      "sourceId": 43,
+      "name": "Meharry Medical College",
+      "status": "mapped",
+      "institution": "mmc.edu"
+    },
+    {
+      "sourceId": 44,
+      "name": "University of Michigan Medical School",
+      "status": "mapped",
+      "institution": "umich.edu"
+    },
+    {
+      "sourceId": 45,
+      "name": "University of Minnesota Medical School",
+      "status": "mapped",
+      "institution": "umn.edu"
+    },
+    {
+      "sourceId": 47,
+      "name": "University of Missouri-Columbia School of Medicine",
+      "status": "mapped",
+      "institution": "missouri.edu"
+    },
+    {
+      "sourceId": 48,
+      "name": "University of Nebraska College of Medicine",
+      "status": "mapped",
+      "institution": "unmc.edu"
+    },
+    {
+      "sourceId": 49,
+      "name": "University of New Mexico School of Medicine",
+      "status": "mapped",
+      "institution": "unm.edu"
+    },
+    {
+      "sourceId": 50,
+      "name": "New York Medical College",
+      "status": "mapped",
+      "institution": "nymc.edu"
+    },
+    {
+      "sourceId": 51,
+      "name": "New York University Grossman School of Medicine",
+      "status": "mapped",
+      "institution": "nyu.edu"
+    },
+    {
+      "sourceId": 52,
+      "name": "University of North Carolina at Chapel Hill School of Medicine",
+      "status": "mapped",
+      "institution": "unc.edu"
+    },
+    {
+      "sourceId": 54,
+      "name": "Northwestern University The Feinberg School of Medicine",
+      "status": "mapped",
+      "institution": "northwestern.edu"
+    },
+    {
+      "sourceId": 55,
+      "name": "Ohio State University College of Medicine",
+      "status": "mapped",
+      "institution": "osu.edu"
+    },
+    {
+      "sourceId": 56,
+      "name": "University of Oklahoma College of Medicine",
+      "status": "mapped",
+      "institution": "ouhsc.edu"
+    },
+    {
+      "sourceId": 57,
+      "name": "Oregon Health & Science University School of Medicine",
+      "status": "mapped",
+      "institution": "ohsu.edu"
+    },
+    {
+      "sourceId": 60,
+      "name": "University of Puerto Rico School of Medicine",
+      "status": "mapped",
+      "institution": "rcm.upr.edu"
+    },
+    {
+      "sourceId": 61,
+      "name": "University of Pittsburgh School of Medicine",
+      "status": "mapped",
+      "institution": "pitt.edu"
+    },
+    {
+      "sourceId": 62,
+      "name": "University of Rochester School of Medicine and Dentistry",
+      "status": "mapped",
+      "institution": "rochester.edu"
+    },
+    {
+      "sourceId": 63,
+      "name": "Saint Louis University School of Medicine",
+      "status": "mapped",
+      "institution": "slu.edu"
+    },
+    {
+      "sourceId": 64,
+      "name": "Medical University of South Carolina College of Medicine",
+      "status": "mapped",
+      "institution": "musc.edu"
+    },
+    {
+      "sourceId": 66,
+      "name": "Keck School of Medicine of the University of Southern California",
+      "status": "mapped",
+      "institution": "usc.edu"
+    },
+    {
+      "sourceId": 67,
+      "name": "University of Texas Southwestern Medical Center Southwestern Medical School",
+      "status": "mapped",
+      "institution": "utsouthwestern.edu"
+    },
+    {
+      "sourceId": 68,
+      "name": "Stanford University School of Medicine",
+      "status": "mapped",
+      "institution": "stanford.edu"
+    },
+    {
+      "sourceId": 69,
+      "name": "Rutgers New Jersey Medical School",
+      "status": "mapped",
+      "institution": "rutgers.edu"
+    },
+    {
+      "sourceId": 70,
+      "name": "State University of New York Upstate Medical University",
+      "status": "mapped",
+      "institution": "upstate.edu"
+    },
+    {
+      "sourceId": 71,
+      "name": "Lewis Katz School of Medicine at Temple University",
+      "status": "mapped",
+      "institution": "temple.edu"
+    },
+    {
+      "sourceId": 72,
+      "name": "University of Tennessee Health Science Center College of Medicine",
+      "status": "mapped",
+      "institution": "uthsc.edu"
+    },
+    {
+      "sourceId": 74,
+      "name": "Tufts University School of Medicine",
+      "status": "mapped",
+      "institution": "tufts.edu"
+    },
+    {
+      "sourceId": 76,
+      "name": "University of Utah School of Medicine",
+      "status": "mapped",
+      "institution": "utah.edu"
+    },
+    {
+      "sourceId": 77,
+      "name": "Vanderbilt University School of Medicine",
+      "status": "mapped",
+      "institution": "vanderbilt.edu"
+    },
+    {
+      "sourceId": 78,
+      "name": "University of Vermont College of Medicine",
+      "status": "mapped",
+      "institution": "uvm.edu"
+    },
+    {
+      "sourceId": 79,
+      "name": "Rutgers, Robert Wood Johnson Medical School",
+      "status": "mapped",
+      "institution": "rutgers.edu"
+    },
+    {
+      "sourceId": 80,
+      "name": "University of Virginia School of Medicine",
+      "status": "mapped",
+      "institution": "virginia.edu"
+    },
+    {
+      "sourceId": 81,
+      "name": "Virginia Commonwealth University School of Medicine",
+      "status": "mapped",
+      "institution": "vcu.edu"
+    },
+    {
+      "sourceId": 82,
+      "name": "University of Washington School of Medicine",
+      "status": "mapped",
+      "institution": "uw.edu"
+    },
+    {
+      "sourceId": 83,
+      "name": "Washington University in St. Louis School of Medicine",
+      "status": "mapped",
+      "institution": "washu.edu"
+    },
+    {
+      "sourceId": 84,
+      "name": "Wayne State University School of Medicine",
+      "status": "mapped",
+      "institution": "wayne.edu"
+    },
+    {
+      "sourceId": 85,
+      "name": "Case Western Reserve University School of Medicine",
+      "status": "mapped",
+      "institution": "case.edu"
+    },
+    {
+      "sourceId": 86,
+      "name": "West Virginia University School of Medicine",
+      "status": "mapped",
+      "institution": "wvu.edu"
+    },
+    {
+      "sourceId": 87,
+      "name": "University of Wisconsin School of Medicine and Public Health",
+      "status": "mapped",
+      "institution": "wisc.edu"
+    },
+    {
+      "sourceId": 88,
+      "name": "University of Connecticut School of Medicine",
+      "status": "mapped",
+      "institution": "uconn.edu"
+    },
+    {
+      "sourceId": 89,
+      "name": "Yale School of Medicine",
+      "status": "mapped",
+      "institution": "yale.edu"
+    },
+    {
+      "sourceId": 90,
+      "name": "The Warren Alpert Medical School of Brown University",
+      "status": "mapped",
+      "institution": "brown.edu"
+    },
+    {
+      "sourceId": 91,
+      "name": "University of Arizona College of Medicine",
+      "status": "mapped",
+      "institution": "arizona.edu"
+    },
+    {
+      "sourceId": 92,
+      "name": "University of California, San Diego School of Medicine",
+      "status": "mapped",
+      "institution": "ucsd.edu"
+    },
+    {
+      "sourceId": 93,
+      "name": "University of Massachusetts Medical School",
+      "status": "mapped",
+      "institution": "umassmed.edu"
+    },
+    {
+      "sourceId": 94,
+      "name": "Michigan State University College of Human Medicine",
+      "status": "mapped",
+      "institution": "msu.edu"
+    },
+    {
+      "sourceId": 95,
+      "name": "University of Hawaii, John A. Burns School of Medicine",
+      "status": "mapped",
+      "institution": "manoa.hawaii.edu"
+    },
+    {
+      "sourceId": 110,
+      "name": "Icahn School of Medicine at Mount Sinai",
+      "status": "mapped",
+      "institution": "icahn.mssm.edu"
+    },
+    {
+      "sourceId": 111,
+      "name": "University of California, Davis, School of Medicine",
+      "status": "mapped",
+      "institution": "ucdavis.edu"
+    },
+    {
+      "sourceId": 112,
+      "name": "The University of Toledo College of Medicine",
+      "status": "mapped",
+      "institution": "utoledo.edu"
+    },
+    {
+      "sourceId": 114,
+      "name": "Stony Brook University School of Medicine",
+      "status": "mapped",
+      "institution": "stonybrook.edu"
+    },
+    {
+      "sourceId": 115,
+      "name": "USF Health Morsani College of Medicine",
+      "status": "mapped",
+      "institution": "usf.edu"
+    },
+    {
+      "sourceId": 116,
+      "name": "University of Nevada, Reno School of Medicine",
+      "status": "mapped",
+      "institution": "unr.edu"
+    },
+    {
+      "sourceId": 117,
+      "name": "University of Missouri-Kansas City School of Medicine",
+      "status": "mapped",
+      "institution": "umkc.edu"
+    },
+    {
+      "sourceId": 118,
+      "name": "McGovern Medical School at the University of Texas Health Science Center at Houston",
+      "status": "mapped",
+      "institution": "uth.edu"
+    },
+    {
+      "sourceId": 120,
+      "name": "Florida State University College of Medicine",
+      "status": "mapped",
+      "institution": "fsu.edu"
+    },
+    {
+      "sourceId": 121,
+      "name": "Rush Medical College of Rush University Medical Center",
+      "status": "mapped",
+      "institution": "rushu.rush.edu"
+    },
+    {
+      "sourceId": 122,
+      "name": "The Brody School of Medicine at East Carolina University",
+      "status": "mapped",
+      "institution": "ecu.edu"
+    },
+    {
+      "sourceId": 123,
+      "name": "Texas Tech University Health Sciences Center School of Medicine",
+      "status": "mapped",
+      "institution": "ttuhsc.edu"
+    },
+    {
+      "sourceId": 125,
+      "name": "Mayo Clinic School of Medicine",
+      "status": "mapped",
+      "institution": "mayo.edu"
+    },
+    {
+      "sourceId": 126,
+      "name": "Eastern Virginia Medical School",
+      "status": "mapped",
+      "institution": "evms.edu"
+    },
+    {
+      "sourceId": 127,
+      "name": "Wright State University Boonshoft School of Medicine",
+      "status": "mapped",
+      "institution": "wright.edu"
+    },
+    {
+      "sourceId": 128,
+      "name": "University of South Carolina School of Medicine",
+      "status": "mapped",
+      "institution": "sc.edu"
+    },
+    {
+      "sourceId": 130,
+      "name": "Texas A&M Health Science Center College of Medicine",
+      "status": "mapped",
+      "institution": "tamhsc.edu"
+    },
+    {
+      "sourceId": 131,
+      "name": "Northeast Ohio Medical University",
+      "status": "mapped",
+      "institution": "neomed.edu"
+    },
+    {
+      "sourceId": 132,
+      "name": "Morehouse School of Medicine",
+      "status": "mapped",
+      "institution": "msm.edu"
+    },
+    {
+      "sourceId": 133,
+      "name": "East Tennessee State University James H. Quillen College of Medicine",
+      "status": "mapped",
+      "institution": "etsu.edu"
+    },
+    {
+      "sourceId": 134,
+      "name": "Marshall University Joan C. Edwards School of Medicine",
+      "status": "mapped",
+      "institution": "marshall.edu"
+    },
+    {
+      "sourceId": 138,
+      "name": "Drexel University College of Medicine",
+      "status": "mapped",
+      "institution": "drexel.edu"
+    },
+    {
+      "sourceId": 139,
+      "name": "CUNY School of Medicine",
+      "status": "mapped",
+      "institution": "ccny.cuny.edu"
+    },
+    {
+      "sourceId": 140,
+      "name": "San Juan Bautista School of Medicine",
+      "status": "mapped",
+      "institution": "sanjuanbautista.edu"
+    },
+    {
+      "sourceId": 141,
+      "name": "University of Central Florida College of Medicine",
+      "status": "mapped",
+      "institution": "ucf.edu"
+    },
+    {
+      "sourceId": 142,
+      "name": "Florida International University Herbert Wertheim College of Medicine",
+      "status": "mapped",
+      "institution": "fiu.edu"
+    },
+    {
+      "sourceId": 144,
+      "name": "Virginia Tech Carilion School of Medicine",
+      "status": "mapped",
+      "institution": "vt.edu"
+    },
+    {
+      "sourceId": 146,
+      "name": "Donald and Barbara Zucker School of Medicine at Hofstra/Northwell",
+      "status": "mapped",
+      "institution": "hofstra.edu"
+    },
+    {
+      "sourceId": 147,
+      "name": "Geisinger Commonwealth School of Medicine",
+      "status": "mapped",
+      "institution": "geisinger.edu"
+    },
+    {
+      "sourceId": 149,
+      "name": "Cooper Medical School of Rowan University",
+      "status": "mapped",
+      "institution": "rowan.edu"
+    },
+    {
+      "sourceId": 150,
+      "name": "University of California, Riverside School of Medicine",
+      "status": "mapped",
+      "institution": "ucr.edu"
+    },
+    {
+      "sourceId": 154,
+      "name": "Charles E. Schmidt College of Medicine at Florida Atlantic University",
+      "status": "mapped",
+      "institution": "fau.edu"
+    },
+    {
+      "sourceId": 159,
+      "name": "Carle Illinois College of Medicine",
+      "status": "mapped",
+      "institution": "illinois.edu"
+    },
+    {
+      "sourceId": 162,
+      "name": "Seton Hall - Hackensack Meridian School of Medicine",
+      "status": "mapped",
+      "institution": "hmsom.edu"
+    },
+    {
+      "sourceId": 167,
+      "name": "NYU Grossman Long Island School of Medicine",
+      "status": "mapped",
+      "institution": "nyu.edu"
+    },
+    {
+      "sourceId": 169,
+      "name": "The University of Texas at Tyler School of Medicine",
+      "status": "mapped",
+      "institution": "uttyler.edu"
+    },
+    {
+      "sourceId": 225,
+      "name": "Tulane University",
+      "status": "mapped",
+      "institution": "tulane.edu"
+    },
+    {
+      "sourceId": 226,
+      "name": "Uniformed Services University of the Health Sciences (Hebert)",
+      "status": "mapped",
+      "institution": "usuhs.edu"
+    },
+    {
+      "sourceId": 227,
+      "name": "Loyola University Chicago (Stritch)",
+      "status": "mapped",
+      "institution": "luc.edu"
+    },
+    {
+      "sourceId": 228,
+      "name": "Pennsylvania State University College of Medicine",
+      "status": "mapped",
+      "institution": "psu.edu"
+    },
+    {
+      "sourceId": 229,
+      "name": "Creighton University",
+      "status": "mapped",
+      "institution": "creighton.edu"
+    },
+    {
+      "sourceId": 230,
+      "name": "Oklahoma State University",
+      "status": "mapped",
+      "institution": "okstate.edu"
+    },
+    {
+      "sourceId": 231,
+      "name": "University of Texas--Austin (Dell)",
+      "status": "mapped",
+      "institution": "utexas.edu"
+    },
+    {
+      "sourceId": 232,
+      "name": "Kaiser Permanente (Tyson)",
+      "status": "shared-nonacademic-host",
+      "website": "https://medschool.kp.org/",
+      "reason": "The medical school shares a healthcare-service registrable domain; the hospital root is not attributed to the school."
+    },
+    {
+      "sourceId": 233,
+      "name": "Michigan State University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "msu.edu"
+    },
+    {
+      "sourceId": 234,
+      "name": "Louisiana State University Health Sciences Center--New Orleans",
+      "status": "mapped",
+      "institution": "lsuhsc.edu"
+    },
+    {
+      "sourceId": 235,
+      "name": "University of Texas Medical Branch--Galveston",
+      "status": "mapped",
+      "institution": "utmb.edu"
+    },
+    {
+      "sourceId": 236,
+      "name": "Arkansas College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "achehealth.edu"
+    },
+    {
+      "sourceId": 237,
+      "name": "University of Arizona--Phoenix",
+      "status": "mapped",
+      "institution": "arizona.edu"
+    },
+    {
+      "sourceId": 238,
+      "name": "University of North Dakota",
+      "status": "mapped",
+      "institution": "und.edu"
+    },
+    {
+      "sourceId": 239,
+      "name": "University of Mississippi",
+      "status": "mapped",
+      "institution": "umc.edu"
+    },
+    {
+      "sourceId": 240,
+      "name": "Rosalind Franklin University of Medicine and Science (Chicago)",
+      "status": "mapped",
+      "institution": "rosalindfranklin.edu"
+    },
+    {
+      "sourceId": 241,
+      "name": "Southern Illinois University--Springfield",
+      "status": "mapped",
+      "institution": "siumed.edu"
+    },
+    {
+      "sourceId": 243,
+      "name": "Loma Linda University",
+      "status": "mapped",
+      "institution": "llu.edu"
+    },
+    {
+      "sourceId": 244,
+      "name": "West Virginia School of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "wvsom.edu"
+    },
+    {
+      "sourceId": 245,
+      "name": "University of South Carolina--Greenville",
+      "status": "mapped",
+      "institution": "sc.edu"
+    },
+    {
+      "sourceId": 246,
+      "name": "SUNY Downstate Health Sciences University",
+      "status": "mapped",
+      "institution": "downstate.edu"
+    },
+    {
+      "sourceId": 248,
+      "name": "University of Houston College of Medicine",
+      "status": "mapped",
+      "institution": "uh.edu"
+    },
+    {
+      "sourceId": 249,
+      "name": "University of North Texas Health Science Center",
+      "status": "mapped",
+      "institution": "unthsc.edu"
+    },
+    {
+      "sourceId": 250,
+      "name": "University of South Dakota (Sanford)",
+      "status": "mapped",
+      "institution": "usd.edu"
+    },
+    {
+      "sourceId": 251,
+      "name": "Louisiana State University Health Sciences Center--Shreveport",
+      "status": "mapped",
+      "institution": "lsuhs.edu"
+    },
+    {
+      "sourceId": 252,
+      "name": "Ohio University Heritage",
+      "status": "mapped",
+      "institution": "ohio.edu"
+    },
+    {
+      "sourceId": 253,
+      "name": "University of Nevada--Las Vegas",
+      "status": "mapped",
+      "institution": "unlv.edu"
+    },
+    {
+      "sourceId": 254,
+      "name": "Mercer University",
+      "status": "mapped",
+      "institution": "mercer.edu"
+    },
+    {
+      "sourceId": 255,
+      "name": "University of New England",
+      "status": "mapped",
+      "institution": "une.edu"
+    },
+    {
+      "sourceId": 256,
+      "name": "University of South Alabama",
+      "status": "mapped",
+      "institution": "southalabama.edu"
+    },
+    {
+      "sourceId": 258,
+      "name": "Texas Tech University Health Sciences Center--El Paso",
+      "status": "mapped",
+      "institution": "elpaso.ttuhsc.edu"
+    },
+    {
+      "sourceId": 260,
+      "name": "Kansas City University of Medicine and Biosciences--Kansas City",
+      "status": "mapped",
+      "institution": "kansascity.edu"
+    },
+    {
+      "sourceId": 261,
+      "name": "Des Moines University",
+      "status": "mapped",
+      "institution": "dmu.edu"
+    },
+    {
+      "sourceId": 262,
+      "name": "Philadelphia College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "pcom.edu"
+    },
+    {
+      "sourceId": 263,
+      "name": "Quinnipiac University",
+      "status": "mapped",
+      "institution": "qu.edu"
+    },
+    {
+      "sourceId": 265,
+      "name": "Oakland University Beaumont",
+      "status": "mapped",
+      "institution": "oakland.edu"
+    },
+    {
+      "sourceId": 266,
+      "name": "Midwestern University Chicago College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "midwestern.edu"
+    },
+    {
+      "sourceId": 267,
+      "name": "New York Institute of Technology",
+      "status": "mapped",
+      "institution": "nyit.edu"
+    },
+    {
+      "sourceId": 268,
+      "name": "Washington State University (Floyd)",
+      "status": "mapped",
+      "institution": "wsu.edu"
+    },
+    {
+      "sourceId": 269,
+      "name": "Western Michigan University",
+      "status": "mapped",
+      "institution": "wmich.edu"
+    },
+    {
+      "sourceId": 270,
+      "name": "Central Michigan University",
+      "status": "mapped",
+      "institution": "cmich.edu"
+    },
+    {
+      "sourceId": 271,
+      "name": "University of Texas Rio Grande Valley",
+      "status": "mapped",
+      "institution": "utrgv.edu"
+    },
+    {
+      "sourceId": 272,
+      "name": "Edward Via College of Osteopathic Medicine--Virginia",
+      "status": "mapped",
+      "institution": "vcom.edu"
+    },
+    {
+      "sourceId": 273,
+      "name": "Lake Erie College of Osteopathic Medicine--Erie",
+      "status": "mapped",
+      "institution": "lecom.edu"
+    },
+    {
+      "sourceId": 274,
+      "name": "Western University of Health Sciences",
+      "status": "mapped",
+      "institution": "westernu.edu"
+    },
+    {
+      "sourceId": 275,
+      "name": "Rowan University School of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "rowan.edu"
+    },
+    {
+      "sourceId": 276,
+      "name": "Rocky Vista University",
+      "status": "mapped",
+      "institution": "rvu.edu"
+    },
+    {
+      "sourceId": 277,
+      "name": "Texas Christian University",
+      "status": "mapped",
+      "institution": "tcu.edu"
+    },
+    {
+      "sourceId": 278,
+      "name": "Touro University California",
+      "status": "mapped",
+      "institution": "tu.edu"
+    },
+    {
+      "sourceId": 279,
+      "name": "Pacific Northwest University of Health Sciences",
+      "status": "mapped",
+      "institution": "pnwu.edu"
+    },
+    {
+      "sourceId": 280,
+      "name": "A.T. Still University of Health Sciences--Mesa",
+      "status": "mapped",
+      "institution": "atsu.edu"
+    },
+    {
+      "sourceId": 281,
+      "name": "Ponce Health Sciences University",
+      "status": "mapped",
+      "institution": "psm.edu"
+    },
+    {
+      "sourceId": 282,
+      "name": "Lincoln Memorial University (DeBusk)",
+      "status": "mapped",
+      "institution": "lmunet.edu"
+    },
+    {
+      "sourceId": 283,
+      "name": "Marian University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "marian.edu"
+    },
+    {
+      "sourceId": 284,
+      "name": "Touro College of Osteopathic Medicine--Harlem",
+      "status": "mapped",
+      "institution": "touro.edu"
+    },
+    {
+      "sourceId": 285,
+      "name": "California Health Sciences University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "chsu.edu"
+    },
+    {
+      "sourceId": 286,
+      "name": "Nova Southeastern University (Patel)",
+      "status": "mapped",
+      "institution": "nova.edu"
+    },
+    {
+      "sourceId": 287,
+      "name": "Liberty University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "liberty.edu"
+    },
+    {
+      "sourceId": 289,
+      "name": "University of Pikeville",
+      "status": "mapped",
+      "institution": "upike.edu"
+    },
+    {
+      "sourceId": 290,
+      "name": "Campbell University (Wallace)",
+      "status": "mapped",
+      "institution": "campbell.edu"
+    },
+    {
+      "sourceId": 291,
+      "name": "California University of Science and Medicine",
+      "status": "mapped",
+      "institution": "cusm.edu"
+    },
+    {
+      "sourceId": 292,
+      "name": "William Carey University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "wmcarey.edu"
+    },
+    {
+      "sourceId": 294,
+      "name": "Alabama College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "acom.edu"
+    },
+    {
+      "sourceId": 295,
+      "name": "California Northstate University",
+      "status": "mapped",
+      "institution": "cnsu.edu"
+    },
+    {
+      "sourceId": 296,
+      "name": "Idaho College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "icom.edu"
+    },
+    {
+      "sourceId": 297,
+      "name": "Universidad Central del Caribe",
+      "status": "mapped",
+      "institution": "uccaribe.edu"
+    },
+    {
+      "sourceId": 298,
+      "name": "Burrell College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "burrell.edu"
+    },
+    {
+      "sourceId": 299,
+      "name": "Sam Houston State University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "shsu.edu"
+    },
+    {
+      "sourceId": 300,
+      "name": "University of the Incarnate Word",
+      "status": "mapped",
+      "institution": "uiw.edu"
+    },
+    {
+      "sourceId": 302,
+      "name": "Kansas Health Science Center",
+      "status": "mapped",
+      "institution": "kansashsu.org"
+    },
+    {
+      "sourceId": 303,
+      "name": "A.T. Still University of Health Sciences--Kirksville (Kirksville)",
+      "status": "mapped",
+      "institution": "atsu.edu"
+    },
+    {
+      "sourceId": 304,
+      "name": "Noorda College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "noorda.edu"
+    },
+    {
+      "sourceId": 306,
+      "name": "University of Pennsylvania (Perelman)",
+      "status": "mapped",
+      "institution": "upenn.edu"
+    },
+    {
+      "sourceId": 307,
+      "name": "UT San Antonio (Long)",
+      "status": "mapped",
+      "institution": "uthscsa.edu"
+    },
+    {
+      "sourceId": 308,
+      "name": "Nova Southeastern (Patel - DO)",
+      "status": "mapped",
+      "institution": "nova.edu"
+    },
+    {
+      "sourceId": 309,
+      "name": "Orlando College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "ocom.org"
+    },
+    {
+      "sourceId": 310,
+      "name": "Lake Erie College of Osteopathic Medicine (Bradenton)",
+      "status": "mapped",
+      "institution": "lecom.edu"
+    },
+    {
+      "sourceId": 311,
+      "name": "Charles R. Drew University of Medicine and Science",
+      "status": "mapped",
+      "institution": "cdrewu.edu"
+    },
+    {
+      "sourceId": 312,
+      "name": "Belmont University",
+      "status": "mapped",
+      "institution": "belmont.edu"
+    },
+    {
+      "sourceId": 315,
+      "name": "Alice Walton School of Medicine",
+      "status": "mapped",
+      "institution": "alwmedschool.org"
+    },
+    {
+      "sourceId": 316,
+      "name": "Cleveland Clinic Lerner College of Medicine",
+      "status": "mapped",
+      "institution": "case.edu"
+    },
+    {
+      "sourceId": 317,
+      "name": "Roseman University of Health Sciences",
+      "status": "mapped",
+      "institution": "roseman.edu"
+    },
+    {
+      "sourceId": 318,
+      "name": "Ponce Health Sciences University, St. Louis",
+      "status": "mapped",
+      "institution": "stlouis.psm.edu"
+    },
+    {
+      "sourceId": 319,
+      "name": "Burrell College of Osteopathic Medicine--Florida",
+      "status": "mapped",
+      "institution": "burrell.edu"
+    },
+    {
+      "sourceId": 320,
+      "name": "Baptist Health Sciences University College of Osteopathic Medicine ",
+      "status": "mapped",
+      "institution": "baptistu.edu"
+    },
+    {
+      "sourceId": 321,
+      "name": "Duquesne University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "duq.edu"
+    },
+    {
+      "sourceId": 322,
+      "name": "Edward Via College of Osteopathic Medicine--Auburn",
+      "status": "mapped",
+      "institution": "vcom.edu"
+    },
+    {
+      "sourceId": 323,
+      "name": "Edward Via College of Osteopathic Medicine--Carolinas",
+      "status": "mapped",
+      "institution": "vcom.edu"
+    },
+    {
+      "sourceId": 324,
+      "name": "Edward Via College of Osteopathic Medicine--Louisiana",
+      "status": "mapped",
+      "institution": "vcom.edu"
+    },
+    {
+      "sourceId": 325,
+      "name": "Kansas City University of Medicine and Biosciences--Joplin",
+      "status": "mapped",
+      "institution": "kansascity.edu"
+    },
+    {
+      "sourceId": 326,
+      "name": "Lake Erie College of Osteopathic Medicine--Elmira",
+      "status": "mapped",
+      "institution": "lecom.edu"
+    },
+    {
+      "sourceId": 327,
+      "name": "Lake Erie College of Osteopathic Medicine--Seton Hill",
+      "status": "mapped",
+      "institution": "lecom.edu"
+    },
+    {
+      "sourceId": 328,
+      "name": "Lincoln Memorial University (DeBusk)--Knoxville",
+      "status": "mapped",
+      "institution": "lmunet.edu"
+    },
+    {
+      "sourceId": 329,
+      "name": "Lincoln Memorial University (DeBusk)--Orange Park",
+      "status": "mapped",
+      "institution": "lmunet.edu"
+    },
+    {
+      "sourceId": 330,
+      "name": "Meritus School of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "msom.org"
+    },
+    {
+      "sourceId": 331,
+      "name": "Michigan State University College of Osteopathic Medicine--DMC",
+      "status": "mapped",
+      "institution": "msu.edu"
+    },
+    {
+      "sourceId": 332,
+      "name": "Michigan State University College of Osteopathic Medicine--MUC",
+      "status": "mapped",
+      "institution": "msu.edu"
+    },
+    {
+      "sourceId": 333,
+      "name": "Midwestern University Arizona College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "midwestern.edu"
+    },
+    {
+      "sourceId": 334,
+      "name": "New York Institute of Technology--Arkansas State",
+      "status": "mapped",
+      "institution": "nyit.edu"
+    },
+    {
+      "sourceId": 335,
+      "name": "Nova Southeastern (Patel - DO)--Clearwater",
+      "status": "mapped",
+      "institution": "nova.edu"
+    },
+    {
+      "sourceId": 336,
+      "name": "Ohio University (Heritage)--Cleveland",
+      "status": "mapped",
+      "institution": "ohio.edu"
+    },
+    {
+      "sourceId": 337,
+      "name": "Ohio University (Heritage)--Dublin",
+      "status": "mapped",
+      "institution": "ohio.edu"
+    },
+    {
+      "sourceId": 338,
+      "name": "Oklahoma State University--Tahlequah",
+      "status": "mapped",
+      "institution": "okstate.edu"
+    },
+    {
+      "sourceId": 339,
+      "name": "Philadelphia College of Osteopathic Medicine--Georgia",
+      "status": "mapped",
+      "institution": "pcom.edu"
+    },
+    {
+      "sourceId": 340,
+      "name": "Philadelphia College of Osteopathic Medicine--South Georgia",
+      "status": "mapped",
+      "institution": "pcom.edu"
+    },
+    {
+      "sourceId": 341,
+      "name": "Rocky Vista University--Montana",
+      "status": "mapped",
+      "institution": "rvu.edu"
+    },
+    {
+      "sourceId": 342,
+      "name": "Rocky Vista University--Utah",
+      "status": "mapped",
+      "institution": "rvu.edu"
+    },
+    {
+      "sourceId": 343,
+      "name": "Rowan University School of Osteopathic Medicine--Sewell",
+      "status": "mapped",
+      "institution": "rowan.edu"
+    },
+    {
+      "sourceId": 344,
+      "name": "Touro College of Osteopathic Medicine--Middletown",
+      "status": "mapped",
+      "institution": "touro.edu"
+    },
+    {
+      "sourceId": 345,
+      "name": "Touro College of Osteopathic Medicine--Nevada",
+      "status": "mapped",
+      "institution": "tun.touro.edu"
+    },
+    {
+      "sourceId": 346,
+      "name": "Touro College of Osteopathic Medicine--Great Falls",
+      "status": "mapped",
+      "institution": "touro.edu"
+    },
+    {
+      "sourceId": 347,
+      "name": "Western University of Health Sciences--Northwest",
+      "status": "mapped",
+      "institution": "westernu.edu"
+    },
+    {
+      "sourceId": 348,
+      "name": "Methodist University Cape Fear Valley Health School of Medicine",
+      "status": "mapped",
+      "institution": "methodist.edu"
+    },
+    {
+      "sourceId": 349,
+      "name": "ASU John Shufeldt School of Medicine and Medical Engineering",
+      "status": "mapped",
+      "institution": "asu.edu"
+    },
+    {
+      "sourceId": 350,
+      "name": "University of Georgia School of Medicine",
+      "status": "mapped",
+      "institution": "uga.edu"
+    },
+    {
+      "sourceId": 351,
+      "name": "The Valley College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "thevalleycom.org"
+    },
+    {
+      "sourceId": 352,
+      "name": "Illinois College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "thechicagoschool.edu"
+    },
+    {
+      "sourceId": 353,
+      "name": "University of Northern Colorado College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "unco.edu"
+    },
+    {
+      "sourceId": 354,
+      "name": "D'Youville University College of Osteopathic Medicine",
+      "status": "mapped",
+      "institution": "dyu.edu"
+    }
+  ]
+}

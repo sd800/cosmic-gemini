@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { siteKey } from '../extension/core/site-key.js';
 
 // Deliberately offline: review source membership, domain aliases and campus locations
 // in the registry first. A failed or partial remote refresh must never replace it.
@@ -10,6 +11,7 @@ const output = new URL('../extension/content/mailto-capture/mailto-capture-unive
 const raw = await readFile(input, 'utf8');
 const registry = JSON.parse(raw);
 assert.equal(registry.schema, 1);
+assert.equal(registry.domainPolicy.defaultMatch, 'etld+1');
 const records = [...registry.institutions].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const byId = new Map(records.map(record => [record.id, record]));
 const mainlandEnglishNames = new Set(records.filter(record => record.coverage['cn-double-first']?.length).map(record => record.zh));
@@ -31,7 +33,7 @@ const addresses = new Set();
 const coverage = new Map(Object.keys(registry.sources).map(key => [key, new Set()]));
 const broadSuffixes = new Set(['edu', 'ac', 'gov', 'mil', 'edu.cn', 'ac.cn', 'gov.cn', 'mil.cn', 'edu.hk', 'edu.mo', 'edu.tw', 'ac.tw', 'gov.tw', 'mil.tw', 'ac.uk', 'ac.jp', 'ac.kr', 'edu.au', 'gov.mo', 'google.com', 'outlook.com', 'gmail.com']);
 // Shared system roots describe the system, never an arbitrarily chosen campus.
-const sharedSystemSuffixes = new Set(['cuny.edu', 'suny.edu']);
+const sharedSystemSuffixes = new Set(['cuny.edu', 'suny.edu', 'cu.edu', 'hawaii.edu', 'alaska.edu', 'upr.edu']);
 function hostname(value) {
   assert.equal(typeof value, 'string');
   assert.ok(value.includes('.') && value.length <= 253 && !broadSuffixes.has(value), `Unsafe institution suffix: ${value}`);
@@ -42,6 +44,7 @@ const rows = records.map(record => {
   assert.ok(record.id && !ids.has(record.id), `Duplicate institution: ${record.id}`);
   ids.add(record.id);
   assert.ok(typeof record.en === 'string' && record.en.length < 240);
+  assert.doesNotMatch(record.en, /&/u, `Use and in school display names: ${record.id}`);
   // Source spellings remain in coverage; display names are reviewed, not
   // mechanically title-cased or rewritten with one campus separator.
   assert.equal(record.en, record.en.trim().replace(/\s+/gu, ' '), `Normalize display-name spacing: ${record.id}`);
@@ -55,6 +58,7 @@ const rows = records.map(record => {
     assert.ok(record.en.trim(), `Missing English school name: ${record.id}`);
   }
   assert.ok(typeof record.zh === 'string' && record.zh.length < 240);
+  assert.doesNotMatch(record.zh, /&/u, `Use and in school display names: ${record.id}`);
   assert.match(record.region, /^[A-Z]{2}$/);
   assert.equal(typeof record.subdivision, 'string');
   if (['US', 'CA'].includes(record.region)) assert.ok(record.subdivision, `Missing institution location: ${record.id}`);
@@ -72,14 +76,28 @@ const rows = records.map(record => {
     assert.equal(byId.get(record.parentInstitutionId)?.region, 'HK', `Unknown provider parent: ${record.id}`);
   }
   assert.ok(record.domains.length || record.addresses.length);
+  const scopedAcademicIdentity = ['CN', 'TW'].includes(record.region) && record.kind !== 'research-organization';
+  const academicClass = /\.(?:edu|ac|gov|mil)(?:\.[a-z]{2})?$/;
+  if (scopedAcademicIdentity) assert.ok(record.domains.some(domain => academicClass.test(domain)), `Missing academic institution host: ${record.id}`);
+  if (record.kind === 'research-organization') assert.ok(record.evidence?.length, `Missing institution evidence: ${record.id}`);
   for (const domain of record.domains) {
     hostname(domain);
-    if (['CN', 'TW'].includes(record.region)) {
-      assert.match(domain, /\.(?:edu|ac|gov|mil)(?:\.[a-z]{2})?$/, `Outside the required institution domain classes: ${domain}`);
+    const root = siteKey(`https://${domain}`);
+    if (root !== domain) {
+      assert.ok(record.subdomainIdentities?.[domain], `Review the distinct campus/institution host or use eTLD+1: ${domain}`);
+      assert.ok(!record.domains.includes(root), `Omit a redundant institutional subhost: ${domain}`);
+    }
+    if (scopedAcademicIdentity && !academicClass.test(domain)) {
+      assert.ok(record.aliasEvidence?.[domain]?.length, `Missing reviewed alias evidence: ${record.id}`);
+      for (const url of record.aliasEvidence[domain]) assert.equal(new URL(url).protocol, 'https:');
     }
     if (sharedSystemSuffixes.has(domain)) assert.equal(record.kind, 'system', `Do not assign a system root to one campus: ${domain}`);
     assert.ok(!domains.has(domain), `Domain belongs to more than one institution: ${domain}`);
     domains.set(domain, record.id);
+  }
+  for (const [domain, identity] of Object.entries(record.subdomainIdentities || {})) {
+    assert.ok(record.domains.includes(domain) && siteKey(`https://${domain}`) !== domain, `Stale subdomain identity: ${domain}`);
+    assert.ok(['institution', 'campus-or-institution'].includes(identity), `Unknown subdomain identity: ${domain}`);
   }
   for (const address of record.addresses) {
     hostname(address.slice(address.lastIndexOf('@') + 1));
@@ -130,6 +148,37 @@ for (const school of audit.schools) {
   const record = byId.get(school.institution);
   assert.ok(record?.coverage[`cn-moe-${school.kind}`]?.includes(school.name), `Unmapped source institution: ${school.name}`);
 }
+const usAudit = JSON.parse(await readFile(new URL('../docs/reference-data/mailto-universities/us-institution-audit.json', import.meta.url), 'utf8'));
+assert.equal(usAudit.institutions.length, usAudit.sourceCount);
+assert.equal(new Set(usAudit.institutions.map(item => item.unitid)).size, usAudit.sourceCount);
+assert.equal(usAudit.institutions.filter(item => item.graduate).length, usAudit.graduateCount);
+assert.equal(usAudit.institutions.filter(item => item.specialFocus).length, usAudit.specialFocusCount);
+for (const [flag, group] of [['graduate', 'us-graduate-reference'], ['specialFocus', 'us-special-focus-reference']]) {
+  assert.equal(registry.sources[group].sourceMembers, usAudit.institutions.filter(item => item[flag]).length);
+  assert.equal(registry.sources[group].expectedMembers, usAudit.institutions.filter(item => item[flag] && item.status === 'mapped').length);
+}
+for (const item of usAudit.institutions) {
+  assert.ok(['mapped', 'host-review', 'shared-host-review'].includes(item.status));
+  if (item.status !== 'mapped') continue;
+  const record = byId.get(item.institution);
+  for (const [eligible, group] of [[item.graduate, 'us-graduate-reference'], [item.specialFocus, 'us-special-focus-reference']]) {
+    if (eligible) assert.ok(record?.coverage[group]?.includes(`${item.unitid}: ${item.name}`), `Unmapped directory institution: ${item.unitid}`);
+  }
+}
+const medicalAudit = JSON.parse(await readFile(new URL('../docs/reference-data/mailto-universities/medical-school-audit.json', import.meta.url), 'utf8'));
+assert.equal(medicalAudit.schools.length, medicalAudit.sourceCount);
+assert.equal(new Set(medicalAudit.schools.map(item => item.sourceId)).size, medicalAudit.sourceCount);
+assert.equal(medicalAudit.sourceCount, registry.sources['medical-school-reference'].sourceMembers);
+assert.equal(medicalAudit.schools.filter(item => item.status === 'mapped').length, registry.sources['medical-school-reference'].expectedMembers);
+for (const item of medicalAudit.schools) {
+  assert.ok(['mapped', 'shared-nonacademic-host'].includes(item.status));
+  if (item.status !== 'mapped') {
+    assert.ok(item.reason && new URL(item.website).protocol === 'https:');
+    continue;
+  }
+  assert.ok(byId.get(item.institution)?.coverage['medical-school-reference']?.includes(`${item.sourceId}: ${item.name}`),
+    `Unmapped medical school: ${item.sourceId}`);
+}
 const hash = createHash('sha256').update(raw).digest('hex');
 const result = `// Generated by scripts/update-university-reference.mjs; reviewed ${registry.reviewed}.
 // Domain facts: Hipo / GlobalUniversityHomePages (MIT) and official directories; see university-domains-LICENSE.txt.
@@ -140,7 +189,7 @@ const result = `// Generated by scripts/update-university-reference.mjs; reviewe
   if (!globalThis[KEY]) globalThis[KEY] = Object.freeze(${JSON.stringify(rows)});
 })();
 `;
-assert.ok(Buffer.byteLength(result) < 260_000, 'Keep the injected offline reference compact.');
+assert.ok(Buffer.byteLength(result) < 400_000, 'Keep the injected offline reference compact.');
 if (process.argv.includes('--check')) {
   assert.equal(await readFile(output, 'utf8'), result, 'Regenerate the university reference after registry changes.');
 } else await writeFile(output, result);

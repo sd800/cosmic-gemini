@@ -303,12 +303,13 @@
       "code": "4111010042",
       "level": "本科",
       "kind": "ordinary",
-      "status": "outside-domain-policy",
+      "status": "mapped",
       "reportedWebsites": [
         "http://www.uir.cn",
         "https://www.uir.cn/",
         "uir.cn"
-      ]
+      ],
+      "institution": "uir.edu.cn"
     },
     {
       "name": "北京体育大学",
@@ -27829,8 +27830,7 @@
       "code": "4242051773",
       "level": "成人",
       "kind": "adult",
-      "status": "mapped",
-      "institution": "yjxy.zsxx.e21.edu.cn"
+      "status": "shared-host-review"
     },
     {
       "name": "湖北武汉公安管理干部学院",

@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.12.13 — 2026-10-19
+
+- 将 University of Michigan–Dearborn 的旧邮箱域名归入对应校区，并统一高校显示名称中的分隔符。
+
 ## 9.12.12 — 2026-10-19
 
 - 扩充 Mailto Capture 的离线邮箱域名识别，支持美国大学及社区学院系统和相关管理机构，并显示所在州。

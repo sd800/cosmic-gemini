@@ -62,6 +62,7 @@ const rows = records.map(record => {
   if (['CN', 'HK', 'MO', 'TW'].includes(record.region)) {
     assert.match(name, /\p{Script=Han}/u, `Use a Chinese school name: ${record.id}`);
   } else {
+    assert.doesNotMatch(name, /--|\s-\s/, `Use an en dash for display-name separators: ${record.id}`);
     assert.doesNotMatch(name, /[()（）\u3400-\u9fff]/, `Use an unabbreviated Latin-character name: ${record.id}`);
   }
   return [name, record.region, record.subdivision, [...record.domains].sort(), [...record.addresses].sort()];

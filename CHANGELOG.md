@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.13 — 2026-10-19
+
+- Match the University of Michigan–Dearborn’s legacy email domain to its campus and standardize separators in university display names.
+
 ## 9.12.12 — 2026-10-19
 
 - Expand Mailto Capture’s offline email-domain reference to U.S. university and community-college systems and their administrative offices, including state information.

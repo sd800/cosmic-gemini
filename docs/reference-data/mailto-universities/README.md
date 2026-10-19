@@ -19,7 +19,7 @@ Reviewed on **2026-10-19**. Ranking thresholds include all institutions tied at 
 | Taiwan general universities (`體制=一般大學`) | Official 114 academic-year directory | 66 |
 | U.S. university/community-college systems and central administrative offices | Official system directories | 16 |
 
-Cohorts overlap. The compiled reference contains **897 institution/domain groups**, **1,035 explicit domain suffixes** and **one exact shared-domain mailbox**. A group can represent two institutional identities sharing one domain, such as the two HKCT providers; its display name includes both. Ranking membership is retained only for maintenance, never displayed as a credential or ranking in the popover.
+Cohorts overlap. The compiled reference contains **897 institution/domain groups**, **1,036 explicit domain suffixes** and **one exact shared-domain mailbox**. A group can represent two institutional identities sharing one domain, such as the two HKCT providers; its display name includes both. Ranking membership is retained only for maintenance, never displayed as a credential or ranking in the popover.
 
 ## Sources and identity decisions
 
@@ -33,9 +33,12 @@ Some institutional domains have historical or student-only alternatives. Keep co
 
 The `us-systems` cohort includes `cccco.edu`, `calstate.edu`, `ucop.edu`, `suny.edu`, `cuny.edu`, `utsystem.edu`, `tamus.edu`, `usg.edu`, `northcarolina.edu`, `wisconsin.edu` (plus its confirmed `uwsa.edu` email alias), `vccs.edu`, `nccommunitycolleges.edu`, `tcsg.edu`, `accs.edu`, `kctcs.edu` and `minnstate.edu`. Official source URLs are recorded with each entry. Shared SUNY/CUNY roots are accepted only as explicitly evidenced system records; generic education suffixes remain prohibited.
 
+The Dearborn record retains both `umdearborn.edu` and `umd.umich.edu`, as documented in the university’s [domain policy](https://umdearborn.edu/policies-and-procedures/university-it-policies-standards/subdomain-policy-and-procedure-requesting) and [admissions directory](https://www.catalog.umd.umich.edu/undergraduate/admissions/). These explicit hosts and their subdomains identify University of Michigan–Dearborn before the broader `umich.edu` match. Other Michigan addresses retain University of Michigan.
+
 ## Display policy
 
 - Mainland/Hong Kong/Macau/Taiwan institutions use Simplified Chinese school names in both interface languages. Other institutions use Latin-character names, without parenthesized common acronyms. Legal foundation wrappers are omitted from Taiwan display names; original names remain in membership evidence.
+- Use an en dash (`–`) for campus separators, such as University of Michigan–Dearborn and University of Wisconsin–Madison. Standalone dash separators also use an en dash; preserve real compound-word/place-name hyphens such as Aix-Marseille and Urbana-Champaign. Original source membership spellings remain unchanged as evidence.
 - School and country/region occupy separate lines beneath each original To/CC/BCC address. Unknown addresses have no empty metadata rows or error message. School metadata never enters copied addresses/messages.
 - U.S. and Canadian institutions include the full principal-campus state/province. U.S. country text is always `USA`.
 - English regional labels: `China`, `Hong Kong, China`, `Macau, China`, `Chinese Taipei`. Simplified Chinese labels: `中国`, `中国香港`, `中国澳门`, `中华台北`. Other country names follow the interface language.

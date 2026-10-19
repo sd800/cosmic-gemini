@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.11 — 2026-10-19
+
+- Display the university name as University of Michigan in Mailto Capture.
+
 ## 9.12.10 — 2026-10-19
 
 - Identify university email addresses in Mailto Capture with an offline school-domain reference, showing the school and country or region on separate lines.

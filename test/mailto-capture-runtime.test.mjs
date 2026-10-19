@@ -121,6 +121,7 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('alice@utoronto.ca').region, 'Ontario, Canada');
   assert.equal(lookup('"alice@unit"@mit.edu').name, 'Massachusetts Institute of Technology');
   assert.equal(lookup('student@ucla.edu').name, 'University of California, Los Angeles');
+  assert.equal(lookup('student@umich.edu').name, 'University of Michigan');
   for (const [address, en, zh] of [
     ['student@pku.edu.cn', 'China', '中国'],
     ['student@link.cuhk.edu.hk', 'Hong Kong, China', '中国香港'],

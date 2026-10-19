@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 9.12.11 — 2026-10-19
+
+- Mailto Capture 中的校名统一显示为 University of Michigan。
+
 ## 9.12.10 — 2026-10-19
 
 - Mailto Capture 新增离线高校邮箱域名识别，在地址下分行显示校名和国家／地区。

@@ -9,7 +9,7 @@ import { createServer } from 'node:http';
 const { chromium } = await import(process.env.CONTEXT_PLAYWRIGHT ? pathToFileURL(process.env.CONTEXT_PLAYWRIGHT).href : 'playwright');
 const profile = await mkdtemp(join(tmpdir(), 'cg-mailto-qa-'));
 const extension = resolve('extension');
-const artifacts = resolve('test-dist/mailto-universities/browser');
+const artifacts = resolve('test-dist/univ-domains/browser');
 await mkdir(artifacts, { recursive: true });
 const server = createServer((req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

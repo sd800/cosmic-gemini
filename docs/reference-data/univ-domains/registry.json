@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "name": "univ-domains",
   "reviewed": "2026-10-19",
   "sources": {
     "qs": {

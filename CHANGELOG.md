@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.22 — 2026-10-19
+
+- Standardize internal reference naming.
+
 ## 9.12.21 — 2026-10-19
 
 - Refine locale names and display consistency.

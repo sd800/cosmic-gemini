@@ -74,7 +74,7 @@ async function runtimeFixture({ intl = Intl } = {}) {
   vm.runInContext(nanpSource, context);
   const phoneSource = await readFile(new URL('../extension/content/mailto-capture/mailto-capture-phone.js', import.meta.url), 'utf8');
   vm.runInContext(phoneSource, context);
-  for (const name of ['mailto-capture-university-data.js', 'mailto-capture-universities.js']) {
+  for (const name of ['univ-domains-data.js', 'univ-domains.js']) {
     vm.runInContext(await readFile(new URL(`../extension/content/mailto-capture/${name}`, import.meta.url), 'utf8'), context);
   }
   vm.runInContext(await readFile(new URL('../extension/shared/external-links-capture/protocols.js', import.meta.url), 'utf8'), context);
@@ -85,8 +85,8 @@ async function runtimeFixture({ intl = Intl } = {}) {
 
 test('University references cover every reviewed cohort and resolve all explicit domains offline', async () => {
   const { context } = await runtimeFixture();
-  const registry = JSON.parse(await readFile(new URL('../docs/reference-data/mailto-universities/registry.json', import.meta.url), 'utf8'));
-  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  const registry = JSON.parse(await readFile(new URL('../docs/reference-data/univ-domains/registry.json', import.meta.url), 'utf8'));
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.univ-domains')];
   const coverage = new Map(Object.keys(registry.sources).map(key => [key, new Set()]));
   const mainlandNames = new Set(registry.institutions.filter(item => item.coverage['cn-double-first']?.length).map(item => item.zh));
   const qualified = (item, seen = new Set()) => {
@@ -133,8 +133,8 @@ test('University references cover every reviewed cohort and resolve all explicit
 
 test('University display names retain reviewed full names, capitalization and institution-specific separators', async () => {
   const { context } = await runtimeFixture();
-  const displayRows = vm.runInContext("globalThis[Symbol.for('cosmic-gemini.mailto-capture.university-data')]", context);
-  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  const displayRows = vm.runInContext("globalThis[Symbol.for('cosmic-gemini.mailto-capture.univ-domains-data')]", context);
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.univ-domains')];
   for (const [domain, name] of [
     ['albany.edu', 'State University of New York at Albany'],
     ['buffalo.edu', 'State University of New York at Buffalo'],
@@ -220,7 +220,7 @@ test('University display names retain reviewed full names, capitalization and in
 
 test('University matching respects DNS boundaries, campus identity and localized region names', async () => {
   const { context } = await runtimeFixture();
-  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.univ-domains')];
   assert.equal(lookup('ALICE+sample@CS.UCHICAGO.EDU.').name, 'University of Chicago');
   assert.equal(lookup('Alice <alice@uchicago.edu>').region, 'Illinois, USA');
   assert.equal(lookup('alice@uchicago.edu', 'zh-CN').region, 'Illinois, USA');
@@ -351,7 +351,7 @@ test('Mailto Capture places school and region on separate lines without altering
 
 test('Mainland bilingual names follow reviewed university and campus eligibility rather than undergraduate status', async () => {
   const { context } = await runtimeFixture();
-  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.univ-domains')];
   for (const domain of ['pku.edu.cn', 'sjtu.edu.cn', 'en.sjtu.edu.cn', 'ucas.ac.cn', 'xjtlu.edu.cn', 'dukekunshan.edu.cn', 'shanghai.nyu.edu']) {
     assert.ok(lookup(`person@${domain}`).englishName, domain);
     assert.equal(lookup(`person@${domain}`, 'zh-CN').englishName, undefined, domain);
@@ -377,7 +377,7 @@ test('Mainland bilingual names follow reviewed university and campus eligibility
 
 test('Regional higher education includes technological, open, religious and service institutions without empty English rows', async () => {
   const { context, runtime } = await runtimeFixture();
-  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.univ-domains')];
   for (const domain of ['ntust.edu.tw', 'nou.edu.tw', 'tbts.edu.tw', 'ndu.edu.tw', 'afats.khc.edu.tw', 'cpu.edu.tw', 'tpa.edu.tw']) {
     assert.ok(lookup(`person@${domain}`)?.name, domain);
     assert.equal(lookup(`person@${domain}`).region, 'Chinese Taipei', domain);
@@ -515,7 +515,7 @@ test('Telephone region names stay consistent across locales and browser name dat
     DisplayNames: class { constructor() { throw new Error('Browser region names are unavailable.'); } }
   } });
   const phone = context[Symbol.for('cosmic-gemini.mailto-capture.phone')];
-  const universities = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  const univDomains = context[Symbol.for('cosmic-gemini.mailto-capture.univ-domains')];
   for (const [number, domain, english, chinese] of [
     ['+852 2345 6789', 'hku.hk', 'Hong Kong, China', '中国香港'],
     ['+853 2831 2345', 'um.edu.mo', 'Macau, China', '中国澳门'],
@@ -523,8 +523,8 @@ test('Telephone region names stay consistent across locales and browser name dat
   ]) {
     assert.equal(phone.inspect(number, 'en-US').location, english);
     assert.equal(phone.inspect(number, 'zh-CN').location, chinese);
-    assert.equal(phone.inspect(number, 'en-US').location, universities.lookup(`person@${domain}`).region);
-    assert.equal(phone.inspect(number, 'zh-CN').location, universities.lookup(`person@${domain}`, 'zh-CN').region);
+    assert.equal(phone.inspect(number, 'en-US').location, univDomains.lookup(`person@${domain}`).region);
+    assert.equal(phone.inspect(number, 'zh-CN').location, univDomains.lookup(`person@${domain}`, 'zh-CN').region);
   }
   assert.equal(runtime.parseTel('tel:+85223456789').location, 'Hong Kong, China');
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } }) });

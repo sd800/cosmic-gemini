@@ -19,8 +19,8 @@ export function createMailtoCaptureProduct(pageRuntimeHost, platform) {
       'shared/external-links-capture/protocols.js',
       'content/mailto-capture/mailto-capture-nanp.js',
       'content/mailto-capture/mailto-capture-phone.js',
-      'content/mailto-capture/mailto-capture-university-data.js',
-      'content/mailto-capture/mailto-capture-universities.js'
+      'content/mailto-capture/univ-domains-data.js',
+      'content/mailto-capture/univ-domains.js'
     ],
     runtime: 'content/mailto-capture/mailto-capture-runtime.js',
     async state(settings, url) {

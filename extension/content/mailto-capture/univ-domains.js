@@ -1,6 +1,6 @@
 (() => {
-  const KEY = Symbol.for('cosmic-gemini.mailto-capture.universities');
-  const DATA_KEY = Symbol.for('cosmic-gemini.mailto-capture.university-data');
+  const KEY = Symbol.for('cosmic-gemini.mailto-capture.univ-domains');
+  const DATA_KEY = Symbol.for('cosmic-gemini.mailto-capture.univ-domains-data');
   if (globalThis[KEY]) return;
 
   let index = null;

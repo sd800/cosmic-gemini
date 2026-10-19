@@ -6,7 +6,7 @@
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
   const NANP_KEY = Symbol.for('cosmic-gemini.mailto-capture.nanp');
   const PHONE_KEY = Symbol.for('cosmic-gemini.mailto-capture.phone');
-  const UNIVERSITIES_KEY = Symbol.for('cosmic-gemini.mailto-capture.universities');
+  const UNIV_DOMAINS_KEY = Symbol.for('cosmic-gemini.mailto-capture.univ-domains');
   const CAPTURED_LINK = /^(?:mailto|tel|sms):/i;
   const COPY = Object.freeze({
     'en-US': Object.freeze({
@@ -406,7 +406,7 @@
         text.textContent = address;
         entry.append(text);
         let university;
-        try { university = globalThis[UNIVERSITIES_KEY]?.lookup(address, this.locale); } catch {}
+        try { university = globalThis[UNIV_DOMAINS_KEY]?.lookup(address, this.locale); } catch {}
         if (university) {
           const school = document.createElement('div');
           school.className = 'phone-location university-name';

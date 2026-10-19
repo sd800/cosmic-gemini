@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.17 — 2026-10-19
+
+- Refine university name display.
+
 ## 9.12.16 — 2026-10-19
 
 - Expand the offline university-domain reference and improve institution/campus identification.

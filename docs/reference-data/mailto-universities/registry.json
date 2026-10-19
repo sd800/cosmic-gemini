@@ -8690,7 +8690,7 @@
     },
     {
       "id": "northeastern.edu",
-      "en": "Northeastern University, Boston",
+      "en": "Northeastern University",
       "zh": "",
       "region": "US",
       "subdivision": "Massachusetts",
@@ -8706,7 +8706,10 @@
         "us-national": [
           "Northeastern University, Boston"
         ]
-      }
+      },
+      "nameEvidence": [
+        "https://www.northeastern.edu/about/about-northeastern/"
+      ]
     },
     {
       "id": "northwestern.edu",

@@ -160,6 +160,8 @@ test('University display names retain reviewed full names, capitalization and in
     ['desales.edu', 'DeSales University'],
     ['dyu.edu', "D'Youville University"],
     ['ncat.edu', 'North Carolina Agricultural and Technical State University'],
+    ['northeastern.edu', 'Northeastern University'],
+    ['neu.edu', 'Northeastern University'],
     ['umkc.edu', 'University of Missouri–Kansas City'],
     ['umsl.edu', 'University of Missouri–St. Louis'],
     ['uwm.edu', 'University of Wisconsin–Milwaukee'],

@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '9.12.9');
+assert.equal(manifest.version, '9.12.10');
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
@@ -522,6 +522,8 @@ assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
 assert.match(mailtoCapture, /content\/mailto-capture\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture\/mailto-capture-runtime\.js/);
 assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture\/mailto-capture-nanp\.js[\s\S]*content\/mailto-capture\/mailto-capture-phone\.js/,
   'Mailto Capture must load its compact offline telephone references before the page runtime.');
+assert.match(mailtoCapture, /content\/mailto-capture\/mailto-capture-university-data\.js[\s\S]*content\/mailto-capture\/mailto-capture-universities\.js/,
+  'Mailto Capture must load its offline university reference before the lookup helper.');
 assert.doesNotMatch(mailtoCaptureRuntime, /NANP_LOCATION_LABEL|Area code location/,
   'Mailto Capture must not render numbering-plan locations as a separate labeled field.');
 assert.match(mailtoCaptureRuntime, /\.phone-location\{color:var\(--mc-muted\)\}/,

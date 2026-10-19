@@ -62,6 +62,7 @@ async function runtimeFixture() {
     Object,
     Promise,
     Intl,
+    URL,
     atob: value => Buffer.from(value, 'base64').toString('binary'),
     decodeURIComponent,
     requestAnimationFrame: () => 1,
@@ -73,11 +74,95 @@ async function runtimeFixture() {
   vm.runInContext(nanpSource, context);
   const phoneSource = await readFile(new URL('../extension/content/mailto-capture/mailto-capture-phone.js', import.meta.url), 'utf8');
   vm.runInContext(phoneSource, context);
+  for (const name of ['mailto-capture-university-data.js', 'mailto-capture-universities.js']) {
+    vm.runInContext(await readFile(new URL(`../extension/content/mailto-capture/${name}`, import.meta.url), 'utf8'), context);
+  }
   vm.runInContext(await readFile(new URL('../extension/shared/external-links-capture/protocols.js', import.meta.url), 'utf8'), context);
   const source = await readFile(new URL('../extension/content/mailto-capture/mailto-capture-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   return { context, runtime: context[Symbol.for('cosmic-gemini.mailto-capture.runtime')] };
 }
+
+test('University references cover every reviewed cohort and resolve all explicit domains offline', async () => {
+  const { context } = await runtimeFixture();
+  const registry = JSON.parse(await readFile(new URL('../docs/reference-data/mailto-universities/registry.json', import.meta.url), 'utf8'));
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  const coverage = new Map(Object.keys(registry.sources).map(key => [key, new Set()]));
+  for (const institution of registry.institutions) {
+    const expected = ['CN', 'HK', 'MO', 'TW'].includes(institution.region) ? institution.zh : institution.en;
+    for (const [group, names] of Object.entries(institution.coverage)) {
+      for (const name of names) coverage.get(group).add(name);
+    }
+    for (const domain of institution.domains) {
+      assert.equal(lookup(`fixture@${domain}`).name, expected, domain);
+      assert.equal(lookup(`fixture@${domain}`, 'zh-CN').name, expected, domain);
+    }
+    for (const address of institution.addresses) assert.equal(lookup(address).name, expected);
+    if (['US', 'CA'].includes(institution.region)) {
+      const address = `fixture@${institution.domains[0]}`;
+      assert.ok(lookup(address).region.startsWith(`${institution.subdivision}, `), institution.id);
+    }
+    if (['CN', 'HK', 'MO', 'TW'].includes(institution.region)) {
+      assert.doesNotMatch(expected, /[國學臺灣醫藥華東長榮門體藝術師範聯實踐銘傳濟義寧]/, institution.id);
+    } else {
+      assert.doesNotMatch(expected, /[()（）\u3400-\u9fff]/, institution.id);
+      assert.ok([...expected].every(character => !/\p{Letter}/u.test(character) || /\p{Script=Latin}/u.test(character)), institution.id);
+    }
+  }
+  for (const [group, members] of coverage) assert.equal(members.size, registry.sources[group].expectedMembers, group);
+});
+
+test('University matching respects DNS boundaries, campus identity and localized region names', async () => {
+  const { context } = await runtimeFixture();
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  assert.equal(lookup('ALICE+sample@CS.UCHICAGO.EDU.').name, 'University of Chicago');
+  assert.equal(lookup('Alice <alice@uchicago.edu>').region, 'Illinois, USA');
+  assert.equal(lookup('alice@uchicago.edu', 'zh-CN').region, 'Illinois, USA');
+  assert.equal(lookup('alice@utoronto.ca').region, 'Ontario, Canada');
+  assert.equal(lookup('"alice@unit"@mit.edu').name, 'Massachusetts Institute of Technology');
+  assert.equal(lookup('student@ucla.edu').name, 'University of California, Los Angeles');
+  for (const [address, en, zh] of [
+    ['student@pku.edu.cn', 'China', '中国'],
+    ['student@link.cuhk.edu.hk', 'Hong Kong, China', '中国香港'],
+    ['student@um.edu.mo', 'Macau, China', '中国澳门'],
+    ['student@ntu.edu.tw', 'Chinese Taipei', '中华台北']
+  ]) {
+    assert.equal(lookup(address).region, en);
+    assert.equal(lookup(address, 'zh-CN').region, zh);
+  }
+  assert.equal(lookup('student@ntu.edu.tw').name, '国立台湾大学');
+  assert.match(lookup('student@centennialcollege.hku.hk').name, /明德/);
+  assert.equal(lookup('esfsm-info@fsm.gov.mo').name, '澳门保安部队高等院校');
+  for (const address of ['alice@example.com', 'alice@edu', 'alice@edu.cn', 'alice@harvard.edu.example.com',
+    'alice@fakeharvard.edu', 'alice@harvаrd.edu', 'alice@harvard.edu@evil.test', 'alice@harvard.edu:80',
+    'alice@harvard.edu/path', 'alice@harvard.edu?test', 'alice@harvard.edu%2eevil.test',
+    'alice@cuhk.edu.cn', 'other@fsm.gov.mo', '<alice@harvard.edu> trailing', 'a\n@mit.edu', 'not an email', null]) {
+    assert.equal(lookup(address), null, String(address));
+  }
+});
+
+test('Mailto Capture places school and region on separate lines without altering addresses or copied messages', async () => {
+  const { context, runtime } = await runtimeFixture();
+  context.document.createElement = tagName => new FakeElement(tagName);
+  const capture = runtime.parseMailto('mailto:ALICE+sample@uchicago.edu,unknown@example.com?cc=student%40pku.edu.cn&bcc=person%40ntu.edu.tw&subject=Hello&body=Original%20text');
+  const before = runtime.messageText(capture);
+  const parent = new FakeElement('div');
+  runtime.appendEmailField(parent, 'To', capture.to);
+  runtime.appendEmailField(parent, 'CC', capture.cc);
+  runtime.appendEmailField(parent, 'BCC', capture.bcc);
+  const toEntries = parent.children[0].children[1].children;
+  assert.deepEqual(toEntries.map(entry => entry.children.map(renderedText)), [
+    ['ALICE+sample@uchicago.edu', 'University of Chicago', 'Illinois, USA'],
+    ['unknown@example.com']
+  ]);
+  assert.deepEqual(parent.children[1].children[1].children[0].children.map(renderedText), ['student@pku.edu.cn', '北京大学', 'China']);
+  runtime.locale = 'zh-CN';
+  const localized = new FakeElement('div');
+  runtime.appendEmailField(localized, '密送', capture.bcc);
+  assert.deepEqual(localized.children[0].children[1].children[0].children.map(renderedText), ['person@ntu.edu.tw', '国立台湾大学', '中华台北']);
+  assert.equal(runtime.messageText(capture).replace('收件人:', 'To:').replace('抄送:', 'CC:').replace('密送:', 'BCC:').replace('主题:', 'Subject:'), before);
+  assert.doesNotMatch(before, /University|Illinois|北京大学|China/);
+});
 
 test('Mailto Capture does not update a replacement dialog or run stale clipboard fallbacks', async () => {
   const { runtime, context } = await runtimeFixture();

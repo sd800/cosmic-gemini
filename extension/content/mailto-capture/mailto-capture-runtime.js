@@ -6,6 +6,7 @@
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
   const NANP_KEY = Symbol.for('cosmic-gemini.mailto-capture.nanp');
   const PHONE_KEY = Symbol.for('cosmic-gemini.mailto-capture.phone');
+  const UNIVERSITIES_KEY = Symbol.for('cosmic-gemini.mailto-capture.universities');
   const CAPTURED_LINK = /^(?:mailto|tel|sms):/i;
   const COPY = Object.freeze({
     'en-US': Object.freeze({
@@ -342,9 +343,10 @@
         if (this.capture.body) this.appendField(details, labels.message, this.capture.body);
         if (this.capture.otherFields.length) this.appendOtherFields(details, labels);
       } else {
-        this.appendField(details, labels.to, this.capture.addressText || labels.noAddress);
-        if (this.capture.cc.length) this.appendField(details, labels.cc, this.capture.cc.join(', '));
-        if (this.capture.bcc.length) this.appendField(details, labels.bcc, this.capture.bcc.join(', '));
+        if (this.capture.to.length) this.appendEmailField(details, labels.to, this.capture.to);
+        else this.appendField(details, labels.to, labels.noAddress);
+        if (this.capture.cc.length) this.appendEmailField(details, labels.cc, this.capture.cc);
+        if (this.capture.bcc.length) this.appendEmailField(details, labels.bcc, this.capture.bcc);
         if (this.capture.subject) this.appendField(details, labels.subject, this.capture.subject);
         if (this.capture.body) this.appendField(details, labels.message, this.capture.body);
         if (this.capture.otherFields.length) this.appendOtherFields(details, labels);
@@ -386,6 +388,36 @@
       const value = document.createElement('div');
       value.className = 'value';
       value.textContent = valueText;
+      field.append(label, value);
+      parent.append(field);
+    }
+
+    appendEmailField(parent, labelText, addresses) {
+      const field = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      const value = document.createElement('div');
+      value.className = 'value phone-value';
+      for (const address of addresses) {
+        const entry = document.createElement('div');
+        entry.className = 'phone-entry';
+        const text = document.createElement('div');
+        text.textContent = address;
+        entry.append(text);
+        let university;
+        try { university = globalThis[UNIVERSITIES_KEY]?.lookup(address, this.locale); } catch {}
+        if (university) {
+          const school = document.createElement('div');
+          school.className = 'phone-location university-name';
+          school.textContent = university.name;
+          const region = document.createElement('div');
+          region.className = 'phone-location university-region';
+          region.textContent = university.region;
+          entry.append(school, region);
+        }
+        value.append(entry);
+      }
       field.append(label, value);
       parent.append(field);
     }

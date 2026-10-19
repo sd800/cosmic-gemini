@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.10 — 2026-10-19
+
+- Identify university email addresses in Mailto Capture with an offline school-domain reference, showing the school and country or region on separate lines.
+- Include principal-campus states/provinces for U.S. and Canadian institutions, while keeping original addresses and copied messages unchanged.
+
 ## 9.12.9 — 2026-10-11
 
 - Strengthen Bili Daily Login cancellation and request timeout handling, including delayed response bodies and setting changes.

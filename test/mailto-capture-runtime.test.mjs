@@ -88,15 +88,28 @@ test('University references cover every reviewed cohort and resolve all explicit
   const registry = JSON.parse(await readFile(new URL('../docs/reference-data/mailto-universities/registry.json', import.meta.url), 'utf8'));
   const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
   const coverage = new Map(Object.keys(registry.sources).map(key => [key, new Set()]));
+  const mainlandNames = new Set(registry.institutions.filter(item => item.coverage['cn-double-first']?.length).map(item => item.zh));
+  const qualified = (item, seen = new Set()) => {
+    if (mainlandNames.has(item.zh)) return true;
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return item.affiliations?.some(id => {
+      const parent = registry.institutions.find(value => value.id === id);
+      return parent?.region === 'CN' && qualified(parent, seen);
+    }) || false;
+  };
   for (const institution of registry.institutions) {
-    const expected = ['CN', 'HK', 'MO', 'TW'].includes(institution.region) ? institution.zh : institution.en;
+    const chineseName = ['CN', 'HK', 'MO', 'TW'].includes(institution.region) || institution.displayChineseName === true;
+    const expected = chineseName ? institution.zh : institution.en;
     for (const [group, names] of Object.entries(institution.coverage)) {
       for (const name of names) coverage.get(group).add(name);
     }
     for (const domain of institution.domains) {
+      if (['CN', 'TW'].includes(institution.region)) assert.match(domain, /\.(?:edu|ac|gov|mil)(?:\.[a-z]{2})?$/, domain);
       assert.equal(lookup(`fixture@${domain}`).name, expected, domain);
       assert.equal(lookup(`fixture@${domain}`, 'zh-CN').name, expected, domain);
-      assert.equal(lookup(`fixture@${domain}`).englishName, ['CN', 'HK', 'MO', 'TW'].includes(institution.region) ? institution.en : undefined, domain);
+      const bilingual = chineseName && (institution.region !== 'CN' || qualified(institution));
+      assert.equal(lookup(`fixture@${domain}`).englishName, bilingual && institution.en ? institution.en : undefined, domain);
       assert.equal(lookup(`fixture@${domain}`, 'zh-CN').englishName, undefined, domain);
     }
     for (const address of institution.addresses) assert.equal(lookup(address).name, expected);
@@ -104,14 +117,67 @@ test('University references cover every reviewed cohort and resolve all explicit
       const address = `fixture@${institution.domains[0]}`;
       assert.ok(lookup(address).region.startsWith(`${institution.subdivision}, `), institution.id);
     }
-    if (['CN', 'HK', 'MO', 'TW'].includes(institution.region)) {
+    if (chineseName) {
       assert.doesNotMatch(expected, /[國學臺灣醫藥華東長榮門體藝術師範聯實踐銘傳濟義寧]/, institution.id);
     } else {
       assert.doesNotMatch(expected, /[()（）\u3400-\u9fff]/, institution.id);
-      assert.ok([...expected].every(character => !/\p{Letter}/u.test(character) || /\p{Script=Latin}/u.test(character)), institution.id);
+      assert.ok([...expected].every(character => !/\p{Letter}/u.test(character) || /\p{Script=Latin}/u.test(character) || /[ʻʼ]/u.test(character)), institution.id);
     }
   }
   for (const [group, members] of coverage) assert.equal(members.size, registry.sources[group].expectedMembers, group);
+});
+
+test('University display names retain reviewed full names, capitalization and institution-specific separators', async () => {
+  const { context } = await runtimeFixture();
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  for (const [domain, name] of [
+    ['albany.edu', 'State University of New York at Albany'],
+    ['buffalo.edu', 'State University of New York at Buffalo'],
+    ['binghamton.edu', 'State University of New York at Binghamton'],
+    ['stonybrook.edu', 'State University of New York at Stony Brook'],
+    ['geneseo.edu', 'State University of New York College at Geneseo'],
+    ['purchase.edu', 'State University of New York College at Purchase'],
+    ['oldwestbury.edu', 'State University of New York at Old Westbury'],
+    ['cuny.edu', 'City University of New York'],
+    ['hunter.cuny.edu', 'Hunter College'],
+    ['mec.cuny.edu', 'Medgar Evers College'],
+    ['unc.edu', 'University of North Carolina at Chapel Hill'],
+    ['uncg.edu', 'University of North Carolina at Greensboro'],
+    ['charlotte.edu', 'The University of North Carolina at Charlotte'],
+    ['uic.edu', 'University of Illinois at Chicago'],
+    ['ucsd.edu', 'University of California, San Diego'],
+    ['manoa.hawaii.edu', 'University of Hawaiʻi at Mānoa'],
+    ['pacific.edu', 'University of the Pacific'],
+    ['uab.edu', 'The University of Alabama at Birmingham'],
+    ['uah.edu', 'The University of Alabama in Huntsville'],
+    ['uark.edu', 'University of Arkansas at Fayetteville'],
+    ['uta.edu', 'The University of Texas at Arlington'],
+    ['utdallas.edu', 'The University of Texas at Dallas'],
+    ['utep.edu', 'The University of Texas at El Paso'],
+    ['utsa.edu', 'The University of Texas at San Antonio'],
+    ['utexas.edu', 'The University of Texas at Austin'],
+    ['depaul.edu', 'DePaul University'],
+    ['desales.edu', 'DeSales University'],
+    ['dyu.edu', "D'Youville University"],
+    ['ncat.edu', 'North Carolina Agricultural and Technical State University'],
+    ['umkc.edu', 'University of Missouri–Kansas City'],
+    ['umsl.edu', 'University of Missouri–St. Louis'],
+    ['uwm.edu', 'University of Wisconsin–Milwaukee'],
+    ['unl.edu', 'University of Nebraska–Lincoln'],
+    ['newark.rutgers.edu', 'Rutgers University–Newark'],
+    ['uml.edu', 'University of Massachusetts Lowell']
+  ]) {
+    for (const locale of ['en-US', 'zh-CN']) assert.equal(lookup(`person@${domain}`, locale).name, name, `${domain}: ${locale}`);
+  }
+  for (const [domain, name] of [
+    ['nutc.edu.tw', 'National Taichung University of Science and Technology'],
+    ['ntub.edu.tw', 'National Taipei University of Business'],
+    ['nhu.edu.tw', 'Nanhua University'],
+    ['ctcn.edu.tw', 'Cardinal Tien Junior College of Healthcare & Management']
+  ]) {
+    assert.equal(lookup(`person@${domain}`).englishName, name, domain);
+    assert.equal(lookup(`person@${domain}`, 'zh-CN').englishName, undefined, domain);
+  }
 });
 
 test('University matching respects DNS boundaries, campus identity and localized region names', async () => {
@@ -156,7 +222,7 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('student@cmu.edu').region, 'Pennsylvania, USA');
   assert.equal(lookup('contact@CCCCO.EDU').name, 'California Community Colleges Chancellor’s Office');
   assert.equal(lookup('contact@office.cccco.edu', 'zh-CN').region, 'California, USA');
-  assert.equal(lookup('contact@cuny.edu').name, 'The City University of New York');
+  assert.equal(lookup('contact@cuny.edu').name, 'City University of New York');
   assert.equal(lookup('contact@ccny.cuny.edu').name, 'The City College of New York');
   assert.equal(lookup('contact@suny.edu').region, 'New York, USA');
   assert.equal(lookup('contact@uwsa.edu').name, 'Universities of Wisconsin');
@@ -204,7 +270,7 @@ test('Mailto Capture places school and region on separate lines without altering
     ['student@hku.edu', '香港大学', 'The University of Hong Kong', 'Hong Kong, China'],
     ['student@um.edu.mo', '澳门大学', 'University of Macau', 'Macau, China'],
     ['student@ntu.edu.tw', '国立台湾大学', 'National Taiwan University', 'Chinese Taipei'],
-    ['student@cuhk.edu.cn', '香港中文大学（深圳）', 'The Chinese University of Hong Kong, Shenzhen', 'China'],
+    ['student@cuhk.edu.cn', '香港中文大学（深圳）', 'China'],
     ['unknown@example.com']
   ]);
   runtime.locale = 'zh-CN';
@@ -213,6 +279,54 @@ test('Mailto Capture places school and region on separate lines without altering
   assert.deepEqual(localized.children[0].children[1].children[0].children.map(renderedText), ['person@ntu.edu.tw', '国立台湾大学', '中华台北']);
   assert.equal(runtime.messageText(capture).replace('收件人:', 'To:').replace('抄送:', 'CC:').replace('密送:', 'BCC:').replace('主题:', 'Subject:'), before);
   assert.doesNotMatch(before, /University|Illinois|北京大学|China/);
+});
+
+test('Mainland bilingual names follow reviewed university and campus eligibility rather than undergraduate status', async () => {
+  const { context } = await runtimeFixture();
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  for (const domain of ['pku.edu.cn', 'sjtu.edu.cn', 'en.sjtu.edu.cn', 'ucas.ac.cn', 'xjtlu.edu.cn', 'dukekunshan.edu.cn', 'shanghai.nyu.edu']) {
+    assert.ok(lookup(`person@${domain}`).englishName, domain);
+    assert.equal(lookup(`person@${domain}`, 'zh-CN').englishName, undefined, domain);
+  }
+  for (const domain of ['szu.edu.cn', 'ujs.edu.cn', 'westlake.edu.cn', 'nottingham.edu.cn', 'cuhk.edu.cn', 'hkust-gz.edu.cn']) {
+    assert.ok(lookup(`person@${domain}`).name, domain);
+    assert.equal(lookup(`person@${domain}`).englishName, undefined, domain);
+  }
+  const campus = lookup('person@students.xmu.edu.my');
+  assert.equal(campus.name, '厦门大学马来西亚分校');
+  assert.equal(campus.englishName, 'Xiamen University Malaysia');
+  assert.equal(campus.region, 'Malaysia');
+  assert.equal(lookup('person@xmu.edu.my', 'zh-CN').englishName, undefined);
+  assert.equal(lookup('person@morris.umn.edu').name, 'University of Minnesota–Morris');
+  assert.equal(lookup('person@umn.edu').name, 'University of Minnesota Twin Cities');
+  assert.equal(lookup('person@iu.edu').name, 'Indiana University');
+  assert.equal(lookup('person@southeast.iu.edu').name, 'Indiana University Southeast');
+  assert.equal(lookup('person@inter.edu').name, 'Inter American University of Puerto Rico');
+  assert.equal(lookup('person@metro.inter.edu').name, 'Inter American University of Puerto Rico–Metropolitan Campus');
+  assert.equal(lookup('person@pucpr.edu').name, 'Pontifical Catholic University of Puerto Rico');
+  assert.equal(lookup('person@hsc.edu').name, 'Hampden-Sydney College');
+});
+
+test('Regional higher education includes technological, open, religious and service institutions without empty English rows', async () => {
+  const { context, runtime } = await runtimeFixture();
+  const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.universities')];
+  for (const domain of ['ntust.edu.tw', 'nou.edu.tw', 'tbts.edu.tw', 'ndu.edu.tw', 'afats.khc.edu.tw', 'cpu.edu.tw', 'tpa.edu.tw']) {
+    assert.ok(lookup(`person@${domain}`)?.name, domain);
+    assert.equal(lookup(`person@${domain}`).region, 'Chinese Taipei', domain);
+  }
+  assert.equal(lookup('person@hlpolice.gov.cn').name, '黑龙江公安警官职业学院');
+  assert.equal(lookup('person@nwsuaf.cn'), null);
+  assert.equal(lookup('person@bwbc.blisswisdom.org'), null);
+  assert.equal(lookup('person@wp.ces.org.tw'), null);
+  assert.equal(lookup('person@khc.edu.tw'), null);
+  assert.equal(lookup('person@hkiit.edu.hk').name, '香港资讯科技学院');
+  assert.match(lookup('person@scs.cuhk.edu.hk').name, /专业进修学院/);
+  assert.equal(lookup('person@cuhk.edu.hk').name, '香港中文大学');
+  assert.equal(lookup('person@hku.hk').name, '香港大学');
+  context.document.createElement = tagName => new FakeElement(tagName);
+  const fields = new FakeElement('div');
+  runtime.appendEmailField(fields, 'To', ['person@ndu.edu.tw']);
+  assert.deepEqual(fields.children[0].children[1].children[0].children.map(renderedText), ['person@ndu.edu.tw', '国防大学', 'Chinese Taipei']);
 });
 
 test('Mailto Capture does not update a replacement dialog or run stale clipboard fallbacks', async () => {

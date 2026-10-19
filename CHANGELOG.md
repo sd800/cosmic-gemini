@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.16 — 2026-10-19
+
+- Expand the offline university-domain reference and improve institution/campus identification.
+- Refine school-name spelling, capitalization, bilingual display and regional institution/domain policies.
+
 ## 9.12.15 — 2026-10-19
 
 - In English, show English school names below Chinese names for mainland China, Hong Kong, Macau and Taiwan institutions, followed by the country or region.

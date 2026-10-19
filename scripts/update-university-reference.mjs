@@ -11,12 +11,25 @@ const raw = await readFile(input, 'utf8');
 const registry = JSON.parse(raw);
 assert.equal(registry.schema, 1);
 const records = [...registry.institutions].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+const byId = new Map(records.map(record => [record.id, record]));
+const mainlandEnglishNames = new Set(records.filter(record => record.coverage['cn-double-first']?.length).map(record => record.zh));
+// Decide bilingual eligibility at build time, including explicitly reviewed campus
+// relationships. A world-ranking entry or a similar domain is not eligibility.
+function hasMainlandEnglishName(record, seen = new Set()) {
+  if (mainlandEnglishNames.has(record.zh)) return true;
+  if (seen.has(record.id)) return false;
+  seen.add(record.id);
+  return (record.affiliations || []).some(id => {
+    const parent = byId.get(id);
+    return parent?.region === 'CN' && hasMainlandEnglishName(parent, seen);
+  });
+}
 const knownInstitutions = new Set(records.map(record => record.id));
 const ids = new Set();
 const domains = new Map();
 const addresses = new Set();
 const coverage = new Map(Object.keys(registry.sources).map(key => [key, new Set()]));
-const broadSuffixes = new Set(['edu', 'edu.cn', 'ac.cn', 'edu.hk', 'edu.mo', 'edu.tw', 'ac.uk', 'ac.jp', 'ac.kr', 'edu.au', 'gov.mo', 'google.com', 'outlook.com', 'gmail.com']);
+const broadSuffixes = new Set(['edu', 'ac', 'gov', 'mil', 'edu.cn', 'ac.cn', 'gov.cn', 'mil.cn', 'edu.hk', 'edu.mo', 'edu.tw', 'ac.tw', 'gov.tw', 'mil.tw', 'ac.uk', 'ac.jp', 'ac.kr', 'edu.au', 'gov.mo', 'google.com', 'outlook.com', 'gmail.com']);
 // Shared system roots describe the system, never an arbitrarily chosen campus.
 const sharedSystemSuffixes = new Set(['cuny.edu', 'suny.edu']);
 function hostname(value) {
@@ -28,7 +41,18 @@ function hostname(value) {
 const rows = records.map(record => {
   assert.ok(record.id && !ids.has(record.id), `Duplicate institution: ${record.id}`);
   ids.add(record.id);
-  assert.ok(typeof record.en === 'string' && record.en.trim() && record.en.length < 240);
+  assert.ok(typeof record.en === 'string' && record.en.length < 240);
+  // Source spellings remain in coverage; display names are reviewed, not
+  // mechanically title-cased or rewritten with one campus separator.
+  assert.equal(record.en, record.en.trim().replace(/\s+/gu, ' '), `Normalize display-name spacing: ${record.id}`);
+  assert.doesNotMatch(record.en, /,\S/u, `Missing space after a display-name comma: ${record.id}`);
+  if (record.nameEvidence) {
+    assert.ok(Array.isArray(record.nameEvidence) && record.nameEvidence.length);
+    for (const url of record.nameEvidence) assert.equal(new URL(url).protocol, 'https:');
+  }
+  if (!['CN', 'HK', 'MO', 'TW'].includes(record.region) && record.displayChineseName !== true) {
+    assert.ok(record.en.trim(), `Missing English school name: ${record.id}`);
+  }
   assert.ok(typeof record.zh === 'string' && record.zh.length < 240);
   assert.match(record.region, /^[A-Z]{2}$/);
   assert.equal(typeof record.subdivision, 'string');
@@ -42,9 +66,16 @@ const rows = records.map(record => {
     assert.ok(record.coverage['affiliated-campuses']?.length && record.evidence?.length, `Missing campus evidence: ${record.id}`);
     for (const parent of record.affiliations) assert.ok(parent !== record.id && knownInstitutions.has(parent), `Unknown campus affiliation: ${record.id}: ${parent}`);
   }
+  if (record.parentInstitutionId) {
+    assert.equal(record.region, 'HK');
+    assert.equal(byId.get(record.parentInstitutionId)?.region, 'HK', `Unknown provider parent: ${record.id}`);
+  }
   assert.ok(record.domains.length || record.addresses.length);
   for (const domain of record.domains) {
     hostname(domain);
+    if (['CN', 'TW'].includes(record.region)) {
+      assert.match(domain, /\.(?:edu|ac|gov|mil)(?:\.[a-z]{2})?$/, `Outside the required institution domain classes: ${domain}`);
+    }
     if (sharedSystemSuffixes.has(domain)) assert.equal(record.kind, 'system', `Do not assign a system root to one campus: ${domain}`);
     assert.ok(!domains.has(domain), `Domain belongs to more than one institution: ${domain}`);
     domains.set(domain, record.id);
@@ -62,16 +93,20 @@ const rows = records.map(record => {
       coverage.get(group).add(member);
     }
   }
-  const name = ['CN', 'HK', 'MO', 'TW'].includes(record.region) ? record.zh : record.en;
+  if (record.displayChineseName === true) {
+    assert.ok(record.region !== 'CN' && record.affiliations?.some(id => byId.get(id)?.region === 'CN'), `Missing mainland-campus affiliation: ${record.id}`);
+  }
+  const chineseName = ['CN', 'HK', 'MO', 'TW'].includes(record.region) || record.displayChineseName === true;
+  const name = chineseName ? record.zh : record.en;
   assert.ok(name, `Missing display name: ${record.id}`);
-  if (['CN', 'HK', 'MO', 'TW'].includes(record.region)) {
+  if (chineseName) {
     assert.match(name, /\p{Script=Han}/u, `Use a Chinese school name: ${record.id}`);
   } else {
     assert.doesNotMatch(name, /--|\s-\s/, `Use an en dash for display-name separators: ${record.id}`);
     assert.doesNotMatch(name, /[()（）\u3400-\u9fff]/, `Use an unabbreviated Latin-character name: ${record.id}`);
   }
   const row = [name, record.region, record.subdivision, [...record.domains].sort(), [...record.addresses].sort()];
-  if (['CN', 'HK', 'MO', 'TW'].includes(record.region)) {
+  if (record.en && chineseName && (record.region !== 'CN' || hasMainlandEnglishName(record))) {
     assert.doesNotMatch(record.en, /\p{Script=Han}|\([A-Z][A-Z0-9-]+\)|--|\s-\s/u, `Use the English school name without an acronym suffix: ${record.id}`);
     row.push(record.en);
   }
@@ -80,9 +115,23 @@ const rows = records.map(record => {
 for (const [group, members] of coverage) {
   assert.equal(members.size, registry.sources[group].expectedMembers, `Incomplete cohort: ${group}`);
 }
+// Account for the entire MOE source list, including intentionally unbundled
+// missing/outside-policy/shared-host records. Coverage counts must not hide gaps.
+const audit = JSON.parse(await readFile(new URL('../docs/reference-data/mailto-universities/mainland-domain-audit.json', import.meta.url), 'utf8'));
+assert.equal(audit.schools.length, audit.sourceCount);
+assert.equal(new Set(audit.schools.map(school => school.code)).size, audit.sourceCount);
+for (const [kind, count] of Object.entries(audit.counts)) {
+  assert.equal(audit.schools.filter(school => school.kind === kind).length, count);
+}
+for (const school of audit.schools) {
+  assert.ok(['mapped', 'outside-domain-policy', 'unresolved', 'shared-host-review'].includes(school.status));
+  if (school.status !== 'mapped') continue;
+  const record = byId.get(school.institution);
+  assert.ok(record?.coverage[`cn-moe-${school.kind}`]?.includes(school.name), `Unmapped source institution: ${school.name}`);
+}
 const hash = createHash('sha256').update(raw).digest('hex');
 const result = `// Generated by scripts/update-university-reference.mjs; reviewed ${registry.reviewed}.
-// Institutional domain facts: Hipo (MIT) and official directories; see university-domains-LICENSE.txt.
+// Domain facts: Hipo / GlobalUniversityHomePages (MIT) and official directories; see university-domains-LICENSE.txt.
 // Source editions, membership, campus locations and corrections: docs/reference-data/mailto-universities/.
 // Registry SHA-256: ${hash}
 (() => {
@@ -90,7 +139,7 @@ const result = `// Generated by scripts/update-university-reference.mjs; reviewe
   if (!globalThis[KEY]) globalThis[KEY] = Object.freeze(${JSON.stringify(rows)});
 })();
 `;
-assert.ok(Buffer.byteLength(result) < 180_000, 'Keep the injected offline reference compact.');
+assert.ok(Buffer.byteLength(result) < 260_000, 'Keep the injected offline reference compact.');
 if (process.argv.includes('--check')) {
   assert.equal(await readFile(output, 'utf8'), result, 'Regenerate the university reference after registry changes.');
 } else await writeFile(output, result);

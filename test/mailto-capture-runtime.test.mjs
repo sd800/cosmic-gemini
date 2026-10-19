@@ -116,7 +116,7 @@ test('University references cover every reviewed cohort and resolve all explicit
       assert.equal(lookup(`fixture@${domain}`).englishName, bilingual && institution.en ? institution.en : undefined, domain);
       assert.equal(lookup(`fixture@${domain}`, 'zh-CN').englishName, undefined, domain);
     }
-    for (const address of institution.addresses) assert.equal(lookup(address).name, expected);
+    assert.equal(institution.addresses.length, 0, institution.id);
     if (['US', 'CA'].includes(institution.region)) {
       const address = `fixture@${institution.domains[0]}`;
       assert.ok(lookup(address).region.startsWith(`${institution.subdivision}, `), institution.id);
@@ -302,7 +302,6 @@ test('University matching respects DNS boundaries, campus identity and localized
   }
   assert.equal(lookup('student@ntu.edu.tw').name, '国立台湾大学');
   assert.match(lookup('student@centennialcollege.hku.hk').name, /明德/);
-  assert.equal(lookup('esfsm-info@fsm.gov.mo').name, '澳门保安部队高等院校');
   for (const address of ['alice@example.com', 'alice@edu', 'alice@edu.cn', 'alice@harvard.edu.example.com',
     'alice@fakeharvard.edu', 'student@umd.umich.edu.evil.test', 'student@umdumich.edu',
     'contact@fakecccco.edu', 'contact@cccco.edu.evil.test',
@@ -313,7 +312,7 @@ test('University matching respects DNS boundaries, campus identity and localized
     'alice@harvаrd.edu', 'alice@harvard.edu@evil.test', 'alice@harvard.edu:80',
     'alice@harvard.edu/path', 'alice@harvard.edu?test', 'alice@harvard.edu%2eevil.test',
     'alice@fakecuhk.edu.cn', 'alice@hkust-gz.edu.cn.evil.test', 'alice@fakewustl.edu',
-    'other@fsm.gov.mo', '<alice@harvard.edu> trailing', 'a\n@mit.edu', 'not an email', null]) {
+    'esfsm-info@fsm.gov.mo', 'other@fsm.gov.mo', '<alice@harvard.edu> trailing', 'a\n@mit.edu', 'not an email', null]) {
     assert.equal(lookup(address), null, String(address));
   }
 });

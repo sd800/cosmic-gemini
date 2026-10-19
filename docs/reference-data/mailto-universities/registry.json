@@ -155,7 +155,7 @@
     },
     "mo": {
       "edition": "DSEDJ directory snapshot",
-      "expectedMembers": 10,
+      "expectedMembers": 9,
       "urls": [
         "https://portal.dsedj.gov.mo/webdsejspace/site/studyinmacau/sc/campus-information.html",
         "https://portal.dsedj.gov.mo/webdsejspace/site/studyinmacau/en/campus-information.html"
@@ -163,6 +163,10 @@
       "sha256": {
         "mo.html": "5a608f28f2232b90e84e5208b416e4f4a2a63ff8ae752308a83e719caf535a75",
         "mo-en.html": "6c8b6854c0bf372a048846786c0fa3e867427c16d3ce8b4d7f742a21a73365c4"
+      },
+      "sourceMembers": 10,
+      "excludedMembers": {
+        "Academy of Public Security Forces": "Shared government host; full-mailbox recognition is not included."
       }
     },
     "tw-general": {
@@ -4756,22 +4760,6 @@
         ],
         "us-graduate-reference": [
           "110556: California State University-Fresno"
-        ]
-      }
-    },
-    {
-      "id": "fsm.gov.mo",
-      "en": "Academy of Public Security Forces",
-      "zh": "澳门保安部队高等院校",
-      "region": "MO",
-      "subdivision": "",
-      "domains": [],
-      "addresses": [
-        "esfsm-info@fsm.gov.mo"
-      ],
-      "coverage": {
-        "mo": [
-          "Academy of Public Security Forces"
         ]
       }
     },

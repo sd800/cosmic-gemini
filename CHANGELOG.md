@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.20 — 2026-10-19
+
+- Refine offline institution recognition.
+
 ## 9.12.19 — 2026-10-19
 
 - Expand and refine the offline institution email-domain reference.

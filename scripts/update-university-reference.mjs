@@ -29,7 +29,6 @@ function hasMainlandEnglishName(record, seen = new Set()) {
 const knownInstitutions = new Set(records.map(record => record.id));
 const ids = new Set();
 const domains = new Map();
-const addresses = new Set();
 const coverage = new Map(Object.keys(registry.sources).map(key => [key, new Set()]));
 const broadSuffixes = new Set(['edu', 'ac', 'gov', 'mil', 'edu.cn', 'ac.cn', 'gov.cn', 'mil.cn', 'edu.hk', 'edu.mo', 'edu.tw', 'ac.tw', 'gov.tw', 'mil.tw', 'ac.uk', 'ac.jp', 'ac.kr', 'edu.au', 'gov.mo', 'google.com', 'outlook.com', 'gmail.com']);
 // Shared system roots describe the system, never an arbitrarily chosen campus.
@@ -75,7 +74,8 @@ const rows = records.map(record => {
     assert.equal(record.region, 'HK');
     assert.equal(byId.get(record.parentInstitutionId)?.region, 'HK', `Unknown provider parent: ${record.id}`);
   }
-  assert.ok(record.domains.length || record.addresses.length);
+  assert.ok(record.domains.length);
+  assert.equal(record.addresses.length, 0, `Use institution domains, not full mailbox identities: ${record.id}`);
   const scopedAcademicIdentity = ['CN', 'TW'].includes(record.region) && record.kind !== 'research-organization';
   const academicClass = /\.(?:edu|ac|gov|mil)(?:\.[a-z]{2})?$/;
   if (scopedAcademicIdentity) assert.ok(record.domains.some(domain => academicClass.test(domain)), `Missing academic institution host: ${record.id}`);
@@ -98,11 +98,6 @@ const rows = records.map(record => {
   for (const [domain, identity] of Object.entries(record.subdomainIdentities || {})) {
     assert.ok(record.domains.includes(domain) && siteKey(`https://${domain}`) !== domain, `Stale subdomain identity: ${domain}`);
     assert.ok(['institution', 'campus-or-institution'].includes(identity), `Unknown subdomain identity: ${domain}`);
-  }
-  for (const address of record.addresses) {
-    hostname(address.slice(address.lastIndexOf('@') + 1));
-    assert.ok(!addresses.has(address));
-    addresses.add(address);
   }
   assert.ok(Object.keys(record.coverage).length);
   for (const [group, members] of Object.entries(record.coverage)) {
@@ -193,4 +188,4 @@ assert.ok(Buffer.byteLength(result) < 400_000, 'Keep the injected offline refere
 if (process.argv.includes('--check')) {
   assert.equal(await readFile(output, 'utf8'), result, 'Regenerate the university reference after registry changes.');
 } else await writeFile(output, result);
-console.log(`${fileURLToPath(output)}: ${rows.length} institutions, ${domains.size} domain suffixes, ${addresses.size} exact shared-host mailboxes, ${Buffer.byteLength(result)} bytes.`);
+console.log(`${fileURLToPath(output)}: ${rows.length} institutions, ${domains.size} domain suffixes, ${Buffer.byteLength(result)} bytes.`);

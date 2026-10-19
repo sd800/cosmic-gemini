@@ -16,12 +16,10 @@
     const rows = globalThis[DATA_KEY];
     if (!Array.isArray(rows)) return null;
     const domains = new Map();
-    const addresses = new Map();
     for (const row of rows) {
       for (const domain of row[3]) domains.set(domain, row);
-      for (const address of row[4]) addresses.set(address, row);
     }
-    index = { domains, addresses };
+    index = domains;
     return index;
   }
 
@@ -41,7 +39,7 @@
     if (domain.length > 253 || !domain.includes('.') || domain.split('.').some(label => (
       !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
     ))) return null;
-    return { domain, address: `${local.toLowerCase()}@${domain}` };
+    return { domain };
   }
 
   function location(row, locale) {
@@ -65,10 +63,10 @@
     if (!parts) return null;
     const data = reference();
     if (!data) return null;
-    let row = data.addresses.get(parts.address);
+    let row;
     let domain = parts.domain;
     while (!row && domain.includes('.')) {
-      row = data.domains.get(domain);
+      row = data.get(domain);
       domain = domain.slice(domain.indexOf('.') + 1);
     }
     if (!row) return null;

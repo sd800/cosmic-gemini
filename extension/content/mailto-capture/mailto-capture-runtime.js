@@ -411,10 +411,18 @@
           const school = document.createElement('div');
           school.className = 'phone-location university-name';
           school.textContent = university.name;
+          entry.append(school);
+          if (university.englishName) {
+            const english = document.createElement('div');
+            english.className = 'phone-location university-english-name';
+            english.lang = 'en';
+            english.textContent = university.englishName;
+            entry.append(english);
+          }
           const region = document.createElement('div');
           region.className = 'phone-location university-region';
           region.textContent = university.region;
-          entry.append(school, region);
+          entry.append(region);
         }
         value.append(entry);
       }

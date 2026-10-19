@@ -11,6 +11,7 @@ const raw = await readFile(input, 'utf8');
 const registry = JSON.parse(raw);
 assert.equal(registry.schema, 1);
 const records = [...registry.institutions].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+const knownInstitutions = new Set(records.map(record => record.id));
 const ids = new Set();
 const domains = new Map();
 const addresses = new Set();
@@ -36,6 +37,10 @@ const rows = records.map(record => {
     assert.equal(record.region, 'US');
     assert.ok(record.coverage['us-systems']?.length && record.evidence?.length, `Missing official system evidence: ${record.id}`);
     for (const url of record.evidence) assert.equal(new URL(url).protocol, 'https:');
+  }
+  if (record.affiliations) {
+    assert.ok(record.coverage['affiliated-campuses']?.length && record.evidence?.length, `Missing campus evidence: ${record.id}`);
+    for (const parent of record.affiliations) assert.ok(parent !== record.id && knownInstitutions.has(parent), `Unknown campus affiliation: ${record.id}: ${parent}`);
   }
   assert.ok(record.domains.length || record.addresses.length);
   for (const domain of record.domains) {
@@ -65,7 +70,12 @@ const rows = records.map(record => {
     assert.doesNotMatch(name, /--|\s-\s/, `Use an en dash for display-name separators: ${record.id}`);
     assert.doesNotMatch(name, /[()（）\u3400-\u9fff]/, `Use an unabbreviated Latin-character name: ${record.id}`);
   }
-  return [name, record.region, record.subdivision, [...record.domains].sort(), [...record.addresses].sort()];
+  const row = [name, record.region, record.subdivision, [...record.domains].sort(), [...record.addresses].sort()];
+  if (['CN', 'HK', 'MO', 'TW'].includes(record.region)) {
+    assert.doesNotMatch(record.en, /\p{Script=Han}|\([A-Z][A-Z0-9-]+\)|--|\s-\s/u, `Use the English school name without an acronym suffix: ${record.id}`);
+    row.push(record.en);
+  }
+  return row;
 });
 for (const [group, members] of coverage) {
   assert.equal(members.size, registry.sources[group].expectedMembers, `Incomplete cohort: ${group}`);

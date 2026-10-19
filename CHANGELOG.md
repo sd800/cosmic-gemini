@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.15 — 2026-10-19
+
+- In English, show English school names below Chinese names for mainland China, Hong Kong, Macau and Taiwan institutions, followed by the country or region.
+- Expand recognized affiliated-campus domains and university aliases while retaining each campus’s own identity and location.
+
 ## 9.12.13 — 2026-10-19
 
 - Match the University of Michigan–Dearborn’s legacy email domain to its campus and standardize separators in university display names.

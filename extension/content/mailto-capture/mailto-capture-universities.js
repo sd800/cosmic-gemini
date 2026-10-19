@@ -71,7 +71,10 @@
       row = data.domains.get(domain);
       domain = domain.slice(domain.indexOf('.') + 1);
     }
-    return row ? { name: row[0], region: location(row, locale) } : null;
+    if (!row) return null;
+    const result = { name: row[0], region: location(row, locale) };
+    if (locale === 'en-US' && row[5]) result.englishName = row[5];
+    return result;
   }
 
   Object.defineProperty(globalThis, KEY, { value: Object.freeze({ lookup }), configurable: true });

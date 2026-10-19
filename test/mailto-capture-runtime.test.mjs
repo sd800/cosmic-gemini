@@ -96,6 +96,8 @@ test('University references cover every reviewed cohort and resolve all explicit
     for (const domain of institution.domains) {
       assert.equal(lookup(`fixture@${domain}`).name, expected, domain);
       assert.equal(lookup(`fixture@${domain}`, 'zh-CN').name, expected, domain);
+      assert.equal(lookup(`fixture@${domain}`).englishName, ['CN', 'HK', 'MO', 'TW'].includes(institution.region) ? institution.en : undefined, domain);
+      assert.equal(lookup(`fixture@${domain}`, 'zh-CN').englishName, undefined, domain);
     }
     for (const address of institution.addresses) assert.equal(lookup(address).name, expected);
     if (['US', 'CA'].includes(institution.region)) {
@@ -131,6 +133,27 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('student@camden.rutgers.edu').name, 'Rutgers University–Camden');
   assert.equal(lookup('student@illinois.edu').name, 'University of Illinois at Urbana-Champaign');
   assert.equal(lookup('student@univ-amu.fr').name, 'Aix-Marseille Université');
+  for (const [address, name, region] of [
+    ['student@umflint.edu', 'University of Michigan–Flint', 'Michigan, USA'],
+    ['student@flint.umich.edu', 'University of Michigan–Flint', 'Michigan, USA'],
+    ['student@cuhk.edu.cn', '香港中文大学（深圳）', 'China'],
+    ['student@department.hkust-gz.edu.cn', '香港科技大学（广州）', 'China'],
+    ['student@shanghai.nyu.edu', '上海纽约大学', 'China'],
+    ['student@nyuad.nyu.edu', 'New York University Abu Dhabi', 'United Arab Emirates'],
+    ['student@qatar.northwestern.edu', 'Northwestern University in Qatar', 'Qatar'],
+    ['student@qatar.cmu.edu', 'Carnegie Mellon University in Qatar', 'Qatar'],
+    ['student@nottingham.edu.my', 'University of Nottingham Malaysia', 'Malaysia'],
+    ['student@wustl.edu', 'Washington University in St. Louis', 'Missouri, USA'],
+    ['student@email.wustl.edu', 'Washington University in St. Louis', 'Missouri, USA']
+  ]) {
+    assert.equal(lookup(address).name, name, address);
+    assert.equal(lookup(address).region, region, address);
+  }
+  for (const [alias, primary] of [['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['uic.edu.cn', 'bnbu.edu.cn'], ['dku.edu.cn', 'dukekunshan.edu.cn']]) {
+    assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`))), JSON.parse(JSON.stringify(lookup(`contact@${primary}`))), alias);
+  }
+  assert.equal(lookup('student@cs.nyu.edu').name, 'New York University');
+  assert.equal(lookup('student@cmu.edu').region, 'Pennsylvania, USA');
   assert.equal(lookup('contact@CCCCO.EDU').name, 'California Community Colleges Chancellor’s Office');
   assert.equal(lookup('contact@office.cccco.edu', 'zh-CN').region, 'California, USA');
   assert.equal(lookup('contact@cuny.edu').name, 'The City University of New York');
@@ -154,7 +177,8 @@ test('University matching respects DNS boundaries, campus identity and localized
     'contact@fakecccco.edu', 'contact@cccco.edu.evil.test',
     'alice@harvаrd.edu', 'alice@harvard.edu@evil.test', 'alice@harvard.edu:80',
     'alice@harvard.edu/path', 'alice@harvard.edu?test', 'alice@harvard.edu%2eevil.test',
-    'alice@cuhk.edu.cn', 'other@fsm.gov.mo', '<alice@harvard.edu> trailing', 'a\n@mit.edu', 'not an email', null]) {
+    'alice@fakecuhk.edu.cn', 'alice@hkust-gz.edu.cn.evil.test', 'alice@fakewustl.edu',
+    'other@fsm.gov.mo', '<alice@harvard.edu> trailing', 'a\n@mit.edu', 'not an email', null]) {
     assert.equal(lookup(address), null, String(address));
   }
 });
@@ -173,7 +197,16 @@ test('Mailto Capture places school and region on separate lines without altering
     ['ALICE+sample@uchicago.edu', 'University of Chicago', 'Illinois, USA'],
     ['unknown@example.com']
   ]);
-  assert.deepEqual(parent.children[1].children[1].children[0].children.map(renderedText), ['student@pku.edu.cn', '北京大学', 'China']);
+  assert.deepEqual(parent.children[1].children[1].children[0].children.map(renderedText), ['student@pku.edu.cn', '北京大学', 'Peking University', 'China']);
+  const bilingual = new FakeElement('div');
+  runtime.appendEmailField(bilingual, 'To', ['student@hku.edu', 'student@um.edu.mo', 'student@ntu.edu.tw', 'student@cuhk.edu.cn', 'unknown@example.com']);
+  assert.deepEqual(bilingual.children[0].children[1].children.map(entry => entry.children.map(renderedText)), [
+    ['student@hku.edu', '香港大学', 'The University of Hong Kong', 'Hong Kong, China'],
+    ['student@um.edu.mo', '澳门大学', 'University of Macau', 'Macau, China'],
+    ['student@ntu.edu.tw', '国立台湾大学', 'National Taiwan University', 'Chinese Taipei'],
+    ['student@cuhk.edu.cn', '香港中文大学（深圳）', 'The Chinese University of Hong Kong, Shenzhen', 'China'],
+    ['unknown@example.com']
+  ]);
   runtime.locale = 'zh-CN';
   const localized = new FakeElement('div');
   runtime.appendEmailField(localized, '密送', capture.bcc);

@@ -60,13 +60,23 @@ try {
       return { fields, actions: [...shadow.querySelectorAll('.actions button')].map(button => button.textContent), copied: runtime.messageText(), schoolFont: getComputedStyle(school).fontSize, addressFont: getComputedStyle(address).fontSize, overflow: document.documentElement.scrollWidth > innerWidth };
     });
     assert.deepEqual(snapshot.fields[0].entries, [['fixture+sample@uchicago.edu', 'University of Chicago', 'Illinois, USA'], ['unknown@example.com']]);
-    assert.deepEqual(snapshot.fields[1].entries, [['fixture@pku.edu.cn', '北京大学', locale === 'zh-CN' ? '中国' : 'China']]);
-    assert.deepEqual(snapshot.fields[2].entries, [['fixture@ntu.edu.tw', '国立台湾大学', locale === 'zh-CN' ? '中华台北' : 'Chinese Taipei']]);
+    assert.deepEqual(snapshot.fields[1].entries, [['fixture@pku.edu.cn', '北京大学', ...(locale === 'en-US' ? ['Peking University'] : []), locale === 'zh-CN' ? '中国' : 'China']]);
+    assert.deepEqual(snapshot.fields[2].entries, [['fixture@ntu.edu.tw', '国立台湾大学', ...(locale === 'en-US' ? ['National Taiwan University'] : []), locale === 'zh-CN' ? '中华台北' : 'Chinese Taipei']]);
     assert.deepEqual(snapshot.actions, [locale === 'zh-CN' ? '复制邮件内容' : 'Copy message']);
     assert.equal(snapshot.schoolFont, snapshot.addressFont);
+    assert.equal(await page.evaluate(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')].shadow.querySelectorAll('.university-english-name').length), locale === 'en-US' ? 2 : 0);
     assert.equal(snapshot.overflow, false);
     assert.doesNotMatch(snapshot.copied, /University|Illinois|北京大学|中华台北/);
     await page.screenshot({ path: join(artifacts, `${locale}-${scheme}.png`) });
+    if (locale === 'en-US') {
+      assert.equal((await send({ type: 'UI_SET_LOCALE', locale: 'zh-CN' })).ok, true);
+      await page.waitForFunction(() => {
+        const runtime = globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')];
+        return runtime.locale === 'zh-CN' && !runtime.shadow.querySelector('.university-english-name');
+      });
+      assert.equal((await send({ type: 'UI_SET_LOCALE', locale: 'en-US' })).ok, true);
+      await page.waitForFunction(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')].shadow.querySelectorAll('.university-english-name').length === 2);
+    }
     await page.locator('#outside').click();
     await page.waitForFunction(() => !globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.host?.isConnected);
     results.push({ locale, scheme, ...snapshot });
@@ -76,7 +86,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(externalRequests, []);
   await writeFile(join(artifacts, 'report.json'), JSON.stringify({ results, errors, externalRequests, disabledCleanup: true }, null, 2));
-  await writeFile(join(artifacts, 'README.md'), '# Mailto Capture browser QA\n\nDisposable Chrome profile; local fixture addresses only. Screenshots/report cover actual product injection, separate school/region lines, English/light and Chinese/dark, copy-only controls, unchanged copied mail data, outside dismissal and disabled cleanup. No real mailbox, external website or operating-system mail application was opened.\n');
+  await writeFile(join(artifacts, 'README.md'), '# Mailto Capture browser QA\n\nDisposable Chrome profile; local fixture addresses only. Screenshots/report cover actual product injection, Chinese/English/region order in English UI and Chinese/region order in Chinese UI, live locale changes, English/light and Chinese/dark, copy-only controls, unchanged copied mail data, outside dismissal and disabled cleanup. No real mailbox, external website or operating-system mail application was opened.\n');
   console.log('PASS: university metadata injection/rendering, both locales/themes, unchanged mail fields, copy-only actions, dismissal, cleanup; no external requests/page errors.');
 } finally {
   await context?.close();

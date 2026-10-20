@@ -265,6 +265,8 @@ test('University matching respects DNS boundaries, campus identity and localized
     ['department.UCLOSANGELES.EDU', 'ucla.edu'],
     ['UCSANFRANCISCO.EDU', 'ucsf.edu'],
     ['department.ucsanfrancisco.edu', 'ucsf.edu'],
+    ['USEOUL.EDU', 'snu.ac.kr'],
+    ['department.useoul.edu', 'snu.ac.kr'],
     ['ucsandiego.edu', 'ucsd.edu'],
     ['department.ucsandiego.edu', 'ucsd.edu'],
     ['ucsantabarbara.edu', 'ucsb.edu'],

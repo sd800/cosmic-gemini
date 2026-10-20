@@ -15039,7 +15039,8 @@
       "region": "KR",
       "subdivision": "",
       "domains": [
-        "snu.ac.kr"
+        "snu.ac.kr",
+        "useoul.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -15051,6 +15052,11 @@
         ],
         "kr-academyinfo": [
           "0000019: 서울대학교"
+        ]
+      },
+      "aliasEvidence": {
+        "useoul.edu": [
+          "https://oga.snu.ac.kr/sites/default/files/2023-06/1-2.%20Graduate%20Scholarship%20for%20Foreign%20Students%20%28GSFS%29%20Guide_Spring%202024.pdf"
         ]
       }
     },

@@ -17519,7 +17519,8 @@
       "subdivision": "Illinois",
       "domains": [
         "uchicago.edu",
-        "chicagobooth.edu"
+        "chicagobooth.edu",
+        "chicagogsb.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17542,13 +17543,18 @@
       "aliasEvidence": {
         "chicagobooth.edu": [
           "https://www.chicagobooth.edu/why-booth/stories/125-years-of-ideas-innovation-and-impact"
+        ],
+        "chicagogsb.edu": [
+          "https://faculty.chicagobooth.edu/george.wu/research/index.html"
         ]
       },
       "aliasNotes": {
-        "chicagobooth.edu": "Non-independent university school/unit: University of Chicago Booth School of Business. Resolve the educational root and its subdomains to the parent university, not a separate institution."
+        "chicagobooth.edu": "Non-independent university school/unit: University of Chicago Booth School of Business. Resolve the educational root and its subdomains to the parent university, not a separate institution.",
+        "chicagogsb.edu": "Historical university school domain: University of Chicago Graduate School of Business. Retain the user-requested Graduate School of Business second-line label on this domain and its subdomains; chicagobooth.edu keeps its current Booth School of Business label. Both retain the parent University of Chicago identity."
       },
       "unitNames": {
-        "chicagobooth.edu": "Booth School of Business"
+        "chicagobooth.edu": "Booth School of Business",
+        "chicagogsb.edu": "Graduate School of Business"
       }
     },
     {

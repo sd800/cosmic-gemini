@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.38 — 2026-10-19
+
+- Expand historical university school-domain recognition.
+
 ## 9.12.37 — 2026-10-19
 
 - Expand historical university-domain recognition and school-unit labels.

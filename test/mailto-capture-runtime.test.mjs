@@ -292,6 +292,9 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).region, region, address);
   }
   for (const [alias, primary, unitName] of [
+    ['uchospitals.edu', 'uchicago.edu', 'University of Chicago Medical Center'],
+    ['department.UCHOSPITALS.EDU', 'uchicago.edu', 'University of Chicago Medical Center'],
+    ['medicine.uchicago.edu', 'uchicago.edu'],
     ['uva.edu', 'virginia.edu'],
     ['department.UVA.EDU', 'virginia.edu'],
     ['penn.edu', 'upenn.edu'],
@@ -502,6 +505,7 @@ test('University matching respects DNS boundaries, campus identity and localized
     'contact@fakesi.edu', 'contact@nmns.edu.tw.evil.test',
     'contact@fakeias.edu', 'contact@ias.edu.evil.test', 'contact@whoi.edu.evil.test',
     'contact@fakechicagobooth.edu', 'contact@chicagobooth.edu.evil.test',
+    'contact@fakeuchospitals.edu', 'contact@uchospitals.edu.evil.test',
     'contact@fakechicagogsb.edu', 'contact@chicagogsb.edu.evil.test',
     'contact@fakehbs.edu', 'contact@hbs.edu.evil.test', 'contact@jhsph.edu.evil.test',
     'contact@jhuapl.edu.evil.test', 'contact@wharton.edu.evil.test', 'contact@iese.edu.evil.test',

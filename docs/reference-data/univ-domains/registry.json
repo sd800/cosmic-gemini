@@ -17649,9 +17649,10 @@
       "region": "US",
       "subdivision": "Illinois",
       "domains": [
-        "uchicago.edu",
         "chicagobooth.edu",
-        "chicagogsb.edu"
+        "chicagogsb.edu",
+        "uchicago.edu",
+        "uchospitals.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17677,15 +17678,20 @@
         ],
         "chicagogsb.edu": [
           "https://faculty.chicagobooth.edu/george.wu/research/index.html"
+        ],
+        "uchospitals.edu": [
+          "https://www.uchicagomedicine.org/patients-visitors/patient-information/insurance/affordable-care-act-plans"
         ]
       },
       "aliasNotes": {
         "chicagobooth.edu": "Non-independent university school/unit: University of Chicago Booth School of Business. Resolve the educational root and its subdomains to the parent university, not a separate institution.",
-        "chicagogsb.edu": "Historical university school domain: University of Chicago Graduate School of Business. Retain the user-requested Graduate School of Business second-line label on this domain and its subdomains; chicagobooth.edu keeps its current Booth School of Business label. Both retain the parent University of Chicago identity."
+        "chicagogsb.edu": "Historical university school domain: University of Chicago Graduate School of Business. Retain the user-requested Graduate School of Business second-line label on this domain and its subdomains; chicagobooth.edu keeps its current Booth School of Business label. Both retain the parent University of Chicago identity.",
+        "uchospitals.edu": "University medical-unit display grouping requested by the user. Official UChicago Medicine patient-information pages use this educational domain. Retain the parent University of Chicago identity with the University of Chicago Medical Center unit label; grouping does not identify the employer or affiliation of every mailbox holder."
       },
       "unitNames": {
         "chicagobooth.edu": "Booth School of Business",
-        "chicagogsb.edu": "Graduate School of Business"
+        "chicagogsb.edu": "Graduate School of Business",
+        "uchospitals.edu": "University of Chicago Medical Center"
       }
     },
     {

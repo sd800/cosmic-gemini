@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.42 — 2026-10-19
+
+- Expand university unit-domain coverage.
+
 ## 9.12.41 — 2026-10-19
 
 - Expand institutional domain aliases.

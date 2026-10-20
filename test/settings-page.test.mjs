@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createSettingsState } from '../extension/settings/state.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS } from '../extension/core/website-rule-input.js';
-import { PRODUCT_META, featureFromPath, viewFor, documentOpenCardMarkup } from '../extension/settings/views.js';
+import { PRODUCT_META, featureFromPath, viewFor, documentOpenShortcutMarkup } from '../extension/settings/views.js';
 import { FEATURE_IDS, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../extension/core/config.js';
 import { DEVELOPER_FEATURES, featureAffiliation } from '../extension/settings/developer-mode.js';
 import { translator } from '../extension/shared/localization.js';
@@ -79,8 +79,9 @@ test('static Settings documents and in-page navigation views stay identical', ()
     assert.deepEqual(activeLinks, [featureId], `${meta.path} must identify only its own navigation destination as active`);
     assert.equal(featureFromPath(`/settings/${meta.path}`), featureId);
     if (featureId === 'allSettings') {
-      const shortcut = settingsRegion(html, /(<section class="card compact document-shortcut-card"[\s\S]*?<\/section>)/, 'All Settings document shortcut');
-      assert.equal(normalizeSettingsMarkup(shortcut), normalizeSettingsMarkup(documentOpenCardMarkup()));
+      const shortcut = settingsRegion(html, /(<div class="document-shortcut"[\s\S]*?)\n      <\/section>/, 'All Settings document shortcut');
+      assert.equal(normalizeSettingsMarkup(shortcut), normalizeSettingsMarkup(documentOpenShortcutMarkup()));
+      assert.match(html, /class="card compact language-card has-document">[\s\S]*?class="language-row">[\s\S]*?id="document-preview-shortcut"[\s\S]*?<\/section>/);
       assert.ok(html.indexOf('language-card') < html.indexOf('document-preview-shortcut'));
       assert.ok(html.indexOf('document-preview-shortcut') < html.indexOf('reset-settings-card'));
     }

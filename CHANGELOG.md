@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.20.6 — 2026-10-20
+
+- Combine Language and the Document Preview file shortcut into one All Settings sidebar card, separated by a divider.
+
 ## 26.10.20.5 — 2026-10-20
 
 - Adopt calendar versioning in the form YY.M.D.NUM, with a sequential revision number for each day.

@@ -21,7 +21,7 @@ const email=emailMetadataSample.replace('by inbox.example.test;', 'by inbox.exam
 await writeFile(join(samples,'sample.eml'),email);
 await writeFile(join(samples,'plain.eml'),'From: Example <contact@example.test>\r\nTo: reader@example.test\r\nSubject: Plain text reading notes\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nHello Alex,\r\n\r\n  Two spaces stay here.\r\n    Four spaces stay here.\r\n\r\nRegards,\r\nExample');
 for(const [format,entries] of [['xlsx',spreadsheetEntries()],['pptx',presentationEntries()]]) await writeFile(join(samples,'sample.'+format),Buffer.from(storedZip(entries)));
-await writeFile(join(samples, 'README.md'), '# Local document fixtures\n\nSynthetic RTF/PDF/EML/XLSX/PPTX files, gesture tests, and light/dark/narrow EML screenshots from `scripts/test-document-local-browser.mjs`. The script recreates fixtures in this ignored directory. It tests native file selection, RAM-backed reload, safe mail layout, and ctrl-wheel pinch zoom across document/sheet/slide readers using a disposable Chrome profile. Use `DOCUMENT_QA=email` for metadata-only changes; screenshots include default, expanded, bilingual, and narrow mail layouts. No personal files or browser profiles are saved here.\n');
+await writeFile(join(samples, 'README.md'), '# Local document fixtures\n\nSynthetic RTF/PDF/EML/XLSX/PPTX files, gesture tests, and light/dark/narrow EML screenshots from `scripts/test-document-local-browser.mjs`. The script recreates fixtures in this ignored directory. It tests native file selection, RAM-backed reload, safe mail layout, and ctrl-wheel pinch zoom across document/sheet/slide readers using a disposable Chrome profile. Use `DOCUMENT_QA=settings` for the shared language/file-opening card, or `DOCUMENT_QA=email` for metadata-only changes; screenshots include default, expanded, bilingual, and narrow mail layouts. No personal files or browser profiles are saved here.\n');
 await mkdir(join(profile,'Default'),{recursive:true});
 await writeFile(join(profile,'Default','Preferences'),JSON.stringify({download:{default_directory:join(profile,'downloads'),prompt_for_download:false}}));
 const extension = resolve('extension');
@@ -43,12 +43,14 @@ try {
   assert.equal(await settings.locator('#documentPreviewOptions').evaluate(node => node.disabled), true);
   await settings.locator('[data-feature-link="allSettings"]').click();
   await settings.locator('#document-preview-shortcut').waitFor();
-  let shortcut=settings.locator('#document-preview-shortcut');
-  assert.equal(await shortcut.evaluate(e=>e.previousElementSibling.classList.contains('language-card')),true);
+  const shortcut=settings.locator('#document-preview-shortcut');
+  assert.equal(await shortcut.evaluate(e=>e.parentElement.classList.contains('language-card')),true);
   const labelBox=await shortcut.locator('strong').boundingBox(),buttonBox=await button.boundingBox();
-  const languageCard=settings.locator('.language-card'),languageCardBox=await languageCard.boundingBox(),shortcutBox=await shortcut.boundingBox();
-  assert.equal(shortcutBox.width,languageCardBox.width);assert.equal(shortcutBox.height,languageCardBox.height);
-  assert.equal(labelBox.x,(await languageCard.locator('strong').boundingBox()).x);
+  const languageCard=settings.locator('.language-card'),languageRow=languageCard.locator('.language-row'),shortcutRow=shortcut.locator('.document-shortcut-row');
+  assert.equal((await shortcutRow.boundingBox()).width,(await languageRow.boundingBox()).width);
+  assert.equal((await shortcutRow.boundingBox()).height,(await languageRow.boundingBox()).height);
+  assert.equal(labelBox.x,(await languageRow.locator('strong').boundingBox()).x);
+  assert.equal(await shortcut.evaluate(e=>getComputedStyle(e).borderTopWidth),'1px');
   const languageSelectBox=await languageCard.locator('#language').boundingBox();
   assert.equal(buttonBox.x+buttonBox.width,languageSelectBox.x+languageSelectBox.width);
   assert.equal(buttonBox.height,languageSelectBox.height);
@@ -56,6 +58,7 @@ try {
   assert.ok(Math.abs(buttonBox.y+buttonBox.height/2-labelBox.y-labelBox.height/2)<1);
   await settings.locator('[data-feature-link="satellites"]').click();
   assert.equal(await settings.locator('#document-preview-shortcut').count(),0);
+  assert.equal(await languageCard.locator('.language-row').count(),0,'other settings retain their original compact language card');
   await settings.locator('[data-feature-link="allSettings"]').click();
   await settings.locator('#document-preview-shortcut').waitFor();
   assert.equal(await button.count(),1);
@@ -64,6 +67,26 @@ try {
     const chooser = settings.waitForEvent('filechooser'); await button.click();
     await (await chooser).setFiles(payload);
   };
+  if (process.env.DOCUMENT_QA === 'settings') {
+    const before=context.pages().length;
+    await choose([]);assert.equal(context.pages().length,before);
+    await choose({name:'unsupported.txt',mimeType:'text/plain',buffer:Buffer.from('unsupported')});
+    await shortcut.locator('.document-open-message').filter({hasText:/supported file formats/}).waitFor();
+    await choose([]);assert.equal(await shortcut.locator('.document-open-message').isVisible(),false);
+    const opened=context.waitForEvent('page');await choose(join(samples,'sample.rtf'));const reader=await opened;
+    await reader.frameLocator('#document').locator('body').filter({hasText:'Local document preview.'}).waitFor();
+    await reader.close();
+    await settings.locator('#language').selectOption('zh-CN');await button.filter({hasText:'打开文件'}).waitFor();
+    await settings.emulateMedia({colorScheme:'dark'});
+    await settings.screenshot({path:join(samples,'all-settings-open-file-zh-dark.png')});
+    await settings.setViewportSize({width:480,height:800});
+    assert.equal(await settings.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    const title=await shortcut.locator('strong').boundingBox(),action=await button.boundingBox();
+    assert.ok(action.x>=title.x+title.width);
+    await settings.screenshot({path:join(samples,'all-settings-open-file-zh-narrow.png')});
+    assert.deepEqual(external,[]);
+    console.log('PASS: shared Language/Document Preview card, divider, alignment, in-page navigation, file opening with capture off, error placement, and bilingual/dark/narrow layouts.');
+  } else {
   async function gesture(reader, selector) {
     const frame=await (await reader.locator('#document').elementHandle()).contentFrame();
     const box=await frame.locator(selector).first().boundingBox(), toolbar=await reader.locator('header').boundingBox();
@@ -258,4 +281,5 @@ try {
     throw Error('Local file references were not released after closing previews.');
   });
   console.log(emailOnly?'PASS: All Settings native file opening, local email language switching, delivery layout and contextual explanations, preserved message/scroll/raw data, light/dark/narrow layouts, inert metadata, no remote requests or extension errors.':'PASS: native file selection, RTF/EML/XLSX/PPTX gesture zoom, fixed toolbar/slide rail, email headers/body/tables/inert attachments, light/dark/narrow layouts, plain-text spacing, PDF preview, RAM-backed reload/cleanup, no network or extension errors.');
+  }
 } finally { await context?.close(); await rm(profile, { recursive:true, force:true }); }

@@ -6,7 +6,7 @@ import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
 import { bindDocumentOpen } from './document-open.js';
-import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesDirectoryMarkup, documentOpenCardMarkup, viewFor } from './views.js';
+import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesDirectoryMarkup, documentOpenShortcutMarkup, viewFor } from './views.js';
 
 const claimSettings = openedAt => void send({ type: 'UI_SETTINGS_OPENED', openedAt }).catch(() => {});
 claimSettings(performance.timeOrigin);
@@ -1353,9 +1353,24 @@ function syncSatelliteDirectory() {
 }
 
 function syncDocumentShortcut() {
-  let card=document.querySelector('#document-preview-shortcut');
-  if(featureId!=='allSettings'){card?.remove();return;}
-  if(!card){const template=document.createElement('template');template.innerHTML=documentOpenCardMarkup();card=template.content.firstElementChild;document.querySelector('.language-card').after(card);}
+  const card = document.querySelector('.language-card');
+  let shortcut = document.querySelector('#document-preview-shortcut');
+  let row = card.querySelector('.language-row');
+  if (featureId !== 'allSettings') {
+    shortcut?.remove();
+    if (row) row.replaceWith(...row.childNodes);
+    card.classList.remove('has-document');
+    return;
+  }
+  if (!row) {
+    row = document.createElement('div'); row.className = 'language-row';
+    row.append(...card.childNodes); card.append(row);
+  }
+  card.classList.add('has-document');
+  if (!shortcut) {
+    const template = document.createElement('template'); template.innerHTML = documentOpenShortcutMarkup();
+    card.append(template.content.firstElementChild);
+  }
 }
 
 function mountView(replace = true) {

@@ -391,8 +391,9 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .knowledge-card .satellite-privacy { margin-top: 0; }
 .document-preview-options + .satellite-privacy, .white-softer-options + .satellite-privacy { margin-top: 0; }
 .document-preview-control { flex-direction: column; align-items: flex-end; gap: 18px; }
-.document-shortcut-card { display: block; min-height: 62px; padding: 14px 16px; }
-.document-shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.language-card.has-document { display: block; }
+.language-row, .document-shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.document-shortcut { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .document-shortcut-row strong { min-width: 0; overflow-wrap: anywhere; }
 .document-shortcut-row .document-open { flex: none; }
 .document-shortcut-row .primary-button { height: 34px; padding: 0 12px; }

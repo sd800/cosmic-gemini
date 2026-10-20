@@ -81,6 +81,10 @@ test('static Settings documents and in-page navigation views stay identical', ()
     if (featureId === 'allSettings') {
       const shortcut = settingsRegion(html, /(<div class="document-shortcut"[\s\S]*?)\n      <\/section>/, 'All Settings document shortcut');
       assert.equal(normalizeSettingsMarkup(shortcut), normalizeSettingsMarkup(documentOpenShortcutMarkup()));
+      assert.match(shortcut, /data-i18n="allSettingsDocumentPreview"/);
+      assert.equal(translator('zh-CN')('allSettingsDocumentPreview'), '文件预览');
+      assert.equal(translator('en-US')('allSettingsDocumentPreview'), 'Document Preview');
+      assert.equal(translator('zh-CN')('documentPreviewName'), 'Document Preview');
       assert.match(html, /class="card compact language-card has-document">[\s\S]*?class="language-row">[\s\S]*?id="document-preview-shortcut"[\s\S]*?<\/section>/);
       assert.ok(html.indexOf('language-card') < html.indexOf('document-preview-shortcut'));
       assert.ok(html.indexOf('document-preview-shortcut') < html.indexOf('reset-settings-card'));

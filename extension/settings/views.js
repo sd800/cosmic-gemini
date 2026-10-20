@@ -163,7 +163,7 @@ export function featureFromPath(pathname) {
 
 export function documentOpenShortcutMarkup() {
   return `<div class="document-shortcut" id="document-preview-shortcut">
-          <div class="document-shortcut-row"><strong data-i18n="documentPreviewName"></strong><div class="document-open"><button id="documentOpenFile" class="primary-button" type="button" data-i18n="documentOpenFile"></button><input type="file" hidden aria-labelledby="documentOpenFile"></div></div>
+          <div class="document-shortcut-row"><strong data-i18n="allSettingsDocumentPreview"></strong><div class="document-open"><button id="documentOpenFile" class="primary-button" type="button" data-i18n="documentOpenFile"></button><input type="file" hidden aria-labelledby="documentOpenFile"></div></div>
           <p class="form-message document-open-message" role="status"></p>
         </div>`;
 }

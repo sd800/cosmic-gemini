@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.20.7 — 2026-10-20
+
+- Localize the All Settings sidebar document shortcut label in Simplified Chinese.
+
 ## 26.10.20.6 — 2026-10-20
 
 - Combine Language and the Document Preview file shortcut into one All Settings sidebar card, separated by a divider.

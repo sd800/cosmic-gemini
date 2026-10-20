@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 26.10.20.7 — 2026-10-20
+
+- 仅将 All Settings 右侧栏的 Document Preview 标签改为「文件预览」。
+
 ## 26.10.20.6 — 2026-10-20
 
 - 将 All Settings 侧栏的语言选项和 Document Preview 文件入口合并到同一张卡片，中间使用分隔线。

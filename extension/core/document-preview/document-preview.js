@@ -1,4 +1,6 @@
 export const DOCUMENT_PREVIEW_PATH = 'workspaces/document-preview/document-preview.html';
+export const DOCUMENT_LOCAL_CHANNEL = 'cosmic-gemini.document-local.';
+export const isLocalDocumentId = value => typeof value === 'string' && /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/.test(value);
 export function formatDocumentBytes(bytes, locale = 'en-US') {
   if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '';
   const units = ['bytes','KB','MB','GB','TB','PB'];

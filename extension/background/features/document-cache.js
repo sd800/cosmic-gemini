@@ -8,6 +8,7 @@ export const documentStore = Object.freeze({
   exists: async () => (await withOffscreen(() => request({ operation: 'all' }), false))?.length > 0,
   get: id => withOffscreen(() => request({ operation: 'get', id }), false),
   all: async () => (await withOffscreen(() => request({ operation: 'all' }), false)) || [],
+  putLocal: metadata => withOffscreen(() => request({operation:'local',id:metadata.id,size:metadata.size,metadata})),
   async put(value) {
     return withOffscreen(async () => {
       const { blob, ...metadata } = value;

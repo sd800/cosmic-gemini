@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.50 — 2026-10-20
+
+- Add local file opening to Document Preview, with memory-only file references that support reloading and are released when previews close.
+- Standardize Oxford commas in English interface text and documentation.
+
 ## 9.12.43 — 2026-10-19
 
 - Refine university unit-domain recognition and labels.
@@ -16,7 +21,7 @@
 
 ## 9.12.40 — 2026-10-19
 
-- Expand reviewed institutional aliases, historical domains and university-unit labels.
+- Expand reviewed institutional aliases, historical domains, and university-unit labels.
 
 ## 9.12.39 — 2026-10-19
 
@@ -113,11 +118,11 @@
 ## 9.12.16 — 2026-10-19
 
 - Expand the offline university-domain reference and improve institution/campus identification.
-- Refine school-name spelling, capitalization, bilingual display and regional institution/domain policies.
+- Refine school-name spelling, capitalization, bilingual display, and regional institution/domain policies.
 
 ## 9.12.15 — 2026-10-19
 
-- In English, show English school names below Chinese names for mainland China, Hong Kong, Macau and Taiwan institutions, followed by the country or region.
+- In English, show English school names below Chinese names for mainland China, Hong Kong, Macau, and Taiwan institutions, followed by the country or region.
 - Expand recognized affiliated-campus domains and university aliases while retaining each campus’s own identity and location.
 
 ## 9.12.13 — 2026-10-19
@@ -141,7 +146,7 @@
 
 - Strengthen Bili Daily Login cancellation and request timeout handling, including delayed response bodies and setting changes.
 - Recover download response observation after listener updates fail instead of treating pending changes as complete.
-- Isolate Video Download results across stop/restart, rescans, pauses and navigation, and cancel obsolete discovery requests.
+- Isolate Video Download results across stop/restart, rescans, pauses, and navigation, and cancel obsolete discovery requests.
 - Bound playlist reads and expansion to avoid oversized responses and cyclic requests.
 
 ## 9.12.8 — 2026-10-11
@@ -152,7 +157,7 @@
 
 ## 9.12.7 — 2026-10-11
 
-- Stabilize Document Preview appearance and controls across history restoration, delayed saves/downloads and preview failures.
+- Stabilize Document Preview appearance and controls across history restoration, delayed saves/downloads, and preview failures.
 - Stop stale PDF thumbnail and print work after hiding or closing the reader, and release cancelled canvases.
 
 ## 9.12.6 — 2026-10-11
@@ -200,7 +205,7 @@
 
 ## 9.11.18 — 2026-09-28
 
-- Improve Native Scroll compatibility with page-wide smooth-scroll handlers, preserving browser horizontal gestures, linked content and local scrolling controls.
+- Improve Native Scroll compatibility with page-wide smooth-scroll handlers, preserving browser horizontal gestures, linked content, and local scrolling controls.
 
 ## 9.11.17 — 2026-09-28
 
@@ -208,7 +213,7 @@
 
 ## 9.11.16 — 2026-09-28
 
-- Reduce White Softer flashes during long-page scrolling, tab switching and dynamic content updates, avoiding unnecessary layer rebuilds and softening floating content before its first paint.
+- Reduce White Softer flashes during long-page scrolling, tab switching, and dynamic content updates, avoiding unnecessary layer rebuilds and softening floating content before its first paint.
 
 ## 9.11.15 — 2026-09-28
 
@@ -225,11 +230,11 @@
 
 ## 9.11.11 — 2026-09-27
 
-- Improve White Softer fullscreen handling, configuration synchronization and resilience during document rewrites and history navigation.
+- Improve White Softer fullscreen handling, configuration synchronization, and resilience during document rewrites and history navigation.
 
 ## 9.11.10 — 2026-09-27
 
-- Improve White Softer compatibility with XML documents and stabilize initialization, configuration updates and page lifecycle handling.
+- Improve White Softer compatibility with XML documents and stabilize initialization, configuration updates, and page lifecycle handling.
 
 ## 9.11.9 — 2026-09-27
 
@@ -381,7 +386,7 @@
 
 ## 9.8.20 — 2026-09-24
 
-- Make browser context-menu actions bypass Stay on the page reliably, including links, images, media and selected-text searches, while keeping unrelated website popups blocked.
+- Make browser context-menu actions bypass Stay on the page reliably, including links, images, media, and selected-text searches, while keeping unrelated website popups blocked.
 
 ## 9.8.19 — 2026-09-24
 
@@ -405,8 +410,8 @@
 
 ## 9.8.15 — 2026-09-24
 
-- Improve XHS Image Dark Mode button responsiveness, manual display choices and resource cleanup, while reducing repeated image processing.
-- Add a grouped right-click menu for hiding images and choosing automatic, dark or light display for the current image or post.
+- Improve XHS Image Dark Mode button responsiveness, manual display choices, and resource cleanup, while reducing repeated image processing.
+- Add a grouped right-click menu for hiding images and choosing automatic, dark, or light display for the current image or post.
 
 ## 9.8.13 — 2026-09-24
 
@@ -556,7 +561,7 @@
 
 ## 9.6.18 — 2026-09-23
 
-- Add confirmation prompts for external web and application links in Document Preview, including PDF previews; email, telephone and SMS links offer copying only.
+- Add confirmation prompts for external web and application links in Document Preview, including PDF previews; email, telephone, and SMS links offer copying only.
 - Share protocol parsing with Mailto Capture while preserving document isolation and blocked unsafe content.
 
 ## 9.6.17 — 2026-09-23
@@ -575,12 +580,12 @@
 
 ## 9.6.13 — 2026-09-23
 
-- Refine the PDF reader’s centered toolbar spacing, symmetric page indicator and zoom menu while retaining previous/next controls.
+- Refine the PDF reader’s centered toolbar spacing, symmetric page indicator, and zoom menu while retaining previous/next controls.
 - Combine appearance switching into one button while keeping its existing tooltip.
 
 ## 9.6.12 — 2026-09-23
 
-- Open PDF document properties by clicking the toolbar filename, with ISO-style dates, available seconds and compact time-zone notation.
+- Open PDF document properties by clicking the toolbar filename, with ISO-style dates, available seconds, and compact time-zone notation.
 - Prepare the PDF reader in parallel with document loading and prioritize the first visible page.
 - Remove the PDF reader’s built-in search controls and leave Find to Chrome.
 
@@ -612,7 +617,7 @@
 
 ## 9.6.5 — 2026-09-22
 
-- Refocused the Document Preview README introduction on what visitors can preview, the supported file families and the main preview limitations. Detailed controls and lifecycle rules remain in Settings and technical documentation.
+- Refocused the Document Preview README introduction on what visitors can preview, the supported file families, and the main preview limitations. Detailed controls and lifecycle rules remain in Settings and technical documentation.
 - Fixed spreadsheet preview headers so scrolling does not expose cells above the column labels or cover the blank corner. The preview toolbar now shows a localized, lowercase file family beside the source website.
 
 ## 9.6.3 — 2026-09-22
@@ -621,21 +626,21 @@
 
 ## 9.6.2 — 2026-09-22
 
-- Open and reload PDFs at the top of the document, keeping the gap above the first page visible. Normal navigation, zoom and appearance changes retain their existing reading-position behavior.
+- Open and reload PDFs at the top of the document, keeping the gap above the first page visible. Normal navigation, zoom, and appearance changes retain their existing reading-position behavior.
 
 ## 9.6.1 — 2026-09-22
 
-- Added PDF Viewer as an internal reading capability for Document Preview, with no separate Settings entry. It supports text selection, search, page navigation, thumbnails, document outlines, fit modes, full screen, password-protected PDFs, printing and downloading originals; no editing or drawing tools are included.
-- Added independent light/dark PDF reading, visible page-edge borders, display-only Rotate left, 100% default zoom and fixed 10-percentage-point zoom steps. Refined the centered toolbar with borderless buttons, group separators and a compact M / N page indicator, and prevented light loading surfaces in dark mode.
-- Prioritized visible pages, delayed sharp redraws until continuous zoom settles and bounded offscreen page/thumbnail resources. Parse PDFs locally in a separate worker and isolated sandbox without extension privileges, document scripts or remote content.
+- Added PDF Viewer as an internal reading capability for Document Preview, with no separate Settings entry. It supports text selection, search, page navigation, thumbnails, document outlines, fit modes, full screen, password-protected PDFs, printing, and downloading originals; no editing or drawing tools are included.
+- Added independent light/dark PDF reading, visible page-edge borders, display-only Rotate left, 100% default zoom, and fixed 10-percentage-point zoom steps. Refined the centered toolbar with borderless buttons, group separators, and a compact M / N page indicator, and prevented light loading surfaces in dark mode.
+- Prioritized visible pages, delayed sharp redraws until continuous zoom settles, and bounded offscreen page/thumbnail resources. Parse PDFs locally in a separate worker and isolated sandbox without extension privileges, document scripts, or remote content.
 
 ## 9.5.8 — 2026-09-22
 
-- Improved Word-family previews (`.doc/.docx/.docm/.dotx/.dotm`): preserved visible consecutive spaces and blank underlined fields, corrected direct text-style overrides, and refined character positioning, paragraph borders/spacing and table formatting.
-- Added passive rendering of common Word equations, phonetic annotations and checkbox symbols, retained authored picture dimensions, and expanded legacy Word support for embedded raster pictures, character spacing and safe document links. Conversion remains local and bounded; macros and remote content remain disabled.
-- Refined Word lists with aligned wrapped text, multilevel style links, continued and restarted numbering, Unicode bullets and additional Chinese numbering formats. Corrected embedded raster-picture record handling shared with legacy PowerPoint.
+- Improved Word-family previews (`.doc/.docx/.docm/.dotx/.dotm`): preserved visible consecutive spaces and blank underlined fields, corrected direct text-style overrides, and refined character positioning, paragraph borders/spacing, and table formatting.
+- Added passive rendering of common Word equations, phonetic annotations, and checkbox symbols, retained authored picture dimensions, and expanded legacy Word support for embedded raster pictures, character spacing, and safe document links. Conversion remains local and bounded; macros and remote content remain disabled.
+- Refined Word lists with aligned wrapped text, multilevel style links, continued and restarted numbering, Unicode bullets, and additional Chinese numbering formats. Corrected embedded raster-picture record handling shared with legacy PowerPoint.
 - Open document previews immediately to the right of their source tab, including remembered preview choices.
-- Keep the preview toolbar, filename and source website unchanged during browser translation.
+- Keep the preview toolbar, filename, and source website unchanged during browser translation.
 
 ## 9.5.7 — 2026-09-22
 
@@ -659,28 +664,28 @@
 
 ## 9.5.1 — 2026-09-22
 
-- Improved Document Preview for legacy `.doc/.xls/.ppt`: preserved common fonts and text styles, paragraph spacing and indentation, list numbering, table geometry and cell formatting, plus supported slide text boxes, colors and embedded pictures.
+- Improved Document Preview for legacy `.doc/.xls/.ppt`: preserved common fonts and text styles, paragraph spacing and indentation, list numbering, table geometry, and cell formatting, plus supported slide text boxes, colors, and embedded pictures.
 - Refined non-PDF previews with richer spreadsheet text, corrected merged cells around hidden rows/columns, improved RTF/OpenDocument formatting and slide text layout, and safely retained common email presentation styles.
 - Corrected font inheritance and Chinese/Latin font selection, with local substitutes when the original font is unavailable.
-- Corrected Word paragraph spacing and retained blank fields, heading whitespace and default tab widths.
+- Corrected Word paragraph spacing and retained blank fields, heading whitespace, and default tab widths.
 - Displayed file sizes in decimal units with at most one decimal place, using byte/bytes for unscaled sizes.
-- Fixed preview defaults overriding document formatting. Reused image and formatting data, reduced repeated parsing and bounded complex layouts to keep local conversion responsive. Remote content and executable content remain disabled; PDF continues to use Chrome’s native viewer.
+- Fixed preview defaults overriding document formatting. Reused image and formatting data, reduced repeated parsing, and bounded complex layouts to keep local conversion responsive. Remote content and executable content remain disabled; PDF continues to use Chrome’s native viewer.
 
 ## 9.4.1 — 2026-09-22
 
 - Expanded Document Preview to `.doc/.xls/.ppt/.rtf/.odt/.ods/.odp/.eml`, including email messages under Other in the supported-format list. Legacy Word and PowerPoint files use content-oriented previews.
 - Added a loading line and status feedback as soon as Preview is selected, without percentage numbers. Refined the supported-format disclosure and removed the layout disclaimer from the document header.
-- Strengthened local parsing, static-content isolation and remote-resource blocking for document previews. PDF continues to use Chrome’s native viewer.
-- Hardened Customs Province’s processor authorization, document-cache transfers, original-file downloads and media-processing resource limits.
+- Strengthened local parsing, static-content isolation, and remote-resource blocking for document previews. PDF continues to use Chrome’s native viewer.
+- Hardened Customs Province’s processor authorization, document-cache transfers, original-file downloads, and media-processing resource limits.
 - Added a Document Preview website whitelist that includes all subdomains, with ordered editing and input help. Access Control and Document Preview domain lists now use two columns except in narrow windows.
 
 ## 9.3.1 — 2026-09-22
 
 - Moved Document Preview under Customs Province while keeping its Settings position unchanged.
-- Expanded Document Preview to spreadsheets, slides and PDF, including Office template, slideshow and macro-enabled formats. Added worksheet and slide navigation and Chrome’s native PDF viewer.
+- Expanded Document Preview to spreadsheets, slides, and PDF, including Office template, slideshow, and macro-enabled formats. Added worksheet and slide navigation and Chrome’s native PDF viewer.
 - Simplified the feature introduction and added a collapsed, categorized list of supported formats in Settings. Website-session choices now cover every supported format together.
-- Added bounded local Office conversion and script-free previews; macros, embedded programs, remote content and spreadsheet formula evaluation remain inactive.
-- Moved document caching to browser memory. Caches clear 3 hours after the last preview closes, when the source website session ends or when Chrome exits, whichever comes first.
+- Added bounded local Office conversion and script-free previews; macros, embedded programs, remote content, and spreadsheet formula evaluation remain inactive.
+- Moved document caching to browser memory. Caches clear 3 hours after the last preview closes, when the source website session ends, or when Chrome exits, whichever comes first.
 
 ## 9.2.3 — 2026-09-22
 
@@ -691,12 +696,12 @@
 
 - Added an Auto / Light / Dark appearance menu to Document Preview settings. Manual preview choices now apply across the source website and its subdomains for the current website session; Default restores the settings preference.
 - Matched the default dark-mode document text to the filename’s brighter white for easier reading.
-- Made temporary file-information notices disappear after 15 seconds, while retaining loading, rendering-failure and expired-preview states.
+- Made temporary file-information notices disappear after 15 seconds, while retaining loading, rendering-failure, and expired-preview states.
 - Added automatic cache cleanup 10 hours after a document’s last preview closes, or when its source website session ends, whichever comes first. Reopening a preview before expiry cancels its countdown while it remains open.
 
 ## 9.2.1 — 2026-09-22
 
-- Improved Document Preview’s reading layout and preservation of common Word formatting, including fonts, text colors, paragraph alignment and spacing, indentation, list numbering, and table column widths, borders and shading. Document colors remain readable in dark mode.
+- Improved Document Preview’s reading layout and preservation of common Word formatting, including fonts, text colors, paragraph alignment and spacing, indentation, list numbering, and table column widths, borders, and shading. Document colors remain readable in dark mode.
 - Added visible separators for explicit page breaks and paragraphs set to begin on a new page.
 - Added document-only zoom in 10% steps from 50% to 200%; click the percentage to return to 100% without reloading the document.
 - Made the boundary between file information and document content clearer, while keeping the compact header and larger, two-line filename.
@@ -1447,7 +1452,7 @@
 
 ## 5.17.1 — 2026-09-01
 
-- Video Download now keeps separate media identities when one page contains multiple videos. Each video receives its own card, thumbnail or title when available, and compact quality, audio, and subtitle choices.
+- Video Download now keeps separate media identities when one page contains multiple videos. Each video receives its own card, thumbnail, or title when available, and compact quality, audio, and subtitle choices.
 - DOM players, embedded frames, compatible site adapters, and expanded HLS or DASH streams now carry their media identity through discovery and format expansion. Unassigned streams remain visible as separate results instead of being silently merged by quality.
 
 ## 5.16.1 — 2026-09-01

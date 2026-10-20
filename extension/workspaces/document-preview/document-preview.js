@@ -4,7 +4,7 @@ import { icon, send } from '../../shared/ui.js';
 import { createDocumentContent } from './content-host.js';
 import { normalizeDocumentAppearance, toggleDocumentAppearance } from '../../core/document-preview/document-appearance.js';
 import { createDocumentStatus } from './status.js';
-import { documentKind } from '../../core/document-preview/document-preview.js';
+import { documentKind, inspectPdf } from '../../core/document-preview/document-preview.js';
 
 const params = new URLSearchParams(location.hash.slice(1));
 const id = params.get('id'), mode = params.get('mode');
@@ -154,6 +154,7 @@ async function preview() {
     assertCurrent(started);
     const bytes = await blob.arrayBuffer();
     if (!current(started)) return;
+    if (metadata.local) inspectPdf(bytes);
     pdfViewer.open(bytes);
     notices.show('');
     return;
@@ -289,7 +290,7 @@ function showMetadata() {
   document.title = metadata.filename + ' · Document Preview';
   const family = documentKind(metadata.format);
   const typeKey = {docx:'documentToolbarDocuments',xlsx:'documentToolbarSpreadsheets',pptx:'documentToolbarSlides',pdf:'documentToolbarPdf',eml:'documentToolbarEmail'}[family];
-  document.querySelector('#metadata').textContent = [metadata.site, typeKey && t(typeKey)].filter(Boolean).join(' · ');
+  document.querySelector('#metadata').textContent = [metadata.local ? t('documentLocalFile') : metadata.site, typeKey && t(typeKey)].filter(Boolean).join(' · ');
 }
 async function loadPreparedDocument(previewPdf = false) {
   if (previewPdf) previewRequested = true;

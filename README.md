@@ -88,9 +88,9 @@ Unselected categories keep their original values. These adjustments do not chang
 
 #### Document Preview
 
-Preview documents, spreadsheets, slides, PDFs and email messages in your browser before deciding whether to save them. Supported files offer a **Preview** or **Download** choice.
+Preview documents, spreadsheets, slides, PDFs, and email messages in your browser before deciding whether to save them. Supported files offer a **Preview** or **Download** choice. You can also open local files from Settings.
 
-Supported formats include Word, Excel, PowerPoint, Rich Text, OpenDocument, PDF and email files.
+Supported formats include Word, Excel, PowerPoint, Rich Text, OpenDocument, PDF, and email files.
 
 Previews retain common formatting, although complex layouts may differ from the original. In PDFs that already contain text, you can select and copy it. Files are processed locally; previews do not run macros or load remote content.
 
@@ -110,7 +110,7 @@ Website Fixer improves website behavior with selectable fixes. Translate Overrid
 
 #### XHS Image Dark Mode
 
-Dim bright text cards and chat screenshots on Xiaohongshu when page-wide dark mode is active, while leaving photos unchanged. Automatic adjustment covers feeds and opened posts; comment images are handled after their post opens. Image controls and a right-click menu let you choose automatic, dark or light display, or hide images, individually or for a whole post. A profile control can pause adjustments for that profile. **Always on** allows adjustment without detecting page-wide dark mode.
+Dim bright text cards and chat screenshots on Xiaohongshu when page-wide dark mode is active, while leaving photos unchanged. Automatic adjustment covers feeds and opened posts; comment images are handled after their post opens. Image controls and a right-click menu let you choose automatic, dark, or light display, or hide images, individually or for a whole post. A profile control can pause adjustments for that profile. **Always on** allows adjustment without detecting page-wide dark mode.
 
 XHS Keyboard Navigation is a separate feature presented in the same settings card. It maps W/S/A/D to the Up/Down/Left/Right arrow keys without taking over text entry.
 

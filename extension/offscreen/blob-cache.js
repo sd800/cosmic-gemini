@@ -1,11 +1,13 @@
 // Memory only: neither document bytes nor blob URLs are written to disk.
 // Browser shutdown destroys this context and all of its cached document data.
+import { DOCUMENT_LOCAL_CHANNEL, documentFilename, isLocalDocumentId } from '../core/document-preview/document-preview.js';
 const records = new Map();
 const uploads = new Map();
+const localFiles = new Map();
 const LIMIT = 64 * 1024 * 1024;
 function discardUpload(id) { clearTimeout(uploads.get(id)?.timer); uploads.delete(id); }
-const used = () => [...records.values()].reduce((n, value) => n + value.size, 0) + [...uploads.values()].reduce((n, value) => n + value.expected, 0);
-export function hasBlobs() { return records.size > 0 || uploads.size > 0; }
+const used = () => [...records.values()].reduce((n, value) => n + value.size, 0) + [...uploads.values()].reduce((n, value) => n + value.expected, 0) + [...localFiles.values()].reduce((n, value) => n + value.size, 0);
+export function hasBlobs() { return records.size > 0 || uploads.size > 0 || localFiles.size > 0; }
 export function blobCommand(message) {
   const { operation, id } = message;
   if (operation === 'all') return [...records.values()];
@@ -13,11 +15,41 @@ export function blobCommand(message) {
   if (operation === 'remove') {
     const existing = records.get(id);
     if (existing) URL.revokeObjectURL(existing.blobUrl);
-    records.delete(id); discardUpload(id); return true;
+    records.delete(id); discardUpload(id); localFiles.get(id)?.cancel(); return true;
+  }
+  if (operation === 'local') {
+    if (!isLocalDocumentId(id) || !Number.isSafeInteger(message.size) || message.size <= 0 || message.size > 24 * 1024 * 1024
+      || records.has(id) || uploads.has(id) || localFiles.has(id) || used() + message.size > LIMIT
+      || records.size + uploads.size + localFiles.size >= 24) throw Error('documentCacheFull');
+    return new Promise((resolve, reject) => {
+      const channel = new BroadcastChannel(DOCUMENT_LOCAL_CHANNEL + id);
+      const clean = () => { clearTimeout(timer); channel.close(); localFiles.delete(id); };
+      const cancel = () => { clean(); reject(Error('documentExpired')); };
+      const timer = setTimeout(cancel, 15000);
+      timer.unref?.();
+      localFiles.set(id, {size:message.size,cancel});
+      channel.onmessage = ({data}) => {
+        if (data?.type !== 'file' || !(data.file instanceof File)) return;
+        if (data.file.size !== message.size || documentFilename({filename:data.file.name}) !== message.metadata.filename) {
+          clean(); reject(Error('invalidDocument')); return;
+        }
+        // Keep the selected browser File itself. Do not read, copy, serialize
+        // or write its contents; this RAM-only reference survives reader reloads.
+        try {
+          const record = {...message.metadata,id,size:data.file.size,blobUrl:URL.createObjectURL(data.file)};
+          records.set(id,record);
+          channel.postMessage({type:'accepted'}); clean(); resolve(record);
+        } catch (error) {
+          const record = records.get(id); if (record) URL.revokeObjectURL(record.blobUrl);
+          records.delete(id); clean(); reject(error);
+        }
+      };
+      channel.postMessage({type:'ready'});
+    });
   }
   if (operation === 'begin') {
     if (!id || !Number.isSafeInteger(message.size) || message.size <= 0 || message.size > 24 * 1024 * 1024
-      || uploads.has(id) || records.has(id) || used() + message.size > LIMIT || records.size + uploads.size >= 24) throw Error('documentCacheFull');
+      || uploads.has(id) || records.has(id) || localFiles.has(id) || used() + message.size > LIMIT || records.size + uploads.size + localFiles.size >= 24) throw Error('documentCacheFull');
     // A stopped service worker must not strand partially transferred bytes.
     const timer = setTimeout(() => discardUpload(id), 60000);
     timer.unref?.();

@@ -5,6 +5,7 @@ import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalize
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
+import { bindDocumentOpen } from './document-open.js';
 import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesDirectoryMarkup, viewFor } from './views.js';
 
 const claimSettings = openedAt => void send({ type: 'UI_SETTINGS_OPENED', openedAt }).catch(() => {});
@@ -748,6 +749,11 @@ async function update(section, task, controls = [], errorKey = 'settingsSaveFail
 }
 
 function bindView() {
+  const documentOpen = document.querySelector('.document-open');
+  if (documentOpen) {
+    const ticket = pageLifetime;
+    bindDocumentOpen(documentOpen, () => t, () => currentPage(ticket) && documentOpen.isConnected);
+  }
   for (const input of document.querySelectorAll('input[type="text"]')) bindRuleInputHelp(input);
   const enabled = document.querySelector('#enabled');
   if (enabled) {

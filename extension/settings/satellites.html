@@ -110,8 +110,15 @@
       <section id="satellite-document-preview" class="card satellite-card" data-satellite-section>
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="documentPreview" aria-hidden="true"></span><h1 data-i18n="documentPreviewName"></h1></div><p data-i18n="documentPreviewDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="documentPreviewEnabled" type="checkbox"><span></span><b class="sr-only">Document Preview</b></label></div>
+          <div class="satellite-control document-preview-control">
+            <label class="switch"><input id="documentPreviewEnabled" type="checkbox"><span></span><b class="sr-only">Document Preview</b></label>
+            <div class="document-open">
+              <button id="documentOpenFile" class="primary-button" type="button" data-i18n="documentOpenFile"></button>
+              <input type="file" hidden aria-labelledby="documentOpenFile">
+            </div>
+          </div>
         </div>
+        <p class="form-message document-open-message" role="status"></p>
         <details class="document-formats">
           <summary data-i18n="documentSupportedFormats"></summary>
           <dl>

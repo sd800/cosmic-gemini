@@ -6,7 +6,14 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message?.target === 'ephemeral-blob-cache') {
     // Only the background product may mutate or read the cache. Web pages and
     // preview documents obtain bounded, authorized metadata through Central.
-    try { reply({ ok: true, result: blobCommand(message) }); }
+    try {
+      const result = blobCommand(message);
+      if (result?.then) {
+        void result.then(value => reply({ok:true,result:value}), error => reply({ok:false,error:error.message}));
+        return true;
+      }
+      reply({ ok: true, result });
+    }
     catch (error) { reply({ ok: false, error: error.message }); }
     return false;
   }

@@ -227,6 +227,58 @@ function environment({ enabled = true, fetchResult, method = 'GET', incognito = 
 const originalFetch = globalThis.fetch;
 test.after(() => { globalThis.fetch = originalFetch; });
 
+const localId = '12345678-1234-1234-1234-123456789abc';
+const localSettings = () => ({sender:{url:'chrome-extension://test/settings/satellites.html',frameId:0,documentId:'settings',tab:{id:3,incognito:false}}});
+const localOpen = () => ({type:'UI_DOCUMENT_OPEN_LOCAL',id:localId,filename:'Local.docx',size:sampleDocx().byteLength});
+function localEnvironment() {
+  const env=environment({enabled:false});
+  env.tabs.push({id:3,index:2,windowId:1,incognito:false});
+  env.store.putLocal=async doc=>env.files.set(doc.id,{...doc,blobUrl:'blob:chrome-extension://test/'+doc.id});
+  chrome.runtime.getContexts=async()=>[{tabId:3,documentId:'settings',documentUrl:localSettings().sender.url},
+    ...env.tabs.filter(tab=>tab.preview).map(tab=>({tabId:tab.id,documentUrl:tab.preview}))];
+  return env;
+}
+
+test('local documents open with capture off, refresh from RAM references, and release when their last preview closes', async () => {
+  const env=localEnvironment();
+  assert.deepEqual(await env.product.handleMessage(localOpen(),localSettings()),{opened:true});
+  const opened=env.calls.find(call=>call[0]==='open')[1];
+  assert.deepEqual(Object.fromEntries(Object.entries(opened).filter(([key])=>key!=='url')),
+    {active:true,windowId:1,index:3,openerTabId:3});
+  assert.equal(env.calls.includes('fetch'),false,'opening must not read or serialize the selected file contents');
+  assert.equal((await env.platform.readSettings()).documentPreview.enabled,false);
+  const preview={id:10,incognito:false,preview:opened.url};env.tabs.push(preview);
+  await env.product.handleTabCreated({url:opened.url});
+  const resumed=createDocumentPreviewProduct(env.platform,env);await resumed.initialize();
+  const workspace={sender:{url:opened.url}};
+  assert.equal((await resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},workspace)).prepared,true);
+  await resumed.handleMessage({type:'UI_DOCUMENT_SET_THEME',id:localId,theme:'dark'},workspace);
+  env.tabs.splice(env.tabs.findIndex(tab=>tab.id===3),1);await resumed.handleTabRemoved(3);
+  assert.equal((await resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},workspace)).siteTheme,'dark');
+  const copy={...preview,id:11};env.tabs.push(copy);await resumed.handleTabCreated({url:opened.url});
+  env.tabs.splice(env.tabs.indexOf(preview),1);await resumed.handleTabRemoved(10);assert.equal(env.files.size,1);
+  env.tabs.splice(env.tabs.indexOf(copy),1);await resumed.handleTabRemoved(11);
+  assert.equal(env.files.size,0);assert.equal(env.documents().length,0);
+  assert.deepEqual(env.saved['documentPreview:regular'].themes,{});
+  await assert.rejects(resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},workspace),/documentExpired/);
+});
+
+test('local open rejects wrong sources, context, metadata and cleans references after tab creation failure', async () => {
+  const env=localEnvironment();
+  for(const context of [{sender:{url:'https://example.com/'}},
+    {sender:{url:chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH)}},
+    {sender:{...localSettings().sender,tab:{incognito:true}}}])await assert.rejects(env.product.handleMessage(localOpen(),context));
+  for(const extra of [{id:'../path'},{filename:'program.exe'},{size:0},{size:DOCUMENT_LIMIT+1}])
+    await assert.rejects(env.product.handleMessage({...localOpen(),...extra},localSettings()));
+  assert.equal(env.files.size,0);
+  chrome.tabs.create=async()=>{throw Error('window closed');};
+  await assert.rejects(env.product.handleMessage(localOpen(),localSettings()),/window closed/);
+  assert.equal(env.files.size,0);assert.equal(env.documents().length,0);
+  chrome.runtime.getContexts=async()=>[];
+  await assert.rejects(env.product.handleMessage(localOpen(),localSettings()),/Settings closed/);
+  assert.equal(env.files.size,0);
+});
+
 test('Document Preview is default-off and preserves unsupported and unprepared downloads', async () => {
   assert.equal(DEFAULT_SETTINGS.documentPreview.enabled, false);
   assert.equal(DEFAULT_SETTINGS.documentPreview.appearance, 'auto');
@@ -946,6 +998,32 @@ test('memory cache transfers exact bytes, rejects overflows and releases abandon
   t.mock.timers.tick(60001);assert.equal(hasBlobs(),true,'completed records follow product lifecycle, not upload timeout');
   blobCommand({operation:'remove',id:'complete'});
   assert.equal(hasBlobs(),false);await assert.rejects(originalFetch(record.blobUrl));
+});
+
+test('local memory retention holds the selected File without reading or copying it, and cancels abandoned handoffs', async () => {
+  const {blobCommand,hasBlobs}=await import('../extension/offscreen/blob-cache.js');
+  const OriginalChannel=globalThis.BroadcastChannel, originalUrl=URL.createObjectURL;
+  let channel, retained;
+  globalThis.BroadcastChannel=class {
+    constructor(name) { assert.ok(name.endsWith(localId)); channel=this; }
+    postMessage() {} close() { this.closed=true; }
+  };
+  URL.createObjectURL=file=>{retained=file;return originalUrl(file);};
+  try {
+    const file=new File(['{\\rtf1 local file}'],'Local.rtf');
+    file.arrayBuffer=()=>assert.fail('retaining a File must not read its bytes');
+    file.stream=()=>assert.fail('retaining a File must not stream/copy its bytes');
+    const pending=blobCommand({operation:'local',id:localId,size:file.size,metadata:{filename:file.name,local:true}});
+    assert.equal(hasBlobs(),true);
+    channel.onmessage({data:{type:'file',file}});
+    const record=await pending;
+    assert.equal(retained,file);assert.equal(channel.closed,true);
+    assert.equal(await(await originalFetch(record.blobUrl)).text(),'{\\rtf1 local file}');
+    blobCommand({operation:'remove',id:localId});assert.equal(hasBlobs(),false);
+    const abandoned=blobCommand({operation:'local',id:localId,size:10,metadata:{filename:'Local.rtf'}});
+    blobCommand({operation:'remove',id:localId});
+    await assert.rejects(abandoned,/documentExpired/);assert.equal(hasBlobs(),false);
+  } finally { blobCommand({operation:'remove',id:localId});globalThis.BroadcastChannel=OriginalChannel;URL.createObjectURL=originalUrl; }
 });
 
 let legacyXlsx;

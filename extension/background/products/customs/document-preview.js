@@ -1,6 +1,6 @@
 import { PDF_SAMPLING_VALUES, normalizePdfSampling } from '../../../core/document-preview/pdf-sampling.js';
 import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature, normalizeAccessControlDomain } from '../../../core/config.js';
-import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, documentPreviewWhitelisted, readDocumentResponse } from '../../../core/document-preview/document-preview.js';
+import { CACHE_LIMIT, DOCUMENT_PREVIEW_PATH, DOCUMENT_CLEANUP_ALARM_PREFIX, DOCUMENT_CLOSED_RETENTION, DOCUMENT_LIMIT, DOCUMENT_TYPES, documentFormat, documentFilename, documentPreviewWhitelisted, readDocumentResponse, isLocalDocumentId } from '../../../core/document-preview/document-preview.js';
 import { documentStore } from '../../features/document-cache.js';
 import { siteKey } from '../../../core/site-key.js';
 import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core/document-preview/document-appearance.js';
@@ -30,6 +30,16 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const [path, hash] = String(url || '').split('#');
     return path === chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) ? new URLSearchParams(hash).get('id') : null;
   }
+  async function openPreviews(tabs) {
+    const ids = new Set(tabs.map(tab => previewId(tab.pendingUrl || tab.url)).filter(Boolean));
+    // Extension tab URLs are not guaranteed to appear in tabs.query. Contexts
+    // expose only our own documents and need no broad tabs permission.
+    if (chrome.runtime.getContexts) {
+      const contexts = await chrome.runtime.getContexts({contextTypes:['TAB'],incognito:platform.isIncognitoContext()});
+      for (const context of contexts) { const id = previewId(context.documentUrl); if (id) ids.add(id); }
+    }
+    return ids;
+  }
   async function scheduleCleanup() {
     const deadlines = state.documents.filter(doc => Number.isFinite(doc.closedAt)).map(doc => doc.closedAt + DOCUMENT_CLOSED_RETENTION);
     const when = deadlines.length ? Math.min(...deadlines) : null;
@@ -52,13 +62,14 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   async function prune(clearAll = false) {
     const tabs = clearAll ? [] : await tabsInContext();
     const sites = new Set(tabs.map(tab => siteKey(tab.url)).filter(Boolean));
-    const openIds = new Set(tabs.map(tab => previewId(tab.pendingUrl || tab.url)).filter(Boolean));
+    const openIds = clearAll ? new Set() : await openPreviews(tabs);
     const now = Date.now();
     for (const [controller, site] of captures) if (!sites.has(site)) controller.abort();
     const expired = [], retained = [];
     let lifetimeChanged = false;
     for (const doc of state.documents) {
-      if (!sites.has(doc.site) || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= now)) {
+      if (clearAll || (doc.local ? !openIds.has(doc.id) : !sites.has(doc.site))
+        || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= now)) {
         expired.push(doc); continue;
       }
       const closedAt = openIds.has(doc.id) ? null : (doc.closedAt ?? now);
@@ -70,7 +81,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const previous = state;
     const next = { ...state, documents: retained,
       choices: Object.fromEntries(Object.entries(state.choices).filter(([site]) => sites.has(site))),
-      themes: Object.fromEntries(Object.entries(state.themes).filter(([site]) => sites.has(site))) };
+      themes: Object.fromEntries(Object.entries(state.themes).filter(([site]) => sites.has(site) || retained.some(doc => doc.local && doc.site === site))) };
     try {
       // Keep expired entries discoverable until their bytes have been removed.
       // A failed deletion or metadata save must remain eligible for retry.
@@ -131,9 +142,10 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   async function currentDocument(id) {
     await initialize();
     const tabs = await tabsInContext();
+    const localIds = state.documents.some(value => value.id === id && value.local) ? await openPreviews(tabs) : null;
     const doc = state.documents.find(value => value.id === id);
     if (!doc || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= Date.now())
-      || !tabs.some(tab => siteKey(tab.url) === doc.site)) throw Error('documentExpired');
+      || !(doc.local ? localIds?.has(doc.id) : tabs.some(tab => siteKey(tab.url) === doc.site))) throw Error('documentExpired');
     return doc;
   }
   async function prepareDocument(id) {
@@ -143,6 +155,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const doc = await currentDocument(id);
       const cached = await store.get(doc.id);
       if (doc.prepared === true && cached?.blobUrl && cached.context === contextName && cached.epoch === state.epoch) return doc;
+      if (doc.local) throw Error('documentExpired');
       if (!(await platform.readSettings()).documentPreview?.enabled) throw Error('documentPreviewDisabled');
       const controller = new AbortController();
       captures.set(controller, doc.site);
@@ -197,6 +210,41 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       && Number.isInteger(source.index) && Number.isInteger(source.windowId)
       ? { windowId: source.windowId, index: source.index + 1, openerTabId: source.id } : {};
     return chrome.tabs.create({ url, active: mode !== 'download', ...position });
+  }
+  async function openLocal(message, sender) {
+    if (!sender.url?.startsWith(chrome.runtime.getURL('settings/')) || sender.frameId !== 0
+      || !sender.documentId || !Number.isInteger(sender.tab?.id)
+      || !!sender.tab.incognito !== platform.isIncognitoContext()) throw Error('Settings only.');
+    const filename = documentFilename({filename:message.filename});
+    if (!isLocalDocumentId(message.id) || !filename) throw Error('invalidDocument');
+    if (!Number.isSafeInteger(message.size) || message.size <= 0 || message.size > DOCUMENT_LIMIT) throw Error('documentTooLarge');
+    await initialize();
+    return serial(async () => {
+      await prune();
+      if (state.documents.some(doc => doc.id === message.id)) throw Error('Invalid local document.');
+      const doc = {id:message.id,local:true,site:'local:'+message.id,url:'',filename,format:documentFormat(filename),
+        size:message.size,prepared:true,closedAt:null};
+      // Offscreen retains a structured-cloned browser File, without a byte copy
+      // or disk cache. The reference lasts only while its preview is open.
+      await store.putLocal({...doc,context:contextName,epoch:state.epoch});
+      try {
+        const tab = await chrome.tabs.get(sender.tab.id).catch(() => null);
+        // Own extension URLs are omitted by tabs.get without broad permission.
+        const live = await chrome.runtime.getContexts({contextTypes:['TAB'],documentIds:[sender.documentId],incognito:platform.isIncognitoContext()});
+        if (!tab || !live.some(value => value.documentId === sender.documentId && value.tabId === tab.id
+          && value.documentUrl?.startsWith(chrome.runtime.getURL('settings/')))) throw Error('Settings closed.');
+        state.documents.push(doc); await persist();
+        const appearance = normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance);
+        const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({id:doc.id,mode:'preview',appearance});
+        await chrome.tabs.create({url,active:true,windowId:tab.windowId,index:tab.index + 1,openerTabId:tab.id});
+      } catch (error) {
+        state.documents = state.documents.filter(value => value.id !== doc.id);
+        await store.remove(doc.id).catch(() => {}); await persist().catch(() => {});
+        throw error;
+      }
+      await scheduleCleanup().catch(() => {});
+      return {opened:true};
+    });
   }
   async function present(doc, sourceTabId) {
     const choice = state.choices[doc.site];
@@ -316,6 +364,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     },
     async handleMessage(message, context) {
       const senderUrl = String(context.sender?.url || '');
+      if (message.type === 'UI_DOCUMENT_OPEN_LOCAL') return openLocal(message, context.sender);
       if (['UI_ADD_RULE', 'UI_DELETE_RULE', 'UI_ALPHABETIZE_RULES', 'UI_CLEAR_RULES'].includes(message.type)) {
         if (!senderUrl.startsWith(chrome.runtime.getURL('settings/')) || message.listName !== 'whitelistDomains') throw Error('Settings only.');
         const domain = ['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type) ? normalizeAccessControlDomain(message.rule) : '';

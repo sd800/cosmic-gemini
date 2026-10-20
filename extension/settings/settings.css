@@ -390,6 +390,9 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .knowledge-checkbox-row { grid-template-columns: minmax(0, 1fr); }
 .knowledge-card .satellite-privacy { margin-top: 0; }
 .document-preview-options + .satellite-privacy, .white-softer-options + .satellite-privacy { margin-top: 0; }
+.document-preview-control { flex-direction: column; align-items: flex-end; gap: 18px; }
+.document-open-message { margin-top: 8px; }
+.document-open button[aria-busy="true"] { cursor: progress; }
 .document-formats { margin-top: 12px; padding-right: 68px; font-size: 13px; color: var(--muted); }
 .document-formats summary { display: flex; align-items: center; gap: .65em; cursor: pointer; color: var(--text); list-style: none; }
 .document-formats summary::-webkit-details-marker { display: none; }

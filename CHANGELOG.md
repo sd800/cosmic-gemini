@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.43 — 2026-10-19
+
+- Refine university unit-domain recognition and labels.
+
 ## 9.12.42 — 2026-10-19
 
 - Expand university unit-domain coverage.

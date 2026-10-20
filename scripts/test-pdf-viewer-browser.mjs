@@ -1,6 +1,7 @@
 // Optional integration QA. Uses its own temporary profile, never a user's Chrome.
 // PDF_VIEWER_CHROME=/path/to/chrome PDF_VIEWER_PLAYWRIGHT=/path/to/playwright/index.mjs node scripts/test-pdf-viewer-browser.mjs
 import assert from 'node:assert/strict';
+import { auditPdfLifecycle, savePdfAudit } from './qa-pdf-lifecycle.mjs';
 import { cp, mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
@@ -14,7 +15,7 @@ await cp(resolve('extension'), extension, { recursive: true });
 const viewerPath = join(extension, 'workspaces/pdf-viewer/viewer.js');
 await writeFile(viewerPath, (await readFile(viewerPath, 'utf8'))
   .replace('void workerReady.catch(() => {});', 'void workerReady.catch(() => {}); window.qaWorkerReady = workerReady;')
-  .replace('links.setViewer(viewer);', 'window.qaPdfViewer = viewer; window.qaPdfDocument = pdf; window.qaMetadataCalls = 0; const qaGetMetadata = pdf.getMetadata.bind(pdf); pdf.getMetadata = (...args) => { window.qaMetadataCalls++; return qaGetMetadata(...args); }; window.qaRenderedPages = []; eventBus.on("pagerendered", ({pageNumber, cssTransform, error}) => { if (!cssTransform && !error) window.qaRenderedPages.push(pageNumber); }); links.setViewer(viewer);'));
+  .replace('links.setViewer(viewer);', 'window.qaLifecycle={password:()=>task.onPassword(()=>{window.qaAcceptedPasswords=(window.qaAcceptedPasswords||0)+1;},0),destroy,clearThumbnails,drawThumbnails,printDocument,receive:data=>port.onmessage({data}),state:()=>({thumbnailBusy}),onlyThumbnail:number=>{nearThumbnails.clear();nearThumbnails.add($("thumbnails").children[number-1]);}}; window.qaPdfViewer = viewer; window.qaPdfDocument = pdf; window.qaMetadataCalls = 0; const qaGetMetadata = pdf.getMetadata.bind(pdf); pdf.getMetadata = (...args) => { window.qaMetadataCalls++; return qaGetMetadata(...args); }; window.qaRenderedPages = []; eventBus.on("pagerendered", ({pageNumber, cssTransform, error}) => { if (!cssTransform && !error) window.qaRenderedPages.push(pageNumber); }); links.setViewer(viewer);'));
 const manifest = JSON.parse(await readFile(join(extension, 'manifest.json')));
 await writeFile(join(extension, 'manifest.json'), JSON.stringify({ manifest_version: 3, name: 'PDF Viewer isolated QA', version: '1.0', permissions: ['storage','downloads'], background: {service_worker:'qa-background.js',type:'module'}, sandbox: manifest.sandbox, content_security_policy: manifest.content_security_policy }));
 await writeFile(join(extension, 'qa-background.js'), `import {normalizeSettings} from './core/config.js';
@@ -125,6 +126,11 @@ try {
     assert.equal(await frame.locator('[data-property=fileUrl]').textContent(),sourceUrl);
     assert.equal(await frame.locator('#properties-list a').count(),0);
     metrics.properties='captured source URL appears below File name as inert text';
+  } else if (process.env.PDF_QA === 'audit') {
+    const frame=await open(viewerPdf(6), 'en-US', 1); await ready(frame);
+    const screenshot=join(folder,'audit-reader.png');await page.screenshot({path:screenshot});
+    metrics.lifecycleAudit=await auditPdfLifecycle(frame);
+    metrics.artifacts=await savePdfAudit(metrics.lifecycleAudit,screenshot,viewerPdf(6),'PDF_QA=audit node scripts/test-pdf-viewer-browser.mjs');
   } else if (process.env.PDF_QA === 'lifecycle') {
     const frame=await open(viewerPdf(6)); await ready(frame);
 

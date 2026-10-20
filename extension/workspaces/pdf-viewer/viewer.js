@@ -250,16 +250,16 @@ async function open(bytes, sampling) {
   }, { passive: false, signal });
   window.addEventListener('keydown', event => {
     // A modal's keyboard interactions must not navigate/zoom the PDF behind it.
-    if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
+    if (event.defaultPrevented || event.isComposing || document.querySelector('dialog[open]')) return;
     if (event.altKey) return; // Preserve browser history shortcuts.
     const modifier = event.ctrlKey || event.metaKey, editable = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName);
     if (modifier && event.key.toLowerCase() === 'p') { event.preventDefault(); openPrint(); }
     else if (modifier && event.key.toLowerCase() === 's') { event.preventDefault(); emit('download'); }
     else if (modifier && ['+', '=', '-', '0'].includes(event.key)) { event.preventDefault(); zoomTo(event.key === '0' ? 1 : stepPdfScale(viewer.currentScale, event.key === '-' ? -1 : 1)); }
-    else if (!editable && event.key === 'ArrowLeft') { event.preventDefault(); viewer.previousPage(); }
-    else if (!editable && event.key === 'ArrowRight') { event.preventDefault(); viewer.nextPage(); }
-    else if (!editable && event.key === 'Home') { event.preventDefault(); viewer.currentPageNumber = 1; }
-    else if (!editable && event.key === 'End') { event.preventDefault(); viewer.currentPageNumber = pdf.numPages; }
+    else if (!editable && !modifier && !event.shiftKey && event.key === 'ArrowLeft') { event.preventDefault(); viewer.previousPage(); }
+    else if (!editable && !modifier && !event.shiftKey && event.key === 'ArrowRight') { event.preventDefault(); viewer.nextPage(); }
+    else if (!editable && !modifier && !event.shiftKey && event.key === 'Home') { event.preventDefault(); viewer.currentPageNumber = 1; }
+    else if (!editable && !modifier && !event.shiftKey && event.key === 'End') { event.preventDefault(); viewer.currentPageNumber = pdf.numPages; }
   }, { signal });
   click('sidebar-toggle', () => {
     $('sidebar').hidden = !$('sidebar').hidden;

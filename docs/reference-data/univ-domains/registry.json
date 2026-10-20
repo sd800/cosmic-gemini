@@ -17432,7 +17432,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "uci.edu"
+        "uci.edu",
+        "ucirvine.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17451,6 +17452,9 @@
         "medical-school-reference": [
           "29: University of California, Irvine, School of Medicine"
         ]
+      },
+      "aliasNotes": {
+        "ucirvine.edu": "User-supplied institutional domain alias."
       }
     },
     {
@@ -17561,7 +17565,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "ucmerced.edu"
+        "ucmerced.edu",
+        "ucm.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17571,6 +17576,9 @@
         "us-graduate-reference": [
           "445188: University of California-Merced"
         ]
+      },
+      "aliasNotes": {
+        "ucm.edu": "User-supplied institutional domain alias."
       }
     },
     {
@@ -17634,7 +17642,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "ucr.edu"
+        "ucr.edu",
+        "ucriverside.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17650,6 +17659,9 @@
         "medical-school-reference": [
           "150: University of California, Riverside School of Medicine"
         ]
+      },
+      "aliasNotes": {
+        "ucriverside.edu": "User-supplied institutional domain alias."
       }
     },
     {

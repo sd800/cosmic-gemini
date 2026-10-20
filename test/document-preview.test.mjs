@@ -1124,6 +1124,27 @@ test('EML decodes MIME headers and multipart bodies while keeping attachments in
   assert.equal(plain.formatting.email.plain,true);assert.match(plain.value,/Line 1\r?\n  Line 2 &amp; &lt;text&gt;/);
 });
 
+test('EML exposes only available envelope metadata and preserves grouped and raw headers as inert data',async()=>{
+  await extraRenderers();const {emailMetadataSample}=await import('./fixtures/additional-document-formats.mjs');
+  const read=async source=>(await renderer.convertEmail(new TextEncoder().encode(source).buffer,{bcc:'密送',replyTo:'回复地址',sender:'代发方',details:'邮件详情',rawHeaders:'原始邮件头'})).formatting.email;
+  const mail=await read(emailMetadataSample);
+  for(const [label,value] of [['密送','hidden@example.test'],['回复地址','reply@example.test'],['代发方','sender@example.test']])assert.ok(mail.fields.some(field=>field.label===label&&field.value.includes(value)));
+  assert.equal(mail.details.label,'邮件详情');assert.equal(mail.rawHeaders.label,'原始邮件头');
+  const rows=mail.details.groups.flatMap(group=>group.fields), get=label=>rows.find(row=>row.label===label)?.value;
+  assert.equal(get('Message-ID'),'<message-123@example.test>');assert.match(get('References'),/message-121.*message-122/);
+  const received=get('Received');assert.ok(received.indexOf('by inbox.example.test')<received.indexOf('by relay.example.test'));
+  assert.match(received,/09:59:00 \+0800/);assert.equal(get('Importance'),'high');
+  assert.match(get('Authentication-Results'),/dkim=pass; spf=pass; dmarc=pass/);assert.match(get('DKIM-Signature'),/synthetic-test-signature/);
+  assert.match(get('User-Agent'),/<img src=/);assert.match(mail.rawHeaders.value,/X-Unknown-Header: <script>neverExecute\(\)<\/script>/);
+  assert.match(mail.rawHeaders.value,/;\n\tTue, 22 Sep/,'raw header folding remains intact');
+  assert.doesNotMatch(mail.rawHeaders.value,/HTML body|TVpOb3R|--alt/,'raw headers never contain the MIME body or attachment bytes');
+  assert.equal(mail.details.attachments[0].fields.find(field=>field.label==='Content-Type').value,'application/octet-stream');
+  assert.equal(mail.details.attachments[0].fields.find(field=>field.label==='Content-Description').value,'Synthetic attachment <b>not HTML</b>');
+  const duplicate=await read('From: Author <author@example.test>\r\nSender: Same mailbox <AUTHOR@example.test>\r\nReply-To: Reply <author@example.test>\r\nSubject: Minimal\r\n\r\nPlain body');
+  assert.equal(duplicate.fields.length,1,'no invented Bcc or duplicate sender/reply rows');
+  assert.equal(duplicate.details.groups.length,0);assert.equal(duplicate.details.attachments.length,0);
+});
+
 test('document cache rejects empty chunks, replay and out-of-order uploads', async () => {
   const {blobCommand,hasBlobs}=await import('../extension/offscreen/blob-cache.js');
   for(const [id,offset,data] of [['empty',0,''],['order',2,btoa('a')],['encoding',0,' YQ==']]) {

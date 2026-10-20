@@ -6,8 +6,31 @@ async function email(buffer,labels={}){
   // Keep trusted layout separate from arbitrary message HTML. The sandbox
   // builds the subject, envelope and attachment list using plain text nodes.
   const fields=[];
-  for(const [key,data] of [['from',address(mail.from)],['to',(mail.to||[]).map(address).join(', ')],['cc',(mail.cc||[]).map(address).join(', ')],['date',mail.headers.find(header=>header.key==='date')?.value||mail.date]])
+  const from=address(mail.from), sender=address(mail.sender), replyTo=(mail.replyTo||[]).map(address).join(', ');
+  const sameFrom=value=>value?.address&&mail.from?.address&&value.address.toLowerCase()===mail.from.address.toLowerCase();
+  for(const [key,data] of [['from',from],['sender',sameFrom(mail.sender)?'':sender],['to',(mail.to||[]).map(address).join(', ')],['cc',(mail.cc||[]).map(address).join(', ')],
+    ['bcc',(mail.bcc||[]).map(address).join(', ')],['replyTo',mail.replyTo?.length===1&&sameFrom(mail.replyTo[0])?'':replyTo],['date',mail.headers.find(header=>header.key==='date')?.value||mail.date]])
     if(data)fields.push({label:labels[key]||key,value:data,...(key==='date'?{date:true}:{})});
+  // Group repeated headers without dropping hops or inventing verification.
+  // All values stay inert text; raw headers retain their order and folding.
+  const headers=new Map();
+  for(const header of mail.headers){if(!headers.has(header.key))headers.set(header.key,[]);headers.get(header.key).push(header.value);}
+  const groups=[];
+  for(const [key,fallback,names] of [
+    ['thread','Message and conversation',['Message-ID','In-Reply-To','References']],
+    ['delivery','Delivery',['Delivered-To','Return-Path','Received','Resent-From','Resent-To','Resent-Date']],
+    ['priority','Priority',['Importance','Priority','X-Priority','Sensitivity']],
+    ['authentication','Authentication headers',['Authentication-Results','ARC-Authentication-Results','Received-SPF','DKIM-Signature','ARC-Seal','ARC-Message-Signature']],
+    ['format','Format and software',['MIME-Version','Content-Type','Content-Transfer-Encoding','Content-Language','X-Mailer','User-Agent']]
+  ]){
+    const rows=names.flatMap(name=>{const value=(headers.get(name.toLowerCase())||[]).filter(Boolean).join('\n\n');return value?[{label:name,value}]:[];});
+    if(rows.length)groups.push({label:labels[key]||fallback,fields:rows});
+  }
+  const attachmentDetails=(mail.attachments||[]).map(a=>({name:a.filename||a.mimeType,fields:[
+    ['Content-Type',a.mimeType],['Content-Disposition',a.disposition],['Content-Description',a.description],['Content-ID',a.contentId]
+  ].filter(([,value])=>value).map(([label,value])=>({label,value}))}));
+  const rawHeaders=(mail.headerLines||[]).map(header=>header.line).join('\n');
+  if(rawHeaders.length>131072)throw Error('documentTooLarge');
   let value='';
   const images=new Map();
   for(const attachment of mail.attachments||[]){
@@ -27,6 +50,8 @@ async function email(buffer,labels={}){
   return {value,formatting:{kind:'eml',styles:[],email:{
     subject:mail.subject||labels.noSubject||'(No subject)',fields,plain:!html,
     locale:labels.locale==='zh-CN'?'zh-CN':'en-US',attachmentsLabel:labels.attachments||'Attachments',
+    details:{label:labels.details||'Message details',groups,attachmentsLabel:labels.attachments||'Attachments',attachments:attachmentDetails},
+    rawHeaders:{label:labels.rawHeaders||'Raw headers',value:rawHeaders},
     attachments:attachments.map(a=>({name:a.filename||a.mimeType,
       size:Math.max(0,Math.floor(a.content.length*3/4)-(a.content.endsWith('==')?2:a.content.endsWith('=')?1:0))}))
   }}};

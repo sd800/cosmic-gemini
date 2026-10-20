@@ -192,7 +192,10 @@ async function preview() {
     const bytes = await blob.arrayBuffer();
     if (worker === ownedWorker && current(started)) ownedWorker.postMessage({ bytes, format: metadata.format, labels: {
       locale, from: t('documentEmailFrom'), to: t('documentEmailTo'), cc: t('documentEmailCc'),
-      date: t('documentEmailDate'), attachments: t('documentEmailAttachments'), noSubject: t('documentEmailNoSubject')
+      bcc: t('documentEmailBcc'), replyTo: t('documentEmailReplyTo'), sender: t('documentEmailSender'),
+      date: t('documentEmailDate'), attachments: t('documentEmailAttachments'), noSubject: t('documentEmailNoSubject'),
+      details: t('documentEmailDetails'), rawHeaders: t('documentEmailRawHeaders'), thread: t('documentEmailThread'),
+      delivery: t('documentEmailDelivery'), priority: t('documentEmailPriority'), authentication: t('documentEmailAuthentication'), format: t('documentEmailFormat')
     } }, [bytes]);
     else finish();
   } catch (error) { finish(); throw error; }

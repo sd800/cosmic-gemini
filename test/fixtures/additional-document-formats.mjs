@@ -11,6 +11,25 @@ export function odfEntries(format){
 }
 export const rtfSample=String.raw`{\rtf1\ansi\ansicpg936{\fonttbl{\f0\fcharset134 SimSun;}}\f0\fs28\b RTF document\b0\par \'d6\'d0\'ce\'c4\par \uc1\u20013?\u25991?\par {\field{\*\fldinst INCLUDEPICTURE "https://tracker.invalid/pixel"}{\fldrslt Safe field result}}\par {\object\objdata PROGRAM-MUST-NOT-APPEAR}\page Second page\par \intbl Cell one\cell Cell two\cell\row\pard End.}`;
 export const emailSample='From: =?UTF-8?B?5rWL6K+V?= <author@example.test>\r\nTo: reader@example.test\r\nSubject: =?UTF-8?B?6YKu5Lu26aKE6KeI?=\r\nDate: Tue, 22 Sep 2026 10:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="mixed"\r\n\r\n--mixed\r\nContent-Type: multipart/alternative; boundary="alt"\r\n\r\n--alt\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nPlain fallback 中文\r\n--alt\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<h2>Email content</h2><p>HTML body</p><img src=3D"https://tracker.invalid/pixel"><iframe src=3D"https://tracker.invalid/frame"></iframe><style>@import "https://tracker.invalid/style";</style><script>alert(1)</script>\r\n--alt--\r\n--mixed\r\nContent-Type: application/octet-stream; name="test.exe"\r\nContent-Disposition: attachment; filename="test.exe"\r\nContent-Transfer-Encoding: base64\r\n\r\nTVpOb3RBY3R1YWxFeGVjdXRhYmxl\r\n--mixed--\r\n';
+
+export const emailMetadataSample=emailSample.replace('MIME-Version: 1.0',[
+ 'Sender: Reading Group <sender@example.test>',
+ 'Reply-To: Discussion <reply@example.test>',
+ 'Bcc: Hidden Recipient <hidden@example.test>',
+ 'Message-ID: <message-123@example.test>',
+ 'In-Reply-To: <message-122@example.test>',
+ 'References: <message-121@example.test> <message-122@example.test>',
+ 'Delivered-To: reader@example.test',
+ 'Return-Path: <bounce@example.test>',
+ 'Received: from relay.example.test by inbox.example.test;\r\n\tTue, 22 Sep 2026 10:00:00 +0800',
+ 'Received: from sender.example.test by relay.example.test; Tue, 22 Sep 2026 09:59:00 +0800',
+ 'Importance: high',
+ 'Authentication-Results: inbox.example.test; dkim=pass; spf=pass; dmarc=pass',
+ 'DKIM-Signature: v=1; a=rsa-sha256; d=example.test; b=synthetic-test-signature',
+ 'User-Agent: Example Mail <img src="https://tracker.invalid/metadata">',
+ 'X-Unknown-Header: <script>neverExecute()</script> https://tracker.invalid/header',
+ 'MIME-Version: 1.0'
+].join('\r\n')).replace('Content-Disposition: attachment; filename="test.exe"','Content-Disposition: attachment; filename="test.exe"\r\nContent-Description: Synthetic attachment <b>not HTML</b>');
 export function cfbFile(XLSX,streams){const cfb=XLSX.CFB.utils.cfb_new();for(const[name,data]of Object.entries(streams))XLSX.CFB.utils.cfb_add(cfb,name,Buffer.from(data));const bytes=XLSX.CFB.write(cfb,{type:'buffer'});return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);}
 export function wordStreams(text='Word 97 中文正文\rNext paragraph\r\x13HYPERLINK secret\x14Display result\x15\r'){
  const body=Buffer.alloc(4096),table=Buffer.alloc(512),utf=Buffer.from(text,'utf16le');

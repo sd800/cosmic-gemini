@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.52 — 2026-10-20
+
+- Expand email previews with available reply, sender, and Bcc information, plus collapsed message details and raw headers.
+
 ## 9.12.51 — 2026-10-20
 
 - Improve email previews with clearer message headers, readable dates, body layout, quotes, and attachment details.

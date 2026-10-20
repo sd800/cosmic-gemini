@@ -7647,7 +7647,8 @@
       "subdivision": "Massachusetts",
       "domains": [
         "harvard.edu",
-        "hbs.edu"
+        "hbs.edu",
+        "hms.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -7670,13 +7671,19 @@
       "aliasEvidence": {
         "hbs.edu": [
           "https://trademark.harvard.edu/use-of-harvard-names-and-insignias-in-electronic-contexts"
+        ],
+        "hms.edu": [
+          "https://harvardmacy.org/privacy",
+          "https://www.cc.nih.gov/sites/default/files/2024-07/CCNews2022Winter.pdf"
         ]
       },
       "aliasNotes": {
-        "hbs.edu": "Non-independent university school/unit: Harvard Business School. Resolve the educational root and its subdomains to the parent university, not a separate institution."
+        "hbs.edu": "Non-independent university school/unit: Harvard Business School. Resolve the educational root and its subdomains to the parent university, not a separate institution.",
+        "hms.edu": "University school/unit: Harvard Medical School. The institutional program privacy policy and NIH Clinical Center publication identify the hms.edu medical-school domain; display Harvard University with its reviewed medical-school label, not a separate university."
       },
       "unitNames": {
-        "hbs.edu": "Harvard Business School"
+        "hbs.edu": "Harvard Business School",
+        "hms.edu": "Harvard Medical School"
       }
     },
     {
@@ -10263,7 +10270,8 @@
       "region": "US",
       "subdivision": "Ohio",
       "domains": [
-        "miamioh.edu"
+        "miamioh.edu",
+        "muohio.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -10274,6 +10282,14 @@
           "204006: Miami University-Hamilton",
           "204024: Miami University-Oxford"
         ]
+      },
+      "aliasEvidence": {
+        "muohio.edu": [
+          "https://miamioh.edu/domain/"
+        ]
+      },
+      "aliasNotes": {
+        "muohio.edu": "Historical Miami University domain retained for identity recognition at the user request. The official migration notice documents the transition to miamioh.edu and retirement of old-domain forwarding; recognition makes no claim about current mailbox deliverability or redirection."
       }
     },
     {

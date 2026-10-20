@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.20.9 — 2026-10-20
+
+- Use an en dash between email technical terms and their explanations.
+
 ## 26.10.20.8 — 2026-10-20
 
 - Preserve native modified-arrow and Home/End selection shortcuts in PDF previews, with stronger lifecycle regression coverage.

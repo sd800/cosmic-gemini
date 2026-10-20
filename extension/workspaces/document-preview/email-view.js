@@ -52,7 +52,7 @@ export function localizeEmail(locale, labels, root=document) {
     }
     for(const element of region.querySelectorAll('[data-email-hint]')) {
       const keys=element.dataset.emailHint.split('|').slice(0,3), values=keys.map(key=>Object.hasOwn(EMAIL_HELP,key)?labels.hints?.[key]:null);
-      if(values.every(value=>typeof value==='string'&&value.length<=512))element.textContent=element.dataset.emailTerm+' — '+values.join(' ');
+      if(values.every(value=>typeof value==='string'&&value.length<=512))element.textContent=element.dataset.emailTerm+' – '+values.join(' ');
     }
     for(const element of region.querySelectorAll('[data-email-date]'))element.textContent=formatEmailDate(element.dataset.emailDate,locale);
     for(const element of region.querySelectorAll('[data-email-size]')) {

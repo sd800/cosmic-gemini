@@ -14,7 +14,7 @@ Package integrity (SHA-512/base64):
 `kkv2MrSFk3f/w3uLsz4FG/91LdWp2j+qmp7AjG2v7w2xgX5YDxiaFlaWourXrXtyUR6335+9guyIlPBnhHLvKw==`
 
 Browser bundle SHA-256:
-`819d9c685f4dbd3de6bf1732fd7f96f5ff2ced5da75324a32402549eac717972`
+`5cbb4c6c7062138fb5d53306f18456de177b68271d20a7c64742fbf9e1072c5d`
 
 Build inputs: docs/document-renderer-build/package-lock.json.
 Build command: node scripts/build-document-renderer.mjs <build-directory>.

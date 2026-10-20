@@ -6,7 +6,7 @@ import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
 import { bindDocumentOpen } from './document-open.js';
-import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesDirectoryMarkup, viewFor } from './views.js';
+import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesDirectoryMarkup, documentOpenCardMarkup, viewFor } from './views.js';
 
 const claimSettings = openedAt => void send({ type: 'UI_SETTINGS_OPENED', openedAt }).catch(() => {});
 claimSettings(performance.timeOrigin);
@@ -750,9 +750,9 @@ async function update(section, task, controls = [], errorKey = 'settingsSaveFail
 
 function bindView() {
   const documentOpen = document.querySelector('.document-open');
-  if (documentOpen) {
-    const ticket = pageLifetime;
-    bindDocumentOpen(documentOpen, () => t, () => currentPage(ticket) && documentOpen.isConnected);
+  if (documentOpen && documentOpen.dataset.openBound !== 'true') {
+    documentOpen.dataset.openBound='true';
+    bindDocumentOpen(documentOpen, () => t, () => !pageClosing && documentOpen.isConnected);
   }
   for (const input of document.querySelectorAll('input[type="text"]')) bindRuleInputHelp(input);
   const enabled = document.querySelector('#enabled');
@@ -1352,6 +1352,12 @@ function syncSatelliteDirectory() {
   };
 }
 
+function syncDocumentShortcut() {
+  let card=document.querySelector('#document-preview-shortcut');
+  if(featureId!=='allSettings'){card?.remove();return;}
+  if(!card){const template=document.createElement('template');template.innerHTML=documentOpenCardMarkup();card=template.content.firstElementChild;document.querySelector('.language-card').after(card);}
+}
+
 function mountView(replace = true) {
   disarmWebsiteReset();
   document.body.dataset.feature = featureId;
@@ -1364,6 +1370,7 @@ function mountView(replace = true) {
     helpPanel.innerHTML = view.help;
   }
   syncSatelliteDirectory();
+  syncDocumentShortcut();
   for (const element of document.querySelectorAll('[data-section-icon]')) {
     element.innerHTML = icon(element.dataset.sectionIcon);
   }

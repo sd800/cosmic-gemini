@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.53 — 2026-10-20
+
+- Add an Open file shortcut below Language in All Settings.
+- Add local English/Chinese switching and concise explanations to email previews, with clearer delivery records and detailed metadata.
+
 ## 9.12.52 — 2026-10-20
 
 - Expand email previews with available reply, sender, and Bcc information, plus collapsed message details and raw headers.

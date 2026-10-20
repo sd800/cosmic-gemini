@@ -2,13 +2,14 @@ import { loadLocale } from '../../core/locale.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
 import { icon, send } from '../../shared/ui.js';
 import { createDocumentContent } from './content-host.js';
+import { buildEmailLabels } from './email-labels.js';
 import { normalizeDocumentAppearance, toggleDocumentAppearance } from '../../core/document-preview/document-appearance.js';
 import { createDocumentStatus } from './status.js';
 import { documentKind, inspectPdf } from '../../core/document-preview/document-preview.js';
 
 const params = new URLSearchParams(location.hash.slice(1));
 const id = params.get('id'), mode = params.get('mode');
-const locale = await loadLocale(), t = translator(locale);
+let locale = await loadLocale(), t = translator(locale);
 document.documentElement.lang = locale; localizeDocument(t);
 document.querySelector('#document-icon').innerHTML = icon('documentPreview');
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
@@ -18,6 +19,7 @@ let generation = 0, suspended = false, previewRequested = false;
 const current = value => !expired && !suspended && value === generation;
 const assertCurrent = value => { if (!current(value)) throw new Error('Document view ended.'); };
 const frame = document.querySelector('#document');
+const emailLanguage=document.querySelector('#email-language');
 const partControls = document.querySelector('#part-controls'), partSelect = document.querySelector('#document-part');
 const previousPart = document.querySelector('#part-previous'), nextPart = document.querySelector('#part-next');
 previousPart.setAttribute('aria-label', t('documentPreviousPart')); nextPart.setAttribute('aria-label', t('documentNextPart'));
@@ -37,8 +39,27 @@ function ensureContent() {
   return contentViewer;
 }
 function showContent(html) {
-  ensureContent().render(html, rendered.formatting);
+  const reader=ensureContent();
+  if(metadata.format==='eml')reader.setEmailLocale(locale,emailLabels());
+  reader.render(html, rendered.formatting);
 }
+function emailLabels() { return buildEmailLabels(t,locale); }
+function updateEmailLanguage() {
+  emailLanguage.hidden=metadata?.format!=='eml';emailLanguage.disabled=expired;
+  emailLanguage.textContent=locale==='zh-CN'?'English':'中文';emailLanguage.lang=locale==='zh-CN'?'en-US':'zh-CN';
+  emailLanguage.title=t('documentEmailLanguage');emailLanguage.setAttribute('aria-label',emailLanguage.title);
+}
+emailLanguage.onclick=()=>{
+  if(metadata?.format!=='eml'||expired||suspended)return;
+  const old=t, previousStatus=status.textContent;locale=locale==='zh-CN'?'en-US':'zh-CN';t=translator(locale);
+  document.documentElement.lang=locale;localizeDocument(t);
+  status.textContent=previousStatus;
+  for(const element of document.querySelectorAll('[data-i18n-aria-label]'))element.setAttribute('aria-label',t(element.dataset.i18nAriaLabel));
+  for(const [button,key] of [[zoomOut,'documentZoomOut'],[zoomIn,'documentZoomIn'],[zoomReset,'documentZoomReset']])button.title=t(key);
+  for(const key of ['documentLoading','documentActionFailed','documentDownloadStarted','documentRenderFailed','documentExpired'])if(status.textContent===old(key)){status.textContent=t(key);break;}
+  document.querySelector('#metadata').textContent=[metadata.local?t('documentLocalFile'):metadata.site,t('documentToolbarEmail')].join(' · ');
+  updateEmailLanguage();updateTheme();contentViewer?.setEmailLocale(locale,emailLabels());
+};
 function showPart(index) {
   const parts = rendered?.parts; if (!parts?.length || expired || suspended) return;
   index = Math.max(0, Math.min(parts.length - 1, index));
@@ -121,6 +142,7 @@ function expire() {
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
   zoomControls.hidden = true; partControls.hidden = true;
   frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); notices.show(t('documentExpired')); updateTheme();
+  updateEmailLanguage();
 }
 async function preparePdfViewer() {
   const started = generation;
@@ -190,13 +212,7 @@ async function preview() {
   };
   try {
     const bytes = await blob.arrayBuffer();
-    if (worker === ownedWorker && current(started)) ownedWorker.postMessage({ bytes, format: metadata.format, labels: {
-      locale, from: t('documentEmailFrom'), to: t('documentEmailTo'), cc: t('documentEmailCc'),
-      bcc: t('documentEmailBcc'), replyTo: t('documentEmailReplyTo'), sender: t('documentEmailSender'),
-      date: t('documentEmailDate'), attachments: t('documentEmailAttachments'), noSubject: t('documentEmailNoSubject'),
-      details: t('documentEmailDetails'), rawHeaders: t('documentEmailRawHeaders'), thread: t('documentEmailThread'),
-      delivery: t('documentEmailDelivery'), priority: t('documentEmailPriority'), authentication: t('documentEmailAuthentication'), format: t('documentEmailFormat')
-    } }, [bytes]);
+    if (worker === ownedWorker && current(started)) ownedWorker.postMessage({ bytes, format: metadata.format, labels: metadata.format==='eml'?emailLabels():undefined }, [bytes]);
     else finish();
   } catch (error) { finish(); throw error; }
 }
@@ -293,6 +309,7 @@ function showMetadata() {
   const family = documentKind(metadata.format);
   const typeKey = {docx:'documentToolbarDocuments',xlsx:'documentToolbarSpreadsheets',pptx:'documentToolbarSlides',pdf:'documentToolbarPdf',eml:'documentToolbarEmail'}[family];
   document.querySelector('#metadata').textContent = [metadata.local ? t('documentLocalFile') : metadata.site, typeKey && t(typeKey)].filter(Boolean).join(' · ');
+  updateEmailLanguage();
 }
 async function loadPreparedDocument(previewPdf = false) {
   if (previewPdf) previewRequested = true;

@@ -1,5 +1,6 @@
 import { safeDocumentHtml, documentStyles } from './sanitize.js';
 import { createDocumentZoom } from './zoom.js';
+import { localizeEmail } from './email-view.js';
 // Only this fixed, packaged controller executes. Converter output is rebuilt
 // as passive allowlisted markup in an opaque, API-free sandbox. The private
 // channel accepts document content and fixed presentation controls, not script,
@@ -7,6 +8,7 @@ import { createDocumentZoom } from './zoom.js';
 const controller = new AbortController(), { signal } = controller;
 let port, capture, generation = 0, locale = 'en-US', stylesheet = '', dark = false;
 let slides, slidesResources, renderId = 0, slideIndex = 0, slideZoom = 1;
+let email = false;
 const zoom = createDocumentZoom({signal,slides:()=>slides,onChange:value=>port?.postMessage({type:'zoom',id:renderId,zoom:value})});
 function closeCapture() {
   generation++;
@@ -35,6 +37,10 @@ window.addEventListener('message', event => {
   port.onmessage = ({data}) => {
     if (signal.aborted) return;
     if (data?.type === 'theme' && typeof data.dark === 'boolean') { dark = data.dark; applyTheme(); return; }
+    if(data?.type==='email-locale'&&data.id===renderId&&email&&['en-US','zh-CN'].includes(data.locale)) {
+      locale=data.locale;document.documentElement.lang=locale;localizeEmail(locale,data.labels);
+      closeCapture();void capture?.then(dialog=>dialog.setLocale(locale));return;
+    }
     if (data?.type === 'select-slide' && data.id === renderId && Number.isInteger(data.index)) {
       slideIndex = data.index; slides?.select(slideIndex); return;
     }
@@ -52,6 +58,7 @@ window.addEventListener('message', event => {
 async function render(data) {
   closeCapture(); const request = generation;
   renderId = data.id; slides?.destroy(); slides = null;
+  email=false;
   document.body.replaceChildren();
   slideIndex = Number.isInteger(data.index) ? data.index : 0;
   slideZoom = Number.isFinite(data.zoom) ? Math.max(.5, Math.min(2, data.zoom)) : 1;
@@ -69,7 +76,11 @@ async function render(data) {
         label:typeof data.label === 'string' ? data.label.slice(0, 64) : (locale === 'zh-CN' ? '幻灯片' : 'Slide'),index:slideIndex,zoom:slideZoom}, index => {
         closeCapture(); port.postMessage({type:'slide',id:renderId,index});
       }, () => port.postMessage({type:'error',id:renderId}));
-    } else document.body.innerHTML = html;
+    } else {
+      document.body.innerHTML = html;
+      email=data.formatting?.kind==='eml';
+      if(email)localizeEmail(locale,data.emailLabels);
+    }
     zoom.reset(slideZoom);
     window.scrollTo(0, 0);
     port.postMessage({type:'rendered',id:renderId});

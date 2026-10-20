@@ -2,7 +2,7 @@
 // External links/clipboard stay in the frame; no arbitrary URL host command.
 export function createDocumentContent(frame, locale, onError, onSlide = () => {}, onZoom = () => {}) {
   const channel = new MessageChannel(); let ready = false, closed = false, pending, dark = frame.style.colorScheme === 'dark';
-  let renderId = 0, slideCount = 0, zoom = 1;
+  let renderId = 0, slideCount = 0, zoom = 1, emailLabels;
   frame.style.visibility = 'hidden';
   const timeout = setTimeout(() => { if (!closed && !ready) onError(); }, 10000);
   const send = () => { if (!closed && ready && pending) { channel.port1.postMessage(pending); pending = null; } };
@@ -22,7 +22,7 @@ export function createDocumentContent(frame, locale, onError, onSlide = () => {}
   frame.allow = 'clipboard-write *';
   frame.src = new URL('content.html', import.meta.url).href;
   return {
-    render(html, formatting) { if (!closed) { slideCount = 0; pending = {type:'render',id:++renderId,html,formatting,locale,zoom}; send(); } },
+    render(html, formatting) { if (!closed) { slideCount = 0; pending = {type:'render',id:++renderId,html,formatting,locale,zoom,...(formatting?.kind==='eml'?{emailLabels}:{})}; send(); } },
     renderSlides(parts, formatting, label) {
       if (closed) return;
       slideCount = parts.length;
@@ -40,6 +40,12 @@ export function createDocumentContent(frame, locale, onError, onSlide = () => {}
       else if (!closed && ready) channel.port1.postMessage({type:'zoom',id:renderId,zoom});
     },
     setTheme(value) { dark = value === true; if (!closed && ready) channel.port1.postMessage({type:'theme',dark}); },
+    setEmailLocale(value,labels) {
+      if(closed||!['en-US','zh-CN'].includes(value))return;
+      locale=value;emailLabels=labels;
+      if(pending?.type==='render'&&pending.formatting?.kind==='eml'){pending.locale=locale;pending.emailLabels=labels;}
+      else if(ready)channel.port1.postMessage({type:'email-locale',id:renderId,locale,labels});
+    },
     destroy() {
       if (closed) return;
       closed = true; pending = null; clearTimeout(timeout); channel.port1.close();

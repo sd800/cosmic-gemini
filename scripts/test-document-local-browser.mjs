@@ -17,7 +17,7 @@ await mkdir(samples, { recursive: true });
 const rtf = Buffer.from('{\\rtf1\\ansi Local document preview.\\par Original file stays on this device.'+'\\par A paragraph for scrolling and document gesture zoom.'.repeat(100)+'}');
 await writeFile(join(samples, 'sample.rtf'), rtf);
 await writeFile(join(samples, 'sample.pdf'), viewerPdf(1));
-const email=emailMetadataSample.replace('<h2>Email content</h2><p>HTML body</p>', '<div hidden>Hidden preheader</div><h2>Project reading notes</h2><p>Hello Alex,</p><p>Here are the <strong>updated reading notes</strong> for our next discussion.</p><table><tr><td>Session</td><td>Friday, 10:00</td></tr><tr><td>Topic</td><td>Design decisions and trade-offs</td></tr></table><blockquote><p>Earlier message: please review the examples before the meeting.</p></blockquote><p><a href=3D"mailto:contact@example.test">Contact the team</a></p><table border=3D"1" cellpadding=3D"6"><tr><td>Explicit table border</td><td>Preserved</td></tr></table><p>Thank you,<br>The reading group</p>');
+const email=emailMetadataSample.replace('by inbox.example.test;', 'by inbox.example.test with ESMTPS id fixture for <reader@example.test>;').replace('<h2>Email content</h2><p>HTML body</p>', '<div hidden>Hidden preheader</div><h2>Project reading notes</h2><p>Hello Alex,</p><p>Here are the <strong>updated reading notes</strong> for our next discussion.</p><table><tr><td>Session</td><td>Friday, 10:00</td></tr><tr><td>Topic</td><td>Design decisions and trade-offs</td></tr></table><blockquote><p>Earlier message: please review the examples before the meeting.</p></blockquote><p><a href=3D"mailto:contact@example.test">Contact the team</a></p><table border=3D"1" cellpadding=3D"6"><tr><td>Explicit table border</td><td>Preserved</td></tr></table><p>Thank you,<br>The reading group</p>');
 await writeFile(join(samples,'sample.eml'),email);
 await writeFile(join(samples,'plain.eml'),'From: Example <contact@example.test>\r\nTo: reader@example.test\r\nSubject: Plain text reading notes\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nHello Alex,\r\n\r\n  Two spaces stay here.\r\n    Four spaces stay here.\r\n\r\nRegards,\r\nExample');
 for(const [format,entries] of [['xlsx',spreadsheetEntries()],['pptx',presentationEntries()]]) await writeFile(join(samples,'sample.'+format),Buffer.from(storedZip(entries)));
@@ -41,6 +41,25 @@ try {
   assert.equal(await settings.locator('#documentPreviewEnabled').isChecked(), false);
   assert.equal(await button.isEnabled(), true);
   assert.equal(await settings.locator('#documentPreviewOptions').evaluate(node => node.disabled), true);
+  await settings.locator('[data-feature-link="allSettings"]').click();
+  await settings.locator('#document-preview-shortcut').waitFor();
+  let shortcut=settings.locator('#document-preview-shortcut');
+  assert.equal(await shortcut.evaluate(e=>e.previousElementSibling.classList.contains('language-card')),true);
+  const labelBox=await shortcut.locator('strong').boundingBox(),buttonBox=await button.boundingBox();
+  const languageCard=settings.locator('.language-card'),languageCardBox=await languageCard.boundingBox(),shortcutBox=await shortcut.boundingBox();
+  assert.equal(shortcutBox.width,languageCardBox.width);assert.equal(shortcutBox.height,languageCardBox.height);
+  assert.equal(labelBox.x,(await languageCard.locator('strong').boundingBox()).x);
+  const languageSelectBox=await languageCard.locator('#language').boundingBox();
+  assert.equal(buttonBox.x+buttonBox.width,languageSelectBox.x+languageSelectBox.width);
+  assert.equal(buttonBox.height,languageSelectBox.height);
+  assert.ok(buttonBox.x>labelBox.x+labelBox.width,'Open file sits to the right of Document Preview');
+  assert.ok(Math.abs(buttonBox.y+buttonBox.height/2-labelBox.y-labelBox.height/2)<1);
+  await settings.locator('[data-feature-link="satellites"]').click();
+  assert.equal(await settings.locator('#document-preview-shortcut').count(),0);
+  await settings.locator('[data-feature-link="allSettings"]').click();
+  await settings.locator('#document-preview-shortcut').waitFor();
+  assert.equal(await button.count(),1);
+  await settings.screenshot({path:join(samples,'all-settings-open-file.png')});
   const choose = async payload => {
     const chooser = settings.waitForEvent('filechooser'); await button.click();
     await (await chooser).setFiles(payload);
@@ -76,7 +95,7 @@ try {
     await preview.frameLocator('#document').locator('body').filter({hasText:'Local document preview.'}).waitFor();
     await gesture(preview,'p');
     assert.equal(await preview.locator('#metadata').textContent(), 'Local file · documents');
-    assert.equal(await settings.locator('#documentPreviewEnabled').isChecked(), false);
+    assert.equal(await preview.locator('#email-language').isVisible(), false);
     const sourceIndex = await settings.evaluate(async () => (await chrome.tabs.getCurrent()).index);
     const previewIndex = await preview.evaluate(async () => (await chrome.tabs.getCurrent()).index);
     assert.equal(previewIndex, sourceIndex + 1);
@@ -122,7 +141,37 @@ try {
       await reader.screenshot({path:join(samples,'email-light.png')});
       await frame.locator('.cg-email-details>summary').press('Enter');
       await frame.locator('.cg-email-details[open]').waitFor();
-      assert.equal(await frame.locator('.cg-email-detail-content').getByText('Message-ID',{exact:true}).isVisible(),true);
+      assert.equal(await frame.locator('[data-email-label="Message-ID"]').isVisible(),true);
+      assert.equal(await frame.locator('.cg-email-hop').count(),2);
+      assert.match(await frame.locator('.cg-email-hop-route').first().innerText(),/\nby inbox.example.test/);
+      assert.match(await frame.locator('.cg-email-hop-time').first().textContent(),/UTC\+8/);
+      const language=reader.locator('#email-language'),scale=reader.locator('#zoom-controls');
+      const languageBox=await language.boundingBox(),scaleBox=await scale.boundingBox(),toolbar=await reader.locator('header').boundingBox();
+      assert.ok(languageBox.x+languageBox.width<=scaleBox.x,'language button precedes the zoom group');
+      assert.ok(Math.abs(languageBox.y+languageBox.height/2-scaleBox.y-scaleBox.height/2)<1,'language and zoom share one line');
+      await frame.locator('[data-email-label="Received"]').evaluate(e=>e.scrollIntoView({block:'center'}));
+      const originalBody=await frame.locator('.cg-email-body').textContent(),rawSource=await frame.locator('.cg-email-raw-text').textContent();
+      await frame.evaluate(()=>window.qaOriginalBody=document.querySelector('.cg-email-body'));
+      const position=await frame.evaluate(()=>scrollY);
+      await language.click();await frame.locator('[data-email-label="Received"]').filter({hasText:'投递记录'}).waitFor();
+      assert.equal(await reader.locator('#download').textContent(),'下载');
+      assert.equal(await reader.locator('#status').textContent(),'');
+      assert.equal(await reader.locator('header').evaluate(e=>e.getBoundingClientRect().height),toolbar.height);
+      assert.equal(await frame.locator('.cg-email-details').getAttribute('open'),'');
+      assert.equal(await frame.evaluate(()=>qaOriginalBody===document.querySelector('.cg-email-body')),true,'switching does not reparse or replace the email');
+      assert.ok(Math.abs((await frame.evaluate(()=>scrollY))-position)<2,'switching keeps the reading position');
+      assert.equal(await frame.locator('.cg-email-body').textContent(),originalBody);assert.equal(await frame.locator('.cg-email-raw-text').textContent(),rawSource);
+      const term=frame.locator('.cg-email-term').filter({has:frame.locator('[data-email-label="Received"]')});
+      await term.hover();await term.locator('[role=tooltip]').waitFor({state:'visible'});
+      assert.match(await term.locator('[role=tooltip]').textContent(),/邮件服务器/);
+      const protocol=frame.locator('.cg-email-term').filter({has:frame.getByText('ESMTPS',{exact:true})});
+      await protocol.focus();assert.match(await protocol.locator('[role=tooltip]').innerText(),/TLS/);
+      const auth=frame.locator('.cg-email-term').filter({has:frame.getByText('spf=pass',{exact:true})});
+      await auth.hover();assert.match(await auth.locator('[role=tooltip]').innerText(),/SPF.*记录.*通过/);
+      await language.click();await frame.locator('[data-email-label="Received"]').filter({hasText:'Received'}).waitFor();
+      assert.equal(await reader.locator('#download').textContent(),'Download');
+      assert.equal(await settings.locator('#language').inputValue(),'en-US','the EML language never writes the global preference');
+      await frame.evaluate(()=>window.scrollTo(0,0));
       assert.equal(await frame.locator('.cg-email-details :is(img,script,a,iframe)').count(),0,'metadata is inert text, not markup or links');
       await frame.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       await reader.screenshot({path:join(samples,'email-details-light.png')});
@@ -156,6 +205,12 @@ try {
       await reader.locator('#part-next').click();
       await reader.frameLocator('#document').getByText('第二张表').waitFor();
     }
+    await reader.close();
+  }
+  if(emailOnly) {
+    const opening=context.waitForEvent('page');await choose(join(samples,'sample.rtf'));const reader=await opening;
+    await reader.frameLocator('#document').locator('body').filter({hasText:'Local document preview.'}).waitFor();
+    assert.equal(await reader.locator('#email-language').isVisible(),false);
     await reader.close();
   }
   const plainOpening=context.waitForEvent('page');await choose(join(samples,'plain.eml'));const plain=await plainOpening;
@@ -202,5 +257,5 @@ try {
     }
     throw Error('Local file references were not released after closing previews.');
   });
-  console.log(emailOnly?'PASS: bilingual email envelope and grouped/raw metadata, default-collapsed keyboard-accessible sections, inert hostile headers, light/dark/narrow layouts, plain mail, no remote requests or extension errors.':'PASS: native file selection, RTF/EML/XLSX/PPTX gesture zoom, fixed toolbar/slide rail, email headers/body/tables/inert attachments, light/dark/narrow layouts, plain-text spacing, PDF preview, RAM-backed reload/cleanup, no network or extension errors.');
+  console.log(emailOnly?'PASS: All Settings native file opening, local email language switching, delivery layout and contextual explanations, preserved message/scroll/raw data, light/dark/narrow layouts, inert metadata, no remote requests or extension errors.':'PASS: native file selection, RTF/EML/XLSX/PPTX gesture zoom, fixed toolbar/slide rail, email headers/body/tables/inert attachments, light/dark/narrow layouts, plain-text spacing, PDF preview, RAM-backed reload/cleanup, no network or extension errors.');
 } finally { await context?.close(); await rm(profile, { recursive:true, force:true }); }

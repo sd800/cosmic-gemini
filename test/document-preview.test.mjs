@@ -20,7 +20,10 @@ import { createDocumentStatus } from '../extension/workspaces/document-preview/s
 import { documentStyles } from '../extension/workspaces/document-preview/sanitize.js';
 import { createDocumentContent } from '../extension/workspaces/document-preview/content-host.js';
 import { createDocumentZoom } from '../extension/workspaces/document-preview/zoom.js';
-import { formatEmailDate } from '../extension/workspaces/document-preview/email-view.js';
+import { formatEmailDate, receivedParts, formatEmailHeader } from '../extension/workspaces/document-preview/email-view.js';
+import { emailInfoTokens } from '../extension/workspaces/document-preview/email-info.js';
+import { EMAIL_HELP, buildEmailLabels } from '../extension/workspaces/document-preview/email-labels.js';
+import { translator } from '../extension/shared/localization.js';
 
 test('presentation bridge preserves pending selection and zoom and ignores stale or invalid slide feedback', () => {
   const OriginalChannel = globalThis.MessageChannel, sent = [], selected = [], errors = [], zooms = [];
@@ -109,14 +112,55 @@ test('email dates are readable in both locales and retain explicit message offse
   for (const value of ['not a date','2026-13-30T12:00:00.000Z','2026-09-22 10:00:00']) assert.equal(formatEmailDate(value,'en-US'),value);
 });
 
-async function previewWorkspace() {
+test('email detail layout separates delivery hops, references, and clauses without splitting quoted or comment content', () => {
+  const value='from sender.test (note by someone; with TLS) by relay.test with ESMTPS id "a; by b" for <reader@example.test>; Tue, 22 Sep 2026 10:00:00 +0800';
+  assert.deepEqual(receivedParts(value),{route:'from sender.test (note by someone; with TLS)\nby relay.test\nwith ESMTPS\nid "a; by b"\nfor <reader@example.test>',date:'Tue, 22 Sep 2026 10:00:00 +0800'});
+  assert.deepEqual(receivedParts('from [IPv6:2001:db8::1] by relay.test'),{route:'from [IPv6:2001:db8::1]\nby relay.test',date:''});
+  assert.equal(formatEmailHeader('Authentication-Results','server.test; dkim=pass header.d="a;b"; spf=pass (comment; keep)'), 'server.test;\ndkim=pass header.d="a;b";\nspf=pass (comment; keep)');
+  assert.equal(formatEmailHeader('DKIM-Signature','v=1; a=rsa-sha256; b=ABCDEF;'),'v=1;\na=rsa-sha256;\nb=ABCDEF;');
+  assert.equal(formatEmailHeader('References','<one@example.test> <two@example.test>'),'<one@example.test>\n<two@example.test>');
+});
+
+test('email metadata explains recorded protocols and values without interpreting message content', () => {
+  const route='with ESMTPS (TLSv1.3)';
+  assert.deepEqual(emailInfoTokens('route',route).map(token=>[route.slice(token.start,token.end),token.keys]),[
+    ['with',['routeWith']],['ESMTPS',['protocolESMTPS']],['TLSv1.3',['protocolTLS']]
+  ]);
+  assert.deepEqual(emailInfoTokens('route','from tls.example.test by relay.test').map(token=>token.keys),[['routeFrom']]);
+  assert.deepEqual(emailInfoTokens('Authentication-Results','mx.test; spf = pass; dkim=fail').map(token=>token.keys),[['authSPF','resultpass'],['authDKIM','resultfail']]);
+  assert.deepEqual(emailInfoTokens('Received-SPF','softfail (sender not listed)').map(token=>token.keys),[['authSPF','resultsoftfail']]);
+  assert.deepEqual(emailInfoTokens('Subject','spf=pass TLSv1.3'),[]);
+  assert.deepEqual(emailInfoTokens('Content-Type','multipart/alternative; boundary="test"').map(token=>token.keys),[['mimeAlternative']]);
+  assert.deepEqual(emailInfoTokens('Content-Transfer-Encoding','quoted-printable').map(token=>token.keys),[['encodingquoted-printable']]);
+  assert.deepEqual(emailInfoTokens('Content-Disposition','attachment; filename="safe.txt"').map(token=>token.keys),[['dispositionattachment']]);
+  for(const locale of ['en-US','zh-CN']) {
+    const labels=buildEmailLabels(translator(locale),locale);
+    for(const key of Object.keys(EMAIL_HELP))assert.ok(labels.hints[key]&&!labels.hints[key].startsWith('documentEmail')&&labels.hints[key].length<=512,key);
+  }
+});
+
+test('email bridge keeps a pending local language choice and sends only current-view locale controls', () => {
+  const Original=globalThis.MessageChannel,sent=[];let channel,load;
+  globalThis.MessageChannel=class{constructor(){channel=this;this.port1={postMessage:data=>sent.push(data),close(){}};this.port2={};}};
+  const frame={style:{},addEventListener:(_type,fn)=>load=fn,contentWindow:{postMessage(){}},removeAttribute(){}};
+  const reader=createDocumentContent(frame,'en-US',()=>{});
+  try {
+    reader.render('<p>mail</p>',{kind:'eml'});reader.setEmailLocale('zh-CN',{from:'发件人'});load();channel.port1.onmessage({data:{type:'ready'}});
+    const first=sent.at(-1);assert.equal(first.locale,'zh-CN');assert.equal(first.emailLabels.from,'发件人');
+    reader.setEmailLocale('en-US',{from:'From'});assert.equal(sent.at(-1).type,'email-locale');assert.equal(sent.at(-1).id,first.id);
+    const count=sent.length;reader.setEmailLocale('fr-FR',{});assert.equal(sent.length,count);
+    reader.destroy();reader.setEmailLocale('zh-CN',{});assert.equal(sent.length,count);
+  }finally{reader.destroy();globalThis.MessageChannel=Original;}
+});
+
+async function previewWorkspace(format='rtf') {
   const elements = new Map(), listeners = new Map(), pending = [], searched = [];
   const element = selector => {
     if (!elements.has(selector)) elements.set(selector, {style:{setProperty() {}},dataset:{},hidden:false,disabled:false,
       setAttribute() {},removeAttribute() {},classList:{add() {},remove() {}},addEventListener() {}});
     return elements.get(selector);
   };
-  const metadata = {id:'fixture',context:'regular',site:'example.test',filename:'Fixture.rtf',format:'rtf',prepared:true,appearance:'dark',siteTheme:'light'};
+  const metadata = {id:'fixture',context:'regular',site:'example.test',filename:'Fixture.rtf',format,prepared:true,appearance:'dark',siteTheme:'light'};
   const root = element('root');
   const dispatch = (type, event = {}) => listeners.get(type)?.(event);
   const source = (await readFile(new URL('../extension/workspaces/document-preview/document-preview.js', import.meta.url), 'utf8'))
@@ -128,7 +172,7 @@ async function previewWorkspace() {
     document:{documentElement:root,body:element('body'),querySelector:element,querySelectorAll:()=>[]},
     matchMedia:()=>({matches:false,addEventListener() {}}),
     loadLocale:async()=> 'en-US',localizeDocument() {},translator:()=>key=>key,icon:()=>'',
-    normalizeDocumentAppearance:value=>['dark','light'].includes(value)?value:'auto',toggleDocumentAppearance() {},documentKind:()=> 'docx',
+    normalizeDocumentAppearance:value=>['dark','light'].includes(value)?value:'auto',toggleDocumentAppearance() {},documentKind:()=>format==='eml'?'eml':'docx',
     createDocumentStatus,createDocumentContent() {throw Error('unexpected render');},
     chrome:{runtime:{getURL:path=>'chrome-extension://fixture/'+path},storage:{onChanged:{addListener:callback=>listeners.set('storage',callback)}},
       downloads:{onChanged:{addListener() {}},search:async({id})=>{searched.push(id);return [{state:'in_progress'}];}}},
@@ -141,6 +185,15 @@ async function previewWorkspace() {
     storedTheme:theme=>listeners.get('storage')({'documentPreview:regular':{newValue:{documents:[metadata],themes:{[metadata.site]:theme}}}},'session'),
     restore:async()=>{dispatch('pageshow',{persisted:true});await new Promise(resolve=>setImmediate(resolve));}};
 }
+
+test('email language switching stays local and does not revive a completed loading notice', async t => {
+  const view=await previewWorkspace('eml');t.after(view.hide);
+  const toggle=view.element('#email-language');assert.equal(toggle.hidden,false);assert.equal(toggle.textContent,'中文');
+  assert.equal(view.element('#status').textContent,'');toggle.onclick();
+  assert.equal(view.root.lang,'zh-CN');assert.equal(toggle.textContent,'English');assert.equal(view.element('#status').textContent,'');assert.equal(view.pending.length,0);
+  toggle.onclick();assert.equal(view.root.lang,'en-US');
+  view.hide();toggle.onclick();assert.equal(view.root.lang,'en-US','a departing view cannot switch language');
+});
 
 test('late appearance failures cannot repaint a restored preview or unlock its newer action', async t => {
   const view = await previewWorkspace(); t.after(view.hide);
@@ -1115,7 +1168,7 @@ test('EML decodes MIME headers and multipart bodies while keeping attachments in
   await extraRenderers();const {emailSample}=await import('./fixtures/additional-document-formats.mjs');
   const result=await renderer.convertEmail(new TextEncoder().encode(emailSample).buffer,{from:'发件人',attachments:'附件'});
   assert.equal(result.formatting.email.subject,'邮件预览');
-  assert.deepEqual(JSON.parse(JSON.stringify(result.formatting.email.fields[0])),{label:'发件人',value:'测试 <author@example.test>'});
+  assert.deepEqual(JSON.parse(JSON.stringify(result.formatting.email.fields[0])),{key:'from',label:'发件人',value:'测试 <author@example.test>'});
   assert.equal(result.formatting.email.attachmentsLabel,'附件');assert.equal(result.formatting.email.plain,false);
   assert.equal(result.formatting.email.attachments[0].name,'test.exe');
   assert.equal(result.formatting.email.attachments[0].size,Buffer.from('MZNotActualExecutable').length);

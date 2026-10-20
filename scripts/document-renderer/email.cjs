@@ -10,7 +10,7 @@ async function email(buffer,labels={}){
   const sameFrom=value=>value?.address&&mail.from?.address&&value.address.toLowerCase()===mail.from.address.toLowerCase();
   for(const [key,data] of [['from',from],['sender',sameFrom(mail.sender)?'':sender],['to',(mail.to||[]).map(address).join(', ')],['cc',(mail.cc||[]).map(address).join(', ')],
     ['bcc',(mail.bcc||[]).map(address).join(', ')],['replyTo',mail.replyTo?.length===1&&sameFrom(mail.replyTo[0])?'':replyTo],['date',mail.headers.find(header=>header.key==='date')?.value||mail.date]])
-    if(data)fields.push({label:labels[key]||key,value:data,...(key==='date'?{date:true}:{})});
+    if(data)fields.push({key,label:labels[key]||key,value:data,...(key==='date'?{date:true}:{})});
   // Group repeated headers without dropping hops or inventing verification.
   // All values stay inert text; raw headers retain their order and folding.
   const headers=new Map();
@@ -24,7 +24,7 @@ async function email(buffer,labels={}){
     ['format','Format and software',['MIME-Version','Content-Type','Content-Transfer-Encoding','Content-Language','X-Mailer','User-Agent']]
   ]){
     const rows=names.flatMap(name=>{const value=(headers.get(name.toLowerCase())||[]).filter(Boolean).join('\n\n');return value?[{label:name,value}]:[];});
-    if(rows.length)groups.push({label:labels[key]||fallback,fields:rows});
+    if(rows.length)groups.push({key,label:labels[key]||fallback,fields:rows});
   }
   const attachmentDetails=(mail.attachments||[]).map(a=>({name:a.filename||a.mimeType,fields:[
     ['Content-Type',a.mimeType],['Content-Disposition',a.disposition],['Content-Description',a.description],['Content-ID',a.contentId]
@@ -48,7 +48,7 @@ async function email(buffer,labels={}){
   // The shared DOM sanitizer drops scripts/styles/forms and all remote sources.
   // Attachments are listed as text, never embedded as documents or programs.
   return {value,formatting:{kind:'eml',styles:[],email:{
-    subject:mail.subject||labels.noSubject||'(No subject)',fields,plain:!html,
+    subject:mail.subject||labels.noSubject||'(No subject)',emptySubject:!mail.subject,fields,plain:!html,
     locale:labels.locale==='zh-CN'?'zh-CN':'en-US',attachmentsLabel:labels.attachments||'Attachments',
     details:{label:labels.details||'Message details',groups,attachmentsLabel:labels.attachments||'Attachments',attachments:attachmentDetails},
     rawHeaders:{label:labels.rawHeaders||'Raw headers',value:rawHeaders},

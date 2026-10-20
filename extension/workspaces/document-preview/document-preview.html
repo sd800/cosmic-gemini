@@ -18,10 +18,13 @@
     </div>
     <nav class="toolbar-actions">
       <div id="part-controls" hidden><button id="part-previous" type="button">‹</button><label id="part-label" for="document-part"></label><select id="document-part"></select><button id="part-next" type="button">›</button></div>
-      <div id="zoom-controls" class="zoom-controls" role="group" data-i18n-aria-label="documentZoom" hidden>
-        <button id="zoom-out" type="button" data-i18n-aria-label="documentZoomOut">−</button>
-        <button id="zoom-reset" type="button" data-i18n-aria-label="documentZoomReset">100%</button>
-        <button id="zoom-in" type="button" data-i18n-aria-label="documentZoomIn">+</button>
+      <div class="reading-controls">
+        <button id="email-language" type="button" hidden></button>
+        <div id="zoom-controls" class="zoom-controls" role="group" data-i18n-aria-label="documentZoom" hidden>
+          <button id="zoom-out" type="button" data-i18n-aria-label="documentZoomOut">−</button>
+          <button id="zoom-reset" type="button" data-i18n-aria-label="documentZoomReset">100%</button>
+          <button id="zoom-in" type="button" data-i18n-aria-label="documentZoomIn">+</button>
+        </div>
       </div>
       <button id="theme-auto" type="button" data-i18n="documentThemeAuto" hidden></button>
       <button id="theme-toggle" class="theme-toggle" type="button"></button>

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.31 — 2026-10-19
+
+- Extend institutional email-domain recognition to reviewed museums, libraries, and cultural organizations.
+
 ## 9.12.30 — 2026-10-19
 
 - Expand institutional domain aliases.

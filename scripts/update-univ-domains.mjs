@@ -67,6 +67,15 @@ const rows = records.map(record => {
     assert.ok(record.coverage['us-systems']?.length && record.evidence?.length, `Missing official system evidence: ${record.id}`);
     for (const url of record.evidence) assert.equal(new URL(url).protocol, 'https:');
   }
+  if (record.kind === 'cultural-institution' || record.coverage['cultural-institutions']) {
+    assert.equal(record.kind, 'cultural-institution');
+    assert.deepEqual(record.coverage['cultural-institutions'], [record.en], `Missing cultural institution membership: ${record.id}`);
+    assert.ok(['museum', 'library', 'cultural-foundation'].includes(record.culturalCategory), `Review the cultural purpose: ${record.id}`);
+    assert.ok(['nonprofit', 'public-trust', 'public-institution'].includes(record.publicBenefitStatus), `Review public-benefit status: ${record.id}`);
+    assert.ok(record.domains.every(domain => /\.edu(?:\.[a-z]{2})?$/.test(domain)), `Review the educational domain: ${record.id}`);
+    assert.ok(record.evidence?.length, `Missing official cultural institution evidence: ${record.id}`);
+    for (const url of record.evidence) assert.equal(new URL(url).protocol, 'https:');
+  }
   if (record.affiliations) {
     assert.ok(record.coverage['affiliated-campuses']?.length && record.evidence?.length, `Missing campus evidence: ${record.id}`);
     for (const parent of record.affiliations) assert.ok(parent !== record.id && knownInstitutions.has(parent), `Unknown campus affiliation: ${record.id}: ${parent}`);

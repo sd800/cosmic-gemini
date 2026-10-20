@@ -238,6 +238,22 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('student@illinois.edu').name, 'University of Illinois at Urbana-Champaign');
   assert.equal(lookup('student@univ-amu.fr').name, 'Aix-Marseille Université');
   for (const [address, name, region] of [
+    ['contact@ARTIC.EDU', 'Art Institute of Chicago', 'Illinois, USA'],
+    ['contact@saic.edu', 'School of the Art Institute of Chicago', 'Illinois, USA'],
+    ['contact@si.edu', 'Smithsonian Institution', 'District of Columbia, USA'],
+    ['contact@naturalhistory.si.edu', 'Smithsonian Institution', 'District of Columbia, USA'],
+    ['contact@getty.edu', 'J. Paul Getty Trust', 'California, USA'],
+    ['contact@gri.getty.edu', 'J. Paul Getty Trust', 'California, USA'],
+    ['contact@exploratorium.edu', 'Exploratorium', 'California, USA'],
+    ['contact@folger.edu', 'Folger Shakespeare Library', 'District of Columbia, USA'],
+    ['contact@amherst.edu', 'Amherst College', 'Massachusetts, USA'],
+    ['contact@mpm.edu', 'Milwaukee Public Museum', 'Wisconsin, USA'],
+    ['contact@crl.edu', 'Center for Research Libraries', 'Illinois, USA'],
+    ['contact@clarkart.edu', 'Sterling and Francine Clark Art Institute', 'Massachusetts, USA'],
+    ['contact@nmns.edu.tw', '国立自然科学博物馆', 'Chinese Taipei'],
+    ['contact@ncl.edu.tw', '国家图书馆', 'Chinese Taipei'],
+    ['contact@ntl.edu.tw', '国立台湾图书馆', 'Chinese Taipei'],
+    ['contact@nlpi.edu.tw', '国立公共资讯图书馆', 'Chinese Taipei'],
     ['student@umflint.edu', 'University of Michigan–Flint', 'Michigan, USA'],
     ['student@flint.umich.edu', 'University of Michigan–Flint', 'Michigan, USA'],
     ['student@cuhk.edu.cn', '香港中文大学（深圳）', 'China'],
@@ -350,6 +366,8 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.equal(lookup('student@ntu.edu.tw').name, '国立台湾大学');
   assert.match(lookup('student@centennialcollege.hku.hk').name, /明德/);
   for (const address of ['alice@example.com', 'alice@edu', 'alice@edu.cn', 'alice@harvard.edu.example.com',
+    'contact@fakeartic.edu', 'contact@artic.edu.evil.test', 'contact@si.edu.evil.test',
+    'contact@fakesi.edu', 'contact@nmns.edu.tw.evil.test',
     'alice@fakeharvard.edu', 'student@umd.umich.edu.evil.test', 'student@umdumich.edu',
     'contact@fakecccco.edu', 'contact@cccco.edu.evil.test',
     'contact@uncc.edu.evil.test', 'contact@fakeuncc.edu',

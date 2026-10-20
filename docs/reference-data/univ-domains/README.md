@@ -1,6 +1,6 @@
 # univ-domains
 
-`univ-domains` is the internal technical name of the university email-domain reference owned by Mailto Capture. `registry.json` is its reviewed build input. It contains public institution facts, domain aliases, principal-campus locations and cohort membership. It never contains captured user email addresses. The reference identifies institutional domains, not individual mailbox addresses; shared government/service roots are not attributed to one school.
+`univ-domains` is the internal technical name of the academic and cultural institution email-domain reference owned by Mailto Capture. `registry.json` is its reviewed build input. It contains public institution facts, domain aliases, principal-campus locations and cohort membership. It never contains captured user email addresses. The reference identifies institutional domains, not individual mailbox addresses; shared government/service roots are not attributed to one school.
 
 ## Coverage snapshot
 
@@ -30,8 +30,9 @@ Reviewed on **2026-10-19**. The domestic U.S. cohorts no longer use a rank cutof
 | Taiwan military/police higher education | Official school directories | 9 |
 | U.S. university/community-college systems and central administrative offices | Official system directories | 24 |
 | Affiliated campuses, overseas campuses and joint universities | Reviewed official institution/campus directories | 19 |
+| Established nonprofit/public museums, libraries and cultural institutions with educational domains | Official institutional mission, governance and financial sources | 12 |
 
-Cohorts overlap. The compiled reference contains **6,537 institution/domain groups** and **6,846 explicit domain suffixes**. A group can represent two institutional identities sharing one domain, such as the two HKCT providers; its display name includes both. Ranking membership is retained only for maintenance, never displayed as a credential or ranking in the popover.
+Cohorts overlap. The compiled reference contains **6,549 institution/domain groups** and **6,858 explicit domain suffixes**. A group can represent two institutional identities sharing one domain, such as the two HKCT providers; its display name includes both. Ranking membership is retained only for maintenance, never displayed as a credential or ranking in the popover.
 
 The regional expansion below counts **source entries mapped**, not distinct new institutions. Several campus or historical directory entries can share one reviewed parent-domain identity.
 
@@ -84,6 +85,12 @@ Domain aliases remain attached to a single identity: `wustl.edu`/`washu.edu`, `s
 
 The `uncc.edu` legacy email domain and `charlotte.edu` identify the same University of North Carolina at Charlotte record. The university’s [Google account migration notice](https://oneit.charlotte.edu/2024/02/08/google-account-rename/) explicitly retains the old email alias; subdomains follow the existing DNS-label-boundary rules.
 
+## Cultural institution selection
+
+The `cultural-institutions` cohort is a curated selection of established museums, research libraries and cultural foundations with their own `.edu` or `.edu` country-class domains. Each record retains official evidence of its identity, cultural mission and nonprofit or public status. A public museum or library is eligible alongside private nonprofits; Smithsonian is recorded as a public trust, not a private charity. This is not an exhaustive worldwide directory, a domain-wide trust rule or mailbox authentication. The internal reference name remains `univ-domains`.
+
+Shared roots identify their actual institution: `si.edu` identifies Smithsonian Institution and `getty.edu` identifies J. Paul Getty Trust, not an inferred individual museum or program. `artic.edu` remains distinct from the art school’s `saic.edu`; Folger retains its own library identity and Washington, DC location rather than inheriting Amherst College’s name and state. U.S. locations use institutional headquarters states, including District of Columbia. Existing regional name and bilingual display conventions also apply to cultural institutions. A planned future rebranding does not replace the name in use on the review date.
+
 ## Display policy
 
 - English display names omit a leading `The University of` in every case, including supplemental English rows. Other non-distinctive leading articles are omitted after review; distinctive names such as `The Ohio State University` and `The New School` retain theirs. Do not remove internal articles, such as `University of the Pacific`, or rewrite source-membership evidence. This is display style rather than a claim that the official legal name has changed.
@@ -106,7 +113,7 @@ node scripts/update-univ-domains.mjs --check
 node --test test/mailto-capture-runtime.test.mjs
 ```
 
-The generator is intentionally offline and deterministic. It rejects missing cohort members, duplicate institution/domain identities, broad suffixes, missing North American locations, and missing or inappropriate display names. Mainland, U.S. graduate/special-focus, medical and regional source audits are validated against exact cohort membership. Only eligible bilingual rows carry an additional English name; eligibility is compiled from reviewed identities and affiliation relationships, never inferred at runtime. The compiled reference is **421,475 bytes** (about 421 KB), with a 500 KB build guard. The compiled file omits membership/rank evidence, affiliation graphs and unused translations; its lookup maps are built only when an email is first inspected. Neither settings nor the runtime stores observed addresses. Preparation scratch files may be kept in the ignored `test-dist/univ-domains` directory; they are not shipped. New bulk directory reads retain only institution names, domains, category and location facts, not raw contact pages or complete mailbox addresses.
+The generator is intentionally offline and deterministic. It rejects missing cohort members, duplicate institution/domain identities, broad suffixes, missing North American locations, and missing or inappropriate display names. Mainland, U.S. graduate/special-focus, medical and regional source audits are validated against exact cohort membership. Only eligible bilingual rows carry an additional English name; eligibility is compiled from reviewed identities and affiliation relationships, never inferred at runtime. The compiled reference is **422,363 bytes** (about 422 KB), with a 500 KB build guard. The compiled file omits membership/rank evidence, affiliation graphs and unused translations; its lookup maps are built only when an email is first inspected. Neither settings nor the runtime stores observed addresses. Preparation scratch files may be kept in the ignored `test-dist/univ-domains` directory; they are not shipped. New bulk directory reads retain only institution names, domains, category and location facts, not raw contact pages or complete mailbox addresses.
 
 For regional maintenance, prioritize the official directory's institution identifier, current name and official website over secondary domain-directory names. The MQA data contains historical campus/program records; private colleges without reviewed bachelor-or-higher courses are outside that selection. SSG secondary-school diplomas do not qualify as tertiary courses. An OfS provider without direct degree powers or qualifying evidence remains a scope-review gap, not a definitive exclusion. Closed Academyinfo entries are excluded. Thai source rows come from an older official publication and must not be presented as a verified current ministry export. The Mongolian ministry list and APNNIC names are complementary sources, not interchangeable membership lists. Do not assign a shared government/ministry root, a hosting provider or a path-only foreign campus to an individual school. Reviewed Malaysian institution namespaces and the Aizu junior-college namespace remain explicit subdomain identities. Canadian cross-province source rows use the institution's principal province, never whichever branch happens to appear first.
 

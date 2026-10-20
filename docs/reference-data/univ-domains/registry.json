@@ -2548,6 +2548,36 @@
         "https://net.educause.edu/whois.htm"
       ],
       "factsSha256": "4cadec911e5b6796b264c159440333bb2204ffd19b1322996cd0ddd73648f416"
+    },
+    "cultural-institutions": {
+      "edition": "2026-10-19",
+      "expectedMembers": 12,
+      "method": "Individually reviewed established nonprofit, public-trust and public museums, libraries and cultural institutions using their own edu or edu country-class domains. Official institutional mission, governance and financial sources; curated selection, not an exhaustive directory or blanket domain endorsement.",
+      "urls": [
+        "https://www.artic.edu/",
+        "https://www.artic.edu/files/46d4af45-60b6-453f-a263-760ba22c79df/2023AICForm990.pdf",
+        "https://www.si.edu/newsdesk/factsheets/facts-about-smithsonian-institution-short",
+        "https://siarchives.si.edu/history/governance-organization",
+        "https://www.getty.edu/about/",
+        "https://www.getty.edu/about/leadership-governance/financials/",
+        "https://www.exploratorium.edu/about-us",
+        "https://www.exploratorium.edu/sites/default/files/pdfs/Exploratorium-financialreport21.pdf",
+        "https://www.folger.edu/about-us/",
+        "https://images.folger.edu/uploads/2026/04/Folger_AnnualReportFY25_digital_pages.pdf",
+        "https://www.mpm.edu/",
+        "https://www.mpm.edu/index.php/press/press-releases/milwaukee-public-museum-reveals-future-museum-name-and-logo",
+        "https://www.crl.edu/crl-about-us",
+        "https://www.clarkart.edu/",
+        "https://www.clarkart.edu/getmedia/de3b93a9-7fcd-4b98-b744-af3a99fb5794/Clark-Art-Institute-FY24-Audited-Financial-Statements.pdf",
+        "https://www.nmns.edu.tw/",
+        "https://www.nmns.edu.tw/en/",
+        "https://www.ncl.edu.tw/",
+        "https://enwww.ncl.edu.tw/content_27.html",
+        "https://www.ntl.edu.tw/",
+        "https://www.ntl.edu.tw/wSite/mp?mp=2222",
+        "https://www.nlpi.edu.tw/",
+        "https://www.nlpi.edu.tw/English/ReaderServiceEn/FocusAreaEng/MulticulturalEng/StudyAbroadEng/StudyAbroad01Eng.htm"
+      ]
     }
   },
   "domainReference": {
@@ -138366,6 +138396,286 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx",
         "https://net.educause.edu/whois.htm"
+      ]
+    },
+    {
+      "id": "artic.edu",
+      "en": "Art Institute of Chicago",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Illinois",
+      "domains": [
+        "artic.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Art Institute of Chicago"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "museum",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.artic.edu/",
+        "https://www.artic.edu/files/46d4af45-60b6-453f-a263-760ba22c79df/2023AICForm990.pdf"
+      ],
+      "identityNotes": "Museum-domain identity; the separately recorded School of the Art Institute of Chicago retains saic.edu."
+    },
+    {
+      "id": "si.edu",
+      "en": "Smithsonian Institution",
+      "zh": "",
+      "region": "US",
+      "subdivision": "District of Columbia",
+      "domains": [
+        "si.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Smithsonian Institution"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "museum",
+      "publicBenefitStatus": "public-trust",
+      "evidence": [
+        "https://www.si.edu/newsdesk/factsheets/facts-about-smithsonian-institution-short",
+        "https://siarchives.si.edu/history/governance-organization"
+      ],
+      "identityNotes": "The shared root identifies the Smithsonian Institution, not one museum or research unit. Location is the institution headquarters."
+    },
+    {
+      "id": "getty.edu",
+      "en": "J. Paul Getty Trust",
+      "zh": "",
+      "region": "US",
+      "subdivision": "California",
+      "domains": [
+        "getty.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "J. Paul Getty Trust"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "cultural-foundation",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.getty.edu/about/",
+        "https://www.getty.edu/about/leadership-governance/financials/"
+      ],
+      "identityNotes": "The shared root identifies the J. Paul Getty Trust, including its museum, research, conservation and foundation programs; no individual program is inferred from an email subhost."
+    },
+    {
+      "id": "exploratorium.edu",
+      "en": "Exploratorium",
+      "zh": "",
+      "region": "US",
+      "subdivision": "California",
+      "domains": [
+        "exploratorium.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Exploratorium"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "museum",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.exploratorium.edu/about-us",
+        "https://www.exploratorium.edu/sites/default/files/pdfs/Exploratorium-financialreport21.pdf"
+      ]
+    },
+    {
+      "id": "folger.edu",
+      "en": "Folger Shakespeare Library",
+      "zh": "",
+      "region": "US",
+      "subdivision": "District of Columbia",
+      "domains": [
+        "folger.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Folger Shakespeare Library"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "library",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.folger.edu/about-us/",
+        "https://images.folger.edu/uploads/2026/04/Folger_AnnualReportFY25_digital_pages.pdf"
+      ],
+      "identityNotes": "The library has its own institutional domain and Washington, DC location; administration by Amherst trustees does not make this domain an alias of Amherst College."
+    },
+    {
+      "id": "mpm.edu",
+      "en": "Milwaukee Public Museum",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Wisconsin",
+      "domains": [
+        "mpm.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Milwaukee Public Museum"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "museum",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.mpm.edu/",
+        "https://www.mpm.edu/index.php/press/press-releases/milwaukee-public-museum-reveals-future-museum-name-and-logo"
+      ],
+      "identityNotes": "Retain the current Milwaukee Public Museum name. The announced Nature and Culture Museum of Wisconsin name is scheduled for its future 2027 opening, not this review date."
+    },
+    {
+      "id": "crl.edu",
+      "en": "Center for Research Libraries",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Illinois",
+      "domains": [
+        "crl.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Center for Research Libraries"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "library",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.crl.edu/crl-about-us"
+      ]
+    },
+    {
+      "id": "clarkart.edu",
+      "en": "Sterling and Francine Clark Art Institute",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Massachusetts",
+      "domains": [
+        "clarkart.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Sterling and Francine Clark Art Institute"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "museum",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.clarkart.edu/",
+        "https://www.clarkart.edu/getmedia/de3b93a9-7fcd-4b98-b744-af3a99fb5794/Clark-Art-Institute-FY24-Audited-Financial-Statements.pdf"
+      ]
+    },
+    {
+      "id": "nmns.edu.tw",
+      "en": "National Museum of Natural Science",
+      "zh": "国立自然科学博物馆",
+      "region": "TW",
+      "subdivision": "",
+      "domains": [
+        "nmns.edu.tw"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "National Museum of Natural Science"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "museum",
+      "publicBenefitStatus": "public-institution",
+      "evidence": [
+        "https://www.nmns.edu.tw/",
+        "https://www.nmns.edu.tw/en/"
+      ]
+    },
+    {
+      "id": "ncl.edu.tw",
+      "en": "National Central Library",
+      "zh": "国家图书馆",
+      "region": "TW",
+      "subdivision": "",
+      "domains": [
+        "ncl.edu.tw"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "National Central Library"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "library",
+      "publicBenefitStatus": "public-institution",
+      "evidence": [
+        "https://www.ncl.edu.tw/",
+        "https://enwww.ncl.edu.tw/content_27.html"
+      ]
+    },
+    {
+      "id": "ntl.edu.tw",
+      "en": "National Taiwan Library",
+      "zh": "国立台湾图书馆",
+      "region": "TW",
+      "subdivision": "",
+      "domains": [
+        "ntl.edu.tw"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "National Taiwan Library"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "library",
+      "publicBenefitStatus": "public-institution",
+      "evidence": [
+        "https://www.ntl.edu.tw/",
+        "https://www.ntl.edu.tw/wSite/mp?mp=2222"
+      ]
+    },
+    {
+      "id": "nlpi.edu.tw",
+      "en": "National Library of Public Information",
+      "zh": "国立公共资讯图书馆",
+      "region": "TW",
+      "subdivision": "",
+      "domains": [
+        "nlpi.edu.tw"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "National Library of Public Information"
+        ]
+      },
+      "kind": "cultural-institution",
+      "culturalCategory": "library",
+      "publicBenefitStatus": "public-institution",
+      "evidence": [
+        "https://www.nlpi.edu.tw/",
+        "https://www.nlpi.edu.tw/English/ReaderServiceEn/FocusAreaEng/MulticulturalEng/StudyAbroadEng/StudyAbroad01Eng.htm"
       ]
     }
   ],

@@ -17771,7 +17771,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "ucsf.edu"
+        "ucsf.edu",
+        "ucsanfrancisco.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17784,6 +17785,9 @@
         "medical-school-reference": [
           "8: University of California, San Francisco, School of Medicine"
         ]
+      },
+      "aliasNotes": {
+        "ucsanfrancisco.edu": "User-supplied institutional domain alias."
       }
     },
     {

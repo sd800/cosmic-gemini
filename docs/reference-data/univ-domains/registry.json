@@ -3283,7 +3283,9 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "berkeley.edu"
+        "berkeley.edu",
+        "ucb.edu",
+        "ucberkeley.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -3299,6 +3301,10 @@
         "us-graduate-reference": [
           "110635: University of California-Berkeley"
         ]
+      },
+      "aliasNotes": {
+        "ucb.edu": "User-supplied institutional domain alias.",
+        "ucberkeley.edu": "User-supplied institutional domain alias."
       }
     },
     {
@@ -17502,7 +17508,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "ucla.edu"
+        "ucla.edu",
+        "uclosangeles.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17521,6 +17528,9 @@
         "medical-school-reference": [
           "9: University of California, Los Angeles David Geffen School of Medicine"
         ]
+      },
+      "aliasNotes": {
+        "uclosangeles.edu": "User-supplied institutional domain alias."
       }
     },
     {

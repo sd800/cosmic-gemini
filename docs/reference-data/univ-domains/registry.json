@@ -16609,7 +16609,8 @@
       "region": "CN",
       "subdivision": "",
       "domains": [
-        "tsinghua.edu.cn"
+        "tsinghua.edu.cn",
+        "tsinghua.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -16630,7 +16631,10 @@
         "https://huggingface.co/datasets/XUEHANGAI/GlobalUniversityHomePages"
       ],
       "moeCode": "4111010003",
-      "educationLevel": "本科"
+      "educationLevel": "本科",
+      "aliasNotes": {
+        "tsinghua.edu": "User-supplied institutional domain alias based on the reported WHOIS registrant."
+      }
     },
     {
       "id": "ttu.edu",

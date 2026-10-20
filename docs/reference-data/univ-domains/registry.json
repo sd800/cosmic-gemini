@@ -8887,7 +8887,8 @@
         "jhu.edu",
         "johnshopkins.edu",
         "jhsph.edu",
-        "jhuapl.edu"
+        "jhuapl.edu",
+        "jhmi.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -8915,15 +8916,20 @@
         "jhuapl.edu": [
           "https://www.jhuapl.edu/about",
           "https://www.jhuapl.edu/work/partnerships/suppliers/faqs"
+        ],
+        "jhmi.edu": [
+          "https://brand.hopkinsmedicine.org/how-to-use-the-johns-hopkins-name-correctly"
         ]
       },
       "aliasNotes": {
         "jhsph.edu": "Non-independent university school/unit: Johns Hopkins Bloomberg School of Public Health. Resolve the educational root and its subdomains to the parent university, not a separate institution.",
-        "jhuapl.edu": "Non-independent university division: Johns Hopkins University Applied Physics Laboratory. Its official supplier FAQ identifies Johns Hopkins University as the parent organization; resolve to the university rather than a separate institution."
+        "jhuapl.edu": "Non-independent university division: Johns Hopkins University Applied Physics Laboratory. Its official supplier FAQ identifies Johns Hopkins University as the parent organization; resolve to the university rather than a separate institution.",
+        "jhmi.edu": "User-requested university-group display attribution: show Johns Hopkins University with Johns Hopkins Medical Institutions as the subordinate label. Official branding guidance identifies jhmi.edu as the shared medical-institutions email domain, including university and health-system entities; this display grouping does not assert that every mailbox belongs to a university school or employee."
       },
       "unitNames": {
         "jhsph.edu": "Bloomberg School of Public Health",
-        "jhuapl.edu": "Applied Physics Laboratory"
+        "jhuapl.edu": "Applied Physics Laboratory",
+        "jhmi.edu": "Johns Hopkins Medical Institutions"
       }
     },
     {

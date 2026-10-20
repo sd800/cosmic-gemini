@@ -10245,7 +10245,8 @@
       "region": "US",
       "subdivision": "Florida",
       "domains": [
-        "miami.edu"
+        "miami.edu",
+        "umiami.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -10260,6 +10261,11 @@
         ],
         "medical-school-reference": [
           "39: University of Miami Leonard M. Miller School of Medicine"
+        ]
+      },
+      "aliasEvidence": {
+        "umiami.edu": [
+          "https://www.library.miami.edu/"
         ]
       }
     },
@@ -11808,7 +11814,8 @@
       "region": "US",
       "subdivision": "Illinois",
       "domains": [
-        "northwestern.edu"
+        "northwestern.edu",
+        "nwu.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -11826,6 +11833,11 @@
         ],
         "medical-school-reference": [
           "54: Northwestern University The Feinberg School of Medicine"
+        ]
+      },
+      "aliasEvidence": {
+        "nwu.edu": [
+          "https://www.northwestern.edu/magazine/northwestern/summer2000/summer00newsoncampus.htm"
         ]
       }
     },

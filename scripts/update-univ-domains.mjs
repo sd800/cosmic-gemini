@@ -142,6 +142,22 @@ const rows = records.map(record => {
     assert.doesNotMatch(record.en, /\p{Script=Han}|\([A-Z][A-Z0-9-]+\)|--|\s-\s/u, `Use the English school name without an acronym suffix: ${record.id}`);
     row.push(record.en);
   }
+  if (record.unitNames) {
+    assert.ok(typeof record.unitNames === 'object' && !Array.isArray(record.unitNames));
+    const units = Object.entries(record.unitNames).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    assert.ok(units.length, `Empty university unit names: ${record.id}`);
+    for (const [domain, unitName] of units) {
+      assert.ok(record.domains.includes(domain) && domain !== record.id, `Unit domain must be a parent-university alias: ${domain}`);
+      assert.ok(record.aliasEvidence?.[domain]?.length, `Missing official university unit evidence: ${domain}`);
+      assert.ok(typeof unitName === 'string' && unitName.length > 0 && unitName.length < 180);
+      assert.equal(unitName, unitName.trim().replace(/\s+/gu, ' '), `Normalize unit-name spacing: ${domain}`);
+      assert.doesNotMatch(unitName, /[&\u0000-\u001f\u007f]/u, `Use a plain unit display name: ${domain}`);
+      assert.notEqual(unitName, name, `Omit a repeated parent-university name: ${domain}`);
+      for (const url of record.aliasEvidence[domain]) assert.equal(new URL(url).protocol, 'https:');
+    }
+    if (row.length === 5) row.push(null);
+    row.push(Object.fromEntries(units));
+  }
   return row;
 });
 for (const [group, members] of coverage) {

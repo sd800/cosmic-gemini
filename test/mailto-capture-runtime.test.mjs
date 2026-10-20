@@ -115,6 +115,8 @@ test('University references cover every reviewed cohort and resolve all explicit
       const bilingual = chineseName && (institution.region !== 'CN' || qualified(institution));
       assert.equal(lookup(`fixture@${domain}`).englishName, bilingual && institution.en ? institution.en : undefined, domain);
       assert.equal(lookup(`fixture@${domain}`, 'zh-CN').englishName, undefined, domain);
+      assert.equal(lookup(`fixture@${domain}`).unitName, institution.unitNames?.[domain], domain);
+      assert.equal(lookup(`fixture@${domain}`, 'zh-CN').unitName, institution.unitNames?.[domain], domain);
     }
     assert.equal(institution.addresses.length, 0, institution.id);
     if (['US', 'CA'].includes(institution.region)) {
@@ -287,21 +289,25 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).name, name, address);
     assert.equal(lookup(address).region, region, address);
   }
-  for (const [alias, primary] of [
+  for (const [alias, primary, unitName] of [
     ['uncc.edu', 'charlotte.edu'],
     ['department.uncc.edu', 'charlotte.edu'],
-    ['CHICAGOBOOTH.EDU', 'uchicago.edu'],
-    ['alumni.chicagobooth.edu', 'uchicago.edu'],
-    ['hbs.edu', 'harvard.edu'],
-    ['alumni.hbs.edu', 'harvard.edu'],
-    ['jhsph.edu', 'jhu.edu'],
-    ['clf.jhsph.edu', 'jhu.edu'],
-    ['wharton.edu', 'upenn.edu'],
-    ['department.wharton.edu', 'upenn.edu'],
-    ['iese.edu', 'unav.edu'],
-    ['research.iese.edu', 'unav.edu'],
-    ['JHUAPL.EDU', 'jhu.edu'],
-    ['research.jhuapl.edu', 'jhu.edu'],
+    ['CHICAGOBOOTH.EDU', 'uchicago.edu', 'Booth School of Business'],
+    ['alumni.chicagobooth.edu', 'uchicago.edu', 'Booth School of Business'],
+    ['hbs.edu', 'harvard.edu', 'Harvard Business School'],
+    ['alumni.hbs.edu', 'harvard.edu', 'Harvard Business School'],
+    ['jhsph.edu', 'jhu.edu', 'Bloomberg School of Public Health'],
+    ['clf.jhsph.edu', 'jhu.edu', 'Bloomberg School of Public Health'],
+    ['wharton.edu', 'upenn.edu', 'Wharton School'],
+    ['department.wharton.edu', 'upenn.edu', 'Wharton School'],
+    ['wharton.upenn.edu', 'upenn.edu'],
+    ['department.wharton.upenn.edu', 'upenn.edu'],
+    ['booth.uchicago.edu', 'uchicago.edu'],
+    ['hbs.harvard.edu', 'harvard.edu'],
+    ['iese.edu', 'unav.edu', 'IESE Business School'],
+    ['research.iese.edu', 'unav.edu', 'IESE Business School'],
+    ['JHUAPL.EDU', 'jhu.edu', 'Applied Physics Laboratory'],
+    ['research.jhuapl.edu', 'jhu.edu', 'Applied Physics Laboratory'],
     ['ucb.edu', 'berkeley.edu'],
     ['UCBERKELEY.EDU', 'berkeley.edu'],
     ['department.ucb.edu', 'berkeley.edu'],
@@ -339,7 +345,11 @@ test('University matching respects DNS boundaries, campus identity and localized
     ['oxford.edu', 'ox.ac.uk'],
     ['uir.cn', 'uir.edu.cn']
   ]) {
-    assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`))), JSON.parse(JSON.stringify(lookup(`contact@${primary}`))), alias);
+    for (const locale of ['en-US', 'zh-CN']) {
+      const expected = { ...lookup(`contact@${primary}`, locale) };
+      if (unitName) expected.unitName = unitName;
+      assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`, locale))), JSON.parse(JSON.stringify(expected)), `${alias}: ${locale}`);
+    }
   }
   assert.equal(lookup('student@uic.edu.cn').name, '北京师范大学–香港浸会大学联合国际学院');
   assert.equal(lookup('student@uic.edu.cn').englishName, 'Beijing Normal University–Hong Kong Baptist University United International College');
@@ -424,7 +434,7 @@ test('University matching respects DNS boundaries, campus identity and localized
 test('Mailto Capture places school and region on separate lines without altering addresses or copied messages', async () => {
   const { context, runtime } = await runtimeFixture();
   context.document.createElement = tagName => new FakeElement(tagName);
-  const capture = runtime.parseMailto('mailto:ALICE+sample@uchicago.edu,unknown@example.com?cc=student%40pku.edu.cn&bcc=person%40ntu.edu.tw&subject=Hello&body=Original%20text');
+  const capture = runtime.parseMailto('mailto:ALICE+sample@uchicago.edu,unknown@example.com,student@chicagobooth.edu,student@hbs.edu?cc=student%40pku.edu.cn&bcc=person%40ntu.edu.tw&subject=Hello&body=Original%20text');
   const before = runtime.messageText(capture);
   const parent = new FakeElement('div');
   runtime.appendEmailField(parent, 'To', capture.to);
@@ -433,7 +443,9 @@ test('Mailto Capture places school and region on separate lines without altering
   const toEntries = parent.children[0].children[1].children;
   assert.deepEqual(toEntries.map(entry => entry.children.map(renderedText)), [
     ['ALICE+sample@uchicago.edu', 'University of Chicago', 'Illinois, USA'],
-    ['unknown@example.com']
+    ['unknown@example.com'],
+    ['student@chicagobooth.edu', 'University of Chicago', 'Booth School of Business', 'Illinois, USA'],
+    ['student@hbs.edu', 'Harvard University', 'Harvard Business School', 'Massachusetts, USA']
   ]);
   assert.deepEqual(parent.children[1].children[1].children[0].children.map(renderedText), ['student@pku.edu.cn', '北京大学', 'Peking University', 'China']);
   const bilingual = new FakeElement('div');
@@ -449,8 +461,11 @@ test('Mailto Capture places school and region on separate lines without altering
   const localized = new FakeElement('div');
   runtime.appendEmailField(localized, '密送', capture.bcc);
   assert.deepEqual(localized.children[0].children[1].children[0].children.map(renderedText), ['person@ntu.edu.tw', '国立台湾大学', '中华台北']);
+  const localizedUnits = new FakeElement('div');
+  runtime.appendEmailField(localizedUnits, '收件人', capture.to);
+  assert.deepEqual(localizedUnits.children[0].children[1].children.map(entry => entry.children.map(renderedText)), toEntries.map(entry => entry.children.map(renderedText)));
   assert.equal(runtime.messageText(capture).replace('收件人:', 'To:').replace('抄送:', 'CC:').replace('密送:', 'BCC:').replace('主题:', 'Subject:'), before);
-  assert.doesNotMatch(before, /University|Illinois|北京大学|China/);
+  assert.doesNotMatch(before, /University|Illinois|北京大学|China|Booth School of Business|Harvard Business School/);
 });
 
 test('Mainland bilingual names follow reviewed university and campus eligibility rather than undergraduate status', async () => {

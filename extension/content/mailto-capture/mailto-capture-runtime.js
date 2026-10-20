@@ -419,6 +419,12 @@
             english.textContent = university.englishName;
             entry.append(english);
           }
+          if (university.unitName) {
+            const unit = document.createElement('div');
+            unit.className = 'phone-location university-unit-name';
+            unit.textContent = university.unitName;
+            entry.append(unit);
+          }
           const region = document.createElement('div');
           region.className = 'phone-location university-region';
           region.textContent = university.region;

@@ -7670,6 +7670,9 @@
       },
       "aliasNotes": {
         "hbs.edu": "Non-independent university school/unit: Harvard Business School. Resolve the educational root and its subdomains to the parent university, not a separate institution."
+      },
+      "unitNames": {
+        "hbs.edu": "Harvard Business School"
       }
     },
     {
@@ -8913,6 +8916,10 @@
       "aliasNotes": {
         "jhsph.edu": "Non-independent university school/unit: Johns Hopkins Bloomberg School of Public Health. Resolve the educational root and its subdomains to the parent university, not a separate institution.",
         "jhuapl.edu": "Non-independent university division: Johns Hopkins University Applied Physics Laboratory. Its official supplier FAQ identifies Johns Hopkins University as the parent organization; resolve to the university rather than a separate institution."
+      },
+      "unitNames": {
+        "jhsph.edu": "Bloomberg School of Public Health",
+        "jhuapl.edu": "Applied Physics Laboratory"
       }
     },
     {
@@ -17513,6 +17520,9 @@
       },
       "aliasNotes": {
         "chicagobooth.edu": "Non-independent university school/unit: University of Chicago Booth School of Business. Resolve the educational root and its subdomains to the parent university, not a separate institution."
+      },
+      "unitNames": {
+        "chicagobooth.edu": "Booth School of Business"
       }
     },
     {
@@ -18914,6 +18924,9 @@
       },
       "aliasNotes": {
         "iese.edu": "Non-independent university school/unit: IESE Business School. Resolve the educational root and its subdomains to the parent university, not a separate institution."
+      },
+      "unitNames": {
+        "iese.edu": "IESE Business School"
       }
     },
     {
@@ -20084,6 +20097,9 @@
       },
       "aliasNotes": {
         "wharton.edu": "Non-independent university school/unit: Wharton School. Resolve the educational root and its subdomains to the parent university, not a separate institution."
+      },
+      "unitNames": {
+        "wharton.edu": "Wharton School"
       }
     },
     {

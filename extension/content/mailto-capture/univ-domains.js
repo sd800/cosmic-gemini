@@ -65,13 +65,16 @@
     if (!data) return null;
     let row;
     let domain = parts.domain;
-    while (!row && domain.includes('.')) {
+    while (domain.includes('.')) {
       row = data.get(domain);
+      if (row) break;
       domain = domain.slice(domain.indexOf('.') + 1);
     }
     if (!row) return null;
     const result = { name: row[0], region: location(row, locale) };
     if (locale === 'en-US' && row[5]) result.englishName = row[5];
+    const unitName = row[6]?.[domain];
+    if (unitName) result.unitName = unitName;
     return result;
   }
 

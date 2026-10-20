@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.20.5 — 2026-10-20
+
+- Adopt calendar versioning in the form YY.M.D.NUM, with a sequential revision number for each day.
+
 ## 9.12.53 — 2026-10-20
 
 - Add an Open file shortcut below Language in All Settings.

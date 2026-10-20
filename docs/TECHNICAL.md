@@ -3,6 +3,12 @@
 Cosmic Gemini is a Manifest V3 Chrome extension with feature-isolated products: Native Scroll, No Autoplay, Mailto Capture, Website Knowledge Control, Clipboard Protect, White Softer, Ad Marshal, Any Copy, Page Display, XHS Image Dark Mode, XHS Keyboard Navigation, Image Download, Video Download, and Satellites. Its authority chain is `central → province → product → feature`. Central decides jurisdiction and routes work, provinces coordinate their assigned products, products execute independently, and features or nested subfeatures implement the technical operations. Products may share a settings card without sharing activation, runtime, bridge, or saved state.
 
 
+## Release versioning
+
+Cosmic Gemini uses `YY.M.D.NUM` calendar versions: a two-digit year, an unpadded month and day, and the day's sequential revision number. The sequence starts at `1` on a new release date and increases for each subsequent release that day. The manifest and private project metadata carry the same four-part version. Historical releases retain their original numbers.
+
+Each release commit contains only the subject `Release YY.M.D.NUM`, with no additional prefix, suffix, or commit body. Releases use commits rather than tags.
+
 ## Central Coordination Commission
 
 Central authorizes **Central Coordination Commission** (`central-cc`) through `createPlatform`. It supplies narrowly scoped infrastructure to the existing Provinces; it is not a fourth Province, product governor, or user-facing feature. Product ownership and Central's cross-product policy remain unchanged. Its implementation is `background/commissions/central-cc.js`.

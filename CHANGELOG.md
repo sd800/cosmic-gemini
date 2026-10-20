@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.51 — 2026-10-20
+
+- Improve email previews with clearer message headers, readable dates, body layout, quotes, and attachment details.
+- Support trackpad pinch zoom in document, spreadsheet, slide, and email previews without scaling the toolbar.
+
 ## 9.12.50 — 2026-10-20
 
 - Add local file opening to Document Preview, with memory-only file references that support reloading and are released when previews close.

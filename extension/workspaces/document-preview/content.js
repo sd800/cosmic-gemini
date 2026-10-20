@@ -1,4 +1,5 @@
 import { safeDocumentHtml, documentStyles } from './sanitize.js';
+import { createDocumentZoom } from './zoom.js';
 // Only this fixed, packaged controller executes. Converter output is rebuilt
 // as passive allowlisted markup in an opaque, API-free sandbox. The private
 // channel accepts document content and fixed presentation controls, not script,
@@ -6,6 +7,7 @@ import { safeDocumentHtml, documentStyles } from './sanitize.js';
 const controller = new AbortController(), { signal } = controller;
 let port, capture, generation = 0, locale = 'en-US', stylesheet = '', dark = false;
 let slides, slidesResources, renderId = 0, slideIndex = 0, slideZoom = 1;
+const zoom = createDocumentZoom({signal,slides:()=>slides,onChange:value=>port?.postMessage({type:'zoom',id:renderId,zoom:value})});
 function closeCapture() {
   generation++;
   void capture?.then(dialog => dialog.close(false, false));
@@ -36,8 +38,10 @@ window.addEventListener('message', event => {
     if (data?.type === 'select-slide' && data.id === renderId && Number.isInteger(data.index)) {
       slideIndex = data.index; slides?.select(slideIndex); return;
     }
-    if (data?.type === 'slide-zoom' && data.id === renderId && Number.isFinite(data.zoom)) {
-      slideZoom = Math.max(.5, Math.min(2, data.zoom)); slides?.setZoom(slideZoom); return;
+    if (data?.type === 'zoom' && data.id === renderId && Number.isFinite(data.zoom)) {
+      // Retain changes made while the slide controller/styles are loading.
+      slideZoom = Math.max(.5,Math.min(2,data.zoom));
+      zoom.setZoom(slideZoom); return;
     }
     if (!['render','slides'].includes(data?.type) || !Number.isInteger(data.id)) return;
     if (data.type === 'render' && (typeof data.html !== 'string' || data.html.length > 48 * 1024 * 1024)) return;
@@ -58,7 +62,7 @@ async function render(data) {
     const html = module ? null : safeDocumentHtml(data.html, data.formatting);
     document.documentElement.lang = locale = data.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
     stylesheet = documentStyles(data.formatting); applyTheme();
-    document.body.className = 'cg-format-' + (['xlsx','pptx'].includes(data.formatting?.kind) ? data.formatting.kind : 'docx');
+    document.body.className = 'cg-format-' + (['xlsx','pptx','eml'].includes(data.formatting?.kind) ? data.formatting.kind : 'docx');
     if (module) {
       if (data.formatting?.kind !== 'pptx') throw Error('invalidDocument');
       slides = module.createSlidesView({parts:data.parts,formatting:data.formatting,
@@ -66,6 +70,7 @@ async function render(data) {
         closeCapture(); port.postMessage({type:'slide',id:renderId,index});
       }, () => port.postMessage({type:'error',id:renderId}));
     } else document.body.innerHTML = html;
+    zoom.reset(slideZoom);
     window.scrollTo(0, 0);
     port.postMessage({type:'rendered',id:renderId});
   } catch { if (!signal.aborted && data.id === renderId) port.postMessage({type:'error',id:renderId}); }

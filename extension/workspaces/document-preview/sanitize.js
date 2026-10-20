@@ -1,5 +1,6 @@
 import { externalLinkTarget } from '../../shared/external-links-capture/target.js';
 import { acceptedStyles, formatStylesheet, DOCUMENT_DARK_TEXT } from './format-styles.js';
+import { wrapEmail, emailStyles } from './email-view.js';
 const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd ruby rt rp'.split(' '));
 const DROP = new Set('script style iframe frame object embed form input button textarea select meta link base svg'.split(' '));
 const MATH_NS = 'http://www.w3.org/1998/Math/MathML';
@@ -17,7 +18,7 @@ function emailStyle(node) {
     const m = value.match(/^rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)$/);
     return m ? '#' + m.slice(1).map(v => Math.min(255, Number(v)).toString(16).padStart(2, '0')).join('') : value;
   };
-  for (const property of ['color','background-color','font-size','font-weight','font-style','font-family','text-align','text-indent','text-decoration-line','line-height','width','height','white-space','vertical-align',
+  for (const property of ['color','background-color','font-size','font-weight','font-style','font-family','text-align','text-indent','text-decoration-line','line-height','width','min-width','max-width','height','white-space','vertical-align','border-collapse','border-spacing',
     ...['top','bottom','left','right'].flatMap(side => ['padding-'+side,'margin-'+side,'border-'+side+'-width','border-'+side+'-style','border-'+side+'-color'])]) {
     let value = css?.getPropertyValue(property) || '';
     if (!value && property === 'text-align') value = node.getAttribute('align') || '';
@@ -32,6 +33,18 @@ function emailStyle(node) {
     } else if (property === 'font-weight') value = value === 'bold' ? '700' : value === 'normal' ? '400' : value;
     result[property] = value;
   }
+  const table = ['table','td','th'].includes(node.localName) && (node.localName === 'table' ? node : node.closest('table'));
+  if (table) {
+    const border = table.getAttribute('border'), padding = table.getAttribute('cellpadding');
+    for (const side of ['top','bottom','left','right']) {
+      if (/^\d{1,2}$/.test(border || '')) {
+        result['border-'+side+'-width'] ||= Math.min(10,Number(border))*.75+'pt';
+        result['border-'+side+'-style'] ||= Number(border) ? 'solid' : 'none';
+        result['border-'+side+'-color'] ||= '#bfc3c8';
+      }
+      if (node !== table && /^\d{1,2}$/.test(padding || '')) result['padding-'+side] ||= Math.min(80,Number(padding))*.75+'pt';
+    }
+  }
   return acceptedStyles({styles:[result]})[0];
 }
 
@@ -45,6 +58,14 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
   const mailStyles = mail ? acceptedStyles(formatting) : [];
   const styleKey = value => JSON.stringify(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)));
   const mailKeys = new Map(mailStyles.map((value,index)=>[styleKey(value),index]));
+  function mailClass(node, body = false) {
+    const style = emailStyle(node);
+    if (body) for (const key of Object.keys(style)) if (!/^(?:color|background-color|font-.+|line-height|text-align)$/.test(key)) delete style[key];
+    if (!Object.keys(style).length) return '';
+    const key=styleKey(style);
+    if (!mailKeys.has(key)) { if (mailStyles.length >= 8192) throw Error('documentTooComplex');mailKeys.set(key,mailStyles.length);mailStyles.push(style); }
+    return 'cg-f'+mailKeys.get(key);
+  }
   function copy(node, target, depth = 0) {
     if (++count > 150000 || depth > 80) throw Error('documentTooLarge');
     if (node.nodeType === 3) { target.append(output.createTextNode(node.textContent)); return; }
@@ -67,12 +88,8 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
       const classes = (node.getAttribute('class') || '').split(/\s+/).filter(value => /^cg-f\d{1,4}$/.test(value)
         ? Number(value.slice(4)) < styleCount : ['cg-numbered','cg-list-marker','cg-list-content','cg-page-break','cg-sheet','cg-row-number','cg-hidden','cg-slide','cg-shape','cg-slide-picture','cg-slide-background'].includes(value));
       if (mail) {
-        const style = emailStyle(node);
-        if (Object.keys(style).length) {
-          const key=styleKey(style);
-          if (!mailKeys.has(key)) { if (mailStyles.length >= 8192) throw Error('documentTooComplex');mailKeys.set(key,mailStyles.length);mailStyles.push(style); }
-          classes.unshift('cg-f'+mailKeys.get(key));
-        }
+        const styleClass = mailClass(node); if (styleClass) classes.unshift(styleClass);
+        if (node.hidden || node.style?.display === 'none' || node.style?.visibility === 'hidden') classes.unshift('cg-hidden');
       }
       if (classes.length) next.setAttribute('class', classes.slice(0,4).join(' '));
       if (classes.includes('cg-page-break')) next.setAttribute('role', 'separator');
@@ -100,7 +117,11 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
     for (const child of node.childNodes) copy(child, next, depth + 1);
   }
   for (const node of source.body.childNodes) copy(node, output.body);
-  if (mail) formatting.styles = mailStyles;
+  if (mail) {
+    const bodyClass = mailClass(source.body,true);
+    formatting.styles = mailStyles;
+    wrapEmail(output,formatting.email,bodyClass);
+  }
   return output.body.innerHTML;
 }
 
@@ -121,5 +142,6 @@ export function documentStyles(formatting) {
     .cg-slide{position:relative;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 5px #0002}.cg-shape{box-sizing:border-box;line-height:1.2}.cg-shape p{margin:0 0 5pt}.cg-shape table{width:100%;margin:0}.cg-slide-picture{display:block;width:100%;height:100%;max-width:none;object-fit:contain}.cg-slide-background{position:absolute;width:100%;height:100%;max-width:none;object-fit:cover}
     @media(prefers-color-scheme:dark){.cg-sheet{background:#292a2d}.cg-sheet th{background:#303238;color:#aeb4bc}}
     @media(max-width:700px){body.cg-format-xlsx,body.cg-format-pptx{min-width:100%;padding:0}}
+    ${emailStyles}
     `;
 }

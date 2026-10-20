@@ -21,7 +21,7 @@ export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1
   });
   const starts = [], heights = [];
   let selected = -1, closed = false, layoutFrame = 0, scrollFrame = 0, paintFrame = 0, cacheSize = 0, scale = 1;
-  let nearbyPages = [], padding = 32;
+  let nearbyPages = [], padding = 32, zoomAnchor;
   const rail = document.createElement('nav'); rail.className = 'cg-slide-rail'; rail.setAttribute('aria-label', label);
   const list = document.createElement('ol'); list.className = 'cg-slide-list'; rail.append(list);
   const viewport = document.createElement('main'); viewport.className = 'cg-slide-viewport';
@@ -90,6 +90,11 @@ export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1
     for (const node of pageNodes.values()) node.style.transform = `scale(${scale})`;
     for (const [i, node] of thumbNodes) fitThumbnail(i, node);
     if (before) viewport.scrollTop = before.top === 0 ? 0 : starts[before.i] + before.fraction * heights[before.i];
+    if (zoomAnchor) {
+      const {i,x,y,point} = zoomAnchor, rect = pages[i].getBoundingClientRect(); zoomAnchor = null;
+      viewport.scrollLeft += rect.left + x*scale - point[0];
+      viewport.scrollTop += rect.top + y*scale - point[1];
+    }
     scheduleScroll();
   }
   function scheduleLayout() { if (!closed && !layoutFrame) layoutFrame = requestAnimationFrame(() => layout()); }
@@ -177,7 +182,16 @@ export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1
   layout(false); select(Math.max(0, Math.min(parts.length - 1, index)));
   return {
     select,
-    setZoom(value) { if (Number.isFinite(value)) { zoom = Math.max(.5, Math.min(2, value)); scheduleLayout(); } },
+    setZoom(value, point) {
+      if (closed || !Number.isFinite(value)) return;
+      zoomAnchor = null;
+      const page = point && document.elementFromPoint(point[0],point[1])?.closest('.cg-slide-page');
+      if (page && viewport.contains(page)) {
+        const rect = page.getBoundingClientRect();
+        zoomAnchor = {i:Number(page.dataset.index),x:(point[0]-rect.left)/scale,y:(point[1]-rect.top)/scale,point};
+      }
+      zoom = Math.max(.5, Math.min(2, value)); scheduleLayout();
+    },
     destroy() {
       closed = true; controller.abort(); observer.disconnect(); resize.disconnect();
       cancelAnimationFrame(layoutFrame); cancelAnimationFrame(scrollFrame); cancelAnimationFrame(paintFrame);

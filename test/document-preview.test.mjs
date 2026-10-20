@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deflateRawSync } from 'node:zlib';
+import { storedZip } from './fixtures/zip.mjs';
+export { storedZip } from './fixtures/zip.mjs';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { spreadsheetEntries, presentationEntries, darkPresentationEntries, samplePdf } from './fixtures/office-formats.mjs';
@@ -18,9 +19,11 @@ import { createCustomsProvince } from '../extension/background/provinces/customs
 import { createDocumentStatus } from '../extension/workspaces/document-preview/status.js';
 import { documentStyles } from '../extension/workspaces/document-preview/sanitize.js';
 import { createDocumentContent } from '../extension/workspaces/document-preview/content-host.js';
+import { createDocumentZoom } from '../extension/workspaces/document-preview/zoom.js';
+import { formatEmailDate } from '../extension/workspaces/document-preview/email-view.js';
 
 test('presentation bridge preserves pending selection and zoom and ignores stale or invalid slide feedback', () => {
-  const OriginalChannel = globalThis.MessageChannel, sent = [], selected = [], errors = [];
+  const OriginalChannel = globalThis.MessageChannel, sent = [], selected = [], errors = [], zooms = [];
   let channel, initialize;
   globalThis.MessageChannel = class {
     constructor() { channel = this; this.port1 = {postMessage: value => sent.push(structuredClone(value)), close() {}}; this.port2 = {}; }
@@ -30,7 +33,7 @@ test('presentation bridge preserves pending selection and zoom and ignores stale
       assert.equal(this.style.visibility, 'hidden', 'hide the dark document before navigation to blank');
       delete this[name];
     }};
-  const reader = createDocumentContent(frame, 'en-US', () => errors.push(true), index => selected.push(index));
+  const reader = createDocumentContent(frame, 'en-US', () => errors.push(true), index => selected.push(index), value => zooms.push(value));
   try {
     reader.renderSlides([{html:'one'},{html:'two'}], {kind:'pptx'}, 'Slide');
     reader.selectSlide(1); reader.setZoom(1.3); initialize();
@@ -41,7 +44,13 @@ test('presentation bridge preserves pending selection and zoom and ignores stale
     channel.port1.onmessage({data:{type:'slide',id:first.id,index:2}});
     channel.port1.onmessage({data:{type:'slide',id:first.id,index:.5}});
     assert.deepEqual(selected, [1]);
+    channel.port1.onmessage({data:{type:'zoom',id:first.id,zoom:1.51}});
+    for (const zoom of [NaN,Infinity,0,2.1,'1.2']) channel.port1.onmessage({data:{type:'zoom',id:first.id,zoom}});
+    assert.deepEqual(zooms,[1.51]);
     reader.render('<p>Word document</p>', {});
+    assert.equal(sent.at(-1).zoom,1.51,'a worksheet/document render retains gesture zoom');
+    channel.port1.onmessage({data:{type:'zoom',id:first.id,zoom:1}});
+    assert.deepEqual(zooms,[1.51],'stale render feedback cannot change toolbar zoom');
     channel.port1.onmessage({data:{type:'slide',id:first.id,index:0}});
     channel.port1.onmessage({data:{type:'error',id:first.id}});
     assert.deepEqual(selected, [1]); assert.deepEqual(errors, []);
@@ -54,9 +63,50 @@ test('presentation bridge preserves pending selection and zoom and ignores stale
     reader.destroy();
     assert.equal(frame.src, 'replacement-reader', 'repeated cleanup cannot clear a replacement reader');
     const count = sent.length;
+    channel.port1.onmessage({data:{type:'zoom',id:sent.at(-1).id,zoom:1}});
+    assert.deepEqual(zooms,[1.51]);
     reader.selectSlide(0); reader.setZoom(2); reader.renderSlides([{html:'late'}], {kind:'pptx'}, 'Slide');
     assert.equal(sent.length, count);
   } finally { reader.destroy(); globalThis.MessageChannel = OriginalChannel; }
+});
+
+test('document gesture zoom batches frames, preserves ordinary scrolling, bounds scales, and stops on teardown', () => {
+  const names=['window','document','requestAnimationFrame','cancelAnimationFrame','innerHeight'];
+  const originals=names.map(name=>Object.getOwnPropertyDescriptor(globalThis,name));
+  const frames=new Map(), changes=[], deckZooms=[], controller=new AbortController();
+  let listener, dialog=false, count=0;
+  Object.assign(globalThis,{
+    window:{addEventListener(type,fn,options){assert.equal(type,'wheel');assert.equal(options.passive,false);listener=fn;},scrollBy(){}},
+    document:{querySelector:()=>dialog,body:{style:{},getBoundingClientRect:()=>({left:0,top:0})}},innerHeight:800,
+    requestAnimationFrame:fn=>{frames.set(++count,fn);return count;},cancelAnimationFrame:id=>frames.delete(id)
+  });
+  const wheel=(data={})=>{const event={deltaY:-10,deltaMode:0,clientX:300,clientY:300,ctrlKey:true,preventDefault(){this.prevented=true;},...data};listener(event);return event;};
+  const flush=()=>{const callbacks=[...frames.values()];frames.clear();callbacks.forEach(fn=>fn());};
+  try {
+    const zoom=createDocumentZoom({signal:controller.signal,onChange:value=>changes.push(value),slides:()=>({setZoom:(value,point)=>deckZooms.push([value,point])})});
+    assert.equal(wheel({ctrlKey:false,deltaX:30}).prevented,undefined);
+    assert.equal(frames.size,0);
+    dialog=true;assert.equal(wheel().prevented,undefined);dialog=false;
+    wheel();wheel();assert.equal(frames.size,1);flush();
+    assert.equal(changes.length,1);assert.ok(Math.abs(changes[0]-Math.exp(.08))<1e-10);
+    assert.deepEqual(deckZooms[0][1],[300,300]);
+    zoom.setZoom(1.5);wheel();zoom.setZoom(1);assert.equal(frames.size,0);
+    for(let i=0;i<5;i++)wheel({deltaY:-100});flush();assert.equal(changes.at(-1),2);
+    for(let i=0;i<5;i++)wheel({deltaY:100});flush();assert.equal(changes.at(-1),.5);
+    assert.equal(wheel({deltaY:NaN}).prevented,undefined);
+    wheel();controller.abort();assert.equal(frames.size,0);
+    const before=deckZooms.length;zoom.setZoom(1);assert.equal(deckZooms.length,before);
+  } finally {
+    controller.abort();names.forEach((name,index)=>{if(originals[index])Object.defineProperty(globalThis,name,originals[index]);else delete globalThis[name];});
+  }
+});
+
+test('email dates are readable in both locales and retain explicit message offsets', () => {
+  assert.equal(formatEmailDate('2019-03-14T16:00:00.000Z','en-US'),'Mar 14, 2019, 16:00:00 (UTC)');
+  assert.equal(formatEmailDate('2019-03-14T16:00:00.000Z','zh-CN'),'2019年3月14日 16:00:00 (UTC)');
+  assert.equal(formatEmailDate('Tue, 22 Sep 2026 10:30:05 +0800','en-US'),'Sep 22, 2026, 10:30:05 (UTC+8)');
+  assert.equal(formatEmailDate('2026-09-22T10:30:05-03:30','en-US'),'Sep 22, 2026, 10:30:05 (UTC-3:30)');
+  for (const value of ['not a date','2026-13-30T12:00:00.000Z','2026-09-22 10:00:00']) assert.equal(formatEmailDate(value,'en-US'),value);
 });
 
 async function previewWorkspace() {
@@ -128,29 +178,6 @@ test('late download replies cannot affect restored controls or register stale cl
   assert.equal(view.element('#status').textContent, 'documentDownloadStarted');
 });
 
-export function storedZip(entries, compress = false) {
-  let offset = 0;
-  const locals = [], directory = [];
-  for (const [name, text] of Object.entries(entries)) {
-    const n = Buffer.from(name), data = Buffer.from(text);
-    const packed = compress ? deflateRawSync(data) : data;
-    let crc = 0xffffffff;
-    for (const byte of data) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0); }
-    crc = (crc ^ 0xffffffff) >>> 0;
-    const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50); local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(compress ? 8 : 0, 8);
-    local.writeUInt32LE(crc, 14); local.writeUInt32LE(packed.length, 18); local.writeUInt32LE(data.length, 22); local.writeUInt16LE(n.length, 26);
-    locals.push(local, n, packed);
-    const central = Buffer.alloc(46); central.writeUInt32LE(0x02014b50); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(compress ? 8 : 0, 10);
-    central.writeUInt32LE(crc, 16); central.writeUInt32LE(packed.length, 20); central.writeUInt32LE(data.length, 24); central.writeUInt16LE(n.length, 28); central.writeUInt32LE(offset, 42);
-    directory.push(central, n); offset += local.length + n.length + packed.length;
-  }
-  const dir = Buffer.concat(directory), end = Buffer.alloc(22), count = Object.keys(entries).length;
-  end.writeUInt32LE(0x06054b50); end.writeUInt16LE(count, 8); end.writeUInt16LE(count, 10); end.writeUInt32LE(dir.length, 12); end.writeUInt32LE(offset, 16);
-  const value = Buffer.concat([...locals, dir, end]);
-  return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
-}
 export const sampleDocx = () => storedZip({
   '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
   '_rels/.rels': '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
@@ -1087,8 +1114,14 @@ test('OpenDocument preserves headings, table spans and slide navigation, bounds 
 test('EML decodes MIME headers and multipart bodies while keeping attachments inert',async()=>{
   await extraRenderers();const {emailSample}=await import('./fixtures/additional-document-formats.mjs');
   const result=await renderer.convertEmail(new TextEncoder().encode(emailSample).buffer,{from:'发件人',attachments:'附件'});
-  assert.match(result.value,/邮件预览/);assert.match(result.value,/测试 &lt;author@example.test&gt;/);assert.match(result.value,/发件人/);assert.match(result.value,/HTML body/);assert.doesNotMatch(result.value,/Plain fallback/);
-  assert.match(result.value,/<li>test.exe<\/li>/);assert.doesNotMatch(result.value,/TVpOb3R|NotActualExecutable/);
+  assert.equal(result.formatting.email.subject,'邮件预览');
+  assert.deepEqual(JSON.parse(JSON.stringify(result.formatting.email.fields[0])),{label:'发件人',value:'测试 <author@example.test>'});
+  assert.equal(result.formatting.email.attachmentsLabel,'附件');assert.equal(result.formatting.email.plain,false);
+  assert.equal(result.formatting.email.attachments[0].name,'test.exe');
+  assert.equal(result.formatting.email.attachments[0].size,Buffer.from('MZNotActualExecutable').length);
+  assert.match(result.value,/HTML body/);assert.doesNotMatch(result.value,/Plain fallback|test.exe|邮件预览|发件人|TVpOb3R|NotActualExecutable/);
+  const plain=await renderer.convertEmail(new TextEncoder().encode('From: author@example.test\r\nSubject: Plain mail\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nLine 1\r\n  Line 2 & <text>\r\n').buffer,{});
+  assert.equal(plain.formatting.email.plain,true);assert.match(plain.value,/Line 1\r?\n  Line 2 &amp; &lt;text&gt;/);
 });
 
 test('document cache rejects empty chunks, replay and out-of-order uploads', async () => {

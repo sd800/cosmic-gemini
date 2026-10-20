@@ -32,7 +32,7 @@ function ensureContent() {
       if (current(started)) notices.show(t('documentRenderFailed'));
     }, index => {
       if (current(started) && isSlides()) updatePartControls(index);
-    });
+    }, value => { if (current(started)) updateZoom(value*100,true); });
   }
   return contentViewer;
 }
@@ -53,17 +53,16 @@ nextPart.onclick = () => showPart(Number(partSelect.value) + 1);
 const zoomControls = document.querySelector('#zoom-controls');
 const zoomOut = document.querySelector('#zoom-out'), zoomIn = document.querySelector('#zoom-in'), zoomReset = document.querySelector('#zoom-reset');
 let zoom = 100;
-function updateZoom(next) {
-  zoom = Math.max(50, Math.min(200, Math.round(next / 10) * 10));
-  // Slides zoom within the sandbox so their navigation rail stays the same size.
-  // Other documents retain frame zoom. Neither path reconverts the document.
-  frame.style.setProperty('--document-zoom', String(isSlides() ? 1 : zoom / 100));
-  if (isSlides()) contentViewer?.setZoom(zoom / 100);
-  zoomReset.textContent = zoom + '%';
+function updateZoom(next, fromGesture = false) {
+  zoom = Math.max(50, Math.min(200, next));
+  // Zoom the reading surface, not the toolbar/iframe viewport. Gesture updates
+  // come from that surface; never echo rounded percentages back into it.
+  if (!fromGesture) contentViewer?.setZoom(zoom / 100);
+  zoomReset.textContent = Math.round(zoom) + '%';
   zoomOut.disabled = zoom === 50; zoomIn.disabled = zoom === 200;
 }
-zoomOut.onclick = () => updateZoom(zoom - 10);
-zoomIn.onclick = () => updateZoom(zoom + 10);
+zoomOut.onclick = () => updateZoom(Math.round(zoom) - 10);
+zoomIn.onclick = () => updateZoom(Math.round(zoom) + 10);
 zoomReset.onclick = () => updateZoom(100);
 for (const [button, key] of [[zoomOut, 'documentZoomOut'], [zoomIn, 'documentZoomIn'], [zoomReset, 'documentZoomReset']]) button.title = t(key);
 const themeToggle = document.querySelector('#theme-toggle'), themeAuto = document.querySelector('#theme-auto');
@@ -192,7 +191,7 @@ async function preview() {
   try {
     const bytes = await blob.arrayBuffer();
     if (worker === ownedWorker && current(started)) ownedWorker.postMessage({ bytes, format: metadata.format, labels: {
-      from: t('documentEmailFrom'), to: t('documentEmailTo'), cc: t('documentEmailCc'),
+      locale, from: t('documentEmailFrom'), to: t('documentEmailTo'), cc: t('documentEmailCc'),
       date: t('documentEmailDate'), attachments: t('documentEmailAttachments'), noSubject: t('documentEmailNoSubject')
     } }, [bytes]);
     else finish();

@@ -5,7 +5,7 @@ const fonts = /^(?:"[\p{L}\p{N} ._+-]{1,80}",){1,8}(?:serif|sans-serif|monospace
 const values = {
   'tab-size':/^\d{1,4}(?:\.\d{1,3})?pt$/,
   'list-style-type':/^(?:decimal|lower-alpha|upper-alpha|lower-roman|upper-roman)$/,
-  position:/^absolute$/, overflow:/^hidden$/, 'white-space':/^(?:pre-wrap|break-spaces|nowrap)$/,
+  position:/^absolute$/, overflow:/^hidden$/, 'white-space':/^(?:normal|pre|pre-wrap|break-spaces|nowrap)$/,
   'font-kerning':/^(?:normal|none)$/,'text-decoration-skip-ink':/^none$/,
   'text-align-last':/^(?:auto|justify)$/,'writing-mode':/^(?:horizontal-tb|vertical-rl|vertical-lr)$/,
   'border-collapse':/^(?:collapse|separate)$/,'border-spacing':lengths,

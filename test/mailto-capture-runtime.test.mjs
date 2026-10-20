@@ -254,7 +254,7 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).name, name, address);
     assert.equal(lookup(address).region, region, address);
   }
-  for (const [alias, primary] of [['uncc.edu', 'charlotte.edu'], ['department.uncc.edu', 'charlotte.edu'], ['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['shnyu.edu.cn', 'shanghai.nyu.edu'], ['dku.edu.cn', 'dukekunshan.edu.cn'], ['oxford.edu', 'ox.ac.uk'], ['uir.cn', 'uir.edu.cn']]) {
+  for (const [alias, primary] of [['uncc.edu', 'charlotte.edu'], ['department.uncc.edu', 'charlotte.edu'], ['ucsandiego.edu', 'ucsd.edu'], ['department.ucsandiego.edu', 'ucsd.edu'], ['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['shnyu.edu.cn', 'shanghai.nyu.edu'], ['dku.edu.cn', 'dukekunshan.edu.cn'], ['oxford.edu', 'ox.ac.uk'], ['uir.cn', 'uir.edu.cn']]) {
     assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`))), JSON.parse(JSON.stringify(lookup(`contact@${primary}`))), alias);
   }
   assert.equal(lookup('student@uic.edu.cn').name, '北京师范大学–香港浸会大学联合国际学院');

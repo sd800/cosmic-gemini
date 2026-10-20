@@ -17702,7 +17702,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "ucsd.edu"
+        "ucsd.edu",
+        "ucsandiego.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17725,7 +17726,13 @@
       "nameEvidence": [
         "https://brand.universityofcalifornia.edu/guidelines/editorial.html"
       ],
-      "nameNotes": "Retain the requested comma-separated campus display form; do not apply the campus marketing no-comma variant automatically."
+      "nameNotes": "Retain the requested comma-separated campus display form; do not apply the campus marketing no-comma variant automatically.",
+      "aliasEvidence": {
+        "ucsandiego.edu": [
+          "https://www.ucsandiego.edu/",
+          "https://www.ucsandiego.edu/about/"
+        ]
+      }
     },
     {
       "id": "ucsf.edu",

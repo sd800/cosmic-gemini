@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.24 — 2026-10-19
+
+- Refine institutional domain aliases.
+
 ## 9.12.23 — 2026-10-19
 
 - Expand and refine offline institution recognition and display consistency.

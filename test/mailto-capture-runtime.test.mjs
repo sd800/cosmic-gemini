@@ -292,6 +292,12 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).region, region, address);
   }
   for (const [alias, primary, unitName] of [
+    ['uva.edu', 'virginia.edu'],
+    ['department.UVA.EDU', 'virginia.edu'],
+    ['penn.edu', 'upenn.edu'],
+    ['department.PENN.EDU', 'upenn.edu'],
+    ['rhit.edu', 'rose-hulman.edu'],
+    ['department.RHIT.EDU', 'rose-hulman.edu'],
     ['cua.edu', 'catholic.edu'],
     ['law.edu', 'catholic.edu', 'Columbus School of Law'],
     ['ohio-state.edu', 'osu.edu'],
@@ -504,6 +510,9 @@ test('University matching respects DNS boundaries, campus identity and localized
     'contact@fakeumiami.edu', 'contact@umiami.edu.evil.test',
     'contact@fakenwu.edu', 'contact@nwu.edu.evil.test',
     'contact@fakelaw.edu', 'contact@law.edu.evil.test', 'contact@fakecua.edu',
+    'contact@fakeuva.edu', 'contact@uva.edu.evil.test',
+    'contact@fakepenn.edu', 'contact@penn.edu.evil.test',
+    'contact@fakerhit.edu', 'contact@rhit.edu.evil.test',
     'contact@parsons.edu.evil.test', 'contact@fakeumr.edu', 'contact@umr.edu.evil.test',
     'contact@fakehms.edu', 'contact@hms.edu.evil.test',
     'contact@fakembl.edu', 'contact@mbl.edu.evil.test', 'contact@fi.edu.evil.test',

@@ -20236,6 +20236,7 @@
       "region": "US",
       "subdivision": "Pennsylvania",
       "domains": [
+        "penn.edu",
         "upenn.edu",
         "wharton.edu"
       ],
@@ -20258,6 +20259,9 @@
         ]
       },
       "aliasEvidence": {
+        "penn.edu": [
+          "https://mail.business-services.upenn.edu/external-mail/express-shipping/eship/order-supplies"
+        ],
         "wharton.edu": [
           "https://undergrad-inside.wharton.upenn.edu/transfer-credits/"
         ]
@@ -21534,6 +21538,7 @@
       "region": "US",
       "subdivision": "Virginia",
       "domains": [
+        "uva.edu",
         "virginia.edu"
       ],
       "addresses": [],
@@ -21552,6 +21557,11 @@
         ],
         "medical-school-reference": [
           "80: University of Virginia School of Medicine"
+        ]
+      },
+      "aliasEvidence": {
+        "uva.edu": [
+          "https://guides.lib.virginia.edu/onlinemusicresources/musicblogs"
         ]
       }
     },
@@ -79575,6 +79585,7 @@
       "region": "US",
       "subdivision": "Indiana",
       "domains": [
+        "rhit.edu",
         "rose-hulman.edu"
       ],
       "addresses": [],
@@ -79593,7 +79604,12 @@
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip",
         "https://rhit.edu/news/2026/rose-hulman-ranked-no-1-for-28th-consecutive-year-as-nation-best-undergraduate-engineering-college.html"
       ],
-      "ncesUnitId": "152318"
+      "ncesUnitId": "152318",
+      "aliasEvidence": {
+        "rhit.edu": [
+          "https://rose-hulman.edu/admissions-and-aid/index.html"
+        ]
+      }
     },
     {
       "id": "sf.edu",

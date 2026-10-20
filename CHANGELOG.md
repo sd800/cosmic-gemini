@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.25 — 2026-10-19
+
+- Expand institutional domain-alias coverage.
+
 ## 9.12.24 — 2026-10-19
 
 - Refine institutional domain aliases.

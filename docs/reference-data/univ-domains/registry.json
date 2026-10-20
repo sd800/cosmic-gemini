@@ -17315,7 +17315,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "ucdavis.edu"
+        "ucdavis.edu",
+        "ucd.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17334,6 +17335,9 @@
         "medical-school-reference": [
           "111: University of California, Davis, School of Medicine"
         ]
+      },
+      "aliasNotes": {
+        "ucd.edu": "User-supplied institutional domain alias."
       }
     },
     {
@@ -17655,7 +17659,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "ucsb.edu"
+        "ucsb.edu",
+        "ucsantabarbara.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17671,6 +17676,9 @@
         "us-graduate-reference": [
           "110705: University of California-Santa Barbara"
         ]
+      },
+      "aliasNotes": {
+        "ucsantabarbara.edu": "User-supplied institutional domain alias."
       }
     },
     {

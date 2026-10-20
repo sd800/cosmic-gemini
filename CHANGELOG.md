@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.35 — 2026-10-19
+
+- Expand institutional domain aliases.
+
 ## 9.12.34 — 2026-10-19
 
 - Show recognized university school and division names beneath their parent institution.

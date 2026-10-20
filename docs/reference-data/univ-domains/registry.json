@@ -5731,7 +5731,8 @@
       "region": "HK",
       "subdivision": "",
       "domains": [
-        "cuhk.edu.hk"
+        "cuhk.edu.hk",
+        "cuhk.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -5747,6 +5748,9 @@
         "us-global": [
           "Chinese University of Hong Kong (CUHK)"
         ]
+      },
+      "aliasNotes": {
+        "cuhk.edu": "User-supplied institutional domain alias based on the reported WHOIS registrant."
       }
     },
     {
@@ -17732,7 +17736,8 @@
       "subdivision": "California",
       "domains": [
         "ucop.edu",
-        "universityofcalifornia.edu"
+        "universityofcalifornia.edu",
+        "california.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17753,6 +17758,9 @@
           "https://net.educause.edu/whois.htm",
           "https://www.universityofcalifornia.edu/"
         ]
+      },
+      "aliasNotes": {
+        "california.edu": "User-supplied institutional domain alias based on the reported WHOIS registrant."
       }
     },
     {

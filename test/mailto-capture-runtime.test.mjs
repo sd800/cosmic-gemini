@@ -292,6 +292,10 @@ test('University matching respects DNS boundaries, campus identity and localized
   for (const [alias, primary, unitName] of [
     ['uncc.edu', 'charlotte.edu'],
     ['department.uncc.edu', 'charlotte.edu'],
+    ['CALIFORNIA.EDU', 'ucop.edu'],
+    ['department.california.edu', 'ucop.edu'],
+    ['CUHK.EDU', 'cuhk.edu.hk'],
+    ['department.cuhk.edu', 'cuhk.edu.hk'],
     ['CHICAGOBOOTH.EDU', 'uchicago.edu', 'Booth School of Business'],
     ['alumni.chicagobooth.edu', 'uchicago.edu', 'Booth School of Business'],
     ['hbs.edu', 'harvard.edu', 'Harvard Business School'],
@@ -411,6 +415,8 @@ test('University matching respects DNS boundaries, campus identity and localized
   assert.match(lookup('student@centennialcollege.hku.hk').name, /明德/);
   for (const address of ['alice@example.com', 'alice@edu', 'alice@edu.cn', 'alice@harvard.edu.example.com',
     'contact@fakeartic.edu', 'contact@artic.edu.evil.test', 'contact@si.edu.evil.test',
+    'contact@fakecalifornia.edu', 'contact@california.edu.evil.test',
+    'contact@fakecuhk.edu', 'contact@cuhk.edu.evil.test',
     'contact@fakesi.edu', 'contact@nmns.edu.tw.evil.test',
     'contact@fakeias.edu', 'contact@ias.edu.evil.test', 'contact@whoi.edu.evil.test',
     'contact@fakechicagobooth.edu', 'contact@chicagobooth.edu.evil.test',

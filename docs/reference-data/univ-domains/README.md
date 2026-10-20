@@ -28,10 +28,31 @@ Reviewed on **2026-10-19**. The domestic U.S. cohorts no longer use a rank cutof
 | Taiwan general universities (`體制=一般大學`, retained source cohort) | Official 114 academic-year directory | 66 |
 | All eligible Taiwan civil higher-education categories | Official directory: 149 source institutions, 147 with permitted hosts | 147 |
 | Taiwan military/police higher education | Official school directories | 9 |
-| U.S. university/community-college systems and central administrative offices | Official system directories | 22 |
-| Affiliated campuses, overseas campuses and joint universities | Reviewed official institution/campus directories | 18 |
+| U.S. university/community-college systems and central administrative offices | Official system directories | 24 |
+| Affiliated campuses, overseas campuses and joint universities | Reviewed official institution/campus directories | 19 |
 
-Cohorts overlap. The compiled reference contains **4,688 institution/domain groups** and **4,976 explicit domain suffixes**. A group can represent two institutional identities sharing one domain, such as the two HKCT providers; its display name includes both. Ranking membership is retained only for maintenance, never displayed as a credential or ranking in the popover.
+Cohorts overlap. The compiled reference contains **6,537 institution/domain groups** and **6,834 explicit domain suffixes**. A group can represent two institutional identities sharing one domain, such as the two HKCT providers; its display name includes both. Ranking membership is retained only for maintenance, never displayed as a credential or ranking in the popover.
+
+The regional expansion below counts **source entries mapped**, not distinct new institutions. Several campus or historical directory entries can share one reviewed parent-domain identity.
+
+| Additional source cohort | Source entries | Mapped entries |
+| --- | ---: | ---: |
+| Canada: CICIC public and degree-offering providers | 470 | 383 |
+| Malaysia: MQA public providers and private bachelor-or-higher providers | 938 | 398 |
+| Singapore: registered private tertiary providers, diploma or higher | 318 | 180 |
+| Singapore: MOE publicly supported higher education | 15 | 15 |
+| England: OfS register, public/degree-offering selection | 425 | 356 |
+| Scotland, Wales and Northern Ireland: reviewed government higher-education directories | 43 | 41 |
+| Japan: NIAD national/public university and public junior-college directory | 200 | 199 |
+| Japan: national colleges of technology | 51 | 51 |
+| Japan: explicitly selected private/liberal-arts institutions | 75 | 75 |
+| Japan: supplementary medical, dental, arts and music institutions | 50 | 50 |
+| Korea: Academyinfo parent-institution records | 256 | 230 |
+| Thailand: official education-office directory hosts, including campus rows | 196 | 93 |
+| Mongolia: ministry licensed-institution list | 68 | 43 |
+| USA: NCES active central administrative offices | 70 | 70 |
+
+`regional-institution-audit.json` accounts for all **3,175** selected source entries: **2,184 mapped**, **393 outside the selected scope**, and **598 awaiting domain, shared-host, location, name or scope review**. These figures are not a claim of complete countrywide coverage. In particular, additional Scottish/Welsh public-college catalogs, Korean public/degree-offering college categories, current Thai directory changes and unresolved Mongolian providers still need review. A current official school name without an attributable email domain does not become a guessed domain entry.
 
 ## Source coverage and remaining gaps
 
@@ -59,7 +80,7 @@ The Dearborn record retains both `umdearborn.edu` and `umd.umich.edu`, as docume
 
 The `affiliated-campuses` cohort explicitly covers Michigan–Flint; CUHK Shenzhen; HKUST Guangzhou; NYU Shanghai/Abu Dhabi; Nottingham Ningbo/Malaysia; Xi’an Jiaotong–Liverpool; Duke Kunshan; Monash Malaysia; Curtin Malaysia/Dubai; Swinburne Sarawak; Wollongong Dubai; Northwestern Qatar; Carnegie Mellon Qatar; Beijing Normal–Hong Kong Baptist University; and Xiamen University Malaysia. Every record has source links and covered-institution affiliation IDs. These relationships include joint universities and do not imply that every institution is owned by another. Campus location is its own physical country/region; U.S./Canadian campuses use their own state/province. A shared parent email domain alone cannot identify an individual campus, and the runtime never guesses from a mailbox’s local part.
 
-Domain aliases remain attached to a single identity: `wustl.edu`/`washu.edu`, `swinburne.edu.au`/`swin.edu.au`, `uic.edu.cn`/`bnbu.edu.cn`, and `dku.edu.cn`/`dukekunshan.edu.cn` have official evidence links in the records. `hku.edu` is an explicit user-requested compatibility alias of `hku.hk`, recorded as such in `aliasNotes`; it is not represented as independently verified university ownership. Existing `ouhk.edu.hk`/`hkmu.edu.hk` and `hsmc.edu.hk`/`hsu.edu.hk` mappings remain intact. More specific campus hosts always outrank broader school aliases.
+Domain aliases remain attached to a single identity: `wustl.edu`/`washu.edu`, `swinburne.edu.au`/`swin.edu.au`, `shnyu.edu.cn`/`shanghai.nyu.edu`, and `dku.edu.cn`/`dukekunshan.edu.cn` have official evidence links in the records. `uic.edu.cn` deliberately retains the former United International College name, while `bnbu.edu.cn` uses the renamed university; the two display records are linked in source metadata rather than forced into one alias group. `hku.edu` is an explicit user-requested compatibility alias of `hku.hk`, recorded as such in `aliasNotes`; it is not represented as independently verified university ownership. Existing `ouhk.edu.hk`/`hkmu.edu.hk` and `hsmc.edu.hk`/`hsu.edu.hk` mappings remain intact. More specific campus hosts always outrank broader school aliases.
 
 The `uncc.edu` legacy email domain and `charlotte.edu` identify the same University of North Carolina at Charlotte record. The university’s [Google account migration notice](https://oneit.charlotte.edu/2024/02/08/google-account-rename/) explicitly retains the old email alias; subdomains follow the existing DNS-label-boundary rules.
 
@@ -85,7 +106,11 @@ node scripts/update-univ-domains.mjs --check
 node --test test/mailto-capture-runtime.test.mjs
 ```
 
-The generator is intentionally offline and deterministic. It rejects missing cohort members, duplicate institution/domain identities, broad suffixes, missing North American locations, and missing or inappropriate display names. Mainland, U.S. graduate/special-focus and medical source audits are validated against exact cohort membership. Only eligible bilingual rows carry an additional English name; eligibility is compiled from reviewed identities and affiliation relationships, never inferred at runtime. The compiled reference is **303,538 bytes** (about 304 KB), with a 400 KB build guard. The compiled file omits membership/rank evidence, affiliation graphs and unused translations; its lookup maps are built only when an email is first inspected. Neither settings nor the runtime stores observed addresses. Public source snapshots and preparation scratch files may be kept in the ignored `test-dist/univ-domains` directory; they are not shipped.
+The generator is intentionally offline and deterministic. It rejects missing cohort members, duplicate institution/domain identities, broad suffixes, missing North American locations, and missing or inappropriate display names. Mainland, U.S. graduate/special-focus, medical and regional source audits are validated against exact cohort membership. Only eligible bilingual rows carry an additional English name; eligibility is compiled from reviewed identities and affiliation relationships, never inferred at runtime. The compiled reference is **421,289 bytes** (about 421 KB), with a 500 KB build guard. The compiled file omits membership/rank evidence, affiliation graphs and unused translations; its lookup maps are built only when an email is first inspected. Neither settings nor the runtime stores observed addresses. Preparation scratch files may be kept in the ignored `test-dist/univ-domains` directory; they are not shipped. New bulk directory reads retain only institution names, domains, category and location facts, not raw contact pages or complete mailbox addresses.
+
+For regional maintenance, prioritize the official directory's institution identifier, current name and official website over secondary domain-directory names. The MQA data contains historical campus/program records; private colleges without reviewed bachelor-or-higher courses are outside that selection. SSG secondary-school diplomas do not qualify as tertiary courses. An OfS provider without direct degree powers or qualifying evidence remains a scope-review gap, not a definitive exclusion. Closed Academyinfo entries are excluded. Thai source rows come from an older official publication and must not be presented as a verified current ministry export. The Mongolian ministry list and APNNIC names are complementary sources, not interchangeable membership lists. Do not assign a shared government/ministry root, a hosting provider or a path-only foreign campus to an individual school. Reviewed Malaysian institution namespaces and the Aizu junior-college namespace remain explicit subdomain identities. Canadian cross-province source rows use the institution's principal province, never whichever branch happens to appear first.
+
+The `maine.edu` root identifies University of Maine System; `usm.maine.edu` separately identifies University of Southern Maine. The UC Office of the President and South Carolina System retain their own administrative identities and headquarters states. Source cohort membership does not authorize replacing a reviewed campus name with the registrant's abbreviation or labeling a shared parent root as a regional branch.
 
 The shared `csbsju.edu` host identifies College of Saint Benedict and Saint John’s University together; it does not arbitrarily select one college. The explicitly reviewed `morris.umn.edu` host identifies University of Minnesota–Morris before the broader Minnesota root. Duplicate Shanghai Jiao Tong/Minnesota web-host records are consolidated into their existing institutional identity without dropping source membership.
 

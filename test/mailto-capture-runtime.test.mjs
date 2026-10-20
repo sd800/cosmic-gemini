@@ -243,6 +243,7 @@ test('University matching respects DNS boundaries, campus identity and localized
     ['student@cuhk.edu.cn', '香港中文大学（深圳）', 'China'],
     ['student@department.hkust-gz.edu.cn', '香港科技大学（广州）', 'China'],
     ['student@shanghai.nyu.edu', '上海纽约大学', 'China'],
+    ['student@shnyu.edu.cn', '上海纽约大学', 'China'],
     ['student@nyuad.nyu.edu', 'New York University Abu Dhabi', 'United Arab Emirates'],
     ['student@qatar.northwestern.edu', 'Northwestern University in Qatar', 'Qatar'],
     ['student@qatar.cmu.edu', 'Carnegie Mellon University in Qatar', 'Qatar'],
@@ -253,9 +254,18 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).name, name, address);
     assert.equal(lookup(address).region, region, address);
   }
-  for (const [alias, primary] of [['uncc.edu', 'charlotte.edu'], ['department.uncc.edu', 'charlotte.edu'], ['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['uic.edu.cn', 'bnbu.edu.cn'], ['dku.edu.cn', 'dukekunshan.edu.cn'], ['oxford.edu', 'ox.ac.uk'], ['uir.cn', 'uir.edu.cn']]) {
+  for (const [alias, primary] of [['uncc.edu', 'charlotte.edu'], ['department.uncc.edu', 'charlotte.edu'], ['hku.edu', 'hku.hk'], ['wustl.edu', 'washu.edu'], ['swinburne.edu.au', 'swin.edu.au'], ['shnyu.edu.cn', 'shanghai.nyu.edu'], ['dku.edu.cn', 'dukekunshan.edu.cn'], ['oxford.edu', 'ox.ac.uk'], ['uir.cn', 'uir.edu.cn']]) {
     assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`))), JSON.parse(JSON.stringify(lookup(`contact@${primary}`))), alias);
   }
+  assert.equal(lookup('student@uic.edu.cn').name, '北京师范大学–香港浸会大学联合国际学院');
+  assert.equal(lookup('student@uic.edu.cn').englishName, 'Beijing Normal University–Hong Kong Baptist University United International College');
+  assert.equal(lookup('student@bnbu.edu.cn').name, '北师香港浸会大学');
+  assert.equal(lookup('student@shnyu.edu.cn').englishName, 'New York University Shanghai');
+  assert.equal(lookup('person@uscupstate.edu').name, 'University of South Carolina Upstate');
+  assert.equal(lookup('person@upstate.edu').name, 'State University of New York Upstate Medical University');
+  assert.equal(lookup('person@tiuny.org').name, 'Talmudical Institute of Upstate New York');
+  assert.equal(lookup('person@universityofcalifornia.edu').name, 'University of California Office of the President');
+  assert.equal(lookup('person@southcarolina.edu').name, 'University of South Carolina System');
   assert.equal(lookup('student@cs.nyu.edu').name, 'New York University');
   assert.equal(lookup('student@cmu.edu').region, 'Pennsylvania, USA');
   assert.equal(lookup('contact@CCCCO.EDU').name, 'California Community Colleges Chancellor’s Office');
@@ -277,6 +287,9 @@ test('University matching respects DNS boundaries, campus identity and localized
   }
   assert.equal(lookup('person@hawaii.edu').name, 'University of Hawaiʻi System');
   assert.equal(lookup('person@hilo.hawaii.edu').name, 'University of Hawaiʻi at Hilo');
+  assert.equal(lookup('person@maine.edu').name, 'University of Maine System');
+  assert.equal(lookup('person@usm.maine.edu').name, 'University of Southern Maine');
+  assert.equal(lookup('person@department.usm.maine.edu').name, 'University of Southern Maine');
   assert.equal(lookup('person@med.umich.edu').name, 'University of Michigan');
   assert.equal(lookup('person@weill.cornell.edu').name, 'Cornell University');
   assert.equal(lookup('person@medicine.okstate.edu').name, 'Oklahoma State University');
@@ -378,6 +391,31 @@ test('Mainland bilingual names follow reviewed university and campus eligibility
 test('Regional higher education includes technological, open, religious and service institutions without empty English rows', async () => {
   const { context, runtime } = await runtimeFixture();
   const { lookup } = context[Symbol.for('cosmic-gemini.mailto-capture.univ-domains')];
+  for (const [domain, name, region] of [
+    ['carleton.ca', 'Carleton University', 'Ontario, Canada'],
+    ['auarts.ca', 'Alberta University of the Arts', 'Alberta, Canada'],
+    ['umpsa.edu.my', 'Universiti Malaysia Pahang Al-Sultan Abdullah', 'Malaysia'],
+    ['polipd.mypolycc.edu.my', 'Politeknik Port Dickson', 'Malaysia'],
+    ['sutd.edu.sg', 'Singapore University of Technology and Design', 'Singapore'],
+    ['brunel.ac.uk', 'Brunel University London', 'United Kingdom'],
+    ['belfastmet.ac.uk', 'Belfast Metropolitan College', 'United Kingdom'],
+    ['chibatech.jp', 'Chiba Institute of Technology', 'Japan'],
+    ['it-chiba.ac.jp', 'Chiba Institute of Technology', 'Japan'],
+    ['chibatech.ac.jp', 'Chiba Institute of Technology', 'Japan'],
+    ['hgu.jp', 'Hokkai-Gakuen University', 'Japan'],
+    ['fwu.ac.jp', "Fukuoka Women's University", 'Japan'],
+    ['ut.ac.kr', 'Korea National University of Transportation', 'South Korea'],
+    ['kopo.ac.kr', 'Korea Polytechnics', 'South Korea'],
+    ['pgvim.ac.th', 'Princess Galyani Vadhana Institute of Music', 'Thailand'],
+    ['gmit.edu.mn', 'German-Mongolian Institute for Resources and Technology', 'Mongolia'],
+    ['num.edu.mn', 'National University of Mongolia', 'Mongolia']
+  ]) {
+    assert.equal(lookup(`person@${domain}`)?.name, name, domain);
+    assert.equal(lookup(`person@${domain}`).region, region, domain);
+  }
+  for (const domain of ['mypolycc.edu.my', 'moe.edu.my', 'notpolipd.mypolycc.edu.my', 'www.gov.mn', 'gov.mn', 'sfc.ac.uk', 'collegesscotland.ac.uk']) {
+    assert.equal(lookup(`person@${domain}`), null, domain);
+  }
   for (const domain of ['ntust.edu.tw', 'nou.edu.tw', 'tbts.edu.tw', 'ndu.edu.tw', 'afats.khc.edu.tw', 'cpu.edu.tw', 'tpa.edu.tw']) {
     assert.ok(lookup(`person@${domain}`)?.name, domain);
     assert.equal(lookup(`person@${domain}`).region, 'Chinese Taipei', domain);

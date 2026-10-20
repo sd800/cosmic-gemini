@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.23 — 2026-10-19
+
+- Expand and refine offline institution recognition and display consistency.
+
 ## 9.12.22 — 2026-10-19
 
 - Standardize internal reference naming.

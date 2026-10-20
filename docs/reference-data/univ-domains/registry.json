@@ -2551,7 +2551,7 @@
     },
     "cultural-institutions": {
       "edition": "2026-10-19",
-      "expectedMembers": 12,
+      "expectedMembers": 13,
       "method": "Individually reviewed established nonprofit, public-trust and public museums, libraries and cultural institutions using their own edu or edu country-class domains. Official institutional mission, governance and financial sources; curated selection, not an exhaustive directory or blanket domain endorsement.",
       "urls": [
         "https://www.artic.edu/",
@@ -2576,7 +2576,35 @@
         "https://www.ntl.edu.tw/",
         "https://www.ntl.edu.tw/wSite/mp?mp=2222",
         "https://www.nlpi.edu.tw/",
-        "https://www.nlpi.edu.tw/English/ReaderServiceEn/FocusAreaEng/MulticulturalEng/StudyAbroadEng/StudyAbroad01Eng.htm"
+        "https://www.nlpi.edu.tw/English/ReaderServiceEn/FocusAreaEng/MulticulturalEng/StudyAbroadEng/StudyAbroad01Eng.htm",
+        "https://fi.edu/en/support"
+      ]
+    },
+    "nonprofit-research-institutions": {
+      "edition": "2026-10-19",
+      "expectedMembers": 10,
+      "method": "Individually reviewed established nonprofit scientific and scholarly research institutions, research consortia and university-affiliated research centers with their own edu domains. Official mission, governance, nonprofit-status and headquarters sources; no inferred university aliases and no blanket domain eligibility.",
+      "urls": [
+        "https://santafe.edu/about",
+        "https://santafe.edu/engage/learn/grant-support",
+        "https://www.whoi.edu/who-we-are/about-us/vision-mission/research-independence-and-integrity/",
+        "https://www.whoi.edu/press-room/news-release/whois-robert-weller-named-to-national-academy-of-engineering-class-of-2025/",
+        "https://www.ias.edu/about/faqs",
+        "https://www.ias.edu/sites/default/files/June%2030%2C%202024%20Audited%20Financial%20Statements.pdf",
+        "https://www.mbl.edu/about",
+        "https://www.mbl.edu/news/mbl-director-nipam-patel-elected-national-academy-sciences",
+        "https://carnegiescience.edu/",
+        "https://carnegiescience.edu/about",
+        "https://carnegiescience.edu/sites/default/files/2026-02/2025%20Carnegie%20Institution%20for%20Science%20FS%20Final.pdf",
+        "https://www.salk.edu/support-us/ways-to-give/",
+        "https://www.scripps.edu/about/",
+        "https://magazine.scripps.edu/terms-of-use/",
+        "https://www.cshl.edu/about-us/",
+        "https://www.cshl.edu/about-us/history/",
+        "https://www.ucar.edu/who-we-are",
+        "https://www.ucar.edu/sites/default/files/documents/related-links/2021-10/UCAR%20Bylaws.%20Amended%20and%20Restated%20Oct%202021.pdf",
+        "https://www.jhuapl.edu/about",
+        "https://www.jhuapl.edu/work/partnerships/suppliers/faqs"
       ]
     }
   },
@@ -138677,6 +138705,255 @@
         "https://www.nlpi.edu.tw/",
         "https://www.nlpi.edu.tw/English/ReaderServiceEn/FocusAreaEng/MulticulturalEng/StudyAbroadEng/StudyAbroad01Eng.htm"
       ]
+    },
+    {
+      "id": "santafe.edu",
+      "en": "Santa Fe Institute",
+      "zh": "",
+      "region": "US",
+      "subdivision": "New Mexico",
+      "domains": [
+        "santafe.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Santa Fe Institute"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://santafe.edu/about",
+        "https://santafe.edu/engage/learn/grant-support"
+      ]
+    },
+    {
+      "id": "fi.edu",
+      "en": "Franklin Institute",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Pennsylvania",
+      "domains": [
+        "fi.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "cultural-institutions": [
+          "Franklin Institute"
+        ]
+      },
+      "kind": "cultural-institution",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://fi.edu/en/support"
+      ],
+      "culturalCategory": "museum"
+    },
+    {
+      "id": "whoi.edu",
+      "en": "Woods Hole Oceanographic Institution",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Massachusetts",
+      "domains": [
+        "whoi.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Woods Hole Oceanographic Institution"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.whoi.edu/who-we-are/about-us/vision-mission/research-independence-and-integrity/",
+        "https://www.whoi.edu/press-room/news-release/whois-robert-weller-named-to-national-academy-of-engineering-class-of-2025/"
+      ],
+      "identityNotes": "Keep the oceanographic institution distinct from the Marine Biological Laboratory, despite their shared Woods Hole location."
+    },
+    {
+      "id": "ias.edu",
+      "en": "Institute for Advanced Study",
+      "zh": "",
+      "region": "US",
+      "subdivision": "New Jersey",
+      "domains": [
+        "ias.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Institute for Advanced Study"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.ias.edu/about/faqs",
+        "https://www.ias.edu/sites/default/files/June%2030%2C%202024%20Audited%20Financial%20Statements.pdf"
+      ],
+      "identityNotes": "An independent research institution in Princeton, New Jersey, not Princeton University or an alias of princeton.edu."
+    },
+    {
+      "id": "mbl.edu",
+      "en": "Marine Biological Laboratory",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Massachusetts",
+      "domains": [
+        "mbl.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Marine Biological Laboratory"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.mbl.edu/about",
+        "https://www.mbl.edu/news/mbl-director-nipam-patel-elected-national-academy-sciences"
+      ],
+      "identityNotes": "The laboratory has its own institutional domain and Woods Hole, Massachusetts location. Its University of Chicago affiliation does not make mbl.edu an alias of uchicago.edu; WHOI is also a distinct neighboring institution."
+    },
+    {
+      "id": "carnegiescience.edu",
+      "en": "Carnegie Institution for Science",
+      "zh": "",
+      "region": "US",
+      "subdivision": "District of Columbia",
+      "domains": [
+        "carnegiescience.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Carnegie Institution for Science"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://carnegiescience.edu/",
+        "https://carnegiescience.edu/about",
+        "https://carnegiescience.edu/sites/default/files/2026-02/2025%20Carnegie%20Institution%20for%20Science%20FS%20Final.pdf"
+      ],
+      "identityNotes": "The shared root identifies Carnegie Institution for Science, not Carnegie Mellon University or one research division. Current principal business address is Washington, DC."
+    },
+    {
+      "id": "salk.edu",
+      "en": "Salk Institute for Biological Studies",
+      "zh": "",
+      "region": "US",
+      "subdivision": "California",
+      "domains": [
+        "salk.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Salk Institute for Biological Studies"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.salk.edu/support-us/ways-to-give/"
+      ]
+    },
+    {
+      "id": "scripps.edu",
+      "en": "Scripps Research",
+      "zh": "",
+      "region": "US",
+      "subdivision": "California",
+      "domains": [
+        "scripps.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Scripps Research"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.scripps.edu/about/",
+        "https://magazine.scripps.edu/terms-of-use/"
+      ],
+      "identityNotes": "Scripps Research is distinct from Scripps College and the University of California, San Diego oceanography unit; neither university domain is an alias of this record."
+    },
+    {
+      "id": "cshl.edu",
+      "en": "Cold Spring Harbor Laboratory",
+      "zh": "",
+      "region": "US",
+      "subdivision": "New York",
+      "domains": [
+        "cshl.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Cold Spring Harbor Laboratory"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.cshl.edu/about-us/",
+        "https://www.cshl.edu/about-us/history/"
+      ]
+    },
+    {
+      "id": "ucar.edu",
+      "en": "University Corporation for Atmospheric Research",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Colorado",
+      "domains": [
+        "ucar.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "University Corporation for Atmospheric Research"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.ucar.edu/who-we-are",
+        "https://www.ucar.edu/sites/default/files/documents/related-links/2021-10/UCAR%20Bylaws.%20Amended%20and%20Restated%20Oct%202021.pdf"
+      ],
+      "identityNotes": "The shared root identifies University Corporation for Atmospheric Research, the nonprofit consortium, not one member university or an inferred individual research program."
+    },
+    {
+      "id": "jhuapl.edu",
+      "en": "Johns Hopkins University Applied Physics Laboratory",
+      "zh": "",
+      "region": "US",
+      "subdivision": "Maryland",
+      "domains": [
+        "jhuapl.edu"
+      ],
+      "addresses": [],
+      "coverage": {
+        "nonprofit-research-institutions": [
+          "Johns Hopkins University Applied Physics Laboratory"
+        ]
+      },
+      "kind": "research-organization",
+      "publicBenefitStatus": "nonprofit",
+      "evidence": [
+        "https://www.jhuapl.edu/about",
+        "https://www.jhuapl.edu/work/partnerships/suppliers/faqs"
+      ],
+      "identityNotes": "The laboratory has a distinct institutional domain and Maryland location; its Johns Hopkins University affiliation does not turn the root into a general jhu.edu alias."
     }
   ],
   "domainPolicy": {

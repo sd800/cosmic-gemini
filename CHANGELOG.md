@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.32 — 2026-10-19
+
+- Expand institutional email-domain recognition for nonprofit research and science-education organizations.
+
 ## 9.12.31 — 2026-10-19
 
 - Extend institutional email-domain recognition to reviewed museums, libraries, and cultural organizations.

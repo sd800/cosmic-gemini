@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.33 — 2026-10-19
+
+- Expand university school-domain aliases and refine parent-institution attribution.
+
 ## 9.12.32 — 2026-10-19
 
 - Expand institutional email-domain recognition for nonprofit research and science-education organizations.

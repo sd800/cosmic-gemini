@@ -2582,8 +2582,8 @@
     },
     "nonprofit-research-institutions": {
       "edition": "2026-10-19",
-      "expectedMembers": 10,
-      "method": "Individually reviewed established nonprofit scientific and scholarly research institutions, research consortia and university-affiliated research centers with their own edu domains. Official mission, governance, nonprofit-status and headquarters sources; no inferred university aliases and no blanket domain eligibility.",
+      "expectedMembers": 9,
+      "method": "Individually reviewed established nonprofit scientific and scholarly research institutions and research consortia with their own edu domains. Official mission, governance, nonprofit-status and headquarters sources; non-independent university schools and divisions are aliases of the parent university, not separate cohort institutions. Affiliation alone does not collapse independently constituted institutions. No blanket domain eligibility.",
       "urls": [
         "https://santafe.edu/about",
         "https://santafe.edu/engage/learn/grant-support",
@@ -2602,9 +2602,7 @@
         "https://www.cshl.edu/about-us/",
         "https://www.cshl.edu/about-us/history/",
         "https://www.ucar.edu/who-we-are",
-        "https://www.ucar.edu/sites/default/files/documents/related-links/2021-10/UCAR%20Bylaws.%20Amended%20and%20Restated%20Oct%202021.pdf",
-        "https://www.jhuapl.edu/about",
-        "https://www.jhuapl.edu/work/partnerships/suppliers/faqs"
+        "https://www.ucar.edu/sites/default/files/documents/related-links/2021-10/UCAR%20Bylaws.%20Amended%20and%20Restated%20Oct%202021.pdf"
       ]
     }
   },
@@ -7644,7 +7642,8 @@
       "region": "US",
       "subdivision": "Massachusetts",
       "domains": [
-        "harvard.edu"
+        "harvard.edu",
+        "hbs.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -7663,6 +7662,14 @@
         "medical-school-reference": [
           "25: Harvard Medical School"
         ]
+      },
+      "aliasEvidence": {
+        "hbs.edu": [
+          "https://trademark.harvard.edu/use-of-harvard-names-and-insignias-in-electronic-contexts"
+        ]
+      },
+      "aliasNotes": {
+        "hbs.edu": "Non-independent university school/unit: Harvard Business School. Resolve the educational root and its subdomains to the parent university, not a separate institution."
       }
     },
     {
@@ -8871,7 +8878,9 @@
       "domains": [
         "jh.edu",
         "jhu.edu",
-        "johnshopkins.edu"
+        "johnshopkins.edu",
+        "jhsph.edu",
+        "jhuapl.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -8890,6 +8899,20 @@
         "medical-school-reference": [
           "32: Johns Hopkins University School of Medicine"
         ]
+      },
+      "aliasEvidence": {
+        "jhsph.edu": [
+          "https://clf.jhsph.edu/",
+          "https://publichealth.jhu.edu/sites/default/files/2022-11/mhs-student-handbook-2022-2023.pdf"
+        ],
+        "jhuapl.edu": [
+          "https://www.jhuapl.edu/about",
+          "https://www.jhuapl.edu/work/partnerships/suppliers/faqs"
+        ]
+      },
+      "aliasNotes": {
+        "jhsph.edu": "Non-independent university school/unit: Johns Hopkins Bloomberg School of Public Health. Resolve the educational root and its subdomains to the parent university, not a separate institution.",
+        "jhuapl.edu": "Non-independent university division: Johns Hopkins University Applied Physics Laboratory. Its official supplier FAQ identifies Johns Hopkins University as the parent organization; resolve to the university rather than a separate institution."
       }
     },
     {
@@ -17462,7 +17485,8 @@
       "region": "US",
       "subdivision": "Illinois",
       "domains": [
-        "uchicago.edu"
+        "uchicago.edu",
+        "chicagobooth.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -17481,6 +17505,14 @@
         "medical-school-reference": [
           "11: University of Chicago Division of the Biological Sciences The Pritzker School of Medicine"
         ]
+      },
+      "aliasEvidence": {
+        "chicagobooth.edu": [
+          "https://www.chicagobooth.edu/why-booth/stories/125-years-of-ideas-innovation-and-impact"
+        ]
+      },
+      "aliasNotes": {
+        "chicagobooth.edu": "Non-independent university school/unit: University of Chicago Booth School of Business. Resolve the educational root and its subdomains to the parent university, not a separate institution."
       }
     },
     {
@@ -18866,13 +18898,22 @@
       "subdivision": "",
       "domains": [
         "unav.edu",
-        "unav.es"
+        "unav.es",
+        "iese.edu"
       ],
       "addresses": [],
       "coverage": {
         "qs": [
           "University of Navarra"
         ]
+      },
+      "aliasEvidence": {
+        "iese.edu": [
+          "https://www.iese.edu/about/governance/"
+        ]
+      },
+      "aliasNotes": {
+        "iese.edu": "Non-independent university school/unit: IESE Business School. Resolve the educational root and its subdomains to the parent university, not a separate institution."
       }
     },
     {
@@ -20015,7 +20056,8 @@
       "region": "US",
       "subdivision": "Pennsylvania",
       "domains": [
-        "upenn.edu"
+        "upenn.edu",
+        "wharton.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -20034,6 +20076,14 @@
         "medical-school-reference": [
           "306: University of Pennsylvania (Perelman)"
         ]
+      },
+      "aliasEvidence": {
+        "wharton.edu": [
+          "https://undergrad-inside.wharton.upenn.edu/transfer-credits/"
+        ]
+      },
+      "aliasNotes": {
+        "wharton.edu": "Non-independent university school/unit: Wharton School. Resolve the educational root and its subdomains to the parent university, not a separate institution."
       }
     },
     {
@@ -138931,29 +138981,6 @@
         "https://www.ucar.edu/sites/default/files/documents/related-links/2021-10/UCAR%20Bylaws.%20Amended%20and%20Restated%20Oct%202021.pdf"
       ],
       "identityNotes": "The shared root identifies University Corporation for Atmospheric Research, the nonprofit consortium, not one member university or an inferred individual research program."
-    },
-    {
-      "id": "jhuapl.edu",
-      "en": "Johns Hopkins University Applied Physics Laboratory",
-      "zh": "",
-      "region": "US",
-      "subdivision": "Maryland",
-      "domains": [
-        "jhuapl.edu"
-      ],
-      "addresses": [],
-      "coverage": {
-        "nonprofit-research-institutions": [
-          "Johns Hopkins University Applied Physics Laboratory"
-        ]
-      },
-      "kind": "research-organization",
-      "publicBenefitStatus": "nonprofit",
-      "evidence": [
-        "https://www.jhuapl.edu/about",
-        "https://www.jhuapl.edu/work/partnerships/suppliers/faqs"
-      ],
-      "identityNotes": "The laboratory has a distinct institutional domain and Maryland location; its Johns Hopkins University affiliation does not turn the root into a general jhu.edu alias."
     }
   ],
   "domainPolicy": {

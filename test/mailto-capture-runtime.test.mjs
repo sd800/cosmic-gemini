@@ -292,6 +292,60 @@ test('University matching respects DNS boundaries, campus identity and localized
     assert.equal(lookup(address).region, region, address);
   }
   for (const [alias, primary, unitName] of [
+    ['cua.edu', 'catholic.edu'],
+    ['law.edu', 'catholic.edu', 'Columbus School of Law'],
+    ['ohio-state.edu', 'osu.edu'],
+    ['umr.edu', 'mst.edu'],
+    ['csupomona.edu', 'cpp.edu'],
+    ['csuhayward.edu', 'csueastbay.edu'],
+    ['csubak.edu', 'csub.edu'],
+    ['mckenna.edu', 'cmc.edu'],
+    ['stevens-tech.edu', 'stevens.edu'],
+    ['umuc.edu', 'umgc.edu'],
+    ['gru.edu', 'augusta.edu'],
+    ['gac.edu', 'gustavus.edu'],
+    ['tesc.edu', 'tesu.edu'],
+    ['indstate.edu', 'indianastate.edu'],
+    ['syr.edu', 'syracuse.edu'],
+    ['orst.edu', 'oregonstate.edu'],
+    ['cofc.edu', 'charleston.edu'],
+    ['ups.edu', 'pugetsound.edu'],
+    ['slc.edu', 'sarahlawrence.edu'],
+    ['lfc.edu', 'lakeforest.edu'],
+    ['parsons.edu', 'newschool.edu', 'Parsons School of Design'],
+    ['poly.edu', 'nyu.edu', 'Tandon School of Engineering'],
+    ['radcliffe.edu', 'harvard.edu', 'Radcliffe Institute for Advanced Study'],
+    ['isi.edu', 'usc.edu', 'Information Sciences Institute'],
+    ['txstate.edu', 'txst.edu'],
+    ['usma.edu', 'westpoint.edu'],
+    ['liunet.edu', 'liu.edu'],
+    ['uor.edu', 'redlands.edu'],
+    ['selu.edu', 'southeastern.edu'],
+    ['mwsu.edu', 'msutexas.edu'],
+    ['tayloru.edu', 'taylor.edu'],
+    ['ctuonline.edu', 'coloradotech.edu'],
+    ['colsouth.edu', 'columbiasouthern.edu'],
+    ['art.edu', 'academyart.edu'],
+    ['olivetcollege.edu', 'uolivet.edu'],
+    ['wvstate.edu', 'wvstateu.edu'],
+    ['westminsteru.edu', 'westminstercollege.edu'],
+    ['ewc.edu', 'ew.edu'],
+    ['cornell-iowa.edu', 'cornellcollege.edu'],
+    ['uiwtx.edu', 'uiw.edu'],
+    ['osumc.edu', 'osu.edu', 'Wexner Medical Center'],
+    ['drexelmed.edu', 'drexel.edu', 'College of Medicine'],
+    ['etamu.edu', 'tamuc.edu'],
+    ['alleg.edu', 'allegheny.edu'],
+    ['tju.edu', 'jefferson.edu'],
+    ['department.CUA.EDU', 'catholic.edu'],
+    ['alumni.LAW.EDU', 'catholic.edu', 'Columbus School of Law'],
+    ['department.poly.edu', 'nyu.edu', 'Tandon School of Engineering'],
+    ['research.isi.edu', 'usc.edu', 'Information Sciences Institute'],
+    ['department.drexelmed.edu', 'drexel.edu', 'College of Medicine'],
+    ['department.osumc.edu', 'osu.edu', 'Wexner Medical Center'],
+    ['law.catholic.edu', 'catholic.edu'],
+    ['parsons.newschool.edu', 'newschool.edu'],
+    ['isi.usc.edu', 'usc.edu'],
     ['uncc.edu', 'charlotte.edu'],
     ['department.uncc.edu', 'charlotte.edu'],
     ['MUOHIO.EDU', 'miamioh.edu'],
@@ -371,6 +425,12 @@ test('University matching respects DNS boundaries, campus identity and localized
       assert.deepEqual(JSON.parse(JSON.stringify(lookup(`contact@${alias}`, locale))), JSON.parse(JSON.stringify(expected)), `${alias}: ${locale}`);
     }
   }
+  for (const [candidate, unrelated] of [['gw.edu', 'gwu.edu'], ['westerntc.edu', 'westerntech.edu'], ['auc.edu', 'spelman.edu']]) {
+    assert.notEqual(lookup(`contact@${candidate}`)?.name, lookup(`contact@${unrelated}`).name, candidate);
+  }
+  assert.notEqual(lookup('contact@cornell-iowa.edu').name, lookup('contact@cornell.edu').name);
+  assert.notEqual(lookup('contact@colsouth.edu').name, lookup('contact@columbia.edu').name);
+  assert.notEqual(lookup('contact@olivetcollege.edu').name, lookup('contact@olivet.edu').name);
   assert.equal(lookup('student@uic.edu.cn').name, '北京师范大学–香港浸会大学联合国际学院');
   assert.equal(lookup('student@uic.edu.cn').englishName, 'Beijing Normal University–Hong Kong Baptist University United International College');
   assert.equal(lookup('student@bnbu.edu.cn').name, '北师香港浸会大学');
@@ -443,6 +503,8 @@ test('University matching respects DNS boundaries, campus identity and localized
     'contact@fakemuohio.edu', 'contact@muohio.edu.evil.test',
     'contact@fakeumiami.edu', 'contact@umiami.edu.evil.test',
     'contact@fakenwu.edu', 'contact@nwu.edu.evil.test',
+    'contact@fakelaw.edu', 'contact@law.edu.evil.test', 'contact@fakecua.edu',
+    'contact@parsons.edu.evil.test', 'contact@fakeumr.edu', 'contact@umr.edu.evil.test',
     'contact@fakehms.edu', 'contact@hms.edu.evil.test',
     'contact@fakembl.edu', 'contact@mbl.edu.evil.test', 'contact@fi.edu.evil.test',
     'alice@fakeharvard.edu', 'student@umd.umich.edu.evil.test', 'student@umdumich.edu',

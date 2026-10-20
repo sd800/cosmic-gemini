@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 9.12.40 — 2026-10-19
+
+- Expand reviewed institutional aliases, historical domains and university-unit labels.
+
 ## 9.12.39 — 2026-10-19
 
 - Expand institutional domain aliases.

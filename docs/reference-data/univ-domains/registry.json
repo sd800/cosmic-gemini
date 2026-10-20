@@ -4385,7 +4385,9 @@
       "region": "US",
       "subdivision": "District of Columbia",
       "domains": [
-        "catholic.edu"
+        "catholic.edu",
+        "cua.edu",
+        "law.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -4395,6 +4397,20 @@
         "us-graduate-reference": [
           "131283: The Catholic University of America"
         ]
+      },
+      "aliasEvidence": {
+        "cua.edu": [
+          "https://technology.catholic.edu/resources/purchase/purchasing-technology.html"
+        ],
+        "law.edu": [
+          "https://www.law.edu/about/nondiscrimination-statement"
+        ]
+      },
+      "unitNames": {
+        "law.edu": "Columbus School of Law"
+      },
+      "aliasNotes": {
+        "law.edu": "Non-independent university school/unit: Columbus School of Law. Resolve the educational root and its subdomains to the parent university, with this reviewed unit label on a separate line."
       }
     },
     {
@@ -5057,7 +5073,8 @@
       "subdivision": "California",
       "domains": [
         "claremontmckenna.edu",
-        "cmc.edu"
+        "cmc.edu",
+        "mckenna.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -5069,6 +5086,11 @@
         ],
         "us-graduate-reference": [
           "112260: Claremont McKenna College"
+        ]
+      },
+      "aliasEvidence": {
+        "mckenna.edu": [
+          "https://www.cmc.edu/sites/default/files/its/strategic_planning/0906itsptracking.pdf"
         ]
       }
     },
@@ -6295,7 +6317,8 @@
       "region": "US",
       "subdivision": "Pennsylvania",
       "domains": [
-        "drexel.edu"
+        "drexel.edu",
+        "drexelmed.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -6308,6 +6331,17 @@
         "medical-school-reference": [
           "138: Drexel University College of Medicine"
         ]
+      },
+      "aliasEvidence": {
+        "drexelmed.edu": [
+          "https://drexel.edu/~/media/Files/medicine/drexel-pdfs/publications/pulse/Drexel_Pulse_2012_October_November.ashx?la=en"
+        ]
+      },
+      "unitNames": {
+        "drexelmed.edu": "College of Medicine"
+      },
+      "aliasNotes": {
+        "drexelmed.edu": "Non-independent university school/unit: College of Medicine. Resolve the educational root and its subdomains to the parent university, with this reviewed unit label on a separate line."
       }
     },
     {
@@ -7648,7 +7682,8 @@
       "domains": [
         "harvard.edu",
         "hbs.edu",
-        "hms.edu"
+        "hms.edu",
+        "radcliffe.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -7675,15 +7710,21 @@
         "hms.edu": [
           "https://harvardmacy.org/privacy",
           "https://www.cc.nih.gov/sites/default/files/2024-07/CCNews2022Winter.pdf"
+        ],
+        "radcliffe.edu": [
+          "https://news.harvard.edu/gazette/story/2002/04/radcliffe-announces-financial-support-for-new-ideas/",
+          "https://www.radcliffe.harvard.edu/"
         ]
       },
       "aliasNotes": {
         "hbs.edu": "Non-independent university school/unit: Harvard Business School. Resolve the educational root and its subdomains to the parent university, not a separate institution.",
-        "hms.edu": "University school/unit: Harvard Medical School. The institutional program privacy policy and NIH Clinical Center publication identify the hms.edu medical-school domain; display Harvard University with its reviewed medical-school label, not a separate university."
+        "hms.edu": "University school/unit: Harvard Medical School. The institutional program privacy policy and NIH Clinical Center publication identify the hms.edu medical-school domain; display Harvard University with its reviewed medical-school label, not a separate university.",
+        "radcliffe.edu": "Non-independent university school/unit: Radcliffe Institute for Advanced Study. Resolve the educational root and its subdomains to the parent university, with this reviewed unit label on a separate line."
       },
       "unitNames": {
         "hbs.edu": "Harvard Business School",
-        "hms.edu": "Harvard Medical School"
+        "hms.edu": "Harvard Medical School",
+        "radcliffe.edu": "Radcliffe Institute for Advanced Study"
       }
     },
     {
@@ -8868,7 +8909,8 @@
       "region": "US",
       "subdivision": "Pennsylvania",
       "domains": [
-        "jefferson.edu"
+        "jefferson.edu",
+        "tju.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -8880,6 +8922,11 @@
         ],
         "medical-school-reference": [
           "31: Sidney Kimmel Medical College at Thomas Jefferson University"
+        ]
+      },
+      "aliasEvidence": {
+        "tju.edu": [
+          "https://www.jefferson.edu/content/dam/academic/skmc/clinical-experience/resources/Horizon-VDI.pdf"
         ]
       }
     },
@@ -10612,7 +10659,8 @@
       "region": "US",
       "subdivision": "Missouri",
       "domains": [
-        "mst.edu"
+        "mst.edu",
+        "umr.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -10621,6 +10669,11 @@
         ],
         "us-graduate-reference": [
           "178411: Missouri University of Science and Technology"
+        ]
+      },
+      "aliasEvidence": {
+        "umr.edu": [
+          "https://news.mst.edu/2008/05/missouri_st_set_to_expire_umre/"
         ]
       }
     },
@@ -11428,7 +11481,8 @@
       "region": "US",
       "subdivision": "New York",
       "domains": [
-        "newschool.edu"
+        "newschool.edu",
+        "parsons.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -11438,6 +11492,17 @@
         "us-graduate-reference": [
           "193654: The New School"
         ]
+      },
+      "aliasEvidence": {
+        "parsons.edu": [
+          "https://www.newschool.edu/parsons/ms-design-urban-ecology-career-paths/"
+        ]
+      },
+      "unitNames": {
+        "parsons.edu": "Parsons School of Design"
+      },
+      "aliasNotes": {
+        "parsons.edu": "Non-independent university school/unit: Parsons School of Design. Resolve the educational root and its subdomains to the parent university, with this reviewed unit label on a separate line."
       }
     },
     {
@@ -12673,7 +12738,8 @@
       "region": "US",
       "subdivision": "New York",
       "domains": [
-        "nyu.edu"
+        "nyu.edu",
+        "poly.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -12693,6 +12759,18 @@
           "51: New York University Grossman School of Medicine",
           "167: NYU Grossman Long Island School of Medicine"
         ]
+      },
+      "aliasEvidence": {
+        "poly.edu": [
+          "https://engineering.nyu.edu/sites/default/files/2020-07/Bulletin_2016_2018.pdf",
+          "https://engineering.nyu.edu/academics/departments/civil-urban-and-environmental/about-us/departmental-history"
+        ]
+      },
+      "unitNames": {
+        "poly.edu": "Tandon School of Engineering"
+      },
+      "aliasNotes": {
+        "poly.edu": "Non-independent university school/unit: Tandon School of Engineering. Resolve the educational root and its subdomains to the parent university, with this reviewed unit label on a separate line."
       }
     },
     {
@@ -12838,7 +12916,8 @@
       "region": "US",
       "subdivision": "Oregon",
       "domains": [
-        "oregonstate.edu"
+        "oregonstate.edu",
+        "orst.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -12847,6 +12926,11 @@
         ],
         "us-graduate-reference": [
           "209542: Oregon State University"
+        ]
+      },
+      "aliasEvidence": {
+        "orst.edu": [
+          "https://jollyroger.science.oregonstate.edu/P352.HTM"
         ]
       }
     },
@@ -12879,7 +12963,9 @@
       "region": "US",
       "subdivision": "Ohio",
       "domains": [
-        "osu.edu"
+        "ohio-state.edu",
+        "osu.edu",
+        "osumc.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -12898,6 +12984,21 @@
         "medical-school-reference": [
           "55: Ohio State University College of Medicine"
         ]
+      },
+      "aliasEvidence": {
+        "ohio-state.edu": [
+          "https://marketing.osu.edu/websites-policy"
+        ],
+        "osumc.edu": [
+          "https://wexnermedical.osu.edu/contact-us",
+          "https://marketing.osu.edu/websites-policy"
+        ]
+      },
+      "unitNames": {
+        "osumc.edu": "Wexner Medical Center"
+      },
+      "aliasNotes": {
+        "osumc.edu": "Non-independent university school/unit: Wexner Medical Center. Resolve the educational root and its subdomains to the parent university, with this reviewed unit label on a separate line."
       }
     },
     {
@@ -15402,6 +15503,7 @@
       "region": "US",
       "subdivision": "New Jersey",
       "domains": [
+        "stevens-tech.edu",
         "stevens.edu"
       ],
       "addresses": [],
@@ -15411,6 +15513,11 @@
         ],
         "us-graduate-reference": [
           "186867: Stevens Institute of Technology"
+        ]
+      },
+      "aliasEvidence": {
+        "stevens-tech.edu": [
+          "https://personal.stevens.edu/~xmeng/index.htm"
         ]
       }
     },
@@ -16087,6 +16194,7 @@
       "region": "US",
       "subdivision": "New York",
       "domains": [
+        "syr.edu",
         "syracuse.edu"
       ],
       "addresses": [],
@@ -16096,6 +16204,11 @@
         ],
         "us-graduate-reference": [
           "196413: Syracuse University"
+        ]
+      },
+      "aliasEvidence": {
+        "syr.edu": [
+          "https://artsandsciences.syracuse.edu/news-all/news-2023/as-website-url-getting-an-update-this-summer/"
         ]
       }
     },
@@ -16985,7 +17098,8 @@
       "region": "US",
       "subdivision": "Texas",
       "domains": [
-        "txst.edu"
+        "txst.edu",
+        "txstate.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -16994,6 +17108,11 @@
         ],
         "us-graduate-reference": [
           "228459: Texas State University"
+        ]
+      },
+      "aliasEvidence": {
+        "txstate.edu": [
+          "https://www.president.txst.edu/.assets/president/speech-and-presentations-docs/damphousse-docs/Presidents%20Expanded%20Quarterly%20Report%20-%20August%202022"
         ]
       }
     },
@@ -20256,6 +20375,17 @@
         "medical-school-reference": [
           "66: Keck School of Medicine of the University of Southern California"
         ]
+      },
+      "aliasEvidence": {
+        "isi.edu": [
+          "https://www.isi.edu/affiliated-faculty-scientists/"
+        ]
+      },
+      "unitNames": {
+        "isi.edu": "Information Sciences Institute"
+      },
+      "aliasNotes": {
+        "isi.edu": "Non-independent university school/unit: Information Sciences Institute. Resolve the educational root and its subdomains to the parent university, with this reviewed unit label on a separate line."
       }
     },
     {
@@ -21794,6 +21924,7 @@
       "region": "US",
       "subdivision": "New York",
       "domains": [
+        "usma.edu",
         "westpoint.edu"
       ],
       "addresses": [],
@@ -21803,6 +21934,11 @@
         ],
         "us-liberal-arts-reference": [
           "197036: United States Military Academy"
+        ]
+      },
+      "aliasEvidence": {
+        "usma.edu": [
+          "https://ctc.westpoint.edu/wp-content/uploads/2017/03/CTC-Sentinel_Vol10Iss312.pdf"
         ]
       }
     },
@@ -22841,7 +22977,8 @@
       "region": "US",
       "subdivision": "Texas",
       "domains": [
-        "uiw.edu"
+        "uiw.edu",
+        "uiwtx.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -22859,7 +22996,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://uiw.edu"
       ],
-      "ncesUnitId": "225627"
+      "ncesUnitId": "225627",
+      "aliasEvidence": {
+        "uiwtx.edu": [
+          "https://www.uiw.edu/admissions/visit.html"
+        ]
+      }
     },
     {
       "id": "wilkes.edu",
@@ -22892,7 +23034,8 @@
       "region": "US",
       "subdivision": "Georgia",
       "domains": [
-        "augusta.edu"
+        "augusta.edu",
+        "gru.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -22910,7 +23053,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://augusta.edu"
       ],
-      "ncesUnitId": "482149"
+      "ncesUnitId": "482149",
+      "aliasEvidence": {
+        "gru.edu": [
+          "https://brand.augusta.edu/faqs/"
+        ]
+      }
     },
     {
       "id": "emoryhenry.edu",
@@ -24070,7 +24218,8 @@
       "region": "US",
       "subdivision": "Indiana",
       "domains": [
-        "indianastate.edu"
+        "indianastate.edu",
+        "indstate.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -24085,7 +24234,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://indianastate.edu"
       ],
-      "ncesUnitId": "151324"
+      "ncesUnitId": "151324",
+      "aliasEvidence": {
+        "indstate.edu": [
+          "https://indianastate.edu/sites/default/files/2024-09/CDS23.pdf"
+        ]
+      }
     },
     {
       "id": "jsums.edu",
@@ -24512,7 +24666,8 @@
       "region": "US",
       "subdivision": "Colorado",
       "domains": [
-        "coloradotech.edu"
+        "coloradotech.edu",
+        "ctuonline.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -24527,7 +24682,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://coloradotech.edu"
       ],
-      "ncesUnitId": "126827"
+      "ncesUnitId": "126827",
+      "aliasEvidence": {
+        "ctuonline.edu": [
+          "https://www.coloradotech.edu/financial-aid/how-to-apply"
+        ]
+      }
     },
     {
       "id": "columbusstate.edu",
@@ -24608,6 +24768,7 @@
       "region": "US",
       "subdivision": "Texas",
       "domains": [
+        "etamu.edu",
         "tamuc.edu"
       ],
       "addresses": [],
@@ -24623,7 +24784,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://tamuc.edu"
       ],
-      "ncesUnitId": "224554"
+      "ncesUnitId": "224554",
+      "aliasEvidence": {
+        "etamu.edu": [
+          "https://www.etamu.edu/cascade-migration/"
+        ]
+      }
     },
     {
       "id": "govst.edu",
@@ -25845,7 +26011,8 @@
       "region": "US",
       "subdivision": "Illinois",
       "domains": [
-        "lakeforest.edu"
+        "lakeforest.edu",
+        "lfc.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -25863,7 +26030,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://lakeforest.edu"
       ],
-      "ncesUnitId": "146481"
+      "ncesUnitId": "146481",
+      "aliasEvidence": {
+        "lfc.edu": [
+          "https://www.lakeforest.edu/news/science-alumni-to-discuss-brain-cancer-and-explore-diverse-career-choices-at-2012-hostage-brain-conference"
+        ]
+      }
     },
     {
       "id": "gustavus.edu",
@@ -25872,6 +26044,7 @@
       "region": "US",
       "subdivision": "Minnesota",
       "domains": [
+        "gac.edu",
         "gustavus.edu"
       ],
       "addresses": [],
@@ -25890,7 +26063,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://gustavus.edu"
       ],
-      "ncesUnitId": "173647"
+      "ncesUnitId": "173647",
+      "aliasEvidence": {
+        "gac.edu": [
+          "https://gts.blog.gustavus.edu/2011/11/17/adding-gac-edu-to-gustavuss-google-apps-domain/"
+        ]
+      }
     },
     {
       "id": "berea.edu",
@@ -26359,6 +26537,7 @@
       "region": "US",
       "subdivision": "Pennsylvania",
       "domains": [
+        "alleg.edu",
         "allegheny.edu"
       ],
       "addresses": [],
@@ -26374,7 +26553,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://allegheny.edu"
       ],
-      "ncesUnitId": "210669"
+      "ncesUnitId": "210669",
+      "aliasEvidence": {
+        "alleg.edu": [
+          "https://webmedia.allegheny.edu/pdf/CivicEngagementNewsletterS03.pdf"
+        ]
+      }
     },
     {
       "id": "drew.edu",
@@ -26824,7 +27008,8 @@
       "region": "US",
       "subdivision": "Washington",
       "domains": [
-        "pugetsound.edu"
+        "pugetsound.edu",
+        "ups.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -26842,7 +27027,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://pugetsound.edu"
       ],
-      "ncesUnitId": "236328"
+      "ncesUnitId": "236328",
+      "aliasEvidence": {
+        "ups.edu": [
+          "https://www.pugetsound.edu/technology-services/google-workspace/google-mail-google-groups-calendar-faq"
+        ]
+      }
     },
     {
       "id": "whittier.edu",
@@ -27388,7 +27578,8 @@
       "region": "US",
       "subdivision": "New York",
       "domains": [
-        "sarahlawrence.edu"
+        "sarahlawrence.edu",
+        "slc.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -27406,7 +27597,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://sarahlawrence.edu"
       ],
-      "ncesUnitId": "195304"
+      "ncesUnitId": "195304",
+      "aliasEvidence": {
+        "slc.edu": [
+          "https://www.sarahlawrence.edu/student-life/student-handbook/2025-2026/graduate/academic-resources-and-support/learning-commons.html"
+        ]
+      }
     },
     {
       "id": "cornellcollege.edu",
@@ -27415,6 +27611,7 @@
       "region": "US",
       "subdivision": "Iowa",
       "domains": [
+        "cornell-iowa.edu",
         "cornellcollege.edu"
       ],
       "addresses": [],
@@ -27430,7 +27627,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://cornellcollege.edu"
       ],
-      "ncesUnitId": "153162"
+      "ncesUnitId": "153162",
+      "aliasEvidence": {
+        "cornell-iowa.edu": [
+          "https://www.cornellcollege.edu/registrar/academics-registration/course-catalog/archives/pdfs/1998-2000.pdf"
+        ]
+      }
     },
     {
       "id": "purchase.edu",
@@ -29064,6 +29266,7 @@
       "region": "US",
       "subdivision": "West Virginia",
       "domains": [
+        "wvstate.edu",
         "wvstateu.edu"
       ],
       "addresses": [],
@@ -29079,7 +29282,12 @@
         "https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?gotoReportId=7",
         "https://wvstateu.edu"
       ],
-      "ncesUnitId": "237899"
+      "ncesUnitId": "237899",
+      "aliasEvidence": {
+        "wvstate.edu": [
+          "https://wvstateu.edu/research-tools/"
+        ]
+      }
     },
     {
       "id": "williamsbaptistuniversity.com",
@@ -74544,7 +74752,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "academyart.edu"
+        "academyart.edu",
+        "art.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -74555,7 +74764,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "108232"
+      "ncesUnitId": "108232",
+      "aliasEvidence": {
+        "art.edu": [
+          "https://architecture.academyart.edu/wp-content/uploads/2024/11/catalog-supplement-and-academic-policies-3.pdf"
+        ]
+      }
     },
     {
       "id": "acchs.edu",
@@ -74790,7 +75004,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "csub.edu"
+        "csub.edu",
+        "csubak.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -74801,7 +75016,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "110486"
+      "ncesUnitId": "110486",
+      "aliasEvidence": {
+        "csubak.edu": [
+          "https://www.csub.edu/PoliticalResearch/"
+        ]
+      }
     },
     {
       "id": "csustan.edu",
@@ -74850,7 +75070,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "cpp.edu"
+        "cpp.edu",
+        "csupomona.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -74861,7 +75082,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "110529"
+      "ncesUnitId": "110529",
+      "aliasEvidence": {
+        "csupomona.edu": [
+          "https://www.cpp.edu/policies/university/information-technology/web_policy.shtml"
+        ]
+      }
     },
     {
       "id": "csuchico.edu",
@@ -74910,7 +75136,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "csueastbay.edu"
+        "csueastbay.edu",
+        "csuhayward.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -74921,7 +75148,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "110574"
+      "ncesUnitId": "110574",
+      "aliasEvidence": {
+        "csuhayward.edu": [
+          "https://catalog.csueastbay.edu/mime/media/31/1210/20042005.pdf"
+        ]
+      }
     },
     {
       "id": "csun.edu",
@@ -76073,7 +76305,8 @@
       "region": "US",
       "subdivision": "California",
       "domains": [
-        "redlands.edu"
+        "redlands.edu",
+        "uor.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -76084,7 +76317,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "121691"
+      "ncesUnitId": "121691",
+      "aliasEvidence": {
+        "uor.edu": [
+          "https://bulldog2.redlands.edu/fac/Beery/CiC_Info.html"
+        ]
+      }
     },
     {
       "id": "dula.edu",
@@ -77077,7 +77315,8 @@
       "region": "US",
       "subdivision": "Florida",
       "domains": [
-        "ew.edu"
+        "ew.edu",
+        "ewc.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -77088,7 +77327,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "133526"
+      "ncesUnitId": "133526",
+      "aliasEvidence": {
+        "ewc.edu": [
+          "https://www.ew.edu/academics/"
+        ]
+      }
     },
     {
       "id": "daytonabeach.erau.edu",
@@ -79418,7 +79662,8 @@
       "region": "US",
       "subdivision": "Indiana",
       "domains": [
-        "taylor.edu"
+        "taylor.edu",
+        "tayloru.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -79429,7 +79674,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "152530"
+      "ncesUnitId": "152530",
+      "aliasEvidence": {
+        "tayloru.edu": [
+          "https://www.taylor.edu/terms-of-service"
+        ]
+      }
     },
     {
       "id": "valpo.edu",
@@ -81053,6 +81303,7 @@
       "region": "US",
       "subdivision": "Louisiana",
       "domains": [
+        "selu.edu",
         "southeastern.edu"
       ],
       "addresses": [],
@@ -81064,7 +81315,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "160612"
+      "ncesUnitId": "160612",
+      "aliasEvidence": {
+        "selu.edu": [
+          "https://www.southeastern.edu/admin/software-development-and-database-administration/canvas-login-assistance/"
+        ]
+      }
     },
     {
       "id": "suno.edu",
@@ -81442,7 +81698,8 @@
       "region": "US",
       "subdivision": "Maryland",
       "domains": [
-        "umgc.edu"
+        "umgc.edu",
+        "umuc.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -81453,7 +81710,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "163204"
+      "ncesUnitId": "163204",
+      "aliasEvidence": {
+        "umuc.edu": [
+          "https://www.umgc.edu/content/dam/umgc/documents/upload/catalogs/undergraduate-catalog-2018-19.pdf"
+        ]
+      }
     },
     {
       "id": "mica.edu",
@@ -83029,6 +83291,7 @@
       "region": "US",
       "subdivision": "Michigan",
       "domains": [
+        "olivetcollege.edu",
         "uolivet.edu"
       ],
       "addresses": [],
@@ -83040,7 +83303,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "171599"
+      "ncesUnitId": "171599",
+      "aliasEvidence": {
+        "olivetcollege.edu": [
+          "https://www.uolivet.edu/the-university-of-olivet-faq/"
+        ]
+      }
     },
     {
       "id": "kuyper.edu",
@@ -85600,6 +85868,7 @@
       "region": "US",
       "subdivision": "New Jersey",
       "domains": [
+        "tesc.edu",
         "tesu.edu"
       ],
       "addresses": [],
@@ -85611,7 +85880,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "187046"
+      "ncesUnitId": "187046",
+      "aliasEvidence": {
+        "tesc.edu": [
+          "https://www.tesu.edu/about/newsroom/invention-magazine/_media/Invention_Winter_2012.pdf"
+        ]
+      }
     },
     {
       "id": "tcnj.edu",
@@ -86619,7 +86893,8 @@
       "region": "US",
       "subdivision": "New York",
       "domains": [
-        "liu.edu"
+        "liu.edu",
+        "liunet.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -86630,7 +86905,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "192448"
+      "ncesUnitId": "192448",
+      "aliasEvidence": {
+        "liunet.edu": [
+          "https://it.liu.edu/wp-content/uploads/2020/05/LIU-Virtual-Desktops-Win.pdf"
+        ]
+      }
     },
     {
       "id": "manhattan.edu",
@@ -92229,7 +92509,8 @@
       "region": "US",
       "subdivision": "South Carolina",
       "domains": [
-        "charleston.edu"
+        "charleston.edu",
+        "cofc.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -92240,7 +92521,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "217819"
+      "ncesUnitId": "217819",
+      "aliasEvidence": {
+        "cofc.edu": [
+          "https://today.charleston.edu/2024/02/22/updates-from-marketing-and-communications-fs/"
+        ]
+      }
     },
     {
       "id": "citadel.edu",
@@ -93820,7 +94106,8 @@
       "region": "US",
       "subdivision": "Texas",
       "domains": [
-        "msutexas.edu"
+        "msutexas.edu",
+        "mwsu.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -93831,7 +94118,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "226833"
+      "ncesUnitId": "226833",
+      "aliasEvidence": {
+        "mwsu.edu": [
+          "https://msutexas.edu/welcome/_assets/files/bor/2017-February/investrpt-1stqtr-01-20-17.pdf"
+        ]
+      }
     },
     {
       "id": "ost.edu",
@@ -94309,7 +94601,8 @@
       "region": "US",
       "subdivision": "Utah",
       "domains": [
-        "westminstercollege.edu"
+        "westminstercollege.edu",
+        "westminsteru.edu"
       ],
       "addresses": [],
       "coverage": {
@@ -94320,7 +94613,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "230807"
+      "ncesUnitId": "230807",
+      "aliasEvidence": {
+        "westminsteru.edu": [
+          "https://westminsteru.edu/about/becoming-westminster-university.html"
+        ]
+      }
     },
     {
       "id": "champlain.edu",
@@ -98832,6 +99130,7 @@
       "region": "US",
       "subdivision": "Alabama",
       "domains": [
+        "colsouth.edu",
         "columbiasouthern.edu"
       ],
       "addresses": [],
@@ -98843,7 +99142,12 @@
       "evidence": [
         "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip"
       ],
-      "ncesUnitId": "450933"
+      "ncesUnitId": "450933",
+      "aliasEvidence": {
+        "colsouth.edu": [
+          "https://www.columbiasouthern.edu/media/bnxfooaw/1996-1997-csu-catalog.pdf"
+        ]
+      }
     },
     {
       "id": "acupuncturist.edu",

@@ -3359,8 +3359,8 @@
         ]
       },
       "aliasNotes": {
-        "ucb.edu": "User-supplied institutional domain alias.",
-        "ucberkeley.edu": "User-supplied institutional domain alias."
+        "ucb.edu": "Maintainer-supplied institutional domain alias.",
+        "ucberkeley.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {
@@ -5772,7 +5772,7 @@
         ]
       },
       "aliasNotes": {
-        "cuhk.edu": "User-supplied institutional domain alias based on the reported WHOIS registrant."
+        "cuhk.edu": "Maintainer-supplied institutional domain alias based on the reported WHOIS registrant."
       }
     },
     {
@@ -16872,7 +16872,7 @@
       "moeCode": "4111010003",
       "educationLevel": "本科",
       "aliasNotes": {
-        "tsinghua.edu": "User-supplied institutional domain alias based on the reported WHOIS registrant."
+        "tsinghua.edu": "Maintainer-supplied institutional domain alias based on the reported WHOIS registrant."
       }
     },
     {
@@ -17598,7 +17598,7 @@
         ]
       },
       "aliasNotes": {
-        "ucd.edu": "User-supplied institutional domain alias."
+        "ucd.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {
@@ -17746,7 +17746,7 @@
         ]
       },
       "aliasNotes": {
-        "ucirvine.edu": "User-supplied institutional domain alias."
+        "ucirvine.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {
@@ -17816,7 +17816,7 @@
         ]
       },
       "aliasNotes": {
-        "uclosangeles.edu": "User-supplied institutional domain alias."
+        "uclosangeles.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {
@@ -17874,7 +17874,7 @@
         ]
       },
       "aliasNotes": {
-        "ucm.edu": "User-supplied institutional domain alias."
+        "ucm.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {
@@ -17932,7 +17932,7 @@
         ]
       },
       "aliasNotes": {
-        "california.edu": "User-supplied institutional domain alias based on the reported WHOIS registrant."
+        "california.edu": "Maintainer-supplied institutional domain alias based on the reported WHOIS registrant."
       }
     },
     {
@@ -17961,7 +17961,7 @@
         ]
       },
       "aliasNotes": {
-        "ucriverside.edu": "User-supplied institutional domain alias."
+        "ucriverside.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {
@@ -17990,7 +17990,7 @@
         ]
       },
       "aliasNotes": {
-        "ucsantabarbara.edu": "User-supplied institutional domain alias."
+        "ucsantabarbara.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {
@@ -18077,7 +18077,7 @@
         ]
       },
       "aliasNotes": {
-        "ucsanfrancisco.edu": "User-supplied institutional domain alias."
+        "ucsanfrancisco.edu": "Maintainer-supplied institutional domain alias."
       }
     },
     {

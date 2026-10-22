@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.21.3 — 2026-10-21
+
+- Refine public documentation and repository maintenance.
+
 ## 26.10.21.2 — 2026-10-21
 
 - Refine security documentation and public guidance.

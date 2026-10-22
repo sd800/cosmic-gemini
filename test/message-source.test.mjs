@@ -57,3 +57,24 @@ test('central accepts long-lived UI ports only from extension pages', () => {
   assert.equal(validatePortSource({ sender: { url: `${extensionBase}popup/index.html` } }, extensionBase), true);
   assert.equal(validatePortSource({ sender: { url: 'https://example.com/' } }, extensionBase), false);
 });
+
+test('central excludes opaque sandboxes, public assets and unknown paths from UI authority', () => {
+  const paths = ['popup/index.html', 'settings/all-settings.html?tab=satellites',
+    'workspaces/document-preview/document-preview.html?id=local'];
+  for (const path of paths) {
+    const sender = {url:extensionBase + path,id:'cosmic-gemini',origin:'chrome-extension://cosmic-gemini'};
+    assert.equal(validateMessageSource({type:'UI_GET'},sender,extensionBase),true);
+    assert.equal(validatePortSource({sender},extensionBase),true);
+  }
+  for (const sender of [
+    ...['workspaces/pdf-viewer/viewer.html','workspaces/document-preview/content.html',
+      'assets/ad-marshal-empty.html','offscreen/video-download.html','unknown.html'].map(path => ({url:extensionBase+path})),
+    {url:extensionBase+'popup/index.html',origin:'null'},
+    {url:extensionBase+'popup/index.html',id:'other-extension'},
+    {url:'chrome-extension://cosmic-gemini.evil.test/popup/index.html'},
+    {url:'https://cosmic-gemini/popup/index.html'}
+  ]) {
+    assert.throws(()=>validateMessageSource({type:'UI_RESET_ALL_SETTINGS'},sender,extensionBase),/trusted extension pages/i);
+    assert.equal(validatePortSource({sender},extensionBase),false);
+  }
+});

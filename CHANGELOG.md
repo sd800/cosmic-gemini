@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.21.1 — 2026-10-21
+
+- Strengthen document isolation, extension command validation, and injection safeguards.
+- Document security boundaries and add focused regression coverage.
+
 ## 26.10.20.9 — 2026-10-20
 
 - Use an en dash between email technical terms and their explanations.

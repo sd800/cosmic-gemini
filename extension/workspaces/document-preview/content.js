@@ -1,6 +1,7 @@
 import { safeDocumentHtml, documentStyles } from './sanitize.js';
 import { createDocumentZoom } from './zoom.js';
 import { localizeEmail } from './email-view.js';
+import { isSandboxHost } from '../../shared/sandbox-host.js';
 // Only this fixed, packaged controller executes. Converter output is rebuilt
 // as passive allowlisted markup in an opaque, API-free sandbox. The private
 // channel accepts document content and fixed presentation controls, not script,
@@ -32,7 +33,8 @@ function applyTheme() {
     '@media(prefers-color-scheme:dark)', dark ? '@media all' : '@media not all');
 }
 window.addEventListener('message', event => {
-  if (port || event.source !== parent || event.data?.type !== 'CG_DOCUMENT_CONTENT_INIT' || event.ports.length !== 1) return;
+  if (signal.aborted || port || event.source !== parent || !isSandboxHost(event.origin, import.meta.url) ||
+      event.data?.type !== 'CG_DOCUMENT_CONTENT_INIT' || event.ports.length !== 1) return;
   port = event.ports[0];
   port.onmessage = ({data}) => {
     if (signal.aborted) return;

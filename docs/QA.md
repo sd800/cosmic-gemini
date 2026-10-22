@@ -1,5 +1,11 @@
 # Verification
 
+## Security boundary checks
+
+For changes to message authentication, CSP, or document initialization, use the focused cases in `test/message-source.test.mjs`, `test/pdf-viewer.test.mjs`, `test/document-preview.test.mjs`, and `test/customs-offscreen.test.mjs`. Cover unauthorized origins/paths, duplicate or late initialization, malicious HTML/CSS/XML, actual ZIP inflation, and processor authorization as relevant to the change. Use `--test-name-pattern` to avoid unrelated suites.
+
+Check one synthetic document and one tiny PDF in a disposable browser profile after changing the handshake or CSP. Confirm normal rendering, no extension APIs in the opaque frames, no remote resources, rejected UI commands from public assets, and usable Settings dialogs. Do not use the user's browser profile or private files. Keep reusable fixtures and concise findings in ignored `test-dist` with a README; do not retain full logs or continuous recordings.
+
 ## Automated checks
 
 From the project directory, run:

@@ -2,10 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { runInNewContext } from 'node:vm';
 import { PDF_LIMITS, pdfDetailCanvasPixels, pdfScale, stepPdfScale, pdfOptions, printRange, rotateLeft, safePdfLink, pdfFileSize } from '../extension/workspaces/pdf-viewer/model.js';
 import { formatPdfDate } from '../extension/workspaces/pdf-viewer/document-dates.js';
 import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
 import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
+import { isSandboxHost } from '../extension/shared/sandbox-host.js';
 
 test('PDF bridge synchronizes its backdrop and closes failed readers exactly once', () => {
   const originalDocument = globalThis.document, OriginalChannel = globalThis.MessageChannel;
@@ -35,6 +37,43 @@ test('PDF bridge synchronizes its backdrop and closes failed readers exactly onc
 });
 import { toggleDocumentAppearance } from '../extension/core/document-preview/document-appearance.js';
 const root = new URL('../extension/', import.meta.url);
+test('document sandboxes accept only their own extension host origin', async () => {
+  const own = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+  for (const path of ['pdf-viewer/viewer.js', 'document-preview/content.js']) {
+    const module = `${own}/workspaces/${path}`;
+    assert.equal(isSandboxHost(own, module), true);
+    for (const origin of ['null', '', 'https://example.com', 'chrome-extension://other',
+      `${own}.evil.test`, `${own}/`, `${own}@evil.test`]) assert.equal(isSandboxHost(origin, module), false);
+    const source = await readFile(new URL(`workspaces/${path}`, root), 'utf8');
+    assert.match(source, /event.source !== parent/);
+    assert.match(source, /!isSandboxHost\(event.origin, import.meta.url\)/);
+    assert.match(source, /signal.aborted|if \(destroyed \|\|/);
+  }
+  for (const module of ['invalid', 'https://example.com/viewer.js', 'file:///viewer.js']) {
+    assert.equal(isSandboxHost(own, module), false);
+  }
+  const viewer = await readFile(new URL('workspaces/pdf-viewer/viewer.js', root), 'utf8');
+  assert.ok(viewer.indexOf('!isSandboxHost(event.origin, import.meta.url)') < viewer.indexOf('workerReady = createPdfWorker('));
+});
+test('document sandbox rejects forged initialization, second ports, and events after disposal', async () => {
+  const own = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop', parent = {}, listeners = new Map();
+  const source = (await readFile(new URL('workspaces/document-preview/content.js', root), 'utf8'))
+    .replace(/^import .*;\n/gm, '').replaceAll('import.meta.url', 'moduleURL');
+  runInNewContext(source, {AbortController, parent, moduleURL:own+'/workspaces/document-preview/content.js',
+    isSandboxHost, createDocumentZoom:()=>({}), document:{addEventListener() {}},
+    window:{addEventListener(type,callback) {listeners.set(type,callback);}}});
+  const replies = [], closed = [], makePort = name => ({postMessage:value=>replies.push([name,value.type]),close:()=>closed.push(name)});
+  const initialize = (overrides={}) => listeners.get('message')({source:parent,origin:own,
+    data:{type:'CG_DOCUMENT_CONTENT_INIT'},ports:[makePort('valid')],...overrides});
+  for (const origin of ['null','https://example.com','chrome-extension://other']) initialize({origin});
+  initialize({source:{}}); initialize({ports:[]}); initialize({ports:[makePort('a'),makePort('b')]});
+  assert.deepEqual(replies,[]);
+  initialize(); initialize({ports:[makePort('second')]});
+  assert.deepEqual(replies,[['valid','ready']]);
+  listeners.get('pagehide')();
+  initialize({ports:[makePort('late')]});
+  assert.deepEqual(replies,[['valid','ready']]); assert.deepEqual(closed,['valid']);
+});
 test('PDF properties preserve ISO date order, optional seconds and original offsets', () => {
   assert.equal(formatPdfDate("D:20260102123456+05'30'"), '2026-01-02 12:34:56 (UTC+5:30)');
   assert.equal(formatPdfDate("D:202602031012-08'00'"), '2026-02-03 10:12 (UTC-8)');
@@ -91,6 +130,9 @@ test('PDF rendering lives in a network-restricted opaque sandbox without editing
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root)));
   assert.deepEqual(manifest.sandbox.pages, ['workspaces/pdf-viewer/viewer.html', 'workspaces/document-preview/content.html']);
   const policy = manifest.content_security_policy.sandbox;
+  for (const rule of ["script-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'"]) {
+    assert.ok(manifest.content_security_policy.extension_pages.split(';').map(value => value.trim()).includes(rule));
+  }
   assert.doesNotMatch(policy, /allow-same-origin|'unsafe-eval'|https?:|\*/);
   assert.match(policy, /connect-src 'self' blob:/); assert.match(policy, /frame-src 'none'/); assert.match(policy, /object-src 'none'/);
   const source = await readFile(new URL('workspaces/pdf-viewer/viewer.js', root), 'utf8');

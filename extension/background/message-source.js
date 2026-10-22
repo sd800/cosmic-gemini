@@ -17,6 +17,24 @@ const PAGE_MESSAGE_TYPES = new Set([
 ]);
 
 const OFFSCREEN_MESSAGE_TYPES = new Set(['CG_VIDEO_DOWNLOAD_PROGRESS']);
+const UI_PATHS = new Set([
+  '/popup/index.html',
+  ...['all-settings','satellites','native-scroll','no-autoplay','any-copy','page-display','image-download','video-download']
+    .map(name => `/settings/${name}.html`),
+  '/workspaces/document-preview/document-preview.html',
+  '/workspaces/image-download/image-download.html',
+  '/workspaces/follow-list-instagram/follow-list-instagram.html'
+]);
+
+function isUiSender(sender, extensionBase) {
+  try {
+    const base = new URL(extensionBase), url = new URL(sender?.url);
+    const origin = `chrome-extension://${base.host}`;
+    return base.protocol === 'chrome-extension:' && url.protocol === base.protocol && url.host === base.host &&
+      (!sender.id || sender.id === base.host) && (sender.origin === undefined || sender.origin === origin) &&
+      UI_PATHS.has(url.pathname);
+  } catch { return false; }
+}
 
 function isWebPageSender(sender) {
   if (!Number.isInteger(sender?.tab?.id) || sender.tab.id < 0) return false;
@@ -32,7 +50,7 @@ export function validateMessageSource(message, sender, extensionBase) {
   const type = message.type;
   const senderUrl = String(sender?.url || '');
   if (type.startsWith('UI_')) {
-    if (!senderUrl.startsWith(extensionBase)) throw new Error('Extension commands are available only to extension pages.');
+    if (!isUiSender(sender, extensionBase)) throw new Error('Extension commands are available only to trusted extension pages.');
     return true;
   }
   if (PAGE_MESSAGE_TYPES.has(type)) {
@@ -49,6 +67,5 @@ export function validateMessageSource(message, sender, extensionBase) {
 }
 
 export function validatePortSource(port, extensionBase) {
-  const senderUrl = String(port?.sender?.url || '');
-  return senderUrl.startsWith(extensionBase);
+  return isUiSender(port?.sender, extensionBase);
 }

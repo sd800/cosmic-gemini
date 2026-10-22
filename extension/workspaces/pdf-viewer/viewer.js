@@ -1,5 +1,6 @@
 import { showReaderDialog } from './dialog.js';
 import { createPdfWorker } from './worker.js';
+import { isSandboxHost } from '../../shared/sandbox-host.js';
 import { createDarkPaperGuard } from './dark-paper.js';
 import { renderedPaperShade } from './paper-background.js';
 import * as pdfjs from '../../vendor/pdfjs/pdf.min.mjs';
@@ -13,12 +14,7 @@ const $ = id => document.getElementById(id);
 let port, task, pdf, viewer, pdfWorker, parseTimer, destroyed = false, firstPageReady = false, text = labels['en-US'];
 const lifetime = new AbortController(), signal = lifetime.signal;
 const eventBus = new EventBus(), viewport = $('viewport');
-// Prepare the local parser while the authorized host prepares document bytes.
-const workerReady = createPdfWorker(pdfjs, signal).then(worker => {
-  pdfWorker = worker;
-  return worker;
-});
-void workerReady.catch(() => {});
+let workerReady;
 let thumbnailObserver, thumbnailTask, thumbnailBusy = false, thumbnailGeneration = 0, outlineLoaded = false;
 const nearThumbnails = new Set(), thumbnailCache = new Map(), printUrls = new Set();
 let documentFilename, documentUrl = '', documentBytes = 0, properties;
@@ -75,7 +71,15 @@ function destroy() {
 }
 window.addEventListener('pagehide', destroy, { once: true });
 window.addEventListener('message', event => {
-  if (event.source !== parent || port || event.data?.type !== 'CG_PDF_INIT' || event.ports.length !== 1) return;
+  if (destroyed || event.source !== parent || !isSandboxHost(event.origin, import.meta.url) ||
+      port || event.data?.type !== 'CG_PDF_INIT' || event.ports.length !== 1) return;
+  // Warm the local parser only after authenticating the host, in parallel with
+  // its document preparation. Unowned frames never start parser work.
+  workerReady = createPdfWorker(pdfjs, signal).then(worker => {
+    pdfWorker = worker;
+    return worker;
+  });
+  void workerReady.catch(() => {});
   const input = event.data;
   documentUrl = typeof input.documentUrl === 'string' ? input.documentUrl : '';
   port = event.ports[0];

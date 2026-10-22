@@ -81,7 +81,7 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 - For presentation previews, confirm left thumbnails and right continuous scrolling in both `.ppt` and `.pptx`. Click thumbnails and toolbar controls, scroll between pages, then resize and zoom: selection must stay synchronized, reading position stable, and the rail unscaled. Check a longer deck for bounded mounted pages/thumbnails, retained legacy fallback text, and inactive thumbnail links; main-slide external links must still use capture. Wait for the host iframe's rendered visibility signal before sending test clicks, not merely for DOM inside the sandbox.
 - Check that consecutive ASCII/full-width spaces and underline-only blank fields survive conversion and display. Paragraph-mark sizes must affect spacing metrics but not change text-run sizes; absent paragraph margins are zero and package-local default tab intervals are used.
 - Check capture-dialog sizes such as `1 byte`, `2 bytes`, `44.5 KB`, and `1.5 MB`: decimal units, at most one decimal, and no forced trailing zero. Conversion/performance comparisons use identical bounded fixtures and warm runs; track bundle growth and numeric formatter construction counts rather than asserting general browser speed from small samples.
-- Test artifacts/scripts live under ignored `dist/qa/document-preview/`; logs and temporary browser profiles remain outside the shipped extension. No claim of exhaustive malware detection or full legacy Office layout fidelity.
+- Test artifacts/scripts live under ignored `dist/qa/document-preview/`. Keep reusable fixtures and concise findings; discard full logs and temporary browser profiles. Check continuous reading layout separately from source-application pagination.
 
 ## PDF Viewer
 

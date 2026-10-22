@@ -1,6 +1,6 @@
 # Security policy and boundaries
 
-Website content, document bytes, metadata, filenames, saved domain input, and external links are untrusted data. They must not become executable code or privileged extension commands.
+Cosmic Gemini protects browsing and local previews through isolated rendering, authenticated extension commands, and deliberate external actions. Website content, document bytes, metadata, filenames, saved domain input, and links are handled as data through fixed interfaces.
 
 ## Privileged extension surfaces
 
@@ -18,13 +18,13 @@ Sandbox CSP blocks remote resources, nested frames, embedded objects, form navig
 
 ZIP directories, actual decompressed sizes, XML declarations, document sizes, nesting, output, images, and parser time have explicit limits. Traversal paths, duplicate ZIP names, external XML entities, and unsupported active content are rejected or omitted. Worker disposal and stale-response checks prevent retired work from replacing a current view. Offscreen processing accepts only the owning Central worker after product authorization.
 
-Metadata and suggested URLs cannot supply executable processor code. Downloads preserve original file bytes; a safe preview does not transform the original attachment into a certified safe file.
+Processors execute packaged code and accept metadata and suggested URLs only as data. Preview protections apply to the reading environment; downloads preserve the original file bytes.
 
 ## External actions and storage
 
 External Links Capture validates bounded targets and rejects executable, local-file, and browser-internal schemes. Document links require a separate user action to open; application protocols require explicit confirmation. Mailto/tel/sms offer copying only. A link is never followed to populate document metadata.
 
-Domain lists are normalized as host data, not executed as code. Navigation restrictions are product policies, not substitutes for Chrome's security sandbox. Browser-owned user actions retain their existing behavior.
+Domain lists are normalized as host data. Navigation controls apply to website-initiated actions, while browser-owned user actions retain their normal behavior. Chrome provides the underlying browser isolation.
 
 Ordinary/private sessions remain separated. Document content and local file references stay in memory; settings and bounded session metadata are stored only for their documented purpose. Never write private document contents, full browsing captures, credentials, or access tokens into logs, tests, screenshots, or repository notes.
 
@@ -32,4 +32,4 @@ Ordinary/private sessions remain separated. Document content and local file refe
 
 Keep third-party code pinned with its provenance, licenses, and integrity data. Review dependency updates before shipping them. Use small synthetic regression cases for the changed boundary, including rejection paths and cleanup; do not test with private user content or perform stress tests by default.
 
-Report suspected vulnerabilities privately through the contact information at [Songming.org](https://songming.org). Include the affected version and a minimal synthetic reproduction, without private files, credentials, or session URLs. Automated checks and code review cover specific boundaries; they do not establish that every parser or browser vulnerability is absent.
+Report suspected vulnerabilities through [GitHub private vulnerability reporting](https://github.com/sd800/cosmic-gemini/security/advisories/new). Include the affected version and a minimal synthetic reproduction, without private files, credentials, or session URLs.

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.21.2 — 2026-10-21
+
+- Refine security documentation and public guidance.
+
 ## 26.10.21.1 — 2026-10-21
 
 - Strengthen document isolation, extension command validation, and injection safeguards.

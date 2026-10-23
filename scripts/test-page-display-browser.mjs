@@ -1,6 +1,6 @@
 // Focused real-extension website controls; disposable profile and authored pages.
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -13,6 +13,7 @@ const context = await chromium.launchPersistentContext(join(folder, 'profile'), 
   ignoreDefaultArgs: ['--disable-extensions'], args: ['--enable-unsafe-extension-debugging']
 });
 context.setDefaultTimeout(10000);
+const version = JSON.parse(await readFile('extension/manifest.json','utf8')).version;
 const errors = [];
 context.on('page', page => page.on('pageerror', error => errors.push(String(error))));
 try {
@@ -28,13 +29,36 @@ try {
   const other = await context.newPage(); await other.goto('https://other.test/');
   const layer = '[data-cosmic-gemini-page-display]';
   const settings = await context.newPage(); await settings.goto(base + 'settings/page-display.html');
-  await settings.locator('#version').filter({ hasText: '26.10.23.1' }).waitFor();
+  await settings.locator('#version').filter({ hasText: version }).waitFor();
   const saved = () => settings.evaluate(async () => (await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.pageDisplay);
   const command = async message => {
     const response = await settings.evaluate(message => chrome.runtime.sendMessage(message), message);
     assert.equal(response.ok, true, response.error); return response.result;
   };
   const waitLayer = (page, present) => page.waitForFunction(({layer,present}) => !!document.querySelector(layer) === present, { layer, present });
+  if (process.env.PAGE_DISPLAY_QA === 'slider') {
+    const slider=settings.locator('#reduceWhitePointReduction');
+    const master=settings.locator('#enabled'),global=settings.locator('#pageDisplayReduceWhitePointEnabled'),site=settings.locator('#reduceWhitePointSiteSpecific');
+    const settled=()=>settings.waitForFunction(()=>!document.querySelector('#enabled').disabled
+      &&(!document.querySelector('#enabled').checked||(!document.querySelector('#pageDisplayReduceWhitePointEnabled').disabled
+      &&!document.querySelector('#reduceWhitePointSiteSpecific').disabled)));
+    const availability=disabled=>settings.waitForFunction(disabled=>document.querySelector('#reduceWhitePointReduction').disabled===disabled,disabled);
+    await master.check();await settled();await availability(true);
+    await site.check();await settled();await availability(false);
+    await slider.fill('40');await slider.dispatchEvent('change');await settled();
+    await settings.waitForFunction(async()=>((await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.pageDisplay.reduceWhitePoint.reduction===.4));
+    await settings.reload();await settings.locator('#version').waitFor();await settled();await availability(false);
+    await global.check();await settled();await site.uncheck();await settled();await availability(false);
+    await site.check();await settled();await global.uncheck();await settled();await availability(false);
+    await site.uncheck();await settled();await availability(true);
+    await site.check();await settled();await availability(false);
+    await master.uncheck();await settled();await availability(true);
+    await master.check();await settled();await availability(false);
+    assert.equal(await slider.inputValue(),'40');
+    assert.equal((await saved()).reduceWhitePoint.enabled,false,'editing Reduction must not enable its page effect');
+    assert.deepEqual(errors,[]);
+    console.log('PASS: Reduction availability follows either child switch, master disable/restore, saved strength, and reload.');
+  } else {
   assert.equal(await settings.locator('#reduceWhitePointSiteSpecific').isDisabled(), true);
   assert.equal(await settings.locator('#reduceWhitePointWebsites').isVisible(), false);
   await settings.locator('#enabled').check();
@@ -117,4 +141,5 @@ try {
   assert.deepEqual(errors, []);
   await writeFile(join(artifacts, 'README.md'), '# Page Display website controls\n\nRun `scripts/test-page-display-browser.mjs` with the shared local Playwright and Chrome for Testing paths in `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME`. The script uses an isolated temporary profile and authored pages, then deletes the profile. Screenshots show both languages and themes, plus the empty list and global mode at a narrow width. No personal browser, account, documents, or network downloads are used.\n\nVerified: eTLD+1 list editing, subdomain-wide popup toggles, live multi-tab updates, global mode restoration, Greyscale independence, master disable/restore, Settings navigation and reload, readable layout, and compact bottom spacing.\n');
   console.log(JSON.stringify({passed:true,gaps,emptyGap,globalGap,screenshots:artifacts}));
+  }
 } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }

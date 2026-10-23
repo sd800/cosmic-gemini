@@ -223,7 +223,7 @@
   if (reduceWhitePointReduction) {
     const percentage = Math.round((cached.pageDisplay?.reduceWhitePoint?.reduction ?? 0.25) * 100);
     reduceWhitePointReduction.value = String(percentage);
-    reduceWhitePointReduction.disabled = !pageDisplayEnabled || !reduceWhitePointActive;
+    reduceWhitePointReduction.disabled = !pageDisplayEnabled || !(reduceWhitePointActive || reduceWhitePointSiteSpecific?.checked);
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;
   }
   const xhsImageDarkModeEnabled = document.querySelector('#xhsImageDarkModeEnabled');

@@ -501,6 +501,38 @@ test('finishing a slider save never unlocks it after the parent setting turns of
   assert.equal(slider.disabled, true);
 });
 
+test('Page Display preload uses the same Reduction availability before the module loads', () => {
+  const source=readFileSync(new URL('../extension/settings/preload.js',import.meta.url),'utf8');
+  const block=source.slice(source.indexOf('  const pageDisplayEnabled ='),source.indexOf('  const xhsImageDarkModeEnabled ='));
+  for(const enabled of [false,true])for(const global of [false,true])for(const siteSpecific of [false,true]){
+    const nodes=new Map(['pageDisplayReduceWhitePointEnabled','reduceWhitePointSiteSpecific',
+      'reduceWhitePointWebsites','reduceWhitePointReduction','reduceWhitePointReductionValue'].map(id=>['#'+id,{}]));
+    vm.runInNewContext(block,{cached:{pageDisplay:{enabled,reduceWhitePoint:{enabled:global,siteSpecific,reduction:.4}}},
+      feature:'pageDisplay',document:{body:{dataset:{}},querySelector:selector=>nodes.get(selector)}});
+    assert.equal(nodes.get('#reduceWhitePointReduction').disabled,!enabled||!(global||siteSpecific));
+  }
+});
+
+test('Page Display Reduction is adjustable when either Reduce White Point switch is on', async () => {
+  const {api,nodes}=controller('pageDisplay');
+  const master=new Element('input'),global=new Element('input'),site=new Element('input'),slider=new Element('input');
+  nodes.set('#enabled',master);
+  nodes.set('#pageDisplayReduceWhitePointEnabled',global);
+  nodes.set('#reduceWhitePointSiteSpecific',site);
+  nodes.set('#reduceWhitePointReduction',slider);
+  for(const enabled of [false,true])for(const general of [false,true])for(const siteSpecific of [false,true]){
+    await api.hydrate({preferences:{pageDisplay:{enabled,reduceWhitePoint:{enabled:general,siteSpecific,reduction:.4}}}});
+    api.render();
+    assert.equal(slider.disabled,!enabled||!(general||siteSpecific),JSON.stringify({enabled,general,siteSpecific}));
+    assert.equal(slider.value,'40');
+  }
+  // A pending website toggle must retain its optimistic slider availability.
+  await api.hydrate({preferences:{pageDisplay:{enabled:true,reduceWhitePoint:{enabled:false,siteSpecific:false,reduction:.4}}}});
+  site.checked=true;api.pendingControls.add(site);api.render();
+  assert.equal(slider.disabled,false);
+  api.pendingControls.delete(site);
+});
+
 test('Page Display master switch disables every subordinate control without discarding its values', async () => {
   const { api, nodes } = controller('pageDisplay');
   const master = new Element('input');

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.23.2 — 2026-10-23
+
+- Keep the Reduction slider available when either Reduce White Point or website-specific control is enabled, while respecting the Page Display master switch.
+
 ## 26.10.23.1 — 2026-10-23
 
 - Add optional website-specific Reduce White Point controls, with an editable website list and control-window toggles that include subdomains.

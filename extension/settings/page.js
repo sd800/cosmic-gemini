@@ -374,7 +374,7 @@ function render() {
   if (reduceWhitePointReduction) {
     const percentage = Math.round((pageDisplaySettings?.reduceWhitePoint?.reduction ?? 0.25) * 100);
     reduceWhitePointReduction.value = String(percentage);
-    reduceWhitePointReduction.disabled = !pageDisplayEnabled || !reduceWhitePointActive;
+    reduceWhitePointReduction.disabled = !pageDisplayEnabled || !(reduceWhitePointActive || reduceWhitePointSiteSpecific?.checked);
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${percentage}%`;
   }
   const xhsSettings = (states?.preferences || states)?.xhsImageDarkMode;
@@ -437,7 +437,8 @@ function render() {
   const noAutoplayAudioOptions = document.querySelector('#noAutoplayAudioOptions');
   if (noAutoplayAudioOptions) noAutoplayAudioOptions.disabled = !enabled?.checked;
   if (reduceWhitePointReduction) {
-    reduceWhitePointReduction.disabled = !pageDisplayEnabled || !reduceWhitePointEnabled.checked;
+    reduceWhitePointReduction.disabled = !(enabled?.checked ?? pageDisplayEnabled)
+      || !(reduceWhitePointEnabled.checked || reduceWhitePointSiteSpecific?.checked);
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${reduceWhitePointReduction.value}%`;
   }
   const reduceWhitePointWebsites = document.querySelector('#reduceWhitePointWebsites');
@@ -787,7 +788,7 @@ function bindView() {
         if (siteSpecific) siteSpecific.disabled = !enabled.checked;
         if (websites) websites.disabled = !enabled.checked || !siteSpecific?.checked;
         if (greyscaleEnabled) greyscaleEnabled.disabled = !enabled.checked;
-        if (reduction) reduction.disabled = !enabled.checked || !reduceWhitePointEnabled?.checked;
+        if (reduction) reduction.disabled = !enabled.checked || !(reduceWhitePointEnabled?.checked || siteSpecific?.checked);
       }
       void update(null, () => savePreference(enabledFeatureId, {
         type: 'UI_SET_ENABLED', featureId: enabledFeatureId, enabled: enabled.checked
@@ -966,7 +967,8 @@ function bindView() {
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
   if (reduceWhitePointEnabled) reduceWhitePointEnabled.addEventListener('change', () => {
     const reduction = document.querySelector('#reduceWhitePointReduction');
-    if (reduction) reduction.disabled = !reduceWhitePointEnabled.checked;
+    if (reduction) reduction.disabled = !document.querySelector('#enabled')?.checked
+      || !(reduceWhitePointEnabled.checked || document.querySelector('#reduceWhitePointSiteSpecific')?.checked);
     void update(null, () => savePreference('pageDisplay', {
       type: 'UI_SET_PAGE_DISPLAY_SETTING', name: 'reduceWhitePointEnabled', value: reduceWhitePointEnabled.checked
     }), [reduceWhitePointEnabled]);
@@ -975,6 +977,9 @@ function bindView() {
   const reduceWhitePointSiteSpecific = document.querySelector('#reduceWhitePointSiteSpecific');
   if (reduceWhitePointSiteSpecific) reduceWhitePointSiteSpecific.addEventListener('change', () => {
     const websites = document.querySelector('#reduceWhitePointWebsites');
+    const reduction = document.querySelector('#reduceWhitePointReduction');
+    if (reduction) reduction.disabled = !document.querySelector('#enabled')?.checked
+      || !(reduceWhitePointEnabled?.checked || reduceWhitePointSiteSpecific.checked);
     websites.hidden = !reduceWhitePointSiteSpecific.checked;
     websites.disabled = !document.querySelector('#enabled')?.checked || !reduceWhitePointSiteSpecific.checked;
     void update(null, () => savePreference('pageDisplay', {

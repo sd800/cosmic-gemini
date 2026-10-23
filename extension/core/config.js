@@ -114,7 +114,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: false,
     reduceWhitePoint: Object.freeze({
       enabled: false,
-      reduction: 0.25
+      reduction: 0.25,
+      siteSpecific: false,
+      siteRules: Object.freeze([])
     }),
     greyscale: Object.freeze({
       enabled: false
@@ -373,6 +375,11 @@ export function normalizeSettings(value = {}) {
       enabled: value.pageDisplay?.enabled === true,
       reduceWhitePoint: {
         enabled: value.pageDisplay?.reduceWhitePoint?.enabled === true,
+        siteSpecific: value.pageDisplay?.reduceWhitePoint?.siteSpecific === true,
+        siteRules: [...new Set((Array.isArray(value.pageDisplay?.reduceWhitePoint?.siteRules)
+          ? value.pageDisplay.reduceWhitePoint.siteRules.slice(0, 1000) : []).flatMap(entry => {
+          try { return [normalizePageDisplaySite(entry)]; } catch { return []; }
+        }))],
         reduction: Number.isFinite(whitePointReduction)
           ? Math.min(0.8, Math.max(0.1, whitePointReduction))
           : 0.25
@@ -601,14 +608,22 @@ export function clipboardProtectState(settings, url) {
   return { enabled, supported, active: enabled && supported };
 }
 
+export function normalizePageDisplaySite(value) {
+  return siteKey('https://' + normalizeAccessControlDomain(value));
+}
+
 export function pageDisplayState(settings, url) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
   const feature = normalized.pageDisplay;
   const enabled = feature.enabled === true;
-  const hasActiveEffect = feature.reduceWhitePoint.enabled === true || feature.greyscale.enabled === true;
+  const reduceWhitePoint = { ...feature.reduceWhitePoint,
+    enabled: feature.reduceWhitePoint.enabled && (!feature.reduceWhitePoint.siteSpecific
+      || feature.reduceWhitePoint.siteRules.includes(siteKey(url))) };
+  const hasActiveEffect = reduceWhitePoint.enabled || feature.greyscale.enabled;
   return {
     ...feature,
+    reduceWhitePoint,
     hostname,
     supported: !!hostname,
     active: !!hostname && enabled && hasActiveEffect,

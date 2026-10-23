@@ -323,6 +323,10 @@ body[data-feature="satellites"] .sidebar { max-height: var(--satellites-sidebar-
 .page-display-feature-heading > .switch { margin-top: 1px; }
 .page-display-feature-heading p { max-width: 620px; margin-top: 7px; }
 .page-display-strength-list { margin-top: 18px; }
+.page-display-strength-list > .preference-row:last-child { min-height: 0; padding-bottom: 0; }
+.page-display-websites { min-width: 0; margin: 12px 0 0; padding: 14px 0 0; border: 0; border-top: 1px solid var(--line); }
+.page-display-websites > p:first-of-type { margin-top: 6px; }
+.page-display-websites .rule-list { margin-bottom: 0; }
 body[data-feature="pageDisplay"][data-page-display-enabled="false"] .page-display-feature-card {
   border-color: color-mix(in srgb, var(--line) 82%, var(--surface-raised));
   opacity: .56;
@@ -421,12 +425,12 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .document-whitelist>p:not(.form-message):not(.rule-list-note){max-width:var(--satellite-copy-width,85%);margin:6px 0 16px;color:var(--muted)}
 .document-whitelist .rule-list{margin-bottom:0}
 
-.access-control-options .rule-list,.document-whitelist .rule-list,.website-fixer-translate-options .rule-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
-.access-control-options .rule-list li,.document-whitelist .rule-list li,.website-fixer-translate-options .rule-list li{min-width:0}
-.access-control-options .rule-list .empty,.document-whitelist .rule-list .empty,.website-fixer-translate-options .rule-list .empty{grid-column:1/-1}
-.access-control-options .rule-list .icon-button,.document-whitelist .rule-list .icon-button,.website-fixer-translate-options .rule-list .icon-button{flex-shrink:0}
+.access-control-options .rule-list,.document-whitelist .rule-list,.website-fixer-translate-options .rule-list,.page-display-websites .rule-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
+.access-control-options .rule-list li,.document-whitelist .rule-list li,.website-fixer-translate-options .rule-list li,.page-display-websites .rule-list li{min-width:0}
+.access-control-options .rule-list .empty,.document-whitelist .rule-list .empty,.website-fixer-translate-options .rule-list .empty,.page-display-websites .rule-list .empty{grid-column:1/-1}
+.access-control-options .rule-list .icon-button,.document-whitelist .rule-list .icon-button,.website-fixer-translate-options .rule-list .icon-button,.page-display-websites .rule-list .icon-button{flex-shrink:0}
 #documentPreviewOptions:disabled .document-whitelist{opacity:.55}
-@media(max-width:620px){.access-control-options .rule-list,.document-whitelist .rule-list,.website-fixer-translate-options .rule-list{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:620px){.access-control-options .rule-list,.document-whitelist .rule-list,.website-fixer-translate-options .rule-list,.page-display-websites .rule-list{grid-template-columns:minmax(0,1fr)}}
 
 .website-fixer-options { display: grid; gap: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 .website-fixer-item + .website-fixer-item { padding-top: 20px; border-top: 1px solid var(--line); }

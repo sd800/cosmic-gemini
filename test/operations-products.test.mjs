@@ -651,7 +651,7 @@ test('XHS image and keyboard navigation settings synchronize independently befor
   const product = createXhsImageDarkModeProduct({ sync: async () => true }, {
     async mutateSettings(update, refresh) {
       assert.equal(refresh, false);
-      settings = normalizeSettings(update(settings));
+      settings = normalizeSettings(await update(settings));
       return settings;
     },
     async refreshOpenPages() { refreshes += 1; }
@@ -667,7 +667,7 @@ test('XHS image and keyboard navigation settings synchronize independently befor
   const navigationProduct = createXhsNavigationProduct({ sync: async () => true }, {
     async mutateSettings(update, refresh) {
       assert.equal(refresh, false);
-      settings = normalizeSettings(update(settings));
+      settings = normalizeSettings(await update(settings));
       return settings;
     },
     async refreshOpenPages() { refreshes += 1; }
@@ -946,7 +946,7 @@ test('Page Display master authorization gates its independent top-frame visual f
   }, {
     async mutateSettings(update, refresh) {
       assert.equal(refresh, false);
-      settings = normalizeSettings(update(settings));
+      settings = normalizeSettings(await update(settings));
       return settings;
     },
     async refreshOpenPages() { refreshes += 1; }
@@ -1083,4 +1083,72 @@ test('one product cleanup failure does not strand other Operations products', as
   assert.ok(removed.includes('anyCopyCoordinatedPauseTab:88'));
   assert.ok(removed.includes('anyCopyEnhancedTab:88'));
   assert.equal(cleared,1,'final activity cleanup still runs after another product rejects');
+});
+
+
+test('Page Display website commands preserve scope, master authority, and unrelated products', async () => {
+  const originalChrome = globalThis.chrome;
+  let settings = normalizeSettings({ pageDisplay: { enabled: true, reduceWhitePoint: { siteSpecific: true } } });
+  let tab = { id: 17, url: 'https://a.example.co.uk/one', incognito: false };
+  globalThis.chrome = { tabs: { async get(id) { assert.equal(id, 17); return tab; } } };
+  const syncs = [];
+  let queue = Promise.resolve();
+  const product = createPageDisplayProduct({ async sync(_p, _c, active) { syncs.push(active); } }, {
+    isIncognitoContext: () => false,
+    mutateSettings(update) {
+      const result = queue.then(async () => { settings = normalizeSettings(await update(settings)); return settings; });
+      queue = result.catch(() => {}); return result;
+    },
+    async refreshOpenPages() { throw Error('a closing tab cannot turn a committed save into failure'); }
+  });
+  const toggle = value => product.handleMessage({ type: 'UI_SET_PAGE_DISPLAY_SETTING',
+    name: 'reduceWhitePointEnabled', scope: 'site', value, tabId: 17, expectedHostname: 'a.example.co.uk' });
+  const list = (type, rule) => product.handleMessage({ type, featureId: 'pageDisplay',
+    settingGroup: 'reduceWhitePoint', listName: 'siteRules', rule });
+  try {
+    await toggle(true);
+    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['example.co.uk']);
+    assert.equal(settings.pageDisplay.reduceWhitePoint.enabled, true);
+    assert.equal(product.state(settings, 'https://b.example.co.uk').reduceWhitePoint.enabled, true);
+    assert.equal(product.state(settings, 'https://other.co.uk').active, false);
+    assert.equal(await product.sync({ frameId: 0, topUrl: tab.url }, settings), true);
+    assert.equal(await product.sync({ frameId: 1, topUrl: tab.url }, settings), false);
+    await toggle(false);
+    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, []);
+    await Promise.all([list('UI_ADD_RULE', 'a.example.co.uk'), list('UI_ADD_RULE', 'z.test')]);
+    await list('UI_ADD_RULE', 'b.example.co.uk');
+    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['example.co.uk', 'z.test']);
+    await list('UI_DELETE_RULE', 'c.example.co.uk');
+    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['z.test']);
+    await list('UI_ADD_RULE', 'a.test');
+    await list('UI_ALPHABETIZE_RULES');
+    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['a.test', 'z.test']);
+    await list('UI_DELETE_RULE', 'a.test');
+    await assert.rejects(list('UI_ADD_RULE', 'https://bad.test/x'));
+    await assert.rejects(product.handleMessage({type:'UI_CLEAR_RULES',listName:'blockedDomains',settingGroup:'reduceWhitePoint'}));
+    const before = JSON.stringify(settings);
+    tab = { ...tab, url: 'https://different.test' };
+    await assert.rejects(toggle(true), /page changed/);
+    assert.equal(JSON.stringify(settings), before);
+    tab = { ...tab, url: 'https://a.example.co.uk/two', incognito: true };
+    await assert.rejects(toggle(true), /page changed/);
+    tab.incognito = false;
+    settings.pageDisplay.enabled = false;
+    await assert.rejects(toggle(true), /settings changed/);
+    assert.equal(settings.pageDisplay.enabled, false);
+    settings.pageDisplay.enabled = true;
+    await product.handleMessage({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'reduceWhitePointSiteSpecific',value:false});
+    await assert.rejects(toggle(false), /settings changed/);
+    assert.equal(product.state(settings, 'https://other.test').reduceWhitePoint.enabled, true);
+    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['z.test']);
+    await list('UI_CLEAR_RULES');
+    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, []);
+    assert.equal(settings.pageDisplay.greyscale.enabled, false);
+    settings.pageDisplay.reduceWhitePoint.siteSpecific = true;
+    settings.pageDisplay.reduceWhitePoint.siteRules = Array.from({length:1000},(_,i)=>`site${i}.test`);
+    await assert.rejects(toggle(true), /list is full/);
+    await assert.rejects(list('UI_ADD_RULE', 'one-more.test'), /list is full/);
+    assert.equal(settings.pageDisplay.reduceWhitePoint.siteRules.length, 1000);
+    assert.deepEqual(syncs, [true, false]);
+  } finally { globalThis.chrome = originalChrome; }
 });

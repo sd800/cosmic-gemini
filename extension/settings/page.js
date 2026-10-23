@@ -1,5 +1,5 @@
 import { loadLocale } from '../core/locale.js';
-import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizePageDisplaySite, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeStayOnPageCommand, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
@@ -359,6 +359,11 @@ function render() {
     reduceWhitePointEnabled.checked = reduceWhitePointActive;
     reduceWhitePointEnabled.disabled = !pageDisplayEnabled;
   }
+  const reduceWhitePointSiteSpecific = document.querySelector('#reduceWhitePointSiteSpecific');
+  if (reduceWhitePointSiteSpecific) {
+    reduceWhitePointSiteSpecific.checked = pageDisplaySettings?.reduceWhitePoint?.siteSpecific === true;
+    reduceWhitePointSiteSpecific.disabled = !pageDisplayEnabled;
+  }
   const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
   if (greyscaleEnabled) {
     greyscaleEnabled.checked = pageDisplaySettings?.greyscale?.enabled === true;
@@ -434,6 +439,11 @@ function render() {
   if (reduceWhitePointReduction) {
     reduceWhitePointReduction.disabled = !pageDisplayEnabled || !reduceWhitePointEnabled.checked;
     if (reduceWhitePointReductionValue) reduceWhitePointReductionValue.textContent = `${reduceWhitePointReduction.value}%`;
+  }
+  const reduceWhitePointWebsites = document.querySelector('#reduceWhitePointWebsites');
+  if (reduceWhitePointWebsites) {
+    reduceWhitePointWebsites.hidden = !reduceWhitePointSiteSpecific.checked;
+    reduceWhitePointWebsites.disabled = !document.querySelector('#enabled')?.checked || !reduceWhitePointSiteSpecific.checked;
   }
   if (xhsImageDarkModeOverride) xhsImageDarkModeOverride.disabled = !xhsImageDarkModeEnabled.checked;
   if (xhsImageDarkModeControl) xhsImageDarkModeControl.disabled = !xhsImageDarkModeEnabled.checked;
@@ -666,14 +676,17 @@ function openRuleInputHelp(input) {
   const hiddenList = section?.dataset.hiddenList === 'true';
   const websiteFixer = section?.dataset.featureId === 'websiteFixer';
   const documentWhitelist = section?.dataset.featureId === 'documentPreview';
+  const pageDisplayWebsites = section?.dataset.domainScope === 'site';
   const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
   const aliasGroups = accessControl ? ACCESS_CONTROL_ALIAS_GROUPS : [];
   panel.heading.textContent = t(accessControl ? 'accessControlInputHelpHeading' : 'ruleInputHelpHeading');
-  panel.intro.textContent = t(documentWhitelist ? 'documentWhitelistDescription' : accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
+  panel.intro.textContent = t(pageDisplayWebsites ? 'reduceWhitePointWebsitesHelp' : documentWhitelist ? 'documentWhitelistDescription' : accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
   panel.behavior.hidden = !behaviorEditor;
   panel.behavior.textContent = behaviorEditor ? t('ruleInputBehaviorHelp') : '';
   panel.rulesHeading.textContent = t('ruleInputRulesHeading');
-  panel.rules.replaceChildren(...(websiteFixer
+  panel.rules.replaceChildren(...(pageDisplayWebsites
+    ? [helpTextItem('reduceWhitePointWebsitesHelp'), helpTextItem('documentWhitelistIpHelp')]
+    : websiteFixer
     ? [helpTextItem('websiteFixerDomainHelp')]
     : documentWhitelist
     ? [helpTextItem('documentWhitelistDomainHelp'), helpTextItem('documentWhitelistIpHelp')]
@@ -768,7 +781,11 @@ function bindView() {
         const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');
         const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
         const reduction = document.querySelector('#reduceWhitePointReduction');
+        const siteSpecific = document.querySelector('#reduceWhitePointSiteSpecific');
+        const websites = document.querySelector('#reduceWhitePointWebsites');
         if (reduceWhitePointEnabled) reduceWhitePointEnabled.disabled = !enabled.checked;
+        if (siteSpecific) siteSpecific.disabled = !enabled.checked;
+        if (websites) websites.disabled = !enabled.checked || !siteSpecific?.checked;
         if (greyscaleEnabled) greyscaleEnabled.disabled = !enabled.checked;
         if (reduction) reduction.disabled = !enabled.checked || !reduceWhitePointEnabled?.checked;
       }
@@ -955,6 +972,15 @@ function bindView() {
     }), [reduceWhitePointEnabled]);
   });
   const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
+  const reduceWhitePointSiteSpecific = document.querySelector('#reduceWhitePointSiteSpecific');
+  if (reduceWhitePointSiteSpecific) reduceWhitePointSiteSpecific.addEventListener('change', () => {
+    const websites = document.querySelector('#reduceWhitePointWebsites');
+    websites.hidden = !reduceWhitePointSiteSpecific.checked;
+    websites.disabled = !document.querySelector('#enabled')?.checked || !reduceWhitePointSiteSpecific.checked;
+    void update(null, () => savePreference('pageDisplay', {
+      type: 'UI_SET_PAGE_DISPLAY_SETTING', name: 'reduceWhitePointSiteSpecific', value: reduceWhitePointSiteSpecific.checked
+    }), [reduceWhitePointSiteSpecific]);
+  });
   if (greyscaleEnabled) greyscaleEnabled.addEventListener('change', () => void update(null, () => savePreference('pageDisplay', {
     type: 'UI_SET_PAGE_DISPLAY_SETTING', name: 'greyscaleEnabled', value: greyscaleEnabled.checked
   }), [greyscaleEnabled]));
@@ -1144,6 +1170,8 @@ function bindView() {
             ? normalizeAccessControlRuleInput(input.value)
             : sectionFeatureId === 'websiteFixer'
               ? normalizeWebsiteFixerDomain(normalizeGeneralDomainInput(input.value))
+              : section.dataset.domainScope === 'site'
+                ? normalizePageDisplaySite(normalizeGeneralDomainInput(input.value))
               : section.dataset.domainScope === 'subdomains'
                 ? normalizeAccessControlDomain(normalizeGeneralDomainInput(input.value))
                 : normalizeWebsiteRuleInput(input.value);

@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.23.1 — 2026-10-23
+
+- Add optional website-specific Reduce White Point controls, with an editable website list and control-window toggles that include subdomains.
+- Refine Reduce White Point card spacing, including hidden and empty website lists.
+
 ## 26.10.21.3 — 2026-10-21
 
 - Refine public documentation and repository maintenance.

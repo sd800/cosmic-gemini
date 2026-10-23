@@ -56,7 +56,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.accessControl, { enabled: false, allowTemporaryVisits: false, blockedDomains: [] });
   assert.deepEqual(settings.pageDisplay, {
     enabled: false,
-    reduceWhitePoint: { enabled: false, reduction: 0.25 },
+    reduceWhitePoint: { enabled: false, siteSpecific: false, siteRules: [], reduction: 0.25 },
     greyscale: { enabled: false }
   });
   assert.deepEqual(settings.xhsImageDarkMode, {
@@ -387,7 +387,7 @@ test('Claude reply display and browser identity settings authorize independently
 test('Page Display features are independent, bounded, and limited to ordinary web pages', () => {
   assert.deepEqual(pageDisplayState(DEFAULT_SETTINGS, 'https://example.com/page'), {
     enabled: false,
-    reduceWhitePoint: { enabled: false, reduction: 0.25 },
+    reduceWhitePoint: { enabled: false, siteSpecific: false, siteRules: [], reduction: 0.25 },
     greyscale: { enabled: false },
     hostname: 'example.com',
     supported: true,
@@ -417,6 +417,36 @@ test('Page Display features are independent, bounded, and limited to ordinary we
   assert.equal(pageDisplayState({
     pageDisplay: { reduceWhitePoint: { enabled: true } }
   }, 'chrome://extensions').active, false);
+});
+
+test('Reduce White Point website rules use registrable domains without changing the global preference', () => {
+  const settings = normalizeSettings({ pageDisplay: { enabled: true, reduceWhitePoint: {
+    enabled: true, siteSpecific: true, siteRules: ['WWW.Example.CO.UK', '*.example.co.uk',
+      'https://invalid.example/path', '', '127.0.0.1', '[::1]', 'corporate-server.corp', 'bücher.de']
+  } } });
+  assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules,
+    ['example.co.uk', '127.0.0.1', '[::1]', 'corporate-server.corp', 'xn--bcher-kva.de']);
+  for (const url of ['https://example.co.uk', 'https://a.b.example.co.uk/path',
+    'http://127.0.0.1:8080', 'http://[::1]:9000', 'https://sub.corporate-server.corp', 'https://bücher.de']) {
+    assert.equal(pageDisplayState(settings, url).active, true, url);
+  }
+  for (const url of ['https://other.co.uk', 'https://notexample.co.uk', 'https://example.co.uk.attacker.test',
+    'https://127.0.0.2', 'chrome://settings', 'file:///tmp/test.html']) {
+    assert.equal(pageDisplayState(settings, url).active, false, url);
+  }
+  const off = pageDisplayState(settings, 'https://other.co.uk');
+  assert.equal(off.reduceWhitePoint.enabled, false);
+  assert.equal(settings.pageDisplay.reduceWhitePoint.enabled, true, 'derived state never rewrites the saved switch');
+  settings.pageDisplay.greyscale.enabled = true;
+  assert.equal(pageDisplayState(settings, 'https://other.co.uk').active, true, 'Greyscale stays independent');
+  settings.pageDisplay.enabled = false;
+  assert.equal(pageDisplayState(settings, 'https://example.co.uk').active, false);
+  settings.pageDisplay.enabled = true;
+  settings.pageDisplay.reduceWhitePoint.siteSpecific = false;
+  assert.equal(pageDisplayState(settings, 'https://other.co.uk').reduceWhitePoint.enabled, true);
+  assert.deepEqual(settingsViewCache(settings).pageDisplay.reduceWhitePoint, settings.pageDisplay.reduceWhitePoint);
+  assert.equal(normalizeSettings({pageDisplay:{reduceWhitePoint:{siteRules:Array.from({length:1002},(_,i)=>`site${i}.test`)}}})
+    .pageDisplay.reduceWhitePoint.siteRules.length, 1000);
 });
 
 test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
@@ -552,7 +582,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.deepEqual(cache.chineseResponseClaude, { enabled: true, browserIdentityEnabled: true });
   assert.deepEqual(cache.pageDisplay, {
     enabled: true,
-    reduceWhitePoint: { enabled: true, reduction: 0.4 },
+    reduceWhitePoint: { enabled: true, siteSpecific: false, siteRules: [], reduction: 0.4 },
     greyscale: { enabled: true }
   });
   assert.equal('anyCopyEnhanced' in cache, false);

@@ -140,14 +140,17 @@ function renderPageDisplayControl(settingName, elementId, nameKey, onTitleKey, o
   const toggle = document.querySelector('#' + elementId);
   const saved = state.preferences?.pageDisplay?.[settingName];
   const supported = state.pageDisplay?.supported === true;
+  const siteSpecific = settingName === 'reduceWhitePoint' && saved?.siteSpecific === true;
   const enabled = supported
     && state.preferences?.pageDisplay?.enabled === true
-    && saved?.enabled === true;
+    && (siteSpecific ? state.pageDisplay?.reduceWhitePoint?.enabled === true : saved?.enabled === true);
   toggle.disabled = !supported || !saved;
   toggle.dataset.state = enabled ? 'active' : 'off';
   toggle.dataset.persistent = String(enabled);
   toggle.setAttribute('aria-pressed', String(enabled));
-  label(toggle, t(!supported ? 'unsupportedTitle' : enabled ? onTitleKey : offTitleKey, { product: t(nameKey) }));
+  label(toggle, t(!supported ? 'unsupportedTitle' : siteSpecific
+    ? enabled ? 'siteFeatureOnTitle' : 'siteFeatureOffTitle'
+    : enabled ? onTitleKey : offTitleKey, { product: t(nameKey) }));
 }
 
 function renderPageDisplayRow() {
@@ -712,7 +715,11 @@ for (const [elementId, settingName, iconName] of [
   control.addEventListener('click', () => void act(() => send({
     type: 'UI_SET_PAGE_DISPLAY_SETTING',
     name: settingName,
-    value: control.getAttribute('aria-pressed') !== 'true'
+    value: control.getAttribute('aria-pressed') !== 'true',
+    ...(settingName === 'reduceWhitePointEnabled' ? {
+      scope: state.preferences?.pageDisplay?.reduceWhitePoint?.siteSpecific ? 'site' : 'global',
+      tabId: currentTab?.id, expectedHostname: state.pageDisplay?.hostname
+    } : {})
   })));
 }
 

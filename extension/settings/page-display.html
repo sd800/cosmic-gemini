@@ -43,7 +43,19 @@
         </div>
         <div class="preference-list page-display-strength-list">
           <label class="preference-row" for="reduceWhitePointReduction"><span><strong data-i18n="reduceWhitePointReductionHeading"></strong><small data-i18n="reduceWhitePointReductionHelp"></small></span><span class="range-control"><input id="reduceWhitePointReduction" type="range" min="10" max="80" step="5" value="25"><output id="reduceWhitePointReductionValue" for="reduceWhitePointReduction">25%</output></span></label>
+          <label class="preference-row" for="reduceWhitePointSiteSpecific"><span><strong data-i18n="reduceWhitePointSiteSpecific"></strong><small data-i18n="reduceWhitePointSiteSpecificHelp"></small></span><span class="switch"><input id="reduceWhitePointSiteSpecific" type="checkbox"><span></span></span></label>
         </div>
+        <fieldset id="reduceWhitePointWebsites" class="rule-panel page-display-websites" data-feature-id="pageDisplay" data-setting-group="reduceWhitePoint" data-list-section="siteRules" data-domain-scope="site" data-empty-key="documentWhitelistEmpty" aria-labelledby="reduceWhitePointWebsitesHeading" disabled hidden>
+          <strong id="reduceWhitePointWebsitesHeading" data-i18n="reduceWhitePointWebsites"></strong>
+          <p data-i18n="reduceWhitePointWebsitesHelp"></p>
+          <form class="rule-form" novalidate>
+            <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="reduceWhitePointWebsitesHeading" data-i18n-placeholder="accessControlDomainPlaceholder">
+            <button type="submit" class="primary-button" data-i18n="add"></button>
+          </form>
+          <p class="form-message" role="status"></p>
+          <ul class="rule-list"></ul>
+          <p class="rule-list-note" hidden></p>
+        </fieldset>
       </section>
       <section class="card page-display-feature-card">
         <div class="section-heading page-display-feature-heading">

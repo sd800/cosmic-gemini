@@ -125,6 +125,30 @@ test('Page Display popup controls use the unavailable state on unsupported pages
   assert.equal(toggle.title, 'unsupportedTitle');
 });
 
+test('Page Display popup shows effective website state instead of the saved global switch', () => {
+  const toggle = {dataset:{},setAttribute(name,value){this[name]=value;}};
+  const context=vm.createContext({document:{querySelector:()=>toggle}});
+  vm.runInContext(`
+    let state={preferences:{pageDisplay:{enabled:true,reduceWhitePoint:{enabled:true,siteSpecific:true}}},
+      pageDisplay:{supported:true,reduceWhitePoint:{enabled:false}}};
+    const t=key=>key;
+    const label=(element,value)=>{element.title=value};
+    ${between(popupSource, 'function renderPageDisplayControl(', 'function renderPageDisplayRow(')}
+    function render(){renderPageDisplayControl('reduceWhitePoint','reduceWhitePoint-status',
+      'reduceWhitePointName','disableGlobalProductTitle','enableGlobalProductTitle');}
+    render();
+    globalThis.update=enabled=>{state.pageDisplay.reduceWhitePoint.enabled=enabled;render()};
+    globalThis.global=()=>{state.preferences.pageDisplay.reduceWhitePoint.siteSpecific=false;render()};
+  `,context);
+  assert.equal(toggle['aria-pressed'],'false');
+  assert.equal(toggle.title,'siteFeatureOffTitle');
+  context.update(true);
+  assert.equal(toggle['aria-pressed'],'true');
+  assert.equal(toggle.title,'siteFeatureOnTitle');
+  context.global();
+  assert.equal(toggle.title,'disableGlobalProductTitle');
+});
+
 test('Page Display popup row follows the saved master switch', () => {
   const row = { hidden: true };
   const rendered = [];

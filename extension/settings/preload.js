@@ -203,6 +203,16 @@
     reduceWhitePointEnabled.checked = reduceWhitePointActive;
     reduceWhitePointEnabled.disabled = !pageDisplayEnabled;
   }
+  const reduceWhitePointSiteSpecific = document.querySelector('#reduceWhitePointSiteSpecific');
+  if (reduceWhitePointSiteSpecific) {
+    reduceWhitePointSiteSpecific.checked = cached.pageDisplay?.reduceWhitePoint?.siteSpecific === true;
+    reduceWhitePointSiteSpecific.disabled = !pageDisplayEnabled;
+  }
+  const reduceWhitePointWebsites = document.querySelector('#reduceWhitePointWebsites');
+  if (reduceWhitePointWebsites) {
+    reduceWhitePointWebsites.hidden = !reduceWhitePointSiteSpecific.checked;
+    reduceWhitePointWebsites.disabled = !pageDisplayEnabled || !reduceWhitePointSiteSpecific.checked;
+  }
   const greyscaleEnabled = document.querySelector('#pageDisplayGreyscaleEnabled');
   if (greyscaleEnabled) {
     greyscaleEnabled.checked = cached.pageDisplay?.greyscale?.enabled === true;

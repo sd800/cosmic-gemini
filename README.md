@@ -58,6 +58,8 @@ Quality options include the file size when it is known before downloading. For d
 
 Adjust webpage colors without changing their content, layout, or controls. Page Display includes independent Reduce White Point and Greyscale features: use the first to reduce the intensity of bright colors at your chosen strength, and the second to render the page in shades of grey. Both cover the complete rendered page, including images, animations, Canvas, embedded content, and video.
 
+Reduce White Point can also be limited to selected websites. Manage the list in Settings or toggle the current website from the control window. Each website includes all its subdomains.
+
 Page Display has one master switch. Turning it off restores affected pages and makes its child settings unavailable without discarding their saved selections.
 
 ### Satellites – General features

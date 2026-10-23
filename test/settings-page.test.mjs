@@ -507,13 +507,17 @@ test('Page Display master switch disables every subordinate control without disc
   const reduce = new Element('input');
   const slider = new Element('input');
   const greyscale = new Element('input');
+  const siteSpecific = new Element('input');
+  const websites = new Element('fieldset');
   nodes.set('#enabled', master);
   nodes.set('#pageDisplayReduceWhitePointEnabled', reduce);
   nodes.set('#reduceWhitePointReduction', slider);
   nodes.set('#pageDisplayGreyscaleEnabled', greyscale);
+  nodes.set('#reduceWhitePointSiteSpecific', siteSpecific);
+  nodes.set('#reduceWhitePointWebsites', websites);
   await api.hydrate({ preferences: { pageDisplay: {
     enabled: false,
-    reduceWhitePoint: { enabled: true, reduction: 0.4 },
+    reduceWhitePoint: { enabled: true, reduction: 0.4, siteSpecific: true, siteRules: ['example.com'] },
     greyscale: { enabled: true }
   } } });
   api.render();
@@ -523,6 +527,10 @@ test('Page Display master switch disables every subordinate control without disc
   assert.equal(reduce.disabled, true);
   assert.equal(greyscale.disabled, true);
   assert.equal(slider.disabled, true);
+  assert.equal(siteSpecific.checked, true);
+  assert.equal(siteSpecific.disabled, true);
+  assert.equal(websites.hidden, false);
+  assert.equal(websites.disabled, true);
 });
 
 test('No Autoplay main switch disables audio autoplay settings without clearing saved choices', async () => {

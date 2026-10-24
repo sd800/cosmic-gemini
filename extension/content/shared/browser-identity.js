@@ -8,13 +8,19 @@
   const nativeParse = Date.parse;
   const nativeOffset = Date.prototype.getTimezoneOffset;
   const systemTimeZone = new NativeDateTimeFormat().resolvedOptions().timeZone;
+  const systemLocale = new NativeDateTimeFormat().resolvedOptions().locale;
   const policies = new Map();
   let installed = null;
   let signature = '';
 
   class IdentityInstallation {
     constructor(policy) {
-      this.policy = policy;
+      // Leave already-matching native APIs intact instead of wrapping every
+      // constructor and formatter merely because a category is enabled.
+      this.policy = policy = { ...policy,
+        locale: policy.locale === systemLocale ? '' : policy.locale,
+        timeZone: policy.timeZone === systemTimeZone ? '' : policy.timeZone
+      };
       this.live = true;
       this.identityRestorers = [];
       this.nativeDate = NativeDate;
@@ -53,7 +59,8 @@
     }
     descriptorMatches(current, installed) {
       return !!current && current.value === installed.value && current.get === installed.get
-        && current.set === installed.set;
+        && current.set === installed.set && current.configurable === installed.configurable
+        && current.enumerable === installed.enumerable && current.writable === installed.writable;
     }
 
     installIdentityProperty(owner, name, descriptor) {
@@ -88,20 +95,33 @@
         const languages = Object.freeze([this.policy.language]);
         values.push(
           ['language', this.policy.language],
-          ['languages', languages],
-          ['userLanguage', this.policy.language],
-          ['browserLanguage', this.policy.language],
-          ['systemLanguage', this.policy.language]
+          ['languages', languages]
         );
       }
       if (this.policy.globalPrivacyControl === true) values.push(['globalPrivacyControl', true]);
       for (const [name, value] of values) {
         const owner = this.propertyOwner(pageNavigator, name);
         const original = Object.getOwnPropertyDescriptor(owner, name);
+        let current;
+        try { current = Reflect.get(pageNavigator, name); } catch { continue; }
+        if (current === value || (Array.isArray(value) && Array.isArray(current)
+          && current.length === value.length && current.every((item, index) => item === value[index]))) continue;
+        const runtime = this;
+        const get = original?.get ? new Proxy(original.get, {
+          apply(target, receiver, args) {
+            // Native getters validate their receiver. Do not turn illegal
+            // invocations into successful reads from the page navigator.
+            const result = Reflect.apply(target, receiver, args);
+            return runtime.live && receiver === pageNavigator ? value : result;
+          }
+        }) : Object.getOwnPropertyDescriptor({ get [name]() {
+          if (this !== pageNavigator) throw new TypeError('Illegal invocation');
+          return runtime.live ? value : original?.value;
+        } }, name).get;
         this.installIdentityProperty(owner, name, {
           configurable: true,
           enumerable: Object.getOwnPropertyDescriptor(owner, name)?.enumerable ?? true,
-          get: () => this.live ? value : (original?.get ? Reflect.apply(original.get, pageNavigator, []) : original?.value)
+          get
         });
       }
     }
@@ -118,11 +138,20 @@
       const normalized = this.defaultLocaleArguments(args);
       if (!this.live || !this.identityTimeZone) return normalized;
       while (normalized.length < 2) normalized.push(undefined);
-      if (normalized[1] === undefined) normalized[1] = { timeZone: this.identityTimeZone };
-      else if (normalized[1] && typeof normalized[1] === 'object' && normalized[1].timeZone === undefined) {
-        normalized[1] = Object.create(normalized[1], { timeZone: { value: this.identityTimeZone } });
-      }
+      normalized[1] = this.timeZoneOptions(normalized[1]);
       return normalized;
+    }
+
+    timeZoneOptions(options) {
+      if (options === undefined) return { timeZone: this.identityTimeZone };
+      if (options === null || !['object', 'function'].includes(typeof options)) return options;
+      const runtime = this;
+      // An empty proxy target also permits frozen options. Preserve getter
+      // receivers and native option-read ordering instead of pre-reading them.
+      return new Proxy(Object.create(null), { get(_target, name) {
+        const value = Reflect.get(options, name, options);
+        return name === 'timeZone' && value === undefined ? runtime.identityTimeZone : value;
+      } });
     }
 
     installIntlConstructor(name, argumentTransform) {
@@ -157,20 +186,15 @@
       const original = descriptor?.value;
       if (typeof original !== 'function') return;
       const runtime = this;
-      const wrapped = function localeMethod(...args) {
+      const wrapped = new Proxy(original, { apply(target, receiver, args) {
         const normalized = runtime.defaultLocaleArguments(args, localeIndex);
         if (runtime.live && applyTimeZone && runtime.identityTimeZone) {
           const optionsIndex = localeIndex + 1;
           while (normalized.length <= optionsIndex) normalized.push(undefined);
-          if (normalized[optionsIndex] === undefined) {
-            normalized[optionsIndex] = { timeZone: runtime.identityTimeZone };
-          } else if (normalized[optionsIndex] && typeof normalized[optionsIndex] === 'object'
-            && normalized[optionsIndex].timeZone === undefined) {
-            normalized[optionsIndex] = Object.create(normalized[optionsIndex], { timeZone: { value: runtime.identityTimeZone } });
-          }
+          normalized[optionsIndex] = runtime.timeZoneOptions(normalized[optionsIndex]);
         }
-        return Reflect.apply(original, this, normalized);
-      };
+        return Reflect.apply(target, receiver, normalized);
+      } });
       this.installIdentityProperty(owner, name, { ...descriptor, value: wrapped });
     }
 
@@ -179,7 +203,7 @@
       if (!Number.isFinite(time)) return null;
       this.zonedPartsFormatter ||= new this.nativeDateTimeFormat('en-US', {
         timeZone: this.identityTimeZone,
-        year: 'numeric', month: '2-digit', day: '2-digit',
+        year: 'numeric', era: 'short', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
       });
       const parts = {};
@@ -187,7 +211,7 @@
         if (part.type !== 'literal') parts[part.type] = part.value;
       }
       return {
-        year: Number(parts.year), month: Number(parts.month), day: Number(parts.day),
+        year: parts.era === 'BC' ? 1 - Number(parts.year) : Number(parts.year), month: Number(parts.month), day: Number(parts.day),
         hour: Number(parts.hour), minute: Number(parts.minute), second: Number(parts.second)
       };
     }
@@ -216,7 +240,7 @@
         getYear: parts => parts.year - 1900,
         getMonth: parts => parts.month - 1,
         getDate: parts => parts.day,
-        getDay: parts => new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay(),
+        getDay: parts => new this.nativeDate(this.partsTimestamp(parts)).getUTCDay(),
         getHours: parts => parts.hour,
         getMinutes: parts => parts.minute,
         getSeconds: parts => parts.second
@@ -227,26 +251,29 @@
         if (typeof original !== 'function') continue;
         this.installIdentityProperty(datePrototype, name, {
           ...descriptor,
-          value: function zonedDateRead() {
-            if (!runtime.live) return Reflect.apply(original, this, []);
-            Date.prototype.getTime.call(this);
-            const parts = runtime.zonedParts(this);
+          value: new Proxy(original, { apply(target, receiver, args) {
+            if (!runtime.live) return Reflect.apply(target, receiver, args);
+            Date.prototype.getTime.call(receiver);
+            const parts = runtime.zonedParts(receiver);
             return parts ? read(parts) : NaN;
-          }
+          } })
         });
       }
       const offsetDescriptor = Object.getOwnPropertyDescriptor(datePrototype, 'getTimezoneOffset');
       this.installIdentityProperty(datePrototype, 'getTimezoneOffset', {
         ...offsetDescriptor,
-        value: function getTimezoneOffset() { return runtime.live ? runtime.zonedOffset(this) : Reflect.apply(offsetDescriptor.value, this, []); }
+        value: new Proxy(offsetDescriptor.value, { apply(target, receiver, args) {
+          return runtime.live ? runtime.zonedOffset(receiver) : Reflect.apply(target, receiver, args);
+        } })
       });
       const pad = value => String(Math.abs(value)).padStart(2, '0');
       const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const strings = {
         toDateString(parts) {
-          const weekday = weekdays[new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()];
-          return `${weekday} ${months[parts.month - 1]} ${pad(parts.day)} ${parts.year}`;
+          const weekday = weekdays[new runtime.nativeDate(runtime.partsTimestamp(parts)).getUTCDay()];
+          const year = (parts.year < 0 ? '-' : '') + String(Math.abs(parts.year)).padStart(4, '0');
+          return `${weekday} ${months[parts.month - 1]} ${pad(parts.day)} ${year}`;
         },
         toTimeString(parts, value) {
           const offset = runtime.zonedOffset(value, parts);
@@ -262,16 +289,16 @@
         if (typeof original !== 'function') continue;
         this.installIdentityProperty(datePrototype, name, {
           ...descriptor,
-          value: function zonedDateString() {
-            if (!runtime.live) return Reflect.apply(original, this, []);
-            Date.prototype.getTime.call(this);
-            const parts = runtime.zonedParts(this);
+          value: new Proxy(original, { apply(target, receiver, args) {
+            if (!runtime.live) return Reflect.apply(target, receiver, args);
+            Date.prototype.getTime.call(receiver);
+            const parts = runtime.zonedParts(receiver);
             if (!parts) return 'Invalid Date';
-            const date = strings.toDateString(parts, this);
+            const date = strings.toDateString(parts, receiver);
             if (name === 'toDateString') return date;
-            const time = strings.toTimeString(parts, this);
+            const time = strings.toTimeString(parts, receiver);
             return name === 'toTimeString' ? time : `${date} ${time}`;
-          }
+          } })
         });
       }
     }
@@ -285,7 +312,7 @@
 
     localToInstant(localTime) {
       if (!Number.isFinite(localTime)) return NaN;
-      const offsets = new Set([-36, 0, 36].map(hours => this.zonedOffset(new this.nativeDate(localTime + hours * 3_600_000))));
+      const offsets = new Set([-36, 0, 36].map(hours => this.zonedOffset(new this.nativeDate(localTime + hours * 3_600_000))).filter(Number.isFinite));
       const choices = [...offsets].map(offset => {
         const time = localTime + offset * 60_000;
         const represented = time - this.zonedOffset(new this.nativeDate(time)) * 60_000;
@@ -295,7 +322,7 @@
       if (exact.length) return Math.min(...exact.map(choice => choice.time));
       // Native Date's compatible DST disambiguation: earlier overlap; advance gaps.
       const forward = choices.filter(choice => choice.difference > 0).sort((a, b) => a.difference - b.difference);
-      return (forward[0] || choices[0]).time;
+      return (forward[0] || choices[0])?.time ?? NaN;
     }
 
     installZonedDateWrites() {
@@ -311,19 +338,19 @@
         const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
         const original = descriptor.value;
         const utcSetter = prototype[utcName];
-        this.installIdentityProperty(prototype, name, { ...descriptor, value: function (...args) {
-          if (!runtime.live) return Reflect.apply(original, this, args);
-          const time = prototype.getTime.call(this);
-          let parts = runtime.zonedParts(this);
+        this.installIdentityProperty(prototype, name, { ...descriptor, value: new Proxy(original, { apply(target, receiver, args) {
+          if (!runtime.live) return Reflect.apply(target, receiver, args);
+          const time = prototype.getTime.call(receiver);
+          let parts = runtime.zonedParts(receiver);
           if (!parts && ['setFullYear', 'setYear'].includes(name)) parts = { year: 1970, month: 1, day: 1, hour: 0, minute: 0, second: 0 };
-          const local = new runtime.nativeDate(parts ? runtime.partsTimestamp(parts, Number.isFinite(time) ? this.getUTCMilliseconds() : 0) : NaN);
+          const local = new runtime.nativeDate(parts ? runtime.partsTimestamp(parts, Number.isFinite(time) ? receiver.getUTCMilliseconds() : 0) : NaN);
           if (name === 'setYear') {
-            const year = Number(args[0]);
+            const year = +args[0];
             args = [year >= 0 && year <= 99 ? Math.trunc(year) + 1900 : year];
           }
           Reflect.apply(utcSetter, local, args);
-          return Reflect.apply(setTime, this, [runtime.localToInstant(local.getTime())]);
-        } });
+          return Reflect.apply(setTime, receiver, [runtime.localToInstant(local.getTime())]);
+        } }) });
       }
     }
 
@@ -346,12 +373,12 @@
           let normalized = args;
           if (runtime.live && args.length >= 2) {
             const values = [
-              Number(args[0]), Number(args[1]),
-              args.length > 2 ? Number(args[2]) : 1,
-              args.length > 3 ? Number(args[3]) : 0,
-              args.length > 4 ? Number(args[4]) : 0,
-              args.length > 5 ? Number(args[5]) : 0,
-              args.length > 6 ? Number(args[6]) : 0
+              +args[0], +args[1],
+              args.length > 2 ? +args[2] : 1,
+              args.length > 3 ? +args[3] : 0,
+              args.length > 4 ? +args[4] : 0,
+              args.length > 5 ? +args[5] : 0,
+              args.length > 6 ? +args[6] : 0
             ];
             const representedAsUtc = Original.UTC(...values);
             const instant = runtime.localToInstant(representedAsUtc);
@@ -364,11 +391,14 @@
         }
       });
       const parseDescriptor = Object.getOwnPropertyDescriptor(Original, 'parse');
-      this.installIdentityProperty(Original, 'parse', { ...parseDescriptor, value(value) {
+      this.installIdentityProperty(Original, 'parse', { ...parseDescriptor, value: new Proxy(parseDescriptor.value, { apply(target, receiver, args) {
+        if (!runtime.live) return Reflect.apply(target, receiver, args);
+        const value = args[0];
+        if (typeof value === 'symbol') return Reflect.apply(target, receiver, args);
         const text = String(value);
-        const localTime = runtime.live ? runtime.localStringTime(text) : null;
-        return localTime === null ? Reflect.apply(parseDescriptor.value, Original, [text]) : localTime;
-      } });
+        const localTime = runtime.localStringTime(text);
+        return localTime === null ? Reflect.apply(target, receiver, [text]) : localTime;
+      } }) });
       const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'Date') || {
         configurable: true, enumerable: false, writable: true
       };

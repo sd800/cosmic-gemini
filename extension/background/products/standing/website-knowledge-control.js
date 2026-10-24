@@ -13,9 +13,17 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
   const ruleIds = start => Array.from({ length: 64 }, (_, index) => start + index);
   const requestRules = createRequestIdentityRules(platform, {
     regularIds: ruleIds(910_001), incognitoIds: ruleIds(910_101), priority: 10,
-    conditions: [{ regexFilter: '^https?://', resourceTypes: [...ALL_REQUEST_RESOURCE_TYPES] }]
+    conditions: [{ regexFilter: '^https?://', resourceTypes: ALL_REQUEST_RESOURCE_TYPES.filter(type => type !== 'main_frame') }]
+  });
+  // Prepare the next navigation at save time. A loading event is too late to
+  // change the request that has already started, while current page requests
+  // must keep their retained profile until that new document loads.
+  const navigationRules = createRequestIdentityRules(platform, {
+    regularIds: [910_065], incognitoIds: [910_165], priority: 10,
+    conditions: [{ regexFilter: '^https?://', resourceTypes: ['main_frame'] }]
   });
   let appliedProfiles;
+  const appliedDocuments = new Map();
   let appliedQueue = Promise.resolve();
 
   const serializeApplied = task => {
@@ -28,7 +36,9 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     if (feature?.enabled !== true) return null;
     const language = feature.languages.enabled === true ? feature.languages.value : '';
     const globalPrivacyControl = feature.globalPrivacyControl?.enabled === true;
-    return language || globalPrivacyControl ? { language, globalPrivacyControl } : null;
+    const timeZone = feature.timeZone?.enabled === true ? feature.timeZone.value : '';
+    return language || globalPrivacyControl || timeZone
+      ? { language, globalPrivacyControl, ...(timeZone ? { timeZone } : {}) } : null;
   };
   const isWebTab = tab => /^https?:/i.test(String(tab?.pendingUrl || tab?.url || ''));
   const contextTab = tab => Number.isInteger(tab?.id) && tab.id >= 0 && Boolean(tab.incognito) === incognito;
@@ -36,7 +46,8 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
   async function persistApplied() {
     if (!globalThis.chrome?.storage?.session) return;
     const tabs = Object.fromEntries([...appliedProfiles].map(([tabId, value]) => [tabId, value]));
-    try { await chrome.storage.session.set({ [sessionKey]: { version: 2, tabs } }); } catch {}
+    try { await chrome.storage.session.set({ [sessionKey]: { version: 2, tabs,
+      documents: Object.fromEntries(appliedDocuments) } }); } catch {}
   }
 
   async function loadApplied(settings) {
@@ -53,8 +64,17 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
         if (!rawValue || typeof rawValue !== 'object') continue;
         let language = '';
         try { if (rawValue.language) language = validateWebsiteKnowledgeValue('languages', rawValue.language); } catch { continue; }
+        let timeZone = '';
+        try { if (rawValue.timeZone) timeZone = validateWebsiteKnowledgeValue('timeZone', rawValue.timeZone); } catch { continue; }
         const globalPrivacyControl = rawValue.globalPrivacyControl === true;
-        if (language || globalPrivacyControl) appliedProfiles.set(tabId, { language, globalPrivacyControl });
+        if (language || globalPrivacyControl || timeZone) appliedProfiles.set(tabId,
+          { language, globalPrivacyControl, ...(timeZone ? { timeZone } : {}) });
+      }
+      for (const [rawId, documentId] of Object.entries(stored.documents || {})) {
+        const tabId = Number(rawId);
+        if (openIds.has(tabId) && typeof documentId === 'string' && documentId.length <= 100) {
+          appliedDocuments.set(tabId, documentId);
+        }
       }
     }
     const current = selectedProfile(settings);
@@ -66,15 +86,24 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
   }
 
   async function syncApplied() {
+    await syncNavigation();
     const groups = new Map();
     for (const [tabId, profile] of appliedProfiles) {
-      if (!profile) continue;
-      const key = JSON.stringify(profile);
-      if (!groups.has(key)) groups.set(key, { ...profile, tabIds: [] });
+      if (!profile || (!profile.language && !profile.globalPrivacyControl)) continue;
+      const { language, globalPrivacyControl } = profile;
+      const key = JSON.stringify({ language, globalPrivacyControl });
+      if (!groups.has(key)) groups.set(key, { language, globalPrivacyControl, tabIds: [] });
       groups.get(key).tabIds.push(tabId);
     }
     const targets = [...groups.values()];
     return requestRules.sync(targets.length > 0, { targets });
+  }
+
+  async function syncNavigation() {
+    const profile = selectedProfile(await platform.readSettings());
+    if (!profile?.language && !profile?.globalPrivacyControl) return navigationRules.sync(false);
+    const tabIds = (await chrome.tabs.query({})).filter(contextTab).map(tab => tab.id);
+    return navigationRules.sync(Boolean(profile), { targets: profile ? [{ ...profile, tabIds }] : [] });
   }
 
   const initializeApplied = () => serializeApplied(async () => {
@@ -83,7 +112,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     return syncApplied();
   });
 
-  const applyCurrentToTab = (tabId, tab) => serializeApplied(async () => {
+  const applyCurrentToTab = (tabId, tab, documentId = '') => serializeApplied(async () => {
     if (!contextTab({ id: tabId, incognito: tab?.incognito })) return false;
     const settings = await platform.readSettings();
     await loadApplied(settings);
@@ -92,12 +121,30 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     const liveTab = chrome.tabs.get ? await chrome.tabs.get(tabId).catch(() => null) : tab;
     if (!liveTab || !contextTab(liveTab)) {
       appliedProfiles.delete(tabId);
+      appliedDocuments.delete(tabId);
       await persistApplied();
       return syncApplied();
     }
+    if (documentId && appliedDocuments.get(tabId) === documentId) return true;
+    if (!documentId && appliedDocuments.has(tabId)) return syncNavigation();
     const current = selectedProfile(settings);
+    if (!current && !appliedProfiles.get(tabId)) {
+      // Remember an inactive document without executing any page inspection.
+      // Enabling later must still wait for a genuinely new document.
+      if (documentId) {
+        appliedDocuments.set(tabId, documentId);
+        await persistApplied();
+      }
+      return true;
+    }
+    if (documentId && chrome.scripting?.executeScript) {
+      const results = await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] },
+        world: 'ISOLATED', injectImmediately: true, func: () => true });
+      if (results[0]?.documentId !== documentId) return false;
+    }
     if (current && isWebTab(liveTab)) appliedProfiles.set(tabId, current);
     else appliedProfiles.set(tabId, null);
+    if (documentId) appliedDocuments.set(tabId, documentId);
     await persistApplied();
     return syncApplied();
   });
@@ -105,6 +152,7 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
   const removeTab = tabId => serializeApplied(async () => {
     if (!appliedProfiles) return false;
     appliedProfiles.delete(tabId);
+    appliedDocuments.delete(tabId);
     await persistApplied();
     return syncApplied();
   });
@@ -114,9 +162,32 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
     runtime: 'content/website-knowledge-control/website-knowledge-control-runtime.js',
     runtimeDependencies: ['content/shared/browser-identity.js'],
     awaitConfiguration: true,
-    state: websiteKnowledgeControlState,
+    async state(settings, url, tabId) {
+      const state = websiteKnowledgeControlState(settings, url);
+      if (!Number.isInteger(tabId)) return state;
+      const profile = await serializeApplied(async () => (await loadApplied(settings)).get(tabId));
+      // Newly created child frames use the same retained policy as their tab,
+      // rather than mixing current Settings with the tab's older request headers.
+      return { ...state, enabled: !!profile, active: state.supported && !!profile,
+        languages: { ...state.languages, enabled: !!profile?.language, ...(profile?.language ? { value: profile.language } : {}) },
+        timeZone: { ...state.timeZone, enabled: !!profile?.timeZone, ...(profile?.timeZone ? { value: profile.timeZone } : {}) },
+        globalPrivacyControl: { enabled: profile?.globalPrivacyControl === true } };
+    },
     async sync(context, settings) {
-      const state = product.state(settings, context.frameUrl || context.topUrl);
+      if (Number.isInteger(context.tabId) && context.documentId) {
+        let topDocumentId = context.frameId === 0 ? context.documentId : '';
+        if (context.frameId !== 0 && chrome.scripting?.executeScript) {
+          const retained = await serializeApplied(async () => (await loadApplied(settings)).get(context.tabId));
+          if (selectedProfile(settings) || retained) {
+            const results = await chrome.scripting.executeScript({ target: { tabId: context.tabId, frameIds: [0] },
+              world: 'ISOLATED', injectImmediately: true, func: () => true });
+            topDocumentId = results[0]?.documentId || '';
+          }
+        }
+        if (topDocumentId) await applyCurrentToTab(context.tabId,
+          { id: context.tabId, incognito }, topDocumentId);
+      }
+      const state = await product.state(settings, context.frameUrl || context.topUrl, context.tabId);
       await host.sync(product, context, state.active);
       return state.active;
     },
@@ -139,12 +210,16 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
       })), false);
       // The current document keeps the values it received when it loaded. The
       // saved preference becomes authoritative for each tab on its next load.
+      // Preparing only main-frame rules does not mutate that document's profile.
+      await serializeApplied(() => syncNavigation()).catch(() => {});
       return settings.websiteKnowledgeControl;
     },
     initialize: initializeApplied,
     handleTabCreated(tab) { return applyCurrentToTab(tab?.id, tab); },
     handleTabUpdated(tabId, change, tab) {
-      if (change.url || change.status === 'loading') return applyCurrentToTab(tabId, tab);
+      // Tab loading also fires for child frames. Only a confirmed top-document
+      // ID from Central may adopt a new page profile; URL events never do so.
+      if (change.status === 'loading') return serializeApplied(() => syncNavigation());
     },
     handleTabRemoved: removeTab,
     handleStorageChanged() {},
@@ -152,7 +227,9 @@ export function createWebsiteKnowledgeControlProduct(host, platform) {
       // A known inactive tab must remain inactive after worker restart, even
       // if a different preference is saved before that tab next navigates.
       appliedProfiles = new Map((await chrome.tabs.query({})).filter(contextTab).map(tab => [tab.id, null]));
+      appliedDocuments.clear();
       await persistApplied();
+      await navigationRules.sync(false);
       return requestRules.sync(false);
     })
   });

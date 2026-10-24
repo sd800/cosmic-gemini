@@ -236,3 +236,10 @@ For slider availability changes alone, run the browser script with `PAGE_DISPLAY
 ## Native Scroll anchor navigation
 
 Run `node --test test/native-scroll-runtime.test.mjs` for wheel interception, trusted-click gesture handoff, synthetic-click rejection, authored smooth scrolling, and cleanup. Run `scripts/test-native-scroll-anchors-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` pointing to the local browser test tools. Its isolated authored fixture checks Standard and Enhanced mode, native fragment navigation, scripted anchor scrolling immediately after a protected wheel, preserved scroll margins, nested smooth CSS, and complete hook restoration. It makes no requests to public sites; compact reusable measurements stay in ignored `test-dist/native-scroll/`.
+
+
+## Browser information compatibility
+
+Run `node --test test/website-knowledge-control.test.mjs test/chinese-response-claude-runtime.test.mjs test/operations-products.test.mjs` for category isolation, unchanged unrelated browser signals, native getter/method contracts, default/explicit formatting, matching-native no-ops, frozen/accessor option objects, Date coercion and invalid dates, retained references, descriptor ownership, policy precedence, context-scoped rules, next-navigation headers, same-document history, confirmed top-document handoff, iframe loading notifications, and retained child-frame profiles.
+
+Run `scripts/test-browser-identity-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` pointing to the local browser test tools. It uses a disposable browser profile and local HTTP server to compare actual main-frame/subresource request headers with JavaScript-visible preferences, test GPC/language/time-zone isolation and native contracts, and verify retained SPA/child-frame behavior and dedicated-policy compatibility. No personal browser, account, or third-party access challenge is used. Compact successful results and reuse instructions stay in ignored `test-dist/website-knowledge-control/`.

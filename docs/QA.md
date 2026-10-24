@@ -231,3 +231,8 @@ Run the Page Display cases in `test/config.test.mjs`, `test/operations-products.
 Run `scripts/test-page-display-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` pointing to the local browser test tools. It exercises Settings list editing, popup site toggles, live rendering across tabs and subdomains, reload/navigation persistence, global-mode restoration, and both interface languages and appearances in a temporary profile. Reusable artifacts and their README live in ignored `test-dist/page-display/`.
 
 For slider availability changes alone, run the browser script with `PAGE_DISPLAY_QA=slider` to check immediate toggles, reload, master disable/restore, and retained strength without rerunning website-rendering scenarios.
+
+
+## Native Scroll anchor navigation
+
+Run `node --test test/native-scroll-runtime.test.mjs` for wheel interception, trusted-click gesture handoff, synthetic-click rejection, authored smooth scrolling, and cleanup. Run `scripts/test-native-scroll-anchors-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` pointing to the local browser test tools. Its isolated authored fixture checks Standard and Enhanced mode, native fragment navigation, scripted anchor scrolling immediately after a protected wheel, preserved scroll margins, nested smooth CSS, and complete hook restoration. It makes no requests to public sites; compact reusable measurements stay in ignored `test-dist/native-scroll/`.

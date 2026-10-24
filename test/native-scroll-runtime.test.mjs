@@ -481,3 +481,35 @@ test('Native Scroll Enhanced leaves the Xiaohongshu page intact', async () => {
   assert.equal(context.document.body.style.getPropertyValue('overflow-y'), '');
   runtime.onDispose({ detail: runtime.token });
 });
+
+
+test('Native Scroll preserves authored smooth anchors and retires a preceding wheel guard on trusted clicks', async () => {
+  const source=await readFile(new URL('../extension/content/native-scroll/runtime.js',import.meta.url),'utf8');
+  for(const mode of ['standard','enhanced']){
+    const css=await readFile(new URL(`../extension/content/native-scroll/native-scroll-${mode}.css`,import.meta.url),'utf8');
+    assert.doesNotMatch(css,/(?:^|\s)scroll-behavior\s*:/,'authored browser smooth scrolling must not be overridden');
+    const context=makeContext(),calls=[];
+    context.window.scrollTo=(...args)=>calls.push(args);
+    context.document.documentElement.computed={scrollBehavior:'smooth'};
+    vm.runInContext(source,context);
+    const runtime=context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+    runtime.onConfigure({detail:JSON.stringify({token:runtime.token,config:{active:true,mode}})});
+    try{
+      assert.equal(runtime.reported,false,'smooth CSS alone is not a scroll takeover');
+      const options={top:800,behavior:'smooth'};
+      context.window.scrollTo(options);
+      assert.equal(calls[0][0],options,'explicit smooth options reach the captured native API unchanged');
+      wheelEvent(context).preventDefault();
+      context.window.scrollTo(options);
+      assert.equal(calls.length,1,'queued wheel takeover remains blocked');
+      context.window.dispatchEvent(Object.assign(new FakeEvent('click'),{isTrusted:false}));
+      context.window.scrollTo(options);
+      assert.equal(calls.length,1,'synthetic clicks cannot retire the gesture guard');
+      context.window.dispatchEvent(Object.assign(new FakeEvent('click'),{isTrusted:true}));
+      context.window.scrollTo(options);
+      assert.equal(calls.length,2,'a real link activation is independent of the preceding wheel');
+      assert.equal(runtime.shouldBlockScriptedScroll(new FakeElement('section'),'scrollIntoView',[options]),false);
+    }finally{runtime.onDispose({detail:runtime.token});}
+    assert.equal(context.window.listeners.get('click').length,0,'the trusted-click listener is released');
+  }
+});

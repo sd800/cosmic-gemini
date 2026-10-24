@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.24.1 — 2026-10-24
+
+- Preserve smooth in-page anchor navigation in both Native Scroll modes, including clicks immediately after scrolling.
+
 ## 26.10.23.2 — 2026-10-23
 
 - Keep the Reduction slider available when either Reduce White Point or website-specific control is enabled, while respecting the Page Display master switch.

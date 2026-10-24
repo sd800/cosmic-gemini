@@ -54,6 +54,7 @@
       this.patchedRemoveEventListener = null;
       this.listenerMethodsPatched = false;
       this.onWheel = this.onWheel.bind(this);
+      this.onClick = this.onClick.bind(this);
       this.onTouchStart = this.onTouchStart.bind(this);
       this.onTouchMove = this.onTouchMove.bind(this);
       this.onMutation = this.onMutation.bind(this);
@@ -114,6 +115,7 @@
       }
       this.originalAddEventListener.call(window, 'wheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'mousewheel', this.onWheel, { capture: true, passive: true });
+      this.originalAddEventListener.call(window, 'click', this.onClick, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'touchstart', this.onTouchStart, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'touchmove', this.onTouchMove, { capture: true, passive: true });
       this.observeDocument();
@@ -128,6 +130,7 @@
       this.gestureUntil = 0;
       this.originalRemoveEventListener.call(window, 'wheel', this.onWheel, true);
       this.originalRemoveEventListener.call(window, 'mousewheel', this.onWheel, true);
+      this.originalRemoveEventListener.call(window, 'click', this.onClick, true);
       this.originalRemoveEventListener.call(window, 'touchstart', this.onTouchStart, true);
       this.originalRemoveEventListener.call(window, 'touchmove', this.onTouchMove, true);
       this.observer?.disconnect();
@@ -196,7 +199,7 @@
       const applyEnhancedPageStyles = this.mode === 'enhanced';
       for (const root of [document.documentElement, document.body].filter(Boolean)) {
         const computed = getComputedStyle(root);
-        if (computed.scrollBehavior === 'smooth' || (computed.scrollSnapType && computed.scrollSnapType !== 'none')) {
+        if (computed.scrollSnapType && computed.scrollSnapType !== 'none') {
           this.reportSuppression();
         }
         if (applyEnhancedPageStyles && ['hidden', 'clip'].includes(computed.overflowY)) this.reportSuppression();
@@ -409,6 +412,12 @@
         if (delta > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) return true;
       }
       return false;
+    }
+
+    onClick(event) {
+      // A deliberate click starts a new action; a preceding wheel guard must
+      // not suppress the link's own smooth scroll or fragment navigation.
+      if (this.active && event.isTrusted) this.gestureUntil = 0;
     }
 
     beginGesture() {

@@ -4,7 +4,7 @@ Cosmic Gemini protects browsing and local previews through isolated rendering, a
 
 ## Privileged extension surfaces
 
-Central validates Chrome-supplied message senders before dispatch. UI commands and long-lived UI ports are restricted to the packaged popup, Settings pages, and supported workspace hosts. Opaque renderers, public assets, offscreen processors, unknown paths, and foreign origins do not receive UI authority. Products retain their own checks for the current tab, frame, document, context, and session; passing the entry check does not authorize every product action.
+Central validates Chrome-supplied message senders before dispatch. UI commands and long-lived UI ports are restricted to the packaged popup, Settings pages, and supported workspace hosts. Opaque renderers, public assets, offscreen processors, unknown paths, foreign origins, child frames, and inactive documents do not receive UI authority. Products retain their own checks for the current tab, frame, document, context, and session; passing the entry check does not authorize every product action.
 
 Page events use a separate fixed message allowlist and require an HTTP/HTTPS tab sender. A page-visible marker or event name is not an authentication secret. MAIN-world and DOM-derived values remain untrusted even when a content script forwards them. Code injection uses packaged scripts or fixed functions with data arguments, never source text constructed from website input.
 
@@ -14,7 +14,7 @@ The extension-page CSP loads only packaged scripts and forbids objects, base-URL
 
 Document and PDF display run in opaque manifest sandboxes without extension APIs or same-origin access to the host. A sandbox accepts its private MessagePort only from its immediate parent with the exact owning extension origin, derived from its packaged module URL. Initialization is single-use and disabled after disposal. PDF parser startup follows this authenticated handshake.
 
-Sandbox CSP blocks remote resources, nested frames, embedded objects, form navigation, and evaluated scripts. Only packaged controllers execute. Office/mail markup is reconstructed using tag, attribute, style, image, and namespace allowlists before insertion. Source scripts, event handlers, arbitrary CSS, active objects, and remote images are excluded. PDF scripting, XFA, editing, and active annotation layers are not enabled.
+Sandbox CSP blocks remote resources, nested frames, embedded objects, form navigation, and evaluated scripts. Only packaged controllers execute. Office/mail markup is reconstructed using tag, attribute, style, image, and namespace allowlists before insertion. Source scripts, event handlers, arbitrary CSS, active objects, and remote images are excluded. Embedded raster images are inspected before browser decoding, including byte size, dimensions, animated-frame budgets, and cumulative pixel cost; repeated identical sources share the same budget entry. PDF scripting, XFA, editing, and active annotation layers are not enabled.
 
 ZIP directories, actual decompressed sizes, XML declarations, document sizes, nesting, output, images, and parser time have explicit limits. Traversal paths, duplicate ZIP names, external XML entities, and unsupported active content are rejected or omitted. Worker disposal and stale-response checks prevent retired work from replacing a current view. Offscreen processing accepts only the owning Central worker after product authorization.
 

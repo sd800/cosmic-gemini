@@ -1,6 +1,7 @@
 import { externalLinkTarget } from '../../shared/external-links-capture/target.js';
 import { acceptedStyles, formatStylesheet, DOCUMENT_DARK_TEXT } from './format-styles.js';
 import { wrapEmail, emailStyles } from './email-view.js';
+import { rasterBudget } from './raster-image.js';
 const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd ruby rt rp'.split(' '));
 const DROP = new Set('script style iframe frame object embed form input button textarea select meta link base svg'.split(' '));
 const MATH_NS = 'http://www.w3.org/1998/Math/MathML';
@@ -53,6 +54,7 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
   const source = parser.parseFromString(html, 'text/html');
   const output = document.implementation.createHTMLDocument('');
   let count = 0;
+  const acceptImage = rasterBudget();
   const styleCount = acceptedStyles(formatting).length;
   const mail = formatting?.kind === 'eml';
   const mailStyles = mail ? acceptedStyles(formatting) : [];
@@ -101,7 +103,7 @@ export function safeDocumentHtml(html, formatting, parser = new DOMParser()) {
       }
       if (node.localName === 'img') {
         const src = node.getAttribute('src') || '';
-        if (!/^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(src)) return;
+        if (!acceptImage(src)) return;
         next.setAttribute('src', src); next.setAttribute('alt', (node.getAttribute('alt') || '').slice(0, 2000));
       }
       const language = node.getAttribute('lang');

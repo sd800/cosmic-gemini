@@ -1089,7 +1089,7 @@ THE SOFTWARE.
 
 
 
-postal-mime@3.0.0 — MIT-0
+postal-mime@4.0.8 — MIT-0
 
 Copyright (c) 2021-2025 Andris Reinman
 

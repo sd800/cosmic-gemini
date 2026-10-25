@@ -32,6 +32,9 @@ function isUiSender(sender, extensionBase) {
     const origin = `chrome-extension://${base.host}`;
     return base.protocol === 'chrome-extension:' && url.protocol === base.protocol && url.host === base.host &&
       (!sender.id || sender.id === base.host) && (sender.origin === undefined || sender.origin === origin) &&
+      (sender.frameId === undefined || sender.frameId === 0) &&
+      (sender.documentLifecycle === undefined || sender.documentLifecycle === 'active') &&
+      !url.username && !url.password &&
       UI_PATHS.has(url.pathname);
   } catch { return false; }
 }
@@ -44,7 +47,8 @@ function isWebPageSender(sender) {
 }
 
 export function validateMessageSource(message, sender, extensionBase) {
-  if (!message || typeof message !== 'object' || Array.isArray(message) || typeof message.type !== 'string') {
+  if (!message || typeof message !== 'object' || Array.isArray(message) || typeof message.type !== 'string'
+    || message.type.length > 128) {
     throw new Error('Invalid extension message.');
   }
   const type = message.type;
@@ -54,11 +58,16 @@ export function validateMessageSource(message, sender, extensionBase) {
     return true;
   }
   if (PAGE_MESSAGE_TYPES.has(type)) {
-    if (!isWebPageSender(sender)) throw new Error('Page events are available only to webpage runtimes.');
+    if (!isWebPageSender(sender) || sender.id && sender.id !== new URL(extensionBase).host
+      || sender.documentLifecycle !== undefined && sender.documentLifecycle !== 'active') {
+      throw new Error('Page events are available only to webpage runtimes.');
+    }
     return true;
   }
   if (OFFSCREEN_MESSAGE_TYPES.has(type)) {
-    if (senderUrl !== extensionBase + 'offscreen/video-download.html') {
+    if (senderUrl !== extensionBase + 'offscreen/video-download.html'
+      || sender.id && sender.id !== new URL(extensionBase).host
+      || sender.origin !== undefined && sender.origin !== `chrome-extension://${new URL(extensionBase).host}`) {
       throw new Error('Media progress is available only to the local processor.');
     }
     return true;

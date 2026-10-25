@@ -1164,6 +1164,15 @@ test('OpenDocument preserves headings, table spans and slide navigation, bounds 
   const encrypted=odfEntries('odt');encrypted['META-INF/manifest.xml']=encrypted['META-INF/manifest.xml'].replace('</manifest:manifest>','<manifest:encryption-data/></manifest:manifest>');await assert.rejects(renderer.convertOpenDocument(storedZip(encrypted),'odt'));
   const entity=odfEntries('odt');entity['content.xml']='<!DOCTYPE a [<!ENTITY e SYSTEM "https://tracker.invalid">]>'+entity['content.xml'];await assert.rejects(renderer.convertOpenDocument(storedZip(entity),'odt'));
 });
+test('EML joins encoded header words safely and rejects excessive nested header work',async()=>{
+  await extraRenderers();
+  const subject='=?utf-8?B?QUJD?= '.repeat(128).trim();
+  const mail=await renderer.convertEmail(new TextEncoder().encode('Subject: '+subject+'\r\nContent-Type: text/plain\r\n\r\nBody').buffer,{});
+  assert.equal(mail.formatting.email.subject,'ABC'.repeat(128));
+  const oversized='X-Header: value\r\n'.repeat(1100);
+  await assert.rejects(renderer.convertEmail(new TextEncoder().encode('Subject: Bounded\r\n'+oversized+'\r\nBody').buffer,{}));
+});
+
 test('EML decodes MIME headers and multipart bodies while keeping attachments inert',async()=>{
   await extraRenderers();const {emailSample}=await import('./fixtures/additional-document-formats.mjs');
   const result=await renderer.convertEmail(new TextEncoder().encode(emailSample).buffer,{from:'发件人',attachments:'附件'});

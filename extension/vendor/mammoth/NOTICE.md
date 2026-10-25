@@ -14,7 +14,9 @@ Package integrity (SHA-512/base64):
 `kkv2MrSFk3f/w3uLsz4FG/91LdWp2j+qmp7AjG2v7w2xgX5YDxiaFlaWourXrXtyUR6335+9guyIlPBnhHLvKw==`
 
 Browser bundle SHA-256:
-`5cbb4c6c7062138fb5d53306f18456de177b68271d20a7c64742fbf9e1072c5d`
+`ef3ca92afc2ff605d17aeebed428305c6d46273253172a986c82eee1874c4517`
+
+PostalMime 4.0.8 is bundled for email parsing. A version-checked build hook expands logical assignment into equivalent syntax for the dependency scanner.
 
 Build inputs: docs/document-renderer-build/package-lock.json.
 Build command: node scripts/build-document-renderer.mjs <build-directory>.

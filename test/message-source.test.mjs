@@ -71,10 +71,26 @@ test('central excludes opaque sandboxes, public assets and unknown paths from UI
       'assets/ad-marshal-empty.html','offscreen/video-download.html','unknown.html'].map(path => ({url:extensionBase+path})),
     {url:extensionBase+'popup/index.html',origin:'null'},
     {url:extensionBase+'popup/index.html',id:'other-extension'},
+    {url:extensionBase+'popup/index.html',frameId:3},
+    {url:extensionBase+'settings/all-settings.html',documentLifecycle:'pending_deletion'},
+    {url:extensionBase+'workspaces/document-preview/document-preview.html',documentLifecycle:'cached'},
     {url:'chrome-extension://cosmic-gemini.evil.test/popup/index.html'},
     {url:'https://cosmic-gemini/popup/index.html'}
   ]) {
     assert.throws(()=>validateMessageSource({type:'UI_RESET_ALL_SETTINGS'},sender,extensionBase),/trusted extension pages/i);
     assert.equal(validatePortSource({sender},extensionBase),false);
+  }
+});
+
+test('central rejects oversized command names and foreign or inactive page/processor senders', () => {
+  assert.throws(()=>validateMessageSource({type:'UI_'+ 'A'.repeat(129)},
+    {url:extensionBase+'popup/index.html'},extensionBase),/Invalid extension message/);
+  for(const sender of [{url:'https://example.test',tab:{id:1},id:'foreign'},
+    {url:'https://example.test',tab:{id:1},documentLifecycle:'cached'}]){
+    assert.throws(()=>validateMessageSource({type:'CG_PAGE_STATE'},sender,extensionBase),/webpage runtimes/);
+  }
+  for(const sender of [{url:extensionBase+'offscreen/video-download.html',id:'foreign'},
+    {url:extensionBase+'offscreen/video-download.html',origin:'null'}]){
+    assert.throws(()=>validateMessageSource({type:'CG_VIDEO_DOWNLOAD_PROGRESS'},sender,extensionBase),/local processor/);
   }
 });

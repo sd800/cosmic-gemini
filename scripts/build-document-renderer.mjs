@@ -15,6 +15,11 @@ const bundle = browserify(new URL('./document-renderer/entry.cjs', import.meta.u
 // Small, version-checked hooks carry formatting beside Mammoth's existing content
 // model. Upstream files on disk are untouched; a changed hook fails the build.
 const hooks = new Map([
+  // Browserify's dependency scanner predates logical assignment. Preserve the
+  // pinned parser's behavior while using syntax supported by that scanner.
+  [require.resolve('postal-mime').replace(/postal-mime\.js$/, 'chunk-writer.js'), [
+    ['this.buffer ??= new Uint8Array(this.maxChunkSize);', 'this.buffer = this.buffer ?? new Uint8Array(this.maxChunkSize);', 2]
+  ]],
   [require.resolve('mammoth/lib/docx/docx-reader'), [
     ['docxFile: docxFile,\n        files: files', 'docxFile: docxFile,\n        cgFormatting: options.cgFormatting,\n        files: files'],
     ['files: options.files', 'files: options.files,\n            cgFormatting: options.cgFormatting && options.cgFormatting.forPart(filename)']
@@ -38,7 +43,7 @@ bundle.transform(file => {
   file = realpathSync(file);
   let source='';
   return new Transform({transform(chunk,_encoding,done){source+=chunk;done();},flush(done){
-    try {for(const [from,to] of hooks.get(file)||[]) {if(source.split(from).length!==2)throw Error('Renderer hook changed: '+file);source=source.replace(from,to);appliedHooks.add(file);}this.push(source);done();}catch(error){done(error);}
+    try {for(const [from,to,count=1] of hooks.get(file)||[]) {if(source.split(from).length!==count+1)throw Error('Renderer hook changed: '+file);source=source.split(from).join(to);appliedHooks.add(file);}this.push(source);done();}catch(error){done(error);}
   }});
 },{global:true});
 const files = new Set();

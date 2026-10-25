@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.25.1 — 2026-10-25
+
+- Improve security validation, document processing, and resource safeguards.
+
 ## 26.10.24.2 — 2026-10-24
 
 - Improve Website Knowledge Control compatibility and browser-information consistency, keeping adjustments limited to selected categories.

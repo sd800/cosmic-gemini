@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.25.4 — 2026-10-25
+
+- Improve PDF dark-paper recognition and scrolling with bounded directional pre-rendering.
+
 ## 26.10.25.3 — 2026-10-25
 
 - Add an extensible Tools page to the control window, with session-only Translate Override and Stay on the page controls.

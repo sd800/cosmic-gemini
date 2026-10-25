@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.10.25.3');
+assert.equal(manifest.version, '26.10.25.4');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -140,7 +140,7 @@ for (const key of localizedKeys) {
 const firstPartyJoined = sourceEntries.filter(([path]) => !path.includes(join(extension, 'vendor')))
   .map(([, value]) => value).join('\n');
 const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join(extension, 'vendor'))
-  && /fetch\s*\(|XMLHttpRequest|WebSocket\s*\(/.test(value));
+  && /\bfetch\s*\(|XMLHttpRequest|WebSocket\s*\(/.test(value));
 assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
   join(extension, 'background/products/customs/video-download.js'),
   join(extension, 'background/products/standing/bili-daily-login.js'),

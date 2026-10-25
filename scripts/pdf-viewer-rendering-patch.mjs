@@ -5,7 +5,9 @@ export function patchPdfViewer(source) {
     if (source.split(before).length - 1 !== count) throw Error('PDF viewer rendering patch no longer matches: ' + before);
     source = source.replaceAll(before, after);
   }
-  replace('const DEFAULT_CACHE_SIZE = 10;', 'const DEFAULT_CACHE_SIZE = 4;');
+  replace('const DEFAULT_CACHE_SIZE = 10;', 'const DEFAULT_CACHE_SIZE = 8;');
+  replace('this.#scaleTimeoutId !== null || this.#scrollTimeoutId !== null && visiblePages.views.some(page => page.detailView?.renderingCancelled)',
+    'this.#scaleTimeoutId !== null || this.#scrollTimeoutId !== null');
   replace('    this.maxCanvasPixels = options.maxCanvasPixels',
     '    this.getRenderPixelRatio = options.getRenderPixelRatio || (() => OutputScale.pixelRatio);\n    this.maxCanvasPixels = options.maxCanvasPixels', 2);
   replace('    this.maxCanvasDim = options.maxCanvasDim',

@@ -11,23 +11,70 @@ function paperShade(data) {
 }
 
 // Cheap rejection gate only. Its result can NEVER exempt a page by itself.
+function hasDarkImageEdges({ data, width, height }) {
+  let dark = 0;
+  for (let y = 0, at = 0; y < height; y++) for (let x = 0; x < width; x++, at += 4) {
+    const lum = .2126 * data[at] + .7152 * data[at + 1] + .0722 * data[at + 2];
+    const low = data[at + 3] === 255 && lum <= 80 && Math.max(data[at], data[at + 1], data[at + 2]) <= 128;
+    if (low) dark++;
+    else if (x === 0 || y === 0 || x === width - 1 || y === height - 1) return false;
+  }
+  return dark / (width * height) >= .35;
+}
+
 function hasDarkPaperBase({ data, width, height }) {
   const shade = paperShade(data);
-  if (shade === null) return false;
+  // A colored/gradient candidate still needs separate full-page source evidence.
+  if (shade === null) return hasDarkImageEdges({ data, width, height });
   let dark = 0;
   for (let y = 0, i = 0; y < height; y++) for (let x = 0; x < width; x++, i += 4) {
     const hi = Math.max(data[i], data[i + 1], data[i + 2]), lo = Math.min(data[i], data[i + 1], data[i + 2]);
     const black = data[i + 3] === 255 && hi - lo <= 8 && Math.abs((hi + lo) / 2 - shade) <= 10;
     if (black) dark++;
-    else if (x === 0 || y === 0 || x === width - 1 || y === height - 1) return false;
+    else if (x === 0 || y === 0 || x === width - 1 || y === height - 1) return hasDarkImageEdges({ data, width, height });
   }
-  return dark / (width * height) >= .15;
+  return dark / (width * height) >= .15 || hasDarkImageEdges({ data, width, height });
+}
+
+function matchesImagePaper({ data, width, height }, strength, model) {
+  if (model?.kind !== 'image' || model.width !== 32 || model.height !== 32 ||
+      !(model.data instanceof Uint8ClampedArray) || model.data.length !== 4096) return false;
+  let bed = 0;
+  for (let at = 0; at < model.data.length; at += 4) {
+    const r = model.data[at], g = model.data[at + 1], b = model.data[at + 2], lum = .2126 * r + .7152 * g + .0722 * b;
+    if (model.data[at + 3] !== 255 || Math.max(r, g, b) > 128 || lum > 80 || 255 * strength + (1 - 2 * strength) * lum <= lum) return false;
+    bed += lum;
+  }
+  if (bed / 1024 > 55) return false;
+  let matching = 0, sum = 0;
+  for (let y = 0, at = 0; y < height; y++) {
+    const my = Math.max(0, Math.min(31, (y + .5) * 32 / height - .5)), y0 = Math.floor(my), fy = my - y0;
+    for (let x = 0; x < width; x++, at += 4) {
+      if (data[at + 3] !== 255) return false;
+      const mx = Math.max(0, Math.min(31, (x + .5) * 32 / width - .5)), x0 = Math.floor(mx), fx = mx - x0;
+      let distance = 0;
+      for (let c = 0; c < 3; c++) {
+        const a = (y0 * 32 + x0) * 4 + c, b = (y0 * 32 + Math.min(31, x0 + 1)) * 4 + c;
+        const d = (Math.min(31, y0 + 1) * 32 + x0) * 4 + c, e = (Math.min(31, y0 + 1) * 32 + Math.min(31, x0 + 1)) * 4 + c;
+        const expected = (model.data[a] * (1 - fx) + model.data[b] * fx) * (1 - fy) + (model.data[d] * (1 - fx) + model.data[e] * fx) * fy;
+        distance = Math.max(distance, Math.abs(data[at + c] - expected));
+      }
+      if (distance <= 16) matching++;
+      if ((x === 0 || y === 0 || x === width - 1 || y === height - 1) && distance > 16) return false;
+      sum += .2126 * data[at] + .7152 * data[at + 1] + .0722 * data[at + 2];
+    }
+  }
+  // Once the first full-page image proves the dark paper bed, inset light
+  // content is foreground, not white paper. Preserve only when most completed
+  // pixels still agree with that bed and the overall page stays dark.
+  return matching / (width * height) >= .5 && sum / (width * height) <= 110;
 }
 
 export function isDarkPaper({ data, width, height } = {}, strength = .96, provenShade = null) {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < COARSE || height < COARSE ||
       width > CONFIRM || height > CONFIRM || !(data instanceof Uint8ClampedArray) || data.length !== width * height * 4 ||
       !Number.isFinite(strength) || strength < .85 || strength > 1) return false;
+  if (provenShade?.kind === 'image') return matchesImagePaper({ data, width, height }, strength, provenShade);
   const shade = paperShade(data);
   // For neutral paper, hue rotation preserves luminance. Do not exempt light
   // gray paper that the existing inversion would already make darker.

@@ -9,40 +9,44 @@
 </head>
 <body>
   <main class="popup-shell">
-    <div class="feature-list">
-      <section class="feature-row">
-        <nav class="launcher-actions" data-i18n-aria-label="nativeScrollControlsLabel">
-          <button class="feature-status feature-toggle primary-product" id="nativeScroll-status" type="button"></button>
-          <button class="feature-status feature-toggle secondary-product" id="nativeScroll-enhanced" type="button"></button>
-        </nav>
-      </section>
-      <section class="feature-row">
-        <nav class="launcher-actions" data-i18n-aria-label="noAutoplayControlsLabel">
-          <button class="feature-status feature-toggle primary-product" id="noAutoplay-status" type="button"></button>
-          <button class="feature-status feature-toggle secondary-product" id="noAutoplay-enhanced" type="button"></button>
-        </nav>
-      </section>
-      <section class="feature-row">
-        <nav class="launcher-actions" data-i18n-aria-label="anyCopyControlsLabel">
-          <button class="feature-status feature-toggle primary-product" id="anyCopy-status" type="button"></button>
-          <button class="feature-status feature-toggle primary-product" id="anyCopyEnhanced-status" type="button"></button>
-        </nav>
-      </section>
-      <section class="feature-row">
-        <nav class="launcher-actions" data-i18n-aria-label="downloadToolsLabel">
-          <button class="feature-status feature-toggle primary-product" id="imageDownload-status" type="button"></button>
-          <button class="feature-status feature-toggle primary-product" id="videoDownload-status" type="button"></button>
-        </nav>
-      </section>
-      <section class="feature-row" id="page-display-row" hidden>
-        <nav class="launcher-actions" data-i18n-aria-label="pageDisplayControlsLabel">
-          <button class="feature-status feature-toggle primary-product" id="reduceWhitePoint-status" type="button"></button>
-          <button class="feature-status feature-toggle primary-product" id="greyscale-status" type="button"></button>
-        </nav>
-      </section>
-      <div class="contextual-feature-list" id="contextual-feature-list" hidden></div>
+    <div class="popup-pages">
+      <div class="feature-list" id="main-page">
+        <section class="feature-row">
+          <nav class="launcher-actions" data-i18n-aria-label="nativeScrollControlsLabel">
+            <button class="feature-status feature-toggle primary-product" id="nativeScroll-status" type="button"></button>
+            <button class="feature-status feature-toggle secondary-product" id="nativeScroll-enhanced" type="button"></button>
+          </nav>
+        </section>
+        <section class="feature-row">
+          <nav class="launcher-actions" data-i18n-aria-label="noAutoplayControlsLabel">
+            <button class="feature-status feature-toggle primary-product" id="noAutoplay-status" type="button"></button>
+            <button class="feature-status feature-toggle secondary-product" id="noAutoplay-enhanced" type="button"></button>
+          </nav>
+        </section>
+        <section class="feature-row">
+          <nav class="launcher-actions" data-i18n-aria-label="anyCopyControlsLabel">
+            <button class="feature-status feature-toggle primary-product" id="anyCopy-status" type="button"></button>
+            <button class="feature-status feature-toggle primary-product" id="anyCopyEnhanced-status" type="button"></button>
+          </nav>
+        </section>
+        <section class="feature-row">
+          <nav class="launcher-actions" data-i18n-aria-label="downloadToolsLabel">
+            <button class="feature-status feature-toggle primary-product" id="imageDownload-status" type="button"></button>
+            <button class="feature-status feature-toggle primary-product" id="videoDownload-status" type="button"></button>
+          </nav>
+        </section>
+        <section class="feature-row" id="page-display-row" hidden>
+          <nav class="launcher-actions" data-i18n-aria-label="pageDisplayControlsLabel">
+            <button class="feature-status feature-toggle primary-product" id="reduceWhitePoint-status" type="button"></button>
+            <button class="feature-status feature-toggle primary-product" id="greyscale-status" type="button"></button>
+          </nav>
+        </section>
+        <div class="contextual-feature-list" id="contextual-feature-list" hidden></div>
+      </div>
+      <div class="feature-list" id="tools-page" inert aria-hidden="true"></div>
     </div>
-    <div class="popup-footer">
+    <div class="popup-footer launcher-actions">
+      <button class="feature-status utility-control" id="tools-toggle" type="button" aria-controls="tools-page" aria-expanded="false"></button>
       <button class="feature-status utility-control" id="all-settings" type="button"></button>
     </div>
     <span class="sr-only" id="live" aria-live="polite"></span>

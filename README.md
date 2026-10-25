@@ -106,7 +106,7 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 #### Website Fixer
 
-Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, while Stay on the page keeps selected websites from sending you to other sites.
+Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, while Stay on the page keeps selected websites from sending you to other sites. The control window also offers quick, temporary access to both tools.
 
 ### Satellites – Site-specific features
 

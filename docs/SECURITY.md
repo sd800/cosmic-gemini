@@ -4,7 +4,7 @@ Cosmic Gemini protects browsing and local previews through isolated rendering, a
 
 ## Privileged extension surfaces
 
-Central validates Chrome-supplied message senders before dispatch. UI commands and long-lived UI ports are restricted to the packaged popup, Settings pages, and supported workspace hosts. Opaque renderers, public assets, offscreen processors, unknown paths, foreign origins, child frames, and inactive documents do not receive UI authority. Products retain their own checks for the current tab, frame, document, context, and session; passing the entry check does not authorize every product action.
+Central validates Chrome-supplied message senders before dispatch. UI commands and long-lived UI ports are restricted to the packaged popup, Settings pages, and supported workspace hosts. Opaque renderers, public assets, offscreen processors, unknown paths, foreign origins, child frames, and inactive documents do not receive UI authority. Products retain their own checks for the current tab, frame, document, context, and session; passing the entry check does not authorize every product action. Website tools accept changes only from the packaged popup, validate the live tab and expected site, and keep temporary choices in context-isolated browser-session storage. Current-page updates bind to document IDs to prevent navigation races.
 
 Page events use a separate fixed message allowlist and require an HTTP/HTTPS tab sender. A page-visible marker or event name is not an authentication secret. MAIN-world and DOM-derived values remain untrusted even when a content script forwards them. Code injection uses packaged scripts or fixed functions with data arguments, never source text constructed from website input.
 

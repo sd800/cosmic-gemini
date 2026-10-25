@@ -393,6 +393,7 @@ export function createPlatform() {
   }
 
   return Object.freeze({
+    sessionStorage,
     sendTabMessage,
     readSettings,
     saveSettings,

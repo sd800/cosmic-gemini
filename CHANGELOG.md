@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.25.3 — 2026-10-25
+
+- Add an extensible Tools page to the control window, with session-only Translate Override and Stay on the page controls.
+
 ## 26.10.25.2 — 2026-10-25
 
 - Improve Translate Override compatibility and translation initialization.

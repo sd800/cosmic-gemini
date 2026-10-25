@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 26.10.25.3 — 2026-10-25
+
+- 在控制窗口新增可扩展的工具页，支持在当次浏览器会话中临时开启 Translate Override 和 Stay on the page。
+
 ## 26.10.25.2 — 2026-10-25
 
 - 改善 Translate Override 的兼容性与翻译初始化处理。

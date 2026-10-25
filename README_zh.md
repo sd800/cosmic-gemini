@@ -106,7 +106,7 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 #### Website Fixer
 
-Website Fixer 通过可选的修复功能改善网站的使用体验。Translate Override 帮助恢复浏览器翻译，Stay on the page 则阻止所选网站带你跳转到其他网站。
+Website Fixer 通过可选的修复功能改善网站的使用体验。Translate Override 帮助恢复浏览器翻译，Stay on the page 则阻止所选网站带你跳转到其他网站。您也可以通过控制窗口的工具页临时使用这两个工具。
 
 ### Satellites - 网站专用功能
 

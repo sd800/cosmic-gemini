@@ -1,11 +1,14 @@
 (() => {
   const bootstrap = Symbol.for('cosmic-gemini.website-fixer.stay-bootstrap');
   if (globalThis[bootstrap]) return;
-  globalThis[bootstrap] = true;
+  const state = { enabled: false };
+  globalThis[bootstrap] = state;
   const prefix = 'cosmic-gemini:website-fixer:stay:';
-  window.addEventListener(prefix + 'activate', activate, { once: true });
+  window.addEventListener(prefix + 'activate', activate);
+  window.addEventListener(prefix + 'deactivate', () => { state.enabled = false; });
   window.dispatchEvent(new CustomEvent(prefix + 'ready'));
   function activate() {
+  state.enabled = true;
   const key = Symbol.for('cosmic-gemini.website-fixer.stay');
   if (globalThis[key]) return;
   const siteKey = globalThis[Symbol.for('cosmic-gemini.stay-site-key')];
@@ -18,6 +21,7 @@
   const listen = EventTarget.prototype.addEventListener;
 
   function permitted(value, base = location.href) {
+    if (!state.enabled) return true;
     try {
       const url = new NativeURL(String(value), base);
       // Blank child windows inherit this guard; opaque/external protocols do not.
@@ -55,6 +59,7 @@
     try { owner[name] = function (...args) { return handler(original, this, args); }; } catch {}
   }
   wrap(window, 'open', (original, receiver, args) => {
+    if (!state.enabled) return nativeApply(original, receiver == null ? window : receiver, args);
     if (!permitted(args[0] || 'about:blank', document.baseURI)) return null;
     const child = nativeApply(original, receiver == null ? window : receiver, args);
     if (child) {
@@ -68,6 +73,7 @@
     return nativeApply(original, form, args);
   });
   for (const method of ['back', 'forward', 'go']) wrap(History.prototype, method, (original, receiver, args) => {
+    if (!state.enabled) return nativeApply(original, receiver, args);
     const delta = method === 'back' ? -1 : method === 'forward' ? 1 : Number(args[0] || 0);
     if (delta !== 0) {
       // Only script-driven traversal is wrapped. Chrome's own Back/Forward

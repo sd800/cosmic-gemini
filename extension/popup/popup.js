@@ -5,6 +5,7 @@ import { candidateQuality, formatMediaDuration, groupVideoCandidates, knownVideo
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { bindSettingsButton } from './settings-button.js';
+import { POPUP_TOOLS } from './tools.js';
 
 const root = document.documentElement;
 const live = document.querySelector('#live');
@@ -543,6 +544,11 @@ function showView(mode) {
   document.body.dataset.view = mode;
   document.querySelector('.popup-shell').hidden = mode === 'video';
   document.querySelector('#video-panel').hidden = mode !== 'video';
+  document.querySelector('#main-page').inert = mode === 'tools';
+  document.querySelector('#main-page').setAttribute('aria-hidden', String(mode === 'tools'));
+  document.querySelector('#tools-page').inert = mode !== 'tools';
+  document.querySelector('#tools-page').setAttribute('aria-hidden', String(mode !== 'tools'));
+  document.querySelector('#tools-toggle').setAttribute('aria-expanded', String(mode === 'tools'));
   setVideoViewVisible(mode === 'video');
 }
 
@@ -613,6 +619,19 @@ function render() {
   renderImageRow();
   renderVideoRow();
   renderContextualProducts();
+  for (const entry of POPUP_TOOLS) {
+    const tools = entry.read(state);
+    const control = document.getElementById(entry.id + '-tool');
+    const enabled = tools.enabled;
+    control.disabled = !tools.supported;
+    control.dataset.state = enabled ? 'active' : 'off';
+    control.dataset.persistent = String(enabled);
+    if (typeof enabled === 'boolean') control.setAttribute('aria-pressed', String(enabled));
+    else control.removeAttribute('aria-pressed');
+    label(control, t(!tools.supported ? 'unsupportedTitle' : tools.titleKey || entry.nameKey, {
+      tool: t(entry.nameKey), site: tools.site
+    }));
+  }
 }
 
 async function reload(selectInitialView = true) {
@@ -727,6 +746,28 @@ document.querySelector('#imageDownload-status').innerHTML = icon('imageDownload'
 document.querySelector('#videoDownload-status').innerHTML = icon('videoDownload');
 document.querySelector('#video-panel-product-icon').innerHTML = icon('videoDownload');
 document.querySelector('#all-settings').innerHTML = icon('menu');
+document.querySelector('#tools-toggle').innerHTML = icon('toolbox');
+document.querySelector('#tools-toggle').addEventListener('click', () => showView(viewMode === 'tools' ? 'main' : 'tools'));
+let toolRow;
+for (const [index, entry] of POPUP_TOOLS.entries()) {
+  if (index % 2 === 0) {
+    const section = document.createElement('section');
+    section.className = 'feature-row';
+    toolRow = document.createElement('nav');
+    toolRow.className = 'launcher-actions';
+    toolRow.dataset.i18nAriaLabel = 'popupToolsTitle';
+    section.append(toolRow);
+    document.querySelector('#tools-page').append(section);
+  }
+  const control = document.createElement('button');
+  control.id = entry.id + '-tool';
+  control.type = 'button';
+  control.className = 'feature-status feature-toggle';
+  control.disabled = true;
+  control.innerHTML = icon(entry.glyph);
+  control.addEventListener('click', () => void act(() => send(entry.request(state, currentTab))));
+  toolRow.append(control);
+}
 const settingsButton = bindSettingsButton(document.querySelector('#all-settings'), {
   settingsTitle: 'Open All Settings',
   reloadTitle: 'Reload extension',
@@ -785,6 +826,7 @@ label(document.querySelector('#video-back'), t('back'));
 label(document.querySelector('#video-stop'), t('videoStopTitle'));
 label(document.querySelector('#video-rescan'), t('videoRescanTitle'));
 settingsButton.setLabels(t('allSettingsTitle'), t('reloadExtensionTitle'));
+label(document.querySelector('#tools-toggle'), t('popupToolsTitle'));
 connectCentralUi();
 try {
   await retryRead(() => reload());

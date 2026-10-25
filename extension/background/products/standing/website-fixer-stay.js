@@ -1,6 +1,8 @@
 import { siteKey } from '../../../core/site-key.js';
 
-const LIMIT = 100;
+// Persistent and session-only lists each hold at most 100 sites. Own their
+// complete union without borrowing IDs from another product or context.
+const LIMIT = 200;
 const FRAME_SANDBOX = 'sandbox allow-scripts allow-same-origin allow-forms allow-modals allow-downloads allow-pointer-lock allow-presentation allow-storage-access-by-user-activation';
 const stable = value => JSON.stringify(value, (_, item) => item && !Array.isArray(item) && typeof item === 'object'
   ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);

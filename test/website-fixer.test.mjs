@@ -213,7 +213,7 @@ test('Translate Override clears page-wide and nested opt-outs, including late re
   root.setAttribute('translate', 'no');
   observers[0].callback([{ type: 'attributes', target: root }]);
   assert.equal(root.hasAttribute('translate'), false);
-  assert.deepEqual(Array.from(observers[0].options.attributeFilter), ['name', 'content', 'value', 'translate', 'class']);
+  assert.deepEqual(Array.from(observers[0].options.attributeFilter), ['name', 'content', 'value', 'translate', 'class', 'id']);
   assert.equal(timers.length, 1, 'the broad mutation watch is time-bounded');
   timers[0]();
   assert.equal(observers[0].active, false);

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.25.2 — 2026-10-25
+
+- Improve Translate Override compatibility and translation initialization.
+
 ## 26.10.25.1 — 2026-10-25
 
 - Improve security validation, document processing, and resource safeguards.

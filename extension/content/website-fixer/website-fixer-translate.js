@@ -6,7 +6,29 @@ globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-activate')] = () =>
   const withoutOptOut = value => String(value || '').split(/[\s,;]+/)
     .filter(token => token && token.toLowerCase() !== 'notranslate').join(', ');
 
+  function repairSymbolNamespace(element) {
+    // A symbol parsed outside <svg> is an HTMLElement. If named "google",
+    // its boolean .translate property swallows Chrome's translation namespace.
+    // Restore the SVG type, retaining the ID, attributes, children, and references.
+    if (element.localName !== 'symbol' || element.id !== 'google' ||
+        element.namespaceURI !== 'http://www.w3.org/1999/xhtml') return element;
+    // Replacing an element still on the HTML parser's stack would strand its
+    // remaining children on the detached old node. Wait for parsing to finish.
+    if (document.readyState === 'loading') return element;
+    const symbol = document.createElementNS('http://www.w3.org/2000/svg', 'symbol');
+    for (const attribute of element.attributes) {
+      const name = attribute.name === 'viewbox' ? 'viewBox' :
+        attribute.name === 'preserveaspectratio' ? 'preserveAspectRatio' : attribute.name;
+      if (attribute.namespaceURI) symbol.setAttributeNS(attribute.namespaceURI, name, attribute.value);
+      else symbol.setAttribute(name, attribute.value);
+    }
+    while (element.firstChild) symbol.appendChild(element.firstChild);
+    element.replaceWith(symbol);
+    return symbol;
+  }
+
   function clearOptOut(element) {
+    element = repairSymbolNamespace(element);
     if (element.localName === 'meta' && element.getAttribute('name')?.trim().toLowerCase() === 'google') {
       let changed = false;
       for (const attribute of ['content', 'value']) {
@@ -36,7 +58,7 @@ globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-activate')] = () =>
   function clearTree(node) {
     if (!node || node.nodeType !== 1) return;
     clearOptOut(node);
-    for (const element of node.querySelectorAll('meta[name], [translate], .notranslate')) clearOptOut(element);
+    for (const element of node.querySelectorAll('meta[name], [translate], .notranslate, symbol[id="google"]')) clearOptOut(element);
   }
 
   const observer = new MutationObserver(records => {
@@ -49,9 +71,14 @@ globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-activate')] = () =>
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['name', 'content', 'value', 'translate', 'class']
+    attributeFilter: ['name', 'content', 'value', 'translate', 'class', 'id']
   });
   clearTree(document.documentElement);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      for (const element of document.querySelectorAll('symbol[id="google"]')) clearOptOut(element);
+    }, { once: true });
+  }
 
   // Cover parser-created nodes and delayed page rewrites, then release the
   // broad DOM watch rather than retaining it while users browse.

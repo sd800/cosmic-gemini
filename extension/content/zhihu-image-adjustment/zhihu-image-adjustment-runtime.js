@@ -8,9 +8,9 @@
   const IMAGE = 'figure img, img.zh-lightbox-thumb';
   const IGNORE = '.LinkCard, .VideoCard, .Avatar, .CommentItem, .ztext-math, [data-tex], .RichText-video';
   const TEXT = {
-    'en-US': {auto:'Auto',dark:'Dark',light:'Light',original:'Original',hide:'Hide',restore:'Restore image',
+    'en-US': {controls:'Image display',auto:'Auto',dark:'Dark',light:'Light',original:'Original',hide:'Hide',restore:'Restore image',
       toLight:'Show light image',toDark:'Show dark image',menu:'Image display · Right-click for options'},
-    'zh-CN': {auto:'自动',dark:'深色',light:'浅色',original:'原图',hide:'隐藏',restore:'恢复图片',
+    'zh-CN': {controls:'图片显示',auto:'自动',dark:'深色',light:'浅色',original:'原图',hide:'隐藏',restore:'恢复图片',
       toLight:'切换为浅色图片',toDark:'切换为深色图片',menu:'图片显示 · 右键打开菜单'}
   };
   const ICONS = {
@@ -153,6 +153,7 @@
       const icon = off || !config.darkImages ? 'off' : ['invert','gray'].includes(value) ? 'light' : 'dark';
       if (record.icon !== icon) { record.icon = icon; record.button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg>`; }
       const title = (off ? text.restore : !config.darkImages ? text.hide : icon === 'light' ? text.toLight : text.toDark) + ' · ' + text.menu;
+      owned(record.host, 'aria-label', text.controls);
       owned(record.button, 'title', title); owned(record.button, 'aria-label', title);
     }
   }
@@ -165,6 +166,8 @@
     if (record.host || !record.viewer && !record.figure) return;
     const host = document.createElement('cg-zhihu-image-control');
     host.setAttribute('data-cg-zhihu-control', '');
+    // Preserve toolbar interaction when page-wide selection guards see this closed host.
+    host.setAttribute('role', 'toolbar');
     host.setAttribute('translate', 'no'); host.setAttribute('data-darkreader-ignore', '');
     const shadow = host.attachShadow({mode:'closed'});
     const style = document.createElement('style');
@@ -181,7 +184,14 @@
       setChoice(record, choice === 'hide' || choice === 'original' ? 'auto' : !config.darkImages ? 'hide' : ['invert','gray'].includes(effect(record)) ? 'light' : 'dark');
     });
     button.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();e.stopPropagation();openMenu(record);record.menu.firstElementChild?.focus();}});
-    host.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); openMenu(record); });
+    const onControlMenu = e => {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (menuRecord !== record) openMenu(record);
+    };
+    // Also handle events that remain inside the closed root.
+    button.addEventListener('contextmenu', onControlMenu);
+    host.addEventListener('contextmenu', onControlMenu);
+    menu.addEventListener('contextmenu', e => { e.preventDefault(); e.stopImmediatePropagation(); });
     menu.addEventListener('click',e=>e.stopPropagation());
     Object.assign(record,{host,button,menu}); controls.set(host,record);
     (record.viewer ? document.body : record.figure).append(host);

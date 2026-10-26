@@ -62,6 +62,22 @@ test('Any Copy writes the original selection and suppresses page copy handlers',
   assert.equal(clipboard.get('text/plain'), 'Original text');
   assert.equal(stopped, true);
   assert.equal(prevented, true);
+  // Interactions inside closed roots are retargeted to their semantic host.
+  for (const role of ['toolbar', 'menu', 'menubar']) {
+    const host = new Element();
+    host.matches = selector => selector.includes(`[role="${role}"]`);
+    let intercepted = false;
+    runtime.onSelectionEvent({ isTrusted: true, target: host,
+      stopImmediatePropagation: () => { intercepted = true; } });
+    assert.equal(intercepted, false, `${role} controls retain their own handlers`);
+    const child = new Element();
+    child.closest = selector => host.matches(selector) ? host : null;
+    assert.equal(runtime.isInteractive(child), true);
+  }
+  let pageIntercepted = false;
+  runtime.onSelectionEvent({ isTrusted: true, target: document.documentElement,
+    stopImmediatePropagation: () => { pageIntercepted = true; } });
+  assert.equal(pageIntercepted, true, 'ordinary page restrictions remain suppressed');
   runtime.onDispose({ detail: runtime.token });
   assert.equal(window[Symbol.for('cosmic-gemini.any-copy.runtime')], undefined);
 });

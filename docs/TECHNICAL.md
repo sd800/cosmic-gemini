@@ -309,7 +309,7 @@ The runtime uses no timer or polling loop. On `news.qq.com`, one added-node and 
 
 ## Any Copy
 
-Any Copy is enabled per hostname. The main-world runtime restores text selection, prevents page handlers from intercepting copy shortcuts, and writes the user's original selection to `text/plain`. When a reliable selection fragment is available, it also writes sanitized `text/html`. DOM observation starts only after a page restriction is detected.
+Any Copy is enabled per hostname. The main-world runtime restores text selection, prevents page handlers from intercepting copy shortcuts, and writes the user's original selection to `text/plain`. When a reliable selection fragment is available, it also writes sanitized `text/html`. DOM observation starts only after a page restriction is detected. Its selection and context-menu guards preserve semantic toolbars, menus, and menu bars, including closed-shadow hosts, so interactive controls retain their own handlers.
 
 Any Copy Enhanced creates a closed-Shadow-DOM reading layer over the original page. It builds a new tree from readable page content and never executes copied page markup. Scripts, forms, frames, media, navigation, overlays, and common advertising containers are omitted. Text structure, tables, links, code, figures, captions, and images are preserved. Turning off its current-tab session destroys the reading layer and restores the original page without reloading.
 
@@ -478,7 +478,7 @@ Embedded raster inspection precedes image insertion: each PNG/JPEG/GIF/WebP is l
 
 ## Zhihu Image Display Adjustment
 
-Operations Province owns the independent `zhihuImageAdjustment` product, with a default-off master and separate compact-image and image-dark-mode preferences. Settings, its first-frame cache, its navigation view, and developer metadata share the same saved state and ownership. Authorization is limited to HTTP(S) `zhihu.com` and subdomains in top-level documents. Disabling both subpreferences releases the page runtime even while the saved master remains enabled.
+Operations Province owns the independent `zhihuImageAdjustment` product, with a default-off master and separate compact-image and image-dark-mode preferences. Settings, its first-frame cache, its navigation view, and developer metadata share the same saved state and ownership. Authorization is limited to HTTP(S) `zhihu.com` and subdomains in top-level documents. Disabling both subpreferences releases the page runtime even while the saved master remains enabled. Image controls use a localized toolbar role on the closed host, with context-menu handling both before page listeners and directly on the button for root-confined events. This preserves their interactions when copy-selection tools are active.
 
 Owned USER-origin rules limit body figures/images to 280 CSS pixels and the available width, preserving their proportions without upscaling smaller originals or cropping height. Native image activation, viewing animation, and sensitive-image confirmation remain site-owned. Explicit collapsed markers suppress controls, while body thumbnails still qualify for dark processing; answers with no collapsed marker count as expanded. Expanded figures and native full-size images expose a closed-shadow display button with Hide/Auto/Dark/Light/Original choices. Source identity shares temporary choices and positive classifications across representations; negative classifications remain specific to the displayed resource. Formula images, avatars, comments, and link cards stay outside the body-image scope.
 

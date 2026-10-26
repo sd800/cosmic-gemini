@@ -20,7 +20,8 @@
 
   const INTERACTIVE = [
     'input', 'textarea', 'select', 'button', '[contenteditable="true"]',
-    '[role="textbox"]', '[role="button"]', '[role="slider"]', 'canvas'
+    '[role="textbox"]', '[role="button"]', '[role="slider"]',
+    '[role="toolbar"]', '[role="menu"]', '[role="menubar"]', 'canvas'
   ].join(',');
 
   class AnyCopyRuntime {

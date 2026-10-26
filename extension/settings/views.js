@@ -434,8 +434,13 @@ export function viewFor(featureId) {
         <fieldset id="zhihuImageAdjustmentOptions" class="knowledge-options" disabled>
           <div class="preference-list satellite-preferences">
             <label class="preference-row" for="zhihuSmallImages"><span><strong data-i18n="zhihuSmallImagesName"></strong><small data-i18n="zhihuSmallImagesHelp"></small></span><span class="switch"><input id="zhihuSmallImages" type="checkbox" checked><span></span></span></label>
-            <label class="preference-row" for="zhihuDarkImages"><span><strong data-i18n="zhihuDarkImagesName"></strong><small data-i18n="zhihuDarkImagesHelp"></small></span><span class="switch"><input id="zhihuDarkImages" type="checkbox" checked><span></span></span></label>
-            <label class="satellite-inline-checkbox" for="zhihuMatchPageTheme"><input id="zhihuMatchPageTheme" type="checkbox" checked><span><span data-i18n="zhihuMatchPageThemeName"></span><small class="zhihu-theme-help" data-i18n="zhihuMatchPageThemeHelp"></small></span></label>
+            <div class="zhihu-dark-images-option">
+              <label class="preference-row" for="zhihuDarkImages"><span><strong data-i18n="zhihuDarkImagesName"></strong><small data-i18n="zhihuDarkImagesHelp"></small></span><span class="switch"><input id="zhihuDarkImages" type="checkbox" checked><span></span></span></label>
+              <div class="zhihu-theme-setting">
+                <label class="satellite-inline-checkbox" for="zhihuMatchPageTheme"><input id="zhihuMatchPageTheme" type="checkbox" aria-describedby="zhihuMatchPageThemeHelp" checked><span data-i18n="zhihuMatchPageThemeName"></span></label>
+                <p id="zhihuMatchPageThemeHelp" class="zhihu-theme-help" data-i18n="zhihuMatchPageThemeHelp"></p>
+              </div>
+            </div>
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="zhihuImageAdjustmentPrivacy"></p></div>

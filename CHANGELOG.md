@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.26.2 — 2026-10-26
+
+- Refine the typography, spacing, and option hierarchy of Zhihu image settings.
+
 ## 26.10.26.1 — 2026-10-26
 
 - Add Zhihu Image Display Adjustment, with independent compact-image and dark-mode controls, native full-size viewing, and per-image display options.

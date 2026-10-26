@@ -458,5 +458,11 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .developer-feature-details code, .developer-affiliation-value { color: var(--text); }
 [data-developer-mode] .settings-destination > span { min-width: 0; }
 
-#zhihuImageAdjustmentOptions .satellite-inline-checkbox { margin: 0 0 14px; }
-.zhihu-theme-help { display: block; color: var(--muted); font-size: 14px; line-height: 1.5; margin-top: 3px; }
+#zhihuImageAdjustmentOptions > .satellite-preferences { margin-top: 0; }
+.zhihu-theme-setting { min-width: 0; margin: 2px 68px 4px 18px; }
+.zhihu-theme-setting .satellite-inline-checkbox { margin: 0; max-width: 100%; }
+.zhihu-theme-setting .zhihu-theme-help { margin: 3px 0 0 23px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.zhihu-theme-setting:has(input:disabled) .satellite-inline-checkbox,
+.zhihu-theme-setting:has(input:disabled) .zhihu-theme-help { opacity: .55; }
+#zhihuImageAdjustmentOptions + .satellite-privacy { margin-top: 14px; }
+@media (max-width: 640px) { .zhihu-theme-setting { margin-right: 0; } }

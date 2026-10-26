@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.26.7 — 2026-10-26
+
+- Set Zhihu image controls to 40% idle opacity.
+
 ## 26.10.26.6 — 2026-10-26
 
 - Refine Orbiters introductory wording.

@@ -49,7 +49,7 @@ try{
  await page.locator('#text').scrollIntoViewIfNeeded();
  const toggle=page.locator('#expanded cg-zhihu-image-control button.toggle');
  await page.mouse.move(1000,900);
- assert.equal(await toggle.evaluate(e=>getComputedStyle(e).opacity),'0.5');
+ assert.equal(await toggle.evaluate(e=>getComputedStyle(e).opacity),'0.4');
  const buttonBox=await toggle.boundingBox();
  await page.mouse.click(buttonBox.x-6,buttonBox.y+buttonBox.height/2,{button:'right'});
  assert.equal(await toggle.getAttribute('aria-expanded'),'true');

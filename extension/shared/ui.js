@@ -23,6 +23,7 @@ export function icon(name) {
     translateOverride: '<g stroke="none"><path d="M12.4 6H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7.1l-1.2-3.8Z" fill="none" stroke="currentColor"/><path d="m11.7 18.2 1.2 3.8 3.4-3.8Z" fill="color-mix(in srgb, currentColor 68%, black)"/><path d="M11.1 2H4a2 2 0 0 0-2 2v12.2a2 2 0 0 0 2 2h12.3Z" fill="currentColor"/></g>',
     stayOnPage: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M10 13v-1a2 2 0 0 1 4 0v1"/><rect x="9" y="13" width="6" height="5" rx="1"/>',
     adMarshal: '<path d="M12 2.75 20 6v5.2c0 5.1-3.1 8.55-8 10.05-4.9-1.5-8-4.95-8-10.05V6Z"/><path d="m8.5 12 2.25 2.25L16 9"/>',
+    zhihuImageAdjustment: '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><circle cx="8.5" cy="9" r="1.3"/><path d="m5 17 4.5-4.5 3 3 2.5-2.5 4 4M16 7h3m-3 0v3"/>',
     leetcodeDarkMode: '<path d="m5 6.5 6 5.5-6 5.5M13 17.5h6"/>',
     langGoogle: '<circle cx="10.7" cy="10.7" r="6.5"/><path d="m15.3 15.3 4.5 4.5"/>',
     biliDailyLogin: '<path d="m8 5-2.5-2M16 5l2.5-2"/><rect x="3" y="5" width="18" height="15.5" rx="3"/><path d="M8 12h.01M16 12h.01M8.5 16c2.1 1.15 4.9 1.15 7 0"/>',

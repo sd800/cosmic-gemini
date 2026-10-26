@@ -122,7 +122,8 @@ export const SATELLITES_DIRECTORY_GROUPS = Object.freeze([
       Object.freeze({ target: 'satellite-leetcode-dark-mode', icon: 'leetcodeDarkMode', nameKey: 'leetcodeDarkModeName' }),
       Object.freeze({ target: 'satellite-chinese-response-claude', icon: 'chineseResponseClaude', nameKey: 'chineseResponseClaudeName' }),
       Object.freeze({ target: 'satellite-follow-list-instagram', icon: 'followListInstagram', nameKey: 'followListInstagramName' }),
-      Object.freeze({ target: 'satellite-lang-google', icon: 'langGoogle', nameKey: 'langGoogleName' })
+      Object.freeze({ target: 'satellite-lang-google', icon: 'langGoogle', nameKey: 'langGoogleName' }),
+      Object.freeze({ target: 'satellite-zhihu-image-adjustment', icon: 'zhihuImageAdjustment', nameKey: 'zhihuImageAdjustmentName' })
     ])
   })
 ]);
@@ -424,6 +425,20 @@ export function viewFor(featureId) {
           <div class="satellite-control"><label class="switch"><input id="langGoogleEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="langGoogleName"></b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="langGooglePrivacy"></p></div>
+      </section>
+      <section id="satellite-zhihu-image-adjustment" class="card satellite-card" data-satellite-section>
+        <div class="section-heading">
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="zhihuImageAdjustment" aria-hidden="true"></span><h1 data-i18n="zhihuImageAdjustmentName"></h1></div><p data-i18n="zhihuImageAdjustmentDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="zhihuImageAdjustmentEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="zhihuImageAdjustmentName"></b></label></div>
+        </div>
+        <fieldset id="zhihuImageAdjustmentOptions" class="knowledge-options" disabled>
+          <div class="preference-list satellite-preferences">
+            <label class="preference-row" for="zhihuSmallImages"><span><strong data-i18n="zhihuSmallImagesName"></strong><small data-i18n="zhihuSmallImagesHelp"></small></span><span class="switch"><input id="zhihuSmallImages" type="checkbox" checked><span></span></span></label>
+            <label class="preference-row" for="zhihuDarkImages"><span><strong data-i18n="zhihuDarkImagesName"></strong><small data-i18n="zhihuDarkImagesHelp"></small></span><span class="switch"><input id="zhihuDarkImages" type="checkbox" checked><span></span></span></label>
+            <label class="satellite-inline-checkbox" for="zhihuMatchPageTheme"><input id="zhihuMatchPageTheme" type="checkbox" checked><span><span data-i18n="zhihuMatchPageThemeName"></span><small class="zhihu-theme-help" data-i18n="zhihuMatchPageThemeHelp"></small></span></label>
+          </div>
+        </fieldset>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="zhihuImageAdjustmentPrivacy"></p></div>
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
   };

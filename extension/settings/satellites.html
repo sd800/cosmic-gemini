@@ -271,6 +271,20 @@
           <div class="satellite-control"><label class="switch"><input id="langGoogleEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="langGoogleName"></b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="langGooglePrivacy"></p></div>
+      </section>
+      <section id="satellite-zhihu-image-adjustment" class="card satellite-card" data-satellite-section>
+        <div class="section-heading">
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="zhihuImageAdjustment" aria-hidden="true"></span><h1 data-i18n="zhihuImageAdjustmentName"></h1></div><p data-i18n="zhihuImageAdjustmentDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="zhihuImageAdjustmentEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="zhihuImageAdjustmentName"></b></label></div>
+        </div>
+        <fieldset id="zhihuImageAdjustmentOptions" class="knowledge-options" disabled>
+          <div class="preference-list satellite-preferences">
+            <label class="preference-row" for="zhihuSmallImages"><span><strong data-i18n="zhihuSmallImagesName"></strong><small data-i18n="zhihuSmallImagesHelp"></small></span><span class="switch"><input id="zhihuSmallImages" type="checkbox" checked><span></span></span></label>
+            <label class="preference-row" for="zhihuDarkImages"><span><strong data-i18n="zhihuDarkImagesName"></strong><small data-i18n="zhihuDarkImagesHelp"></small></span><span class="switch"><input id="zhihuDarkImages" type="checkbox" checked><span></span></span></label>
+            <label class="satellite-inline-checkbox" for="zhihuMatchPageTheme"><input id="zhihuMatchPageTheme" type="checkbox" checked><span><span data-i18n="zhihuMatchPageThemeName"></span><small class="zhihu-theme-help" data-i18n="zhihuMatchPageThemeHelp"></small></span></label>
+          </div>
+        </fieldset>
+        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="zhihuImageAdjustmentPrivacy"></p></div>
       </section></div>
     <div class="sidebar">
       <aside class="help card">
@@ -307,6 +321,7 @@
               <button type="button" class="satellites-directory-link" data-satellite-target="satellite-chinese-response-claude"><span class="satellites-directory-icon" data-section-icon="chineseResponseClaude" aria-hidden="true"></span><span data-i18n="chineseResponseClaudeName"></span></button>
               <button type="button" class="satellites-directory-link" data-satellite-target="satellite-follow-list-instagram"><span class="satellites-directory-icon" data-section-icon="followListInstagram" aria-hidden="true"></span><span data-i18n="followListInstagramName"></span></button>
               <button type="button" class="satellites-directory-link" data-satellite-target="satellite-lang-google"><span class="satellites-directory-icon" data-section-icon="langGoogle" aria-hidden="true"></span><span data-i18n="langGoogleName"></span></button>
+              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-zhihu-image-adjustment"><span class="satellites-directory-icon" data-section-icon="zhihuImageAdjustment" aria-hidden="true"></span><span data-i18n="zhihuImageAdjustmentName"></span></button>
             </div>
           </section>
         </div>

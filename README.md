@@ -118,6 +118,10 @@ XHS Keyboard Navigation is a separate feature presented in the same settings car
 
 This is an experimental feature.
 
+#### Zhihu Image Display Adjustment
+
+Keep images compact in Zhihu answers and articles, with optional dark-mode adjustments for text images. Use Zhihu’s full-size viewer and image controls to switch appearance or hide an image.
+
 #### Bili Daily Login
 
 Bilibili gives every signed-in account one coin for completing its daily login. Receiving that coin otherwise depends on remembering to check in every day. Bili Daily Login handles the recurring check-in in the background while Chrome is available, allowing the daily coin to be credited automatically.

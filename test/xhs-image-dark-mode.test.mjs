@@ -28,6 +28,7 @@ async function runtimeFixture(document = {}, globals = {}) {
   };
   vm.createContext(context);
   const source = await readFile(new URL('../extension/content/xhs-image-dark-mode/xhs-image-dark-mode-runtime.js', import.meta.url), 'utf8');
+  vm.runInContext(await readFile(new URL('../extension/content/shared/image-reading-surface.js', import.meta.url), 'utf8'), context);
   vm.runInContext(source, context);
   return context[Symbol.for('cosmic-gemini.xhs-image-dark-mode.runtime')];
 }

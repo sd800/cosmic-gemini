@@ -93,6 +93,7 @@ export function createXhsImageDarkModeProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.XHS_IMAGE_DARK_MODE,
     bridge: 'content/xhs-image-dark-mode/xhs-image-dark-mode-bridge.js',
     runtime: 'content/xhs-image-dark-mode/xhs-image-dark-mode-runtime.js',
+    runtimeDependencies: ['content/shared/image-reading-surface.js'],
     awaitConfiguration: true,
     async state(settings, url, tabId) {
       const state = xhsImageDarkModeState(settings, url, await readPageState(tabId));

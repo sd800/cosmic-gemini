@@ -9,6 +9,7 @@ import { createXhsImageDarkModeProduct } from '../products/operations/xhs-image-
 import { createXhsNavigationProduct } from '../products/operations/xhs-navigation.js';
 import { createFollowListInstagramProduct } from '../products/operations/follow-list-instagram.js';
 import { createLeetcodeDarkModeProduct } from '../products/operations/leetcode-dark-mode.js';
+import { createZhihuImageAdjustmentProduct } from '../products/operations/zhihu-image-adjustment.js';
 import { defineProvince } from './interface.js';
 
 export function createOperationsProvince(platform) {
@@ -19,6 +20,7 @@ export function createOperationsProvince(platform) {
   const pageDisplay = createPageDisplayProduct(host, platform);
   const xhsImageDarkMode = createXhsImageDarkModeProduct(host, platform);
   const xhsNavigation = createXhsNavigationProduct(host, platform);
+  const zhihuImageAdjustment = createZhihuImageAdjustmentProduct(host, platform);
   const chineseResponseClaude = createChineseResponseClaudeProduct(host, platform);
   const followListInstagram = createFollowListInstagramProduct(platform);
   const administration = createAdministrationProduct(platform);
@@ -29,6 +31,7 @@ export function createOperationsProvince(platform) {
     [leetcodeDarkMode.id]: leetcodeDarkMode,
     [xhsImageDarkMode.id]: xhsImageDarkMode,
     [xhsNavigation.id]: xhsNavigation,
+    [zhihuImageAdjustment.id]: zhihuImageAdjustment,
     [chineseResponseClaude.id]: chineseResponseClaude,
     [followListInstagram.id]: followListInstagram,
     [administration.id]: administration

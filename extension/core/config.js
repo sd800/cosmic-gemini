@@ -18,6 +18,7 @@ export const FEATURE_IDS = Object.freeze({
   PAGE_DISPLAY: 'pageDisplay',
   XHS_IMAGE_DARK_MODE: 'xhsImageDarkMode',
   XHS_NAVIGATION: 'xhsNavigation',
+  ZHIHU_IMAGE_ADJUSTMENT: 'zhihuImageAdjustment',
   BILI_DAILY_LOGIN: 'biliDailyLogin',
   CHINESE_RESPONSE_CLAUDE: 'chineseResponseClaude',
   FOLLOW_LIST_INSTAGRAM: 'followListInstagram',
@@ -48,6 +49,7 @@ export const FEATURE_SLOTS = Object.freeze({
   PAGE_DISPLAY: 33,
   XHS_IMAGE_DARK_MODE: 34,
   XHS_NAVIGATION: 48,
+  ZHIHU_IMAGE_ADJUSTMENT: 51,
   AD_MARSHAL: 35,
   CHINESE_RESPONSE_CLAUDE: 36,
   WEBSITE_KNOWLEDGE_CONTROL: 37,
@@ -129,6 +131,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     controlOpacity: 0.5
   }),
   xhsNavigation: Object.freeze({ enabled: false }),
+  zhihuImageAdjustment: Object.freeze({ enabled: false, smallImages: true, darkImages: true, matchPageTheme: true }),
   chineseResponseClaude: Object.freeze({
     enabled: false,
     browserIdentityEnabled: false
@@ -394,6 +397,9 @@ export function normalizeSettings(value = {}) {
       showImageControl: value.xhsImageDarkMode?.showImageControl !== false,
       controlOpacity: Math.min(0.9, Math.max(0.2, Number(value.xhsImageDarkMode?.controlOpacity) || 0.5))
     },
+    zhihuImageAdjustment: { enabled: value.zhihuImageAdjustment?.enabled === true,
+      smallImages: value.zhihuImageAdjustment?.smallImages !== false, darkImages: value.zhihuImageAdjustment?.darkImages !== false,
+      matchPageTheme: value.zhihuImageAdjustment?.matchPageTheme !== false },
     xhsNavigation: {
       enabled: value.xhsNavigation?.enabled === true
         || value.xhsImageDarkMode?.keyboardNavigationEnabled === true

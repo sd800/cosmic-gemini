@@ -301,6 +301,16 @@ function render() {
     document.querySelector('#documentPreviewAppearance').value = preference?.appearance || 'auto';
     document.querySelector('#documentPdfSampling').value = preference?.pdfSampling || 4;
   }
+  const zhihuEnabled = document.querySelector('#zhihuImageAdjustmentEnabled');
+  if (zhihuEnabled) {
+    const preference = (states?.preferences || states)?.zhihuImageAdjustment;
+    zhihuEnabled.checked = preference?.enabled === true;
+    document.querySelector('#zhihuImageAdjustmentOptions').disabled = !zhihuEnabled.checked;
+    document.querySelector('#zhihuSmallImages').checked = preference?.smallImages !== false;
+    document.querySelector('#zhihuDarkImages').checked = preference?.darkImages !== false;
+    document.querySelector('#zhihuMatchPageTheme').checked = preference?.matchPageTheme !== false;
+    document.querySelector('#zhihuMatchPageTheme').disabled = !zhihuEnabled.checked || preference?.darkImages === false;
+  }
   const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (leetcodeDarkModeEnabled) {
@@ -841,6 +851,20 @@ function bindView() {
   if (mailtoCaptureEnabled) mailtoCaptureEnabled.addEventListener('change', () => void update(null, () => savePreference('mailtoCapture', {
     type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: mailtoCaptureEnabled.checked
   }), [mailtoCaptureEnabled]));
+  const zhihuEnabled = document.querySelector('#zhihuImageAdjustmentEnabled');
+  if (zhihuEnabled) zhihuEnabled.addEventListener('change', () => {
+    document.querySelector('#zhihuImageAdjustmentOptions').disabled = !zhihuEnabled.checked;
+    void update(null, () => savePreference('zhihuImageAdjustment', {type: 'UI_SET_ENABLED', featureId: 'zhihuImageAdjustment', enabled: zhihuEnabled.checked}), [zhihuEnabled]);
+  });
+  for (const [id, name] of [['zhihuSmallImages', 'smallImages'], ['zhihuDarkImages', 'darkImages'], ['zhihuMatchPageTheme', 'matchPageTheme']]) {
+    const control = document.querySelector('#' + id);
+    control?.addEventListener('change', () => {
+      if (name === 'darkImages') document.querySelector('#zhihuMatchPageTheme').disabled = !zhihuEnabled.checked || !control.checked;
+      void update(null, () => savePreference('zhihuImageAdjustment', {
+        type: 'UI_SET_ZHIHU_IMAGE_SETTING', featureId: 'zhihuImageAdjustment', name, value: control.checked
+      }), [control]);
+    });
+  }
   const leetcodeDarkModeEnabled = document.querySelector('#leetcodeDarkModeEnabled');
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (leetcodeDarkModeEnabled) leetcodeDarkModeEnabled.addEventListener('change', () => {

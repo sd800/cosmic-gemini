@@ -1,0 +1,22 @@
+/* USER-origin rules apply only to explicitly owned content nodes. */
+html[data-cg-zhihu-small] [data-cg-zhihu-figure] {
+  width: fit-content !important; max-width: min(280px, 100%) !important;
+  margin-inline: auto !important; float: none !important;
+}
+html[data-cg-zhihu-small] img[data-cg-zhihu-image]:not([data-cg-zhihu-viewer]) {
+  width: auto !important; max-width: min(280px, 100%) !important;
+  height: auto !important; max-height: none !important; object-fit: contain !important;
+}
+html[data-cg-zhihu-small] [data-cg-zhihu-figure] .RichText-ConditionalImagePortal {
+  max-width: 100% !important;
+}
+[data-cg-zhihu-figure] { position: relative !important; }
+img[data-cg-zhihu-effect="invert"] { filter: invert(.92) hue-rotate(180deg) !important; }
+img[data-cg-zhihu-effect="gray"] { filter: brightness(.72) contrast(1.45) !important; }
+img[data-cg-zhihu-effect="original"] { filter: none !important; }
+img[data-cg-zhihu-effect="hide-dark"] { filter: brightness(0) !important; }
+img[data-cg-zhihu-effect="hide-light"] { filter: brightness(0) invert(1) sepia(.08) brightness(.93) !important; }
+[data-cg-zhihu-backdrop] { background-color: rgba(8, 10, 12, .94) !important; }
+
+img[data-cg-zhihu-pending] { visibility: hidden !important; }
+[data-cg-zhihu-figure]:has(img[data-cg-zhihu-pending]) { background-color: #202226 !important; }

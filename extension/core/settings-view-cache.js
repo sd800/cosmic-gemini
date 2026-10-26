@@ -88,6 +88,9 @@ export function settingsViewCache(states = {}) {
       controlOpacity: states.xhsImageDarkMode?.controlOpacity || 0.5
     },
     xhsNavigation: { enabled: states.xhsNavigation?.enabled === true },
+    zhihuImageAdjustment: { enabled: states.zhihuImageAdjustment?.enabled === true,
+      smallImages: states.zhihuImageAdjustment?.smallImages !== false, darkImages: states.zhihuImageAdjustment?.darkImages !== false,
+      matchPageTheme: states.zhihuImageAdjustment?.matchPageTheme !== false },
     chineseResponseClaude: {
       enabled: states.chineseResponseClaude?.enabled === true,
       browserIdentityEnabled: states.chineseResponseClaude?.browserIdentityEnabled === true

@@ -251,3 +251,8 @@ Run `scripts/test-browser-identity-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and
 ### PDF dark backgrounds and scrolling
 
 Run `node --test test/pdf-paper-prefetch.test.mjs` and the relevant dark-paper cases in `test/pdf-viewer.test.mjs`. Check first-paint background images, shared-image reuse across pages, clips, transparency, blend state, colored paper, white margins, and predominantly light pages. In the isolated reader, verify dark slide templates with inset light content, successive-page colors, rotation, default sampling, four-page forward preparation, two-page backward preparation, bounded base caches, and visible detail after scrolling stops. Reuse fixtures and concise records in `test-dist/pdf-dark-paper`; keep private document samples out of publication.
+
+
+### Zhihu image display
+
+Run `node --test test/zhihu-image-adjustment.test.mjs test/config.test.mjs test/settings-page.test.mjs`. Pixel-classifier changes also require `test/xhs-image-dark-mode.test.mjs`. Run `scripts/test-zhihu-images-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME` set to the installed test tools. Verify actual extension injection and saved preferences, both subdomain families, default-off activation, compact width without height cropping, default-expanded answers, collapsed thumbnails without controls, native full-size viewing, shared choices, menu dismissal, sensitive-content confirmation, Dark Reader/theme changes and automatic-match preference, pending presentation, unchanged-node stability, cleanup, and Settings reload/history consistency. Synthetic fixtures and concise reference artifacts stay in ignored `test-dist/zhihu-image-adjustment/` with their own README; do not retain private page content or full logs.

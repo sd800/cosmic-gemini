@@ -24,6 +24,7 @@ export const DEVELOPER_FEATURES = Object.freeze({
   translateOverride: { title: 'websiteFixerTranslateName', tag: 'translate-override', parent: 'websiteFixer' },
   stayOnPage: { title: 'websiteFixerStayName', tag: 'stay-on-page', parent: 'websiteFixer' },
   xhsImageDarkMode: { title: 'xhsImageDarkModeSettingsName', name: 'xhsImageDarkModeName', tag: 'xhs-image-dark-mode', province: 'operations' },
+  zhihuImageAdjustment: { title: 'zhihuImageAdjustmentName', tag: 'zhihu-image-adjustment', province: 'operations' },
   xhsNavigation: { title: 'xhsNavigationName', tag: 'xhs-navigation', province: 'operations' },
   biliDailyLogin: { title: 'biliDailyLoginName', tag: 'bili-daily-login', province: 'standing' },
   chineseResponseClaude: { title: 'chineseResponseClaudeName', tag: 'chinese-response-claude', province: 'operations' },

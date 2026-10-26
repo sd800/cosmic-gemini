@@ -118,6 +118,10 @@ XHS Keyboard Navigation 是同一设置卡片中的独立功能，可将 W/S/A/D
 
 这是一项实验性功能。
 
+#### Zhihu Image Display Adjustment
+
+缩小知乎回答和文章中的配图，并可在深色页面中调整文字图片。保留知乎原生大图查看，通过图片按钮切换显示效果或隐藏图片。
+
 #### Bili Daily Login
 
 哔哩哔哩每天会向完成每日登录的账号发放一枚硬币。若要持续领取，原本需要您记得每天完成登录。Bili Daily Login 会在 Chrome 可以运行时于后台自动完成这项任务，帮助当前账号领取当日硬币。

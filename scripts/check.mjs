@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.10.25.4');
+assert.equal(manifest.version, '26.10.26.1');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -602,12 +602,13 @@ for (const observer of ['IntersectionObserver', 'MutationObserver', 'ResizeObser
 assert.match(xhsImageDarkModeRuntime, /this\.running < 2/);
 assert.match(xhsImageDarkModeRuntime, /isAvatar[\s\S]*sns-avatar/);
 assert.match(xhsImageDarkModeRuntime, /note-detail-follow-btn/);
-assert.match(xhsImageDarkModeRuntime, /edgeShare >= 0\.42[\s\S]*surfaceShare >= 0\.72[\s\S]*largestForegroundShare <= 0\.16/);
-assert.match(xhsImageDarkModeRuntime, /strongestPanelShare[\s\S]*splitToneLayout[\s\S]*lightPanelShare >= 0\.72[\s\S]*darkPanelShare >= 0\.48/,
+const readingSurfaceClassifier = await source('content', 'shared', 'image-reading-surface.js');
+assert.match(readingSurfaceClassifier, /edgeShare >= 0\.42[\s\S]*surfaceShare >= 0\.72[\s\S]*largestForegroundShare <= 0\.16/);
+assert.match(readingSurfaceClassifier, /strongestPanelShare[\s\S]*splitToneLayout[\s\S]*lightPanelShare >= 0\.72[\s\S]*darkPanelShare >= 0\.48/,
   'XHS Image Dark Mode must recognize stable split-tone document panels.');
-assert.match(xhsImageDarkModeRuntime, /vividCard[\s\S]*Math\.abs\(value - backgroundLuminance\) >= 0\.22[\s\S]*foregroundComponents\.count >= 5[\s\S]*largestForegroundShare <= 0\.08/,
+assert.match(readingSurfaceClassifier, /vividCard[\s\S]*Math\.abs\(value - backgroundLuminance\) >= 0\.22[\s\S]*foregroundComponents\.count >= 5[\s\S]*largestForegroundShare <= 0\.08/,
   'Vivid XHS text cards must recognize both light and dark text while rejecting large photo subjects.');
-assert.match(xhsImageDarkModeRuntime, /conversationSurfaceCandidates[\s\S]*conversationSurfaceComponents\.count >= 3[\s\S]*conversationSurfaceComponents\.largestShare <= 0\.16[\s\S]*conversationTextStructure/,
+assert.match(readingSurfaceClassifier, /conversationSurfaceCandidates[\s\S]*conversationSurfaceComponents\.count >= 3[\s\S]*conversationSurfaceComponents\.largestShare <= 0\.16[\s\S]*conversationTextStructure/,
   'XHS chat screenshots must require repeated reading surfaces and text-like foreground structure.');
 assert.match(xhsImageDarkModeRuntime, /relatedResult\?\.kind[\s\S]*relatedResult\.kind !== 'photo'/,
   'Negative feed-cover classifications must not suppress independent viewer analysis.');
@@ -670,7 +671,7 @@ assert.match(xhsImageDarkModeRuntime, /requestIdleCallback\(run, \{ timeout: 600
   'Background image work must return to idle scheduling after urgent work completes.');
 assert.match(xhsImageDarkModeRuntime, /processingGeneration[\s\S]*generation !== this\.processingGeneration[\s\S]*this\.records\.get\(image\) !== record/,
   'Superseded image work must not write into a later processing lifecycle.');
-assert.match(xhsImageDarkModeRuntime, /grayBackground[\s\S]*'gray-theme'[\s\S]*cg-xhs-image-dark-mode-gray/);
+assert.match(readingSurfaceClassifier + xhsImageDarkModeRuntime, /grayBackground[\s\S]*'gray-theme'[\s\S]*cg-xhs-image-dark-mode-gray/);
 assert.match(xhsImageDarkModeRuntime, /--cg-xhs-image-brightness, 1[\s\S]*noteCacheKey[\s\S]*visualTarget/);
 assert.match(xhsImageDarkModeRuntime, /viewerForImage\(record\.image\)[\s\S]*fractionRect\.right - FRACTION_SLOT_WIDTH - CONTROL_GAP - CONTROL_SIZE/);
 assert.match(xhsImageDarkModeRuntime, /renderedPageWideDarkMode[\s\S]*surfaceLuminanceAtPoint[\s\S]*darkShare >= 0\.5/);

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.26.1 — 2026-10-26
+
+- Add Zhihu Image Display Adjustment, with independent compact-image and dark-mode controls, native full-size viewing, and per-image display options.
+
 ## 26.10.25.4 — 2026-10-25
 
 - Improve PDF dark-paper recognition and scrolling with bounded directional pre-rendering.

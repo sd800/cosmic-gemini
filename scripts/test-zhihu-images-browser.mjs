@@ -1,6 +1,6 @@
 // Real product injection and Settings in a disposable profile with synthetic page content.
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,rm,writeFile} from 'node:fs/promises';
+import {mkdtemp,mkdir,rm,writeFile,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -125,6 +125,51 @@ try{
  assert.equal(await page.evaluate(()=>window.presentationChanges),0,'unchanged image presentation must not flicker on an unrelated class update');
  await page.evaluate(()=>window.fixtureObserver.disconnect());
 
+ // High-detail analysis is Zhihu-only; the shared classifier and XHS budgets stay unchanged.
+ await page.evaluate(()=>{
+   window.readingSamples=[];
+   const getPixels=CanvasRenderingContext2D.prototype.getImageData;
+   CanvasRenderingContext2D.prototype.getImageData=function(...args){const pixels=getPixels.apply(this,args);window.readingSamples.push(pixels.width*pixels.height);return pixels;};
+ });
+ const addReadingSample=async(id,source,expected)=>{
+   await page.evaluate(({id,source})=>{
+     window.readingSamples=[];
+     const body=document.createElement('div');body.className='RichContent';
+     const text=document.createElement('div');text.className='RichText ztext';
+     const figure=document.createElement('figure'),image=document.createElement('img');image.id=id;image.src=source;
+     figure.append(image);text.append(figure);body.append(text);document.body.append(body);
+   },{id,source});
+   const image=page.locator(`#${id}`);await image.scrollIntoViewIfNeeded();
+   await page.waitForFunction(id=>{const image=document.getElementById(id);return image.hasAttribute('data-cg-zhihu-image')&&window.readingSamples.length>0&&!image.hasAttribute('data-cg-zhihu-pending')},id);
+   assert.equal(await image.getAttribute('data-cg-zhihu-effect'),expected,`${id} classification`);
+   const reads=await page.evaluate(()=>window.readingSamples);
+   assert.ok(reads.length<=3&&reads.every(size=>size<=16384)&&reads.reduce((a,b)=>a+b,0)<=21504,'refinement remains bounded');
+   return reads;
+ };
+ const samples=await page.evaluate(()=>{
+   const make=kind=>{
+     const canvas=document.createElement('canvas');canvas.width=900;canvas.height=680;const g=canvas.getContext('2d');
+     g.fillStyle=kind==='faded'?'#f5f1e6':'white';g.fillRect(0,0,900,680);
+     if(kind==='dense'||kind==='faded'){
+       g.font='22px Georgia';g.fillStyle=kind==='faded'?'#555':'#161616';
+       for(let y=25;y<680;y+=34)g.fillText('Reading example: dense printed text on a bright page with small letters.',24,y);
+     }else if(kind==='object'){g.fillStyle='#222';g.beginPath();g.arc(450,340,26,0,Math.PI*2);g.fill();}
+     else if(kind==='photo'){const gradient=g.createLinearGradient(0,0,900,680);gradient.addColorStop(0,'#8ad9f0');gradient.addColorStop(.5,'#d2a87c');gradient.addColorStop(1,'#254b2a');g.fillStyle=gradient;g.fillRect(0,0,900,680);}
+     return canvas.toDataURL();
+   };return Object.fromEntries(['dense','faded','object','photo','blank'].map(kind=>[kind,make(kind)]));
+ });
+ for(const name of ['dense','faded']){
+   const reads=await addReadingSample(`reading-${name}`,samples[name],'invert');assert.ok(reads.length>1,'small print must exercise refinement');
+ }
+ for(const name of ['object','photo','blank'])await addReadingSample(`reading-${name}`,samples[name],null);
+ if(process.env.ZHIHU_READING_SAMPLE){
+   const bytes=await readFile(process.env.ZHIHU_READING_SAMPLE);let corsReads=0;
+   const reference='https://pic4.zhimg.com/v2-eeeeeeeeeeee.jpg';
+   await context.route(reference,route=>{if(route.request().headers().origin)corsReads++;return route.fulfill({contentType:'image/jpeg',body:bytes,headers:{'Access-Control-Allow-Origin':'*'}})});
+   const reads=await addReadingSample('reading-reference',reference,'invert');assert.ok(corsReads>0&&reads.length>1,'the reference must use CDN-safe sampling and detail refinement');
+   await page.locator('#reading-reference').screenshot({path:join(artifacts,'reading-reference-dark.png')});
+ }
+
  // The history-navigation Settings view and first-frame cache must contain both options.
  await settings.reload();await settings.waitForFunction(()=>document.getElementById('zhihuImageAdjustmentEnabled').checked);
  assert.equal(await settings.locator('#zhihuDarkImages').isChecked(),true);
@@ -140,5 +185,5 @@ try{
  await page.goto('https://zhuanlan.zhihu.com/p/1');await page.waitForSelector('#text[data-cg-zhihu-image]');
  assert.ok((await page.locator('#text').boundingBox()).width<=280);
  assert.deepEqual(errors,[]);
- console.log('Passed: closed-root menus with coordinated Any Copy, native button/margin right-click, root-local Control-click, ordinary browser menus, actual injection, saved controls, scope, compact width, dark screenshots, collapsed/default-expanded states, native viewer, per-image choices, protection, themes, cleanup, and Settings history.');
+ console.log('Passed: dense/faded reading images, preserved objects/photos/blank images, bounded Zhihu-only refinement, closed-root menus with coordinated Any Copy, native button/margin right-click, root-local Control-click, ordinary browser menus, actual injection, saved controls, scope, compact width, dark screenshots, collapsed/default-expanded states, native viewer, per-image choices, protection, themes, cleanup, and Settings history.');
 }finally{await context.close();await rm(folder,{recursive:true,force:true});}

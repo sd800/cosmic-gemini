@@ -242,12 +242,32 @@
     restoreIgnore(record); removeControl(record); records.delete(record.image);
   }
   function readSample(image) {
-    const ratio = Math.min(1,Math.sqrt(1024/(image.naturalWidth*image.naturalHeight)));
-    const width = Math.min(1024,Math.max(1,Math.floor(image.naturalWidth*ratio))), height = Math.min(Math.floor(1024/width),Math.max(1,Math.floor(image.naturalHeight*ratio)));
-    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+    const sourcePixels = image.naturalWidth * image.naturalHeight;
+    if (!sourcePixels) return null;
+    const canvas = document.createElement('canvas');
+    let firstResult;
     try {
-      const context = canvas.getContext('2d',{willReadFrequently:true}); context.drawImage(image,0,0,width,height);
-      return classifier.classify(context.getImageData(0,0,width,height).data,width,height);
+      const context = canvas.getContext('2d',{willReadFrequently:true});
+      // Most images stop at the original budget. Tiny print can disappear there,
+      // so only unresolved bright reading surfaces receive bounded detail passes.
+      for (const budget of [1024, 4096, 16384]) {
+        const ratio = Math.min(1, Math.sqrt(budget / sourcePixels));
+        const width = Math.min(budget, Math.max(1, Math.floor(image.naturalWidth * ratio)));
+        const height = Math.min(Math.floor(budget / width), Math.max(1, Math.floor(image.naturalHeight * ratio)));
+        canvas.width = width; canvas.height = height;
+        context.drawImage(image,0,0,width,height);
+        const result = classifier.classify(context.getImageData(0,0,width,height).data,width,height);
+        firstResult ||= result;
+        if (result.kind !== 'photo') {
+          // Refinement must reveal distributed text, not merely a small object.
+          return budget === 1024 || result.foregroundComponentCount >= 5 && result.largestForegroundShare <= .08
+            ? result : firstResult;
+        }
+        const unresolvedPrint = result.backgroundShare >= .9 && result.backgroundLuminance >= .72
+          && result.foregroundShare <= .04 && result.transparencyShare < .1
+          && (result.contrastForegroundShare > 0 || result.backgroundLuminance < .97);
+        if (!unresolvedPrint || width * height >= sourcePixels || budget === 16384) return result;
+      }
     } catch { return null; } finally { canvas.width = canvas.height = 0; }
   }
   function corsCopy(image) {

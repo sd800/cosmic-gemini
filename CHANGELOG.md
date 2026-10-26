@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.26.9 — 2026-10-26
+
+- Improve automatic dark-mode recognition of dense printed text in Zhihu images while preserving ordinary photos.
+
 ## 26.10.26.8 — 2026-10-26
 
 - Fix Zhihu image context menus when other page tools are active, and preserve toolbar and menu interactions.

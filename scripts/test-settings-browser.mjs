@@ -52,7 +52,7 @@ try{
  const base=`chrome-extension://${id}/`,worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
  const assertSatelliteDirectory=async page=>{
   const directory=page.locator('#satellites-directory');await directory.waitFor();
-  assert.equal(await directory.locator('[data-satellite-target]').count(),16);
+  assert.equal(await directory.locator('[data-satellite-target]').count(),8);
   const placement=await page.evaluate(()=>{const language=document.querySelector('.language-card').getBoundingClientRect(),directory=document.querySelector('#satellites-directory').getBoundingClientRect();return{languageBottom:language.bottom,directoryTop:directory.top}});
   assert.ok(placement.directoryTop>=placement.languageBottom,'Satellites directory must follow Language');
   const button=directory.locator('[data-satellite-target="satellite-document-preview"]');await button.focus();await page.keyboard.press('Enter');

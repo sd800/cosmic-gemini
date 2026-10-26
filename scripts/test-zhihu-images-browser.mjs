@@ -30,7 +30,7 @@ try{
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('https://www.zhihu.com/question/1');
  await page.waitForFunction(()=>document.getElementById('text').naturalWidth>0);
  assert.equal(await page.locator('[data-cg-zhihu-image]').count(),0);
- const settings=await context.newPage();settings.on('pageerror',e=>errors.push(e.message));await settings.goto(base+'settings/satellites.html');
+ const settings=await context.newPage();settings.on('pageerror',e=>errors.push(e.message));await settings.goto(base+'settings/satellites-site-specific.html');
  await settings.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
  await settings.locator('#satellite-zhihu-image-adjustment').screenshot({path:join(artifacts,'settings.png')});
  await settings.locator('#zhihuImageAdjustmentEnabled').check();
@@ -104,7 +104,7 @@ try{
  await settings.reload();await settings.waitForFunction(()=>document.getElementById('zhihuImageAdjustmentEnabled').checked);
  assert.equal(await settings.locator('#zhihuDarkImages').isChecked(),true);
  await settings.locator('[data-feature-link="allSettings"]').first().click();
- await settings.locator('[data-feature-link="satellites"]').first().click();await settings.waitForSelector('#zhihuImageAdjustmentEnabled');
+ await settings.locator('[data-feature-link="satellitesSiteSpecific"]').first().click();await settings.waitForSelector('#zhihuImageAdjustmentEnabled');
  assert.equal(await settings.locator('#zhihuImageAdjustmentEnabled').isChecked(),true);
  await settings.locator('#zhihuImageAdjustmentEnabled').uncheck();await page.waitForFunction(()=>!document.querySelector('[data-cg-zhihu-image]'));
  assert.equal(await page.locator('cg-zhihu-image-control').count(),0);

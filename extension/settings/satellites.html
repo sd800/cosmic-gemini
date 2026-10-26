@@ -24,6 +24,7 @@
         <a class="feature-link" href="video-download.html" data-feature-link="videoDownload"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="page-display.html" data-feature-link="pageDisplay"><span aria-hidden="true"></span></a>
         <a class="feature-link active" href="satellites.html" data-feature-link="satellites"><span aria-hidden="true"></span></a>
+        <a class="feature-link" href="satellites-site-specific.html" data-feature-link="satellitesSiteSpecific"><span aria-hidden="true"></span></a>
         <a class="feature-link" href="all-settings.html" data-feature-link="allSettings"><span aria-hidden="true"></span></a>
       </nav>
     </div>
@@ -210,127 +211,22 @@
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteFixerPrivacy"></p></div>
       </section>
-      <h2 class="satellite-category-heading" data-i18n="satellitesSiteSpecificFeatures"></h2>
-      <section id="satellite-xhs-image-dark-mode" class="card satellite-card xhs-dark-reader-card" data-satellite-section>
-        <div class="section-heading">
-          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsImageDarkMode" aria-hidden="true"></span><h1 data-i18n="xhsImageDarkModeSettingsName"></h1></div><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="xhsImageDarkModeEnabled" type="checkbox"><span></span><b class="sr-only">XHS Image Dark Mode</b></label></div>
-        </div>
-        <div class="preference-list satellite-preferences">
-          <label class="preference-row" for="xhsImageDarkModeOverride"><span><strong data-i18n="xhsImageDarkModeOverrideHeading"></strong><small data-i18n="xhsImageDarkModeOverrideHelp"></small></span><span class="switch"><input id="xhsImageDarkModeOverride" type="checkbox"><span></span></span></label>
-          <label class="preference-row" for="xhsImageDarkModeControl"><span><strong data-i18n="xhsImageDarkModeControlHeading"></strong><small data-i18n="xhsImageDarkModeControlHelp"></small></span><span class="switch"><input id="xhsImageDarkModeControl" type="checkbox" checked><span></span></span></label>
-          <label class="preference-row xhs-opacity-row" for="xhsImageDarkModeOpacity"><span><strong data-i18n="xhsImageDarkModeOpacityHeading"></strong><small data-i18n="xhsImageDarkModeOpacityHelp"></small></span><span class="range-control"><input id="xhsImageDarkModeOpacity" type="range" min="20" max="90" step="5" value="50"><output id="xhsImageDarkModeOpacityValue" for="xhsImageDarkModeOpacity">50%</output></span></label>
-        </div>
-        <section id="satellite-xhs-navigation" class="xhs-navigation-item" data-satellite-section>
-          <div class="section-heading xhs-navigation-heading">
-            <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsNavigation" aria-hidden="true"></span><h1 id="xhsNavigationTitle" data-i18n="xhsNavigationName"></h1></div><p data-i18n="xhsNavigationHelp"></p></div>
-            <div class="satellite-control"><label class="switch"><input id="xhsNavigationEnabled" type="checkbox" aria-labelledby="xhsNavigationTitle"><span></span></label></div>
-          </div>
-        </section>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="xhsImageDarkModePrivacy"></p></div>
-      </section>
-      <section id="satellite-bili-daily-login" class="card satellite-card" data-satellite-section>
-        <div class="section-heading">
-          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="biliDailyLogin" aria-hidden="true"></span><h1 data-i18n="biliDailyLoginName"></h1></div><p data-i18n="biliDailyLoginDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
-        </div>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="biliDailyLoginPrivacy"></p></div>
-      </section>
-      <section id="satellite-leetcode-dark-mode" class="card satellite-card" data-satellite-section data-product="leetcode-dark-mode">
-        <div class="section-heading">
-          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="leetcodeDarkMode" aria-hidden="true"></span><h1 data-i18n="leetcodeDarkModeName"></h1></div><p data-i18n="leetcodeDarkModeDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="leetcodeDarkModeEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="leetcodeDarkModeName"></b></label></div>
-        </div>
-        <fieldset id="leetcodeDarkModeOptions" class="knowledge-options white-softer-options" disabled>
-          <legend class="sr-only" data-i18n="leetcodeDarkModeTone"></legend>
-          <div class="knowledge-row">
-            <label for="leetcodeDarkModeTone" class="knowledge-label" data-i18n="leetcodeDarkModeTone"></label>
-            <select id="leetcodeDarkModeTone" data-white-tones="allow-off"></select>
-          </div>
-        </fieldset>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="leetcodeDarkModePrivacy"></p></div>
-      </section>
-      <section id="satellite-chinese-response-claude" class="card satellite-card" data-satellite-section>
-        <div class="section-heading">
-          <div>
-            <h1 data-i18n="chineseResponseClaudeName"></h1>
-            <p data-i18n="chineseResponseClaudeDescription"></p>
-            <label class="satellite-inline-checkbox" for="claudeBrowserIdentityEnabled"><input id="claudeBrowserIdentityEnabled" type="checkbox"><span data-i18n="claudeBrowserIdentityHelp"></span></label>
-          </div>
-          <div class="satellite-control"><label class="switch"><input id="chineseResponseClaudeEnabled" type="checkbox"><span></span><b class="sr-only">Chinese Response Display Optimization for Claude</b></label></div>
-        </div>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="chineseResponseClaudePrivacy"></p></div>
-      </section>
-      <section id="satellite-follow-list-instagram" class="card satellite-card" data-satellite-section data-product="follow-list-instagram">
-        <div class="section-heading"><div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="followListInstagram" aria-hidden="true"></span><h1 data-i18n="followListInstagramName"></h1></div><p data-i18n="followListInstagramDescription"></p><p data-i18n="followListInstagramHelp"></p></div><span class="context-label" data-i18n="clickToEnableLabel"></span></div>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="followListInstagramPrivacy"></p></div>
-      </section>
-      <section id="satellite-lang-google" class="card satellite-card" data-satellite-section data-product="lang-google">
-        <div class="section-heading">
-          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="langGoogle" aria-hidden="true"></span><h1 data-i18n="langGoogleName"></h1></div><p data-i18n="langGoogleDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="langGoogleEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="langGoogleName"></b></label></div>
-        </div>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="langGooglePrivacy"></p></div>
-      </section>
-      <section id="satellite-zhihu-image-adjustment" class="card satellite-card" data-satellite-section>
-        <div class="section-heading">
-          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="zhihuImageAdjustment" aria-hidden="true"></span><h1 data-i18n="zhihuImageAdjustmentName"></h1></div><p data-i18n="zhihuImageAdjustmentDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="zhihuImageAdjustmentEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="zhihuImageAdjustmentName"></b></label></div>
-        </div>
-        <fieldset id="zhihuImageAdjustmentOptions" class="knowledge-options" disabled>
-          <div class="preference-list satellite-preferences">
-            <label class="preference-row" for="zhihuSmallImages"><span><strong data-i18n="zhihuSmallImagesName"></strong><small data-i18n="zhihuSmallImagesHelp"></small></span><span class="switch"><input id="zhihuSmallImages" type="checkbox" checked><span></span></span></label>
-            <div class="zhihu-dark-images-option">
-              <label class="preference-row" for="zhihuDarkImages"><span><strong data-i18n="zhihuDarkImagesName"></strong><small data-i18n="zhihuDarkImagesHelp"></small></span><span class="switch"><input id="zhihuDarkImages" type="checkbox" checked><span></span></span></label>
-              <div class="zhihu-theme-setting">
-                <label class="satellite-inline-checkbox" for="zhihuMatchPageTheme"><input id="zhihuMatchPageTheme" type="checkbox" aria-describedby="zhihuMatchPageThemeHelp" checked><span data-i18n="zhihuMatchPageThemeName"></span></label>
-                <p id="zhihuMatchPageThemeHelp" class="zhihu-theme-help" data-i18n="zhihuMatchPageThemeHelp"></p>
-              </div>
-            </div>
-          </div>
-        </fieldset>
-        <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="zhihuImageAdjustmentPrivacy"></p></div>
-      </section></div>
+    </div>
     <div class="sidebar">
-      <aside class="help card">
-        <h2 data-i18n="satellitesHelpHeading"></h2>
-        <p data-i18n="satellitesHelpIntro"></p>
-      </aside>
+      <aside class="help card"><h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p></aside>
       <section class="card compact language-card">
         <label for="language"><strong data-i18n="languageHeading"></strong></label>
         <select id="language"><option value="en-US" data-i18n="english"></option><option value="zh-CN" data-i18n="chinese"></option></select>
       </section>
-      <nav id="satellites-directory" class="card satellites-directory" aria-labelledby="satellitesDirectoryHeading">
-        <h2 id="satellitesDirectoryHeading" data-i18n="satellitesDirectoryHeading"></h2>
-        <div class="satellites-directory-scroll">
-          <section class="satellites-directory-group">
-            <h3 data-i18n="satellitesGeneralFeatures"></h3>
-            <div class="satellites-directory-list">
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-mailto-capture"><span class="satellites-directory-icon" data-section-icon="mailtoCapture" aria-hidden="true"></span><span data-i18n="mailtoCaptureName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-clipboard-protect"><span class="satellites-directory-icon" data-section-icon="clipboardProtect" aria-hidden="true"></span><span data-i18n="clipboardProtectName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-white-softer"><span class="satellites-directory-icon" data-section-icon="whiteSofter" aria-hidden="true"></span><span data-i18n="whiteSofterName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-access-control"><span class="satellites-directory-icon" data-section-icon="accessControl" aria-hidden="true"></span><span data-i18n="accessControlName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-website-knowledge-control"><span class="satellites-directory-icon" data-section-icon="websiteKnowledgeControl" aria-hidden="true"></span><span data-i18n="websiteKnowledgeName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-document-preview"><span class="satellites-directory-icon" data-section-icon="documentPreview" aria-hidden="true"></span><span data-i18n="documentPreviewName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-ad-marshal"><span class="satellites-directory-icon" data-section-icon="adMarshal" aria-hidden="true"></span><span data-i18n="adMarshalName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-website-fixer"><span class="satellites-directory-icon" data-section-icon="websiteFixer" aria-hidden="true"></span><span data-i18n="websiteFixerName"></span></button>
-            </div>
-          </section>
-          <section class="satellites-directory-group">
-            <h3 data-i18n="satellitesSiteSpecificFeatures"></h3>
-            <div class="satellites-directory-list">
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-xhs-image-dark-mode"><span class="satellites-directory-icon" data-section-icon="xhsImageDarkMode" aria-hidden="true"></span><span data-i18n="xhsImageDarkModeSettingsName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-xhs-navigation"><span class="satellites-directory-icon" data-section-icon="xhsNavigation" aria-hidden="true"></span><span data-i18n="xhsNavigationName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-bili-daily-login"><span class="satellites-directory-icon" data-section-icon="biliDailyLogin" aria-hidden="true"></span><span data-i18n="biliDailyLoginName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-leetcode-dark-mode"><span class="satellites-directory-icon" data-section-icon="leetcodeDarkMode" aria-hidden="true"></span><span data-i18n="leetcodeDarkModeName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-chinese-response-claude"><span class="satellites-directory-icon" data-section-icon="chineseResponseClaude" aria-hidden="true"></span><span data-i18n="chineseResponseClaudeName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-follow-list-instagram"><span class="satellites-directory-icon" data-section-icon="followListInstagram" aria-hidden="true"></span><span data-i18n="followListInstagramName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-lang-google"><span class="satellites-directory-icon" data-section-icon="langGoogle" aria-hidden="true"></span><span data-i18n="langGoogleName"></span></button>
-              <button type="button" class="satellites-directory-link" data-satellite-target="satellite-zhihu-image-adjustment"><span class="satellites-directory-icon" data-section-icon="zhihuImageAdjustment" aria-hidden="true"></span><span data-i18n="zhihuImageAdjustmentName"></span></button>
-            </div>
-          </section>
-        </div>
-      </nav>
+      <nav id="satellites-directory" class="card satellites-directory" data-directory-page="satellites" aria-labelledby="satellitesDirectoryHeading">
+    <h2 id="satellitesDirectoryHeading" data-i18n="satellitesDirectoryHeading"></h2>
+    <div class="satellites-directory-scroll">
+      <section class="satellites-directory-group">
+        <h3 data-i18n="satellitesGeneralFeatures"></h3>
+        <div class="satellites-directory-list"><button type="button" class="satellites-directory-link" data-satellite-target="satellite-mailto-capture"><span class="satellites-directory-icon" data-section-icon="mailtoCapture" aria-hidden="true"></span><span data-i18n="mailtoCaptureName"></span></button><button type="button" class="satellites-directory-link" data-satellite-target="satellite-clipboard-protect"><span class="satellites-directory-icon" data-section-icon="clipboardProtect" aria-hidden="true"></span><span data-i18n="clipboardProtectName"></span></button><button type="button" class="satellites-directory-link" data-satellite-target="satellite-white-softer"><span class="satellites-directory-icon" data-section-icon="whiteSofter" aria-hidden="true"></span><span data-i18n="whiteSofterName"></span></button><button type="button" class="satellites-directory-link" data-satellite-target="satellite-access-control"><span class="satellites-directory-icon" data-section-icon="accessControl" aria-hidden="true"></span><span data-i18n="accessControlName"></span></button><button type="button" class="satellites-directory-link" data-satellite-target="satellite-website-knowledge-control"><span class="satellites-directory-icon" data-section-icon="websiteKnowledgeControl" aria-hidden="true"></span><span data-i18n="websiteKnowledgeName"></span></button><button type="button" class="satellites-directory-link" data-satellite-target="satellite-document-preview"><span class="satellites-directory-icon" data-section-icon="documentPreview" aria-hidden="true"></span><span data-i18n="documentPreviewName"></span></button><button type="button" class="satellites-directory-link" data-satellite-target="satellite-ad-marshal"><span class="satellites-directory-icon" data-section-icon="adMarshal" aria-hidden="true"></span><span data-i18n="adMarshalName"></span></button><button type="button" class="satellites-directory-link" data-satellite-target="satellite-website-fixer"><span class="satellites-directory-icon" data-section-icon="websiteFixer" aria-hidden="true"></span><span data-i18n="websiteFixerName"></span></button></div>
+      </section>
+    </div>
+  </nav>
     </div>
   </main>
   <footer><span id="version"></span><span>© 2026 Songming.org</span></footer>

@@ -128,11 +128,14 @@ export const SATELLITES_DIRECTORY_GROUPS = Object.freeze([
   })
 ]);
 
-export function satellitesDirectoryMarkup() {
-  return `<nav id="satellites-directory" class="card satellites-directory" aria-labelledby="satellitesDirectoryHeading">
+export function satellitesDirectoryMarkup(featureId = 'satellites') {
+  const siteSpecific = featureId === 'satellitesSiteSpecific';
+  const directoryPage = siteSpecific ? 'satellitesSiteSpecific' : 'satellites';
+  const groups = [SATELLITES_DIRECTORY_GROUPS[siteSpecific ? 1 : 0]];
+  return `<nav id="satellites-directory" class="card satellites-directory" data-directory-page="${directoryPage}" aria-labelledby="satellitesDirectoryHeading">
     <h2 id="satellitesDirectoryHeading" data-i18n="satellitesDirectoryHeading"></h2>
     <div class="satellites-directory-scroll">
-      ${SATELLITES_DIRECTORY_GROUPS.map(group => `<section class="satellites-directory-group">
+      ${groups.map(group => `<section class="satellites-directory-group">
         <h3 data-i18n="${group.headingKey}"></h3>
         <div class="satellites-directory-list">${group.items.map(item => `<button type="button" class="satellites-directory-link" data-satellite-target="${item.target}"><span class="satellites-directory-icon" data-section-icon="${item.icon}" aria-hidden="true"></span><span data-i18n="${item.nameKey}"></span></button>`).join('')}</div>
       </section>`).join('')}
@@ -148,6 +151,7 @@ export const PRODUCT_META = Object.freeze({
   videoDownload: { name: 'Video Download', path: 'video-download.html' },
   pageDisplay: { name: 'Page Display', path: 'page-display.html' },
   satellites: { name: 'Satellites', path: 'satellites.html' },
+  satellitesSiteSpecific: { name: 'Satellites – Site-specific features', path: 'satellites-site-specific.html' },
   allSettings: { name: 'All Settings', path: 'all-settings.html' }
 });
 
@@ -157,6 +161,7 @@ export function featureFromPath(pathname) {
   if (pathname.endsWith('/image-download.html')) return 'imageDownload';
   if (pathname.endsWith('/video-download.html')) return 'videoDownload';
   if (pathname.endsWith('/page-display.html')) return 'pageDisplay';
+  if (pathname.endsWith('/satellites-site-specific.html')) return 'satellitesSiteSpecific';
   if (pathname.endsWith('/satellites.html')) return 'satellites';
   if (pathname.endsWith('/all-settings.html')) return 'allSettings';
   return 'nativeScroll';
@@ -184,6 +189,7 @@ export function viewFor(featureId) {
         ${settingsCard('videoDownload', 'videoDownloadName', 'allSettingsVideoDescription')}
         ${settingsCard('pageDisplay', 'pageDisplayName', 'allSettingsPageDisplayDescription')}
         ${settingsCard('satellites', 'satellitesName', 'allSettingsSatellitesDescription')}
+        ${settingsCard('satellitesSiteSpecific', 'satellitesSiteSpecificName', 'allSettingsSiteSpecificDescription')}
       </section>`,
     help: '<h2 data-i18n="allSettingsHelpHeading"></h2><p data-i18n="allSettingsHelp"></p>'
   };
@@ -363,8 +369,15 @@ export function viewFor(featureId) {
           </section>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="websiteFixerPrivacy"></p></div>
+      </section>`,
+    help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
+  };
+  if (featureId === 'satellitesSiteSpecific') return {
+    primary: `
+      <section class="card">
+        ${introTitle('satellitesSiteSpecific', 'satellitesSiteSpecificName')}
+        <p class="last" data-i18n="satellitesSiteSpecificOverview"></p>
       </section>
-      <h2 class="satellite-category-heading" data-i18n="satellitesSiteSpecificFeatures"></h2>
       <section id="satellite-xhs-image-dark-mode" class="card satellite-card xhs-dark-reader-card" data-satellite-section>
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsImageDarkMode" aria-hidden="true"></span><h1 data-i18n="xhsImageDarkModeSettingsName"></h1></div><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
@@ -445,7 +458,7 @@ export function viewFor(featureId) {
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="zhihuImageAdjustmentPrivacy"></p></div>
       </section>`,
-    help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
+    help: '<h2 data-i18n="satellitesSiteSpecificHelpHeading"></h2><p data-i18n="satellitesSiteSpecificHelp"></p>'
   };
   if (featureId === 'pageDisplay') return {
     primary: `

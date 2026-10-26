@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.26.3 — 2026-10-26
+
+- Separate site-specific tools into their own Satellites settings page, with a new satellite icon and dedicated navigation.
+
 ## 26.10.26.2 — 2026-10-26
 
 - Refine the typography, spacing, and option hierarchy of Zhihu image settings.

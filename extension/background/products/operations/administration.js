@@ -9,7 +9,8 @@ const SETTINGS_PATHS = Object.freeze({
   [FEATURE_IDS.IMAGE_DOWNLOAD]: 'settings/image-download.html',
   [FEATURE_IDS.VIDEO_DOWNLOAD]: 'settings/video-download.html',
   [FEATURE_IDS.PAGE_DISPLAY]: 'settings/page-display.html',
-  satellites: 'settings/satellites.html'
+  satellites: 'settings/satellites.html',
+  satellitesSiteSpecific: 'settings/satellites-site-specific.html'
 });
 
 export function createAdministrationProduct(platform) {

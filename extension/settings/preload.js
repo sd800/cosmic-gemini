@@ -38,6 +38,7 @@
     xhsNavigation: '<path d="M12 3v18M8.5 6.5 12 3l3.5 3.5M8.5 17.5 12 21l3.5-3.5M3 12h18M6.5 8.5 3 12l3.5 3.5M17.5 8.5 21 12l-3.5 3.5"/>',
     chineseResponseClaude: '<path d="M17.3 7.1A6.7 6.7 0 1 0 17.3 16.9" stroke-width="2.35"/>',
     pageDisplay: '<circle cx="12" cy="12" r="3.4" fill="currentColor" stroke="none"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/>',
+    satellitesSiteSpecific: '<g transform="rotate(-38 12 12)"><rect x="9" y="8" width="6" height="9" rx="1.4"/><path d="M9 12H7M15 12h2M12 8V6.5"/><rect x="2.5" y="9" width="4.5" height="7" rx=".6"/><rect x="17" y="9" width="4.5" height="7" rx=".6"/><path d="M2.5 12.5H7M17 12.5h4.5M9.3 3.8a3.8 3.8 0 0 0 5.4 0L12 2Z"/></g>',
     satellites: '<path d="M15 2C15.6 8.1 17.9 11.4 22 12c-4.1.6-6.4 3.9-7 10-.6-6.1-2.9-9.4-7-10 4.1-.6 6.4-3.9 7-10Z" fill="currentColor" stroke="none"/><path d="M5.25 2c.25 1.95 1.05 2.75 3 3-1.95.25-2.75 1.05-3 3-.25-1.95-1.05-2.75-3-3 1.95-.25 2.75-1.05 3-3Z" fill="currentColor" stroke="none"/><path d="M6.25 12.25c.35 2.8 1.45 3.9 4.25 4.25-2.8.35-3.9 1.45-4.25 4.25-.35-2.8-1.45-3.9-4.25-4.25 2.8-.35 3.9-1.45 4.25-4.25Z" fill="currentColor" stroke="none"/>',
     allSettings: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7"/>'

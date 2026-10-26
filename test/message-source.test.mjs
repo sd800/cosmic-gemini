@@ -59,7 +59,7 @@ test('central accepts long-lived UI ports only from extension pages', () => {
 });
 
 test('central excludes opaque sandboxes, public assets and unknown paths from UI authority', () => {
-  const paths = ['popup/index.html', 'settings/all-settings.html?tab=satellites',
+  const paths = ['popup/index.html', 'settings/all-settings.html?tab=satellites', 'settings/satellites-site-specific.html',
     'workspaces/document-preview/document-preview.html?id=local'];
   for (const path of paths) {
     const sender = {url:extensionBase + path,id:'cosmic-gemini',origin:'chrome-extension://cosmic-gemini'};

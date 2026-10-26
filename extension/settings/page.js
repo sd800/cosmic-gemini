@@ -96,7 +96,7 @@ document.addEventListener('keydown', event => {
 
 function state() {
   const preferences = states?.preferences || states;
-  return featureId === 'satellites' ? preferences : preferences?.[featureId] || null;
+  return ['satellites', 'satellitesSiteSpecific'].includes(featureId) ? preferences : preferences?.[featureId] || null;
 }
 
 function sectionState(section) {
@@ -138,6 +138,7 @@ function applyLocale() {
     videoDownload: 'switchVideoDownloadSettings',
     pageDisplay: 'switchPageDisplaySettings',
     satellites: 'switchSatellitesSettings',
+    satellitesSiteSpecific: 'switchSiteSpecificSettings',
     allSettings: 'switchAllSettings'
   };
   for (const link of document.querySelectorAll('[data-feature-link]')) {
@@ -1333,13 +1334,14 @@ function syncSatelliteDirectory() {
   satelliteDirectoryCleanup?.();
   satelliteDirectoryCleanup = null;
   let card = document.querySelector('#satellites-directory');
-  if (featureId !== 'satellites') {
+  if (!['satellites', 'satellitesSiteSpecific'].includes(featureId)) {
     card?.remove();
     return;
   }
+  if (card && card.dataset.directoryPage !== featureId) { card.remove(); card = null; }
   if (!card) {
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = satellitesDirectoryMarkup();
+    wrapper.innerHTML = satellitesDirectoryMarkup(featureId);
     card = wrapper.firstElementChild;
     document.querySelector('.language-card').after(card);
   }

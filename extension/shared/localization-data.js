@@ -245,7 +245,7 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     imageDownloadName: 'Image Download',
     videoDownloadName: 'Video Download',
     orbitersName: 'Orbiters',
-    orbitersOverview: 'Choose tools for specific websites.',
+    orbitersOverview: 'Choose focused tools for specific websites.',
     orbitersHelpHeading: 'About Orbiters',
     orbitersHelp: 'Each tool works independently on supported websites. Choose the features that suit how you read and browse.',
     allSettingsOrbitersDescription: 'Manage tools for specific websites.',

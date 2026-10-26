@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.26.6 — 2026-10-26
+
+- Refine Orbiters introductory wording.
+
 ## 26.10.26.5 — 2026-10-26
 
 - Refine Orbiters introductory wording.

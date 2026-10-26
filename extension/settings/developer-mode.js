@@ -10,6 +10,7 @@ export const DEVELOPER_FEATURES = Object.freeze({
   reduceWhitePoint: { title: 'reduceWhitePointName', tag: 'reduce-white-point', parent: 'pageDisplay' },
   greyscale: { title: 'greyscaleName', tag: 'greyscale', parent: 'pageDisplay' },
   satellites: { title: 'satellitesName', tag: 'satellites', province: 'operations' },
+  orbiters: { title: 'orbitersName', tag: 'orbiters', province: 'operations' },
   mailtoCapture: { title: 'mailtoCaptureName', tag: 'mailto-capture', province: 'standing' },
   clipboardProtect: { title: 'clipboardProtectName', tag: 'clipboard-protect', province: 'standing' },
   whiteSofter: { title: 'whiteSofterName', tag: 'white-softer', province: 'standing' },

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createSettingsState } from '../extension/settings/state.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS } from '../extension/core/website-rule-input.js';
-import { PRODUCT_META, featureFromPath, viewFor, documentOpenShortcutMarkup, SATELLITES_DIRECTORY_GROUPS, satellitesDirectoryMarkup } from '../extension/settings/views.js';
+import { PRODUCT_META, featureFromPath, viewFor, documentOpenShortcutMarkup, SETTINGS_DIRECTORIES, featureDirectoryMarkup } from '../extension/settings/views.js';
 import { FEATURE_IDS, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../extension/core/config.js';
 import { DEVELOPER_FEATURES, featureAffiliation } from '../extension/settings/developer-mode.js';
 import { translator } from '../extension/shared/localization.js';
@@ -699,24 +699,31 @@ test('White Softer pending palette and subordinate availability survive unrelate
 });
 
 
-test('Satellites pages keep disjoint content and directories with dedicated navigation', () => {
-  const general = viewFor('satellites').primary, site = viewFor('satellitesSiteSpecific').primary;
-  assert.match(general, /data-i18n="satellitesName"[\s\S]*data-i18n="satellitesGeneralFeatures"/);
-  assert.match(site, /data-section-icon="satellitesSiteSpecific"[\s\S]*data-i18n="satellitesSiteSpecificName"/);
-  for (const [index, [id, markup]] of [['satellites', general], ['satellitesSiteSpecific', site]].entries()) {
-    const directory = satellitesDirectoryMarkup(id);
-    for (const entry of SATELLITES_DIRECTORY_GROUPS[index].items) {
+test('Satellites and Orbiters keep independent content and directories with dedicated navigation', () => {
+  const general = viewFor('satellites').primary, site = viewFor('orbiters').primary;
+  assert.match(general, /data-i18n="satellitesName"/);
+  assert.match(site, /data-section-icon="orbiters"[\s\S]*data-i18n="orbitersName"/);
+  for (const [index, [id, markup]] of [['satellites', general], ['orbiters', site]].entries()) {
+    const directory = featureDirectoryMarkup(id);
+    assert.doesNotMatch(markup, /satellite-category-heading|satellitesGeneralFeatures|orbitersFeatures/);
+    assert.doesNotMatch(directory, /<h3|directory-group/);
+    assert.equal(PRODUCT_META[id].name, translator('en-US')(`${id}Name`));
+    for (const entry of SETTINGS_DIRECTORIES[index].items) {
       assert.ok(markup.includes(`id="${entry.target}"`));
-      assert.ok(directory.includes(`data-satellite-target="${entry.target}"`));
+      assert.ok(directory.includes(`data-feature-target="${entry.target}"`));
     }
-    for (const entry of SATELLITES_DIRECTORY_GROUPS[1-index].items) {
+    for (const entry of SETTINGS_DIRECTORIES[1-index].items) {
       assert.ok(!markup.includes(`id="${entry.target}"`));
-      assert.ok(!directory.includes(`data-satellite-target="${entry.target}"`));
+      assert.ok(!directory.includes(`data-feature-target="${entry.target}"`));
     }
   }
-  assert.equal(translator('en-US')('satellitesSiteSpecificName'), 'Satellites – Site-specific features');
-  assert.ok(viewFor('allSettings').primary.includes('data-settings-card="satellitesSiteSpecific"'));
-  const svg = source => source.match(/satellitesSiteSpecific: '([^']+)'/)[1];
+  assert.equal(translator('en-US')('orbitersName'), 'Orbiters');
+  assert.equal(translator('en-US')('allSettingsOrbitersDescription'), 'Manage tools for specific websites.');
+  assert.equal(translator('zh-CN')('orbitersName'), 'Orbiters');
+  assert.equal(featureDirectoryMarkup('allSettings'), '');
+  assert.equal(featureAffiliation('orbiters', translator('en-US')), 'Central > Operations Province > Orbiters');
+  assert.ok(viewFor('allSettings').primary.includes('data-settings-card="orbiters"'));
+  const svg = source => source.match(/orbiters: '([^']+)'/)[1];
   assert.equal(svg(readFileSync(new URL('../extension/shared/ui.js', import.meta.url),'utf8')),
     svg(readFileSync(new URL('../extension/settings/preload.js', import.meta.url),'utf8')));
 });

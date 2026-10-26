@@ -65,7 +65,7 @@ try{
  });
  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
  const base=`chrome-extension://${new URL(worker.url()).host}`;
- const settings=await context.newPage();await settings.goto(base+'/settings/satellites-site-specific.html');
+ const settings=await context.newPage();await settings.goto(base+'/settings/orbiters.html');
  const toggle=settings.locator('#leetcodeDarkModeEnabled');await toggle.waitFor({state:'attached'});assert.equal(await toggle.isChecked(),false);
  const page=await context.newPage();await page.goto('https://leetcode.com/explore/interview/card/fixture/');
  assert.equal(await page.locator('[data-cg-leetcode-dark]').count(),0);

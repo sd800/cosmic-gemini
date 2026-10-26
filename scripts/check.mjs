@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.10.26.3');
+assert.equal(manifest.version, '26.10.26.4');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -157,7 +157,7 @@ assert.doesNotMatch(firstPartyJoined, /recent activity|最近活动/i);
 assert.doesNotMatch(firstPartyJoined, /sound autoplay/i);
 assert.doesNotMatch(firstPartyJoined, /navigator\.mediaSession|setActionHandler\s*\(|MediaPlayPause|nativeMessaging|osascript|AppleScript/i);
 
-const settingsPages = ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'page-display.html', 'satellites.html', 'satellites-site-specific.html', 'all-settings.html'];
+const settingsPages = ['native-scroll.html', 'no-autoplay.html', 'any-copy.html', 'image-download.html', 'video-download.html', 'page-display.html', 'satellites.html', 'orbiters.html', 'all-settings.html'];
 for (const name of settingsPages) {
   const html = await source('settings', name);
   assert.match(html, /<script src="\.\.\/shared\/localization-data\.js"><\/script>/);
@@ -176,7 +176,7 @@ for (const [name, featureId] of Object.entries({
   'video-download.html': 'videoDownload',
   'page-display.html': 'pageDisplay',
   'satellites.html': 'satellites',
-  'satellites-site-specific.html': 'satellitesSiteSpecific',
+  'orbiters.html': 'orbiters',
   'all-settings.html': 'allSettings'
 })) {
   assert.match(await source('settings', name), new RegExp('class="intro-title"[\\s\\S]*?data-section-icon="' + featureId + '"'));
@@ -211,8 +211,8 @@ const popupStyle = await source('popup', 'popup.css');
 assert.doesNotMatch(popupStyle, /access-control-visit/);
 const imageDownloadStyle = await source('workspaces', 'image-download', 'image-download.css');
 const satellitesSettings = await source('settings', 'satellites.html');
-const siteSpecificSettings = await source('settings', 'satellites-site-specific.html');
-const allSatellitesSettings = satellitesSettings + siteSpecificSettings;
+const orbitersSettings = await source('settings', 'orbiters.html');
+const collectionSettings = satellitesSettings + orbitersSettings;
 const nativeScrollSettings = await source('settings', 'native-scroll.html');
 const noAutoplaySettings = await source('settings', 'no-autoplay.html');
 const pageDisplaySettings = await source('settings', 'page-display.html');
@@ -241,11 +241,11 @@ for (const id of ['mailtoCaptureEnabled', 'websiteKnowledgeLanguages', 'websiteK
   assert.doesNotMatch(satellitesSettings, new RegExp(`id="${id}"[^>]*checked`),
     `${id} must render off before settings are loaded.`);
 }
-assert.match(siteSpecificSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /satellitesName[\s\S]*satellitesGeneralFeatures[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="whiteSofterEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*id="websiteFixerEnabled"/);
-assert.match(siteSpecificSettings, /satellitesSiteSpecificName[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="leetcodeDarkModeEnabled"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"[\s\S]*id="zhihuImageAdjustmentEnabled"/);
+assert.match(orbitersSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
+assert.match(satellitesSettings, /satellitesName[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="whiteSofterEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*id="websiteFixerEnabled"/);
+assert.match(orbitersSettings, /orbitersName[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="leetcodeDarkModeEnabled"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"[\s\S]*id="zhihuImageAdjustmentEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="(?:xhsImageDarkModeEnabled|biliDailyLogin|zhihuImageAdjustmentEnabled)"/);
-assert.doesNotMatch(siteSpecificSettings, /id="(?:mailtoCaptureEnabled|websiteFixerEnabled|accessControlEnabled)"/);
+assert.doesNotMatch(orbitersSettings, /id="(?:mailtoCaptureEnabled|websiteFixerEnabled|accessControlEnabled)"/);
 assert.match(satellitesSettings, /data-feature-id="accessControl" data-list-section="blockedDomains"[\s\S]*id="accessControlEnabled"[\s\S]*id="accessControlOptions"/);
 assert.match(satellitesSettings, /class="rule-list"[\s\S]*id="accessControlTemporaryVisits"/,
   'Access Control must place the one-time-visit choice below its website list.');
@@ -265,48 +265,49 @@ assert.match(settingsSource, /note\.hidden = !rules\.some\(rule => !isIpAddress\
 assert.match(settingsPreload, /note\.hidden = !rules\.some\(rule => !isIpRule\(rule\)\)/);
 assert.equal((satellitesSettings.match(/<ul class="rule-list"><\/ul>\s*<p class="rule-list-note" hidden><\/p>/g) || []).length, 3);
 assert.doesNotMatch(settingsSource + settingsPreload, /accessControlSubdomainsSuffix|access-control-rule-scope/);
-assert.match(readme, /### Satellites – General features[\s\S]*#### Access Control[\s\S]*### Satellites – Site-specific features/);
-assert.match(readmeZh, /### Satellites - 通用功能[\s\S]*#### Access Control[\s\S]*### Satellites - 网站专用功能/);
+assert.match(readme, /### Satellites[\s\S]*#### Access Control[\s\S]*### Orbiters/);
+assert.match(readmeZh, /### Satellites[\s\S]*#### Access Control[\s\S]*### Orbiters/);
 assert.doesNotMatch(readme, /PSL PRIVATE DOMAINS-sector geographic eTLD rules/i,
   'README must not expose the internal geographic eTLD category.');
 assert.doesNotMatch(readmeZh, /PSL PRIVATE DOMAINS-sector geographic eTLD rules/i,
   'Chinese README must not expose the internal geographic eTLD category.');
-assert.match(settingsStyle, /\.satellite-category-heading \{[^}]*font-size: 16px[^}]*font-weight: 700[^}]*\}[\s\S]*\.satellite-category-heading::after/);
+assert.doesNotMatch(collectionSettings, /satellite-category-heading|satellitesGeneralFeatures|orbitersFeatures/);
 const satelliteDirectoryTargets = [
   'mailto-capture', 'clipboard-protect', 'white-softer', 'access-control',
   'website-knowledge-control', 'document-preview', 'ad-marshal', 'website-fixer',
   'xhs-image-dark-mode', 'xhs-navigation', 'bili-daily-login', 'leetcode-dark-mode',
   'chinese-response-claude', 'follow-list-instagram', 'lang-google', 'zhihu-image-adjustment'
 ];
-assert.match(satellitesSettings, /class="card compact language-card"[\s\S]*id="language"[\s\S]*id="satellites-directory" class="card satellites-directory"/,
+assert.match(satellitesSettings, /class="card compact language-card"[\s\S]*id="language"[\s\S]*id="feature-directory" class="card feature-directory"/,
   'The Satellites feature directory must render directly below Language on the first frame.');
 for (const target of satelliteDirectoryTargets) {
-  const settingsPage = ['mailto-capture','clipboard-protect','white-softer','access-control','website-knowledge-control','document-preview','ad-marshal','website-fixer'].includes(target) ? satellitesSettings : siteSpecificSettings;
-  assert.match(settingsPage, new RegExp(`id="satellite-${target}"[^>]*data-satellite-section`),
+  const settingsPage = ['mailto-capture','clipboard-protect','white-softer','access-control','website-knowledge-control','document-preview','ad-marshal','website-fixer'].includes(target) ? satellitesSettings : orbitersSettings;
+  const prefix = settingsPage === satellitesSettings ? 'satellite' : 'orbiter';
+  assert.match(settingsPage, new RegExp(`id="${prefix}-${target}"[^>]*data-satellite-section`),
     `Missing first-frame Satellites target: ${target}`);
-  assert.match(settingsPage, new RegExp(`data-satellite-target="satellite-${target}"`),
+  assert.match(settingsPage, new RegExp(`data-feature-target="${prefix}-${target}"`),
     `Missing first-frame Satellites directory entry: ${target}`);
-  assert.match(settingsViews, new RegExp(`target: 'satellite-${target}'`),
+  assert.match(settingsViews, new RegExp(`target: '${prefix}-${target}'`),
     `Missing dynamic Satellites directory entry: ${target}`);
 }
 assert.match(settingsSource, /target\.scrollIntoView\(\{ behavior: reducedMotion\.matches \? 'auto' : 'smooth', block: 'start' \}\)/);
 assert.match(settingsSource, /addEventListener\('scroll', scheduleRefresh, \{ passive: true \}\)/);
-assert.match(settingsStyle, /body\[data-feature="satellites"\] \.sidebar \{[^}]*max-height: var\(--satellites-sidebar-available-height, calc\(100vh - 36px\)\)[^}]*grid-template-rows: auto auto minmax\(0, 1fr\)/);
-assert.match(settingsSource, /sidebar\.style\.setProperty\('--satellites-sidebar-available-height'/);
-assert.match(settingsStyle, /\.satellites-directory-scroll \{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*\}/);
-assert.match(settingsStyle, /@media \(max-width: 740px\)[\s\S]*\.satellites-directory-scroll \{ max-height: none; overflow: visible;/);
+assert.match(settingsStyle, /body\[data-feature="satellites"\] \.sidebar \{[^}]*max-height: var\(--feature-directory-sidebar-available-height, calc\(100vh - 36px\)\)[^}]*grid-template-rows: auto auto minmax\(0, 1fr\)/);
+assert.match(settingsSource, /sidebar\.style\.setProperty\('--feature-directory-sidebar-available-height'/);
+assert.match(settingsStyle, /\.feature-directory-scroll \{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*\}/);
+assert.match(settingsStyle, /@media \(max-width: 740px\)[\s\S]*\.feature-directory-scroll \{ max-height: none; overflow: visible;/);
 for (const iconName of ['mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'documentPreview', 'adMarshal', 'websiteFixer', 'xhsImageDarkMode', 'xhsNavigation', 'biliDailyLogin', 'leetcodeDarkMode', 'chineseResponseClaude', 'followListInstagram', 'langGoogle']) {
   assert.match(sharedUi, new RegExp(`\\b${iconName}:`), `Missing shared directory icon: ${iconName}`);
   assert.match(settingsPreload, new RegExp(`\\b${iconName}:`), `Missing first-frame directory icon: ${iconName}`);
 }
 for (const iconName of ['mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin', 'leetcodeDarkMode', 'followListInstagram', 'langGoogle']) {
-  assert.match(allSatellitesSettings, new RegExp(`class="satellite-feature-icon" data-section-icon="${iconName}"`));
+  assert.match(collectionSettings, new RegExp(`class="satellite-feature-icon" data-section-icon="${iconName}"`));
   assert.match(sharedUi, new RegExp(`\\b${iconName}:`));
   assert.match(settingsPreload, new RegExp(`\\b${iconName}:`));
 }
-assert.doesNotMatch(siteSpecificSettings, /satellite-feature-icon[^>]+data-section-icon="chineseResponseClaude"/);
-assert.match(siteSpecificSettings, /chineseResponseClaudeDescription[\s\S]*class="satellite-inline-checkbox"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*claudeBrowserIdentityHelp[\s\S]*chineseResponseClaudeEnabled/);
-assert.doesNotMatch(siteSpecificSettings, /claudeBrowserIdentityHeading|class="switch"><input id="claudeBrowserIdentityEnabled"/);
+assert.doesNotMatch(orbitersSettings, /satellite-feature-icon[^>]+data-section-icon="chineseResponseClaude"/);
+assert.match(orbitersSettings, /chineseResponseClaudeDescription[\s\S]*class="satellite-inline-checkbox"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*claudeBrowserIdentityHelp[\s\S]*chineseResponseClaudeEnabled/);
+assert.doesNotMatch(orbitersSettings, /claudeBrowserIdentityHeading|class="switch"><input id="claudeBrowserIdentityEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);
 assert.match(pageDisplaySettings, /id="enabled"[\s\S]*data-section-icon="reduceWhitePoint"[\s\S]*id="pageDisplayReduceWhitePointEnabled"[\s\S]*id="reduceWhitePointReduction"[\s\S]*data-section-icon="greyscale"[\s\S]*id="pageDisplayGreyscaleEnabled"/);
 assert.match(pageDisplaySettings, /id="reduceWhitePointReduction"[^>]*min="10"[^>]*max="80"[^>]*step="5"[^>]*value="25"/);
@@ -314,11 +315,11 @@ assert.match(pageDisplaySettings, /page-display-feature-heading[\s\S]*reduceWhit
 assert.match(pageDisplaySettings, /page-display-feature-heading[\s\S]*greyscaleName[\s\S]*greyscaleHelp[\s\S]*id="pageDisplayGreyscaleEnabled"/);
 assert.match(satellitesSettings, /id="adMarshalTencentNews"[\s\S]*id="adMarshalZhihu"/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshal(?:Douyin|Gmail)"/);
-assert.match(siteSpecificSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
-assert.match(siteSpecificSettings, /xhsImageDarkModeDescription[\s\S]*experimentalFeature/);
-assert.match(siteSpecificSettings, /id="xhsImageDarkModeOpacity"[\s\S]*id="xhsNavigationEnabled"/,
+assert.match(orbitersSettings, /xhsImageDarkModeSettingsName[\s\S]*experimentalFeature/);
+assert.match(orbitersSettings, /xhsImageDarkModeDescription[\s\S]*experimentalFeature/);
+assert.match(orbitersSettings, /id="xhsImageDarkModeOpacity"[\s\S]*id="xhsNavigationEnabled"/,
   'XHS Keyboard Navigation must appear after Button opacity.');
-assert.match(siteSpecificSettings, /class="xhs-navigation-item"[\s\S]*class="section-heading xhs-navigation-heading"[\s\S]*class="satellite-feature-icon" data-section-icon="xhsNavigation"[\s\S]*id="xhsNavigationTitle"[\s\S]*id="xhsNavigationEnabled"/);
+assert.match(orbitersSettings, /class="xhs-navigation-item"[\s\S]*class="section-heading xhs-navigation-heading"[\s\S]*class="satellite-feature-icon" data-section-icon="xhsNavigation"[\s\S]*id="xhsNavigationTitle"[\s\S]*id="xhsNavigationEnabled"/);
 assert.match(sharedUi, /xhsNavigation:/);
 assert.match(settingsPreload, /xhsNavigation:/);
 assert.doesNotMatch(satellitesSettings, /id="adMarshalEnabled"/);

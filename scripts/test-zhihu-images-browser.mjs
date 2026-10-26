@@ -14,6 +14,7 @@ const html=`<!doctype html><html data-theme="dark"><meta charset="utf-8"><title>
 <div id="collapsed" class="RichContent is-collapsed"><p>Collapsed answer</p><div class="RichText ztext"><figure><img id="thumb" data-original="https://pic1.zhimg.com/v2-bbbbbbbb_r.jpg"></figure></div></div>
 <div class="RichContent"><div class="RichText ztext"><figure><div class="RichText-ConditionalImagePortal"><img id="sensitive" style="filter:blur(12px)" data-original="https://pic1.zhimg.com/v2-cccccccc_r.jpg"><button id="confirm" class="gate">Click to view image</button></div></figure></div></div>
 <script>
+window.nativeContextMenus=0;document.addEventListener('contextmenu',event=>{window.nativeContextMenus++;event.preventDefault();event.stopPropagation()},true);
 // Test-only access to the owned controls; production retains closed Shadow DOM.
 const originalShadow=Element.prototype.attachShadow;Element.prototype.attachShadow=function(options){return originalShadow.call(this,this.localName==='cg-zhihu-image-control'?{...options,mode:'open'}:options)};
 const canvas=document.createElement('canvas');canvas.width=640;canvas.height=960;const g=canvas.getContext('2d');g.scale(4,4);g.fillStyle='white';g.fillRect(0,0,160,240);g.fillStyle='#222';for(let y=22;y<220;y+=22)for(let x=12;x<140;x+=23)g.fillRect(x,y,11,4);const src=canvas.toDataURL();
@@ -30,9 +31,9 @@ try{
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('https://www.zhihu.com/question/1');
  await page.waitForFunction(()=>document.getElementById('text').naturalWidth>0);
  assert.equal(await page.locator('[data-cg-zhihu-image]').count(),0);
- const settings=await context.newPage();settings.on('pageerror',e=>errors.push(e.message));await settings.goto(base+'settings/satellites-site-specific.html');
+ const settings=await context.newPage();settings.on('pageerror',e=>errors.push(e.message));await settings.goto(base+'settings/orbiters.html');
  await settings.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
- await settings.locator('#satellite-zhihu-image-adjustment').screenshot({path:join(artifacts,'settings.png')});
+ await settings.locator('#orbiter-zhihu-image-adjustment').screenshot({path:join(artifacts,'settings.png')});
  await settings.locator('#zhihuImageAdjustmentEnabled').check();
  await page.waitForSelector('#text[data-cg-zhihu-image]');
  await page.waitForFunction(()=>document.querySelector('#text').getAttribute('data-cg-zhihu-effect')==='invert');
@@ -47,6 +48,16 @@ try{
  assert.equal(await page.locator('#sensitive').evaluate(e=>getComputedStyle(e).filter),'blur(12px)');
  await page.locator('#text').scrollIntoViewIfNeeded();
  const toggle=page.locator('#expanded cg-zhihu-image-control button.toggle');
+ await page.mouse.move(1000,900);
+ assert.equal(await toggle.evaluate(e=>getComputedStyle(e).opacity),'0.5');
+ const buttonBox=await toggle.boundingBox();
+ await page.mouse.click(buttonBox.x-6,buttonBox.y+buttonBox.height/2,{button:'right'});
+ assert.equal(await toggle.getAttribute('aria-expanded'),'true');
+ assert.equal(await page.evaluate(()=>window.nativeContextMenus),0,'owned hit margin captures before site document handlers');
+ await page.screenshot({path:join(artifacts,'image-menu.png')});
+ await page.keyboard.press('ArrowUp');
+ assert.equal(await page.locator('#expanded cg-zhihu-image-control').getByRole('menuitemradio',{name:'Original',exact:true}).evaluate(e=>e===e.getRootNode().activeElement),true);
+ await page.keyboard.press('Escape');assert.equal(await toggle.getAttribute('aria-expanded'),'false');
  await toggle.click({button:'right'});await page.locator('#expanded cg-zhihu-image-control').getByRole('menuitemradio',{name:'Hide',exact:true}).click();
  assert.equal(await page.locator('#text').getAttribute('data-cg-zhihu-effect'),'hide-dark');
  await toggle.click();assert.equal(await page.locator('#text').getAttribute('data-cg-zhihu-effect'),'invert');
@@ -54,6 +65,8 @@ try{
  await toggle.click({button:'right'});await page.locator('#text').click({position:{x:8,y:120}});
  assert.equal(await page.evaluate(()=>window.openCount),0,'dismissing a menu must consume the underlying image click');
  assert.equal(await toggle.getAttribute('aria-expanded'),'false');
+ await page.mouse.click(1050,900,{button:'right'});
+ assert.equal(await page.evaluate(()=>window.nativeContextMenus),1,'ordinary page context menus remain available');
  await toggle.click({button:'right'});await page.locator('#expanded cg-zhihu-image-control').getByRole('menuitemradio',{name:'Original',exact:true}).click();
  await page.locator('#text').click();await page.waitForSelector('#big[data-cg-zhihu-viewer]');
  assert.equal(await page.locator('#big').getAttribute('data-cg-zhihu-effect'),'original');
@@ -104,7 +117,7 @@ try{
  await settings.reload();await settings.waitForFunction(()=>document.getElementById('zhihuImageAdjustmentEnabled').checked);
  assert.equal(await settings.locator('#zhihuDarkImages').isChecked(),true);
  await settings.locator('[data-feature-link="allSettings"]').first().click();
- await settings.locator('[data-feature-link="satellitesSiteSpecific"]').first().click();await settings.waitForSelector('#zhihuImageAdjustmentEnabled');
+ await settings.locator('[data-feature-link="orbiters"]').first().click();await settings.waitForSelector('#zhihuImageAdjustmentEnabled');
  assert.equal(await settings.locator('#zhihuImageAdjustmentEnabled').isChecked(),true);
  await settings.locator('#zhihuImageAdjustmentEnabled').uncheck();await page.waitForFunction(()=>!document.querySelector('[data-cg-zhihu-image]'));
  assert.equal(await page.locator('cg-zhihu-image-control').count(),0);

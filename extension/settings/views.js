@@ -99,9 +99,9 @@ const help = (keys, privacyKey, list = false) => `
 const knowledgeLocaleOptions = `
   <option value="en-US">English (United States)</option><option value="en-GB">English (United Kingdom)</option><option value="zh-CN">简体中文（中国）</option><option value="zh-Hans">简体中文（无地区）</option><option value="zh-Hant">繁體中文（無地區）</option><option value="zh-HK">繁體中文（中國香港）</option><option value="zh-MO">繁體中文（中國澳門）</option><option value="zh-TW">繁體中文（中華台北）</option><option value="zh-MY">简体中文（马来西亚）</option><option value="zh-SG">简体中文（新加坡）</option><option value="ja-JP">日本語（日本）</option><option value="ko-KR">한국어 (대한민국)</option><option value="fr-FR">Français (France)</option><option value="de-DE">Deutsch (Deutschland)</option><option value="es-ES">Español (España)</option><option value="pt-BR">Português (Brasil)</option>`;
 
-export const SATELLITES_DIRECTORY_GROUPS = Object.freeze([
+export const SETTINGS_DIRECTORIES = Object.freeze([
   Object.freeze({
-    headingKey: 'satellitesGeneralFeatures',
+    featureId: 'satellites',
     items: Object.freeze([
       Object.freeze({ target: 'satellite-mailto-capture', icon: 'mailtoCapture', nameKey: 'mailtoCaptureName' }),
       Object.freeze({ target: 'satellite-clipboard-protect', icon: 'clipboardProtect', nameKey: 'clipboardProtectName' }),
@@ -114,31 +114,28 @@ export const SATELLITES_DIRECTORY_GROUPS = Object.freeze([
     ])
   }),
   Object.freeze({
-    headingKey: 'satellitesSiteSpecificFeatures',
+    featureId: 'orbiters',
     items: Object.freeze([
-      Object.freeze({ target: 'satellite-xhs-image-dark-mode', icon: 'xhsImageDarkMode', nameKey: 'xhsImageDarkModeSettingsName' }),
-      Object.freeze({ target: 'satellite-xhs-navigation', icon: 'xhsNavigation', nameKey: 'xhsNavigationName' }),
-      Object.freeze({ target: 'satellite-bili-daily-login', icon: 'biliDailyLogin', nameKey: 'biliDailyLoginName' }),
-      Object.freeze({ target: 'satellite-leetcode-dark-mode', icon: 'leetcodeDarkMode', nameKey: 'leetcodeDarkModeName' }),
-      Object.freeze({ target: 'satellite-chinese-response-claude', icon: 'chineseResponseClaude', nameKey: 'chineseResponseClaudeName' }),
-      Object.freeze({ target: 'satellite-follow-list-instagram', icon: 'followListInstagram', nameKey: 'followListInstagramName' }),
-      Object.freeze({ target: 'satellite-lang-google', icon: 'langGoogle', nameKey: 'langGoogleName' }),
-      Object.freeze({ target: 'satellite-zhihu-image-adjustment', icon: 'zhihuImageAdjustment', nameKey: 'zhihuImageAdjustmentName' })
+      Object.freeze({ target: 'orbiter-xhs-image-dark-mode', icon: 'xhsImageDarkMode', nameKey: 'xhsImageDarkModeSettingsName' }),
+      Object.freeze({ target: 'orbiter-xhs-navigation', icon: 'xhsNavigation', nameKey: 'xhsNavigationName' }),
+      Object.freeze({ target: 'orbiter-bili-daily-login', icon: 'biliDailyLogin', nameKey: 'biliDailyLoginName' }),
+      Object.freeze({ target: 'orbiter-leetcode-dark-mode', icon: 'leetcodeDarkMode', nameKey: 'leetcodeDarkModeName' }),
+      Object.freeze({ target: 'orbiter-chinese-response-claude', icon: 'chineseResponseClaude', nameKey: 'chineseResponseClaudeName' }),
+      Object.freeze({ target: 'orbiter-follow-list-instagram', icon: 'followListInstagram', nameKey: 'followListInstagramName' }),
+      Object.freeze({ target: 'orbiter-lang-google', icon: 'langGoogle', nameKey: 'langGoogleName' }),
+      Object.freeze({ target: 'orbiter-zhihu-image-adjustment', icon: 'zhihuImageAdjustment', nameKey: 'zhihuImageAdjustmentName' })
     ])
   })
 ]);
 
-export function satellitesDirectoryMarkup(featureId = 'satellites') {
-  const siteSpecific = featureId === 'satellitesSiteSpecific';
-  const directoryPage = siteSpecific ? 'satellitesSiteSpecific' : 'satellites';
-  const groups = [SATELLITES_DIRECTORY_GROUPS[siteSpecific ? 1 : 0]];
-  return `<nav id="satellites-directory" class="card satellites-directory" data-directory-page="${directoryPage}" aria-labelledby="satellitesDirectoryHeading">
-    <h2 id="satellitesDirectoryHeading" data-i18n="satellitesDirectoryHeading"></h2>
-    <div class="satellites-directory-scroll">
-      ${groups.map(group => `<section class="satellites-directory-group">
-        <h3 data-i18n="${group.headingKey}"></h3>
-        <div class="satellites-directory-list">${group.items.map(item => `<button type="button" class="satellites-directory-link" data-satellite-target="${item.target}"><span class="satellites-directory-icon" data-section-icon="${item.icon}" aria-hidden="true"></span><span data-i18n="${item.nameKey}"></span></button>`).join('')}</div>
-      </section>`).join('')}
+export function featureDirectoryMarkup(featureId = 'satellites') {
+  const collection = SETTINGS_DIRECTORIES.find(entry => entry.featureId === featureId);
+  if (!collection) return '';
+  const directoryPage = featureId;
+  return `<nav id="feature-directory" class="card feature-directory" data-directory-page="${directoryPage}" aria-labelledby="featureDirectoryHeading">
+    <h2 id="featureDirectoryHeading" data-i18n="featureDirectoryHeading"></h2>
+    <div class="feature-directory-scroll">
+      <div class="feature-directory-list">${collection.items.map(item => `<button type="button" class="feature-directory-link" data-feature-target="${item.target}"><span class="feature-directory-icon" data-section-icon="${item.icon}" aria-hidden="true"></span><span data-i18n="${item.nameKey}"></span></button>`).join('')}</div>
     </div>
   </nav>`;
 }
@@ -151,7 +148,7 @@ export const PRODUCT_META = Object.freeze({
   videoDownload: { name: 'Video Download', path: 'video-download.html' },
   pageDisplay: { name: 'Page Display', path: 'page-display.html' },
   satellites: { name: 'Satellites', path: 'satellites.html' },
-  satellitesSiteSpecific: { name: 'Satellites – Site-specific features', path: 'satellites-site-specific.html' },
+  orbiters: { name: 'Orbiters', path: 'orbiters.html' },
   allSettings: { name: 'All Settings', path: 'all-settings.html' }
 });
 
@@ -161,7 +158,7 @@ export function featureFromPath(pathname) {
   if (pathname.endsWith('/image-download.html')) return 'imageDownload';
   if (pathname.endsWith('/video-download.html')) return 'videoDownload';
   if (pathname.endsWith('/page-display.html')) return 'pageDisplay';
-  if (pathname.endsWith('/satellites-site-specific.html')) return 'satellitesSiteSpecific';
+  if (pathname.endsWith('/orbiters.html')) return 'orbiters';
   if (pathname.endsWith('/satellites.html')) return 'satellites';
   if (pathname.endsWith('/all-settings.html')) return 'allSettings';
   return 'nativeScroll';
@@ -189,7 +186,7 @@ export function viewFor(featureId) {
         ${settingsCard('videoDownload', 'videoDownloadName', 'allSettingsVideoDescription')}
         ${settingsCard('pageDisplay', 'pageDisplayName', 'allSettingsPageDisplayDescription')}
         ${settingsCard('satellites', 'satellitesName', 'allSettingsSatellitesDescription')}
-        ${settingsCard('satellitesSiteSpecific', 'satellitesSiteSpecificName', 'allSettingsSiteSpecificDescription')}
+        ${settingsCard('orbiters', 'orbitersName', 'allSettingsOrbitersDescription')}
       </section>`,
     help: '<h2 data-i18n="allSettingsHelpHeading"></h2><p data-i18n="allSettingsHelp"></p>'
   };
@@ -199,7 +196,6 @@ export function viewFor(featureId) {
         ${introTitle('satellites', 'satellitesName')}
         <p class="last" data-i18n="satellitesOverviewHelp"></p>
       </section>
-      <h2 class="satellite-category-heading" data-i18n="satellitesGeneralFeatures"></h2>
       <section id="satellite-mailto-capture" class="card satellite-card" data-satellite-section>
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="mailtoCapture" aria-hidden="true"></span><h1 data-i18n="mailtoCaptureName"></h1></div><p data-i18n="mailtoCaptureDescription"></p></div>
@@ -372,13 +368,13 @@ export function viewFor(featureId) {
       </section>`,
     help: '<h2 data-i18n="satellitesHelpHeading"></h2><p data-i18n="satellitesHelpIntro"></p>'
   };
-  if (featureId === 'satellitesSiteSpecific') return {
+  if (featureId === 'orbiters') return {
     primary: `
       <section class="card">
-        ${introTitle('satellitesSiteSpecific', 'satellitesSiteSpecificName')}
-        <p class="last" data-i18n="satellitesSiteSpecificOverview"></p>
+        ${introTitle('orbiters', 'orbitersName')}
+        <p class="last" data-i18n="orbitersOverview"></p>
       </section>
-      <section id="satellite-xhs-image-dark-mode" class="card satellite-card xhs-dark-reader-card" data-satellite-section>
+      <section id="orbiter-xhs-image-dark-mode" class="card satellite-card xhs-dark-reader-card" data-satellite-section>
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsImageDarkMode" aria-hidden="true"></span><h1 data-i18n="xhsImageDarkModeSettingsName"></h1></div><p class="satellite-description-paragraph" data-i18n="xhsImageDarkModeDescription"></p><p class="satellite-experimental-note" data-i18n="experimentalFeature"></p></div>
           <div class="satellite-control"><label class="switch"><input id="xhsImageDarkModeEnabled" type="checkbox"><span></span><b class="sr-only">XHS Image Dark Mode</b></label></div>
@@ -388,7 +384,7 @@ export function viewFor(featureId) {
           <label class="preference-row" for="xhsImageDarkModeControl"><span><strong data-i18n="xhsImageDarkModeControlHeading"></strong><small data-i18n="xhsImageDarkModeControlHelp"></small></span><span class="switch"><input id="xhsImageDarkModeControl" type="checkbox" checked><span></span></span></label>
           <label class="preference-row xhs-opacity-row" for="xhsImageDarkModeOpacity"><span><strong data-i18n="xhsImageDarkModeOpacityHeading"></strong><small data-i18n="xhsImageDarkModeOpacityHelp"></small></span><span class="range-control"><input id="xhsImageDarkModeOpacity" type="range" min="20" max="90" step="5" value="50"><output id="xhsImageDarkModeOpacityValue" for="xhsImageDarkModeOpacity">50%</output></span></label>
         </div>
-        <section id="satellite-xhs-navigation" class="xhs-navigation-item" data-satellite-section>
+        <section id="orbiter-xhs-navigation" class="xhs-navigation-item" data-satellite-section>
           <div class="section-heading xhs-navigation-heading">
             <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="xhsNavigation" aria-hidden="true"></span><h1 id="xhsNavigationTitle" data-i18n="xhsNavigationName"></h1></div><p data-i18n="xhsNavigationHelp"></p></div>
             <div class="satellite-control"><label class="switch"><input id="xhsNavigationEnabled" type="checkbox" aria-labelledby="xhsNavigationTitle"><span></span></label></div>
@@ -396,14 +392,14 @@ export function viewFor(featureId) {
         </section>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="xhsImageDarkModePrivacy"></p></div>
       </section>
-      <section id="satellite-bili-daily-login" class="card satellite-card" data-satellite-section>
+      <section id="orbiter-bili-daily-login" class="card satellite-card" data-satellite-section>
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="biliDailyLogin" aria-hidden="true"></span><h1 data-i18n="biliDailyLoginName"></h1></div><p data-i18n="biliDailyLoginDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="biliDailyLoginPrivacy"></p></div>
       </section>
-      <section id="satellite-leetcode-dark-mode" class="card satellite-card" data-satellite-section data-product="leetcode-dark-mode">
+      <section id="orbiter-leetcode-dark-mode" class="card satellite-card" data-satellite-section data-product="leetcode-dark-mode">
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="leetcodeDarkMode" aria-hidden="true"></span><h1 data-i18n="leetcodeDarkModeName"></h1></div><p data-i18n="leetcodeDarkModeDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="leetcodeDarkModeEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="leetcodeDarkModeName"></b></label></div>
@@ -417,7 +413,7 @@ export function viewFor(featureId) {
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="leetcodeDarkModePrivacy"></p></div>
       </section>
-      <section id="satellite-chinese-response-claude" class="card satellite-card" data-satellite-section>
+      <section id="orbiter-chinese-response-claude" class="card satellite-card" data-satellite-section>
         <div class="section-heading">
           <div>
             <h1 data-i18n="chineseResponseClaudeName"></h1>
@@ -428,18 +424,18 @@ export function viewFor(featureId) {
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="chineseResponseClaudePrivacy"></p></div>
       </section>
-      <section id="satellite-follow-list-instagram" class="card satellite-card" data-satellite-section data-product="follow-list-instagram">
+      <section id="orbiter-follow-list-instagram" class="card satellite-card" data-satellite-section data-product="follow-list-instagram">
         <div class="section-heading"><div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="followListInstagram" aria-hidden="true"></span><h1 data-i18n="followListInstagramName"></h1></div><p data-i18n="followListInstagramDescription"></p><p data-i18n="followListInstagramHelp"></p></div><span class="context-label" data-i18n="clickToEnableLabel"></span></div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="followListInstagramPrivacy"></p></div>
       </section>
-      <section id="satellite-lang-google" class="card satellite-card" data-satellite-section data-product="lang-google">
+      <section id="orbiter-lang-google" class="card satellite-card" data-satellite-section data-product="lang-google">
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="langGoogle" aria-hidden="true"></span><h1 data-i18n="langGoogleName"></h1></div><p data-i18n="langGoogleDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="langGoogleEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="langGoogleName"></b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="langGooglePrivacy"></p></div>
       </section>
-      <section id="satellite-zhihu-image-adjustment" class="card satellite-card" data-satellite-section>
+      <section id="orbiter-zhihu-image-adjustment" class="card satellite-card" data-satellite-section>
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="zhihuImageAdjustment" aria-hidden="true"></span><h1 data-i18n="zhihuImageAdjustmentName"></h1></div><p data-i18n="zhihuImageAdjustmentDescription"></p></div>
           <div class="satellite-control"><label class="switch"><input id="zhihuImageAdjustmentEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="zhihuImageAdjustmentName"></b></label></div>
@@ -458,7 +454,7 @@ export function viewFor(featureId) {
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="zhihuImageAdjustmentPrivacy"></p></div>
       </section>`,
-    help: '<h2 data-i18n="satellitesSiteSpecificHelpHeading"></h2><p data-i18n="satellitesSiteSpecificHelp"></p>'
+    help: '<h2 data-i18n="orbitersHelpHeading"></h2><p data-i18n="orbitersHelp"></p>'
   };
   if (featureId === 'pageDisplay') return {
     primary: `

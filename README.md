@@ -62,7 +62,7 @@ Reduce White Point can also be limited to selected websites. Manage the list in 
 
 Page Display has one master switch. Turning it off restores affected pages and makes its child settings unavailable without discarding their saved selections.
 
-### Satellites – General features
+### Satellites
 
 Satellites contains optional tools that do not need permanent rows in the popup.
 
@@ -108,9 +108,9 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, while Stay on the page keeps selected websites from sending you to other sites. The control window also offers quick, temporary access to both tools.
 
-### Satellites – Site-specific features
+### Orbiters
 
-These tools have their own Satellites – Site-specific features settings page.
+Tools for the websites you use.
 
 #### XHS Image Dark Mode
 

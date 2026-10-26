@@ -62,7 +62,7 @@ Reduce White Point 也可仅在指定网站开启。您可以在设置中编辑�
 
 Page Display 设有总开关。关闭后，受影响的网页会恢复原样，子功能设置会暂时停用，但已经保存的选择不会丢失。
 
-### Satellites - 通用功能
+### Satellites
 
 Satellites 收纳无需长期占用控制窗口的小功能。
 
@@ -108,9 +108,9 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 Website Fixer 通过可选的修复功能改善网站的使用体验。Translate Override 帮助恢复浏览器翻译，Stay on the page 则阻止所选网站带你跳转到其他网站。您也可以通过控制窗口的工具页临时使用这两个工具。
 
-### Satellites - 网站专用功能
+### Orbiters
 
-这些功能位于独立的 Satellites 网站专用功能设置页。
+为常用网站选择合适的功能。
 
 #### XHS Image Dark Mode
 

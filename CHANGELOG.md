@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.26.4 — 2026-10-26
+
+- Introduce Orbiters as the home for website tools, simplify Settings navigation and directories, and improve Zhihu image controls and right-click actions.
+
 ## 26.10.26.3 — 2026-10-26
 
 - Separate site-specific tools into their own Satellites settings page, with a new satellite icon and dedicated navigation.

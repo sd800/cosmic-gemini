@@ -19,7 +19,7 @@ const PAGE_MESSAGE_TYPES = new Set([
 const OFFSCREEN_MESSAGE_TYPES = new Set(['CG_VIDEO_DOWNLOAD_PROGRESS']);
 const UI_PATHS = new Set([
   '/popup/index.html',
-  ...['all-settings','satellites','satellites-site-specific','native-scroll','no-autoplay','any-copy','page-display','image-download','video-download']
+  ...['all-settings','satellites','orbiters','native-scroll','no-autoplay','any-copy','page-display','image-download','video-download']
     .map(name => `/settings/${name}.html`),
   '/workspaces/document-preview/document-preview.html',
   '/workspaces/image-download/image-download.html',

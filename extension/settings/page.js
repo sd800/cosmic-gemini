@@ -6,7 +6,7 @@ import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
 import { bindDocumentOpen } from './document-open.js';
-import { PRODUCT_META, SATELLITES_DIRECTORY_GROUPS, featureFromPath, satellitesDirectoryMarkup, documentOpenShortcutMarkup, viewFor } from './views.js';
+import { PRODUCT_META, SETTINGS_DIRECTORIES, featureFromPath, featureDirectoryMarkup, documentOpenShortcutMarkup, viewFor } from './views.js';
 
 const claimSettings = openedAt => void send({ type: 'UI_SETTINGS_OPENED', openedAt }).catch(() => {});
 claimSettings(performance.timeOrigin);
@@ -56,7 +56,7 @@ let localeGeneration = 0;
 let ruleInputHelpPanel = null;
 let developerMode = null;
 let developerModeModule = null;
-let satelliteDirectoryCleanup = null;
+let featureDirectoryCleanup = null;
 const currentPage = ticket => !pageClosing && ticket === pageLifetime;
 // Register before the first storage/state await, including BFCache restoration.
 addEventListener('pagehide', () => {
@@ -65,14 +65,14 @@ addEventListener('pagehide', () => {
   storageSyncTimer = stateRecoveryTimer = 0;
   const port = settingsUiPort; settingsUiPort = null;
   try { port?.disconnect(); } catch {}
-  satelliteDirectoryCleanup?.(); satelliteDirectoryCleanup = null;
+  featureDirectoryCleanup?.(); featureDirectoryCleanup = null;
 });
 addEventListener('pageshow', event => {
   if (!event.persisted) return;
   pageClosing = false;
   claimSettings(performance.timeOrigin + performance.now());
   connectSettingsUi();
-  syncSatelliteDirectory();
+  syncFeatureDirectory();
   scheduleStoredStateSync();
 });
 document.addEventListener('visibilitychange', () => {
@@ -96,7 +96,7 @@ document.addEventListener('keydown', event => {
 
 function state() {
   const preferences = states?.preferences || states;
-  return ['satellites', 'satellitesSiteSpecific'].includes(featureId) ? preferences : preferences?.[featureId] || null;
+  return ['satellites', 'orbiters'].includes(featureId) ? preferences : preferences?.[featureId] || null;
 }
 
 function sectionState(section) {
@@ -138,7 +138,7 @@ function applyLocale() {
     videoDownload: 'switchVideoDownloadSettings',
     pageDisplay: 'switchPageDisplaySettings',
     satellites: 'switchSatellitesSettings',
-    satellitesSiteSpecific: 'switchSiteSpecificSettings',
+    orbiters: 'switchOrbitersSettings',
     allSettings: 'switchAllSettings'
   };
   for (const link of document.querySelectorAll('[data-feature-link]')) {
@@ -1306,19 +1306,19 @@ function syncResetControls() {
   });
 }
 
-function setSatelliteDirectoryCurrent(card, targetId, reveal = false) {
-  const currentButton = card.querySelector(`[data-satellite-target="${targetId}"]`);
+function setFeatureDirectoryCurrent(card, targetId, reveal = false) {
+  const currentButton = card.querySelector(`[data-feature-target="${targetId}"]`);
   if (!currentButton) return;
   if (!currentButton.classList.contains('current')) {
-    for (const button of card.querySelectorAll('[data-satellite-target]')) {
-      const current = button.dataset.satelliteTarget === targetId;
+    for (const button of card.querySelectorAll('[data-feature-target]')) {
+      const current = button.dataset.featureTarget === targetId;
       button.classList.toggle('current', current);
       if (current) button.setAttribute('aria-current', 'location');
       else button.removeAttribute('aria-current');
     }
   }
   if (!reveal) return;
-  const list = card.querySelector('.satellites-directory-scroll');
+  const list = card.querySelector('.feature-directory-scroll');
   if (list.scrollHeight <= list.clientHeight + 1) return;
   const listRect = list.getBoundingClientRect();
   const itemRect = currentButton.getBoundingClientRect();
@@ -1330,23 +1330,23 @@ function setSatelliteDirectoryCurrent(card, targetId, reveal = false) {
   if (distance) list.scrollBy({ top: distance, behavior: 'auto' });
 }
 
-function syncSatelliteDirectory() {
-  satelliteDirectoryCleanup?.();
-  satelliteDirectoryCleanup = null;
-  let card = document.querySelector('#satellites-directory');
-  if (!['satellites', 'satellitesSiteSpecific'].includes(featureId)) {
+function syncFeatureDirectory() {
+  featureDirectoryCleanup?.();
+  featureDirectoryCleanup = null;
+  let card = document.querySelector('#feature-directory');
+  if (!['satellites', 'orbiters'].includes(featureId)) {
     card?.remove();
     return;
   }
   if (card && card.dataset.directoryPage !== featureId) { card.remove(); card = null; }
   if (!card) {
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = satellitesDirectoryMarkup(featureId);
+    wrapper.innerHTML = featureDirectoryMarkup(featureId);
     card = wrapper.firstElementChild;
     document.querySelector('.language-card').after(card);
   }
 
-  const targetIds = SATELLITES_DIRECTORY_GROUPS.flatMap(group => group.items.map(item => item.target));
+  const targetIds = SETTINGS_DIRECTORIES.find(entry => entry.featureId === featureId).items.map(item => item.target);
   const targets = targetIds.map(id => document.getElementById(id)).filter(Boolean);
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const narrowLayout = matchMedia('(max-width: 740px)');
@@ -1358,7 +1358,7 @@ function syncSatelliteDirectory() {
     frame = 0;
     if (sidebar && !narrowLayout.matches) {
       const top = Math.max(18, sidebar.getBoundingClientRect().top);
-      sidebar.style.setProperty('--satellites-sidebar-available-height', `${Math.max(0, innerHeight - top - 18)}px`);
+      sidebar.style.setProperty('--feature-directory-sidebar-available-height', `${Math.max(0, innerHeight - top - 18)}px`);
     }
     if (!targets.length || navigating) return;
     let current = targets[0];
@@ -1370,7 +1370,7 @@ function syncSatelliteDirectory() {
         current = target;
       }
     }
-    setSatelliteDirectoryCurrent(card, current.id, true);
+    setFeatureDirectoryCurrent(card, current.id, true);
   };
   const scheduleRefresh = () => {
     if (!frame) frame = requestAnimationFrame(refreshCurrent);
@@ -1384,11 +1384,11 @@ function syncSatelliteDirectory() {
     scheduleRefresh();
   };
   const onClick = event => {
-    const button = event.target.closest('[data-satellite-target]');
+    const button = event.target.closest('[data-feature-target]');
     if (!button || !card.contains(button)) return;
-    const target = document.getElementById(button.dataset.satelliteTarget);
+    const target = document.getElementById(button.dataset.featureTarget);
     if (!target) return;
-    setSatelliteDirectoryCurrent(card, target.id);
+    setFeatureDirectoryCurrent(card, target.id);
     finishNavigation();
     if (!reducedMotion.matches) {
       navigating = true;
@@ -1401,9 +1401,9 @@ function syncSatelliteDirectory() {
   addEventListener('scroll', scheduleRefresh, { passive: true });
   addEventListener('resize', scheduleRefresh, { passive: true });
   refreshCurrent();
-  satelliteDirectoryCleanup = () => {
+  featureDirectoryCleanup = () => {
     finishNavigation();
-    sidebar?.style.removeProperty('--satellites-sidebar-available-height');
+    sidebar?.style.removeProperty('--feature-directory-sidebar-available-height');
     card.removeEventListener('click', onClick);
     removeEventListener('scroll', scheduleRefresh);
     removeEventListener('resize', scheduleRefresh);
@@ -1443,7 +1443,7 @@ function mountView(replace = true) {
     primary.innerHTML = view.primary;
     helpPanel.innerHTML = view.help;
   }
-  syncSatelliteDirectory();
+  syncFeatureDirectory();
   syncDocumentShortcut();
   for (const element of document.querySelectorAll('[data-section-icon]')) {
     element.innerHTML = icon(element.dataset.sectionIcon);

@@ -3,13 +3,13 @@ import test from 'node:test';
 import { normalizeSettings, FEATURE_IDS, DEFAULT_INCOGNITO_SETTINGS } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { isZhihuPage, zhihuImageAdjustmentState } from '../extension/core/zhihu-image-adjustment.js';
-import { SATELLITES_DIRECTORY_GROUPS } from '../extension/settings/views.js';
+import { SETTINGS_DIRECTORIES } from '../extension/settings/views.js';
 import { createZhihuImageAdjustmentProduct } from '../extension/background/products/operations/zhihu-image-adjustment.js';
 
 test('Zhihu scope, defaults, independent preferences, and first-frame cache agree', () => {
   for (const url of ['https://zhihu.com/', 'https://www.zhihu.com/question/1', 'https://zhuanlan.zhihu.com/p/1', 'https://a.b.zhihu.com/']) assert.equal(isZhihuPage(url), true);
   for (const url of ['https://zhihu.com.evil.test/', 'https://notzhihu.com/', 'file://zhihu.com/a', 'not a URL']) assert.equal(isZhihuPage(url), false);
-  assert.equal(SATELLITES_DIRECTORY_GROUPS.at(-1).items.at(-1).target,'satellite-zhihu-image-adjustment');
+  assert.equal(SETTINGS_DIRECTORIES.at(-1).items.at(-1).target,'orbiter-zhihu-image-adjustment');
   const defaults = normalizeSettings({});
   assert.deepEqual(defaults.zhihuImageAdjustment, {enabled:false,smallImages:true,darkImages:true,matchPageTheme:true});
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.zhihuImageAdjustment.enabled, false);

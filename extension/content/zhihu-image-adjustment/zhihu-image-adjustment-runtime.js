@@ -18,6 +18,7 @@
     dark:'<path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/>',
     off:'<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="8" cy="12" r="2.5" fill="currentColor" stroke="none"/>'
   };
+  const controls = new WeakMap();
   const records = new Map(), results = new Map(), choices = new Map(), pending = new Map(), loads = new Set();
   let config = {}, enabled = false, dark = false, revision = 0, raf = 0, busy = 0, disposed = false;
   let observer, themeObserver, intersection, menuRecord = null, clicked = null, dismissClick = null;
@@ -156,7 +157,7 @@
     }
   }
   function setChoice(record, choice) {
-    if (!enabled || record.guarded) return;
+    if (!enabled || record.guarded || records.get(record.image) !== record || !record.image.isConnected) return;
     choices.delete(record.key); choices.set(record.key, choice); limit(choices);
     closeMenu(); for (const other of records.values()) if (other.key === record.key) paint(other);
   }
@@ -167,7 +168,7 @@
     host.setAttribute('translate', 'no'); host.setAttribute('data-darkreader-ignore', '');
     const shadow = host.attachShadow({mode:'closed'});
     const style = document.createElement('style');
-    style.textContent = `:host{all:initial;position:absolute;right:8px;top:8px;z-index:4;color-scheme:light dark;font:14px/1.4 system-ui;pointer-events:auto;--surface:#fafafa;--text:#27292d;--border:#c4c7cc}:host([data-dark]){--surface:#25272b;--text:#e8e6e3;--border:#55585e}:host([data-viewer]){position:fixed;right:18px;top:18px;z-index:2147483646}button{font:inherit;color:var(--text);cursor:pointer}button.toggle{position:relative;width:29px;height:29px;display:grid;place-items:center;padding:5px;border:1px solid var(--border);border-radius:50%;background:var(--surface);opacity:.65}button.toggle:hover,button.toggle:focus-visible{opacity:1}button.toggle:before{content:'';position:absolute;inset:-7px}svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.menu{position:absolute;top:36px;right:0;min-width:120px;padding:5px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 22px #0004}.menu[hidden]{display:none}.menu button{display:block;width:100%;border:0;background:none;padding:7px 12px;text-align:left;border-radius:6px;white-space:nowrap}.menu button:hover,.menu button:focus-visible{background:#8882}.menu button[aria-checked=true]{font-weight:600}`;
+    style.textContent = `:host{all:initial;position:absolute;right:8px;top:8px;z-index:4;color-scheme:light dark;font:14px/1.4 system-ui;pointer-events:auto;--surface:#fafafa;--text:#27292d;--border:#c4c7cc}:host([data-dark]){--surface:#25272b;--text:#e8e6e3;--border:#55585e}:host([data-viewer]){position:fixed;right:18px;top:18px;z-index:2147483646}button{font:inherit;color:var(--text);cursor:pointer}button.toggle{position:relative;width:29px;height:29px;display:grid;place-items:center;padding:5px;border:1px solid var(--border);border-radius:50%;background:var(--surface);opacity:.5}button.toggle:hover,button.toggle:focus-visible{opacity:1}button.toggle:before{content:'';position:absolute;inset:-8px}svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.menu{position:absolute;top:36px;right:0;min-width:120px;padding:5px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 22px #0004}.menu[hidden]{display:none}.menu button{display:block;width:100%;border:0;background:none;padding:7px 12px;text-align:left;border-radius:6px;white-space:nowrap}.menu button:hover,.menu button:focus-visible{background:#8882}.menu button[aria-checked=true]{font-weight:600}`;
     const button = document.createElement('button'); button.type = 'button'; button.className = 'toggle';
     button.setAttribute('aria-haspopup','menu'); button.setAttribute('aria-expanded','false');
     const menu = document.createElement('div'); menu.className = 'menu'; menu.setAttribute('role','menu'); menu.hidden = true;
@@ -175,25 +176,27 @@
     for (const type of ['pointerdown','pointerup','mousedown','mouseup','dblclick']) host.addEventListener(type,e=>e.stopPropagation());
     button.addEventListener('click', e => {
       e.preventDefault(); e.stopPropagation();
+      if (e.button > 0 || e.ctrlKey) return;
       const choice = choices.get(record.key);
       setChoice(record, choice === 'hide' || choice === 'original' ? 'auto' : !config.darkImages ? 'hide' : ['invert','gray'].includes(effect(record)) ? 'light' : 'dark');
     });
     button.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();e.stopPropagation();openMenu(record);record.menu.firstElementChild?.focus();}});
     host.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); openMenu(record); });
     menu.addEventListener('click',e=>e.stopPropagation());
-    Object.assign(record,{host,button,menu});
+    Object.assign(record,{host,button,menu}); controls.set(host,record);
     (record.viewer ? document.body : record.figure).append(host);
     host.toggleAttribute('data-viewer',record.viewer);
     host.toggleAttribute('data-dark',dark);
   }
   function openMenu(record) {
+    if (!enabled || record.guarded || !record.host?.isConnected || records.get(record.image) !== record) return;
     closeMenu(); const text = TEXT[config.locale] || TEXT['en-US'];
     const modes = config.darkImages ? ['hide','auto','dark','light','original'] : ['hide','auto','original'];
     record.menu.replaceChildren();
     for (const mode of modes) {
       const button = document.createElement('button'); button.type = 'button'; button.textContent = text[mode];
       button.setAttribute('role','menuitemradio'); button.setAttribute('aria-checked',String((choices.get(record.key)||'auto') === mode));
-      button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setChoice(record,mode);record.button.focus({preventScroll:true});});
+      button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setChoice(record,mode);record.button?.focus({preventScroll:true});});
       record.menu.append(button);
     }
     menuRecord = record; record.menu.hidden = false; record.button.setAttribute('aria-expanded','true');
@@ -205,6 +208,7 @@
   }
   function removeControl(record) {
     if (menuRecord === record) closeMenu();
+    if(record.host)controls.delete(record.host);
     record.host?.remove(); record.host = record.button = record.menu = null; record.icon = null;
   }
   function restoreIgnore(record) {
@@ -289,11 +293,27 @@
     const image=event.target instanceof HTMLImageElement?event.target:null;
     if(image&&isContentImage(image)&&!protectedImage(image))clicked={key:imageKey(image),time:performance.now()};
   }
+  function onContextMenu(event) {
+    // Claim only our own shadow host, before the site's document/React capture.
+    // The button's transparent hit margin remains part of that same target.
+    const host = event.composedPath().find(node => controls.has(node));
+    const record = host && controls.get(host);
+    if (!record) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (menuRecord !== record) openMenu(record);
+  }
   function onKey(event) {
-    if(event.key==='Escape'&&menuRecord){closeMenu();event.preventDefault();event.stopImmediatePropagation();}
-    if(menuRecord&&['ArrowDown','ArrowUp'].includes(event.key)) {
+    if (!menuRecord) return;
+    if(event.key==='Escape'||event.key==='Tab') {
+      const button=menuRecord.button;closeMenu();
+      if(event.key==='Escape'){button?.focus({preventScroll:true});event.preventDefault();event.stopImmediatePropagation();}
+      return;
+    }
+    if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
       const buttons=[...menuRecord.menu.children],current=buttons.indexOf(menuRecord.menu.getRootNode().activeElement);
-      buttons[(current+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();event.preventDefault();event.stopImmediatePropagation();
+      const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:current<0
+        ?event.key==='ArrowDown'?0:buttons.length-1:(current+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;
+      buttons[next]?.focus();event.preventDefault();event.stopImmediatePropagation();
     }
   }
   function stop() {
@@ -303,7 +323,8 @@
     for(const record of [...records.values()])removeRecord(record);
     closeMenu();document.documentElement.removeAttribute('data-cg-zhihu-small');
     document.removeEventListener('pointerdown',onPointer,true);document.removeEventListener('click',onClick,true);
-    document.removeEventListener('keydown',onKey,true);document.removeEventListener('visibilitychange',schedule);
+    window.removeEventListener('contextmenu',onContextMenu,true);
+    window.removeEventListener('keydown',onKey,true);document.removeEventListener('visibilitychange',schedule);
   }
   const onClick = event => { if(dismissClick&&performance.now()<dismissClick.until&&event.target===dismissClick.target){dismissClick=null;event.preventDefault();event.stopImmediatePropagation();return;} dismissClick=null; const image=event.target;if(image instanceof HTMLImageElement&&isContentImage(image)&&!protectedImage(image)){clicked={key:imageKey(image),time:performance.now()};schedule();} };
   function start() {
@@ -330,7 +351,8 @@
     themeObserver=new MutationObserver(schedule);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['class','style','data-theme','theme','data-darkreader-mode','data-darkreader-scheme']});
     if(document.head)themeObserver.observe(document.head,{childList:true,subtree:true,attributes:true,attributeFilter:['media','disabled']});
     document.addEventListener('pointerdown',onPointer,true);document.addEventListener('click',onClick,true);
-    document.addEventListener('keydown',onKey,true);document.addEventListener('visibilitychange',schedule);
+    window.addEventListener('contextmenu',onContextMenu,true);
+    window.addEventListener('keydown',onKey,true);document.addEventListener('visibilitychange',schedule);
     refresh();
   }
   const announce=()=>window.dispatchEvent(new CustomEvent(EVENT('main-ready'),{detail:token}));

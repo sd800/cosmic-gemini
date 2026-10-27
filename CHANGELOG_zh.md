@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 26.10.27.2 — 2026-10-27
+
+- 改善脚本跳转及点击时更新地址的链接的追踪参数清理。
+
 ## 26.10.27.1 — 2026-10-27
 
 - 在 Satellites 中新增 URL Tracking Cleaner，提供总开关与独立的 UTM/Bilibili 参数选项，清理跳转链接。

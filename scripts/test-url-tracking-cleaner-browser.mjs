@@ -43,6 +43,22 @@ try{
  assert.match(linkGuards.download,/utm_source=guard/);assert.match(linkGuards.canceled,/utm_source=guard/);
  const opened=context.waitForEvent('page');await page.locator('#open').click();const newTab=await opened;
  await newTab.waitForLoadState();assert.equal(newTab.url(),origin+'/opened?keep=1');assert.equal(requests.some(request=>request.url==='/opened?utm_campaign=new&keep=1'),false);await newTab.close();
+ // Page scripts may use a captured URL or replace an anchor after capture listeners ran.
+ for(const kind of ['scripted-anchor','scripted-button','late-href']){
+   await page.evaluate(({kind,url})=>{
+     const link=document.createElement(kind==='scripted-button'?'button':'a');
+     link.id=kind;link.textContent=kind;link.href=url;link.target='_blank';
+     link.onclick=event=>{
+       if(kind==='late-href'){link.href=url;return;}
+       event.preventDefault();window.open(kind==='scripted-button'?url.replace(location.origin,''):url,'_blank','noopener');
+     };
+     document.body.append(link);
+   },{kind,url:origin+'/'+kind+'?utm_source=assistant&keep=1#part'});
+   const opened=context.waitForEvent('page');await page.locator('#'+kind).click();const popup=await opened;
+   await popup.waitForLoadState();assert.equal(popup.url(),origin+'/'+kind+'?keep=1#part');
+   assert.equal(requests.some(request=>request.url.startsWith('/'+kind+'?utm_source=')),false,'the initial request is already clean');
+   await popup.close();
+ }
  await page.evaluate(()=>history.pushState({test:true},'', '?utm_source=client-state#part'));assert.equal(page.url(),origin+'/launch?utm_source=client-state#part','in-page URL changes are not monitored or rewritten');
  // Bilibili handling is explicit, destination-scoped, and covers every subdomain.
  const biliRequests=[];
@@ -74,6 +90,6 @@ try{
  await settings.waitForFunction(async()=>!(await chrome.declarativeNetRequest.getSessionRules()).some(rule=>[960001,960003].includes(rule.id)));
  assert.equal(await worker.evaluate(async()=>(await chrome.declarativeNetRequest.getSessionRules()).some(rule=>rule.id===9900012)),true);
  await page.goto(origin+'/?utm_source=reset');assert.match(page.url(),/utm_source=reset/);assert.deepEqual(errors,[]);
- await writeFile(join(artifacts,'README.md'),'# URL Tracking Cleaner fixtures\n\nRun scripts/test-url-tracking-cleaner-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It uses the actual extension and a local HTTP server in a disposable profile. Coverage includes default/master/UTM/Bilibili state, native removal across Bilibili subdomains, preserved query encoding and fragments, repeated/bare/uppercase tags, redirects, new tabs, POST/iframe exclusion, navigation blocks/allowances, locale/theme screenshots, Settings history/cache, and reset. Unit coverage in test/url-tracking-cleaner.test.mjs includes native failure/readback/storage rollback, context scoping, lifecycle, and sibling-rule preservation. No external page content or full logs are retained.\n');
+ await writeFile(join(artifacts,'README.md'),'# URL Tracking Cleaner fixtures\n\nRun scripts/test-url-tracking-cleaner-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It uses the actual extension and a local HTTP server in a disposable profile. Coverage includes default/master/UTM/Bilibili state, native removal across Bilibili subdomains, preserved query encoding and fragments, repeated/bare/uppercase tags, redirects, ordinary/scripted new tabs, relative script destinations, late href replacement, POST/iframe exclusion, navigation blocks/allowances, locale/theme screenshots, Settings history/cache, and reset. Test assertions verify that the initial destination request is clean. Unit coverage in test/url-tracking-cleaner.test.mjs and test/url-tracking-cleaner-runtime.test.mjs includes native failure/readback/storage rollback, context scoping, lifecycle, open delegation/restoration, and sibling-rule preservation. The scripted-open-check.mjs fixture preserves the isolated reproduction: the original runtime opened the dirty URL retained by a click handler despite changing the anchor. No external page content or full logs are retained.\n');
  console.log('Passed: native UTM/Bilibili cleaning, query/fragment preservation, redirect/new-tab navigation, POST/frame exclusion, blocks/allowances, independent option persistence, locale/themes, and reset.');
 }finally{await context?.close();await new Promise(r=>server.close(r));await rm(dir,{recursive:true,force:true});}

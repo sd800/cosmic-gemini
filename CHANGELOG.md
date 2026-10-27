@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.27.2 — 2026-10-27
+
+- Improve tracking-parameter cleanup for scripted navigation and links updated during activation.
+
 ## 26.10.27.1 — 2026-10-27
 
 - Add URL Tracking Cleaner to Satellites, with a master switch and independent UTM/Bilibili options for cleaner navigation links.

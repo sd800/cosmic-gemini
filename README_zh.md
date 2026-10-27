@@ -104,6 +104,10 @@ Satellites 收纳无需长期占用控制窗口的小功能。
 
 目前可选的管制网站包括腾讯新闻和知乎。
 
+#### URL Tracking Cleaner
+
+在网页跳转时清理链接。UTM 选项移除常见的推广跟踪参数，并保留其他参数；可选的 Bilibili 选项则移除 bilibili.com 及其所有子域名链接中问号及其后的全部内容。
+
 #### Website Fixer
 
 Website Fixer 通过可选的修复功能改善网站的使用体验。Translate Override 帮助恢复浏览器翻译，Stay on the page 则阻止所选网站带你跳转到其他网站。您也可以通过控制窗口的工具页临时使用这两个工具。

@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.10.26.9');
+assert.equal(manifest.version, '26.10.27.1');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -274,14 +274,14 @@ assert.doesNotMatch(readmeZh, /PSL PRIVATE DOMAINS-sector geographic eTLD rules/
 assert.doesNotMatch(collectionSettings, /satellite-category-heading|satellitesGeneralFeatures|orbitersFeatures/);
 const satelliteDirectoryTargets = [
   'mailto-capture', 'clipboard-protect', 'white-softer', 'access-control',
-  'website-knowledge-control', 'document-preview', 'ad-marshal', 'website-fixer',
+  'website-knowledge-control', 'document-preview', 'ad-marshal', 'url-tracking-cleaner', 'website-fixer',
   'xhs-image-dark-mode', 'xhs-navigation', 'bili-daily-login', 'leetcode-dark-mode',
   'chinese-response-claude', 'follow-list-instagram', 'lang-google', 'zhihu-image-adjustment'
 ];
 assert.match(satellitesSettings, /class="card compact language-card"[\s\S]*id="language"[\s\S]*id="feature-directory" class="card feature-directory"/,
   'The Satellites feature directory must render directly below Language on the first frame.');
 for (const target of satelliteDirectoryTargets) {
-  const settingsPage = ['mailto-capture','clipboard-protect','white-softer','access-control','website-knowledge-control','document-preview','ad-marshal','website-fixer'].includes(target) ? satellitesSettings : orbitersSettings;
+  const settingsPage = ['mailto-capture','clipboard-protect','white-softer','access-control','website-knowledge-control','document-preview','ad-marshal','url-tracking-cleaner','website-fixer'].includes(target) ? satellitesSettings : orbitersSettings;
   const prefix = settingsPage === satellitesSettings ? 'satellite' : 'orbiter';
   assert.match(settingsPage, new RegExp(`id="${prefix}-${target}"[^>]*data-satellite-section`),
     `Missing first-frame Satellites target: ${target}`);
@@ -296,11 +296,11 @@ assert.match(settingsStyle, /body\[data-feature="satellites"\] \.sidebar \{[^}]*
 assert.match(settingsSource, /sidebar\.style\.setProperty\('--feature-directory-sidebar-available-height'/);
 assert.match(settingsStyle, /\.feature-directory-scroll \{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*\}/);
 assert.match(settingsStyle, /@media \(max-width: 740px\)[\s\S]*\.feature-directory-scroll \{ max-height: none; overflow: visible;/);
-for (const iconName of ['mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'documentPreview', 'adMarshal', 'websiteFixer', 'xhsImageDarkMode', 'xhsNavigation', 'biliDailyLogin', 'leetcodeDarkMode', 'chineseResponseClaude', 'followListInstagram', 'langGoogle']) {
+for (const iconName of ['urlTrackingCleaner', 'mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'documentPreview', 'adMarshal', 'websiteFixer', 'xhsImageDarkMode', 'xhsNavigation', 'biliDailyLogin', 'leetcodeDarkMode', 'chineseResponseClaude', 'followListInstagram', 'langGoogle']) {
   assert.match(sharedUi, new RegExp(`\\b${iconName}:`), `Missing shared directory icon: ${iconName}`);
   assert.match(settingsPreload, new RegExp(`\\b${iconName}:`), `Missing first-frame directory icon: ${iconName}`);
 }
-for (const iconName of ['mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin', 'leetcodeDarkMode', 'followListInstagram', 'langGoogle']) {
+for (const iconName of ['urlTrackingCleaner', 'mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin', 'leetcodeDarkMode', 'followListInstagram', 'langGoogle']) {
   assert.match(collectionSettings, new RegExp(`class="satellite-feature-icon" data-section-icon="${iconName}"`));
   assert.match(sharedUi, new RegExp(`\\b${iconName}:`));
   assert.match(settingsPreload, new RegExp(`\\b${iconName}:`));

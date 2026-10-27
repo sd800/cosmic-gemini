@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 26.10.27.1 — 2026-10-27
+
+- 在 Satellites 中新增 URL Tracking Cleaner，提供总开关与独立的 UTM/Bilibili 参数选项，清理跳转链接。
+
 ## 26.10.26.9 — 2026-10-26
 
 - 优化知乎密集文字图片的深色模式自动识别，同时保留普通照片原貌。

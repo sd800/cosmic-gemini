@@ -29,6 +29,7 @@ export const FEATURE_IDS = Object.freeze({
   ACCESS_CONTROL: 'accessControl',
   WEBSITE_KNOWLEDGE_CONTROL: 'websiteKnowledgeControl',
   CLIPBOARD_PROTECT: 'clipboardProtect',
+  URL_TRACKING_CLEANER: 'urlTrackingCleaner',
   WHITE_SOFTER: 'whiteSofter',
   AD_MARSHAL: 'adMarshal',
   WEBSITE_FIXER: 'websiteFixer',
@@ -54,6 +55,7 @@ export const FEATURE_SLOTS = Object.freeze({
   CHINESE_RESPONSE_CLAUDE: 36,
   WEBSITE_KNOWLEDGE_CONTROL: 37,
   CLIPBOARD_PROTECT: 38,
+  URL_TRACKING_CLEANER: 52,
   WHITE_SOFTER: 47,
   FOLLOW_LIST_INSTAGRAM: 39,
   IMAGE_DOWNLOAD: 40,
@@ -80,7 +82,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 43,
+  version: 44,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -97,6 +99,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: false
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
+  urlTrackingCleaner: Object.freeze({ enabled: false, utmParameters: true, bilibiliParameters: false }),
   whiteSofter: Object.freeze({ enabled: false, tone: 'warm-minus-1' }),
   documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
@@ -341,7 +344,7 @@ export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   const biliDailyLogin = value.biliDailyLogin || value.satellites?.biliDailyLogin || {};
   return {
-    version: 43,
+    version: 44,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -354,6 +357,7 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
+    urlTrackingCleaner: { enabled: value.urlTrackingCleaner?.enabled === true, utmParameters: value.urlTrackingCleaner?.utmParameters !== false, bilibiliParameters: value.urlTrackingCleaner?.bilibiliParameters === true },
     whiteSofter: { enabled: value.whiteSofter?.enabled === true, tone: normalizeWhiteSofterTone(value.whiteSofter?.tone) },
     documentPreview: {
       enabled: value.documentPreview?.enabled === true,

@@ -17,6 +17,7 @@ import { createLangGoogleProduct } from '../products/standing/lang-google.js';
 import { createNativeScrollProduct } from '../products/standing/native-scroll.js';
 import { createNoAutoplayProduct } from '../products/standing/no-autoplay.js';
 import { createBiliDailyLoginProduct } from '../products/standing/bili-daily-login.js';
+import { createUrlTrackingCleanerProduct } from '../products/standing/url-tracking-cleaner.js';
 import { defineProvince } from './interface.js';
 
 const WEBSITE_BEHAVIORS = new Set(['inactive', 'standard', 'enhanced']);
@@ -46,6 +47,7 @@ export function createStandingProvince(platform) {
   const noAutoplay = createNoAutoplayProduct(host);
   const mailtoCapture = createMailtoCaptureProduct(host, platform);
   const langGoogle = createLangGoogleProduct(platform);
+  const urlTrackingCleaner = createUrlTrackingCleanerProduct(platform, host);
   const clipboardProtect = createClipboardProtectProduct(host, platform);
   const whiteSofter = createWhiteSofterProduct(host, platform);
   const accessControl = createAccessControlProduct(platform);
@@ -58,6 +60,7 @@ export function createStandingProvince(platform) {
     [noAutoplay.id]: noAutoplay,
     [mailtoCapture.id]: mailtoCapture,
     [langGoogle.id]: langGoogle,
+    [urlTrackingCleaner.id]: urlTrackingCleaner,
     [clipboardProtect.id]: clipboardProtect,
     [whiteSofter.id]: whiteSofter,
     [accessControl.id]: accessControl,
@@ -112,7 +115,7 @@ export function createStandingProvince(platform) {
       return result;
     }
     if (governed?.id === biliDailyLogin.id) return biliDailyLogin.handleMessage(message, context);
-    if ([websiteKnowledgeControl.id, clipboardProtect.id, whiteSofter.id, accessControl.id].includes(governed?.id)) {
+    if ([websiteKnowledgeControl.id, clipboardProtect.id, whiteSofter.id, accessControl.id, urlTrackingCleaner.id].includes(governed?.id)) {
       return governed.handleMessage(message, context);
     }
     if (message.type === 'UI_SET_ENABLED') {
@@ -235,7 +238,7 @@ export function createStandingProvince(platform) {
     async initialize() {
       await platform.ensureSettings();
       await Promise.allSettled([adMarshal.reconcile(), accessControl.reconcile(), websiteKnowledgeControl.initialize(),
-        websiteFixer.initialize(), whiteSofter.initialize()]);
+        websiteFixer.initialize(), whiteSofter.initialize(), urlTrackingCleaner.initialize()]);
       await biliDailyLogin.ensureSchedule();
     },
     async getProductState(productId, context) {
@@ -251,7 +254,7 @@ export function createStandingProvince(platform) {
     },
     handleMessage,
     handleTabCreated(tab) { return Promise.allSettled([
-      websiteKnowledgeControl.handleTabCreated(tab), accessControl.handleTabCreated(tab), websiteFixer.handleTabCreated(tab)
+      websiteKnowledgeControl.handleTabCreated(tab), accessControl.handleTabCreated(tab), websiteFixer.handleTabCreated(tab), urlTrackingCleaner.handleTabCreated(tab)
     ]); },
     handleTabUpdated(tabId, change, tab) { return Promise.allSettled([
       adMarshal.handleTabUpdated(tabId, change, tab), websiteKnowledgeControl.handleTabUpdated(tabId, change, tab),
@@ -260,7 +263,7 @@ export function createStandingProvince(platform) {
     ]); },
     handleTabRemoved(tabId) { return Promise.allSettled([
       adMarshal.handleTabRemoved(tabId), accessControl.handleTabRemoved(tabId), websiteKnowledgeControl.handleTabRemoved(tabId),
-      websiteFixer.handleTabRemoved(tabId)
+      websiteFixer.handleTabRemoved(tabId), urlTrackingCleaner.handleTabRemoved(tabId)
     ]); },
     handleNavigationRequest(details) { return websiteFixer.handleNavigationRequest(details); },
     handleActionClicked(tab) { return accessControl.handleActionClicked(tab); },
@@ -273,10 +276,11 @@ export function createStandingProvince(platform) {
         websiteKnowledgeControl.handleStorageChanged(changes, areaName),
         websiteFixer.handleStorageChanged(changes, areaName),
         whiteSofter.handleStorageChanged(changes, areaName),
+        urlTrackingCleaner.handleStorageChanged(changes, areaName),
         biliDailyLogin.handleStorageChanged(changes, areaName)
       ]);
     },
     reset() { return Promise.allSettled([adMarshal.reset(), accessControl.reset(), websiteKnowledgeControl.reset(),
-      websiteFixer.reset(), whiteSofter.reset(), biliDailyLogin.reset()]); }
+      websiteFixer.reset(), whiteSofter.reset(), urlTrackingCleaner.reset(), biliDailyLogin.reset()]); }
   });
 }

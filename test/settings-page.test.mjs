@@ -727,3 +727,13 @@ test('Satellites and Orbiters keep independent content and directories with dedi
   assert.equal(svg(readFileSync(new URL('../extension/shared/ui.js', import.meta.url),'utf8')),
     svg(readFileSync(new URL('../extension/settings/preload.js', import.meta.url),'utf8')));
 });
+
+
+test('URL Tracking Cleaner renders saved master/UTM state and dims only by its master',async()=>{
+  const {api,nodes}=controller();const master=new Element('input'),options=new Element('fieldset'),utm=new Element('input'),bilibili=new Element('input');
+  nodes.set('#urlTrackingCleanerEnabled',master);nodes.set('#urlTrackingCleanerOptions',options);nodes.set('#urlTrackingUtmParameters',utm);nodes.set('#urlTrackingBilibiliParameters',bilibili);
+  for(const enabled of [true,false])for(const selected of [true,false])for(const bili of [true,false]){
+    await api.hydrate({preferences:{urlTrackingCleaner:{enabled,utmParameters:selected,bilibiliParameters:bili}},urlTrackingCleaner:{enabled:!enabled,active:!enabled}});api.render();
+    assert.equal(master.checked,enabled);assert.equal(utm.checked,selected);assert.equal(bilibili.checked,bili);assert.equal(options.disabled,!enabled);
+  }
+});

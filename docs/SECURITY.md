@@ -33,3 +33,7 @@ Ordinary/private sessions remain separated. Document content and local file refe
 Keep third-party code pinned with its provenance, licenses, and integrity data. Review dependency updates before shipping them. Use small synthetic regression cases for the changed boundary, including rejection paths and cleanup; do not test with private user content or perform stress tests by default.
 
 Report suspected vulnerabilities through [GitHub private vulnerability reporting](https://github.com/sd800/cosmic-gemini/security/advisories/new). Include the affected version and a minimal synthetic reproduction, without private files, credentials, or session URLs.
+
+### Navigation tracking cleanup
+
+URL Tracking Cleaner applies selected UTM query removal through Chrome's native navigation rules and a narrowly scoped link-activation handler. Native rules use explicit context-owned tab IDs and operate on GET page navigation. UTM removal preserves unrelated fields; the separately selected Bilibili policy clears the entire query on bilibili.com and its subdomains. The link handler accepts HTTP(S) destinations, handles URL data as text, and performs no network access, HTML insertion, address monitoring, or browsing-history storage. Rule changes are verified before saved settings are acknowledged, and rollback/reset affect only this product's owned rules.

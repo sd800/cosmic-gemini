@@ -110,6 +110,7 @@ export const SETTINGS_DIRECTORIES = Object.freeze([
       Object.freeze({ target: 'satellite-website-knowledge-control', icon: 'websiteKnowledgeControl', nameKey: 'websiteKnowledgeName' }),
       Object.freeze({ target: 'satellite-document-preview', icon: 'documentPreview', nameKey: 'documentPreviewName' }),
       Object.freeze({ target: 'satellite-ad-marshal', icon: 'adMarshal', nameKey: 'adMarshalName' }),
+      Object.freeze({ target: 'satellite-url-tracking-cleaner', icon: 'urlTrackingCleaner', nameKey: 'urlTrackingCleanerName' }),
       Object.freeze({ target: 'satellite-website-fixer', icon: 'websiteFixer', nameKey: 'websiteFixerName' })
     ])
   }),
@@ -333,6 +334,18 @@ export function viewFor(featureId) {
           </div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="adMarshalPrivacy"></p></div>
+      </section>
+      <section id="satellite-url-tracking-cleaner" class="card satellite-card knowledge-card" data-satellite-section>
+        <div class="section-heading">
+          <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="urlTrackingCleaner" aria-hidden="true"></span><h1 data-i18n="urlTrackingCleanerName"></h1></div><p data-i18n="urlTrackingCleanerDescription"></p></div>
+          <div class="satellite-control"><label class="switch"><input id="urlTrackingCleanerEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="urlTrackingCleanerName"></b></label></div>
+        </div>
+        <fieldset id="urlTrackingCleanerOptions" class="knowledge-options" disabled>
+          <legend class="sr-only" data-i18n="urlTrackingCleanerName"></legend>
+          <div class="knowledge-row knowledge-checkbox-row"><label for="urlTrackingUtmParameters"><input id="urlTrackingUtmParameters" type="checkbox" checked><span><strong data-i18n="urlTrackingUtmParameters"></strong><small data-i18n="urlTrackingUtmHelp"></small></span></label></div>
+          <div class="knowledge-row knowledge-checkbox-row"><label for="urlTrackingBilibiliParameters"><input id="urlTrackingBilibiliParameters" type="checkbox"><span><strong data-i18n="urlTrackingBilibiliParameters"></strong><small data-i18n="urlTrackingBilibiliHelp"></small></span></label></div>
+        </fieldset>
+        <div class="satellite-privacy"><strong data-i18n="privacyHeading"></strong><p data-i18n="urlTrackingCleanerPrivacy"></p></div>
       </section>
       <section id="satellite-website-fixer" class="card satellite-card website-fixer-card" data-satellite-section>
         <div class="section-heading">

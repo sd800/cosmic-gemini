@@ -35,6 +35,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
+    urlTrackingCleaner: { enabled: states.urlTrackingCleaner?.enabled === true, utmParameters: states.urlTrackingCleaner?.utmParameters !== false, bilibiliParameters: states.urlTrackingCleaner?.bilibiliParameters === true },
     whiteSofter: { enabled: states.whiteSofter?.enabled === true, tone: normalizeWhiteSofterTone(states.whiteSofter?.tone) },
     documentPreview: {
       enabled: states.documentPreview?.enabled === true,

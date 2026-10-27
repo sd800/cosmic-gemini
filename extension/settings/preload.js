@@ -23,6 +23,7 @@
     mailtoCapture: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
     documentPreview: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 13h8M8 17h6"/>',
     whiteSofter: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 13c5-5 12 3 17-2M3.5 17c5-5 12 3 17-2"/>',
+    urlTrackingCleaner: '<path d="M9 13a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1.5 1.5M13 11a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1.5-1.5"/><path d="M18 12c.6 4 2 5.4 6 6-4 .6-5.4 2-6 6-.6-4-2-5.4-6-6 4-.6 5.4-2 6-6Z" fill="currentColor" stroke="var(--icon-surface, var(--surface))" stroke-width="1.8" paint-order="stroke"/>',
     clipboardProtect: '<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 5V3h6v2M9 9h6M9 13h6M9 17h4"/>',
     accessControl: '<path d="m5 3 13.5 9.1-6.1 1.25L9.5 20Z"/><path d="M12.4 13.35 15.952 18.318"/>',
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',
@@ -145,6 +146,14 @@
   }
   const langGoogleEnabled = document.querySelector('#langGoogleEnabled');
   if (langGoogleEnabled) langGoogleEnabled.checked = !incognitoContext && cached.langGoogle?.enabled === true;
+  const urlTrackingEnabled = document.querySelector('#urlTrackingCleanerEnabled');
+  if (urlTrackingEnabled) {
+    const preference = !incognitoContext ? cached.urlTrackingCleaner : null;
+    urlTrackingEnabled.checked = preference?.enabled === true;
+    document.querySelector('#urlTrackingCleanerOptions').disabled = !urlTrackingEnabled.checked;
+    document.querySelector('#urlTrackingUtmParameters').checked = preference?.utmParameters !== false;
+    document.querySelector('#urlTrackingBilibiliParameters').checked = preference?.bilibiliParameters === true;
+  }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = !incognitoContext && cached.clipboardProtect?.enabled === true;
   const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.27.1 — 2026-10-27
+
+- Add URL Tracking Cleaner to Satellites, with a master switch and independent UTM/Bilibili options for cleaner navigation links.
+
 ## 26.10.26.9 — 2026-10-26
 
 - Improve automatic dark-mode recognition of dense printed text in Zhihu images while preserving ordinary photos.

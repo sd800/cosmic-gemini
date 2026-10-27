@@ -22,7 +22,7 @@ try{
    assert.equal(await page.locator('#feature-directory h3').count(),0);
    assert.equal(await page.locator('.satellite-category-heading').count(),0);
    assert.equal(await page.locator(present).count(),1);assert.equal(await page.locator(absent).count(),0);
-   assert.equal(await page.locator('#feature-directory [data-feature-target]').count(),8);
+   assert.equal(await page.locator('#feature-directory [data-feature-target]').count(),id==='satellites'?9:8);
    assert.equal(await page.locator('#feature-directory').getAttribute('data-directory-page'),id);
    assert.equal(await page.locator(`[data-feature-link="${id}"]`).getAttribute('aria-current'),'page');
    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('[data-feature-target]')].every(b=>!!document.getElementById(b.dataset.featureTarget))),true);

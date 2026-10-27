@@ -285,6 +285,14 @@ function render() {
   if (mailtoCaptureEnabled) {
     mailtoCaptureEnabled.checked = (states?.preferences || states)?.mailtoCapture?.enabled === true;
   }
+  const urlTrackingEnabled = document.querySelector('#urlTrackingCleanerEnabled');
+  if (urlTrackingEnabled) {
+    const preference = (states?.preferences || states)?.urlTrackingCleaner;
+    urlTrackingEnabled.checked = preference?.enabled === true;
+    document.querySelector('#urlTrackingCleanerOptions').disabled = !urlTrackingEnabled.checked;
+    document.querySelector('#urlTrackingUtmParameters').checked = preference?.utmParameters !== false;
+    document.querySelector('#urlTrackingBilibiliParameters').checked = preference?.bilibiliParameters === true;
+  }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
   const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
@@ -815,6 +823,21 @@ function bindView() {
     type: 'UI_SET_BILI_DAILY_LOGIN', enabled: biliDailyLogin.checked
   }), [biliDailyLogin]));
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
+  const urlTrackingEnabled = document.querySelector('#urlTrackingCleanerEnabled');
+  const urlTrackingUtm = document.querySelector('#urlTrackingUtmParameters');
+  if (urlTrackingEnabled) urlTrackingEnabled.addEventListener('change', () => {
+    document.querySelector('#urlTrackingCleanerOptions').disabled = !urlTrackingEnabled.checked;
+    void update(null, () => savePreference('urlTrackingCleaner', {
+      type: 'UI_SET_ENABLED', featureId: 'urlTrackingCleaner', enabled: urlTrackingEnabled.checked
+    }), [urlTrackingEnabled]);
+  });
+  const urlTrackingBilibili = document.querySelector('#urlTrackingBilibiliParameters');
+  if (urlTrackingBilibili) urlTrackingBilibili.addEventListener('change', () => void update(null, () => savePreference('urlTrackingCleaner', {
+    type: 'UI_SET_URL_TRACKING_SETTING', featureId: 'urlTrackingCleaner', name: 'bilibiliParameters', value: urlTrackingBilibili.checked
+  }), [urlTrackingBilibili]));
+  if (urlTrackingUtm) urlTrackingUtm.addEventListener('change', () => void update(null, () => savePreference('urlTrackingCleaner', {
+    type: 'UI_SET_URL_TRACKING_SETTING', featureId: 'urlTrackingCleaner', name: 'utmParameters', value: urlTrackingUtm.checked
+  }), [urlTrackingUtm]));
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
   if (whiteSofterEnabled) whiteSofterEnabled.addEventListener('change', () => {

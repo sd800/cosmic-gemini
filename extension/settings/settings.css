@@ -275,15 +275,19 @@ body[data-feature="satellites"] .sidebar { max-height: var(--feature-directory-s
 .help hr { height: 1px; border: 0; background: var(--line); margin: 20px 0; }
 .satellite-card .section-heading { gap: 28px; }
 .satellite-card .section-heading > div:first-child { min-width: 0; }
-.satellite-card > .section-heading > div:first-child { position: relative; flex: 1; padding-right: 34px; }
-.card-disclosure { position: absolute; top: 0; right: 0; width: 28px; height: 30px; color: var(--muted); border-radius: 7px; }
+.satellite-card > .section-heading,
+.xhs-navigation-item > .section-heading { position: relative; padding-right: 40px; gap: 18px; }
+.satellite-card > .section-heading > div:first-child,
+.xhs-navigation-item > .section-heading > div:first-child { flex: 1; }
+.card-disclosure { position: absolute; top: -3px; right: 0; width: 28px; height: 30px; color: var(--muted); border-radius: 7px; }
 .card-disclosure svg { width: 17px; height: 17px; }
-.card-disclosure[aria-expanded="false"] svg { transform: rotate(-90deg); }
-.satellite-card[data-card-collapsed] > :not(.section-heading),
-.satellite-card[data-card-collapsed] > .section-heading > div:first-child > :not(h1, .satellite-title, .card-disclosure),
+.card-disclosure[aria-expanded="false"] svg { transform: rotate(90deg); }
+:is(.satellite-card, .xhs-navigation-item)[data-card-collapsed] > :not(.section-heading, .xhs-navigation-item),
+:is(.satellite-card, .xhs-navigation-item)[data-card-collapsed] > .section-heading > div:first-child > :not(h1, .satellite-title),
 .satellite-card[data-card-collapsed] > .section-heading > .satellite-control > .document-open { display: none !important; }
-.satellite-card[data-card-collapsed] > .section-heading .satellite-title,
+:is(.satellite-card, .xhs-navigation-item)[data-card-collapsed] > .section-heading .satellite-title,
 .satellite-card[data-card-collapsed] > .section-heading > div:first-child > h1 { margin-bottom: 0; }
+.xhs-dark-reader-card[data-card-collapsed] > .xhs-navigation-item { padding-bottom: 0; }
 .satellite-title { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; color: var(--text); }
 .satellite-title h1 { margin: 0; color: currentColor; }
 .satellite-feature-icon { --icon-surface: var(--surface-raised); display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: var(--surface-raised); color: var(--blue); }

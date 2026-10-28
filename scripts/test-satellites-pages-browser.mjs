@@ -15,6 +15,17 @@ try{
  await page.goto(base+'settings/all-settings.html');await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
  assert.equal(await page.locator('[data-settings-card="orbiters"]').count(),1);
  await page.locator('[data-settings-card="orbiters"]').click();await page.waitForURL('**/orbiters.html');
+ const disclosurePosition=button=>button.evaluate(node=>{
+   const rect=node.getBoundingClientRect(),heading=node.parentElement.getBoundingClientRect();
+   return{x:rect.x+rect.width/2,top:rect.top-heading.top};
+ });
+ const assertDisclosureColumn=async()=>{
+   const points=await page.locator('[data-card-disclosure]').evaluateAll(nodes=>nodes.map(node=>{
+     const rect=node.getBoundingClientRect(),heading=node.parentElement.getBoundingClientRect();
+     return{x:rect.x+rect.width/2,top:rect.top-heading.top};
+   }));
+   assert.ok(points.every(point=>Math.abs(point.x-points[0].x)<1&&Math.abs(point.top-points[0].top)<1),'all disclosures share one column and header alignment');
+ };
  const checkedCards=new Set();
  const assertPage=async(id,heading,present,absent)=>{
    await page.waitForFunction(id=>document.body.dataset.feature===id,id);
@@ -27,12 +38,16 @@ try{
    assert.equal(await page.locator('#feature-directory').getAttribute('data-directory-page'),id);
    assert.equal(await page.locator(`[data-feature-link="${id}"]`).getAttribute('aria-current'),'page');
    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('[data-feature-target]')].every(b=>!!document.getElementById(b.dataset.featureTarget))),true);
-   assert.equal(await page.locator('[data-card-disclosure]').count(),await page.locator('.primary > .satellite-card').count());
+   assert.equal(await page.locator('[data-card-disclosure]').count(),id==='satellites'?9:8);
    assert.equal(await page.locator('[data-card-disclosure][aria-expanded="false"]').count(),0);
+   await assertDisclosureColumn();
    if(checkedCards.has(id))return;
    checkedCards.add(id);
    for(const button of await page.locator('[data-card-disclosure]').all()){
+     const before=await disclosurePosition(button);
      await button.click();
+     const after=await disclosurePosition(button);
+     assert.ok(Math.abs(before.x-after.x)<1&&Math.abs(before.top-after.top)<1,'folding keeps the disclosure in its reserved position');
      const card=page.locator('#'+await button.getAttribute('data-card-disclosure'));
      assert.equal(await card.locator(':scope > .section-heading h1').first().isVisible(),true);
      assert.equal(await card.locator(':scope > .satellite-privacy').isVisible(),false);
@@ -40,14 +55,19 @@ try{
    }
  };
  await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerEnabled');
- const xhs=page.locator('#orbiter-xhs-image-dark-mode'),xhsDisclosure=xhs.locator('[data-card-disclosure]');
+ const xhs=page.locator('#orbiter-xhs-image-dark-mode'),xhsDisclosure=xhs.locator(':scope > .section-heading > [data-card-disclosure]');
+ const navigation=page.locator('#orbiter-xhs-navigation'),navigationDisclosure=navigation.locator('[data-card-disclosure]');
  await xhsDisclosure.click();assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
  assert.equal(await xhs.locator('h1').first().isVisible(),true);assert.equal(await page.locator('#xhsImageDarkModeEnabled').isVisible(),true);
- assert.equal(await page.locator('#orbiter-xhs-navigation').isVisible(),false);
+ assert.equal(await navigation.isVisible(),true);assert.equal(await page.locator('#xhsNavigationEnabled').isVisible(),true);
+ await navigationDisclosure.click();assert.equal(await navigation.locator('[data-i18n="xhsNavigationHelp"]').isVisible(),false);
  await page.locator('[data-feature-target="orbiter-xhs-navigation"]').click();
- assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'true');assert.equal(await page.locator('#orbiter-xhs-navigation').isVisible(),true);
- await xhsDisclosure.focus();await page.keyboard.press('Space');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
- await page.keyboard.press('Enter');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'true');
+ assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');assert.equal(await navigationDisclosure.getAttribute('aria-expanded'),'true');
+ assert.equal(await navigation.locator('[data-i18n="xhsNavigationHelp"]').isVisible(),true);
+ await xhs.screenshot({path:join(artifacts,'xhs-independent-folding.png')});
+ await xhsDisclosure.focus();await page.keyboard.press('Space');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'true');
+ await page.keyboard.press('Enter');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
+ await xhsDisclosure.click();
  await page.locator('#zhihuImageAdjustmentEnabled').check();await page.waitForFunction(()=>!document.querySelector('#zhihuImageAdjustmentEnabled').disabled);
  await page.locator('[data-feature-target="orbiter-leetcode-dark-mode"]').click();
  await page.waitForFunction(()=>document.querySelector('[data-feature-target="orbiter-leetcode-dark-mode"]').getAttribute('aria-current')==='location');
@@ -82,6 +102,7 @@ try{
      await page.emulateMedia({colorScheme:scheme});await page.evaluate(()=>scrollTo(0,0));
      assert.equal(await page.locator('[data-feature-link="orbiters"] svg').count(),1);
      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+     await assertDisclosureColumn();
      await page.screenshot({path:join(artifacts,`site-${locale}-${scheme}.png`)});
    }
  }
@@ -99,6 +120,7 @@ try{
    assert.equal(await documentDisclosure.getAttribute('title'),locale==='zh-CN'?'展开内容':'Expand details');
    for(const colorScheme of ['light','dark']){
      await page.emulateMedia({colorScheme});await documentCard.screenshot({path:join(artifacts,`collapsed-${locale}-${colorScheme}.png`)});
+     await assertDisclosureColumn();
    }
  }
  await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
@@ -111,7 +133,8 @@ try{
  assert.equal(settingsTabs,1);
  await page.setViewportSize({width:420,height:850});await page.screenshot({path:join(artifacts,'site-narrow.png')});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ await assertDisclosureColumn();
  assert.deepEqual(errors,[]);
- await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file/nested XHS controls, directory-driven expansion, document-local layout choices, and refresh defaults. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
+ await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file, independently folded XHS products, stable disclosure coordinates across cards/locales/widths, directory-driven expansion, document-local layout choices, and refresh defaults. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
  console.log('Passed: split destinations, exact headings, scoped directories, smooth navigation, independent preferences, history/reload, locale/themes, narrow layout, and one Settings tab.');
 }finally{await context?.close();await rm(folder,{recursive:true,force:true});}

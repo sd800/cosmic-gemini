@@ -29,22 +29,22 @@ export function createCardDisclosures(primary) {
   return {
     mount() {
       cards = new Map();
-      for (const card of primary.querySelectorAll(':scope > .satellite-card')) {
+      for (const card of primary.querySelectorAll(':scope > .satellite-card, :scope > .satellite-card > .xhs-navigation-item')) {
         const heading = card.querySelector(':scope > .section-heading');
         const column = heading?.firstElementChild;
         const title = column?.querySelector(':scope > h1, .satellite-title h1');
         if (!card.id || !title) continue;
-        let button = column.querySelector(':scope > [data-card-disclosure]');
+        let button = heading.querySelector(':scope > [data-card-disclosure]');
         if (!button) {
           button = document.createElement('button');
           button.type = 'button';
           button.className = 'icon-button card-disclosure';
           button.dataset.cardDisclosure = card.id;
           button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-          column.append(button);
+          heading.append(button);
         }
         const content = [...column.children].filter(node => node !== title && !node.matches('.satellite-title, [data-card-disclosure]'));
-        content.push(...[...card.children].filter(node => node !== heading));
+        content.push(...[...card.children].filter(node => node !== heading && !node.matches('.xhs-navigation-item')));
         content.push(...heading.querySelectorAll(':scope > .satellite-control > .document-open'));
         button.setAttribute('aria-controls', content.map((node, index) => {
           if (!node.id) node.id = `${card.id}-details-${index + 1}`;
@@ -60,7 +60,7 @@ export function createCardDisclosures(primary) {
       for (const record of cards.values()) update(record, collapsed.has(record.card.id));
     },
     reveal(target) {
-      const record = cards.get(target.closest('.satellite-card')?.id);
+      const record = cards.get(target.closest('.satellite-card, .xhs-navigation-item')?.id);
       if (record && collapsed.has(record.card.id)) {
         update(record, false);
         primary.dispatchEvent(new Event('settings-card-toggle', { bubbles: true }));

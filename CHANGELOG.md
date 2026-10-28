@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.28.2 — 2026-10-28
+
+- Align card folding controls in a stable column, and add independent folding for XHS Keyboard Navigation.
+
 ## 26.10.28.1 — 2026-10-28
 
 - Add independent card folding to Satellites and Orbiters, keeping feature titles and main switches available. Cards start expanded, and directory navigation reveals folded content.

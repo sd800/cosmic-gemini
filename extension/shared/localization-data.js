@@ -1,5 +1,7 @@
 globalThis.COSMIC_GEMINI_CATALOG = {
   'en-US': {
+    settingsCollapseDetails: 'Collapse details',
+    settingsExpandDetails: 'Expand details',
     allSettingsDocumentPreview: "Document Preview",
     documentPreviewName: "Document Preview",
     documentOpenFile: "Open file",
@@ -654,6 +656,8 @@ globalThis.COSMIC_GEMINI_CATALOG = {
     unavailable: 'Unable to update Cosmic Gemini.'
   },
   'zh-CN': {
+    settingsCollapseDetails: '收起内容',
+    settingsExpandDetails: '展开内容',
     allSettingsDocumentPreview: "文件预览",
     documentPreviewName: "Document Preview",
     documentOpenFile: "打开文件",

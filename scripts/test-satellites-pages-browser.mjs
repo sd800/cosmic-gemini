@@ -15,6 +15,7 @@ try{
  await page.goto(base+'settings/all-settings.html');await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
  assert.equal(await page.locator('[data-settings-card="orbiters"]').count(),1);
  await page.locator('[data-settings-card="orbiters"]').click();await page.waitForURL('**/orbiters.html');
+ const checkedCards=new Set();
  const assertPage=async(id,heading,present,absent)=>{
    await page.waitForFunction(id=>document.body.dataset.feature===id,id);
    assert.equal(await page.locator('.primary > .card:first-child h1').textContent(),heading);
@@ -26,18 +27,53 @@ try{
    assert.equal(await page.locator('#feature-directory').getAttribute('data-directory-page'),id);
    assert.equal(await page.locator(`[data-feature-link="${id}"]`).getAttribute('aria-current'),'page');
    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('[data-feature-target]')].every(b=>!!document.getElementById(b.dataset.featureTarget))),true);
+   assert.equal(await page.locator('[data-card-disclosure]').count(),await page.locator('.primary > .satellite-card').count());
+   assert.equal(await page.locator('[data-card-disclosure][aria-expanded="false"]').count(),0);
+   if(checkedCards.has(id))return;
+   checkedCards.add(id);
+   for(const button of await page.locator('[data-card-disclosure]').all()){
+     await button.click();
+     const card=page.locator('#'+await button.getAttribute('data-card-disclosure'));
+     assert.equal(await card.locator(':scope > .section-heading h1').first().isVisible(),true);
+     assert.equal(await card.locator(':scope > .satellite-privacy').isVisible(),false);
+     await button.click();
+   }
  };
  await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerEnabled');
+ const xhs=page.locator('#orbiter-xhs-image-dark-mode'),xhsDisclosure=xhs.locator('[data-card-disclosure]');
+ await xhsDisclosure.click();assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
+ assert.equal(await xhs.locator('h1').first().isVisible(),true);assert.equal(await page.locator('#xhsImageDarkModeEnabled').isVisible(),true);
+ assert.equal(await page.locator('#orbiter-xhs-navigation').isVisible(),false);
+ await page.locator('[data-feature-target="orbiter-xhs-navigation"]').click();
+ assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'true');assert.equal(await page.locator('#orbiter-xhs-navigation').isVisible(),true);
+ await xhsDisclosure.focus();await page.keyboard.press('Space');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
+ await page.keyboard.press('Enter');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'true');
  await page.locator('#zhihuImageAdjustmentEnabled').check();await page.waitForFunction(()=>!document.querySelector('#zhihuImageAdjustmentEnabled').disabled);
  await page.locator('[data-feature-target="orbiter-leetcode-dark-mode"]').click();
  await page.waitForFunction(()=>document.querySelector('[data-feature-target="orbiter-leetcode-dark-mode"]').getAttribute('aria-current')==='location');
  await page.locator('[data-feature-link="satellites"]').click();await page.waitForURL('**/satellites.html');
  await assertPage('satellites','Satellites','#websiteFixerEnabled','#zhihuImageAdjustmentEnabled');
+ const documentCard=page.locator('#satellite-document-preview'),documentDisclosure=documentCard.locator('[data-card-disclosure]');
+ await documentDisclosure.click();
+ assert.equal(await page.locator('#documentPreviewEnabled').isVisible(),true);assert.equal(await page.locator('#documentOpenFile').isVisible(),false);
+ assert.equal(await documentCard.locator('[data-i18n="documentPreviewDescription"]').isVisible(),false);
+ assert.equal(await documentCard.locator('.satellite-privacy').isVisible(),false);
+ assert.equal(await documentDisclosure.evaluate(button=>button.getAttribute('aria-controls').split(' ').every(id=>!!document.getElementById(id))),true);
+ await page.keyboard.press('1');await page.waitForSelector('[data-developer-mode]');
+ assert.equal(await documentCard.locator('[data-developer-feature="documentPreview"]').isVisible(),false);
+ await page.keyboard.press('1');await page.waitForSelector('[data-developer-mode]',{state:'detached'});
+ // Collapsing is presentation-only; even disabled products retain a usable master.
+ await page.locator('#documentPreviewEnabled').check();await page.waitForFunction(()=>!document.querySelector('#documentPreviewEnabled').disabled);
+ assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'false');
+ await page.locator('#documentPreviewEnabled').uncheck();await page.waitForFunction(()=>!document.querySelector('#documentPreviewEnabled').disabled);
  assert.equal(await page.locator('.satellite-category-heading').count(),0);
  await page.locator('#mailtoCaptureEnabled').check();await page.waitForFunction(()=>!document.querySelector('#mailtoCaptureEnabled').disabled);
  await page.goBack();await page.waitForURL('**/orbiters.html');
  await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerEnabled');
  assert.equal(await page.locator('#zhihuImageAdjustmentEnabled').isChecked(),true);
+ await page.goForward();await page.waitForURL('**/satellites.html');
+ assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'false','in-page navigation keeps the current document layout choice');
+ await page.goBack();await page.waitForURL('**/orbiters.html');
  await page.reload();await page.waitForFunction(()=>document.querySelector('#zhihuImageAdjustmentEnabled').checked);
  for(const locale of ['en-US','zh-CN']){
    await page.evaluate(async locale=>{const response=await chrome.runtime.sendMessage({type:'UI_SET_LOCALE',locale});if(!response.ok)throw Error(response.error);},locale);
@@ -52,6 +88,21 @@ try{
  await page.evaluate(async()=>{await chrome.runtime.sendMessage({type:'UI_SET_LOCALE',locale:'en-US'})});
  await page.waitForFunction(()=>document.documentElement.lang==='en-US');
  await page.locator('[data-feature-link="satellites"]').click();await page.waitForFunction(()=>document.querySelector('#mailtoCaptureEnabled').checked);
+ assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'true','a new document starts expanded');
+ await documentDisclosure.click();
+ await page.locator('[data-feature-target="satellite-document-preview"]').click();
+ assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'true');assert.equal(await page.locator('#documentOpenFile').isVisible(),true);
+ await documentDisclosure.click();
+ for(const locale of ['en-US','zh-CN']){
+   await page.evaluate(async locale=>{await chrome.runtime.sendMessage({type:'UI_SET_LOCALE',locale})},locale);
+   await page.waitForFunction(locale=>document.documentElement.lang===locale,locale);
+   assert.equal(await documentDisclosure.getAttribute('title'),locale==='zh-CN'?'展开内容':'Expand details');
+   for(const colorScheme of ['light','dark']){
+     await page.emulateMedia({colorScheme});await documentCard.screenshot({path:join(artifacts,`collapsed-${locale}-${colorScheme}.png`)});
+   }
+ }
+ await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
+ assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'true','refresh starts expanded');
  await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:join(artifacts,'general-dark.png')});
  // A direct new-page open must participate in the existing single-Settings-tab policy.
  const closed=page.waitForEvent('close'),next=await context.newPage();await next.goto(base+'settings/orbiters.html');await closed;page=next;
@@ -61,6 +112,6 @@ try{
  await page.setViewportSize({width:420,height:850});await page.screenshot({path:join(artifacts,'site-narrow.png')});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  assert.deepEqual(errors,[]);
- await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding without category subheadings, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
+ await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file/nested XHS controls, directory-driven expansion, document-local layout choices, and refresh defaults. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
  console.log('Passed: split destinations, exact headings, scoped directories, smooth navigation, independent preferences, history/reload, locale/themes, narrow layout, and one Settings tab.');
 }finally{await context?.close();await rm(folder,{recursive:true,force:true});}

@@ -1,4 +1,5 @@
 import { loadLocale } from '../core/locale.js';
+import { createCardDisclosures } from './card-disclosures.js';
 import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizePageDisplaySite, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeStayOnPageCommand, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
@@ -17,6 +18,7 @@ const LONG_PRESS_MS = 550;
 const LONG_PRESS_MOVE_TOLERANCE = 8;
 const incognitoContext = chrome.extension?.inIncognitoContext === true;
 const primary = document.querySelector('.primary');
+const cardDisclosures = createCardDisclosures(primary);
 const helpPanel = document.querySelector('.help');
 const emptyKey = {
   inactiveRules: 'emptyInactiveSites',
@@ -149,6 +151,7 @@ function applyLocale() {
     openRuleInputHelp(ruleInputHelpPanel.input);
   }
   developerMode?.render(t);
+  cardDisclosures.localize(t);
 }
 
 function renderList(section) {
@@ -1411,6 +1414,7 @@ function syncFeatureDirectory() {
     if (!button || !card.contains(button)) return;
     const target = document.getElementById(button.dataset.featureTarget);
     if (!target) return;
+    cardDisclosures.reveal(target);
     setFeatureDirectoryCurrent(card, target.id);
     finishNavigation();
     if (!reducedMotion.matches) {
@@ -1421,6 +1425,7 @@ function syncFeatureDirectory() {
     target.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
   };
   card.addEventListener('click', onClick);
+  primary.addEventListener('settings-card-toggle', scheduleRefresh);
   addEventListener('scroll', scheduleRefresh, { passive: true });
   addEventListener('resize', scheduleRefresh, { passive: true });
   refreshCurrent();
@@ -1428,6 +1433,7 @@ function syncFeatureDirectory() {
     finishNavigation();
     sidebar?.style.removeProperty('--feature-directory-sidebar-available-height');
     card.removeEventListener('click', onClick);
+    primary.removeEventListener('settings-card-toggle', scheduleRefresh);
     removeEventListener('scroll', scheduleRefresh);
     removeEventListener('resize', scheduleRefresh);
     if (frame) cancelAnimationFrame(frame);
@@ -1466,6 +1472,7 @@ function mountView(replace = true) {
     primary.innerHTML = view.primary;
     helpPanel.innerHTML = view.help;
   }
+  cardDisclosures.mount();
   syncFeatureDirectory();
   syncDocumentShortcut();
   for (const element of document.querySelectorAll('[data-section-icon]')) {

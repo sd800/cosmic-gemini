@@ -188,6 +188,7 @@ function controller(feature = 'satellites') {
     featureFromPath: () => feature, translator: () => key => key,
     isIpAddress: value => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || /^\[[0-9a-f:]+\]$/i.test(value),
     ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES,
+    createCardDisclosures: () => ({ mount() {}, localize() {}, reveal() {} }),
     loadLocale: async () => 'en-US', saveSettingsViewCache: value => cacheWrites.push(value), icon: () => '',
     send: message => transport(message),
     retryRead: task => task(), setTimeout: task => { timers.push(task); return timers.length; }, clearTimeout() {}

@@ -1,6 +1,6 @@
 export function icon(name) {
   const paths = {
-    followListInstagram: '<circle cx="6.5" cy="5.5" r="2.6"/><circle cx="17.5" cy="5.5" r="2.6"/><path d="M2.5 14v-1.2c0-3.1 2.1-4.4 4-4.4s4 1.3 4 4.4V14M13.5 14v-1.2c0-3.1 2.1-4.4 4-4.4s4 1.3 4 4.4V14M5 19.5h14m-11-3-3 3 3 3m8-6 3 3-3 3"/>',
+    followListInstagram: '<path d="M11 20H7.5A4.5 4.5 0 0 1 3 15.5v-8A4.5 4.5 0 0 1 7.5 3h8A4.5 4.5 0 0 1 20 7.5V11"/><circle cx="10.5" cy="10.5" r="3.5"/><circle cx="15.5" cy="6.5" r=".75" fill="currentColor" stroke="none"/><path d="M14 15.5h8m-2.2-2.2 2.2 2.2-2.2 2.2M22 20h-8m2.2-2.2L14 20l2.2 2.2"/>',
     bolt: '<path d="m13 2-8 11h7l-1 9 8-12h-7z"/>',
     nativeScroll: '<path d="M12 3v18M7.5 7.5 12 3l4.5 4.5M7.5 16.5 12 21l4.5-4.5"/>',
     noAutoplay: '<path d="M6 5v14l10-7z"/><path d="M21 18A4 4 0 1 1 17 14a3.3 3.3 0 0 0 4 4Z" fill="currentColor" stroke="none"/>',

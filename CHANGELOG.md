@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.28.3 — 2026-10-28
+
+- Refine collection card alignment and spacing, and add the Claude feature icon to its card heading.
+
 ## 26.10.28.2 — 2026-10-28
 
 - Align card folding controls in a stable column, and add independent folding for XHS Keyboard Navigation.

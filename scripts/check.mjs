@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.10.28.2');
+assert.equal(manifest.version, '26.10.28.3');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -300,12 +300,11 @@ for (const iconName of ['urlTrackingCleaner', 'mailtoCapture', 'clipboardProtect
   assert.match(sharedUi, new RegExp(`\\b${iconName}:`), `Missing shared directory icon: ${iconName}`);
   assert.match(settingsPreload, new RegExp(`\\b${iconName}:`), `Missing first-frame directory icon: ${iconName}`);
 }
-for (const iconName of ['urlTrackingCleaner', 'mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin', 'leetcodeDarkMode', 'followListInstagram', 'langGoogle']) {
+for (const iconName of ['urlTrackingCleaner', 'mailtoCapture', 'clipboardProtect', 'whiteSofter', 'accessControl', 'websiteKnowledgeControl', 'adMarshal', 'xhsImageDarkMode', 'biliDailyLogin', 'leetcodeDarkMode', 'chineseResponseClaude', 'followListInstagram', 'langGoogle']) {
   assert.match(collectionSettings, new RegExp(`class="satellite-feature-icon" data-section-icon="${iconName}"`));
   assert.match(sharedUi, new RegExp(`\\b${iconName}:`));
   assert.match(settingsPreload, new RegExp(`\\b${iconName}:`));
 }
-assert.doesNotMatch(orbitersSettings, /satellite-feature-icon[^>]+data-section-icon="chineseResponseClaude"/);
 assert.match(orbitersSettings, /chineseResponseClaudeDescription[\s\S]*class="satellite-inline-checkbox"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*claudeBrowserIdentityHelp[\s\S]*chineseResponseClaudeEnabled/);
 assert.doesNotMatch(orbitersSettings, /claudeBrowserIdentityHeading|class="switch"><input id="claudeBrowserIdentityEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="pageDisplay(?:ReduceWhitePointEnabled|GreyscaleEnabled)"/);

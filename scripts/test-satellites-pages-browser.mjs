@@ -22,9 +22,12 @@ try{
  const assertDisclosureColumn=async()=>{
    const points=await page.locator('[data-card-disclosure]').evaluateAll(nodes=>nodes.map(node=>{
      const rect=node.getBoundingClientRect(),heading=node.parentElement.getBoundingClientRect();
-     return{x:rect.x+rect.width/2,top:rect.top-heading.top};
+     const icon=node.parentElement.querySelector('.satellite-feature-icon')?.getBoundingClientRect();
+     const control=node.parentElement.querySelector(':scope > .satellite-control > .switch, :scope > .context-label')?.getBoundingClientRect();
+     return{x:rect.x+rect.width/2,top:rect.top-heading.top,iconOffset:icon?rect.y+rect.height/2-icon.y-icon.height/2:0,controlOffset:control?rect.y+rect.height/2-control.y-control.height/2:0};
    }));
    assert.ok(points.every(point=>Math.abs(point.x-points[0].x)<1&&Math.abs(point.top-points[0].top)<1),'all disclosures share one column and header alignment');
+   assert.ok(points.every(point=>Math.abs(point.iconOffset)<1&&Math.abs(point.controlOffset)<1),'icons, switches, and chevrons share the first title-row center');
  };
  const checkedCards=new Set();
  const assertPage=async(id,heading,present,absent)=>{
@@ -55,6 +58,7 @@ try{
    }
  };
  await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerEnabled');
+ assert.equal(await page.locator('#orbiter-chinese-response-claude .satellite-feature-icon svg').count(),1);
  const xhs=page.locator('#orbiter-xhs-image-dark-mode'),xhsDisclosure=xhs.locator(':scope > .section-heading > [data-card-disclosure]');
  const navigation=page.locator('#orbiter-xhs-navigation'),navigationDisclosure=navigation.locator('[data-card-disclosure]');
  await xhsDisclosure.click();assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
@@ -65,6 +69,16 @@ try{
  assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');assert.equal(await navigationDisclosure.getAttribute('aria-expanded'),'true');
  assert.equal(await navigation.locator('[data-i18n="xhsNavigationHelp"]').isVisible(),true);
  await xhs.screenshot({path:join(artifacts,'xhs-independent-folding.png')});
+ await navigationDisclosure.click();
+ const separatorGaps=await xhs.evaluate(card=>{
+   const first=card.querySelector(':scope > .section-heading').getBoundingClientRect();
+   const section=card.querySelector('.xhs-navigation-item'),divider=section.getBoundingClientRect();
+   const second=section.querySelector('.section-heading').getBoundingClientRect();
+   return{above:divider.top-first.bottom,below:second.top-divider.top-parseFloat(getComputedStyle(section).borderTopWidth)};
+ });
+ assert.ok(Math.abs(separatorGaps.above-separatorGaps.below)<1,'folded peer headers have balanced separator spacing');
+ await page.emulateMedia({colorScheme:'dark'});await xhs.screenshot({path:join(artifacts,'xhs-both-folded-dark.png')});
+ await page.emulateMedia({colorScheme:'light'});await navigationDisclosure.click();
  await xhsDisclosure.focus();await page.keyboard.press('Space');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'true');
  await page.keyboard.press('Enter');assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
  await xhsDisclosure.click();
@@ -135,6 +149,6 @@ try{
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  await assertDisclosureColumn();
  assert.deepEqual(errors,[]);
- await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file, independently folded XHS products, stable disclosure coordinates across cards/locales/widths, directory-driven expansion, document-local layout choices, and refresh defaults. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
+ await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file, independently folded XHS products, stable disclosure coordinates across cards/locales/widths, icon/control alignment, balanced XHS separator spacing, Claude heading artwork, directory-driven expansion, document-local layout choices, and refresh defaults. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
  console.log('Passed: split destinations, exact headings, scoped directories, smooth navigation, independent preferences, history/reload, locale/themes, narrow layout, and one Settings tab.');
 }finally{await context?.close();await rm(folder,{recursive:true,force:true});}

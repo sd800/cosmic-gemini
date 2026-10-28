@@ -8,6 +8,7 @@ const source = readFileSync(new URL('../extension/settings/preload.js', import.m
 const layoutSource = source.slice(source.indexOf('  const cardLayoutStorageKey ='), source.indexOf('  const emptyKeys ='));
 const storageKey = 'cosmicGeminiSettingsCardLayout';
 const apiKey = Symbol.for('cosmic-gemini.settings.card-layout');
+const entries = api => [...api.read()].map(([id, closed]) => [id, closed]);
 function storage() {
   const values = new Map();
   return { values, writes: 0, fail: false,
@@ -23,44 +24,46 @@ function fixture(local = storage(), session = storage(), incognitoContext = fals
 
 test('card layout persists independent choices without writes during reads or default rendering', () => {
   const f = fixture();
-  assert.deepEqual([...f.api.read()], []);
+  assert.deepEqual(entries(f.api), []);
+  assert.equal(f.api.read().get('satellite-document-preview') !== false, true);
   assert.equal(f.local.writes, 0);
   f.api.write('satellite-document-preview', true);
   f.api.write('orbiter-xhs-navigation', true);
   const reopened = fixture(f.local);
-  assert.deepEqual([...reopened.api.read()], ['satellite-document-preview', 'orbiter-xhs-navigation']);
+  assert.deepEqual(entries(reopened.api), [['satellite-document-preview', true], ['orbiter-xhs-navigation', true]]);
   const count = f.local.writes;
   reopened.api.read(); assert.equal(f.local.writes, count);
   reopened.api.write('satellite-document-preview', false);
-  assert.deepEqual([...fixture(f.local).api.read()], ['orbiter-xhs-navigation']);
+  assert.deepEqual(entries(fixture(f.local).api), [['satellite-document-preview', false], ['orbiter-xhs-navigation', true]]);
   reopened.api.reset();
   assert.equal(f.local.values.has(storageKey), false);
-  assert.deepEqual([...fixture(f.local).api.read()], []);
+  assert.deepEqual(entries(fixture(f.local).api), []);
 });
 
 test('private card layout uses only tab-session storage and survives a private refresh', () => {
   const local = storage(), session = storage();
   fixture(local).api.write('satellite-white-softer', true);
   const privatePage = fixture(local, session, true);
-  assert.deepEqual([...privatePage.api.read()], []);
+  assert.deepEqual(entries(privatePage.api), []);
   privatePage.api.write('orbiter-xhs-navigation', true);
-  assert.deepEqual([...fixture(local, session, true).api.read()], ['orbiter-xhs-navigation']);
-  assert.deepEqual([...fixture(local).api.read()], ['satellite-white-softer']);
+  privatePage.api.write('orbiter-xhs-navigation', false);
+  assert.deepEqual(entries(fixture(local, session, true).api), [['orbiter-xhs-navigation', false]]);
+  assert.deepEqual(entries(fixture(local).api), [['satellite-white-softer', true]]);
   privatePage.api.reset();
-  assert.deepEqual([...fixture(local).api.read()], ['satellite-white-softer']);
+  assert.deepEqual(entries(fixture(local).api), [['satellite-white-softer', true]]);
 });
 
 test('layout data is bounded, treats malformed values as defaults, and tolerates unavailable storage', () => {
   const f = fixture();
-  for (const raw of ['{invalid', '{}', 'null', 'x'.repeat(8193)]) {
+  for (const raw of ['{invalid', '{}', 'null', '["orbiter-xhs-navigation"]', 'x'.repeat(8193)]) {
     f.local.values.set(storageKey, raw);
-    assert.deepEqual([...f.api.read()], []);
+    assert.deepEqual(entries(f.api), []);
   }
-  f.local.values.set(storageKey, JSON.stringify(['__proto__', 5, null, 'orbiter-xhs-navigation', 'orbiter-xhs-navigation', 'satellite-<bad>']));
-  assert.deepEqual([...f.api.read()], ['orbiter-xhs-navigation']);
+  f.local.values.set(storageKey, JSON.stringify({ version: 1, cards: { '__proto__': true, 'orbiter-xhs-navigation': false, 'satellite-<bad>': true, 'satellite-white-softer': 'false' } }));
+  assert.deepEqual(entries(f.api), [['orbiter-xhs-navigation', false]]);
   f.api.write('<untrusted>', true);
   assert.equal(f.local.writes, 0);
-  f.local.values.set(storageKey, JSON.stringify(Array.from({ length: 100 }, (_, i) => `orbiter-fixture-${i}`)));
+  f.local.values.set(storageKey, JSON.stringify({ version: 1, cards: Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`orbiter-fixture-${i}`, true])) }));
   assert.equal(f.api.read().size, 64);
   f.local.fail = true;
   assert.doesNotThrow(() => f.api.write('orbiter-xhs-navigation', false));

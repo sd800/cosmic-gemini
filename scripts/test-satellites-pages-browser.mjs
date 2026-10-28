@@ -49,9 +49,9 @@ try{
    assert.equal(await page.locator(`[data-feature-link="${id}"]`).getAttribute('aria-current'),'page');
    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('[data-feature-target]')].every(b=>!!document.getElementById(b.dataset.featureTarget))),true);
    assert.equal(await page.locator('[data-card-disclosure]').count(),id==='satellites'?9:8);
-   assert.equal(await page.locator('[data-card-disclosure][aria-expanded="false"]').count(),0);
    await assertDisclosureColumn();
    if(checkedCards.has(id))return;
+   assert.equal(await page.locator('[data-card-disclosure][aria-expanded="false"]').count(),id==='satellites'?9:8);
    checkedCards.add(id);
    for(const button of await page.locator('[data-card-disclosure]').all()){
      const before=await disclosurePosition(button);
@@ -60,18 +60,19 @@ try{
      assert.ok(Math.abs(before.x-after.x)<1&&Math.abs(before.top-after.top)<1,'folding keeps the disclosure in its reserved position');
      const card=page.locator('#'+await button.getAttribute('data-card-disclosure'));
      assert.equal(await card.locator(':scope > .section-heading h1').first().isVisible(),true);
-     assert.equal(await card.locator(':scope > .satellite-privacy').isVisible(),false);
+     assert.equal(await card.locator(':scope > .satellite-privacy').isVisible(),await card.locator(':scope > .satellite-privacy').count()>0);
      await button.click();
+     assert.equal(await card.locator(':scope > .satellite-privacy').isVisible(),false);
    }
  };
  await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerEnabled');
  assert.equal(await page.locator('#orbiter-chinese-response-claude .satellite-feature-icon svg').count(),1);
  const xhs=page.locator('#orbiter-xhs-image-dark-mode'),xhsDisclosure=xhs.locator(':scope > .section-heading > [data-card-disclosure]');
  const navigation=page.locator('#orbiter-xhs-navigation'),navigationDisclosure=navigation.locator('[data-card-disclosure]');
- await xhsDisclosure.click();assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
+ assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');
  assert.equal(await xhs.locator('h1').first().isVisible(),true);assert.equal(await page.locator('#xhsImageDarkModeEnabled').isVisible(),true);
  assert.equal(await navigation.isVisible(),true);assert.equal(await page.locator('#xhsNavigationEnabled').isVisible(),true);
- await navigationDisclosure.click();assert.equal(await navigation.locator('[data-i18n="xhsNavigationHelp"]').isVisible(),false);
+ assert.equal(await navigation.locator('[data-i18n="xhsNavigationHelp"]').isVisible(),false);
  await page.locator('[data-feature-target="orbiter-xhs-navigation"]').click();
  assert.equal(await xhsDisclosure.getAttribute('aria-expanded'),'false');assert.equal(await navigationDisclosure.getAttribute('aria-expanded'),'true');
  assert.equal(await navigation.locator('[data-i18n="xhsNavigationHelp"]').isVisible(),true);
@@ -95,7 +96,6 @@ try{
  await page.locator('[data-feature-link="satellites"]').click();await page.waitForURL('**/satellites.html');
  await assertPage('satellites','Satellites','#websiteFixerEnabled','#zhihuImageAdjustmentEnabled');
  const documentCard=page.locator('#satellite-document-preview'),documentDisclosure=documentCard.locator('[data-card-disclosure]');
- await documentDisclosure.click();
  assert.equal(await page.locator('#documentPreviewEnabled').isVisible(),true);assert.equal(await page.locator('#documentOpenFile').isVisible(),false);
  assert.equal(await documentCard.locator('[data-i18n="documentPreviewDescription"]').isVisible(),false);
  assert.equal(await documentCard.locator('.satellite-privacy').isVisible(),false);
@@ -174,8 +174,8 @@ try{
  await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
  await page.locator('[data-feature-link="satellites"]').click();
  await page.waitForFunction(()=>document.body.dataset.feature==='satellites');
- assert.equal(await page.locator('[data-card-disclosure][aria-expanded="false"]').count(),0);
+ assert.equal(await page.locator('[data-card-disclosure][aria-expanded="false"]').count(),9);
  assert.deepEqual(errors,[]);
- await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file, independently folded XHS products, stable disclosure coordinates across cards/locales/widths, centered title/icon blocks, balanced XHS separator spacing, Claude heading artwork, directory-driven expansion, persistence after reload/reopening, reset, and a first-frame test with the controller deliberately blocked. Startup switch transitions are absent, while manual toggles retain animations. Pure storage bounds, private-session separation, failure handling, and UI labels are checked in test/settings-card-layout.test.mjs. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
+ await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover folded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file, independently folded XHS products, stable disclosure coordinates across cards/locales/widths, centered title/icon blocks, balanced XHS separator spacing, Claude heading artwork, directory-driven expansion, persistence after reload/reopening, reset, and a first-frame test with the controller deliberately blocked. Startup switch transitions are absent, while manual toggles retain animations. Pure storage bounds, private-session separation, failure handling, and UI labels are checked in test/settings-card-layout.test.mjs. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
  console.log('Passed: split destinations, exact headings, scoped directories, smooth navigation, independent preferences, history/reload, locale/themes, narrow layout, and one Settings tab.');
 }finally{await context?.close();await rm(folder,{recursive:true,force:true});}

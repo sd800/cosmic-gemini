@@ -1,15 +1,15 @@
 // The synchronous preloader restores saved layout before revealing Settings.
 export function createCardDisclosures(primary) {
   const layout = globalThis[Symbol.for('cosmic-gemini.settings.card-layout')];
-  const collapsed = layout?.read() || new Set();
+  const choices = layout?.read() || new Map();
+  const isClosed = id => choices.get(id) !== false;
   let cards = new Map(), translate = key => key;
 
   function update(record, closed) {
+    choices.set(record.card.id, closed);
     if (closed) {
-      collapsed.add(record.card.id);
       record.card.dataset.cardCollapsed = 'true';
     } else {
-      collapsed.delete(record.card.id);
       delete record.card.dataset.cardCollapsed;
     }
     record.button.setAttribute('aria-expanded', String(!closed));
@@ -23,7 +23,7 @@ export function createCardDisclosures(primary) {
     if (!button || !primary.contains(button)) return;
     const record = cards.get(button.dataset.cardDisclosure);
     if (!record || record.button !== button) return;
-    const closed = !collapsed.has(record.card.id);
+    const closed = !isClosed(record.card.id);
     update(record, closed);
     layout?.write(record.card.id, closed);
     primary.dispatchEvent(new Event('settings-card-toggle', { bubbles: true }));
@@ -55,23 +55,23 @@ export function createCardDisclosures(primary) {
         }).join(' '));
         const record = { card, button, title };
         cards.set(card.id, record);
-        update(record, collapsed.has(card.id));
+        update(record, isClosed(card.id));
       }
     },
     localize(t) {
       translate = t;
-      for (const record of cards.values()) update(record, collapsed.has(record.card.id));
+      for (const record of cards.values()) update(record, isClosed(record.card.id));
     },
     reveal(target) {
       const record = cards.get(target.closest('.satellite-card, .xhs-navigation-item')?.id);
-      if (record && collapsed.has(record.card.id)) {
+      if (record && isClosed(record.card.id)) {
         update(record, false);
         layout?.write(record.card.id, false);
         primary.dispatchEvent(new Event('settings-card-toggle', { bubbles: true }));
       }
     },
     reset() {
-      collapsed.clear();
+      choices.clear();
       layout?.reset();
     }
   };

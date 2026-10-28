@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.28.8 — 2026-10-28
+
+- Start Satellites and Orbiters sections folded, and remember manual layout choices.
+
 ## 26.10.28.7 — 2026-10-28
 
 - Refine the Instagram feature icon.

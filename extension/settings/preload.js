@@ -6,23 +6,25 @@
   const cardLayoutStorageKey = 'cosmicGeminiSettingsCardLayout';
   const validCardId = value => typeof value === 'string' && /^(?:satellite|orbiter)-[a-z0-9-]{1,80}$/.test(value);
   const layoutStorage = () => incognitoContext ? sessionStorage : localStorage;
-  let layoutFallback = new Set();
+  let layoutFallback = new Map();
   function readCardLayout() {
     try {
       const raw = layoutStorage().getItem(cardLayoutStorageKey);
-      const values = raw && raw.length <= 8192 ? JSON.parse(raw) : [];
-      layoutFallback = new Set(Array.isArray(values) ? values.filter(validCardId).slice(0, 64) : []);
+      const values = raw && raw.length <= 8192 ? JSON.parse(raw) : null;
+      const cards = values?.version === 1 && values.cards && typeof values.cards === 'object' && !Array.isArray(values.cards)
+        ? Object.entries(values.cards).filter(([id, closed]) => validCardId(id) && typeof closed === 'boolean').slice(0, 64) : [];
+      layoutFallback = new Map(cards);
     } catch {}
-    return new Set(layoutFallback);
+    return new Map(layoutFallback);
   }
   const cardLayout = Object.freeze({
     read: readCardLayout,
     write(id, closed) {
-      if (!validCardId(id)) return;
+      if (!validCardId(id) || typeof closed !== 'boolean') return;
       const saved = readCardLayout();
-      if (closed) saved.add(id); else saved.delete(id);
-      layoutFallback = new Set([...saved].slice(-64));
-      try { layoutStorage().setItem(cardLayoutStorageKey, JSON.stringify([...layoutFallback])); } catch {}
+      saved.set(id, closed);
+      layoutFallback = new Map([...saved].slice(-64));
+      try { layoutStorage().setItem(cardLayoutStorageKey, JSON.stringify({ version: 1, cards: Object.fromEntries(layoutFallback) })); } catch {}
     },
     reset() {
       layoutFallback.clear();
@@ -398,9 +400,9 @@
     }
   }
 
-  const collapsedCards = cardLayout.read();
+  const cardChoices = cardLayout.read();
   for (const card of document.querySelectorAll('.primary .satellite-card, .primary .xhs-navigation-item')) {
-    if (collapsedCards.has(card.id)) card.dataset.cardCollapsed = 'true';
+    if (cardChoices.get(card.id) !== false) card.dataset.cardCollapsed = 'true';
     else delete card.dataset.cardCollapsed;
   }
   root.dataset.localePending = 'false';

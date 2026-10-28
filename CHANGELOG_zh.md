@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 26.10.28.8 — 2026-10-28
+
+- Satellites 和 Orbiters 各项目默认折叠，并保存手动展开或折叠的选择。
+
 ## 26.10.28.7 — 2026-10-28
 
 - 调整 Instagram 功能图标。

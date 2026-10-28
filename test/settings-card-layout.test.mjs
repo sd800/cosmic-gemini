@@ -69,7 +69,7 @@ test('layout data is bounded, treats malformed values as defaults, and tolerates
 
 test('Orbiters display names match the selected UI labels in both interface languages', () => {
   const labels = { biliDailyLoginName: 'Bilibili – Daily Login', leetcodeDarkModeName: 'LeetCode Explore – Dark Mode',
-    chineseResponseClaudeName: 'Claude – Chinese Formatting Optimize', followListInstagramName: 'Instagram – Follow List Check',
-    langGoogleName: 'Google Search – Search by Language', zhihuImageAdjustmentName: 'Zhihu – Image Display Adjustment' };
+    chineseResponseClaudeName: 'Claude – Chinese Formatting', followListInstagramName: 'Instagram – Follow List Check',
+    langGoogleName: 'Google Search – By Language', zhihuImageAdjustmentName: 'Zhihu – Image Display' };
   for (const locale of ['en-US', 'zh-CN']) for (const [key, label] of Object.entries(labels)) assert.equal(translator(locale)(key), label);
 });

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.28.5 — 2026-10-28
+
+- Refine Orbiters display labels.
+
 ## 26.10.28.4 — 2026-10-28
 
 - Remember folded cards across Settings visits, and refine heading alignment and initial switch rendering.

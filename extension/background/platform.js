@@ -217,7 +217,7 @@ export function createPlatform() {
       activity.anyCopy && 'Any Copy',
       activity.anyCopyEnhanced && 'Any Copy Enhanced',
       activity.xhsImageDarkMode && 'XHS Image Dark Mode',
-      activity.chineseResponseClaude && 'Claude – Chinese Formatting Optimize',
+      activity.chineseResponseClaude && 'Claude – Chinese Formatting',
       activity.imageDownload && 'Image Download',
       activity.videoDownload && 'Video Download'
     ].filter(Boolean);

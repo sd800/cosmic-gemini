@@ -1,7 +1,35 @@
 (() => {
   const root = document.documentElement;
+  root.dataset.settingsHydrating = 'true';
   const incognitoContext = chrome.extension?.inIncognitoContext === true;
   const cacheKey = 'cosmicGeminiSettingsViewCache';
+  const cardLayoutStorageKey = 'cosmicGeminiSettingsCardLayout';
+  const validCardId = value => typeof value === 'string' && /^(?:satellite|orbiter)-[a-z0-9-]{1,80}$/.test(value);
+  const layoutStorage = () => incognitoContext ? sessionStorage : localStorage;
+  let layoutFallback = new Set();
+  function readCardLayout() {
+    try {
+      const raw = layoutStorage().getItem(cardLayoutStorageKey);
+      const values = raw && raw.length <= 8192 ? JSON.parse(raw) : [];
+      layoutFallback = new Set(Array.isArray(values) ? values.filter(validCardId).slice(0, 64) : []);
+    } catch {}
+    return new Set(layoutFallback);
+  }
+  const cardLayout = Object.freeze({
+    read: readCardLayout,
+    write(id, closed) {
+      if (!validCardId(id)) return;
+      const saved = readCardLayout();
+      if (closed) saved.add(id); else saved.delete(id);
+      layoutFallback = new Set([...saved].slice(-64));
+      try { layoutStorage().setItem(cardLayoutStorageKey, JSON.stringify([...layoutFallback])); } catch {}
+    },
+    reset() {
+      layoutFallback.clear();
+      try { layoutStorage().removeItem(cardLayoutStorageKey); } catch {}
+    }
+  });
+  Object.defineProperty(globalThis, Symbol.for('cosmic-gemini.settings.card-layout'), { value: cardLayout, configurable: true });
   const emptyKeys = {
     inactiveRules: 'emptyInactiveSites',
     enhancedRules: 'emptyEnhancedSites',
@@ -370,5 +398,10 @@
     }
   }
 
+  const collapsedCards = cardLayout.read();
+  for (const card of document.querySelectorAll('.primary .satellite-card, .primary .xhs-navigation-item')) {
+    if (collapsedCards.has(card.id)) card.dataset.cardCollapsed = 'true';
+    else delete card.dataset.cardCollapsed;
+  }
   root.dataset.localePending = 'false';
 })();

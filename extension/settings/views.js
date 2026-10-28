@@ -408,7 +408,7 @@ export function viewFor(featureId) {
       <section id="orbiter-bili-daily-login" class="card satellite-card" data-satellite-section>
         <div class="section-heading">
           <div><div class="satellite-title"><span class="satellite-feature-icon" data-section-icon="biliDailyLogin" aria-hidden="true"></span><h1 data-i18n="biliDailyLoginName"></h1></div><p data-i18n="biliDailyLoginDescription"></p></div>
-          <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only">Bili Daily Login</b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
+          <div class="satellite-control"><label class="switch"><input id="biliDailyLogin" type="checkbox"><span></span><b class="sr-only" data-i18n="biliDailyLoginName"></b></label><span class="incognito-status" data-i18n="disabledInIncognito" hidden></span></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="biliDailyLoginPrivacy"></p></div>
       </section>
@@ -433,7 +433,7 @@ export function viewFor(featureId) {
             <p data-i18n="chineseResponseClaudeDescription"></p>
             <label class="satellite-inline-checkbox" for="claudeBrowserIdentityEnabled"><input id="claudeBrowserIdentityEnabled" type="checkbox"><span data-i18n="claudeBrowserIdentityHelp"></span></label>
           </div>
-          <div class="satellite-control"><label class="switch"><input id="chineseResponseClaudeEnabled" type="checkbox"><span></span><b class="sr-only">Chinese Response Display Optimization for Claude</b></label></div>
+          <div class="satellite-control"><label class="switch"><input id="chineseResponseClaudeEnabled" type="checkbox"><span></span><b class="sr-only" data-i18n="chineseResponseClaudeName"></b></label></div>
         </div>
         <div class="satellite-privacy"><strong data-i18n="biliDailyLoginPrivacyHeading"></strong><p data-i18n="chineseResponseClaudePrivacy"></p></div>
       </section>

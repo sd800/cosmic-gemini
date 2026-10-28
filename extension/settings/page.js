@@ -59,10 +59,34 @@ let ruleInputHelpPanel = null;
 let developerMode = null;
 let developerModeModule = null;
 let featureDirectoryCleanup = null;
+let initializing = true;
+let switchHydrationFrame = 0;
+let switchHydrationGeneration = 0;
+function beginSwitchHydration() {
+  switchHydrationGeneration += 1;
+  if (switchHydrationFrame) cancelAnimationFrame(switchHydrationFrame);
+  switchHydrationFrame = 0;
+  root.dataset.settingsHydrating = 'true';
+}
+function finishSwitchHydration() {
+  const generation = switchHydrationGeneration;
+  if (switchHydrationFrame) cancelAnimationFrame(switchHydrationFrame);
+  // Commit the saved positions for a frame before restoring user-driven transitions.
+  switchHydrationFrame = requestAnimationFrame(() => {
+    if (pageClosing || generation !== switchHydrationGeneration) return;
+    switchHydrationFrame = requestAnimationFrame(() => {
+      switchHydrationFrame = 0;
+      if (!pageClosing && generation === switchHydrationGeneration) delete root.dataset.settingsHydrating;
+    });
+  });
+}
 const currentPage = ticket => !pageClosing && ticket === pageLifetime;
 // Register before the first storage/state await, including BFCache restoration.
 addEventListener('pagehide', () => {
   pageClosing = true; pageLifetime += 1;
+  switchHydrationGeneration += 1;
+  if (switchHydrationFrame) cancelAnimationFrame(switchHydrationFrame);
+  switchHydrationFrame = 0;
   clearTimeout(storageSyncTimer); clearTimeout(stateRecoveryTimer);
   storageSyncTimer = stateRecoveryTimer = 0;
   const port = settingsUiPort; settingsUiPort = null;
@@ -72,6 +96,7 @@ addEventListener('pagehide', () => {
 addEventListener('pageshow', event => {
   if (!event.persisted) return;
   pageClosing = false;
+  if (!initializing) finishSwitchHydration();
   claimSettings(performance.timeOrigin + performance.now());
   connectSettingsUi();
   syncFeatureDirectory();
@@ -1321,6 +1346,7 @@ function syncResetControls() {
     const confirm = dialog.querySelector('.danger-button');
     void update(card, async () => {
       await send({ type: 'UI_RESET_ALL_SETTINGS' });
+      cardDisclosures.reset();
       if (!incognitoContext) {
         try {
           localStorage.removeItem('cosmicGeminiSettingsViewCache');
@@ -1462,6 +1488,7 @@ function syncDocumentShortcut() {
 }
 
 function mountView(replace = true) {
+  beginSwitchHydration();
   disarmWebsiteReset();
   document.body.dataset.feature = featureId;
   document.querySelector('.wordmark strong').textContent = PRODUCT_META[featureId].name;
@@ -1487,6 +1514,7 @@ function mountView(replace = true) {
   applyLocale();
   bindView();
   render();
+  if (!initializing) finishSwitchHydration();
 }
 
 function navigateTo(nextFeature) {
@@ -1524,4 +1552,7 @@ try {
   if (currentPage(ticket)) await retryRead(() => reload());
 } catch {
   // Keep the localized defaults if stored settings are temporarily unavailable.
+} finally {
+  initializing = false;
+  if (!pageClosing) finishSwitchHydration();
 }

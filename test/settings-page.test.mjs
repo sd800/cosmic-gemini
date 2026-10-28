@@ -28,7 +28,7 @@ test('developer metadata follows Central ownership and attaches only to existing
   }
   const t = translator('en-US');
   assert.equal(featureAffiliation('stayOnPage', t), 'Central > Standing Province > Website Fixer > Stay on the page');
-  assert.equal(featureAffiliation('biliDailyLogin', t), 'Central > Standing Province > Bili Daily Login');
+  assert.equal(featureAffiliation('biliDailyLogin', t), 'Central > Standing Province > Bilibili – Daily Login');
 });
 
 function settingsRegion(html, pattern, label) {
@@ -188,7 +188,7 @@ function controller(feature = 'satellites') {
     featureFromPath: () => feature, translator: () => key => key,
     isIpAddress: value => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || /^\[[0-9a-f:]+\]$/i.test(value),
     ACCESS_CONTROL_ALIAS_GROUPS, createSettingsState, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES,
-    createCardDisclosures: () => ({ mount() {}, localize() {}, reveal() {} }),
+    createCardDisclosures: () => ({ mount() {}, localize() {}, reveal() {}, reset() {} }),
     loadLocale: async () => 'en-US', saveSettingsViewCache: value => cacheWrites.push(value), icon: () => '',
     send: message => transport(message),
     retryRead: task => task(), setTimeout: task => { timers.push(task); return timers.length; }, clearTimeout() {}

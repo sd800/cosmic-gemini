@@ -1,6 +1,7 @@
-// Collection layout state belongs to this Settings document, independently of product preferences.
+// The synchronous preloader restores saved layout before revealing Settings.
 export function createCardDisclosures(primary) {
-  const collapsed = new Set();
+  const layout = globalThis[Symbol.for('cosmic-gemini.settings.card-layout')];
+  const collapsed = layout?.read() || new Set();
   let cards = new Map(), translate = key => key;
 
   function update(record, closed) {
@@ -22,7 +23,9 @@ export function createCardDisclosures(primary) {
     if (!button || !primary.contains(button)) return;
     const record = cards.get(button.dataset.cardDisclosure);
     if (!record || record.button !== button) return;
-    update(record, !collapsed.has(record.card.id));
+    const closed = !collapsed.has(record.card.id);
+    update(record, closed);
+    layout?.write(record.card.id, closed);
     primary.dispatchEvent(new Event('settings-card-toggle', { bubbles: true }));
   });
 
@@ -63,8 +66,13 @@ export function createCardDisclosures(primary) {
       const record = cards.get(target.closest('.satellite-card, .xhs-navigation-item')?.id);
       if (record && collapsed.has(record.card.id)) {
         update(record, false);
+        layout?.write(record.card.id, false);
         primary.dispatchEvent(new Event('settings-card-toggle', { bubbles: true }));
       }
+    },
+    reset() {
+      collapsed.clear();
+      layout?.reset();
     }
   };
 }

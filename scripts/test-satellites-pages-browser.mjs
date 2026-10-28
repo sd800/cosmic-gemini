@@ -12,6 +12,12 @@ try{
  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
  const base=`chrome-extension://${new URL(worker.url()).host}/`;
  let page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{
+   globalThis.settingsSwitchTransitions=[];
+   document.addEventListener('transitionrun',event=>{
+     if(event.target.matches?.('.switch span'))settingsSwitchTransitions.push(event.propertyName);
+   },true);
+ });
  await page.goto(base+'settings/all-settings.html');await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
  assert.equal(await page.locator('[data-settings-card="orbiters"]').count(),1);
  await page.locator('[data-settings-card="orbiters"]').click();await page.waitForURL('**/orbiters.html');
@@ -23,11 +29,12 @@ try{
    const points=await page.locator('[data-card-disclosure]').evaluateAll(nodes=>nodes.map(node=>{
      const rect=node.getBoundingClientRect(),heading=node.parentElement.getBoundingClientRect();
      const icon=node.parentElement.querySelector('.satellite-feature-icon')?.getBoundingClientRect();
+     const title=node.parentElement.querySelector('.satellite-title h1')?.getBoundingClientRect();
      const control=node.parentElement.querySelector(':scope > .satellite-control > .switch, :scope > .context-label')?.getBoundingClientRect();
-     return{x:rect.x+rect.width/2,top:rect.top-heading.top,iconOffset:icon?rect.y+rect.height/2-icon.y-icon.height/2:0,controlOffset:control?rect.y+rect.height/2-control.y-control.height/2:0};
+     return{x:rect.x+rect.width/2,top:rect.top-heading.top,iconOffset:icon&&title?title.y+title.height/2-icon.y-icon.height/2:0,controlOffset:control?rect.y+rect.height/2-control.y-control.height/2:0};
    }));
    assert.ok(points.every(point=>Math.abs(point.x-points[0].x)<1&&Math.abs(point.top-points[0].top)<1),'all disclosures share one column and header alignment');
-   assert.ok(points.every(point=>Math.abs(point.iconOffset)<1&&Math.abs(point.controlOffset)<1),'icons, switches, and chevrons share the first title-row center');
+   assert.ok(points.every(point=>Math.abs(point.iconOffset)<1&&Math.abs(point.controlOffset)<1),'title blocks align with icon centers, and switches align with chevrons');
  };
  const checkedCards=new Set();
  const assertPage=async(id,heading,present,absent)=>{
@@ -109,6 +116,11 @@ try{
  assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'false','in-page navigation keeps the current document layout choice');
  await page.goBack();await page.waitForURL('**/orbiters.html');
  await page.reload();await page.waitForFunction(()=>document.querySelector('#zhihuImageAdjustmentEnabled').checked);
+ await page.waitForFunction(()=>!document.documentElement.hasAttribute('data-settings-hydrating'));
+ assert.deepEqual(await page.evaluate(()=>settingsSwitchTransitions),[],'restoring saved switches does not animate');
+ await page.locator('#zhihuImageAdjustmentEnabled').uncheck();
+ await page.waitForFunction(()=>!document.querySelector('#zhihuImageAdjustmentEnabled').disabled&&settingsSwitchTransitions.length>0);
+ await page.locator('#zhihuImageAdjustmentEnabled').check();await page.waitForFunction(()=>!document.querySelector('#zhihuImageAdjustmentEnabled').disabled);
  for(const locale of ['en-US','zh-CN']){
    await page.evaluate(async locale=>{const response=await chrome.runtime.sendMessage({type:'UI_SET_LOCALE',locale});if(!response.ok)throw Error(response.error);},locale);
    await page.waitForFunction(locale=>document.documentElement.lang===locale,locale);
@@ -122,9 +134,9 @@ try{
  }
  await page.evaluate(async()=>{await chrome.runtime.sendMessage({type:'UI_SET_LOCALE',locale:'en-US'})});
  await page.waitForFunction(()=>document.documentElement.lang==='en-US');
+ await navigationDisclosure.click();
  await page.locator('[data-feature-link="satellites"]').click();await page.waitForFunction(()=>document.querySelector('#mailtoCaptureEnabled').checked);
- assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'true','a new document starts expanded');
- await documentDisclosure.click();
+ assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'false','refresh retains the other collection’s saved layout');
  await page.locator('[data-feature-target="satellite-document-preview"]').click();
  assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'true');assert.equal(await page.locator('#documentOpenFile').isVisible(),true);
  await documentDisclosure.click();
@@ -137,18 +149,33 @@ try{
      await assertDisclosureColumn();
    }
  }
+ // The synchronous first frame must restore folding even before the controller loads.
+ await page.route('**/settings/page.js',route=>route.abort());
  await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
- assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'true','refresh starts expanded');
+ assert.equal(await documentCard.getAttribute('data-card-collapsed'),'true');
+ assert.equal(await documentCard.locator('[data-i18n="documentPreviewDescription"]').isVisible(),false);
+ await page.unroute('**/settings/page.js');
+ await page.reload();await page.waitForFunction(()=>document.querySelector('[data-card-disclosure="satellite-document-preview"]')?.getAttribute('aria-expanded')==='false');
  await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:join(artifacts,'general-dark.png')});
  // A direct new-page open must participate in the existing single-Settings-tab policy.
  const closed=page.waitForEvent('close'),next=await context.newPage();await next.goto(base+'settings/orbiters.html');await closed;page=next;
  await page.waitForFunction(()=>document.querySelector('#zhihuImageAdjustmentEnabled').checked);
+ assert.equal(await page.locator('[data-card-disclosure="orbiter-xhs-navigation"]').getAttribute('aria-expanded'),'false','reopening Settings retains the independent XHS layout');
  const settingsTabs=await worker.evaluate(async()=>(await chrome.runtime.getContexts({contextTypes:['TAB']})).filter(c=>c.documentUrl?.includes('/settings/')).length);
  assert.equal(settingsTabs,1);
  await page.setViewportSize({width:420,height:850});await page.screenshot({path:join(artifacts,'site-narrow.png')});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  await assertDisclosureColumn();
+ // Reset clears layout choices together with the other Settings preferences.
+ await page.locator('[data-feature-link="allSettings"]').click();
+ await page.locator('#reset-settings-card button').click();
+ await page.locator('#reset-settings-dialog .danger-button').click();
+ await page.waitForFunction(()=>localStorage.getItem('cosmicGeminiSettingsCardLayout')===null);
+ await page.waitForFunction(()=>document.documentElement.dataset.localePending==='false');
+ await page.locator('[data-feature-link="satellites"]').click();
+ await page.waitForFunction(()=>document.body.dataset.feature==='satellites');
+ assert.equal(await page.locator('[data-card-disclosure][aria-expanded="false"]').count(),0);
  assert.deepEqual(errors,[]);
- await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file, independently folded XHS products, stable disclosure coordinates across cards/locales/widths, icon/control alignment, balanced XHS separator spacing, Claude heading artwork, directory-driven expansion, document-local layout choices, and refresh defaults. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
+ await writeFile(join(artifacts,'README.md'),'# Satellites and Orbiters Settings pages\n\nRun scripts/test-satellites-pages-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME. It loads the actual extension in a disposable profile, verifies independent destinations/directories, collection branding, smooth scrolling, saved choices, reload/history navigation, language/theme rendering, narrow layout, and the single-Settings-tab policy. Card checks cover expanded defaults, pointer/keyboard disclosure, accessible content targets, available master switches while collapsed, hidden descriptions/privacy/Open file, independently folded XHS products, stable disclosure coordinates across cards/locales/widths, centered title/icon blocks, balanced XHS separator spacing, Claude heading artwork, directory-driven expansion, persistence after reload/reopening, reset, and a first-frame test with the controller deliberately blocked. Startup switch transitions are absent, while manual toggles retain animations. Pure storage bounds, private-session separation, failure handling, and UI labels are checked in test/settings-card-layout.test.mjs. Screenshots contain only the test profile’s settings; no live browsing content or full logs are stored.\n');
  console.log('Passed: split destinations, exact headings, scoped directories, smooth navigation, independent preferences, history/reload, locale/themes, narrow layout, and one Settings tab.');
 }finally{await context?.close();await rm(folder,{recursive:true,force:true});}

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.28.6 — 2026-10-28
+
+- Update the Instagram and Claude feature icons.
+
 ## 26.10.28.5 — 2026-10-28
 
 - Refine Orbiters display labels.

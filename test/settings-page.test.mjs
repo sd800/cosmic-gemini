@@ -724,9 +724,11 @@ test('Satellites and Orbiters keep independent content and directories with dedi
   assert.equal(featureDirectoryMarkup('allSettings'), '');
   assert.equal(featureAffiliation('orbiters', translator('en-US')), 'Central > Operations Province > Orbiters');
   assert.ok(viewFor('allSettings').primary.includes('data-settings-card="orbiters"'));
-  const svg = source => source.match(/orbiters: '([^']+)'/)[1];
-  assert.equal(svg(readFileSync(new URL('../extension/shared/ui.js', import.meta.url),'utf8')),
-    svg(readFileSync(new URL('../extension/settings/preload.js', import.meta.url),'utf8')));
+  for (const name of ['orbiters', 'chineseResponseClaude', 'followListInstagram']) {
+    const svg = source => source.match(new RegExp(`${name}: '([^']+)'`))[1];
+    assert.equal(svg(readFileSync(new URL('../extension/shared/ui.js', import.meta.url),'utf8')),
+      svg(readFileSync(new URL('../extension/settings/preload.js', import.meta.url),'utf8')));
+  }
 });
 
 

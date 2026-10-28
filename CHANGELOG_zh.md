@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 26.10.28.6 — 2026-10-28
+
+- 更新 Instagram 和 Claude 功能图标。
+
 ## 26.10.28.5 — 2026-10-28
 
 - 调整 Orbiters 显示名称。

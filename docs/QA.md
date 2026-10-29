@@ -236,6 +236,8 @@ Run `scripts/test-page-display-browser.mjs` with `PDF_VIEWER_PLAYWRIGHT` and `PD
 
 For slider availability changes alone, run the browser script with `PAGE_DISPLAY_QA=slider` to check immediate toggles, reload, master disable/restore, and retained strength without rerunning website-rendering scenarios.
 
+For immediate rendering updates, use `PAGE_DISPLAY_QA=cleanup`. Compare actual rendered color patches with the original page and each individual effect while toggling through Settings and the popup. Verify open-tab updates, preserved child selections, a non-synchronizing page controller, missing bridge and Window listeners, orphaned-layer disposal, clean reactivation, and Canvas fullscreen top-layer cleanup. No page reload should be needed. The focused platform and runtime-host tests verify live document targeting, ordinary/private isolation, unavailable tabs, and no fallback injection during routine inactive synchronization.
+
 
 ## Native Scroll anchor navigation
 

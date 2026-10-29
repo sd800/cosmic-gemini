@@ -77,6 +77,30 @@ test('an inactive product does not inject cleanup code into a page that never st
   assert.equal(activityWrites, 0);
 });
 
+test('explicit opted-in shutdown disposes an orphaned runtime even without its event listeners or bridge', async () => {
+  const { createPageDisplayProduct }=await import('../extension/background/products/operations/page-display.js');
+  const executions=[],removals=[],activity=[];
+  const scope=createContext({cleanups:0});
+  runInContext(`globalThis[Symbol.for('cosmic-gemini.page-display.runtime')]={token:'owned',onDispose(event){
+    if(event.detail!=='owned')throw Error('wrong token');cleanups++;delete globalThis[Symbol.for('cosmic-gemini.page-display.runtime')];
+  }}`,scope);
+  globalThis.chrome={scripting:{
+    async executeScript(details){executions.push(details);scope.args=details.args;return [{result:runInContext(`(${details.func})(...args)`,scope)}];},
+    async removeCSS(details){removals.push(details);}
+  }};
+  const platform={async sendTabMessage(){return undefined;},async setFeatureActivity(...args){activity.push(args);}};
+  const host=createPageRuntimeHost(platform),descriptor=createPageDisplayProduct(host,platform);
+  const context={tabId:9,frameId:0,documentId:'orphaned-document'};
+  await host.sync(descriptor,context,false);
+  assert.equal(executions.length,0,'normal inactive pages still receive no cleanup injection');
+  await host.sync(descriptor,{...context,explicitRefresh:true},false);
+  assert.equal(scope.cleanups,1);
+  assert.equal(scope[Symbol.for('cosmic-gemini.page-display.runtime')],undefined);
+  assert.deepEqual(removals,[{target:{tabId:9,documentIds:['orphaned-document']},files:descriptor.pageStyleFiles,origin:'USER'}]);
+  assert.ok(executions.every(call=>!call.files&&call.target.documentIds[0]==='orphaned-document'));
+  assert.deepEqual(activity,[[9,'pageDisplay',false]]);
+});
+
 test('an existing bridge confirms inactive cleanup before toolbar activity is cleared', async () => {
   let activityWrites = 0;
   globalThis.chrome = { scripting: { async executeScript() { throw new Error('unexpected injection'); } } };

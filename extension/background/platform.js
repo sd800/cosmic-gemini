@@ -116,12 +116,25 @@ export function createPlatform() {
     });
   }
 
-  async function refreshOpenPages() {
+  async function refreshOpenPages(refreshTopPage = null) {
     let tabs;
     try { tabs = await chrome.tabs.query({}); }
     catch { return; }
-    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id) && hostnameFromUrl(tab.url || ''))
-      .map(tab => refreshTabPage(tab.id)));
+    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id) && hostnameFromUrl(tab.url || '')
+      && (tab.incognito === true) === incognitoContext)
+      .map(async tab => {
+        if (typeof refreshTopPage !== 'function') return refreshTabPage(tab.id);
+        // A product preference update must not wait for the page controller or
+        // unrelated products. Capture the live document before targeted work.
+        const frames = await chrome.scripting.executeScript({
+          target: { tabId: tab.id, frameIds: [0] }, world: 'ISOLATED', injectImmediately: true,
+          func: () => location.href
+        });
+        const frame = frames.find(frame => frame.frameId === 0 && frame.documentId && hostnameFromUrl(frame.result));
+        if (!frame) return false;
+        return refreshTopPage({ tabId: tab.id, frameId: 0, documentId: frame.documentId,
+          frameUrl: frame.result, topUrl: frame.result });
+      }));
   }
 
   function scheduleOpenPageRefresh() {

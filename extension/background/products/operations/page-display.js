@@ -41,6 +41,9 @@ function updatePageDisplaySetting(feature, name, value) {
 
 export function createPageDisplayProduct(pageRuntimeHost, platform) {
   const pageStyleFiles = Object.freeze(['content/page-display/page-display.css']);
+  const refreshPages = () => platform.refreshOpenPages(async context => product.sync(
+    { ...context, explicitRefresh: true }, await platform.readSettings()
+  )).catch(() => {});
   const product = Object.freeze({
     id: FEATURE_IDS.PAGE_DISPLAY,
     bridge: 'content/page-display/page-display-bridge.js',
@@ -48,6 +51,7 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
     pageStyleFiles,
     preservePageStylesOnRefresh: true,
     awaitConfiguration: true,
+    recoverInactiveRuntimeOnRefresh: true,
     state(settings, url) { return pageDisplayState(settings, url); },
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);
@@ -62,7 +66,7 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
           FEATURE_IDS.PAGE_DISPLAY,
           feature => ({ ...feature, enabled: message.enabled === true })
         ), false);
-        await platform.refreshOpenPages().catch(() => {});
+        await refreshPages();
         return settings.pageDisplay;
       }
       if (['UI_ADD_RULE', 'UI_DELETE_RULE', 'UI_CLEAR_RULES', 'UI_ALPHABETIZE_RULES'].includes(message.type)) {
@@ -82,7 +86,7 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
                 : rules.includes(rule) ? rules : [...rules, rule];
           return { ...feature, reduceWhitePoint: { ...feature.reduceWhitePoint, siteRules } };
         }), false);
-        await platform.refreshOpenPages().catch(() => {});
+        await refreshPages();
         return settings.pageDisplay;
       }
       if (message.type !== 'UI_SET_PAGE_DISPLAY_SETTING' || !SETTING_NAMES.has(message.name)) {
@@ -121,7 +125,7 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
           feature => updatePageDisplaySetting(feature, message.name, message.value)
         );
       }, false);
-      await platform.refreshOpenPages().catch(() => {});
+      await refreshPages();
       return settings.pageDisplay;
     }
   });

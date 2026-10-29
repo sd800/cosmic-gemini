@@ -19,7 +19,7 @@ context.on('page', page => page.on('pageerror', error => errors.push(String(erro
 try {
   await context.route(/^https?:\/\/(?:[a-z]+\.)?(?:example\.co\.uk|other\.test)\//, route => route.fulfill({
     contentType: 'text/html', headers: { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" },
-    body: '<!doctype html><title>Page Display fixture</title><style>body{margin:0;background:white;color:black;font:18px system-ui}main{padding:30px}</style><main>Website controls fixture</main>'
+    body: '<!doctype html><title>Page Display fixture</title><style>body{margin:0;background:white;color:black;font:18px system-ui}main{padding:30px}#color{position:fixed;left:0;top:0;width:24px;height:24px;background:rgb(255,0,0)}</style><main>Website controls fixture</main><div id="color"></div>'
   }));
   const loader = await context.browser().newBrowserCDPSession();
   const { id } = await loader.send('Extensions.loadUnpacked', { path: resolve('extension') });
@@ -36,7 +36,98 @@ try {
     assert.equal(response.ok, true, response.error); return response.result;
   };
   const waitLayer = (page, present) => page.waitForFunction(({layer,present}) => !!document.querySelector(layer) === present, { layer, present });
-  if (process.env.PAGE_DISPLAY_QA === 'slider') {
+  if (process.env.PAGE_DISPLAY_QA === 'cleanup') {
+    const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+    const tab=await worker.evaluate(async()=> (await chrome.tabs.query({})).find(tab=>tab.url==='https://a.example.co.uk/one'));
+    const pixels=page=>page.screenshot({clip:{x:2,y:2,width:12,height:12}});
+    const baseline=await pixels(a);
+    const master=settings.locator('#enabled'),rwp=settings.locator('#pageDisplayReduceWhitePointEnabled'),grey=settings.locator('#pageDisplayGreyscaleEnabled');
+    const settled=()=>settings.waitForFunction(()=>!document.querySelector('#enabled').disabled);
+    const appearance=async(reduction,greyscale)=>a.waitForFunction(({layer,reduction,greyscale})=>{
+      const host=document.querySelector(layer);return host?.dataset.reduction===reduction&&host.dataset.greyscale===String(greyscale);
+    },{layer,reduction,greyscale});
+    const restored=async()=>{
+      await Promise.all([a,b,other].map(page=>waitLayer(page,false)));
+      assert.ok((await pixels(a)).equals(baseline),'actual page colors return immediately');
+      assert.equal(await a.evaluate(()=>!!window[Symbol.for('cosmic-gemini.page-display.runtime')]),false);
+    };
+    await master.check();await settled();
+    await rwp.check();await appearance('25',false);
+    const reduced=await pixels(a);assert.equal(reduced.equals(baseline),false);
+    await grey.check();await appearance('25',true);
+    assert.equal((await pixels(a)).equals(reduced),false);
+    // A controller that no longer synchronizes must not strand visual effects.
+    await worker.evaluate(tabId=>chrome.scripting.executeScript({target:{tabId},world:'ISOLATED',func:()=>{
+      globalThis[Symbol.for('cosmic-gemini.central')].sync=async()=>{};
+    }}),tab.id);
+    await grey.uncheck();await appearance('25',false);
+    assert.ok((await pixels(a)).equals(reduced),'turning off Greyscale preserves reduction only');
+    await grey.check();await appearance('25',true);
+    await rwp.uncheck();await appearance('0',true);
+    const greyscaleOnly=await pixels(a);
+    assert.equal(greyscaleOnly.equals(baseline),false);
+    await grey.uncheck();await restored();
+    await rwp.check();await appearance('25',false);
+    await grey.check();await appearance('25',true);
+    await master.uncheck();await settled();await restored();
+    assert.equal((await saved()).reduceWhitePoint.enabled,true);
+    assert.equal((await saved()).greyscale.enabled,true);
+    await master.check();await appearance('25',true);
+    const popup=await context.newPage();
+    await popup.addInitScript(tab=>{
+      const send=chrome.runtime.sendMessage.bind(chrome.runtime);
+      chrome.runtime.sendMessage=message=>message.type==='UI_GET_ACTIVE_PAGE_STATE'
+        ?chrome.tabs.update(tab.id,{active:true}).then(()=>send(message)):send(message);
+    },tab);
+    await popup.goto(base+'popup/index.html');
+    await popup.waitForFunction(()=>document.querySelector('#reduceWhitePoint-status').getAttribute('aria-pressed')==='true');
+    await popup.locator('#reduceWhitePoint-status').click();await appearance('0',true);
+    assert.ok((await pixels(a)).equals(greyscaleOnly),'popup reduction-off removes only the shade');
+    await popup.waitForFunction(()=>!document.querySelector('#greyscale-status').disabled);
+    await popup.locator('#greyscale-status').click();await restored();
+    await popup.close();await settings.bringToFront();
+    await command({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'reduceWhitePointEnabled',value:true});
+    await command({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'greyscaleEnabled',value:true});
+    await appearance('25',true);
+    // Simulate lost Window listeners and an unavailable bridge, retaining the old main runtime.
+    await a.evaluate(()=>{
+      const runtime=window[Symbol.for('cosmic-gemini.page-display.runtime')];
+      for(const [event,handler]of [['configure',runtime.onConfigure],['dispose',runtime.onDispose],['bridge-ready',runtime.onBridgeReady]])
+        window.removeEventListener('cosmic-gemini:page-display:'+event,handler,true);
+    });
+    await worker.evaluate(tabId=>chrome.scripting.executeScript({target:{tabId},world:'ISOLATED',func:()=>{
+      globalThis[Symbol.for('cosmic-gemini.page-display.bridge')].dispose();
+    }}),tab.id);
+    assert.equal(await a.locator(layer).count(),1,'orphaned display layer is retained before the explicit stop');
+    await command({type:'UI_SET_ENABLED',featureId:'pageDisplay',enabled:false});
+    await restored();
+    await command({type:'UI_SET_ENABLED',featureId:'pageDisplay',enabled:true});
+    await appearance('25',true);
+    assert.equal(await a.locator(layer).count(),1,'re-enable creates exactly one layer');
+    await master.uncheck();await settled();await restored();
+    await a.evaluate(()=>{
+      const canvas=document.createElement('canvas');canvas.id='fullscreen-color';canvas.width=100;canvas.height=100;
+      const ctx=canvas.getContext('2d');ctx.fillStyle='rgb(255,0,0)';ctx.fillRect(0,0,100,100);
+      const button=document.createElement('button');button.id='enter-fullscreen';button.textContent='Full screen';
+      button.onclick=()=>canvas.requestFullscreen();document.body.append(canvas,button);
+    });
+    await a.bringToFront();await a.locator('#enter-fullscreen').click();
+    await a.waitForFunction(()=>document.fullscreenElement?.id==='fullscreen-color');
+    // Sample inside the fullscreen canvas, not its black letterbox margins.
+    const fullscreenPixels=()=>a.screenshot({clip:{x:540,y:465,width:12,height:12}});
+    const fullscreenBaseline=await fullscreenPixels();
+    await command({type:'UI_SET_ENABLED',featureId:'pageDisplay',enabled:true});
+    await appearance('25',true);
+    await a.waitForFunction(layer=>document.querySelector(layer)?.matches(':popover-open'),layer);
+    assert.equal((await fullscreenPixels()).equals(fullscreenBaseline),false);
+    await command({type:'UI_SET_ENABLED',featureId:'pageDisplay',enabled:false});
+    await waitLayer(a,false);
+    assert.ok((await fullscreenPixels()).equals(fullscreenBaseline),'fullscreen top-layer pixels also restore without leaving full screen');
+    await a.evaluate(()=>document.exitFullscreen());await restored();
+    assert.deepEqual(errors,[]);
+    await writeFile(join(artifacts,'cleanup.md'),'# Immediate Page Display changes\n\nRun PAGE_DISPLAY_QA=cleanup with scripts/test-page-display-browser.mjs and the shared local Playwright/Chrome variables. Tests compare the rendered color patch against its original pixels and against each single effect. Coverage includes Settings and popup toggles, multi-tab changes, master authorization with saved child choices, a non-synchronizing controller, missing bridge/Window listeners, orphan cleanup, clean reactivation, and Canvas fullscreen top-layer cleanup. It uses authored pages and an isolated disposable profile; no browser logs or user content are retained.\n');
+    console.log('PASS: Settings/popup changes immediately restore actual pixels, preserve the remaining child effect, recover orphaned layers, and reactivate cleanly across open tabs.');
+  } else if (process.env.PAGE_DISPLAY_QA === 'slider') {
     const slider=settings.locator('#reduceWhitePointReduction');
     const master=settings.locator('#enabled'),global=settings.locator('#pageDisplayReduceWhitePointEnabled'),site=settings.locator('#reduceWhitePointSiteSpecific');
     const settled=()=>settings.waitForFunction(()=>!document.querySelector('#enabled').disabled

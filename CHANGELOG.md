@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.29.2 — 2026-10-29
+
+- Apply Page Display changes directly to open pages from the popup and Settings, including immediate removal of disabled effects.
+- Improve display-layer cleanup and recovery without changing saved feature choices.
+
 ## 26.10.29.1 — 2026-10-29
 
 - Improve No Autoplay compatibility with native and custom playback controls, including delayed playback, keyboard controls, and full screen.

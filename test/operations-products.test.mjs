@@ -1052,6 +1052,26 @@ test('Page Display master authorization gates its independent top-frame visual f
   ]);
 });
 
+test('Page Display preferences refresh only its live runtime using current settings', async () => {
+  let settings=normalizeSettings({pageDisplay:{enabled:true,reduceWhitePoint:{enabled:true},greyscale:{enabled:true}}});
+  const calls=[];
+  const context={tabId:42,frameId:0,documentId:'live-document',topUrl:'https://example.com/current'};
+  const platform={
+    async mutateSettings(change){settings=normalizeSettings(await change(settings));return settings;},
+    async readSettings(){return settings;},
+    async refreshOpenPages(refresh){assert.equal(typeof refresh,'function');await refresh(context);}
+  };
+  const product=createPageDisplayProduct({async sync(...args){calls.push(args);}},platform);
+  await product.handleMessage({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'reduceWhitePointEnabled',value:false});
+  assert.equal(calls.at(-1)[2],true,'Greyscale remains active');
+  assert.equal(calls.at(-1)[1].explicitRefresh,true);
+  await product.handleMessage({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'greyscaleEnabled',value:false});
+  assert.equal(calls.at(-1)[2],false);
+  await product.handleMessage({type:'UI_SET_ENABLED',featureId:'pageDisplay',enabled:false});
+  assert.equal(calls.at(-1)[2],false);
+  assert.ok(calls.every(call=>call[0].id==='pageDisplay'&&call[1].documentId==='live-document'));
+});
+
 const { createSettingsSurface } = await import('../extension/background/features/settings-surface.js');
 
 test('Settings keeps the newest registered document without reading general tab URLs', async () => {

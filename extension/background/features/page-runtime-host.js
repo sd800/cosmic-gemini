@@ -72,7 +72,10 @@ export function createPageRuntimeHost(platform) {
       func: value => {
         const runtime = globalThis[Symbol.for(`cosmic-gemini.${value}.runtime`)];
         if (runtime?.token) {
-          globalThis.dispatchEvent(new CustomEvent(`cosmic-gemini:${value}:dispose`, { detail: runtime.token }));
+          // document.open() can erase Window listeners without destroying the
+          // runtime. Call its owned disposer directly when one is available.
+          if (typeof runtime.onDispose === 'function') runtime.onDispose({ detail: runtime.token });
+          else globalThis.dispatchEvent(new CustomEvent(`cosmic-gemini:${value}:dispose`, { detail: runtime.token }));
         }
         return true;
       },
@@ -81,17 +84,21 @@ export function createPageRuntimeHost(platform) {
     return results.some(result => result?.result === true);
   }
 
-  async function setRuntime(tabId, frameId, documentId, product, active, styleFiles, document) {
+  async function setRuntime(tabId, frameId, documentId, product, active, styleFiles, document, explicitRefresh) {
     const options = messageOptions(frameId, documentId);
     const target = executionTarget(tabId, frameId, documentId);
     const requestedStyles = requestedStyleFiles(product, styleFiles);
     if (!active) {
+      const recover = explicitRefresh && product.recoverInactiveRuntimeOnRefresh === true;
+      // Only an explicitly requested product update may recover an orphaned
+      // effect. Routine inactive synchronization still injects no cleanup.
+      if (recover) await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});
       const response = await platform.sendTabMessage(
         tabId,
         { type: 'CG_STOP_CENTRAL_FEATURE', featureId: product.id },
         options
       );
-      if (response?.disposed === true) {
+      if (recover || response?.disposed === true) {
         await removePageStyles(target, product);
         if (frameId === 0 && !document.retired) await platform.setFeatureActivity(tabId, product.id, false);
       }
@@ -142,7 +149,7 @@ export function createPageRuntimeHost(platform) {
     }
     document.pending += 1;
     const previous = pendingSyncs.get(key) || Promise.resolve();
-    const current = previous.catch(() => {}).then(() => setRuntime(tabId, frameId, documentId, product, active, styleFiles, document));
+    const current = previous.catch(() => {}).then(() => setRuntime(tabId, frameId, documentId, product, active, styleFiles, document, context.explicitRefresh === true));
     pendingSyncs.set(key, current);
     try { await current; }
     finally {

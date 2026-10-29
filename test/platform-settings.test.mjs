@@ -259,6 +259,29 @@ test('page synchronization retries transient script injection failures', async (
   assert.equal(mock.scriptCalls(), 3);
 });
 
+test('targeted top-page refresh uses live document IDs and stays inside its browser context', async () => {
+  for (const incognito of [false,true]) {
+    const mock=chromeMock(incognito);globalThis.chrome=mock.api;
+    mock.setTabs([
+      {id:17,url:'https://before.example/',incognito},
+      {id:18,url:'https://private.example/',incognito:!incognito},
+      {id:19,url:'chrome://extensions/',incognito},
+      {id:20,url:'https://closing.example/',incognito}
+    ]);
+    const injected=[],refreshed=[];
+    mock.api.scripting.executeScript=async details=>{
+      injected.push(details);
+      if(details.target.tabId===20)throw Error('tab closed');
+      return [{frameId:0,documentId:'live-document',result:'https://after.example/current'}];
+    };
+    const platform=createPlatform();
+    await platform.refreshOpenPages(async context=>{refreshed.push(context);});
+    assert.deepEqual(injected.map(call=>call.target),[{tabId:17,frameIds:[0]},{tabId:20,frameIds:[0]}]);
+    assert.deepEqual(refreshed,[{tabId:17,frameId:0,documentId:'live-document',frameUrl:'https://after.example/current',topUrl:'https://after.example/current'}]);
+    assert.ok(injected.every(call=>call.world==='ISOLATED'&&call.injectImmediately===true));
+  }
+});
+
 test('incognito settings start disabled and never inherit regular saved settings', async () => {
   const mock = chromeMock(true);
   mock.local[SETTINGS_KEY] = {
@@ -310,7 +333,7 @@ test('resetting incognito settings leaves regular saved settings untouched', asy
 
 test('incognito context refreshes only for its session settings changes', async () => {
   const mock = chromeMock(true);
-  mock.setTabs([{ id: 17, url: 'https://example.com/' }]);
+  mock.setTabs([{ id: 17, url: 'https://example.com/', incognito: true }]);
   globalThis.chrome = mock.api;
   const platform = createPlatform();
   assert.equal(platform.handleStorageChanged({

@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.29.1 — 2026-10-29
+
+- Improve No Autoplay compatibility with native and custom playback controls, including delayed playback, keyboard controls, and full screen.
+- Refine playback permissions, audio policy changes, Web Audio handling, and runtime cleanup.
+
 ## 26.10.28.8 — 2026-10-28
 
 - Start Satellites and Orbiters sections folded, and remember manual layout choices.

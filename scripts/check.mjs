@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.10.28.8');
+assert.equal(manifest.version, '26.10.29.1');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -519,15 +519,19 @@ assert.match(nativeScrollRuntime, /RETAINED_LISTENERS_KEY[\s\S]*retainListenerRe
 assert.match(noAutoplay, /content\/no-autoplay\/no-autoplay-bridge\.js[\s\S]*content\/no-autoplay\/no-autoplay-runtime\.js/);
 assert.doesNotMatch(noAutoplay, /topFrameOnly|context\.frameId === 0/,
   'No Autoplay must follow the top-level page policy inside embedded web frames.');
-assert.match(noAutoplayRuntime, /querySelectorAll\('video,audio'\)[\s\S]*media\.paused === false/,
+assert.match(noAutoplayRuntime, /stopInitialPlayback\(selector = 'video,audio'\)[\s\S]*querySelectorAll\(selector\)[\s\S]*media\.paused === false/,
   'No Autoplay must catch media that began playing before its configuration arrived.');
 assert.match(noAutoplayRuntime, /isPlaybackControl[\s\S]*hasRecentPlaybackIntent/);
 assert.match(noAutoplayRuntime, /associatePlaybackIntent[\s\S]*ASSOCIATED_MEDIA_INTENT_MS[\s\S]*playerIntent/,
   'No Autoplay must preserve explicit playback intent for media associated with a custom player control.');
 assert.match(noAutoplayRuntime, /blockedPlayPromise[\s\S]*Promise\.reject\(error\)[\s\S]*denial\.catch/,
   'Blocked media play requests must not report a false success to custom players.');
-assert.doesNotMatch(noAutoplayRuntime, /navigator\.userActivation/,
-  'Ordinary page interaction must not be treated as playback intent.');
+const nativePlaybackIntent = noAutoplayRuntime.match(/    isNativePlaybackIntent\(event, media\) \{[\s\S]*?\n    \}/)?.[0];
+assert.ok(nativePlaybackIntent, 'Native media controls require a separate event-only intent check.');
+assert.match(nativePlaybackIntent, /event\.isTrusted !== true[\s\S]*media\.controls !== true[\s\S]*navigator\.userActivation\?\.isActive !== true/);
+assert.match(nativePlaybackIntent, /root\.activeElement === media/);
+assert.doesNotMatch(noAutoplayRuntime.replace(nativePlaybackIntent, ''), /navigator\.userActivation/,
+  'Browser activation is allowed only in the trusted, focused native-media event check, never as generic page intent.');
 assert.match(mailtoCapture, /content\/mailto-capture\/mailto-capture-bridge\.js[\s\S]*content\/mailto-capture\/mailto-capture-runtime\.js/);
 assert.match(mailtoCapture, /runtimeDependencies[\s\S]*content\/mailto-capture\/mailto-capture-nanp\.js[\s\S]*content\/mailto-capture\/mailto-capture-phone\.js/,
   'Mailto Capture must load its compact offline telephone references before the page runtime.');

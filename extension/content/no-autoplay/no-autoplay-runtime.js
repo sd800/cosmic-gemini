@@ -33,9 +33,11 @@
       this.observer = null;
       this.mediaIntent = new WeakMap();
       this.playerIntent = new WeakMap();
+      this.userPlayback = new WeakSet();
       this.pendingAudio = new Set();
       this.pendingVideo = new Set();
-      this.pendingContexts = new Set();
+      this.pendingContexts = new Map();
+      this.audioContexts = new Map();
       this.originalPlay = HTMLMediaElement.prototype.play;
       this.originalPause = HTMLMediaElement.prototype.pause;
       this.patchedPlay = null;
@@ -46,6 +48,7 @@
       this.onDispose = this.onDispose.bind(this);
       this.onUserIntent = this.onUserIntent.bind(this);
       this.onPlay = this.onPlay.bind(this);
+      this.onPlaybackStopped = this.onPlaybackStopped.bind(this);
       this.onMutations = this.onMutations.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(READY, this.onBridgeReady, true);
@@ -97,9 +100,14 @@
       if (this.mode === 'enhanced') {
         this.enableEnhancedObserver();
         this.removeMedia(document);
+        this.suspendAutomaticContexts(true);
       } else {
         this.disableObserver();
         if (!wasActive) this.stopInitialPlayback();
+        else if (wasAudioAllowed && !this.audioAllowed) {
+          this.stopInitialPlayback('audio');
+          this.suspendAutomaticContexts();
+        }
       }
       if (!wasAudioAllowed && this.audioAllowed) {
         this.resumePendingMedia(false);
@@ -110,44 +118,56 @@
     patchMediaPlay() {
       if (this.patchedPlay) return;
       const runtime = this;
+      const original = HTMLMediaElement.prototype.play;
       this.patchedPlay = function cosmicGeminiPlay() {
+        if (!(this instanceof HTMLMediaElement)) return Reflect.apply(original, this, arguments);
         if (!runtime.shouldBlockMedia(this)) {
           runtime.pendingAudio.delete(this);
           runtime.pendingVideo.delete(this);
-          return Reflect.apply(runtime.originalPlay, this, []);
+          return Reflect.apply(original, this, arguments);
         }
         runtime.blockMedia(this);
         return runtime.blockedPlayPromise();
       };
+      this.previousPlay = original;
       HTMLMediaElement.prototype.play = this.patchedPlay;
     }
 
     patchAudioContexts() {
       const runtime = this;
       if (this.audioContextPatches.length) return;
-      const patched = new Set();
+      const patched = new Map();
       const patch = (property, constructor) => {
-        const original = constructor?.prototype?.resume;
+        const shared = patched.get(constructor);
+        const original = shared?.original || constructor?.prototype?.resume;
         if (!constructor?.prototype || typeof original !== 'function') return;
-        if (patched.has(constructor)) return;
-        patched.add(constructor);
-        const wrappedResume = function cosmicGeminiResume() {
-          if (!runtime.shouldBlockAudioContext()) return Reflect.apply(original, this, []);
+        const wrappedResume = shared?.wrappedResume || function cosmicGeminiResume() {
+          if (!(this instanceof constructor)) return Reflect.apply(original, this, arguments);
+          if (this.state === 'closed' || !runtime.shouldBlockAudioContext(this)) {
+            runtime.rememberAudioContext(this, original, runtime.hasRecentPlaybackIntent() || runtime.hasUserAudioContext(this));
+            runtime.pendingContexts.delete(this);
+            return Reflect.apply(original, this, arguments);
+          }
           runtime.rememberPendingContext(this, original);
           runtime.reportIntervention();
-          try { void this.suspend(); } catch {}
-          return Promise.resolve();
+          try { void Promise.resolve(this.suspend()).catch(() => {}); } catch {}
+          return runtime.blockedPlayPromise('resume');
         };
-        constructor.prototype.resume = wrappedResume;
+        if (!shared) {
+          constructor.prototype.resume = wrappedResume;
+          patched.set(constructor, { original, wrappedResume });
+        }
+        const descriptor = Object.getOwnPropertyDescriptor(globalThis, property);
         let wrappedConstructor = null;
         try {
           const wrapped = new Proxy(constructor, {
             construct(target, args, newTarget) {
               const context = Reflect.construct(target, args, newTarget === wrapped ? target : newTarget);
+              runtime.rememberAudioContext(context, original, runtime.hasRecentPlaybackIntent());
               if (runtime.shouldBlockAudioContext()) {
                 runtime.rememberPendingContext(context, original);
                 runtime.reportIntervention();
-                try { void context.suspend(); } catch {}
+                try { void Promise.resolve(context.suspend()).catch(() => {}); } catch {}
               }
               return context;
             }
@@ -160,7 +180,7 @@
             value: wrapped
           });
         } catch {}
-        this.audioContextPatches.push({ property, constructor, original, wrappedResume, wrappedConstructor });
+        this.audioContextPatches.push({ property, constructor, original, wrappedResume, wrappedConstructor, descriptor });
       };
       patch('AudioContext', globalThis.AudioContext);
       patch('webkitAudioContext', globalThis.webkitAudioContext);
@@ -172,6 +192,7 @@
       window.addEventListener('click', this.onUserIntent, true);
       window.addEventListener('keydown', this.onUserIntent, true);
       window.addEventListener('play', this.onPlay, true);
+      for (const type of ['pause', 'ended', 'emptied']) window.addEventListener(type, this.onPlaybackStopped, true);
       this.patchMediaPlay();
       this.patchAudioContexts();
       this.behaviorHooksInstalled = true;
@@ -183,14 +204,18 @@
       window.removeEventListener('click', this.onUserIntent, true);
       window.removeEventListener('keydown', this.onUserIntent, true);
       window.removeEventListener('play', this.onPlay, true);
+      for (const type of ['pause', 'ended', 'emptied']) window.removeEventListener(type, this.onPlaybackStopped, true);
       try {
-        if (HTMLMediaElement.prototype.play === this.patchedPlay) HTMLMediaElement.prototype.play = this.originalPlay;
+        if (HTMLMediaElement.prototype.play === this.patchedPlay) HTMLMediaElement.prototype.play = this.previousPlay;
       } catch {}
       this.patchedPlay = null;
       for (const entry of this.audioContextPatches) {
         try {
           if (entry.constructor.prototype.resume === entry.wrappedResume) entry.constructor.prototype.resume = entry.original;
-          if (entry.wrappedConstructor && globalThis[entry.property] === entry.wrappedConstructor) globalThis[entry.property] = entry.constructor;
+          if (entry.wrappedConstructor && globalThis[entry.property] === entry.wrappedConstructor) {
+            if (entry.descriptor) Object.defineProperty(globalThis, entry.property, entry.descriptor);
+            else delete globalThis[entry.property];
+          }
         } catch {}
       }
       this.audioContextPatches = [];
@@ -198,12 +223,16 @@
       this.userIntentUntil = -1;
       this.mediaIntent = new WeakMap();
       this.playerIntent = new WeakMap();
+      this.userPlayback = new WeakSet();
+      this.audioContexts.clear();
     }
 
     onUserIntent(event) {
       if (!event.isTrusted) return;
+      if (event.isPrimary === false || (typeof event.button === 'number' && event.button !== 0) || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.type === 'keydown' && !['Enter', ' ', 'Spacebar'].includes(event.key)) return;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+      if (path.some(node => this.isTextEntry(node))) return;
       for (const node of path) {
         if (node instanceof HTMLMediaElement) {
           this.mediaIntent.set(node, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
@@ -219,14 +248,21 @@
 
     associatePlaybackIntent(path, deadline) {
       for (const node of path.slice(0, MAX_ASSOCIATION_PATH_DEPTH)) {
+        // Never turn a local play button into a long page-wide permission.
+        if (node === document || node === document.body || node === document.documentElement) break;
         if (!node || typeof node.querySelectorAll !== 'function') continue;
         let candidates;
         try {
-          candidates = Array.from(node.querySelectorAll('video,audio')).filter(media => this.isVisibleMedia(media));
+          candidates = [];
+          for (const media of node.querySelectorAll('video,audio')) {
+            if (this.isVisibleMedia(media)) candidates.push(media);
+            if (candidates.length > 1) break;
+          }
         } catch {
           continue;
         }
         if (!candidates.length) continue;
+        if (candidates.length > 1) return;
         this.playerIntent.set(node, deadline);
         for (const media of candidates) this.mediaIntent.set(media, deadline);
         return;
@@ -248,20 +284,28 @@
 
     isPlaybackControl(node) {
       if (!node || typeof node.getAttribute !== 'function') return false;
+      if (node === document.body || node === document.documentElement || this.isTextEntry(node)) return false;
       const attribute = name => String(node.getAttribute(name) || '');
       const metadata = [
         attribute('aria-label'), attribute('title'), attribute('data-action'),
         attribute('data-testid'), attribute('data-control'), attribute('id'),
         typeof node.className === 'string' ? node.className : node.className?.baseVal || ''
-      ].join(' ').toLowerCase();
-      const metadataSignalsPlayback = /(^|[\s:_-])(play|resume|unmute)(?=$|[\s:_-])|播放|继续播放|恢复播放|解除静音|取消静音/.test(metadata)
+      ].join(' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+      const metadataSignalsPlayback = /(^|[\s:_-])(play|replay|resume|unmute|listen)(?=$|[\s:_-])|播放|重播|解除静音|取消静音/.test(metadata)
         || (/(^|[\s:_-])start(?=$|[\s:_-])/.test(metadata) && /(media|video|audio|player)/.test(metadata));
       if (metadataSignalsPlayback) return true;
       const tagName = String(node.localName || node.tagName || '').toLowerCase();
       const role = attribute('role').toLowerCase();
       if (!['button', 'a', 'input'].includes(tagName) && role !== 'button') return false;
       const text = String(node.textContent || attribute('value') || '').trim().slice(0, 80).toLowerCase();
-      return /(^|\s)(play|resume|unmute)(?=$|\s)|播放|继续播放|恢复播放|解除静音|取消静音/.test(text);
+      return /(^|\s)(play|replay|resume|unmute|listen)(?=$|\s)|播放|重播|解除静音|取消静音/.test(text);
+    }
+
+    isTextEntry(node) {
+      if (!node || typeof node.getAttribute !== 'function') return false;
+      const tag = String(node.localName || node.tagName || '').toLowerCase();
+      if (node.isContentEditable === true || node.getAttribute('role') === 'textbox' || ['textarea', 'select'].includes(tag)) return true;
+      return tag === 'input' && !['button', 'submit', 'reset', 'image', 'checkbox', 'radio'].includes(String(node.getAttribute('type') || 'text').toLowerCase());
     }
 
     hasRecentPlaybackIntent() {
@@ -270,18 +314,19 @@
 
     hasUserIntent(media) {
       if (this.hasRecentPlaybackIntent()) return true;
+      if (media.paused === false && this.userPlayback.has(media)) return true;
       const now = performance.now();
       if ((this.mediaIntent.get(media) || -1) > now) return true;
       let node = media;
       for (let depth = 0; node && depth < MAX_ASSOCIATION_PATH_DEPTH; depth += 1) {
-        if ((this.playerIntent.get(node) || -1) > now) return true;
+        if ((this.playerIntent.get(node) || -1) > now && this.isVisibleMedia(media)) return true;
         node = node.parentElement || node.parentNode || node.host || null;
       }
       return false;
     }
 
-    blockedPlayPromise() {
-      const message = 'The play() request was prevented because it was not initiated by a media playback control.';
+    blockedPlayPromise(method = 'play') {
+      const message = `The ${method}() request was prevented because it was not initiated by a media playback control.`;
       let error;
       try { error = new DOMException(message, 'NotAllowedError'); }
       catch {
@@ -301,20 +346,56 @@
       return true;
     }
 
-    shouldBlockAudioContext() {
+    hasUserAudioContext(context) {
+      return !!context && context.state === 'running' && this.audioContexts.get(context)?.userStarted === true;
+    }
+
+    shouldBlockAudioContext(context) {
       if (!this.active) return false;
       if (this.mode === 'enhanced') return true;
       if (this.hasRecentPlaybackIntent()) return false;
+      if (this.hasUserAudioContext(context)) return false;
       return !this.audioAllowed;
+    }
+
+    isNativePlaybackIntent(event, media) {
+      // Chromium's own controls consume their pointer events inside UA Shadow
+      // DOM. Their trusted play event still identifies the focused media.
+      // This exception is event-only: it never relaxes the script play() guard
+      // or grants a page-wide HTML-media / Web Audio permission.
+      if (event.isTrusted !== true || media.controls !== true || navigator.userActivation?.isActive !== true) return false;
+      let root;
+      try { root = media.getRootNode?.() || document; } catch { return false; }
+      return root.activeElement === media;
     }
 
     onPlay(event) {
       const media = event.target;
-      if (!(media instanceof HTMLMediaElement) || !this.shouldBlockMedia(media)) return;
-      this.blockMedia(media);
+      if (!(media instanceof HTMLMediaElement) || event.isTrusted !== true) return;
+      if (this.active && this.mode !== 'enhanced' && this.isNativePlaybackIntent(event, media)) {
+        this.mediaIntent.set(media, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
+      }
+      if (this.shouldBlockMedia(media)) this.blockMedia(media);
+      else {
+        if (this.hasUserIntent(media)) this.userPlayback.add(media);
+        this.pendingAudio.delete(media);
+        this.pendingVideo.delete(media);
+      }
+    }
+
+    onPlaybackStopped(event) {
+      if (event.isTrusted !== true || !(event.target instanceof HTMLMediaElement)) return;
+      // A queued pause from an earlier block must not revoke a newer play.
+      if (event.type === 'emptied' || event.target.paused === true || event.target.ended === true) this.userPlayback.delete(event.target);
+      if (event.type === 'emptied') {
+        this.mediaIntent.delete(event.target);
+        this.pendingAudio.delete(event.target);
+        this.pendingVideo.delete(event.target);
+      }
     }
 
     blockMedia(media) {
+      this.userPlayback.delete(media);
       try { Reflect.apply(this.originalPause, media, []); } catch {}
       try { media.removeAttribute('autoplay'); } catch {}
       this.reportIntervention();
@@ -329,9 +410,9 @@
       }
     }
 
-    stopInitialPlayback() {
+    stopInitialPlayback(selector = 'video,audio') {
       if (!document.querySelectorAll) return;
-      for (const media of document.querySelectorAll('video,audio')) {
+      for (const media of document.querySelectorAll(selector)) {
         const requestedAutoplay = media.hasAttribute?.('autoplay') === true;
         const alreadyPlaying = media.paused === false;
         if ((requestedAutoplay || alreadyPlaying) && this.shouldBlockMedia(media)) this.blockMedia(media);
@@ -367,33 +448,51 @@
     }
 
     rememberPending(collection, value) {
-      if (collection.size >= 8) collection.delete(collection.values().next().value);
+      if (!collection.has(value) && collection.size >= 8) collection.delete(collection.values().next().value);
       collection.add(value);
     }
 
     rememberPendingContext(context, resume) {
-      if (this.pendingContexts.size >= 8) this.pendingContexts.delete(this.pendingContexts.values().next().value);
-      this.pendingContexts.add({ context, resume });
+      if (!this.pendingContexts.has(context) && this.pendingContexts.size >= 8) this.pendingContexts.delete(this.pendingContexts.keys().next().value);
+      this.pendingContexts.set(context, resume);
+    }
+
+    rememberAudioContext(context, resume, userStarted) {
+      if (!this.active) return;
+      for (const existing of this.audioContexts.keys()) if (existing.state === 'closed') this.audioContexts.delete(existing);
+      if (context.state === 'closed') return;
+      if (!this.audioContexts.has(context) && this.audioContexts.size >= 8) this.audioContexts.delete(this.audioContexts.keys().next().value);
+      this.audioContexts.set(context, { resume, userStarted });
+    }
+
+    suspendAutomaticContexts(includeUser = false) {
+      for (const [context, entry] of this.audioContexts) {
+        if (context.state === 'closed') { this.audioContexts.delete(context); continue; }
+        if (context.state !== 'running' || (!includeUser && entry.userStarted)) continue;
+        this.rememberPendingContext(context, entry.resume);
+        this.reportIntervention();
+        try { void Promise.resolve(context.suspend()).catch(() => {}); } catch {}
+      }
     }
 
     resumePendingMedia(includeVideo) {
       for (const media of this.pendingAudio) {
         if (!media?.isConnected || !(media instanceof HTMLAudioElement)) continue;
-        try { void Reflect.apply(this.originalPlay, media, []); } catch {}
+        try { void Promise.resolve(Reflect.apply(this.originalPlay, media, [])).catch(() => {}); } catch {}
       }
       this.pendingAudio.clear();
       if (includeVideo) {
         for (const media of this.pendingVideo) {
           if (!media?.isConnected || !(media instanceof HTMLVideoElement)) continue;
-          try { void Reflect.apply(this.originalPlay, media, []); } catch {}
+          try { void Promise.resolve(Reflect.apply(this.originalPlay, media, [])).catch(() => {}); } catch {}
         }
         this.pendingVideo.clear();
       }
     }
 
     resumePendingContexts() {
-      for (const entry of this.pendingContexts) {
-        try { if (typeof entry.resume === 'function') void Reflect.apply(entry.resume, entry.context, []); }
+      for (const [context, resume] of this.pendingContexts) {
+        try { if (context.state !== 'closed' && typeof resume === 'function') void Promise.resolve(Reflect.apply(resume, context, [])).catch(() => {}); }
         catch {}
       }
       this.pendingContexts.clear();

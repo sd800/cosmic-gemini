@@ -2272,6 +2272,46 @@ async function expandedImageFixture(kind = 'comment', result = { kind: 'light-th
   return { runtime, document, thumbnail, preview, sourceRecord, queued, timers, image };
 }
 
+test('Live media releases an already transformed preview, its pending hold, and queued work', async () => {
+  const { runtime, preview, sourceRecord } = await expandedImageFixture('post');
+  runtime.observeImage(preview);
+  const record = runtime.records.get(preview);
+  assert.equal(preview.classList.contains('cg-xhs-image-dark-mode'), true);
+  preview.classList.add('cg-xhs-image-pending');
+  runtime.queued.add(preview); runtime.queue.push({ image: preview, priority: -20 });
+  runtime.isLivePhoto = image => image === preview;
+  runtime.observeImage(preview);
+  assert.equal(runtime.records.has(preview), false);
+  assert.equal(runtime.imagePreviewRecords.has(record), false);
+  assert.equal(runtime.imagePreviewImages.has(preview), false);
+  assert.equal(runtime.queued.has(preview), false);
+  assert.equal(runtime.queue.length, 0);
+  assert.equal(preview.classList.contains('cg-xhs-image-dark-mode'), false);
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
+  assert.equal(runtime.records.get(sourceRecord.image), sourceRecord, 'a neighboring static image remains registered');
+  assert.equal(runtime.imagePreviewCandidate(preview), false);
+  assert.equal(runtime.previewGalleryCandidate(preview), false);
+});
+
+test('Live media discovered while sampling cannot publish or cache a stale static result', async () => {
+  const { runtime, preview, queued } = await expandedImageFixture('post', null);
+  runtime.observeImage(preview);
+  const record = runtime.records.get(preview);
+  assert.ok(record && queued.length);
+  let finishSample;
+  runtime.sampleImage = () => new Promise(resolve => { finishSample = resolve; });
+  let cached = false;
+  runtime.cacheResult = () => { cached = true; };
+  const pending = runtime.analyze(preview);
+  runtime.isLivePhoto = image => image === preview;
+  finishSample({ data: documentPixels(), width: 64, height: 64 });
+  await pending;
+  assert.equal(cached, false);
+  assert.equal(runtime.records.has(preview), false);
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
+  assert.equal(preview.classList.contains('cg-xhs-image-dark-mode'), false);
+});
+
 test('comment preview inherits the clicked thumbnail before asynchronous probes or analysis', async () => {
   const { runtime, preview, queued } = await expandedImageFixture();
   runtime.onPageMutations([{ type: 'childList', addedNodes: [preview] }]);

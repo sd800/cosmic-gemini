@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.1.1 — 2026-11-01
+
+- Improve native Live photo compatibility and image-processing lifecycle handling.
+
 ## 26.10.31.3 — 2026-10-31
 
 - Improve White Softer startup and transition stability during loading, navigation, and tab return.

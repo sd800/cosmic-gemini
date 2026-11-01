@@ -14,6 +14,10 @@
   const LONG_PRESS_MOVE_TOLERANCE = 8;
   const POST_OPEN_TRANSITION_MS = 380;
   const CONTROL_RESIZE_SETTLE_MS = 140;
+  const LIVE_PHOTO_SELECTOR = '.live-photo-contain, .live-video-wrapper, .live-img, '
+    + '.xhs-live-player-wrapper, .xhs-live-cover-img, .live-photo-control, .xhs-live-photo-control';
+  const IMAGE_MEDIA_SCOPE = '.img-container, .note-slider-img, .swiper-slide, a.cover, '
+    + '.xhs-live-player-wrapper, .live-video-wrapper';
   const CONTROL_MOTION_PROPERTIES = new Set([
     'transform', '-webkit-transform', 'translate', 'scale',
     'width', 'height', 'left', 'right', 'top', 'bottom'
@@ -669,6 +673,42 @@
       return /(?:^|\.)xhscdn\.com(?:[/:]|$)/i.test(image?.currentSrc || image?.src || '');
     }
 
+    isLivePhoto(image) {
+      if (!image) return false;
+      if (image.matches?.(LIVE_PHOTO_SELECTOR) || image.closest?.(LIVE_PHOTO_SELECTOR)) return true;
+      // The ordinary poster is a sibling of the native Live player/control.
+      // Stay inside this media item: a neighboring Live slide must not exempt
+      // static images elsewhere in the same post or feed.
+      return !!this.imageMediaScope(image)?.querySelector?.(LIVE_PHOTO_SELECTOR);
+    }
+
+    imageMediaScope(node) {
+      return node?.closest?.('.swiper-slide, a.cover') || node?.closest?.(IMAGE_MEDIA_SCOPE);
+    }
+
+    releaseLivePhoto(image) {
+      if (!this.isLivePhoto(image)) return false;
+      const record = this.records.get(image);
+      if (record) {
+        this.clearRecord(record);
+        this.imagePreviewRecords.delete(record);
+        this.records.delete(image);
+      }
+      this.imagePreviewImages.delete(image);
+      this.imagePreviewOrigins.delete(image);
+      return true;
+    }
+
+    refreshLivePhotoMutation(mutation) {
+      const target = mutation.target;
+      if (mutation.type === 'attributes'
+        && (mutation.attributeName !== 'class'
+          || (!target?.matches?.(LIVE_PHOTO_SELECTOR)
+            && !/(?:^|\s)(?:xhs-live-|live-photo-|live-video-wrapper|live-img)/.test(mutation.oldValue || '')))) return;
+      const scope = this.imageMediaScope(target);
+      if (scope) this.collectImages(scope);
+    }
+
     inlineCommentImage(image) {
       if (!this.isXhsImageSource(image)) return false;
       const commentRoot = image.closest?.('[data-comment-id], [class*="comment"], [id*="comment"]');
@@ -693,7 +733,7 @@
     }
 
     imagePreviewCandidate(image) {
-      if (!image || this.isAvatar(image)
+      if (!image || this.isAvatar(image) || this.isLivePhoto(image)
         || (this.viewerImageContext(image) && !this.imagePreviewImages.has(image))) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
@@ -715,7 +755,7 @@
     }
 
     previewGalleryCandidate(image) {
-      if (!image || this.isAvatar(image)
+      if (!image || this.isAvatar(image) || this.isLivePhoto(image)
         || (this.viewerImageContext(image) && !this.imagePreviewImages.has(image))) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
@@ -777,6 +817,7 @@
         this.clearImagePreviewGallery();
         return;
       }
+      for (const mutation of mutations) this.refreshLivePhotoMutation(mutation);
       const siteClasses = value => String(value || '').split(/\s+/)
         .filter(name => name && !name.startsWith('cg-xhs-image-')).sort().join(' ');
       const siteStyle = value => String(value || '')
@@ -949,6 +990,7 @@
     }
 
     armImagePreview(thumbnail) {
+      if (this.isLivePhoto(thumbnail)) return;
       this.pendingImagePreview = null;
       const rect = thumbnail.getBoundingClientRect?.();
       const width = rect?.width || thumbnail.clientWidth || thumbnail.naturalWidth || 0;
@@ -1030,7 +1072,7 @@
     }
 
     isContentImage(image, knownCommentKind) {
-      if (!(image instanceof HTMLImageElement) || this.isAvatar(image)) return false;
+      if (!(image instanceof HTMLImageElement) || this.isAvatar(image) || this.isLivePhoto(image)) return false;
       const source = image.currentSrc || image.src || '';
       if (!source || /(?:logo|icon|emoji)/i.test(source)) return false;
       const commentKind = knownCommentKind === undefined
@@ -1146,6 +1188,7 @@
     }
 
     observeImage(image) {
+      if (this.releaseLivePhoto(image)) return;
       const commentKind = this.commentImageKind(image);
       if (!this.isContentImage(image, commentKind)) return;
       let record = this.records.get(image);
@@ -1228,6 +1271,7 @@
     }
 
     onViewerMutations(mutations) {
+      if (this.processing) for (const mutation of mutations || []) this.refreshLivePhotoMutation(mutation);
       if (mutations?.length && !mutations.some(mutation => {
         if (mutation.type !== 'attributes') return true;
         const siteClasses = value => String(value || '').split(/\s+/)
@@ -1347,6 +1391,7 @@
         if (mutation.type === 'attributes') {
           const image = this.imageForMutation(mutation.target);
           if (!image) continue;
+          if (this.releaseLivePhoto(image)) continue;
           const commentKind = this.commentImageKind(image);
           let record = this.records.get(image);
           if (!record) {
@@ -1382,6 +1427,7 @@
           }
           continue;
         }
+        this.refreshLivePhotoMutation(mutation);
         if (mutation.removedNodes?.length) needsCleanup = true;
         for (const node of mutation.addedNodes || []) {
           if (node.nodeType === Node.ELEMENT_NODE) this.collectImages(node);
@@ -1412,6 +1458,7 @@
     }
 
     queueImage(image, priority = 0) {
+      if (this.releaseLivePhoto(image)) return;
       const record = this.records.get(image);
       if (!this.processing || !record || !this.isContentImage(image, record.commentKind)) return;
       if (this.profileProcessingDisabled(record)) return;
@@ -1641,6 +1688,7 @@
     }
 
     applyCachedResult(record) {
+      if (this.releaseLivePhoto(record?.image)) return false;
       const source = record?.image?.currentSrc || record?.image?.src || '';
       if (!source) return false;
       const cached = this.cachedResult(record.image, source);
@@ -1661,6 +1709,7 @@
     }
 
     holdUnclassifiedPreview(record) {
+      if (this.releaseLivePhoto(record?.image)) return;
       if (!this.imagePreviewImages.has(record.image) || record.result || record.previewHoldTimer
         || record.imageMode || this.resolvedConcealed(record)) return;
       record.image.classList?.add('cg-xhs-image-pending');
@@ -1689,6 +1738,7 @@
     }
 
     async analyze(image, generation = this.processingGeneration) {
+      if (this.releaseLivePhoto(image)) return;
       const record = this.records.get(image);
       if (!record || !this.processing || generation !== this.processingGeneration
         || this.profileProcessingDisabled(record)) return;
@@ -1714,11 +1764,13 @@
         } catch {} finally { clearTimeout(timer); }
       }
       if (!this.processing || generation !== this.processingGeneration
+        || this.releaseLivePhoto(image)
         || this.profileProcessingDisabled(record)
         || this.records.get(image) !== record || !image.isConnected
         || source !== (image.currentSrc || image.src || '')) return;
       const sample = await this.sampleImage(image);
       if (!this.processing || generation !== this.processingGeneration
+        || this.releaseLivePhoto(image)
         || this.profileProcessingDisabled(record)
         || this.records.get(image) !== record || !image.isConnected
         || source !== (image.currentSrc || image.src || '')) return;
@@ -1813,6 +1865,7 @@
     }
 
     createControl(record) {
+      if (this.isLivePhoto(record.image)) return;
       const imagePreview = this.recordCommentKind(record) === 'preview';
       if (!this.controlLayer || record.button
         || (!imagePreview && !this.viewerForImage(record.image))) return;
@@ -2436,6 +2489,7 @@
     }
 
     updateRecordVisual(record, notify = true) {
+      if (this.releaseLivePhoto(record.image)) return;
       if (record.imageMode || record.result || this.resolvedConcealed(record)) this.releasePreviewHold(record);
       const grayTheme = record.result?.kind === 'gray-theme';
       const target = this.visualTarget(record.image);

@@ -136,6 +136,7 @@
       this.openingPostId = '';
       this.openingProfileKey = '';
       this.records = new Map();
+      this.openingSurfaces = new Map();
       this.intervenedRecords = new Set();
       this.controlRecords = new Set();
       this.imagePreviewRecords = new Set();
@@ -574,6 +575,7 @@
       this.inFlight = new WeakMap();
       for (const record of this.records.values()) this.clearRecord(record);
       this.records.clear();
+      for (const surface of this.openingSurfaces.keys()) this.clearOpeningSurface(surface);
       this.intervenedRecords.clear();
       this.syncInterventionStatus();
       this.controlRecords.clear();
@@ -616,7 +618,8 @@
         html .cg-xhs-image-dark-mode { filter: invert(1) hue-rotate(180deg) brightness(var(--cg-xhs-image-brightness, 1)) contrast(.92) saturate(.88) !important; }
         html .cg-xhs-image-dark-mode-gray { filter: brightness(var(--cg-xhs-image-brightness, 1)) contrast(6) saturate(.9) !important; }
         html .cg-xhs-image-hidden-dark { filter: url("#${darkFilter}") !important; }
-        html img.cg-xhs-image-pending { opacity: 0 !important; }
+        html .cg-xhs-image-pending { opacity: 0 !important; }
+        html .cg-xhs-image-opening-background { background-image: none !important; }
         html img.avatar-item, html img[src*="sns-avatar"] { filter: brightness(.72) saturate(.9) !important; }
         html .note-detail-follow-btn .follow-button, html button.follow-button.primary { filter: brightness(.76) saturate(.88) !important; }
         /* Keep comment momentum inside the opened post instead of chaining
@@ -676,6 +679,12 @@
     isLivePhoto(image) {
       if (!image) return false;
       if (image.matches?.(LIVE_PHOTO_SELECTOR) || image.closest?.(LIVE_PHOTO_SELECTOR)) return true;
+      if (this.isOpeningPoster(image)) {
+        const first = image.closest?.('.xhs-slider-container')?.querySelector?.(
+          '.swiper-slide[data-index="0"], .swiper-slide[data-swiper-slide-index="0"]'
+        );
+        if (first?.querySelector?.(LIVE_PHOTO_SELECTOR)) return true;
+      }
       // The ordinary poster is a sibling of the native Live player/control.
       // Stay inside this media item: a neighboring Live slide must not exempt
       // static images elsewhere in the same post or feed.
@@ -706,7 +715,11 @@
           || (!target?.matches?.(LIVE_PHOTO_SELECTOR)
             && !/(?:^|\s)(?:xhs-live-|live-photo-|live-video-wrapper|live-img)/.test(mutation.oldValue || '')))) return;
       const scope = this.imageMediaScope(target);
-      if (scope) this.collectImages(scope);
+      if (scope) {
+        this.collectImages(scope);
+        const poster = scope.closest?.('.xhs-slider-container')?.querySelector?.(':scope > img.ssr-first-image');
+        if (poster) this.observeImage(poster);
+      }
     }
 
     inlineCommentImage(image) {
@@ -1098,6 +1111,7 @@
 
     collectImages(root) {
       if (!this.processing) return;
+      this.applyOpeningSurfaces(root);
       const images = root instanceof HTMLImageElement ? [root] : root.querySelectorAll?.('img') || [];
       // Register inline comment sources before examining preview copies. The
       // preview can be inserted earlier in DOM order than its originating
@@ -1203,6 +1217,9 @@
         if (profileKey && this.disabledProfileKeys.has(profileKey)) return;
         record = this.createRecord(image, commentKind, profileKey);
       } else if (this.profileProcessingDisabled(record)) return;
+      // Transfer an early background's ownership to its actual image in this
+      // task. A different, unclassified slide image must not inherit its filter.
+      this.clearOpeningSurface(this.visualTarget(image));
       if (commentKind === 'preview' || this.viewerForImage(image)) {
         this.createControl(record);
         this.scheduleControlPositions();
@@ -1262,7 +1279,7 @@
       this.viewerObserver = new MutationObserver(this.onViewerMutations);
       this.viewerObserver.observe(root, {
         attributes: true,
-        attributeFilter: ['class'],
+        attributeFilter: ['class', 'style'],
         attributeOldValue: true,
         childList: true,
         subtree: true
@@ -1272,8 +1289,27 @@
 
     onViewerMutations(mutations) {
       if (this.processing) for (const mutation of mutations || []) this.refreshLivePhotoMutation(mutation);
+      if (this.processing) for (const mutation of mutations || []) {
+        // A native class replacement can erase only our classes while leaving
+        // every site class unchanged. Repair it before the next frame, rather
+        // than mistaking that removal for one of our own no-op mutations.
+        if (mutation.attributeName === 'class') {
+          for (const record of this.controlRecords) {
+            if (record.visualTarget === mutation.target) this.updateRecordVisual(record);
+            if (record.previewHoldTarget === mutation.target) {
+              this.setVisualClass(mutation.target, 'cg-xhs-image-pending', true);
+            }
+          }
+        }
+        if (mutation.type === 'childList' || mutation.attributeName === 'class'
+          || (mutation.attributeName === 'style'
+            && /background/i.test(`${mutation.oldValue || ''};${mutation.target.getAttribute?.('style') || ''}`))) {
+          this.applyOpeningSurfaces(mutation.target);
+        }
+      }
       if (mutations?.length && !mutations.some(mutation => {
         if (mutation.type !== 'attributes') return true;
+        if (mutation.attributeName === 'style') return false;
         const siteClasses = value => String(value || '').split(/\s+/)
           .filter(name => name && !name.startsWith('cg-xhs-image-')).sort().join(' ');
         return siteClasses(mutation.oldValue) !== siteClasses(mutation.target.getAttribute?.('class'));
@@ -1629,8 +1665,13 @@
       const slide = image?.closest?.('.swiper-slide');
       if (slide) {
         const id = this.noteId(location.href) || this.openingPostId;
-        const index = slide.getAttribute?.('data-swiper-slide-index') ?? slide.dataset?.swiperSlideIndex;
+        const index = slide.getAttribute?.('data-swiper-slide-index') ?? slide.dataset?.swiperSlideIndex
+          ?? slide.getAttribute?.('data-index');
         return id && index !== undefined && index !== null ? `note:${id}:${index}` : '';
+      }
+      if (this.isOpeningPoster(image)) {
+        const id = this.noteId(location.href) || this.openingPostId;
+        return id ? `note:${id}:0` : '';
       }
       const anchor = image?.closest?.('a[href^="/explore/"], a[href*="xiaohongshu.com/explore/"]');
       const id = this.noteId(anchor?.href || anchor?.getAttribute?.('href'));
@@ -1648,6 +1689,50 @@
       const relatedResult = this.cache.get(this.noteCacheKey(image));
       if (relatedResult?.kind && relatedResult.kind !== 'photo') return relatedResult;
       return exactResult || null;
+    }
+
+    clearOpeningSurface(surface) {
+      const entry = this.openingSurfaces.get(surface);
+      if (!entry) return;
+      this.openingSurfaces.delete(surface);
+      if (entry.backgroundOnly) surface.classList.remove('cg-xhs-image-opening-background');
+      else this.removeVisualClasses(surface);
+    }
+
+    applyOpeningSurfaces(root) {
+      const selector = '.swiper-slide, .xhs-slider-container';
+      const surfaces = new Set(root?.matches?.(selector) ? [root] : []);
+      if (this.openingSurfaces.has(root)) surfaces.add(root);
+      for (const surface of root?.querySelectorAll?.(selector) || []) surfaces.add(surface);
+      const container = root?.closest?.('.xhs-slider-container');
+      if (container) surfaces.add(container);
+      const profile = this.currentProfileKey() || (this.noteId(location.href) === this.openingPostId
+        ? this.openingProfileKey : '');
+      for (const surface of surfaces) {
+        if (!surface.matches(selector) || !surface.closest?.('#noteContainer, .note-container')) {
+          this.clearOpeningSurface(surface);
+          continue;
+        }
+        const backgroundOnly = surface.matches('.xhs-slider-container');
+        const source = surface.style?.backgroundImage?.match(/^url\(["']?(.*?)["']?\)$/)?.[1] || '';
+        const result = source ? this.cachedResult(null, source) : null;
+        const live = this.isLivePhoto(surface) || (backgroundOnly && surface.querySelector(LIVE_PHOTO_SELECTOR));
+        const ownedByImage = [...this.controlRecords].some(record => record.visualTarget === surface
+          || record.previewHoldTarget === surface);
+        if (live || this.disabledProfileKeys.has(profile) || !result || result.kind === 'photo' || ownedByImage) {
+          this.clearOpeningSurface(surface);
+          continue;
+        }
+        this.openingSurfaces.set(surface, { backgroundOnly });
+        if (backgroundOnly) {
+          // The native container can paint a duplicate opening cover behind
+          // independently filtered slides/SSR images. Retire only that copy.
+          this.setVisualClass(surface, 'cg-xhs-image-opening-background', true);
+        } else {
+          this.setVisualClass(surface, 'cg-xhs-image-dark-mode', result.kind === 'light-theme');
+          this.setVisualClass(surface, 'cg-xhs-image-dark-mode-gray', result.kind === 'gray-theme');
+        }
+      }
     }
 
     cacheResult(source, result, image = null) {
@@ -1710,9 +1795,23 @@
 
     holdUnclassifiedPreview(record) {
       if (this.releaseLivePhoto(record?.image)) return;
-      if (!this.imagePreviewImages.has(record.image) || record.result || record.previewHoldTimer
+      if ((!this.imagePreviewImages.has(record.image) && !this.viewerImageContext(record.image))
+        || record.result
         || record.imageMode || this.resolvedConcealed(record)) return;
-      record.image.classList?.add('cg-xhs-image-pending');
+      const target = this.visualTarget(record.image);
+      if (record.previewHoldTimer) {
+        if (record.previewHoldTarget !== target) {
+          record.previewHoldTarget?.classList?.remove('cg-xhs-image-pending');
+          record.previewHoldTarget = target;
+          this.setVisualClass(target, 'cg-xhs-image-pending', true);
+        }
+        return;
+      }
+      const requestKey = this.imageRequestKey(record.image);
+      if (record.previewHeldRequest === requestKey) return;
+      record.previewHeldRequest = requestKey;
+      record.previewHoldTarget = target;
+      record.previewHoldTarget.classList?.add('cg-xhs-image-pending');
       // Never leave an image invisible after a failed/slow sample or download.
       record.previewHoldTimer = setTimeout(() => this.releasePreviewHold(record), 1000);
       record.previewHoldTimer?.unref?.();
@@ -1721,10 +1820,14 @@
     releasePreviewHold(record) {
       if (record.previewHoldTimer) clearTimeout(record.previewHoldTimer);
       record.previewHoldTimer = 0;
-      if (record.image?.classList?.contains?.('cg-xhs-image-pending')) {
-        record.image.classList.remove('cg-xhs-image-pending');
-        this.scheduleControlPositions();
+      let released = false;
+      for (const target of new Set([record.previewHoldTarget, record.image])) {
+        if (!target?.classList?.contains?.('cg-xhs-image-pending')) continue;
+        target.classList.remove('cg-xhs-image-pending');
+        released = true;
       }
+      record.previewHoldTarget = null;
+      if (released) this.scheduleControlPositions();
     }
 
     adoptSource(record, source) {
@@ -1865,7 +1968,7 @@
     }
 
     createControl(record) {
-      if (this.isLivePhoto(record.image)) return;
+      if (this.isLivePhoto(record.image) || this.isOpeningPoster(record.image)) return;
       const imagePreview = this.recordCommentKind(record) === 'preview';
       if (!this.controlLayer || record.button
         || (!imagePreview && !this.viewerForImage(record.image))) return;
@@ -1951,6 +2054,7 @@
       const profileKey = this.currentProfileKey();
       if (!profileKey) return;
       const nextDisabled = !this.disabledProfileKeys.has(profileKey);
+      if (nextDisabled) for (const surface of this.openingSurfaces.keys()) this.clearOpeningSurface(surface);
       if (nextDisabled) this.disabledProfileKeys.add(profileKey);
       else this.disabledProfileKeys.delete(profileKey);
       for (const record of this.records.values()) {
@@ -2572,12 +2676,19 @@
     }
 
     viewerImageContext(image) {
+      if (this.isOpeningPoster(image)) return { viewer: image.closest('#noteContainer, .note-container'),
+        slide: null, mediaRoot: image.parentElement };
       const carousel = this.carouselImageContext(image);
       if (carousel) return carousel;
       const origin = this.imagePreviewOrigins.get(image);
       if (origin?.kind === 'post') return { viewer: origin.viewer || this.imagePreviewRoot,
         slide: null, mediaRoot: image.parentElement };
       return null;
+    }
+
+    isOpeningPoster(image) {
+      return !!image?.matches?.('img.ssr-first-image')
+        && !!image.closest?.('#noteContainer, .note-container');
     }
 
     carouselImageContext(image) {
@@ -2769,6 +2880,9 @@
       if (this.cleanupTimer || !this.processing) return;
       this.cleanupTimer = setTimeout(() => {
         this.cleanupTimer = 0;
+        for (const surface of this.openingSurfaces.keys()) {
+          if (!surface.isConnected) this.clearOpeningSurface(surface);
+        }
         for (const [image, record] of this.records) {
           if (image.isConnected) continue;
           this.clearRecord(record);

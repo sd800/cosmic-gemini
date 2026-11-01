@@ -2372,6 +2372,51 @@ test('unknown previews wait briefly without displaying white and always release 
   assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
 });
 
+test('an expired preview hold is not restarted by repeated discovery of the same resource', async () => {
+  const { runtime, preview, timers } = await expandedImageFixture('comment', { kind: 'photo' });
+  runtime.observeImage(preview);
+  const record = runtime.records.get(preview);
+  timers.get(record.previewHoldTimer)();
+  for (let count = 0; count < 3; count++) runtime.observeImage(preview);
+  assert.equal(record.previewHoldTimer, 0);
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
+});
+
+test('a pending hold moves with its image without extending the original deadline', async () => {
+  const { runtime, preview, timers, image } = await expandedImageFixture('post', { kind: 'photo' });
+  runtime.observeImage(preview);
+  const record = runtime.records.get(preview), deadline = record.previewHoldTimer;
+  const slide = image('', 600);
+  runtime.carouselImageContext = candidate => candidate === preview ? { viewer: {}, slide } : null;
+  runtime.holdUnclassifiedPreview(record);
+  assert.equal(preview.classList.contains('cg-xhs-image-pending'), false);
+  assert.equal(slide.classList.contains('cg-xhs-image-pending'), true);
+  assert.equal(record.previewHoldTimer, deadline);
+  timers.get(deadline)();
+  assert.equal(slide.classList.contains('cg-xhs-image-pending'), false);
+});
+
+test('native replacement of only the extension filter class is repaired before scheduling a frame', async () => {
+  const runtime = await runtimeFixture();
+  runtime.processing = true;
+  const slide = { getAttribute: () => 'swiper-slide swiper-slide-active' };
+  const record = { visualTarget: slide };
+  runtime.controlRecords.add(record);
+  let repaired = 0;
+  runtime.updateRecordVisual = candidate => { assert.equal(candidate, record); repaired++; };
+  runtime.onViewerMutations([{ type: 'attributes', attributeName: 'class', target: slide,
+    oldValue: 'swiper-slide swiper-slide-active cg-xhs-image-dark-mode' }]);
+  assert.equal(repaired, 1);
+  assert.equal(runtime.viewerRefreshFrame, 0);
+});
+
+test('native data-index slide markers preserve cover-to-detail identity without a Swiper index', async () => {
+  const runtime = await runtimeFixture({}, { URL, location: { href: 'https://www.xiaohongshu.com/explore/post-a' } });
+  const slide = { getAttribute: name => name === 'data-index' ? '0' : null };
+  const image = { closest: selector => selector === '.swiper-slide' ? slide : null };
+  assert.equal(runtime.noteCacheKey(image), 'note:post-a:0');
+});
+
 test('cached images relocate their filter when moved and when entering native fullscreen', async () => {
   const { runtime, document, thumbnail, sourceRecord, image } = await expandedImageFixture('post');
   const slide = image('', 600);

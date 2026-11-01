@@ -2,22 +2,34 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.1.2 — 2026-11-01
+
+- Keep recognized image covers dark while Xiaohongshu opens a post, including background-image placeholders and temporary first images before the full carousel is ready.
+- Restore image filters before paint when the native viewer replaces its class names, avoiding a brief return to the original bright image.
+- Briefly defer unrecognized detail images while analysis runs, including their slide backgrounds. The wait is bounded and does not restart repeatedly for the same resource; Live photos retain native display and controls.
+- Expand earlier release notes with clearer feature changes and user-visible behavior.
+
 ## 26.11.1.1 — 2026-11-01
 
-- Improve native Live photo compatibility and image-processing lifecycle handling.
+- Leave Xiaohongshu Live photos in their native player, without image color conversion, hiding, or extension image controls. Whole-post display choices continue to apply to static images.
+- Remove existing filters, controls, and pending image work when a static item becomes Live, and resume normal processing when that item is reused for a static image.
 
 ## 26.10.31.3 — 2026-10-31
 
-- Improve White Softer startup and transition stability during loading, navigation, and tab return.
+- Delay opening White Softer's prepared color layer until the page has a body and is visible, while retaining the existing layer when a tab is hidden.
+- Add bounded transition protection when Dark Reader has established a dark page background but the document body briefly remains bright during loading, navigation, or tab return.
 
 ## 26.10.31.2 — 2026-10-31
 
-- Improve White Softer rendering isolation, startup consistency, and visual lifecycle stability.
-- Refine dark appearance during page transitions and navigation.
+- Isolate White Softer's color layer from website popover styles so page styling cannot turn the transparent layer into a bright surface.
+- Keep the isolated color filter and its surface together during startup, fullscreen, and page restoration, including under restrictive page styles.
+- Preserve dark appearance while LeetCode Explore pages depart, and clear Reduce White Point inversion compensation when the underlying transition ends.
 
 ## 26.10.31.1 — 2026-10-31
 
-- Refine Page Display controls with temporary website choices, all-websites settings, and clearer scope indicators.
+- Make a normal click on the popup's Reduce White Point or Greyscale button apply only to the current website and its subdomains until Chrome exits.
+- Use a long press for the all-websites setting, with a button outline indicating that global scope even when the current website has a different temporary choice.
+- Separate all-websites settings from temporary choices; retain a persistent selected-websites list for Reduce White Point only.
 
 ## 26.10.29.2 — 2026-10-29
 
@@ -26,8 +38,9 @@
 
 ## 26.10.29.1 — 2026-10-29
 
-- Improve No Autoplay compatibility with native and custom playback controls, including delayed playback, keyboard controls, and full screen.
-- Refine playback permissions, audio policy changes, Web Audio handling, and runtime cleanup.
+- Allow deliberate playback through Chrome's native media controls and custom play buttons, including delayed starts, keyboard actions, and fullscreen players.
+- Keep playback permission tied to the intended player, while ordinary clicks elsewhere and audio-autoplay permission do not authorize unrelated videos.
+- Apply the selected protection to embedded players, preserve ongoing deliberate playback when audio policy changes, and clean up pending playback and Web Audio requests on shutdown.
 
 ## 26.10.28.8 — 2026-10-28
 
@@ -47,7 +60,8 @@
 
 ## 26.10.28.4 — 2026-10-28
 
-- Remember folded cards across Settings visits, and refine heading alignment and initial switch rendering.
+- Remember expanded and folded cards across Settings refreshes and later visits.
+- Align feature titles with their icons and apply saved switch values before showing transitions, avoiding a visible slide from the default state on refresh.
 
 ## 26.10.28.3 — 2026-10-28
 
@@ -63,11 +77,13 @@
 
 ## 26.10.27.2 — 2026-10-27
 
-- Improve tracking-parameter cleanup for scripted navigation and links updated during activation.
+- Clean selected tracking parameters when a page opens a destination through a script, as well as through an ordinary link.
+- Recheck links after page click handlers update their destination, so parameters added during activation are removed before navigation.
 
 ## 26.10.27.1 — 2026-10-27
 
-- Add URL Tracking Cleaner to Satellites, with a master switch and independent UTM/Bilibili options for cleaner navigation links.
+- Add URL Tracking Cleaner to Satellites, with a master switch and separate UTM and Bilibili parameter options. Only UTM cleanup is initially selected.
+- Remove selected parameters during navigation without monitoring or repeatedly rewriting the current page URL. The optional Bilibili rule removes the complete query and fragment across its website and subdomains.
 
 ## 26.10.26.9 — 2026-10-26
 
@@ -91,7 +107,9 @@
 
 ## 26.10.26.4 — 2026-10-26
 
-- Introduce Orbiters as the home for website tools, simplify Settings navigation and directories, and improve Zhihu image controls and right-click actions.
+- Rename the website-specific collection to Orbiters, with its own navigation, page introduction, and feature directory.
+- Remove the former General/Site-specific directory subheadings while keeping Satellites available for general tools.
+- Make Zhihu image controls more transparent at rest and add a right-click menu for image display choices.
 
 ## 26.10.26.3 — 2026-10-26
 
@@ -103,19 +121,25 @@
 
 ## 26.10.26.1 — 2026-10-26
 
-- Add Zhihu Image Display Adjustment, with independent compact-image and dark-mode controls, native full-size viewing, and per-image display options.
+- Add Zhihu Image Display Adjustment for answers and articles, including the article subdomain, with independent compact-image and image-dark-mode switches.
+- Limit inline image width while preserving proportions and Zhihu's native full-size viewer and sensitive-image confirmation.
+- Follow the page's appearance automatically when selected, with per-image display controls for expanded content and full-size viewing; collapsed thumbnails can be adapted without adding controls.
 
 ## 26.10.25.4 — 2026-10-25
 
-- Improve PDF dark-paper recognition and scrolling with bounded directional pre-rendering.
+- Preserve verified dark-paper PDFs with colored or gradient image backgrounds instead of turning them bright in dark mode.
+- Prepare nearby pages in the scrolling direction and retain more lightweight page previews, reducing visible loading during fast scrolling while keeping detailed rendering focused on the viewport.
 
 ## 26.10.25.3 — 2026-10-25
 
-- Add an extensible Tools page to the control window, with session-only Translate Override and Stay on the page controls.
+- Add a Tools page to the popup, opened and closed with the toolbox button beside Settings, while keeping the popup height stable between pages.
+- Toggle Translate Override and Stay on the page for the current website and its subdomains until Chrome exits, independently of the Website Fixer master switch and saved website lists.
+- Apply tool changes to open pages without a reload and keep temporary choices separate from persistent settings.
 
 ## 26.10.25.2 — 2026-10-25
 
-- Improve Translate Override compatibility and translation initialization.
+- Restore Chrome translation on pages where malformed SVG markup interferes with the browser's translation initialization.
+- Preserve existing icon references and wait for parsing to finish before repairing affected markup; no website-specific rule is required.
 
 ## 26.10.25.1 — 2026-10-25
 
@@ -123,7 +147,9 @@
 
 ## 26.10.24.2 — 2026-10-24
 
-- Improve Website Knowledge Control compatibility and browser-information consistency, keeping adjustments limited to selected categories.
+- Keep selected language, regional-format, time-zone, and GPC signals consistent between navigation requests and the loaded page.
+- Preserve the loaded document's existing choices until a new document opens, including its embedded frames, rather than changing part of its identity during an ongoing visit.
+- Limit adjustments to the categories the user selects, leaving other browser identity information unchanged.
 
 ## 26.10.24.1 — 2026-10-24
 
@@ -192,87 +218,87 @@
 
 ## 9.12.43 — 2026-10-19
 
-- Refine university unit-domain recognition and labels.
+- In Mailto Capture, refine university unit-domain recognition and labels.
 
 ## 9.12.42 — 2026-10-19
 
-- Expand university unit-domain coverage.
+- In Mailto Capture, expand university unit-domain coverage.
 
 ## 9.12.41 — 2026-10-19
 
-- Expand institutional domain aliases.
+- In Mailto Capture, expand institutional domain aliases.
 
 ## 9.12.40 — 2026-10-19
 
-- Expand reviewed institutional aliases, historical domains, and university-unit labels.
+- In Mailto Capture, expand reviewed institutional aliases, historical domains, and university-unit labels.
 
 ## 9.12.39 — 2026-10-19
 
-- Expand institutional domain aliases.
+- In Mailto Capture, expand institutional domain aliases.
 
 ## 9.12.38 — 2026-10-19
 
-- Expand historical university school-domain recognition.
+- In Mailto Capture, expand historical university school-domain recognition.
 
 ## 9.12.37 — 2026-10-19
 
-- Expand historical university-domain recognition and school-unit labels.
+- In Mailto Capture, expand historical university-domain recognition and school-unit labels.
 
 ## 9.12.36 — 2026-10-19
 
-- Expand university unit-domain coverage.
+- In Mailto Capture, expand university unit-domain coverage.
 
 ## 9.12.35 — 2026-10-19
 
-- Expand institutional domain aliases.
+- In Mailto Capture, expand institutional domain aliases.
 
 ## 9.12.34 — 2026-10-19
 
-- Show recognized university school and division names beneath their parent institution.
+- In Mailto Capture, show recognized university school and division names beneath their parent institution.
 
 ## 9.12.33 — 2026-10-19
 
-- Expand university school-domain aliases and refine parent-institution attribution.
+- In Mailto Capture, expand university school-domain aliases and refine parent-institution attribution.
 
 ## 9.12.32 — 2026-10-19
 
-- Expand institutional email-domain recognition for nonprofit research and science-education organizations.
+- In Mailto Capture, expand institutional email-domain recognition for nonprofit research and science-education organizations.
 
 ## 9.12.31 — 2026-10-19
 
-- Extend institutional email-domain recognition to reviewed museums, libraries, and cultural organizations.
+- In Mailto Capture, extend institutional email-domain recognition to reviewed museums, libraries, and cultural organizations.
 
 ## 9.12.30 — 2026-10-19
 
-- Expand institutional domain aliases.
+- In Mailto Capture, expand institutional domain aliases.
 
 ## 9.12.29 — 2026-10-19
 
-- Expand institutional domain aliases.
+- In Mailto Capture, expand institutional domain aliases.
 
 ## 9.12.28 — 2026-10-19
 
-- Expand institutional domain aliases.
+- In Mailto Capture, expand institutional domain aliases.
 
 ## 9.12.27 — 2026-10-19
 
-- Expand institutional domain aliases.
+- In Mailto Capture, expand institutional domain aliases.
 
 ## 9.12.26 — 2026-10-19
 
-- Refine institutional domain-alias matching.
+- In Mailto Capture, refine institutional domain-alias matching.
 
 ## 9.12.25 — 2026-10-19
 
-- Expand institutional domain-alias coverage.
+- In Mailto Capture, expand institutional domain-alias coverage.
 
 ## 9.12.24 — 2026-10-19
 
-- Refine institutional domain aliases.
+- In Mailto Capture, refine institutional domain aliases.
 
 ## 9.12.23 — 2026-10-19
 
-- Expand and refine offline institution recognition and display consistency.
+- Expand Mailto Capture's offline institution reference across additional regions, with more consistent campus attribution and institution-name display.
 
 ## 9.12.22 — 2026-10-19
 
@@ -284,19 +310,19 @@
 
 ## 9.12.20 — 2026-10-19
 
-- Refine offline institution recognition.
+- Use domain-based institution recognition in Mailto Capture instead of matching individual mailbox addresses.
 
 ## 9.12.19 — 2026-10-19
 
-- Expand and refine the offline institution email-domain reference.
+- In Mailto Capture, expand and refine the offline institution email-domain reference.
 
 ## 9.12.18 — 2026-10-19
 
-- Refine university display names and email-domain aliases.
+- In Mailto Capture, refine university display names and email-domain aliases.
 
 ## 9.12.17 — 2026-10-19
 
-- Refine university name display.
+- In Mailto Capture, refine university name display.
 
 ## 9.12.16 — 2026-10-19
 
@@ -310,7 +336,7 @@
 
 ## 9.12.13 — 2026-10-19
 
-- Match the University of Michigan–Dearborn’s legacy email domain to its campus and standardize separators in university display names.
+- Match additional legacy university domains to their correct campuses in Mailto Capture and standardize campus-name separators.
 
 ## 9.12.12 — 2026-10-19
 
@@ -318,7 +344,7 @@
 
 ## 9.12.11 — 2026-10-19
 
-- Display the university name as University of Michigan in Mailto Capture.
+- Refine a university's display name in Mailto Capture to use its conventional institution name.
 
 ## 9.12.10 — 2026-10-19
 

@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.31.1 — 2026-10-31
+
+- Refine Page Display controls with temporary website choices, all-websites settings, and clearer scope indicators.
+
 ## 26.10.29.2 — 2026-10-29
 
 - Apply Page Display changes directly to open pages from the popup and Settings, including immediate removal of disabled effects.

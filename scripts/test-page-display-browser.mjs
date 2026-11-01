@@ -8,7 +8,9 @@ const { chromium } = await import(pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGH
 const folder = await mkdtemp(join(tmpdir(), 'cg-page-display-'));
 const artifacts = resolve('test-dist/page-display');
 await mkdir(artifacts, { recursive: true });
-const context = await chromium.launchPersistentContext(join(folder, 'profile'), {
+let context;
+try {
+context = await chromium.launchPersistentContext(join(folder, 'profile'), {
   executablePath: process.env.PDF_VIEWER_CHROME, headless: true, viewport: { width: 1100, height: 950 },
   ignoreDefaultArgs: ['--disable-extensions'], args: ['--enable-unsafe-extension-debugging']
 });
@@ -16,7 +18,6 @@ context.setDefaultTimeout(10000);
 const version = JSON.parse(await readFile('extension/manifest.json','utf8')).version;
 const errors = [];
 context.on('page', page => page.on('pageerror', error => errors.push(String(error))));
-try {
   await context.route(/^https?:\/\/(?:[a-z]+\.)?(?:example\.co\.uk|other\.test)\//, route => route.fulfill({
     contentType: 'text/html', headers: { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" },
     body: '<!doctype html><title>Page Display fixture</title><style>body{margin:0;background:white;color:black;font:18px system-ui}main{padding:30px}#color{position:fixed;left:0;top:0;width:24px;height:24px;background:rgb(255,0,0)}</style><main>Website controls fixture</main><div id="color"></div>'
@@ -86,6 +87,7 @@ try {
     await popup.waitForFunction(()=>!document.querySelector('#greyscale-status').disabled);
     await popup.locator('#greyscale-status').click();await restored();
     await popup.close();await settings.bringToFront();
+    await settings.evaluate(()=>chrome.storage.session.remove('cosmicGeminiPageDisplaySites'));
     await command({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'reduceWhitePointEnabled',value:true});
     await command({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'greyscaleEnabled',value:true});
     await appearance('25',true);
@@ -150,87 +152,9 @@ try {
     assert.deepEqual(errors,[]);
     console.log('PASS: Reduction availability follows either child switch, master disable/restore, saved strength, and reload.');
   } else {
-  assert.equal(await settings.locator('#reduceWhitePointSiteSpecific').isDisabled(), true);
-  assert.equal(await settings.locator('#reduceWhitePointWebsites').isVisible(), false);
-  await settings.locator('#enabled').check();
-  await settings.waitForFunction(() => !document.querySelector('#reduceWhitePointSiteSpecific').disabled);
-  await settings.locator('#reduceWhitePointSiteSpecific').check();
-  const list = settings.locator('#reduceWhitePointWebsites'); await list.waitFor();
-  await list.locator('input').fill('https://www.EXAMPLE.co.uk/path?q=1');
-  await list.locator('button[type=submit]').click();
-  await list.locator('code').filter({ hasText: /^example.co.uk$/ }).waitFor();
-  await settings.locator('#pageDisplayReduceWhitePointEnabled').check();
-  await waitLayer(a, true); await waitLayer(b, true); await waitLayer(other, false);
-  const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
-  const tab = await worker.evaluate(async () => (await chrome.tabs.query({})).find(tab => tab.url === 'https://a.example.co.uk/one'));
-  const popup = await context.newPage();
-  // A real popup leaves its webpage active. Restore that active tab before reads.
-  await popup.addInitScript(tab => {
-    const send = chrome.runtime.sendMessage.bind(chrome.runtime);
-    chrome.runtime.sendMessage = message => message.type === 'UI_GET_ACTIVE_PAGE_STATE'
-      ? chrome.tabs.update(tab.id, { active: true }).then(() => send(message)) : send(message);
-  }, tab);
-  await popup.goto(base + 'popup/index.html');
-  await popup.waitForFunction(() => document.querySelector('#reduceWhitePoint-status').getAttribute('aria-pressed') === 'true');
-  await popup.locator('#reduceWhitePoint-status').click();
-  await waitLayer(a, false); await waitLayer(b, false); await waitLayer(other, false);
-  assert.deepEqual((await saved()).reduceWhitePoint.siteRules, []);
-  await popup.locator('#reduceWhitePoint-status').click();
-  await waitLayer(a, true); await waitLayer(b, true);
-  assert.deepEqual((await saved()).reduceWhitePoint.siteRules, ['example.co.uk']);
-  await popup.close();
-  await settings.bringToFront();
-  await settings.locator('#reduceWhitePointSiteSpecific').uncheck();
-  await waitLayer(other, true);
-  assert.deepEqual((await saved()).reduceWhitePoint.siteRules, ['example.co.uk']);
-  await settings.locator('#reduceWhitePointSiteSpecific').check();
-  await waitLayer(other, false);
-  await settings.locator('#pageDisplayGreyscaleEnabled').check();
-  await waitLayer(other, true);
-  await other.waitForFunction(layer => {
-    const host = document.querySelector(layer); return host?.dataset.greyscale === 'true' && host.dataset.reduction === '0';
-  }, layer);
-  await settings.locator('#pageDisplayGreyscaleEnabled').uncheck(); await waitLayer(other, false);
-  await settings.locator('#enabled').uncheck(); await waitLayer(a, false); await waitLayer(b, false);
-  await settings.waitForFunction(() => document.querySelector('#reduceWhitePointWebsites').disabled);
-  assert.equal(await list.locator('input').isDisabled(), true);
-  await settings.locator('#enabled').check(); await waitLayer(a, true);
-  await settings.locator('[data-feature-link=allSettings]').click();
-  await settings.locator('[data-settings-card=pageDisplay]').click();
-  await settings.waitForFunction(() => document.querySelector('#reduceWhitePointSiteSpecific')?.checked === true);
-  await list.locator('code').filter({ hasText: /^example.co.uk$/ }).waitFor();
-  await settings.reload(); await list.locator('code').filter({ hasText: /^example.co.uk$/ }).waitFor();
-  const bottomGap = () => settings.evaluate(() => {
-    const panel = document.querySelector('#reduceWhitePointWebsites'), card = panel.closest('.card');
-    const last = [...panel.children].filter(node => getComputedStyle(node).display !== 'none').at(-1);
-    return card.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom;
-  });
-  const gaps = [];
-  for (const locale of ['en-US', 'zh-CN']) for (const scheme of ['light', 'dark']) {
-    await command({ type: 'UI_SET_LOCALE', locale });
-    await settings.emulateMedia({ colorScheme: scheme });
-    await settings.waitForFunction(locale => document.documentElement.lang === locale, locale);
-    await settings.setViewportSize({ width: 1100, height: 950 });
-    await settings.screenshot({ path: join(artifacts, `${locale}-${scheme}.png`) });
-    const gap = await bottomGap();
-    assert.ok(gap >= 16 && gap <= 32, 'website list has excess or insufficient bottom space: ' + gap);
-    gaps.push({locale,scheme,gap});
+    const { checkDisplayScopes } = await import('./test-page-display-scopes.mjs');
+    await checkDisplayScopes({ context, settings, base, a, b, other, layer, saved, command, waitLayer, artifacts });
+    assert.deepEqual(errors, []);
+    console.log('PASS: session website choices, global holds and outlines, saved lists, live pages, and bilingual settings.');
   }
-  await list.locator('button[aria-label]').click();
-  await list.locator('.empty').waitFor(); await waitLayer(a, false);
-  const emptyGap = await bottomGap();
-  assert.ok(emptyGap >= 16 && emptyGap <= 32, 'empty list bottom space: ' + emptyGap);
-  await settings.setViewportSize({ width: 390, height: 850 });
-  assert.equal(await settings.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-  await settings.screenshot({ path: join(artifacts, 'empty-zh-narrow.png') });
-  await settings.locator('#reduceWhitePointSiteSpecific').uncheck();
-  assert.equal(await list.isVisible(), false);
-  await settings.waitForFunction(() => { const control = document.querySelector('#reduceWhitePointSiteSpecific'); return !control.checked && !control.disabled; });
-  const globalGap = await settings.evaluate(() => { const row = document.querySelector('[for=reduceWhitePointSiteSpecific]'); return row.closest('.card').getBoundingClientRect().bottom-row.getBoundingClientRect().bottom; });
-  assert.ok(globalGap >= 16 && globalGap <= 28, 'hidden list bottom space: ' + globalGap);
-  await settings.screenshot({ path: join(artifacts, 'global-zh-narrow.png') });
-  assert.deepEqual(errors, []);
-  await writeFile(join(artifacts, 'README.md'), '# Page Display website controls\n\nRun `scripts/test-page-display-browser.mjs` with the shared local Playwright and Chrome for Testing paths in `PDF_VIEWER_PLAYWRIGHT` and `PDF_VIEWER_CHROME`. The script uses an isolated temporary profile and authored pages, then deletes the profile. Screenshots show both languages and themes, plus the empty list and global mode at a narrow width. No personal browser, account, documents, or network downloads are used.\n\nVerified: eTLD+1 list editing, subdomain-wide popup toggles, live multi-tab updates, global mode restoration, Greyscale independence, master disable/restore, Settings navigation and reload, readable layout, and compact bottom spacing.\n');
-  console.log(JSON.stringify({passed:true,gaps,emptyGap,globalGap,screenshots:artifacts}));
-  }
-} finally { await context.close(); await rm(folder, { recursive: true, force: true }); }
+} finally { await context?.close(); await rm(folder, { recursive: true, force: true }); }

@@ -55,6 +55,7 @@ test('persistent products start with independent settings while Any Copy Enhance
   assert.deepEqual(settings.mailtoCapture, { enabled: false });
   assert.deepEqual(settings.accessControl, { enabled: false, allowTemporaryVisits: false, blockedDomains: [] });
   assert.deepEqual(settings.pageDisplay, {
+    scopeVersion: 2,
     enabled: false,
     reduceWhitePoint: { enabled: false, siteSpecific: false, siteRules: [], reduction: 0.25 },
     greyscale: { enabled: false }
@@ -386,9 +387,11 @@ test('Claude reply display and browser identity settings authorize independently
 
 test('Page Display features are independent, bounded, and limited to ordinary web pages', () => {
   assert.deepEqual(pageDisplayState(DEFAULT_SETTINGS, 'https://example.com/page'), {
+    scopeVersion: 2,
     enabled: false,
     reduceWhitePoint: { enabled: false, siteSpecific: false, siteRules: [], reduction: 0.25 },
     greyscale: { enabled: false },
+    site: 'example.com',
     hostname: 'example.com',
     supported: true,
     active: false
@@ -436,17 +439,33 @@ test('Reduce White Point website rules use registrable domains without changing 
   }
   const off = pageDisplayState(settings, 'https://other.co.uk');
   assert.equal(off.reduceWhitePoint.enabled, false);
-  assert.equal(settings.pageDisplay.reduceWhitePoint.enabled, true, 'derived state never rewrites the saved switch');
+  assert.equal(settings.pageDisplay.reduceWhitePoint.enabled, false, 'legacy list-only mode migrates without enabling all websites');
   settings.pageDisplay.greyscale.enabled = true;
   assert.equal(pageDisplayState(settings, 'https://other.co.uk').active, true, 'Greyscale stays independent');
   settings.pageDisplay.enabled = false;
   assert.equal(pageDisplayState(settings, 'https://example.co.uk').active, false);
   settings.pageDisplay.enabled = true;
   settings.pageDisplay.reduceWhitePoint.siteSpecific = false;
+  settings.pageDisplay.reduceWhitePoint.enabled = true;
   assert.equal(pageDisplayState(settings, 'https://other.co.uk').reduceWhitePoint.enabled, true);
   assert.deepEqual(settingsViewCache(settings).pageDisplay.reduceWhitePoint, settings.pageDisplay.reduceWhitePoint);
   assert.equal(normalizeSettings({pageDisplay:{reduceWhitePoint:{siteRules:Array.from({length:1002},(_,i)=>`site${i}.test`)}}})
     .pageDisplay.reduceWhitePoint.siteRules.length, 1000);
+});
+
+test('Page Display scope migration is stable and retains inactive website lists', () => {
+  for (const on of [false, true]) {
+    const value = { pageDisplay: { enabled: true, reduceWhitePoint: {
+      enabled: on, siteSpecific: true, siteRules: ['example.com']
+    } } };
+    const migrated = normalizeSettings(value);
+    assert.equal(migrated.pageDisplay.reduceWhitePoint.enabled, false);
+    assert.equal(migrated.pageDisplay.reduceWhitePoint.siteSpecific, on);
+    assert.deepEqual(migrated.pageDisplay.reduceWhitePoint.siteRules, ['example.com']);
+    assert.deepEqual(normalizeSettings(migrated), migrated);
+    assert.deepEqual(settingsViewCache(value).pageDisplay, migrated.pageDisplay);
+    assert.equal(pageDisplayState(migrated, 'https://other.test').active, false);
+  }
 });
 
 test('XHS Image Dark Mode is exact-host, opt-in, and dark-page gated', () => {
@@ -581,6 +600,7 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.deepEqual(cache.accessControl, { enabled: true, allowTemporaryVisits: true, blockedDomains: ['z.example', 'a.example'] });
   assert.deepEqual(cache.chineseResponseClaude, { enabled: true, browserIdentityEnabled: true });
   assert.deepEqual(cache.pageDisplay, {
+    scopeVersion: 2,
     enabled: true,
     reduceWhitePoint: { enabled: true, siteSpecific: false, siteRules: [], reduction: 0.4 },
     greyscale: { enabled: true }

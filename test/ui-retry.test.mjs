@@ -141,12 +141,13 @@ test('Page Display popup shows effective website state instead of the saved glob
     globalThis.global=()=>{state.preferences.pageDisplay.reduceWhitePoint.siteSpecific=false;render()};
   `,context);
   assert.equal(toggle['aria-pressed'],'false');
-  assert.equal(toggle.title,'siteFeatureOffTitle');
+  assert.equal(toggle.title,'pageDisplayPopupTitle');
+  assert.equal(toggle.dataset.global,'true');
   context.update(true);
   assert.equal(toggle['aria-pressed'],'true');
-  assert.equal(toggle.title,'siteFeatureOnTitle');
+  assert.equal(toggle.title,'pageDisplayPopupTitle');
   context.global();
-  assert.equal(toggle.title,'disableGlobalProductTitle');
+  assert.equal(toggle.title,'pageDisplayPopupTitle');
 });
 
 test('Page Display popup row follows the saved master switch', () => {

@@ -58,7 +58,7 @@ Video Download 会查找当前标签页中可以下载的媒体，并直接打�
 
 调整网页色彩，同时保持内容、布局和操作方式不变。Page Display 包含彼此独立的 Reduce White Point 和 Greyscale。前者可按您选择的程度降低明亮颜色的强度，后者则以灰阶显示网页。两项效果均覆盖整个页面，包括图片、动画、Canvas、嵌入式内容和视频。
 
-Reduce White Point 也可仅在指定网站开启。您可以在设置中编辑网站列表，或通过控制窗口切换当前网站；每个网站均包含所有子域名。
+两项调整均可在设置中选择对所有网站生效。Reduce White Point 还可在指定网站始终开启。控制窗口中的普通点击仅调整当前域名及其子域名，持续至退出 Chrome；长按则调整全站设置。外边框独立表示全站设置是否开启，当次网站设置优先生效。
 
 Page Display 设有总开关。关闭后，受影响的网页会恢复原样，子功能设置会暂时停用，但已经保存的选择不会丢失。
 
@@ -188,13 +188,13 @@ Instagram 可能要求登录或限制列表访问；只有完整读取两份列�
 - 第二行排列 **No Autoplay** 和 **No Autoplay 强力模式**。
 - 第三行排列 **Any Copy** 和 **Any Copy 强力模式**。
 - 第四行排列 **Image Download** 和 **Video Download**。
-- 第五行排列全局 **Reduce White Point** 和 **Greyscale** 开关。
+- 第五行在 Page Display 开启时显示 **Reduce White Point** 和 **Greyscale**。
 
 Native Scroll 与 No Autoplay 的控制按钮只调整当前网站，不会改变全局默认状态。即使全局设置已关闭，也可以为当前网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。
 
 Any Copy 会为当前网站启用并保存对应的主机名或 IP 地址规则。Any Copy 强力模式只作用于当前标签页，手动关闭或关闭标签页后即会结束。两项功能可以同时运行，关闭其中一项不会改变另一项。
 
-Reduce White Point 与 Greyscale 是全局开关。在控制窗口中开启其中一项时，如果 Page Display 总开关尚未开启，插件也会同时开启 Page Display。
+Reduce White Point 与 Greyscale 的普通点击调整当前网站，长按调整所有网站。关闭控制窗口或标签页不会结束当次网站设置；该设置持续至退出 Chrome。
 
 ### 下载会话
 

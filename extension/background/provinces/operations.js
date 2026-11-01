@@ -129,7 +129,7 @@ export function createOperationsProvince(platform) {
       if (areaName === localeArea && changes?.[localeKey]) xhsImageDarkMode.clearLocale();
     },
     async reset() {
-      await Promise.allSettled([chineseResponseClaude.reset(), followListInstagram.reset()]);
+      await Promise.allSettled([chineseResponseClaude.reset(), followListInstagram.reset(), pageDisplay.reset()]);
     }
   });
 }

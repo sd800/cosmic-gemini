@@ -1,3 +1,4 @@
+import { createPageDisplaySession } from './page-display-session.js';
 import {
   FEATURE_IDS,
   hostnameFromUrl,
@@ -40,6 +41,13 @@ function updatePageDisplaySetting(feature, name, value) {
 }
 
 export function createPageDisplayProduct(pageRuntimeHost, platform) {
+  const temporary = createPageDisplaySession(platform);
+  let commands = Promise.resolve();
+  const command = task => {
+    const result = commands.then(task);
+    commands = result.catch(() => undefined);
+    return result;
+  };
   const pageStyleFiles = Object.freeze(['content/page-display/page-display.css']);
   const refreshPages = () => platform.refreshOpenPages(async context => product.sync(
     { ...context, explicitRefresh: true }, await platform.readSettings()
@@ -52,14 +60,14 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
     preservePageStylesOnRefresh: true,
     awaitConfiguration: true,
     recoverInactiveRuntimeOnRefresh: true,
-    state(settings, url) { return pageDisplayState(settings, url); },
+    async state(settings, url) { return pageDisplayState(settings, url, await temporary.read()); },
     async sync(context, settings) {
-      const state = product.state(settings, context.topUrl);
+      const state = await product.state(settings, context.topUrl);
       const active = context.frameId === 0 && state.active;
       await pageRuntimeHost.sync(product, context, active, active ? pageStyleFiles : []);
       return active;
     },
-    async handleMessage(message) {
+    handleMessage(message, context = {}) { return command(async () => {
       if (message.type === 'UI_SET_ENABLED' && message.featureId === FEATURE_IDS.PAGE_DISPLAY) {
         const settings = await platform.mutateSettings(current => updateFeature(
           current,
@@ -76,7 +84,8 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
         const rule = ['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type)
           ? normalizePageDisplaySite(message.rule) : '';
         const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => {
-          const rules = feature.reduceWhitePoint.siteRules;
+          const kind = message.settingGroup;
+          const rules = feature[kind].siteRules;
           if (message.type === 'UI_ADD_RULE' && !rules.includes(rule) && rules.length >= 1000) {
             throw new Error('The website list is full.');
           }
@@ -84,7 +93,7 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
             : message.type === 'UI_ALPHABETIZE_RULES' ? [...rules].sort((a, b) => a.localeCompare(b))
               : message.type === 'UI_DELETE_RULE' ? rules.filter(entry => entry !== rule)
                 : rules.includes(rule) ? rules : [...rules, rule];
-          return { ...feature, reduceWhitePoint: { ...feature.reduceWhitePoint, siteRules } };
+          return { ...feature, [kind]: { ...feature[kind], siteRules } };
         }), false);
         await refreshPages();
         return settings.pageDisplay;
@@ -92,42 +101,40 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
       if (message.type !== 'UI_SET_PAGE_DISPLAY_SETTING' || !SETTING_NAMES.has(message.name)) {
         throw new Error('Page Display does not support this command.');
       }
-      const settings = await platform.mutateSettings(async current => {
-        if (message.name === 'reduceWhitePointEnabled' && message.scope) {
-          const feature = current.pageDisplay;
-          if (!['site', 'global'].includes(message.scope) || !feature.enabled
-            || feature.reduceWhitePoint.siteSpecific !== (message.scope === 'site')) {
-            throw new Error('The display settings changed. Please try again.');
-          }
-          const tabId = message.tabId;
-          if (!Number.isInteger(tabId) || tabId < 0) throw new Error('The current tab is unavailable.');
-          const tab = await chrome.tabs.get(tabId);
-          const hostname = hostnameFromUrl(tab.url || '');
-          if (!hostname || hostname !== message.expectedHostname
+      if (message.scope) {
+        if (context.sender?.url !== chrome.runtime.getURL('popup/index.html')
+          || !['site', 'global'].includes(message.scope)
+          || !['reduceWhitePointEnabled', 'greyscaleEnabled'].includes(message.name)
+          || typeof message.value !== 'boolean') {
+          throw new Error('Unknown display action.');
+        }
+        if (message.scope === 'site') {
+          if (!Number.isInteger(message.tabId) || message.tabId < 0) throw new Error('The current tab is unavailable.');
+          const tab = await chrome.tabs.get(message.tabId);
+          const hostname = hostnameFromUrl(tab.pendingUrl || tab.url || '');
+          const site = hostname ? normalizePageDisplaySite(hostname) : '';
+          if (!site || site !== message.expectedSite || hostname !== message.expectedHostname
             || (tab.incognito === true) !== (platform.isIncognitoContext?.() === true)) {
             throw new Error('The page changed before the action completed.');
           }
-          if (message.scope === 'site') return updateFeature(current, product.id, value => {
-            const rule = normalizePageDisplaySite(hostname), saved = value.reduceWhitePoint;
-            if (message.value === true && !saved.siteRules.includes(rule) && saved.siteRules.length >= 1000) {
-              throw new Error('The website list is full.');
-            }
-            const siteRules = message.value === true
-              ? saved.siteRules.includes(rule) ? saved.siteRules : [...saved.siteRules, rule]
-              : saved.siteRules.filter(entry => entry !== rule);
-            return { ...value, reduceWhitePoint: { ...saved, siteRules,
-              enabled: message.value === true ? true : saved.enabled } };
-          });
+          const settings = await platform.readSettings();
+          if (!settings.pageDisplay.enabled) throw new Error('Page Display is turned off.');
+          const kind = message.name === 'greyscaleEnabled' ? 'greyscale' : 'reduceWhitePoint';
+          await temporary.set(kind, site, message.value);
+          platform.notifyCentralUi?.();
+          await refreshPages();
+          return settings.pageDisplay;
         }
-        return updateFeature(
-          current,
-          FEATURE_IDS.PAGE_DISPLAY,
-          feature => updatePageDisplaySetting(feature, message.name, message.value)
-        );
+      }
+      const settings = await platform.mutateSettings(current => {
+        if (message.scope && !current.pageDisplay.enabled) throw new Error('Page Display is turned off.');
+        return updateFeature(current, FEATURE_IDS.PAGE_DISPLAY,
+          feature => updatePageDisplaySetting(feature, message.name, message.value));
       }, false);
       await refreshPages();
       return settings.pageDisplay;
-    }
+    }); },
+    reset: () => command(() => temporary.clear())
   });
 
   return product;

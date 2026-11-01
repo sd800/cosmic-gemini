@@ -58,7 +58,7 @@ Quality options include the file size when it is known before downloading. For d
 
 Adjust webpage colors without changing their content, layout, or controls. Page Display includes independent Reduce White Point and Greyscale features: use the first to reduce the intensity of bright colors at your chosen strength, and the second to render the page in shades of grey. Both cover the complete rendered page, including images, animations, Canvas, embedded content, and video.
 
-Reduce White Point can also be limited to selected websites. Manage the list in Settings or toggle the current website from the control window. Each website includes all its subdomains.
+Both adjustments offer an all-websites setting. Reduce White Point also offers an always-on website list in Settings. A normal click in the control window changes only the current domain and its subdomains until Chrome exits. Press and hold to change the all-websites setting. An outline marks that setting independently of the current website’s effect; temporary website choices take priority.
 
 Page Display has one master switch. Turning it off restores affected pages and makes its child settings unavailable without discarding their saved selections.
 
@@ -188,13 +188,13 @@ The popup uses five compact rows, with two related controls in each row.
 - The second row contains **No Autoplay** and **No Autoplay Enhanced**.
 - The third row contains **Any Copy** and **Any Copy Enhanced**.
 - The fourth row contains **Image Download** and **Video Download**.
-- The fifth row contains the global **Reduce White Point** and **Greyscale** switches.
+- The fifth row contains **Reduce White Point** and **Greyscale**, while Page Display is enabled.
 
 Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 
 Any Copy is enabled for the current website and stores the corresponding hostname or IP-address rule. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
 
-Reduce White Point and Greyscale are global controls. Enabling either one from the popup also enables the Page Display master switch when needed.
+For Reduce White Point and Greyscale, click for a temporary current-website choice, or press and hold for all websites. Closing the control window or a tab does not end the current-website choice; it lasts until Chrome exits.
 
 ### Download sessions
 

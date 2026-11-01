@@ -116,6 +116,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     globalPrivacyControl: Object.freeze({ enabled: false })
   }),
   pageDisplay: Object.freeze({
+    scopeVersion: 2,
     enabled: false,
     reduceWhitePoint: Object.freeze({
       enabled: false,
@@ -123,9 +124,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
       siteSpecific: false,
       siteRules: Object.freeze([])
     }),
-    greyscale: Object.freeze({
-      enabled: false
-    })
+    greyscale: Object.freeze({ enabled: false })
   }),
   xhsImageDarkMode: Object.freeze({
     enabled: false,
@@ -379,10 +378,13 @@ export function normalizeSettings(value = {}) {
     },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(value.websiteKnowledgeControl),
     pageDisplay: {
+      scopeVersion: 2,
       enabled: value.pageDisplay?.enabled === true,
       reduceWhitePoint: {
-        enabled: value.pageDisplay?.reduceWhitePoint?.enabled === true,
-        siteSpecific: value.pageDisplay?.reduceWhitePoint?.siteSpecific === true,
+        enabled: value.pageDisplay?.reduceWhitePoint?.enabled === true
+          && (value.pageDisplay?.scopeVersion === 2 || value.pageDisplay?.reduceWhitePoint?.siteSpecific !== true),
+        siteSpecific: value.pageDisplay?.reduceWhitePoint?.siteSpecific === true
+          && (value.pageDisplay?.scopeVersion === 2 || value.pageDisplay?.reduceWhitePoint?.enabled === true),
         siteRules: [...new Set((Array.isArray(value.pageDisplay?.reduceWhitePoint?.siteRules)
           ? value.pageDisplay.reduceWhitePoint.siteRules.slice(0, 1000) : []).flatMap(entry => {
           try { return [normalizePageDisplaySite(entry)]; } catch { return []; }
@@ -391,9 +393,7 @@ export function normalizeSettings(value = {}) {
           ? Math.min(0.8, Math.max(0.1, whitePointReduction))
           : 0.25
       },
-      greyscale: {
-        enabled: value.pageDisplay?.greyscale?.enabled === true
-      }
+      greyscale: { enabled: value.pageDisplay?.greyscale?.enabled === true }
     },
     xhsImageDarkMode: {
       enabled: value.xhsImageDarkMode?.enabled === true,
@@ -622,18 +622,23 @@ export function normalizePageDisplaySite(value) {
   return siteKey('https://' + normalizeAccessControlDomain(value));
 }
 
-export function pageDisplayState(settings, url) {
+export function pageDisplayState(settings, url, temporary = {}) {
   const normalized = normalizeSettings(settings);
   const hostname = hostnameFromUrl(url);
   const feature = normalized.pageDisplay;
   const enabled = feature.enabled === true;
-  const reduceWhitePoint = { ...feature.reduceWhitePoint,
-    enabled: feature.reduceWhitePoint.enabled && (!feature.reduceWhitePoint.siteSpecific
-      || feature.reduceWhitePoint.siteRules.includes(siteKey(url))) };
-  const hasActiveEffect = reduceWhitePoint.enabled || feature.greyscale.enabled;
+  const site = siteKey(url);
+  const effects = Object.fromEntries(['reduceWhitePoint', 'greyscale'].map(kind => {
+    const saved = feature[kind];
+    const override = temporary[kind]?.find(entry => entry.site === site)?.enabled;
+    return [kind, { ...saved, enabled: typeof override === 'boolean' ? override
+      : saved.enabled || (kind === 'reduceWhitePoint' && saved.siteSpecific && saved.siteRules.includes(site)) }];
+  }));
+  const hasActiveEffect = effects.reduceWhitePoint.enabled || effects.greyscale.enabled;
   return {
     ...feature,
-    reduceWhitePoint,
+    ...effects,
+    site,
     hostname,
     supported: !!hostname,
     active: !!hostname && enabled && hasActiveEffect,

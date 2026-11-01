@@ -4,6 +4,7 @@ import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { candidateQuality, formatMediaDuration, groupVideoCandidates, knownVideoFileSize } from '../core/video-download/video-download.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
+import { bindDisplayButton } from './display-button.js';
 import { bindSettingsButton } from './settings-button.js';
 import { POPUP_TOOLS } from './tools.js';
 
@@ -137,39 +138,28 @@ function renderSiteFeature(featureId) {
   }
 }
 
-function renderPageDisplayControl(settingName, elementId, nameKey, onTitleKey, offTitleKey) {
-  const toggle = document.querySelector('#' + elementId);
-  const saved = state.preferences?.pageDisplay?.[settingName];
+function renderPageDisplayControl(kind) {
+  const toggle = document.querySelector('#' + kind + '-status');
+  const saved = state.preferences?.pageDisplay?.[kind];
   const supported = state.pageDisplay?.supported === true;
-  const siteSpecific = settingName === 'reduceWhitePoint' && saved?.siteSpecific === true;
-  const enabled = supported
-    && state.preferences?.pageDisplay?.enabled === true
-    && (siteSpecific ? state.pageDisplay?.reduceWhitePoint?.enabled === true : saved?.enabled === true);
+  const enabled = supported && state.preferences?.pageDisplay?.enabled === true
+    && state.pageDisplay?.[kind]?.enabled === true;
   toggle.disabled = !supported || !saved;
   toggle.dataset.state = enabled ? 'active' : 'off';
   toggle.dataset.persistent = String(enabled);
+  toggle.dataset.global = String(saved?.enabled === true);
   toggle.setAttribute('aria-pressed', String(enabled));
-  label(toggle, t(!supported ? 'unsupportedTitle' : siteSpecific
-    ? enabled ? 'siteFeatureOnTitle' : 'siteFeatureOffTitle'
-    : enabled ? onTitleKey : offTitleKey, { product: t(nameKey) }));
+  label(toggle, t(!supported ? 'unsupportedTitle' : 'pageDisplayPopupTitle', {
+    product: t(kind + 'Name'),
+    siteAction: t(enabled ? 'pageDisplayTurnOff' : 'pageDisplayTurnOn'),
+    globalAction: t(saved?.enabled ? 'pageDisplayTurnOff' : 'pageDisplayTurnOn')
+  }));
 }
 
 function renderPageDisplayRow() {
   document.querySelector('#page-display-row').hidden = state.preferences?.pageDisplay?.enabled !== true;
-  renderPageDisplayControl(
-    'reduceWhitePoint',
-    'reduceWhitePoint-status',
-    'reduceWhitePointName',
-    'disableGlobalProductTitle',
-    'enableGlobalProductTitle'
-  );
-  renderPageDisplayControl(
-    'greyscale',
-    'greyscale-status',
-    'greyscaleName',
-    'disableGlobalProductTitle',
-    'enableGlobalProductTitle'
-  );
+  renderPageDisplayControl('reduceWhitePoint');
+  renderPageDisplayControl('greyscale');
 }
 
 function renderContextualProducts() {
@@ -725,20 +715,14 @@ anyCopyEnhancedControl.addEventListener('click', () => void act(() => send({
   type: 'UI_TOGGLE_TAB_FEATURE', featureId: 'anyCopyEnhanced', tabId: currentTab?.id
 })));
 
-for (const [elementId, settingName, iconName] of [
-  ['reduceWhitePoint-status', 'reduceWhitePointEnabled', 'reduceWhitePoint'],
-  ['greyscale-status', 'greyscaleEnabled', 'greyscale']
-]) {
-  const control = document.querySelector('#' + elementId);
-  control.innerHTML = icon(iconName);
-  control.addEventListener('click', () => void act(() => send({
-    type: 'UI_SET_PAGE_DISPLAY_SETTING',
-    name: settingName,
-    value: control.getAttribute('aria-pressed') !== 'true',
-    ...(settingName === 'reduceWhitePointEnabled' ? {
-      scope: state.preferences?.pageDisplay?.reduceWhitePoint?.siteSpecific ? 'site' : 'global',
-      tabId: currentTab?.id, expectedHostname: state.pageDisplay?.hostname
-    } : {})
+for (const kind of ['reduceWhitePoint', 'greyscale']) {
+  const control = document.querySelector('#' + kind + '-status');
+  control.innerHTML = icon(kind);
+  bindDisplayButton(control, scope => void act(() => send({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING', name: kind + 'Enabled', scope,
+    value: scope === 'global' ? state.preferences?.pageDisplay?.[kind]?.enabled !== true
+      : control.getAttribute('aria-pressed') !== 'true',
+    tabId: currentTab?.id, expectedHostname: state.pageDisplay?.hostname, expectedSite: state.pageDisplay?.site
   })));
 }
 

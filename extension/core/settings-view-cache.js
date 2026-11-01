@@ -1,5 +1,5 @@
 import { normalizePdfSampling } from './document-preview/pdf-sampling.js';
-import { normalizeAccessControlDomain, normalizeWebsiteKnowledge, normalizeWhiteSofterTone, normalizeLeetcodeDarkModeTone, normalizePageDisplaySite } from './config.js';
+import { normalizeAccessControlDomain, normalizeWebsiteKnowledge, normalizeWhiteSofterTone, normalizeLeetcodeDarkModeTone, normalizeSettings } from './config.js';
 import { normalizeDocumentAppearance } from './document-preview/document-appearance.js';
 
 export const SETTINGS_VIEW_CACHE_KEY = 'cosmicGeminiSettingsViewCache';
@@ -66,22 +66,7 @@ export function settingsViewCache(states = {}) {
       }))]
     },
     websiteKnowledgeControl: normalizeWebsiteKnowledge(states.websiteKnowledgeControl),
-    pageDisplay: {
-      enabled: states.pageDisplay?.enabled === true,
-      reduceWhitePoint: {
-        enabled: states.pageDisplay?.reduceWhitePoint?.enabled === true,
-        siteSpecific: states.pageDisplay?.reduceWhitePoint?.siteSpecific === true,
-        siteRules: [...new Set(rules(states.pageDisplay?.reduceWhitePoint?.siteRules).slice(0, 1000).flatMap(rule => {
-          try { return [normalizePageDisplaySite(rule)]; } catch { return []; }
-        }))],
-        reduction: Number.isFinite(Number(states.pageDisplay?.reduceWhitePoint?.reduction))
-          ? Math.min(0.8, Math.max(0.1, Number(states.pageDisplay.reduceWhitePoint.reduction)))
-          : 0.25
-      },
-      greyscale: {
-        enabled: states.pageDisplay?.greyscale?.enabled === true
-      }
-    },
+    pageDisplay: normalizeSettings({ pageDisplay: states.pageDisplay }).pageDisplay,
     xhsImageDarkMode: {
       enabled: states.xhsImageDarkMode?.enabled === true,
       overrideDarkMode: states.xhsImageDarkMode?.overrideDarkMode === true,

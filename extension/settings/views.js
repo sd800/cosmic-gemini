@@ -477,34 +477,31 @@ export function viewFor(featureId) {
           <label class="switch"><input id="enabled" type="checkbox"><span></span><b class="sr-only">Page Display</b></label>
         </div>
       </section>
-      <section class="card page-display-feature-card">
-        <div class="section-heading page-display-feature-heading">
-          <div><div class="rule-heading"><span data-section-icon="reduceWhitePoint" aria-hidden="true"></span><h2 data-i18n="reduceWhitePointName"></h2></div><p class="last" data-i18n="reduceWhitePointHelp"></p></div>
-          <label class="switch"><input id="pageDisplayReduceWhitePointEnabled" type="checkbox"><span></span><b class="sr-only">Reduce White Point</b></label>
-        </div>
-        <div class="preference-list page-display-strength-list">
-          <label class="preference-row" for="reduceWhitePointReduction"><span><strong data-i18n="reduceWhitePointReductionHeading"></strong><small data-i18n="reduceWhitePointReductionHelp"></small></span><span class="range-control"><input id="reduceWhitePointReduction" type="range" min="10" max="80" step="5" value="25"><output id="reduceWhitePointReductionValue" for="reduceWhitePointReduction">25%</output></span></label>
-          <label class="preference-row" for="reduceWhitePointSiteSpecific"><span><strong data-i18n="reduceWhitePointSiteSpecific"></strong><small data-i18n="reduceWhitePointSiteSpecificHelp"></small></span><span class="switch"><input id="reduceWhitePointSiteSpecific" type="checkbox"><span></span></span></label>
-        </div>
-        <fieldset id="reduceWhitePointWebsites" class="rule-panel page-display-websites" data-feature-id="pageDisplay" data-setting-group="reduceWhitePoint" data-list-section="siteRules" data-domain-scope="site" data-empty-key="documentWhitelistEmpty" aria-labelledby="reduceWhitePointWebsitesHeading" disabled hidden>
-          <strong id="reduceWhitePointWebsitesHeading" data-i18n="reduceWhitePointWebsites"></strong>
-          <p data-i18n="reduceWhitePointWebsitesHelp"></p>
-          <form class="rule-form" novalidate>
-            <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="reduceWhitePointWebsitesHeading" data-i18n-placeholder="accessControlDomainPlaceholder">
-            <button type="submit" class="primary-button" data-i18n="add"></button>
-          </form>
-          <p class="form-message" role="status"></p>
-          <ul class="rule-list"></ul>
-          <p class="rule-list-note" hidden></p>
-        </fieldset>
-      </section>
-      <section class="card page-display-feature-card">
-        <div class="section-heading page-display-feature-heading">
-          <div><div class="rule-heading"><span data-section-icon="greyscale" aria-hidden="true"></span><h2 data-i18n="greyscaleName"></h2></div><p class="last" data-i18n="greyscaleHelp"></p></div>
-          <label class="switch"><input id="pageDisplayGreyscaleEnabled" type="checkbox"><span></span><b class="sr-only">Greyscale</b></label>
-        </div>
-      </section>`,
-    help: help(['pageDisplayHelpEffects', 'pageDisplayHelpRestore'], 'pageDisplayPrivacy')
+      ${['reduceWhitePoint', 'greyscale'].map(kind => {
+        const prefix = kind === 'greyscale' ? 'pageDisplayGreyscale' : 'pageDisplayReduceWhitePoint';
+        return `<section class="card page-display-feature-card">
+          <div class="section-heading page-display-feature-heading">
+            <div><div class="rule-heading"><span data-section-icon="${kind}" aria-hidden="true"></span><h2 data-i18n="${kind}Name"></h2></div><p class="last" data-i18n="${kind}Help"></p></div>
+          </div>
+          <div class="preference-list page-display-strength-list">
+            <label class="preference-row" for="${prefix}Enabled"><span><strong data-i18n="pageDisplayAllWebsites"></strong></span><span class="switch"><input id="${prefix}Enabled" type="checkbox"><span></span></span></label>
+            ${kind === 'reduceWhitePoint' ? '<label class="preference-row" for="reduceWhitePointReduction"><span><strong data-i18n="reduceWhitePointReductionHeading"></strong><small data-i18n="reduceWhitePointReductionHelp"></small></span><span class="range-control"><input id="reduceWhitePointReduction" type="range" min="10" max="80" step="5" value="25"><output id="reduceWhitePointReductionValue" for="reduceWhitePointReduction">25%</output></span></label>' : ''}
+            ${kind === 'reduceWhitePoint' ? `<label class="preference-row" for="${kind}SiteSpecific"><span><strong data-i18n="reduceWhitePointSiteSpecific"></strong><small data-i18n="reduceWhitePointSiteSpecificHelp"></small></span><span class="switch"><input id="${kind}SiteSpecific" type="checkbox"><span></span></span></label>` : ''}
+          </div>
+          ${kind === 'reduceWhitePoint' ? `<fieldset id="${kind}Websites" class="rule-panel page-display-websites" data-feature-id="pageDisplay" data-setting-group="${kind}" data-list-section="siteRules" data-domain-scope="site" data-empty-key="documentWhitelistEmpty" aria-labelledby="${kind}WebsitesHeading" disabled hidden>
+            <strong id="${kind}WebsitesHeading" data-i18n="reduceWhitePointWebsites"></strong>
+            <p data-i18n="reduceWhitePointWebsitesHelp"></p>
+            <form class="rule-form" novalidate>
+              <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="${kind}WebsitesHeading" data-i18n-placeholder="accessControlDomainPlaceholder">
+              <button type="submit" class="primary-button" data-i18n="add"></button>
+            </form>
+            <p class="form-message" role="status"></p>
+            <ul class="rule-list"></ul>
+            <p class="rule-list-note" hidden></p>
+          </fieldset>` : ''}
+        </section>`;
+      }).join('')}`,
+    help: help(['pageDisplayHelpEffects', 'pageDisplayHelpPopup', 'pageDisplayHelpRestore'], 'pageDisplayPrivacy')
   };
   if (featureId === 'nativeScroll') return {
     primary: `

@@ -1106,69 +1106,91 @@ test('one product cleanup failure does not strand other Operations products', as
 });
 
 
-test('Page Display website commands preserve scope, master authority, and unrelated products', async () => {
-  const originalChrome = globalThis.chrome;
-  let settings = normalizeSettings({ pageDisplay: { enabled: true, reduceWhitePoint: { siteSpecific: true } } });
+test('Page Display separates session choices, global switches, and persistent lists', async () => {
+  const previousChrome = globalThis.chrome;
+  let settings = normalizeSettings({ pageDisplay: { enabled: true, scopeVersion: 2 } });
   let tab = { id: 17, url: 'https://a.example.co.uk/one', incognito: false };
-  globalThis.chrome = { tabs: { async get(id) { assert.equal(id, 17); return tab; } } };
-  const syncs = [];
-  let queue = Promise.resolve();
-  const product = createPageDisplayProduct({ async sync(_p, _c, active) { syncs.push(active); } }, {
+  const session = {};
+  globalThis.chrome = { runtime: { getURL: path => 'chrome-extension://id/' + path },
+    tabs: { async get() { return tab; } } };
+  let saves = 0;
+  const platform = {
     isIncognitoContext: () => false,
-    mutateSettings(update) {
-      const result = queue.then(async () => { settings = normalizeSettings(await update(settings)); return settings; });
-      queue = result.catch(() => {}); return result;
-    },
-    async refreshOpenPages() { throw Error('a closing tab cannot turn a committed save into failure'); }
-  });
-  const toggle = value => product.handleMessage({ type: 'UI_SET_PAGE_DISPLAY_SETTING',
-    name: 'reduceWhitePointEnabled', scope: 'site', value, tabId: 17, expectedHostname: 'a.example.co.uk' });
-  const list = (type, rule) => product.handleMessage({ type, featureId: 'pageDisplay',
-    settingGroup: 'reduceWhitePoint', listName: 'siteRules', rule });
+    sessionStorage: { async get(key) { return { [key]: session[key] }; },
+      async set(value) { Object.assign(session, value); }, async remove(key) { delete session[key]; } },
+    async readSettings() { return settings; },
+    async mutateSettings(update) { saves++; settings = normalizeSettings(await update(settings)); return settings; },
+    async refreshOpenPages() { throw Error('a closing tab must not fail the action'); }
+  };
+  const make = () => createPageDisplayProduct({ async sync() {} }, platform);
+  let product = make();
+  const context = { sender: { url: 'chrome-extension://id/popup/index.html' } };
+  const toggle = (kind, value, scope = 'site', extra = {}) => product.handleMessage({
+    type: 'UI_SET_PAGE_DISPLAY_SETTING', name: kind + 'Enabled', value, scope,
+    tabId: 17, expectedHostname: 'a.example.co.uk', expectedSite: 'example.co.uk', ...extra
+  }, context);
+  const list = (kind, type, rule) => product.handleMessage({ type, settingGroup: kind, listName: 'siteRules', rule });
   try {
-    await toggle(true);
-    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['example.co.uk']);
-    assert.equal(settings.pageDisplay.reduceWhitePoint.enabled, true);
-    assert.equal(product.state(settings, 'https://b.example.co.uk').reduceWhitePoint.enabled, true);
-    assert.equal(product.state(settings, 'https://other.co.uk').active, false);
-    assert.equal(await product.sync({ frameId: 0, topUrl: tab.url }, settings), true);
-    assert.equal(await product.sync({ frameId: 1, topUrl: tab.url }, settings), false);
-    await toggle(false);
-    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, []);
-    await Promise.all([list('UI_ADD_RULE', 'a.example.co.uk'), list('UI_ADD_RULE', 'z.test')]);
-    await list('UI_ADD_RULE', 'b.example.co.uk');
-    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['example.co.uk', 'z.test']);
-    await list('UI_DELETE_RULE', 'c.example.co.uk');
-    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['z.test']);
-    await list('UI_ADD_RULE', 'a.test');
-    await list('UI_ALPHABETIZE_RULES');
-    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['a.test', 'z.test']);
-    await list('UI_DELETE_RULE', 'a.test');
-    await assert.rejects(list('UI_ADD_RULE', 'https://bad.test/x'));
-    await assert.rejects(product.handleMessage({type:'UI_CLEAR_RULES',listName:'blockedDomains',settingGroup:'reduceWhitePoint'}));
+    for (const kind of ['reduceWhitePoint', 'greyscale']) {
+      const start = saves;
+      await toggle(kind, true);
+      assert.equal(saves, start, 'site actions never write saved settings');
+      assert.equal((await product.state(settings, 'https://b.example.co.uk'))[kind].enabled, true);
+      assert.equal((await product.state(settings, 'https://other.test'))[kind].enabled, false);
+      if (kind === 'reduceWhitePoint') assert.deepEqual(settings.pageDisplay[kind].siteRules, []);
+      product = make();
+      assert.equal((await product.state(settings, tab.url))[kind].enabled, true, 'worker restarts retain choices');
+      await toggle(kind, false);
+      await toggle(kind, true, 'global');
+      assert.equal(settings.pageDisplay[kind].enabled, true);
+      assert.equal((await product.state(settings, tab.url))[kind].enabled, false, 'local off overrides global on');
+      assert.equal((await product.state(settings, 'https://other.test'))[kind].enabled, true);
+      await toggle(kind, false, 'global');
+      if (kind === 'reduceWhitePoint') {
+        await list(kind, 'UI_ADD_RULE', 'example.co.uk');
+        await product.handleMessage({ type: 'UI_SET_PAGE_DISPLAY_SETTING', name: kind + 'SiteSpecific', value: true });
+        assert.equal((await product.state(settings, tab.url))[kind].enabled, false, 'local off overrides the always-on list');
+        await product.reset();
+        assert.equal((await product.state(settings, tab.url))[kind].enabled, true, 'ending session restores the saved website policy');
+        await list(kind, 'UI_ADD_RULE', 'other.test');
+        await list(kind, 'UI_ALPHABETIZE_RULES');
+        assert.deepEqual(settings.pageDisplay[kind].siteRules, ['example.co.uk', 'other.test']);
+        await list(kind, 'UI_DELETE_RULE', 'sub.other.test');
+        await list(kind, 'UI_CLEAR_RULES');
+        assert.deepEqual(settings.pageDisplay[kind].siteRules, []);
+        await assert.rejects(list(kind, 'UI_ADD_RULE', 'https://bad.test/x'));
+      } else {
+        await assert.rejects(list(kind, 'UI_ADD_RULE', 'example.co.uk'), /does not support/);
+      }
+    }
     const before = JSON.stringify(settings);
-    tab = { ...tab, url: 'https://different.test' };
-    await assert.rejects(toggle(true), /page changed/);
-    assert.equal(JSON.stringify(settings), before);
-    tab = { ...tab, url: 'https://a.example.co.uk/two', incognito: true };
-    await assert.rejects(toggle(true), /page changed/);
+    tab.pendingUrl = 'https://different.test/';
+    await assert.rejects(toggle('reduceWhitePoint', true), /page changed/);
+    delete tab.pendingUrl;
+    tab.incognito = true;
+    await assert.rejects(toggle('reduceWhitePoint', true), /page changed/);
     tab.incognito = false;
+    await assert.rejects(toggle('reduceWhitePoint', true, 'site', {expectedHostname:'b.example.co.uk'}), /page changed/);
+    assert.equal(JSON.stringify(settings), before);
     settings.pageDisplay.enabled = false;
-    await assert.rejects(toggle(true), /settings changed/);
-    assert.equal(settings.pageDisplay.enabled, false);
+    await assert.rejects(toggle('greyscale', true), /turned off/);
+    await assert.rejects(toggle('greyscale', true, 'global'), /turned off/);
+    assert.equal((await product.state(settings, tab.url)).active, false);
+    await assert.rejects(toggle('greyscale', true, 'invalid'), /Unknown/);
+    await assert.rejects(product.handleMessage({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'greyscaleEnabled',scope:'site',value:true}), /Unknown/);
     settings.pageDisplay.enabled = true;
-    await product.handleMessage({type:'UI_SET_PAGE_DISPLAY_SETTING',name:'reduceWhitePointSiteSpecific',value:false});
-    await assert.rejects(toggle(false), /settings changed/);
-    assert.equal(product.state(settings, 'https://other.test').reduceWhitePoint.enabled, true);
-    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, ['z.test']);
-    await list('UI_CLEAR_RULES');
-    assert.deepEqual(settings.pageDisplay.reduceWhitePoint.siteRules, []);
-    assert.equal(settings.pageDisplay.greyscale.enabled, false);
-    settings.pageDisplay.reduceWhitePoint.siteSpecific = true;
     settings.pageDisplay.reduceWhitePoint.siteRules = Array.from({length:1000},(_,i)=>`site${i}.test`);
-    await assert.rejects(toggle(true), /list is full/);
-    await assert.rejects(list('UI_ADD_RULE', 'one-more.test'), /list is full/);
-    assert.equal(settings.pageDisplay.reduceWhitePoint.siteRules.length, 1000);
-    assert.deepEqual(syncs, [true, false]);
-  } finally { globalThis.chrome = originalChrome; }
+    await assert.rejects(list('reduceWhitePoint', 'UI_ADD_RULE', 'overflow.test'), /list is full/);
+    session.cosmicGeminiPageDisplaySites = { greyscale: Array.from({length:1000}, (_,i) => ({site:`site${i}.test`,enabled:false})) };
+    await assert.rejects(toggle('greyscale', true), /session list is full/);
+    assert.equal(session.cosmicGeminiPageDisplaySites.greyscale.length, 1000);
+    await product.reset();
+    const set = platform.sessionStorage.set;
+    platform.sessionStorage.set = async () => { throw Error('write failed'); };
+    await assert.rejects(toggle('greyscale', true), /write failed/);
+    assert.equal((await product.state(settings, tab.url)).greyscale.enabled, false);
+    platform.sessionStorage.set = set;
+    await toggle('greyscale', true);
+    assert.equal((await product.state(settings, tab.url)).greyscale.enabled, true, 'a failed save does not poison later commands');
+  } finally { globalThis.chrome = previousChrome; }
 });

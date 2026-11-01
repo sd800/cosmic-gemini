@@ -246,6 +246,14 @@
   if (claudeBrowserIdentityEnabled) {
     claudeBrowserIdentityEnabled.checked = cached.chineseResponseClaude?.browserIdentityEnabled === true;
   }
+  if (cached.pageDisplay && cached.pageDisplay.scopeVersion !== 2) {
+    const prior = cached.pageDisplay.reduceWhitePoint;
+    if (prior?.siteSpecific) {
+      prior.siteSpecific = prior.enabled === true;
+      prior.enabled = false;
+    }
+    cached.pageDisplay.scopeVersion = 2;
+  }
   const pageDisplayEnabled = cached.pageDisplay?.enabled === true;
   if (feature === 'pageDisplay') document.body.dataset.pageDisplayEnabled = String(pageDisplayEnabled);
   const reduceWhitePointEnabled = document.querySelector('#pageDisplayReduceWhitePointEnabled');

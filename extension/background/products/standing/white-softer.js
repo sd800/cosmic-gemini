@@ -24,7 +24,7 @@ export function createWhiteSofterProduct(pageRuntimeHost, platform) {
         allFrames: false, persistAcrossSessions: !incognito };
       const desired = [
         { ...common, id: ids[0], world: 'MAIN', css: pageStyleFiles,
-          js: ['shared/white-tones.js', 'content/shared/white-cap-layer.js',
+          js: ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js',
             `content/white-softer/tones/${tone}.js`, 'content/white-softer/white-softer-prepaint.js'] },
         { ...common, id: ids[1], world: 'ISOLATED',
           js: ['content/white-softer/white-softer-prepaint-check.js'] }
@@ -54,7 +54,7 @@ export function createWhiteSofterProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.WHITE_SOFTER,
     bridge: 'content/white-softer/white-softer-bridge.js',
     runtime: 'content/white-softer/white-softer-runtime.js',
-    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/shared/white-cap-layer.js']),
+    runtimeDependencies: Object.freeze(['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js']),
     pageStyleFiles,
     awaitConfiguration: true,
     preservePageStylesOnRefresh: true,

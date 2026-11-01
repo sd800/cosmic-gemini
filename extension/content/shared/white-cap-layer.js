@@ -3,8 +3,9 @@
   if (globalThis[KEY]) return;
   // Neutral display primitive. Each caller owns its host, styles and lifecycle.
   class WhiteCapLayer {
-    constructor(attribute) {
+    constructor(attribute, options = {}) {
       this.attribute = attribute;
+      this.protectDarkTransitions = options.protectDarkTransitions === true;
       this.host = null;
       this.rootObserver = null;
       this.observedRoot = null;
@@ -89,6 +90,10 @@
         }
         shadow.append(svg, surface);
         this.host = host;
+        if (this.protectDarkTransitions) {
+          const Guard = globalThis[Symbol.for('cosmic-gemini.dark-transition-guard')];
+          this.transitionGuard = new Guard(surface);
+        }
       }
       const selected = globalThis[Symbol.for('cosmic-gemini.white-tones')].get(tone);
       if (this.host.getAttribute('data-tone') !== selected.id) {
@@ -108,6 +113,7 @@
           }).join(' '));
         });
       }
+      this.transitionGuard?.enable();
       this.mount();
     }
     hasHtmlSurface() {
@@ -129,6 +135,7 @@
       document.addEventListener('fullscreenchange', this.onFullscreenChange, true);
       document.addEventListener('beforetoggle', this.onBeforeToggle, true);
       document.addEventListener('toggle', this.onToggle, true);
+      globalThis.addEventListener?.('pageshow', this.mount, true);
       // Observe the document and direct HTML shell only, never the content tree.
       // Repair root/shell replacement or removal of the owned surface.
       if (!this.rootObserver) {
@@ -136,6 +143,8 @@
         this.rootObserver.observe(document, { childList: true });
       }
       const target = document.documentElement;
+      this.transitionGuard?.enable();
+      this.transitionGuard?.setRoot(target);
       if (target !== this.observedRoot) {
         this.rootObserver.disconnect();
         this.rootObserver.observe(document, { childList: true });
@@ -149,7 +158,23 @@
       // Top-layer filtering caps final pixels, including white text and child frames,
       // without changing layout, taking focus or tinting already dark pixels.
       if (!this.host.matches(':popover-open')) {
-        try { this.host.showPopover(); }
+        // Defer a new background surface, while keeping an already open one
+        // unchanged when its tab merely becomes hidden.
+        if (document.visibilityState === 'hidden') {
+          document.addEventListener('visibilitychange', this.mount, true);
+          return;
+        }
+        // Opening a full-viewport popover in an otherwise empty document can
+        // force an early paint before the page's own theme has a body surface.
+        // Prepare the filter now; the root observer opens it as body is parsed.
+        if (!document.body && document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', this.mount, { once: true });
+          return;
+        }
+        try {
+          this.host.showPopover();
+          document.removeEventListener('visibilitychange', this.mount, true);
+        }
         catch {
           if (document.readyState !== 'complete') document.addEventListener('readystatechange', this.mount, { once: true });
         }
@@ -208,11 +233,15 @@
       this.mount();
     }
     disable() {
+      this.transitionGuard?.disable(); this.transitionGuard = null;
       this.pendingTone = null;
       this.pendingPromotion = null;
       this.beforeToggleTargets = new WeakSet();
       document.removeEventListener('readystatechange', this.onDocumentReady);
       document.removeEventListener('readystatechange', this.mount);
+      document.removeEventListener('DOMContentLoaded', this.mount);
+      document.removeEventListener('visibilitychange', this.mount, true);
+      globalThis.removeEventListener?.('pageshow', this.mount, true);
       this.rootObserver?.disconnect();
       this.rootObserver = null;
       this.observedRoot = null;

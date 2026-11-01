@@ -128,17 +128,18 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   const root = new Element();
   const rootObservers = [];
   const document = {
-    contentType: 'text/html', documentElement: null, createElement: () => new Element(), createElementNS: () => new Element(),
+    contentType: 'text/html', readyState: 'loading', visibilityState: 'visible', body: null, documentElement: null, createElement: () => new Element(), createElementNS: () => new Element(),
     addEventListener() {}, removeEventListener() {}
   };
   const context = vm.createContext({ window, document, Symbol, Math, Number, Array, Uint8Array,
+    addEventListener: window.addEventListener.bind(window), removeEventListener: window.removeEventListener.bind(window),
     CSSStyleSheet: class { replaceSync(css) { this.css = css; } },
     MutationObserver: class { constructor(callback) { this.callback = callback; rootObservers.push(this); }
       observe() {} disconnect() {} },
     crypto: { getRandomValues(bytes) { bytes.fill(1); return bytes; } },
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } }
   });
-  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js',
+  for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js',
     'content/white-softer/tones/cool.js', 'content/white-softer/white-softer-prepaint.js']) {
     vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);
   }
@@ -150,7 +151,13 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   const host = root.children[0];
   assert.equal(host.parentNode, root);
   assert.equal(host.getAttribute('data-tone'), 'cool');
+  assert.equal(host.open, false, 'prepare without forcing a paint of the empty document');
+  document.body = new Element(); rootObservers[0].callback();
   assert.equal(host.open, true);
+  host.open = false; document.visibilityState = 'hidden'; rootObservers[0].callback();
+  assert.equal(host.open, false, 'a newly loaded background surface waits for visibility');
+  document.visibilityState = 'visible'; window.dispatchEvent({type:'pageshow'});
+  assert.equal(host.open, true, 'restore the same surface before waiting for a background lookup');
   assert.equal(host.children.length, 0, 'the pixel filter is outside the page style tree');
   assert.equal(host.privateRoot.children.length, 2);
   assert.match(host.privateRoot.adoptedStyleSheets[0].css, /:host::backdrop/);
@@ -226,7 +233,7 @@ test('XML waits for the native viewer, retains the latest tone and cancels defer
   };
   const context = vm.createContext({ document, Symbol, Math, Number, Array,
     MutationObserver: class { observe() {} disconnect() {} } });
-  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js']) {
+  for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js']) {
     vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);
   }
   const Layer = context[Symbol.for('cosmic-gemini.white-cap-layer')];
@@ -283,7 +290,7 @@ test('white caps ignore disclosures and coalesce actual top-layer openings befor
       removeEventListener(type, listener) { if (listeners.get(type) === listener) listeners.delete(type); } },
     MutationObserver: class { observe() {} disconnect() {} }
   });
-  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js']) {
+  for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js']) {
     vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);
   }
   const Layer = context[Symbol.for('cosmic-gemini.white-cap-layer')];

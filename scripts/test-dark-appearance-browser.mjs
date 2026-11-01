@@ -48,7 +48,7 @@ try {
   await leetcode.addStyleTag({ content: 'body{background:white!important}' });
   await leetcode.evaluate(() => document.documentElement.style.colorScheme = 'dark');
   await leetcode.addStyleTag({ content: await source('content/leetcode-dark-mode/leetcode-dark-mode.css') });
-  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js', 'content/leetcode-dark-mode/leetcode-dark-mode-runtime.js']) {
+  for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js', 'content/leetcode-dark-mode/leetcode-dark-mode-runtime.js']) {
     await leetcode.addScriptTag({ content: await source(file) });
   }
   await leetcode.evaluate(() => {
@@ -75,7 +75,7 @@ try {
   // White Softer's cap must preserve already-dark and inverted-dark pixels.
   const white = await browser.newPage(); await white.goto('https://appearance.test/white-cap');
   await white.addStyleTag({ content: await source('content/white-softer/white-softer.css') });
-  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js', 'content/white-softer/white-softer-runtime.js']) {
+  for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js', 'content/white-softer/white-softer-runtime.js']) {
     await white.addScriptTag({ content: await source(file) });
   }
   await white.evaluate(() => {
@@ -98,7 +98,7 @@ try {
   await prepaint.evaluate(() => {
     const patch = document.createElement('div'); patch.style.cssText = 'position:fixed;left:100px;top:0;width:20px;height:20px;background:white'; document.body.append(patch);
   });
-  for (const file of ['shared/white-tones.js', 'content/shared/white-cap-layer.js', 'content/white-softer/white-softer-prepaint.js']) {
+  for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js', 'content/white-softer/white-softer-prepaint.js']) {
     await prepaint.addScriptTag({ content: await source(file) });
   }
   const early = await pixels(prepaint);

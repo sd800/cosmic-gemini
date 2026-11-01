@@ -57,7 +57,7 @@ try {
       const dark = url.pathname === '/prepaint-dark';
       return route.fulfill({ contentType: 'text/html',
         headers: { 'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" },
-        body: `<!doctype html><html><head><script>window.cgPrepaintAtParse=!!document.querySelector('[data-cosmic-gemini-white-softer]:popover-open')</script></head><body style="margin:0;background:${dark ? '#111' : '#fff'}"><div id="prepaint-surface" style="height:100px;background:${dark ? '#111' : '#fff'};color:white">${dark ? 'Light text on a dark page' : ''}</div></body></html>` });
+        body: `<!doctype html><html><head><script>window.cgPrepaintAtParse=!!document.querySelector('[data-cosmic-gemini-white-softer]');window.cgPrepaintOpenAtParse=!!document.querySelector('[data-cosmic-gemini-white-softer]:popover-open')</script></head><body style="margin:0;background:${dark ? '#111' : '#fff'}"><div id="prepaint-surface" style="height:100px;background:${dark ? '#111' : '#fff'};color:white">${dark ? 'Light text on a dark page' : ''}</div></body></html>` });
     }
     const child = url.hostname.startsWith('frame.');
     return route.fulfill({ contentType: 'text/html', headers: { 'Content-Security-Policy': "default-src 'self'; script-src 'none'; style-src 'self'; frame-src https://frame.white-softer.test" }, body: child
@@ -185,7 +185,8 @@ try {
     const navigation = await context.newPage();
     await navigation.goto(`http://white-softer.test/prepaint-${appearance}`);
     assert.equal(await navigation.evaluate(() => window.cgPrepaintAtParse), true,
-      `${appearance}: the filter exists before the page's first script`);
+      `${appearance}: the filter is prepared before the page's first script`);
+    assert.equal(await navigation.evaluate(() => window.cgPrepaintOpenAtParse), false, 'the empty head must not force an early page paint');
     assert.equal(await navigation.locator(layer + ':popover-open').count(), 1,
       `${appearance}: runtime handoff keeps one filter`);
     if (appearance === 'dark') {
@@ -267,7 +268,7 @@ try {
 async function checkDocumentSurfaces() {
   const artifacts = resolve('test-dist/white-softer');
   await mkdir(artifacts, { recursive: true });
-  const files = ['shared/white-tones.js', 'content/shared/white-cap-layer.js',
+  const files = ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js',
     'content/white-softer/white-softer-prepaint.js', 'content/white-softer/white-softer-runtime.js'];
   const code = (await Promise.all(files.map(file => readFile(resolve('extension', file), 'utf8')))).join('\n');
   const css = await readFile(resolve('extension/content/white-softer/white-softer.css'), 'utf8');

@@ -14,7 +14,7 @@
     constructor() {
       this.token = randomToken();
       this.layer = globalThis[PREPAINT_KEY]?.handoff()
-        || new (globalThis[Symbol.for('cosmic-gemini.white-cap-layer')])('data-cosmic-gemini-white-softer');
+        || new (globalThis[Symbol.for('cosmic-gemini.white-cap-layer')])('data-cosmic-gemini-white-softer', { protectDarkTransitions: true });
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.announce = this.announce.bind(this);

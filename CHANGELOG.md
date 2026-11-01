@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.31.3 — 2026-10-31
+
+- Improve White Softer startup and transition stability during loading, navigation, and tab return.
+
 ## 26.10.31.2 — 2026-10-31
 
 - Improve White Softer rendering isolation, startup consistency, and visual lifecycle stability.

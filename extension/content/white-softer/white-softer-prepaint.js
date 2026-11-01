@@ -6,7 +6,7 @@
   const CHECK = 'cosmic-gemini:white-softer:prepaint-check';
   const READY = 'cosmic-gemini:white-softer:prepaint-ready';
   const tone = globalThis[Symbol.for('cosmic-gemini.white-softer.prepaint-tone')] || 'warm-minus-1';
-  const layer = new (globalThis[Symbol.for('cosmic-gemini.white-cap-layer')])('data-cosmic-gemini-white-softer');
+  const layer = new (globalThis[Symbol.for('cosmic-gemini.white-cap-layer')])('data-cosmic-gemini-white-softer', { protectDarkTransitions: true });
   const release = () => {
     window.removeEventListener(CHECK, onCheck, true);
     delete globalThis[KEY];

@@ -11,7 +11,7 @@ if (['documents', 'xml', 'native'].includes(process.env.WHITE_SOFTER_QA)) {
   await checkDocumentSurfaces();
   process.exit(0);
 }
-if (process.env.WHITE_SOFTER_QA === 'scroll') {
+if (['scroll', 'dark-flash'].includes(process.env.WHITE_SOFTER_QA)) {
   await checkScrollingSurfaces();
   process.exit(0);
 }
@@ -90,6 +90,7 @@ try {
   assert.deepEqual(await screenshotColor('.white'), [255,255,255]);
   assert.equal(await page.locator(layer).count(), 0);
   await settings.locator('.switch:has(#whiteSofterEnabled)').click();
+  await settings.locator('[data-card-disclosure="satellite-white-softer"]').click();
   await page.locator(layer + ':popover-open').waitFor();
   await settings.emulateMedia({ colorScheme: 'dark' });
   for (const [tone, rgb] of Object.entries(colors)) {
@@ -410,7 +411,7 @@ async function checkDocumentSurfaces() {
         const Layer=globalThis[Symbol.for('cosmic-gemini.white-cap-layer')];
         window.secondCap=new Layer('data-cosmic-gemini-leetcode-white-tone'); secondCap.enable('cool');
         const style=document.createElement('style');
-        style.textContent='[data-cosmic-gemini-leetcode-white-tone]{all:initial;display:none;position:fixed;inset:0;pointer-events:none;backdrop-filter:var(--cg-white-cap-filter)}[data-cosmic-gemini-leetcode-white-tone]:popover-open{display:block}';
+        style.textContent='[data-cosmic-gemini-leetcode-white-tone]{all:initial;display:none;position:fixed;inset:0;pointer-events:none}[data-cosmic-gemini-leetcode-white-tone]:popover-open{display:block}';
         document.head.append(style);
         document.querySelector('#site-popup').showPopover();
       });
@@ -644,7 +645,7 @@ async function checkScrollingSurfaces() {
   const artifacts = resolve('test-dist/white-softer');
   await mkdir(artifacts, { recursive: true });
   const context = await chromium.launchPersistentContext(join(folder, 'profile'), {
-    executablePath: process.env.PDF_VIEWER_CHROME, headless: true,
+    executablePath: process.env.PDF_VIEWER_CHROME, headless: process.env.WHITE_SOFTER_HEADED !== '1',
     viewport: { width: 1000, height: 720 }, deviceScaleFactor: 2,
     ignoreDefaultArgs: ['--disable-extensions'], args: ['--enable-unsafe-extension-debugging']
   });
@@ -671,10 +672,15 @@ async function checkScrollingSurfaces() {
     const { id } = await loader.send('Extensions.loadUnpacked', { path: resolve('extension') });
     const settings = await context.newPage(); await settings.goto(`chrome-extension://${id}/settings/satellites.html`);
     await settings.locator('#whiteSofterEnabled').check();
+    const display = await settings.evaluate(async () => (await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings.pageDisplay);
+    assert.equal(display.enabled, false);
+    assert.equal(display.reduceWhitePoint.enabled, false);
+    assert.equal(display.greyscale.enabled, false);
     const page = await context.newPage();
-    for (const mode of ['light', 'dark', 'nested', 'app-light', 'app-dark']) {
+    for (const mode of process.env.WHITE_SOFTER_QA === 'dark-flash' ? ['dark', 'app-dark'] : ['light', 'dark', 'nested', 'app-light', 'app-dark']) {
       await page.goto('https://white-scroll.test/' + mode);
       await page.locator('[data-cosmic-gemini-white-softer]:popover-open').waitFor();
+      assert.equal(await page.locator('[data-cosmic-gemini-page-display]').count(), 0, 'White Softer runs without either Page Display effect');
       await page.evaluate(mode => {
         const cap = document.querySelector('[data-cosmic-gemini-white-softer]'), hide = cap.hidePopover;
         window.scrollStats = { hides: 0, opens: 0, closedFrames: 0, events: 0, samples: 0, notifications: 0 };
@@ -749,7 +755,9 @@ async function checkScrollingSurfaces() {
     }
     assert.deepEqual(errors, []);
     await writeFile(join(artifacts, 'scroll-results.json'), JSON.stringify(results, null, 2) + '\n');
-    console.log('PASS: real extension, light/dark/nested/application scrolling at 2×; stable background RGB, no scrolling/idle notification rebuilds, genuine popup/modal first-paint colors; no page errors.');
+    console.log(process.env.WHITE_SOFTER_QA === 'dark-flash'
+      ? 'PASS: White Softer only, dark document/application scrolling at 2×, stable background pixels, no unfiltered frames or redundant rebuilds.'
+      : 'PASS: real extension, light/dark/nested/application scrolling at 2×; stable background RGB, no scrolling/idle notification rebuilds, genuine popup/modal first-paint colors; no page errors.');
   } finally { await context.close(); await rm(folder, { recursive: true, force: true }); }
 }
 

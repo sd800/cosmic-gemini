@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.10.31.2 — 2026-10-31
+
+- Improve White Softer rendering isolation, startup consistency, and visual lifecycle stability.
+- Refine dark appearance during page transitions and navigation.
+
 ## 26.10.31.1 — 2026-10-31
 
 - Refine Page Display controls with temporary website choices, all-websites settings, and clearer scope indicators.

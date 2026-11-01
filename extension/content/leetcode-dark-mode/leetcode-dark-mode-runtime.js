@@ -81,9 +81,13 @@
     tone = palette.normalize(message.config?.tone, true);
     update();
   }
-  function dispose(event) {
+  function dispose(event, preserveAppearance = false) {
     if (event?.detail !== token) return;
-    configured = false; update(); disposed = true;
+    // The outgoing document may still be painted during navigation. Release
+    // external references without stripping its final dark surface. Explicit
+    // disable still restores the original appearance immediately.
+    if (!preserveAppearance) { configured = false; update(); }
+    disposed = true;
     themeObserver?.disconnect(); headObserver?.disconnect(); rootObserver.disconnect(); documentObserver.disconnect();
     window.removeEventListener(PREFIX + 'bridge-ready', announce);
     window.removeEventListener(PREFIX + 'configure', configure);
@@ -98,7 +102,7 @@
   function onPageHide(event) {
     // Child frames register on the top document: release those references when the
     // frame is replaced, but keep a bfcache document ready for its pageshow event.
-    if (!event.persisted) dispose({ detail: token });
+    if (event.isTrusted === true && !event.persisted) dispose({ detail: token }, true);
   }
   window.addEventListener(PREFIX + 'bridge-ready', announce);
   window.addEventListener(PREFIX + 'configure', configure);

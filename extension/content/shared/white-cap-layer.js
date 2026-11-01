@@ -38,6 +38,13 @@
           ['popover', 'manual'], ['aria-hidden', 'true'], ['inert', ''], ['hidden', '']]) {
           host.setAttribute(name, value);
         }
+        // Registered document-start CSS has AUTHOR origin. Protect the owned
+        // surface before the formal USER stylesheet arrives: generic popover
+        // themes must not add an opaque fill or transform the filtered pixels.
+        for (const [name, value] of [['background', 'none'], ['filter', 'none'],
+          ['mix-blend-mode', 'normal'], ['opacity', '1'], ['animation', 'none'], ['transition', 'none']]) {
+          host.style.setProperty(name, value, 'important');
+        }
         // Filter existing pixels, rather than paint an opaque blend layer. A
         // fixed blend surface exposes its light fill over Chrome's elastic
         // overscroll area, where the page backdrop is temporarily absent.
@@ -45,6 +52,22 @@
         const svg = document.createElementNS(ns, 'svg'), filter = document.createElementNS(ns, 'filter');
         const transfer = document.createElementNS(ns, 'feComponentTransfer');
         const id = 'cg-white-cap-' + Math.random().toString(36).slice(2);
+        // Keep paint rules and SVG references in the same private tree. A
+        // host-level url(#id) cannot resolve a filter inside a shadow root.
+        const shadow = host.attachShadow({ mode: 'closed' });
+        const css = `
+          :host { all:initial!important; display:none!important; position:fixed!important; inset:0!important;
+            width:auto!important; height:auto!important; max-width:none!important; max-height:none!important;
+            margin:0!important; padding:0!important; border:0!important; pointer-events:none!important;
+            overflow:hidden!important; contain:strict!important; background:none!important; filter:none!important;
+            opacity:1!important; mix-blend-mode:normal!important; animation:none!important; transition:none!important; }
+          :host(:popover-open) { display:block!important; }
+          :host::backdrop { display:none!important; }
+          [data-cg-filter-surface] { all:initial; display:block; position:absolute; inset:0;
+            pointer-events:none; background:transparent; backdrop-filter:url("#${id}"); }
+        `;
+        const surface = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
+        surface.setAttribute('data-cg-filter-surface', '');
         svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
         svg.style.setProperty('display', 'block', 'important');
         svg.style.setProperty('width', '0', 'important'); svg.style.setProperty('height', '0', 'important');
@@ -54,8 +77,17 @@
           const fn = document.createElementNS(ns, 'feFunc' + channel);
           fn.setAttribute('type', 'table'); transfer.append(fn); return fn;
         });
-        filter.append(transfer); svg.append(filter); host.append(svg);
-        host.style.setProperty('--cg-white-cap-filter', `url("#${id}")`, 'important');
+        filter.append(transfer); svg.append(filter);
+        try {
+          // A constructed sheet also works on pages that prohibit inline style
+          // elements. Attach synchronously before exposing the transparent host.
+          const sheet = new CSSStyleSheet();
+          sheet.replaceSync(css); shadow.adoptedStyleSheets = [sheet];
+        } catch {
+          const style = document.createElementNS('http://www.w3.org/1999/xhtml', 'style');
+          style.textContent = css; shadow.append(style);
+        }
+        shadow.append(svg, surface);
         this.host = host;
       }
       const selected = globalThis[Symbol.for('cosmic-gemini.white-tones')].get(tone);

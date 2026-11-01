@@ -28,6 +28,7 @@ class FakeElement {
     this.attributes = new Map();
   }
   setAttribute(name, value) { this.attributes.set(name, value); }
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
   removeAttribute(name) { this.attributes.delete(name); }
   matches(selector) { return selector === ':popover-open' && this.popoverOpen === true; }
   showPopover() { this.popoverOpen = true; }
@@ -84,6 +85,36 @@ async function runtimeFixture() {
   vm.runInContext(source, context);
   return { context, document, runtime: context[Symbol.for('cosmic-gemini.page-display.runtime')] };
 }
+
+test('Reduce White Point follows only active ancestor filter animations and retires frame work', async () => {
+  const { context, document, runtime } = await runtimeFixture();
+  const frames = new Map(); let next = 0;
+  context.requestAnimationFrame = fn => { frames.set(++next, fn); return next; };
+  context.cancelAnimationFrame = id => frames.delete(id);
+  const root = document.documentElement;
+  const animation = { playState: 'running', effect: { getKeyframes: () => [{ filter: 'invert(1)' }, { filter: 'invert(0)' }] } };
+  root.getAnimations = () => [animation]; root.style.filter = 'invert(1)';
+  runtime.enable({ reduceWhitePoint: { enabled: true, reduction: .8 } });
+  assert.equal(runtime.host.getAttribute('data-shade'), 'light');
+  assert.equal(frames.size, 1);
+  root.style.filter = 'invert(0.3)';
+  const [id, tick] = [...frames][0]; frames.delete(id); tick();
+  assert.equal(runtime.host.getAttribute('data-shade'), 'dark', 'compensation follows the current inversion sign before paint');
+  assert.equal(frames.size, 1);
+  animation.playState = 'finished'; root.style.filter = 'none';
+  const [lastId, lastTick] = [...frames][0]; frames.delete(lastId); lastTick();
+  assert.equal(frames.size, 0, 'static pages perform no repeating frame work');
+  animation.playState = 'running';
+  animation.effect.getKeyframes = () => [{ opacity: 0 }, { opacity: 1 }];
+  runtime.refreshShadeColor(); assert.equal(frames.size, 0, 'unrelated animations are ignored');
+  animation.effect.getKeyframes = () => [{ filter: 'invert(1)' }];
+  runtime.onAppearanceAnimation({ isTrusted: false, type: 'animationstart', target: root });
+  await Promise.resolve(); assert.equal(frames.size, 0);
+  runtime.onAppearanceAnimation({ isTrusted: true, type: 'transitionrun', propertyName: 'filter', target: root });
+  await Promise.resolve(); assert.equal(frames.size, 1);
+  runtime.disable(); assert.equal(frames.size, 0, 'disable cancels pending frame work');
+  assert.equal(document.listeners.get('transitionrun').length, 0);
+});
 
 test('Page Display combines passive visual layers and restores the page when both are disabled', async () => {
   const { context, document, runtime } = await runtimeFixture();

@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.10.31.1');
+assert.equal(manifest.version, '26.10.31.2');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -590,7 +590,7 @@ assert.match(pageDisplayStyles, /position:\s*fixed\s*!important[\s\S]*inset:\s*0
 assert.match(pageDisplayStyles, /backdrop-filter:\s*grayscale\(1\)\s*!important/);
 assert.match(pageDisplayRuntime, /document\.fullscreenElement[\s\S]*fullscreenchange/);
 assert.match(pageDisplayRuntime, /this\.host\?\.remove\(\)[\s\S]*this\.host = null/);
-assert.match(pageDisplayRuntime, /invertSlope[\s\S]*shadeIsInsideInversion[\s\S]*data-shade[\s\S]*'light'[\s\S]*'dark'/,
+assert.match(pageDisplayRuntime, /invertSlope[\s\S]*shadeIsInsideInversion[\s\S]*'light'[\s\S]*'dark'[\s\S]*setAttribute\('data-shade', shade\)/,
   'Reduce White Point must compensate when an ancestor filter inverts its compositing layer.');
 assert.match(pageDisplayStyles, /data-shade="dark"[\s\S]*rgb\(0 0 0 \/[\s\S]*data-shade="light"[\s\S]*rgb\(255 255 255 \//,
   'Reduce White Point must provide both ordinary and inversion-compensated USER-origin shades.');

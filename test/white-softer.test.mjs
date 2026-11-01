@@ -113,10 +113,14 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
     dispatchEvent(event) { for (const listener of listeners.get(event.type) || []) listener(event); }
   };
   class Element {
-    constructor() { this.attributes = new Map(); this.style = { setProperty() {} }; this.children = []; this.open = false; }
+    constructor() {
+      this.attributes = new Map(); this.children = []; this.open = false;
+      this.style = { values: new Map(), setProperty(name, value, priority) { this.values.set(name, {value, priority}); } };
+    }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
-    append(child) { this.children.push(child); child.parentNode = this; }
+    append(...children) { for (const child of children) { this.children.push(child); child.parentNode = this; } }
+    attachShadow(options) { assert.equal(options.mode, 'closed'); this.privateRoot = new Element(); return this.privateRoot; }
     matches(selector) { return selector === ':popover-open' && this.open; }
     showPopover() { this.open = true; }
     remove() { this.parentNode?.children.splice(this.parentNode.children.indexOf(this), 1); this.parentNode = null; }
@@ -128,6 +132,7 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
     addEventListener() {}, removeEventListener() {}
   };
   const context = vm.createContext({ window, document, Symbol, Math, Number, Array, Uint8Array,
+    CSSStyleSheet: class { replaceSync(css) { this.css = css; } },
     MutationObserver: class { constructor(callback) { this.callback = callback; rootObservers.push(this); }
       observe() {} disconnect() {} },
     crypto: { getRandomValues(bytes) { bytes.fill(1); return bytes; } },
@@ -146,6 +151,13 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   assert.equal(host.parentNode, root);
   assert.equal(host.getAttribute('data-tone'), 'cool');
   assert.equal(host.open, true);
+  assert.equal(host.children.length, 0, 'the pixel filter is outside the page style tree');
+  assert.equal(host.privateRoot.children.length, 2);
+  assert.match(host.privateRoot.adoptedStyleSheets[0].css, /:host::backdrop/);
+  for (const [name, value] of [['background', 'none'], ['filter', 'none'], ['mix-blend-mode', 'normal'],
+    ['opacity', '1'], ['animation', 'none'], ['transition', 'none']]) {
+    assert.deepEqual(host.style.values.get(name), { value, priority: 'important' }, name + ' cannot inherit an early page popover theme');
+  }
   window.dispatchEvent({ type: 'cosmic-gemini:white-softer:prepaint-check', detail: JSON.stringify({
     active: true, tone: 'warm-minus-1'
   }) });
@@ -197,7 +209,8 @@ test('XML waits for the native viewer, retains the latest tone and cancels defer
     }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     getAttribute(name) { return this.attributes.get(name) || null; }
-    append(child) { this.children.push(child); child.parentNode = this; }
+    append(...children) { for (const child of children) { this.children.push(child); child.parentNode = this; } }
+    attachShadow(options) { assert.equal(options.mode, 'closed'); this.privateRoot = new Element(); return this.privateRoot; }
     matches() { return this.open === true; }
     showPopover() { this.open = true; }
     remove() { this.parentNode = null; }
@@ -250,7 +263,8 @@ test('white caps ignore disclosures and coalesce actual top-layer openings befor
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     getAttribute(name) { return this.attributes.get(name) ?? null; }
     hasAttribute(name) { return this.attributes.has(name); }
-    append(child) { this.children.push(child); child.parentNode = this; }
+    append(...children) { for (const child of children) { this.children.push(child); child.parentNode = this; } }
+    attachShadow(options) { assert.equal(options.mode, 'closed'); this.privateRoot = new Element(); return this.privateRoot; }
     matches(selector) {
       if (selector === '[popover], dialog') return this.hasAttribute('popover') || this.name === 'dialog';
       if (selector === ':popover-open, :modal') return (this.hasAttribute('popover') && this.open) || this.modal;
@@ -541,7 +555,8 @@ test('White Softer preserves near-white surface and border contrast at every ton
     constructor() { this.attributes = new Map(); this.children = []; this.style = { setProperty() {} }; }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     getAttribute(name) { return this.attributes.get(name) || null; }
-    append(child) { this.children.push(child); child.parentNode = this; }
+    append(...children) { for (const child of children) { this.children.push(child); child.parentNode = this; } }
+    attachShadow(options) { assert.equal(options.mode, 'closed'); this.privateRoot = new Element(); return this.privateRoot; }
   }
   const context = vm.createContext({
     document: { contentType: 'text/html', createElement: () => new Element(), createElementNS: () => new Element(),

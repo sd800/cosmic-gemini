@@ -56,12 +56,14 @@
       this.promotedFullscreen = null;
       this.appearanceTargets = new WeakSet();
       this.appearanceRefreshQueued = false;
+      this.appearanceFrame = 0;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
       this.mount = this.mount.bind(this);
       this.scheduleAppearanceRefresh = this.scheduleAppearanceRefresh.bind(this);
       this.refreshShadeColor = this.refreshShadeColor.bind(this);
+      this.onAppearanceAnimation = this.onAppearanceAnimation.bind(this);
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
       window.addEventListener(READY, this.onBridgeReady, true);
@@ -120,7 +122,36 @@
     refreshShadeColor() {
       this.appearanceRefreshQueued = false;
       if (!this.active || !this.host) return;
-      this.host.setAttribute('data-shade', this.shadeIsInsideInversion() ? 'light' : 'dark');
+      const shade = this.shadeIsInsideInversion() ? 'light' : 'dark';
+      if (this.host.getAttribute('data-shade') !== shade) this.host.setAttribute('data-shade', shade);
+      // Computed filter values change during CSS transitions without further
+      // attribute mutations. Follow only running filter animations on actual
+      // ancestors; no frame work is needed on a static page or for other effects.
+      if (this.reduction !== '0' && !this.appearanceFrame && !this.promotedFullscreen
+        && typeof requestAnimationFrame === 'function' && this.hasFilterAnimation()) {
+        this.appearanceFrame = requestAnimationFrame(() => {
+          this.appearanceFrame = 0;
+          this.refreshShadeColor();
+        });
+      }
+    }
+
+    hasFilterAnimation() {
+      for (let node = this.host?.parentElement; node; node = node.parentElement) {
+        try {
+          if (node.getAnimations?.().some(animation =>
+            (animation.playState === 'running' || animation.pending) && !animation.effect?.pseudoElement
+            && animation.effect?.getKeyframes().some(frame => Object.hasOwn(frame, 'filter')))) return true;
+        } catch {}
+      }
+      return false;
+    }
+
+    onAppearanceAnimation(event) {
+      if (event.isTrusted !== true || (event.type.startsWith('transition') && event.propertyName !== 'filter')) return;
+      for (let node = this.host?.parentElement; node; node = node.parentElement) {
+        if (event.target === node) { this.scheduleAppearanceRefresh(); return; }
+      }
     }
 
     scheduleAppearanceRefresh() {
@@ -160,6 +191,9 @@
       document.addEventListener('__darkreader__updateSheet', this.scheduleAppearanceRefresh, true);
       window.addEventListener('load', this.scheduleAppearanceRefresh, true);
       window.addEventListener('pageshow', this.scheduleAppearanceRefresh, true);
+      for (const type of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) {
+        document.addEventListener(type, this.onAppearanceAnimation, true);
+      }
       if (this.appearanceObserver) { this.observeAppearanceTargets(); return; }
       this.appearanceTargets = new WeakSet();
       this.appearanceObserver = new MutationObserver(() => {
@@ -170,6 +204,8 @@
     }
 
     stopAppearanceTracking() {
+      if (this.appearanceFrame) cancelAnimationFrame(this.appearanceFrame);
+      this.appearanceFrame = 0;
       this.appearanceObserver?.disconnect();
       this.appearanceObserver = null;
       this.appearanceTargets = new WeakSet();
@@ -177,6 +213,9 @@
       document.removeEventListener('__darkreader__updateSheet', this.scheduleAppearanceRefresh, true);
       window.removeEventListener('load', this.scheduleAppearanceRefresh, true);
       window.removeEventListener('pageshow', this.scheduleAppearanceRefresh, true);
+      for (const type of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) {
+        document.removeEventListener(type, this.onAppearanceAnimation, true);
+      }
       this.appearanceRefreshQueued = false;
     }
 

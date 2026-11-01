@@ -15,7 +15,7 @@
   contain: strict !important;
   /* Transparent pixel filtering preserves Chrome's elastic-overscroll backdrop. */
   background-color: transparent !important;
-  backdrop-filter: var(--cg-white-cap-filter) !important;
+  /* The private inner surface owns the only pixel filter. */
 }
 [data-cosmic-gemini-white-softer]:popover-open { display: block !important; }
 [data-cosmic-gemini-white-softer]::backdrop { display: none !important; }

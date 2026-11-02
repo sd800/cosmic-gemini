@@ -157,7 +157,7 @@ Instagram 可能要求登录或限制列表访问；只有完整读取两份列�
 ## 主要特性
 
 - Native Scroll 与 No Autoplay 分别提供全局默认状态和当前网站的单独设置，并支持标准模式与强力模式
-- Any Copy 按网站启用，Any Copy 强力模式仅在当前标签页中运行
+- Any Copy 使用浏览器会话内的网站临时策略，Any Copy 强力模式仅在当前标签页中运行
 - 按需查找图片，支持自动选择原图来源、筛选、本地格式转换、区域截取和批量 ZIP 下载
 - 按需查找视频，支持视频文件、HLS、DASH、本地音视频合并、字幕和专用网站识别
 - Page Display 可独立控制白点降低与灰阶显示
@@ -192,7 +192,7 @@ Instagram 可能要求登录或限制列表访问；只有完整读取两份列�
 
 Native Scroll 与 No Autoplay 的控制按钮只调整当前网站，不会改变全局默认状态。即使全局设置已关闭，也可以为当前网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。
 
-Any Copy 会为当前网站启用并保存对应的主机名或 IP 地址规则。Any Copy 强力模式只作用于当前标签页，手动关闭或关闭标签页后即会结束。两项功能可以同时运行，关闭其中一项不会改变另一项。
+控制窗口中的 Any Copy 点击操作会临时开启或关闭当前主域名及其子域名的功能，持续至退出 Chrome，同步适用于同域名下的各个标签页，不会更改设置页中的 Any Copy sites。蓝色边框表示存在持续策略，即使临时关闭后也会保留。Any Copy 强力模式只作用于当前标签页，手动关闭或关闭标签页后即会结束。两项功能可以同时运行，关闭其中一项不会改变另一项。
 
 Reduce White Point 与 Greyscale 的普通点击调整当前网站，长按调整所有网站。关闭控制窗口或标签页不会结束当次网站设置；该设置持续至退出 Chrome。
 
@@ -244,7 +244,7 @@ Native Scroll 与 No Autoplay 各自拥有一个全局默认状态，以及三�
 
 控制窗口中的一级功能按钮会为当前网站设置精确行为，已有精确规则时则恢复使用范围更广的设置，并且不会改变全局默认状态。强力模式按钮会在需要时为当前网站启用功能，并在强力模式与标准模式之间切换。
 
-Any Copy 单独保存网站启用规则。Any Copy 强力模式不使用网站规则，只在浏览器会话中保留当前标签页状态。No Autoplay 在某个网站被停用后，该网站可以自动播放视频、音频和 Web Audio。
+Any Copy 单独保存网站启用规则；控制窗口中的临时策略优先适用，持续至退出 Chrome。Any Copy 强力模式不使用网站规则，只在浏览器会话中保留当前标签页状态。No Autoplay 在某个网站被停用后，该网站可以自动播放视频、音频和 Web Audio。
 
 ### 声音自动播放
 
@@ -252,7 +252,7 @@ No Autoplay 默认会直接拦截声音自动播放，不再显示网页询问�
 
 ## 隐私
 
-Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Clipboard Protect、Access Control、Website Knowledge Control、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名或 IP 地址，不包含完整网址。Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
+Native Scroll、No Autoplay、Any Copy、Any Copy 强力模式、Image Download、Video Download、Mailto Capture、Clipboard Protect、Access Control、Website Knowledge Control、Page Display、XHS Image Dark Mode、Chinese Response Display Optimization for Claude 和 Ad Marshal 完全在本地运行。网站规则仅包含主机名或 IP 地址，不包含完整网址。Any Copy 的临时域名策略和 Any Copy 强力模式的当前标签页状态只保存在浏览器会话中，Bili Daily Login 则会保留少量完成状态和日程状态，以避免重复检查。
 
 Image Download 与 Video Download 只会在当前标签页的临时会话中将检测到的来源地址保存在 `chrome.storage.session`。会话结束后，这些地址会被删除。
 

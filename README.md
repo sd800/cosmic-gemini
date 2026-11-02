@@ -157,7 +157,7 @@ Commands are case-insensitive. `zh`, `zhs`, `zh-Hans`, and Simplified Chinese re
 ## Features
 
 - Global defaults and independent current-site overrides for Native Scroll and No Autoplay, including Standard and Enhanced modes
-- Website activation for Any Copy and a current-tab session for Any Copy Enhanced
+- Browser-session website choices for Any Copy and a current-tab session for Any Copy Enhanced
 - On-demand image discovery with automatic original-source selection, filtering, local conversion, area capture, and batch ZIP downloads
 - On-demand video detection with direct files, HLS, DASH, local audio-video remuxing, subtitles, and service-specific discovery
 - Independent Page Display controls for white-point reduction and greyscale rendering
@@ -192,7 +192,7 @@ The popup uses five compact rows, with two related controls in each row.
 
 Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 
-Any Copy is enabled for the current website and stores the corresponding hostname or IP-address rule. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
+Clicking Any Copy in the popup turns it on or off for the current registrable domain and its subdomains until Chrome exits. This temporary choice applies across matching tabs and does not change Any Copy sites in Settings. A blue outline indicates an ongoing website policy, even when Any Copy is temporarily off. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
 
 For Reduce White Point and Greyscale, click for a temporary current-website choice, or press and hold for all websites. Closing the control window or a tab does not end the current-website choice; it lasts until Chrome exits.
 
@@ -244,7 +244,7 @@ An exact rule takes priority over a wildcard, followed by the most specific wild
 
 The popup's primary control creates an exact current-site behavior or returns an existing exact rule to the broader setting. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
 
-Any Copy keeps its own website activation list. Any Copy Enhanced uses no website rules and keeps only a current-tab session state. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
+Any Copy keeps its own saved website activation list; temporary popup choices take priority until Chrome exits. Any Copy Enhanced uses no website rules and keeps only a current-tab session state. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
 
 ### Audio autoplay
 
@@ -252,7 +252,7 @@ When No Autoplay is enabled, audio autoplay is blocked without interrupting you 
 
 ## Privacy
 
-Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Page Display, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, and Ad Marshal run locally. Website rules contain hostnames or IP addresses rather than complete URLs. Any Copy Enhanced keeps its current-tab state only in browser session storage, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
+Native Scroll, No Autoplay, Any Copy, Any Copy Enhanced, Image Download, Video Download, Mailto Capture, Clipboard Protect, Access Control, Website Knowledge Control, Page Display, XHS Image Dark Mode, Chinese Response Display Optimization for Claude, and Ad Marshal run locally. Website rules contain hostnames or IP addresses rather than complete URLs. Any Copy keeps temporary domain choices in browser session storage; Any Copy Enhanced keeps its current-tab state there as well, while Bili Daily Login retains limited completion and schedule state to avoid duplicate checks.
 
 Image Download and Video Download keep detected source addresses only in `chrome.storage.session` for the active tab. Those addresses are deleted when the session ends.
 

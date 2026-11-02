@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.1.3 — 2026-11-01
+
+- Change the popup's Any Copy control to a temporary choice for the current site's registrable domain and subdomains, lasting until Chrome exits. Popup clicks no longer add or remove Any Copy sites.
+- Show a blue outline whenever a saved website rule or coordinated policy enables Any Copy, independently of the temporary on/off choice.
+- Apply temporary on/off choices to matching open tabs and newly opened pages, including sites already covered by saved rules or coordinated activation. Keep saved website rules unchanged and isolate regular and incognito sessions.
+
 ## 26.11.1.2 — 2026-11-01
 
 - Keep recognized image covers dark while Xiaohongshu opens a post, including background-image placeholders and temporary first images before the full carousel is ready.

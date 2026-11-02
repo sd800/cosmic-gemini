@@ -1,39 +1,56 @@
 import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import { FEATURE_IDS, anyCopyState, hostnameFromUrl, normalizeRule, updateFeature } from '../../../core/config.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
+import { siteKey } from '../../../core/site-key.js';
 
-const COORDINATED_PAUSE_PREFIX = 'anyCopyCoordinatedPauseTab:';
+const SESSION_PREFIX = 'anyCopySite:';
 
 export function createAnyCopyProduct(pageRuntimeHost, platform) {
   const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
-  const tabUpdates = createKeyedTaskQueue();
-  const pauseKey = tabId => COORDINATED_PAUSE_PREFIX + tabId;
+  const siteUpdates = createKeyedTaskQueue();
+  const key = site => SESSION_PREFIX + site;
+
+  async function currentPage(message) {
+    if (!Number.isInteger(message.tabId) || message.tabId < 0) throw new Error('The current tab is unavailable.');
+    const tab = await chrome.tabs.get(message.tabId);
+    const url = tab.pendingUrl || tab.url || '';
+    const hostname = hostnameFromUrl(url);
+    if (!hostname || hostname !== normalizeRule(message.expectedHostname || message.hostname || '')
+      || (tab.incognito === true) !== (platform.isIncognitoContext?.() === true)) {
+      throw new Error('The page changed before the action completed.');
+    }
+    return { tab, url, site: siteKey(url) };
+  }
+
+  async function refreshSite(site, active) {
+    const tabs = await chrome.tabs.query({});
+    await Promise.allSettled(tabs.filter(tab => Number.isInteger(tab.id)
+      && (tab.incognito === true) === (platform.isIncognitoContext?.() === true)
+      && siteKey(tab.pendingUrl || tab.url || '') === site).map(async tab => {
+      if (!active) {
+        try { await platform.setFeatureActivity(tab.id, product.id, false); } catch {}
+      }
+      // Central also coordinates Clipboard Protect and every eligible child frame.
+      await platform.refreshTabPage(tab.id);
+    }));
+  }
+
   const product = Object.freeze({
     id: FEATURE_IDS.ANY_COPY,
     bridge: 'content/any-copy/any-copy-bridge.js',
     runtime: 'content/any-copy/any-copy-runtime.js',
-    async isCoordinatedPaused(tabId) {
-      if (!Number.isInteger(tabId)) return false;
-      try {
-        return (await sessionStorage.get(pauseKey(tabId)))[pauseKey(tabId)]?.paused === true;
-      } catch { return false; }
-    },
-    async setCoordinatedPaused(tabId, paused) {
-      if (paused) await sessionStorage.set({ [pauseKey(tabId)]: { paused: true } });
-      else await sessionStorage.remove(pauseKey(tabId));
-    },
-    async state(settings, url, tabId, directives = {}) {
+    async state(settings, url, _tabId, directives = {}) {
       const base = anyCopyState(settings, url);
-      const directive = directives[product.id];
-      const persistent = directive?.persistent === true;
-      const tabPaused = persistent && await product.isCoordinatedPaused(tabId);
+      const site = base.supported ? siteKey(url) : '';
+      const entry = site ? (await sessionStorage.get(key(site)))[key(site)] : null;
+      const sessionOverride = typeof entry?.active === 'boolean';
+      const persistent = base.supported && directives[product.id]?.persistent === true;
+      const active = sessionOverride ? entry.active : persistent || base.active;
       return {
-        ...base,
-        active: persistent ? !tabPaused : base.active,
-        enabled: persistent ? !tabPaused : base.enabled,
+        ...base, site, active, enabled: active, sessionOverride,
+        persistentPolicy: base.active || persistent,
         coordinated: persistent,
-        coordinationSource: persistent ? String(directive.source || '') : '',
-        tabPaused
+        coordinationSource: persistent ? String(directives[product.id].source || '') : ''
       };
     },
     async sync(context, settings) {
@@ -42,82 +59,45 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
       return state.active;
     },
     async handleMessage(message, context = {}) {
-      if (message.type === 'UI_TOGGLE_COORDINATED_TAB_FEATURE') {
-        const tabId = Number(message.tabId);
-        if (!Number.isInteger(tabId)) throw new Error('The current tab is unavailable.');
-        return tabUpdates.run(tabId, async () => {
-          const tab = await chrome.tabs.get(tabId);
-          const currentHostname = hostnameFromUrl(tab.url || '');
-          if (!currentHostname || currentHostname !== normalizeRule(message.expectedHostname || '')) {
-            throw new Error('The page changed before the action completed.');
-          }
-          const directives = await context.resolvePageDirectives?.(tab.url || '');
-          if (directives?.[product.id]?.persistent !== true) {
-            throw new Error('The coordinated Any Copy policy is no longer active.');
-          }
-          const paused = !(await product.isCoordinatedPaused(tabId));
-          await product.setCoordinatedPaused(tabId, paused);
-          if (paused) {
-            try { await platform.setFeatureActivity(tabId, product.id, false); } catch {}
-          }
-          void platform.refreshTabPage(tabId).catch(() => {});
-          return product.state(await platform.readSettings(), tab.url || '', tabId, directives);
+      if (message.type === 'UI_TOGGLE_SITE_FEATURE') {
+        if (context.sender?.url !== chrome.runtime.getURL('popup/index.html')) {
+          throw new Error('Temporary Any Copy choices are available only from the popup.');
+        }
+        const initial = await currentPage(message);
+        return siteUpdates.run(initial.site, async () => {
+          const { tab, url, site } = await currentPage(message);
+          const settings = await platform.readSettings();
+          const directives = await context.resolvePageDirectives?.(url);
+          const state = await product.state(settings, url, tab.id, directives);
+          const active = !state.active;
+          // Browser-session storage survives worker suspension, but never Chrome exit.
+          await sessionStorage.set({ [key(site)]: { active } });
+          platform.notifyCentralUi?.();
+          await refreshSite(site, active).catch(() => {});
+          return { ...state, active, enabled: active, sessionOverride: true };
         });
       }
-      if (message.type === 'UI_ALPHABETIZE_RULES' || message.type === 'UI_CLEAR_RULES') {
-        if (message.listName !== 'siteRules'
-          || !String(context.sender?.url || '').startsWith(chrome.runtime.getURL('settings/'))) {
-          throw new Error('Any Copy rules can be managed only from Settings.');
-        }
-        const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({
-          ...feature,
-          siteRules: message.type === 'UI_CLEAR_RULES'
-            ? []
-            : [...feature.siteRules].sort((a, b) => a.localeCompare(b))
-        })));
-        return settings[product.id];
-      }
-      let hostname = normalizeRule(message.rule || message.hostname || '');
-      if (message.type === 'UI_TOGGLE_SITE_FEATURE' || message.expectedHostname) {
-        const tabId = Number(message.tabId);
-        if (!Number.isInteger(tabId)) throw new Error('The current tab is unavailable.');
-        const tab = await chrome.tabs.get(tabId);
-        const currentHostname = hostnameFromUrl(tab.url || '');
-        if (!currentHostname || currentHostname !== normalizeRule(message.expectedHostname || message.hostname || '')) {
-          throw new Error('The page changed before the action completed.');
-        }
-        if (message.type === 'UI_TOGGLE_SITE_FEATURE') hostname = currentHostname;
-      }
-      if (message.type === 'UI_TOGGLE_SITE_FEATURE' && hostname.startsWith('*.')) {
-        throw new Error('The current-site action requires an exact hostname.');
-      }
-      if (!['UI_TOGGLE_SITE_FEATURE', 'UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type)
-        || (message.type !== 'UI_TOGGLE_SITE_FEATURE' && message.listName !== 'siteRules')) {
+      if (!['UI_ADD_RULE', 'UI_DELETE_RULE', 'UI_ALPHABETIZE_RULES', 'UI_CLEAR_RULES'].includes(message.type)
+        || message.listName !== 'siteRules') {
         throw new Error('Any Copy does not support this command.');
       }
+      if (!String(context.sender?.url || '').startsWith(chrome.runtime.getURL('settings/'))) {
+        throw new Error('Any Copy rules can be managed only from Settings.');
+      }
+      const hostname = ['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type)
+        ? normalizeRule(message.rule || message.hostname || '') : '';
       const settings = await platform.mutateSettings(current => updateFeature(current, product.id, feature => ({
         ...feature,
-        siteRules: message.type === 'UI_DELETE_RULE'
-          ? feature.siteRules.filter(rule => rule !== hostname)
-          : message.type === 'UI_ADD_RULE'
-            ? (feature.siteRules.includes(hostname) ? feature.siteRules : [...feature.siteRules, hostname])
-            : feature.siteRules.includes(hostname)
-              ? feature.siteRules.filter(rule => rule !== hostname)
-              : [...feature.siteRules, hostname]
+        siteRules: message.type === 'UI_CLEAR_RULES' ? []
+          : message.type === 'UI_ALPHABETIZE_RULES' ? [...feature.siteRules].sort((a, b) => a.localeCompare(b))
+            : message.type === 'UI_DELETE_RULE' ? feature.siteRules.filter(rule => rule !== hostname)
+              : feature.siteRules.includes(hostname) ? feature.siteRules : [...feature.siteRules, hostname]
       })));
       return settings[product.id];
     },
-    async removeTab(tabId) {
-      await tabUpdates.run(tabId, () => sessionStorage.remove(pauseKey(tabId)));
-    },
-    async cleanupOrphans() {
-      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
-      const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
-      const keys = Object.keys(values).filter(value => {
-        if (!value.startsWith(COORDINATED_PAUSE_PREFIX)) return false;
-        const tabId = Number(value.slice(COORDINATED_PAUSE_PREFIX.length));
-        return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
-      });
+    async reset() {
+      await siteUpdates.drain();
+      const keys = Object.keys(await sessionStorage.get(null)).filter(value => value.startsWith(SESSION_PREFIX));
       if (keys.length) await sessionStorage.remove(keys);
     }
   });

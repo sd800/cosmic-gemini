@@ -117,6 +117,7 @@ function renderSiteFeature(featureId) {
     label(toggle, t('unavailable'));
     return;
   }
+  toggle.dataset.savedPolicy = String(featureId === 'anyCopy' && feature.persistentPolicy === true);
   toggle.dataset.state = iconState(featureId, feature);
   toggle.dataset.persistent = String(feature.active);
   toggle.setAttribute('aria-pressed', String(feature.active));
@@ -126,9 +127,9 @@ function renderSiteFeature(featureId) {
   } else if (featureId === 'anyCopyEnhanced') {
     toggle.disabled = false;
     label(toggle, t(feature.active ? 'anyCopyEnhancedOnTitle' : 'anyCopyEnhancedOffTitle'));
-  } else if (featureId === 'anyCopy' && feature.coordinationSource === 'adMarshalZhihu') {
+  } else if (featureId === 'anyCopy') {
     toggle.disabled = false;
-    label(toggle, t(feature.tabPaused ? 'anyCopyZhihuResumeTitle' : 'anyCopyZhihuPauseTitle'));
+    label(toggle, t(feature.active ? 'anyCopySessionOnTitle' : 'anyCopySessionOffTitle', { site: feature.site }));
   } else if (feature.active && !feature.exactActive) {
     toggle.disabled = false;
     label(toggle, t('siteFeatureCoveredTitle', { product, rule: feature.matchedRule }));
@@ -693,21 +694,10 @@ for (const featureId of ['nativeScroll', 'noAutoplay']) {
 
 const anyCopyControl = document.querySelector('#anyCopy-status');
 anyCopyControl.innerHTML = icon('anyCopy');
-anyCopyControl.addEventListener('click', () => void act(() => {
-  const feature = state.anyCopy;
-  if (feature.coordinationSource === 'adMarshalZhihu') return send({
-    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE', featureId: 'anyCopy',
-    tabId: currentTab?.id, expectedHostname: feature.hostname
-  });
-  if (feature.matchedRule) return send({
-    type: 'UI_DELETE_RULE', featureId: 'anyCopy', listName: 'siteRules', rule: feature.matchedRule,
-    tabId: currentTab?.id, expectedHostname: feature.hostname
-  });
-  return send({
-    type: 'UI_TOGGLE_SITE_FEATURE', featureId: 'anyCopy', hostname: feature.hostname,
-    tabId: currentTab?.id, expectedHostname: feature.hostname
-  });
-}));
+anyCopyControl.addEventListener('click', () => void act(() => send({
+  type: 'UI_TOGGLE_SITE_FEATURE', featureId: 'anyCopy',
+  tabId: currentTab?.id, expectedHostname: state.anyCopy.hostname
+})));
 
 const anyCopyEnhancedControl = document.querySelector('#anyCopyEnhanced-status');
 anyCopyEnhancedControl.innerHTML = icon('anyCopyEnhanced');

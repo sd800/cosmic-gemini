@@ -456,6 +456,7 @@ test('shared whitelist still rejects non-Settings senders and malformed rules wi
 });
 
 test('Any Copy settings remove the submitted rule instead of an empty hostname', async () => {
+  globalThis.chrome = { runtime: { getURL: path => 'chrome-extension://test/' + path } };
   let settings = normalizeSettings({ anyCopy: { siteRules: ['copy.example', 'keep.example'] } });
   const platform = {
     async mutateSettings(update) {
@@ -464,7 +465,8 @@ test('Any Copy settings remove the submitted rule instead of an empty hostname',
     }
   };
   const product = createAnyCopyProduct({ sync: async () => true }, platform);
-  await product.handleMessage({ type: 'UI_DELETE_RULE', listName: 'siteRules', rule: 'copy.example' });
+  await product.handleMessage({ type: 'UI_DELETE_RULE', listName: 'siteRules', rule: 'copy.example' },
+    { sender: { url: chrome.runtime.getURL('settings/any-copy.html') } });
   assert.deepEqual(settings.anyCopy.siteRules, ['keep.example']);
 });
 
@@ -506,73 +508,6 @@ test('Central does not start the incoming copy guard when the outgoing guard fai
     return true;
   }), /cleanup failed/);
   assert.deepEqual(calls, ['clipboardProtect']);
-});
-
-test('coordinated Zhihu Any Copy can be paused only for the current tab', async () => {
-  const session = {};
-  const tabs = new Map([
-    [51, { id: 51, url: 'https://www.zhihu.com/question/1' }],
-    [52, { id: 52, url: 'https://zhuanlan.zhihu.com/p/2' }]
-  ]);
-  globalThis.chrome = {
-    storage: { session: {
-      async get(key) {
-        if (key === null) return { ...session };
-        return key in session ? { [key]: session[key] } : {};
-      },
-      async set(values) { Object.assign(session, values); },
-      async remove(keys) { for (const key of Array.isArray(keys) ? keys : [keys]) delete session[key]; }
-    } },
-    tabs: {
-      async get(tabId) { return tabs.get(tabId); },
-      async query() { return [...tabs.values()]; }
-    }
-  };
-  const settings = normalizeSettings({ adMarshal: { managedSites: { zhihu: true } } });
-  const directivesFor = url => centralPageDirectives(settings, url);
-  let refreshes = 0;
-  const product = createAnyCopyProduct({ async sync() {} }, {
-    async readSettings() { return settings; },
-    async setFeatureActivity() {},
-    async refreshTabPage() { refreshes += 1; }
-  });
-
-  assert.equal((await product.state(settings, tabs.get(51).url, 51, directivesFor(tabs.get(51).url))).active, true);
-  assert.equal((await product.state(settings, tabs.get(52).url, 52, directivesFor(tabs.get(52).url))).active, true);
-  const context = { async resolvePageDirectives(url) { return directivesFor(url); } };
-  const paused = await product.handleMessage({
-    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE',
-    tabId: 51,
-    expectedHostname: 'www.zhihu.com'
-  }, context);
-  assert.equal(paused.active, false);
-  assert.equal(paused.coordinated, true);
-  assert.equal(paused.tabPaused, true);
-  assert.equal(centralPageDirectives(settings, tabs.get(51).url, {
-    anyCopyActive: paused.active
-  }).clipboardProtect.yieldToAnyCopy, false);
-  assert.equal((await product.state(settings, tabs.get(52).url, 52, directivesFor(tabs.get(52).url))).active, true);
-  assert.deepEqual(settings.anyCopy.siteRules, []);
-
-  const resumed = await product.handleMessage({
-    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE',
-    tabId: 51,
-    expectedHostname: 'www.zhihu.com'
-  }, context);
-  assert.equal(resumed.active, true);
-  assert.equal(resumed.tabPaused, false);
-  assert.equal(centralPageDirectives(settings, tabs.get(51).url, {
-    anyCopyActive: resumed.active
-  }).clipboardProtect.yieldToAnyCopy, true);
-  await product.handleMessage({
-    type: 'UI_TOGGLE_COORDINATED_TAB_FEATURE',
-    tabId: 51,
-    expectedHostname: 'www.zhihu.com'
-  }, context);
-  assert.equal(await product.isCoordinatedPaused(51), true);
-  await product.removeTab(51);
-  assert.equal(await product.isCoordinatedPaused(51), false);
-  assert.equal(refreshes, 3);
 });
 
 test('turning Any Copy Enhanced off succeeds even if activity bookkeeping fails', async () => {
@@ -621,7 +556,8 @@ test('concurrent Any Copy Enhanced clicks are applied in order', async () => {
 });
 
 test('popup website actions stop when the source tab has navigated elsewhere', async () => {
-  globalThis.chrome = { tabs: { async get() { return { url: 'https://new.example/' }; } } };
+  globalThis.chrome = { runtime: { getURL: path => 'chrome-extension://test/' + path },
+    tabs: { async get() { return { url: 'https://new.example/' }; } } };
   let writes = 0;
   const platform = {
     async mutateSettings() { writes += 1; },
@@ -641,7 +577,7 @@ test('popup website actions stop when the source tab has navigated elsewhere', a
     tabId: 4,
     hostname: 'old.example',
     expectedHostname: 'old.example'
-  }), /page changed/i);
+  }, { sender: { url: chrome.runtime.getURL('popup/index.html') } }), /page changed/i);
   assert.equal(writes, 0);
 });
 
@@ -1097,10 +1033,9 @@ test('Settings keeps the newest registered document without reading general tab 
 test('one product cleanup failure does not strand other Operations products', async () => {
   const removed=[];let cleared=0;
   globalThis.chrome={extension:{inIncognitoContext:false},runtime:{getURL:path=>'chrome-extension://test/'+path},
-    storage:{session:{get:async()=>({}),remove:async key=>{removed.push(key);if(String(key).startsWith('anyCopyCoordinatedPauseTab:'))throw Error('transient');},set:async()=>{}}},tabs:{query:async()=>[]}};
+    storage:{session:{get:async()=>({}),remove:async key=>{removed.push(key);if(String(key).startsWith('anyCopyEnhancedTab:'))throw Error('transient');},set:async()=>{}}},tabs:{query:async()=>[]}};
   const province=createOperationsProvince({readSettings:async()=>normalizeSettings(),clearTabActivity:async()=>{cleared++;},notifyCentralUi(){},setFeatureActivity:async()=>{}});
   await province.handleTabRemoved(88);
-  assert.ok(removed.includes('anyCopyCoordinatedPauseTab:88'));
   assert.ok(removed.includes('anyCopyEnhancedTab:88'));
   assert.equal(cleared,1,'final activity cleanup still runs after another product rejects');
 });

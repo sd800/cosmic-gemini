@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.1.2');
+assert.equal(manifest.version, '26.11.1.3');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -568,8 +568,8 @@ assert.match(mailtoCaptureProtocols, /\^mailto:[\s\S]*recipientValues[\s\S]*cc[\
 assert.match(mailtoCaptureProtocols, /\^sms:[\s\S]*recipients[\s\S]*body[\s\S]*otherFields/);
 assert.match(mailtoCaptureRuntime, /onPointerDown[\s\S]*path\.includes\(this\.host\)[\s\S]*this\.close\(\)/);
 assert.match(mailtoCaptureRuntime, /event\.key === 'Escape'[\s\S]*this\.close\(true\)/);
-assert.match(anyCopy, /UI_TOGGLE_COORDINATED_TAB_FEATURE[\s\S]*COORDINATED_PAUSE_PREFIX/,
-  'Any Copy must keep coordinated pauses tab-scoped and separate from hostname rules.');
+assert.match(anyCopy, /SESSION_PREFIX = 'anyCopySite:'[\s\S]*siteKey[\s\S]*sessionOverride/,
+  'Any Copy popup choices must use browser-session website overrides.');
 assert.doesNotMatch(anyCopy, /ad-marshal|managedSites/,
   'Any Copy must consume Central directives without reading or controlling Ad Marshal.');
 assert.match(mailtoCaptureRuntime, /simpleAddressOnly[\s\S]*labels\.copyAddress[\s\S]*labels\.copyMessage/);

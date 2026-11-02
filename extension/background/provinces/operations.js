@@ -85,7 +85,6 @@ export function createOperationsProvince(platform) {
       await platform.ensureSettings();
       await Promise.allSettled([
         platform.clearOrphanedActivity(),
-        anyCopy.cleanupOrphans(),
         anyCopyEnhanced.cleanupOrphans(),
         xhsImageDarkMode.cleanupOrphans(),
         chineseResponseClaude.initialize()
@@ -114,7 +113,7 @@ export function createOperationsProvince(platform) {
     },
     async handleTabRemoved(tabId) {
       await Promise.allSettled([
-        followListInstagram.removeTab(tabId), anyCopy.removeTab(tabId),
+        followListInstagram.removeTab(tabId),
         anyCopyEnhanced.removeTab(tabId), xhsImageDarkMode.removeTab(tabId),
         chineseResponseClaude.handleTabRemoved(tabId)
       ]);
@@ -129,7 +128,7 @@ export function createOperationsProvince(platform) {
       if (areaName === localeArea && changes?.[localeKey]) xhsImageDarkMode.clearLocale();
     },
     async reset() {
-      await Promise.allSettled([chineseResponseClaude.reset(), followListInstagram.reset(), pageDisplay.reset()]);
+      await Promise.allSettled([chineseResponseClaude.reset(), followListInstagram.reset(), pageDisplay.reset(), anyCopy.reset()]);
     }
   });
 }

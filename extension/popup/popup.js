@@ -64,6 +64,10 @@ function iconState(featureId, feature) {
   return feature?.active ? 'active' : 'off';
 }
 
+function mediaDownloadRunning(feature) {
+  return feature?.active === true || ['active', 'grace'].includes(feature?.scanState);
+}
+
 function renderDownloadControlState(toggle, feature) {
   const scanState = ['active', 'grace'].includes(feature?.scanState)
     ? feature.scanState
@@ -79,7 +83,7 @@ function renderImageRow() {
   toggle.disabled = !feature?.supported;
   toggle.hidden = !feature?.supported;
   renderDownloadControlState(toggle, feature);
-  label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'imageOpenTitle' : 'imageStartTitle'));
+  label(toggle, t(!feature?.supported ? 'unsupportedTitle' : mediaDownloadRunning(feature) ? 'imageOpenTitle' : 'imageStartTitle'));
 }
 
 function renderGuardFeature(featureId) {
@@ -528,7 +532,7 @@ function renderVideoRow() {
   toggle.disabled = !feature?.supported;
   toggle.hidden = !feature?.supported;
   renderDownloadControlState(toggle, feature);
-  label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'videoOpenTitle' : 'videoStartTitle'));
+  label(toggle, t(!feature?.supported ? 'unsupportedTitle' : mediaDownloadRunning(feature) ? 'videoOpenTitle' : 'videoStartTitle'));
   renderVideoPanel();
 }
 
@@ -774,7 +778,18 @@ async function mediaSourceForClick(featureId) {
   return { ...snapshot.tab, workspaceMode: snapshot.state[featureId].workspaceMode };
 }
 
-document.querySelector('#videoDownload-status').addEventListener('click', () => void perform(async () => {
+function bindMediaDownloadControl(featureId, stopType, open) {
+  bindDisplayButton(document.querySelector('#' + featureId + '-status'), scope => {
+    if (scope !== 'global') { void perform(open); return; }
+    if (!mediaDownloadRunning(state?.[featureId]) || !Number.isInteger(currentTab?.id)) return;
+    void perform(async () => {
+      await send({ type: stopType, tabId: currentTab.id });
+      await reloadAfterAction(false);
+    });
+  });
+}
+
+bindMediaDownloadControl('videoDownload', 'UI_VIDEO_STOP', async () => {
   const source = await mediaSourceForClick('videoDownload');
   setVideoViewVisible(true);
   await send({
@@ -785,9 +800,9 @@ document.querySelector('#videoDownload-status').addEventListener('click', () => 
     });
     showView('video');
     await reloadAfterAction(false);
-}));
+});
 
-document.querySelector('#imageDownload-status').addEventListener('click', () => void perform(async () => {
+bindMediaDownloadControl('imageDownload', 'UI_IMAGE_STOP', async () => {
     const source = await mediaSourceForClick('imageDownload');
     const tabId = source.id;
     const workspaceMode = source.workspaceMode || 'sidePanel';
@@ -804,7 +819,7 @@ document.querySelector('#imageDownload-status').addEventListener('click', () => 
       sidePanelPrepared: workspaceMode === 'sidePanel'
     });
     window.close();
-}));
+});
 
 document.querySelector('#video-back').innerHTML = icon('back');
 document.querySelector('#video-stop').innerHTML = icon('stop');

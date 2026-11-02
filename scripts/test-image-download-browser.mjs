@@ -119,6 +119,33 @@ try {
   await videoPopup.locator('#video-stop').click();
   await videoPopup.waitForFunction(() => document.body.dataset.view === 'main');
   await videoPopup.close();
+  const holdToStop = async (page, featureId) => {
+    const selector = '#' + featureId + '-status';
+    const opens = (await worker.evaluate(() => globalThis.imageOpenProbe)).length;
+    await page.locator(selector).hover(); await page.mouse.down();
+    try {
+      await page.waitForFunction(selector => document.querySelector(selector).getAttribute('aria-pressed') === 'false'
+        && !document.body.hasAttribute('aria-busy'), selector);
+    } finally { await page.mouse.up(); }
+    assert.equal(page.isClosed(), false, 'holding must not reopen the image workspace on release');
+    assert.equal(await page.getAttribute('body', 'data-view'), 'main');
+    assert.equal((await worker.evaluate(() => globalThis.imageOpenProbe)).length, opens);
+    assert.equal(await worker.evaluate(async ({ featureId, tabId }) => {
+      const key = `${featureId}Session:${tabId}`;
+      return (await chrome.storage.session.get(key))[key] === undefined;
+    }, { featureId, tabId: sourceTabId }), true, 'holding must remove the active source session');
+  };
+  const stopPopup = await context.newPage(); await source.bringToFront(); await stopPopup.goto(base + 'popup/index.html');
+  await stopPopup.waitForFunction(() => document.documentElement.dataset.localePending === 'false');
+  assert.equal(await stopPopup.getAttribute('#imageDownload-status', 'data-persistent'), 'true');
+  await holdToStop(stopPopup, 'imageDownload');
+  await stopPopup.locator('#videoDownload-status').click();
+  await stopPopup.waitForFunction(() => document.body.dataset.view === 'video');
+  await stopPopup.locator('#video-back').click();
+  await stopPopup.waitForFunction(() => document.querySelector('#videoDownload-status').dataset.state === 'active'
+    && document.querySelector('#videoDownload-status').dataset.persistent === 'false');
+  await holdToStop(stopPopup, 'videoDownload');
+  await stopPopup.close();
   let pdfWorker;
   if (process.env.PDF_TEST_EXTENSION) {
     for (const candidate of context.serviceWorkers()) if (await candidate.evaluate(() => chrome.runtime.getManifest().name) === 'Cosmic PDF') pdfWorker = candidate;
@@ -147,8 +174,8 @@ try {
   }
   assert.equal((await worker.evaluate(() => globalThis.imageOpenProbe)).length, openCount,
     'protected readers do not claim or open the media Side Panel');
-  await writeFile(join(artifacts, 'README.md'), '# Image Download opening\n\nRun scripts/test-image-download-browser.mjs with PLAYWRIGHT_MODULE and TEST_CHROME set. Uses an isolated Chrome for Testing profile and local image fixture. Checks a trusted popup click, native Side Panel opening, discovered images, repeated opening, passive popup ownership, explicit page mode, reuse without the tabs permission, normal Video Download activation, hidden controls and rejected direct launches in native/extension PDF readers and restricted pages, extensionless PDF handling, and exclusion of plain-text/XML documents. `native.pdf` is a reusable blank one-page fixture. Set PDF_TEST_EXTENSION to a local Cosmic PDF extension directory to include the real reader. Baseline reproduced Chrome rejecting the worker’s open call after asynchronous configuration. The popup now finishes configuration in its clicked document before the worker opens without an intervening await. The worker retains source validation and failure cleanup. Profiles are deleted and no browsing logs are retained.\n');
-  console.log('Media tools: native Side Panel, image discovery, workspace reuse, normal video entry, and protected-reader exclusion passed.');
+  await writeFile(join(artifacts, 'README.md'), '# Image Download opening\n\nRun scripts/test-image-download-browser.mjs with PLAYWRIGHT_MODULE and TEST_CHROME set. Uses an isolated Chrome for Testing profile and local image fixture. Checks a trusted popup click, native Side Panel opening, discovered images, repeated opening, passive popup ownership, explicit page mode, reuse without the tabs permission, normal Video Download activation, hold-to-stop of the active image session and icon-only video grace state without release-click reactivation, hidden controls and rejected direct launches in native/extension PDF readers and restricted pages, extensionless PDF handling, and exclusion of plain-text/XML documents. `native.pdf` is a reusable blank one-page fixture. Set PDF_TEST_EXTENSION to a local Cosmic PDF extension directory to include the real reader. Baseline reproduced Chrome rejecting the worker’s open call after asynchronous configuration. The popup now finishes configuration in its clicked document before the worker opens without an intervening await. The worker retains source validation and failure cleanup. Profiles are deleted and no browsing logs are retained.\n');
+  console.log('Media tools: native Side Panel, image discovery, workspace reuse, normal video entry, hold-to-stop, and protected-reader exclusion passed.');
 } finally {
   await context?.close(); await rm(folder, { recursive: true, force: true });
   await new Promise(resolve => server.close(resolve));

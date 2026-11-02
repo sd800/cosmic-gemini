@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.2.1 — 2026-11-02
+
+- Hold an active Image Download or Video Download icon in the popup to stop that tab’s session, including discovery with a highlighted background and the icon-only grace period. Ordinary clicks continue opening the respective workspace or media list.
+- Suppress the release click after a hold so a stopped tool cannot reopen immediately. Ignore inactive holds, cancel holds when moving away, and include the stop action in active-control tooltips.
+
 ## 26.11.1.6 — 2026-11-01
 
 - Restore Image Download opening from the popup by completing Side Panel configuration in the clicked document, then opening immediately in the background message handler before asynchronous source validation.

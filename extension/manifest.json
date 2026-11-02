@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cosmic Gemini",
   "description": "A personal toolkit for the web.",
-  "version": "26.11.2.5",
+  "version": "26.11.2.6",
   "minimum_chrome_version": "128",
   "icons": {
     "16": "icons/icon-16.png",
@@ -42,7 +42,10 @@
   },
   "options_page": "settings/all-settings.html",
   "sandbox": {
-    "pages": ["workspaces/pdf-viewer/viewer.html", "workspaces/document-preview/content.html"]
+    "pages": [
+      "workspaces/pdf-viewer/viewer.html",
+      "workspaces/document-preview/content.html"
+    ]
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
@@ -50,8 +53,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content/central-page.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content/central-page.js"
+      ],
       "run_at": "document_start",
       "world": "ISOLATED",
       "all_frames": true
@@ -79,6 +87,27 @@
         "http://*.zhihu.com/*",
         "https://*.zhihu.com/*"
       ]
+    },
+    {
+      "resources": [
+        "workspaces/document-preview/document-preview.html",
+        "workspaces/pdf-viewer/viewer.html",
+        "workspaces/document-preview/content.html"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    },
+    {
+      "resources": [
+        "workspaces/document-preview/entry.html"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "use_dynamic_url": true
     }
   ]
 }

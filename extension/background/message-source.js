@@ -26,13 +26,15 @@ const UI_PATHS = new Set([
   '/workspaces/follow-list-instagram/follow-list-instagram.html'
 ]);
 
-function isUiSender(sender, extensionBase) {
+const FRAMED_DOCUMENT_MESSAGES = new Set(['UI_GET_LOCALE', 'UI_DOCUMENT_GET', 'UI_DOCUMENT_PREPARE', 'UI_DOCUMENT_SET_THEME', 'UI_DOCUMENT_DOWNLOAD', 'UI_DOCUMENT_URL_READY']);
+function isUiSender(sender, extensionBase, framedDocument = false) {
   try {
     const base = new URL(extensionBase), url = new URL(sender?.url);
     const origin = `chrome-extension://${base.host}`;
     return base.protocol === 'chrome-extension:' && url.protocol === base.protocol && url.host === base.host &&
       (!sender.id || sender.id === base.host) && (sender.origin === undefined || sender.origin === origin) &&
-      (sender.frameId === undefined || sender.frameId === 0) &&
+      (sender.frameId === undefined || sender.frameId === 0 || framedDocument && Number.isInteger(sender.frameId)
+        && sender.frameId > 0 && url.pathname === '/workspaces/document-preview/document-preview.html') &&
       (sender.documentLifecycle === undefined || sender.documentLifecycle === 'active') &&
       !url.username && !url.password &&
       UI_PATHS.has(url.pathname);
@@ -54,7 +56,7 @@ export function validateMessageSource(message, sender, extensionBase) {
   const type = message.type;
   const senderUrl = String(sender?.url || '');
   if (type.startsWith('UI_')) {
-    if (!isUiSender(sender, extensionBase)) throw new Error('Extension commands are available only to trusted extension pages.');
+    if (!isUiSender(sender, extensionBase, FRAMED_DOCUMENT_MESSAGES.has(type))) throw new Error('Extension commands are available only to trusted extension pages.');
     return true;
   }
   if (PAGE_MESSAGE_TYPES.has(type)) {

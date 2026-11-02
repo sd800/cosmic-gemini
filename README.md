@@ -92,7 +92,7 @@ Unselected categories keep their original values. These adjustments do not chang
 
 Preview documents, spreadsheets, slides, PDFs, and email messages in your browser before deciding whether to save them. Supported files offer a **Preview** or **Download** choice. You can also open local files from Settings.
 
-Supported formats include Word, Excel, PowerPoint, Rich Text, OpenDocument, PDF, and email files.
+Supported formats include Word, Excel, PowerPoint, Rich Text, OpenDocument, PDF, and email files. Choosing Preview for a same-origin website download keeps the original file address when available. Refresh reopens the prepared file in the extension reader. Document contents stay in RAM, and local files use their original browser File references.
 
 Previews retain common formatting, although complex layouts may differ from the original. In PDFs that already contain text, you can select and copy it. Files are processed locally; previews do not run macros or load remote content.
 

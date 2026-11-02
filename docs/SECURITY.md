@@ -4,7 +4,7 @@ Cosmic Gemini protects browsing and local previews through isolated rendering, a
 
 ## Privileged extension surfaces
 
-Central validates Chrome-supplied message senders before dispatch. UI commands and long-lived UI ports are restricted to the packaged popup, Settings pages, and supported workspace hosts. Opaque renderers, public assets, offscreen processors, unknown paths, foreign origins, child frames, and inactive documents do not receive UI authority. Products retain their own checks for the current tab, frame, document, context, and session; passing the entry check does not authorize every product action. Website tools accept changes only from the packaged popup, validate the live tab and expected site, and keep temporary choices in context-isolated browser-session storage. Current-page updates bind to document IDs to prevent navigation races.
+Central validates Chrome-supplied message senders before dispatch. UI commands and long-lived UI ports are restricted to the packaged popup, Settings pages, and supported workspace hosts. Opaque renderers, public assets, offscreen processors, unknown paths, foreign origins, unbound child frames, and inactive documents do not receive UI authority. Products retain their own checks for the current tab, frame, document, context, and session; passing the entry check does not authorize every product action. Website tools accept changes only from the packaged popup, validate the live tab and expected site, and keep temporary choices in context-isolated browser-session storage. Current-page updates bind to document IDs to prevent navigation races.
 
 Page events use a separate fixed message allowlist and require an HTTP/HTTPS tab sender. A page-visible marker or event name is not an authentication secret. MAIN-world and DOM-derived values remain untrusted even when a content script forwards them. Code injection uses packaged scripts or fixed functions with data arguments, never source text constructed from website input.
 
@@ -13,6 +13,8 @@ The extension-page CSP loads only packaged scripts and forbids objects, base-URL
 ## Document and media isolation
 
 Image Download and Video Download use a shared read-only source check before activation. PDF readers, extension pages, browser-owned pages, non-media documents, and inaccessible documents are excluded; the popup hides their controls, and the background rejects unapproved launches. Source decisions remain in memory and are invalidated on navigation.
+
+Original-address previews begin only from an explicit Preview choice for a same-origin HTTP(S) file. A fixed, script-free shell is created in the user-opened window; it embeds only the packaged reader and does not contain file bytes. The background binds its random one-use identifier to the exact current root document, tab, file ID, and privacy context. A child workspace can request only document operations and read-only locale data; each document operation revalidates that binding. It cannot change global settings or open UI ports. Web-accessible reader/sandbox entries alone grant no document access. A tab-scoped, exact-URL GET rule supports reload into the fixed extension entry; its priority stays below Access Control blocks. Rules and bounded ownership records are reclaimed on departure, closure, or reset.
 
 Document and PDF display run in opaque manifest sandboxes without extension APIs or same-origin access to the host. A sandbox accepts its private MessagePort only from its immediate parent with the exact owning extension origin, derived from its packaged module URL. Initialization is single-use and disabled after disposal. PDF parser startup follows this authenticated handshake.
 
@@ -28,7 +30,7 @@ External Links Capture validates bounded targets and rejects executable, local-f
 
 Domain lists are normalized as host data. Navigation controls apply to website-initiated actions, while browser-owned user actions retain their normal behavior. Chrome provides the underlying browser isolation.
 
-Ordinary/private sessions remain separated. Document content and local file references stay in memory; settings and bounded session metadata are stored only for their documented purpose. Never write private document contents, full browsing captures, credentials, or access tokens into logs, tests, screenshots, or repository notes.
+Ordinary/private sessions remain separated. Document content and local file references stay in the offscreen memory store without a disk document cache; settings and bounded session metadata are stored only for their documented purpose. Never write private document contents, full browsing captures, credentials, or access tokens into logs, tests, screenshots, or repository notes.
 
 ## Crash Page Warden static reading
 

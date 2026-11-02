@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.2.6 — 2026-11-02
+
+- Keep the original file address when Preview is explicitly chosen for a same-origin website download, across PDF, Office, Rich Text, OpenDocument, and email formats. Continue using the prepared file without another download; use the existing standalone reader when an original-address window is unavailable.
+- Keep document contents in the offscreen RAM cache and local files as browser File references. Preserve an active original-address preview when its source website closes; refreshing reopens the prepared file in the extension reader without another website request.
+- Authenticate framed previews against their live tab, root document, session, privacy context, and one-use window identifier. Keep conversion and PDF display in opaque sandboxes, reject unrelated webpage frames, and reclaim temporary reload rules when previews close or navigate away.
+- Keep media-download controls unavailable in full-document preview wrappers, and cancel preparation handoffs when the user closes their preview window.
+
 ## 26.11.2.5 — 2026-11-02
 
 - Let Crash Page Warden own White Softer rendering on static reading pages. Apply the shared tone to paper and white text, including headings and controls, and reuse the white-cap primitive for remaining bright pixels such as images.

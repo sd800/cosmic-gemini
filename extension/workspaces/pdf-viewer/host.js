@@ -2,7 +2,7 @@ import { PDF_LIMITS } from './model.js';
 // This host is the only connection to a product. The opaque viewer has no
 // extension APIs, storage access, network capability, or arbitrary command channel.
 // The source URL crosses this boundary only as inert text for Document properties.
-export function createPdfViewer({ container, bytes, filename, documentUrl = '', locale, sampling, dark, onDownload, onTheme, onError }) {
+export function createPdfViewer({ container, bytes, filename, documentUrl = '', locale, sampling, dark, onDownload, onTheme, onError, onReady = () => {} }) {
   const validBytes = value => value instanceof ArrayBuffer && value.byteLength > 0 && value.byteLength <= PDF_LIMITS.bytes;
   if (bytes !== undefined && !validBytes(bytes)) throw Error('Invalid PDF size');
   const iframe = document.createElement('iframe');
@@ -41,7 +41,7 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
     if (closed || !data || typeof data.type !== 'string') return;
     if (data.type === 'shell-ready') iframe.style.visibility = 'visible';
     else if (data.type === 'parsed') clearTimeout(timeout);
-    else if (data.type === 'ready' || data.type === 'password') { loaded = true; clearTimeout(timeout); }
+    else if (data.type === 'ready' || data.type === 'password') { loaded = true; clearTimeout(timeout); onReady(); }
     else if (data.type === 'download') onDownload();
     else if (data.type === 'theme') onTheme();
     else if (data.type === 'fullscreen') {

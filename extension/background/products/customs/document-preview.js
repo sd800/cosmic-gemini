@@ -9,10 +9,12 @@ import { showDocumentChoice } from '../../../content/document-preview/document-p
 import { canvasDocumentSource } from '../../../content/document-preview/document-preview-source.js';
 import { createDocumentRequestIngress } from '../../features/document-request-ingress.js';
 import { formatDocumentBytes } from '../../../core/document-preview/document-preview.js';
+import { createDocumentUrlPreview } from '../../features/document-url-preview.js';
 
 export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const store = dependencies.store || documentStore;
   const ingress = dependencies.ingress || createDocumentRequestIngress();
+  const urlPreviews = createDocumentUrlPreview(platform);
   // Reattach synchronously on a worker wake so the waking request is not lost.
   // Initialization removes it immediately when the saved feature is disabled.
   ingress.setEnabled(true);
@@ -25,18 +27,30 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const downloadNames = new Map();
   const serial = task => { const result = queue.then(task); queue = result.catch(() => {}); return result; };
   const persist = () => chrome.storage.session.set({ [sessionKey]: state });
-  const tabsInContext = async () => (await chrome.tabs.query({})).filter(tab => !!tab.incognito === platform.isIncognitoContext());
+  async function tabsInContext() {
+    const tabs = (await chrome.tabs.query({})).filter(tab => !!tab.incognito === platform.isIncognitoContext());
+    // Without broad tabs permission, our own extension URLs can be omitted.
+    // Resolve only browser-verified root contexts, including the reload entry.
+    const contexts = await chrome.runtime.getContexts?.({ contextTypes: ['TAB'], incognito: platform.isIncognitoContext() }) || [];
+    for (const context of contexts) {
+      if (context.frameId !== 0 || !previewId(context.documentUrl)) continue;
+      const tab = tabs.find(value => value.id === context.tabId);
+      if (tab && !tab.url) tab.url = context.documentUrl;
+    }
+    return tabs;
+  }
   function previewId(url) {
     const [path, hash] = String(url || '').split('#');
-    return path === chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) ? new URLSearchParams(hash).get('id') : null;
+    return [chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH), chrome.runtime.getURL('workspaces/document-preview/entry.html'), chrome.runtime.getURL('') + 'workspaces/document-preview/entry.html'].includes(path) ? new URLSearchParams(hash).get('id') : null;
   }
   async function openPreviews(tabs) {
+    await urlPreviews.reconcile(tabs).catch(() => {});
     const ids = new Set(tabs.map(tab => previewId(tab.pendingUrl || tab.url)).filter(Boolean));
     // Extension tab URLs are not guaranteed to appear in tabs.query. Contexts
     // expose only our own documents and need no broad tabs permission.
     if (chrome.runtime.getContexts) {
       const contexts = await chrome.runtime.getContexts({contextTypes:['TAB'],incognito:platform.isIncognitoContext()});
-      for (const context of contexts) { const id = previewId(context.documentUrl); if (id) ids.add(id); }
+      for (const context of contexts) { const id = previewId(context.documentUrl); if (id && (!context.frameId || urlPreviews.owns(context.tabId, id))) ids.add(id); }
     }
     return ids;
   }
@@ -63,12 +77,13 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const tabs = clearAll ? [] : await tabsInContext();
     const sites = new Set(tabs.map(tab => siteKey(tab.url)).filter(Boolean));
     const openIds = clearAll ? new Set() : await openPreviews(tabs);
+    const urlIds = clearAll ? new Set() : urlPreviews.retainedIds(tabs);
     const now = Date.now();
     for (const [controller, site] of captures) if (!sites.has(site)) controller.abort();
     const expired = [], retained = [];
     let lifetimeChanged = false;
     for (const doc of state.documents) {
-      if (clearAll || (doc.local ? !openIds.has(doc.id) : !sites.has(doc.site))
+      if (clearAll || (doc.local ? !openIds.has(doc.id) : !sites.has(doc.site) && !urlIds.has(doc.id))
         || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= now)) {
         expired.push(doc); continue;
       }
@@ -145,7 +160,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const localIds = state.documents.some(value => value.id === id && value.local) ? await openPreviews(tabs) : null;
     const doc = state.documents.find(value => value.id === id);
     if (!doc || (Number.isFinite(doc.closedAt) && doc.closedAt + DOCUMENT_CLOSED_RETENTION <= Date.now())
-      || !(doc.local ? localIds?.has(doc.id) : tabs.some(tab => siteKey(tab.url) === doc.site))) throw Error('documentExpired');
+      || !(doc.local ? localIds?.has(doc.id) : tabs.some(tab => siteKey(tab.url) === doc.site) || urlPreviews.retainedIds(tabs).has(doc.id))) throw Error('documentExpired');
     return doc;
   }
   async function prepareDocument(id) {
@@ -202,9 +217,14 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       await persist(); await scheduleCleanup();
     });
   }
-  async function open(doc, mode = 'preview', sourceTabId = doc.sourceTabId) {
+  async function open(doc, mode = 'preview', sourceTabId = doc.sourceTabId, target = null) {
     const appearance = state.themes?.[doc.site] || normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance);
     const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({ id: doc.id, mode, appearance });
+    if (target) {
+      if (await urlPreviews.mount(target, url).catch(() => false)) return { id: target.tabId, urlPreview: true };
+      if (!await urlPreviews.live(target)) { await urlPreviews.abandon(target).catch(() => {}); return { cancelled: true }; }
+      await urlPreviews.abandon(target).catch(() => {});
+    }
     const source = Number.isInteger(sourceTabId) ? await chrome.tabs.get(sourceTabId).catch(() => null) : null;
     const position = source && siteKey(source.url) === doc.site && !!source.incognito === platform.isIncognitoContext()
       && Number.isInteger(source.index) && Number.isInteger(source.windowId)
@@ -251,7 +271,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     if (choice === 'preview' || choice === 'download') return open(doc, choice, sourceTabId);
     const locale = await platform.getLocale(), t = translator(locale);
     const payload = {
-      id: doc.id, filename: doc.filename, size: doc.size,
+      id: doc.id, filename: doc.filename, size: doc.size, url: doc.url,
+      appearance: state.themes?.[doc.site] || normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance),
       sizeLabel: doc.size > 0 ? formatDocumentBytes(doc.size, locale) : '',
       labels: { title: 'Document Preview', close: t('documentClose'), preview: t('documentPreviewAction'), download: t('documentDownloadAction'), remember: t('documentRemember'), failed: t('documentActionFailed'), loading: t('documentLoading') }
     };
@@ -407,9 +428,14 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const workspace = senderUrl.split('#')[0] === chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH);
       const page = message.type === 'CG_DOCUMENT_CHOICE' && context.sender.frameId === 0;
       if (!workspace && !page) throw Error('Document action unavailable.');
+      if (workspace && context.sender.frameId > 0) await urlPreviews.authorize(context.sender, String(message.id || ''));
       const doc = await currentDocument(String(message.id || ''));
       if (page && siteKey(context.sender.tab?.url) !== doc.site) throw Error('The source website changed.');
       if (workspace && new URLSearchParams(senderUrl.split('#')[1] || '').get('id') !== doc.id) throw Error('Wrong document.');
+      if (message.type === 'UI_DOCUMENT_URL_READY') {
+        if (!workspace || context.sender.frameId <= 0 || typeof message.ready !== 'boolean') throw Error('Document status unavailable.');
+        urlPreviews.report(context.sender.tab.id, message.ready); return { ready: message.ready };
+      }
       if (message.type === 'UI_DOCUMENT_GET') {
         const preference = (await platform.readSettings()).documentPreview;
         const cached = doc.prepared ? await store.get(doc.id) : null;
@@ -442,12 +468,15 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (['CG_DOCUMENT_CHOICE', 'UI_DOCUMENT_CHOICE'].includes(message.type)) {
         if (!['preview', 'download', 'dismiss'].includes(message.action)) throw Error('Unknown action.');
         if (message.action === 'dismiss') { await discardPending(doc.id); return { dismissed: true }; }
-        const prepared = await prepareDocument(doc.id);
+        const target = page && message.action === 'preview' ? await urlPreviews.reserve(doc, context.sender, message.previewNonce).catch(() => null) : null;
+        let prepared;
+        try { prepared = await prepareDocument(doc.id); }
+        catch (error) { await urlPreviews.abandon(target).catch(() => {}); throw error; }
         if (message.remember) await serial(async () => {
           await currentDocument(prepared.id); await saveChoice(prepared.site, message.action);
         });
-        if (page) await open(prepared, message.action, context.sender.tab?.id);
-        return { action: message.action, prepared: true, size: prepared.size };
+        const opened = page ? await open(prepared, message.action, context.sender.tab?.id, target) : null;
+        return { action: message.action, prepared: true, size: prepared.size, urlPreview: opened?.urlPreview === true };
       }
       if (message.type === 'UI_DOCUMENT_DOWNLOAD') {
         const cached = workspace && doc.prepared ? await store.get(doc.id) : null;
@@ -478,7 +507,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       return area === (platform.isIncognitoContext() ? 'session' : 'local') && change
         && change.oldValue?.documentPreview?.enabled !== change.newValue?.documentPreview?.enabled ? reconcile() : false;
     },
-    async reset() { await reconcile(); return serial(() => prune(true)); }
+    async reset() { await urlPreviews.reset(); await reconcile(); return serial(() => prune(true)); }
   };
   return Object.freeze(product);
 }

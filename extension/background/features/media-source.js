@@ -25,7 +25,7 @@ export function createMediaSourcePolicy() {
                   try {
                     const source = new URL(node.getAttribute('src'), location.href);
                     if (!/\.pdf(?:;[^/]*)?$/i.test(source.pathname)
-                      && !(source.protocol === 'chrome-extension:' && /\/pdf-(?:reader|viewer)\//i.test(source.pathname))) return false;
+                      && !(source.protocol === 'chrome-extension:' && /\/(?:pdf-(?:reader|viewer)|document-preview)\//i.test(source.pathname))) return false;
                   } catch { return false; }
                 }
                 const rect = node.getBoundingClientRect();

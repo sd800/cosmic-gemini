@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.2.5');
+assert.equal(manifest.version, '26.11.2.6');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -71,7 +71,15 @@ assert.deepEqual(manifest.web_accessible_resources, [{
     'http://*.zhihu.com/*',
     'https://*.zhihu.com/*'
   ]
+}, {
+  resources: ['workspaces/document-preview/document-preview.html', 'workspaces/pdf-viewer/viewer.html', 'workspaces/document-preview/content.html'],
+  matches: ['http://*/*', 'https://*/*']
+}, {
+  resources: ['workspaces/document-preview/entry.html'],
+  matches: ['http://*/*', 'https://*/*'],
+  use_dynamic_url: true
 }]);
+assert.equal(manifest.mime_types_handler, undefined, 'Document Preview stays on demand, without a global PDF handler');
 
 const extensionRootEntries = await readdir(extension, { withFileTypes: true });
 assert.deepEqual(extensionRootEntries

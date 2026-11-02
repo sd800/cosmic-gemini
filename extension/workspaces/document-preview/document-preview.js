@@ -31,10 +31,10 @@ function ensureContent() {
   if (!contentViewer) {
     const started = generation;
     contentViewer = createDocumentContent(frame, locale, () => {
-      if (current(started)) notices.show(t('documentRenderFailed'));
+      if (current(started)) { notices.show(t('documentRenderFailed')); reportUrlPreview(false); }
     }, index => {
       if (current(started) && isSlides()) updatePartControls(index);
-    }, value => { if (current(started)) updateZoom(value*100,true); });
+    }, value => { if (current(started)) updateZoom(value*100,true); }, () => { if (current(started)) reportUrlPreview(true); });
   }
   return contentViewer;
 }
@@ -133,6 +133,7 @@ appearance.addEventListener('change', updateTheme);
 updateTheme();
 const blobDownloads = new Set();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
+function reportUrlPreview(ready) { if (window !== top) void command('UI_DOCUMENT_URL_READY', { ready }).catch(() => {}); }
 
 function expire() {
   frame.hidden = true;
@@ -159,7 +160,8 @@ async function preparePdfViewer() {
       if (!current(started) || pdfViewer !== ownedViewer) return;
       ownedViewer.destroy(); pdfViewer = null;
       document.body.classList.remove('pdf-active'); notices.show(t('documentRenderFailed'));
-    }
+      reportUrlPreview(false);
+    }, onReady: () => { if (current(started)) reportUrlPreview(true); }
   });
   document.body.classList.add('pdf-active');
   zoomControls.hidden = true; partControls.hidden = true;
@@ -182,7 +184,7 @@ async function preview() {
   }
   const ownedWorker = worker = new Worker('render-worker.js');
   const finish = () => { clearTimeout(ownedTimer); ownedWorker.terminate(); if (worker === ownedWorker) worker = null; };
-  const failed = () => { finish(); if (current(started)) notices.show(t('documentRenderFailed')); };
+  const failed = () => { finish(); if (current(started)) { notices.show(t('documentRenderFailed')); reportUrlPreview(false); } };
   const ownedTimer = workerTimer = setTimeout(failed, 15000);
   ownedWorker.onerror = failed;
   ownedWorker.onmessage = event => {
@@ -208,7 +210,7 @@ async function preview() {
       frame.hidden = false;
       zoomControls.hidden = false;
       notices.show('');
-    } catch { notices.show(t('documentRenderFailed')); }
+    } catch { notices.show(t('documentRenderFailed')); reportUrlPreview(false); }
   };
   try {
     const bytes = await blob.arrayBuffer();

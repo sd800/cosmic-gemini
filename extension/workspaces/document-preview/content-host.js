@@ -1,6 +1,6 @@
 // Fixed opaque frame, bounded document data and fixed status/slide-index messages.
 // External links/clipboard stay in the frame; no arbitrary URL host command.
-export function createDocumentContent(frame, locale, onError, onSlide = () => {}, onZoom = () => {}) {
+export function createDocumentContent(frame, locale, onError, onSlide = () => {}, onZoom = () => {}, onReady = () => {}) {
   const channel = new MessageChannel(); let ready = false, closed = false, pending, dark = frame.style.colorScheme === 'dark';
   let renderId = 0, slideCount = 0, zoom = 1, emailLabels;
   frame.style.visibility = 'hidden';
@@ -10,7 +10,7 @@ export function createDocumentContent(frame, locale, onError, onSlide = () => {}
     if (closed) return;
     if (data?.type === 'ready') { ready = true; clearTimeout(timeout); channel.port1.postMessage({type:'theme',dark}); send(); }
     else if (data?.id === renderId) {
-      if (data.type === 'rendered') frame.style.visibility = 'visible';
+      if (data.type === 'rendered') { frame.style.visibility = 'visible'; onReady(); }
       else if (data.type === 'error') onError();
       else if (data.type === 'slide' && Number.isInteger(data.index) && data.index >= 0 && data.index < slideCount) onSlide(data.index);
       else if (data.type === 'zoom' && Number.isFinite(data.zoom) && data.zoom >= .5 && data.zoom <= 2) { zoom = data.zoom; onZoom(zoom); }

@@ -5,9 +5,10 @@ export function showDocumentChoice(payload) {
   const queue = [payload];
   let host, current, closing = false;
   const previous = document.activeElement;
-  const send = async (action, remember = false) => {
-    const response = await chrome.runtime.sendMessage({ type: 'CG_DOCUMENT_CHOICE', featureId: 'documentPreview', id: current.id, action, remember });
+  const send = async (action, remember = false, previewNonce = undefined) => {
+    const response = await chrome.runtime.sendMessage({ type: 'CG_DOCUMENT_CHOICE', featureId: 'documentPreview', id: current.id, action, remember, previewNonce });
     if (!response?.ok) throw Error();
+    return response.result;
   };
   async function close() {
     if (closing) return;
@@ -58,8 +59,32 @@ export function showDocumentChoice(payload) {
       if (busy) return;
       busy = true; preview.disabled = download.disabled = checkbox.disabled = true;
       error.textContent = ''; progress.setAttribute('aria-hidden', 'false'); preview.setAttribute('aria-busy', String(action === 'preview'));
-      try { await send(action, checkbox.checked); await close(); }
-      catch { error.textContent = labels.failed; progress.setAttribute('aria-hidden', 'true'); preview.removeAttribute('aria-busy'); busy = false; preview.disabled = download.disabled = checkbox.disabled = false; }
+      let target, nonce;
+      if (action === 'preview' && current.url) {
+        try {
+          const url = new URL(current.url);
+          if (url.origin === location.origin && /^https?:$/.test(url.protocol) && !url.username && !url.password) {
+            target = window.open('about:blank', '_blank');
+            if (target) {
+              nonce = crypto.randomUUID(); target.name = 'cosmic-gemini-document:' + nonce;
+              target.document.open();
+              target.document.write('<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; frame-src chrome-extension:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>Document Preview</title><style>html{color-scheme:light dark;background:light-dark(#faf9f7,#171819);color:light-dark(#24272b,#e3e5e8);font:16px/1.5 system-ui}body{margin:0}p{padding:36px}</style><p id="loading"></p>');
+              target.document.close(); target.history.replaceState(null, '', url.href);
+              target.document.documentElement.dataset.cgDocumentPreviewShell = 'true';
+              target.document.title = current.filename + ' · Document Preview';
+              const dark = current.appearance === 'dark' || current.appearance !== 'light' && matchMedia('(prefers-color-scheme:dark)').matches;
+              target.document.documentElement.style.background = dark ? '#171819' : '#faf9f7';
+              target.document.documentElement.style.color = dark ? '#e3e5e8' : '#24272b';
+              target.document.getElementById('loading').textContent = labels.loading;
+              target.opener = null;
+            }
+          }
+        } catch { try { target?.close(); } catch {} target = null; nonce = undefined; }
+      }
+      const closeTarget = () => { try { if (target?.location.href === current.url && target.name === 'cosmic-gemini-document:' + nonce
+        && target.document.documentElement.dataset.cgDocumentPreviewShell === 'true') target.close(); } catch {} };
+      try { const result = await send(action, checkbox.checked, nonce); if (!result?.urlPreview) closeTarget(); await close(); }
+      catch { closeTarget(); error.textContent = labels.failed; progress.setAttribute('aria-hidden', 'true'); preview.removeAttribute('aria-busy'); busy = false; preview.disabled = download.disabled = checkbox.disabled = false; }
     }
     preview.onclick = () => void choose('preview'); download.onclick = () => void choose('download');
     const cancel = () => { if (!busy) { void send('dismiss').catch(() => {}); void close(); } };

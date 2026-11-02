@@ -7,6 +7,7 @@ import {
   imageExtension,
   imageLayout,
   imageMimeFromHeaders,
+  imageSidePanelPath,
   limitImageCandidatesForSession,
   normalizeImageCandidate,
   sanitizeImageFilename
@@ -282,4 +283,56 @@ test('area captures reject stale pages and sessions and release uncommitted arti
       assert.equal(released, created);
     }
   } finally { globalThis.chrome = originalChrome; }
+});
+
+
+test('Image Download uses one validated Side Panel path in the popup and product', () => {
+  assert.equal(imageSidePanelPath(7), 'workspaces/image-download/image-download.html?sourceTab=7&view=side-panel');
+  for (const tabId of [undefined, '7', -1, NaN]) assert.throws(() => imageSidePanelPath(tabId));
+});
+
+test('a prepared popup open reaches the native API before awaiting source validation', async () => {
+  const prior = globalThis.chrome, calls = [];
+  let options = { tabId: 7, path: imageSidePanelPath(7), enabled: true };
+  globalThis.chrome = {
+    runtime: { getURL: path => 'chrome-extension://test/' + path },
+    tabs: { async get() { calls.push('get'); throw Error('Tab closed'); } },
+    sidePanel: {
+      async open() { calls.push('open'); },
+      async getOptions() { return options; },
+      async setOptions(value) { calls.push('cleanup'); options = { ...options, ...value }; }
+    }
+  };
+  try {
+    const product = createImageDownloadProduct({}, {}, {});
+    const message = { type: 'UI_IMAGE_OPEN', tabId: 7, sidePanelPrepared: true };
+    await assert.rejects(product.handleMessage(message, { sender: { url: chrome.runtime.getURL('settings/all-settings.html') } }), /only from the popup/);
+    assert.deepEqual(calls, []);
+    await assert.rejects(product.handleMessage(message, { sender: { url: chrome.runtime.getURL('popup/index.html') } }), /Tab closed/);
+    assert.deepEqual(calls, ['open', 'get', 'cleanup']);
+    assert.equal(options.enabled, false);
+  } finally { globalThis.chrome = prior; }
+});
+
+
+test('Image Download reuses its own page context when tabs.query omits extension URLs', async () => {
+  const prior = globalThis.chrome, removed = [], focused = [];
+  const base = 'chrome-extension://test/';
+  globalThis.chrome = {
+    runtime: { getURL: path => base + path, async getContexts() { return [{ tabId: 40, windowId: 1, incognito: false,
+      documentUrl: base + 'workspaces/image-download/image-download.html?sourceTab=7&view=page' }]; } },
+    tabs: {
+      async get() { return { id: 7, url: 'chrome://settings' }; },
+      async query() { return [{ id: 40 }]; },
+      async update(id) { focused.push(id); },
+      async create() { throw Error('must reuse the existing page'); },
+      async remove(id) { removed.push(id); }
+    }, windows: { async update() {} }
+  };
+  try {
+    const product = createImageDownloadProduct({}, {}, {});
+    await assert.rejects(product.handleMessage({ type: 'UI_IMAGE_OPEN', tabId: 7, workspaceMode: 'page' }, { sender: {} }), /unavailable on this page/);
+    assert.deepEqual(focused, [40]);
+    assert.deepEqual(removed, [], 'a reused page remains owned by the user even when source validation fails');
+  } finally { globalThis.chrome = prior; }
 });

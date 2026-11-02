@@ -111,7 +111,8 @@ async function collectPageState(url, tabId, options = {}) {
       directives,
       url,
       tabId,
-      prepareWorkspace: options.prepareWorkspace === true
+      prepareWorkspace: options.prepareWorkspace === true,
+      refreshMediaSource: options.refreshMediaSource === true
     })));
   const entries = STATE_PRODUCTS.map((productId, index) => [
     productId,

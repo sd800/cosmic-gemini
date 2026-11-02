@@ -18,13 +18,14 @@ import {
   imageExtension,
   imageMimeFromHeaders,
   imageSessionKey,
+  imageSidePanelPath,
   limitImageCandidatesForSession,
   mergeImageCandidate,
   normalizeImageCandidate,
   sanitizeImageFilename
 } from '../../../core/image-download.js';
 
-export function createImageDownloadProduct(platform, offscreen, observation) {
+export function createImageDownloadProduct(platform, offscreen, observation, mediaSources = null) {
   const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi, runtimeToken } = platform;
   const activeTabs = new Set();
@@ -547,10 +548,6 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     return url.toString();
   }
   
-  function imageSidePanelPath(tabId) {
-    return `workspaces/image-download/image-download.html?sourceTab=${encodeURIComponent(tabId)}&view=side-panel`;
-  }
-  
   async function prepareImageWorkspaceSidePanel(tabId) {
     if (!Number.isInteger(tabId)) throw new Error('The source tab is unavailable.');
     if (!chrome.sidePanel?.setOptions || !chrome.sidePanel?.open) throw new Error('Side Panel is unavailable.');
@@ -572,12 +569,17 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
   
   async function openImageWorkspacePage(tabId) {
     const base = chrome.runtime.getURL('workspaces/image-download/image-download.html');
-    const tabs = await chrome.tabs.query({});
+    // tabs.query may omit extension-page URLs without the broad tabs permission.
+    const contexts = await chrome.runtime.getContexts?.({ contextTypes: ['TAB'] }).catch(() => []) || [];
+    const ownPages = contexts.filter(value => value.incognito === (platform.isIncognitoContext?.() === true))
+      .map(value => ({ id: value.tabId, windowId: value.windowId, url: value.documentUrl }));
+    const tabs = ownPages.length ? ownPages : await chrome.tabs.query({});
     const existing = tabs.find(tab => {
       if (!tab.url?.startsWith(base)) return false;
       try {
-        const value = new URL(tab.url).searchParams.get('sourceTab');
-        return /^\d+$/.test(value || '') && Number(value) === tabId;
+        const url = new URL(tab.url);
+        const value = url.searchParams.get('sourceTab');
+        return url.pathname === new URL(base).pathname && /^\d+$/.test(value || '') && Number(value) === tabId;
       }
       catch { return false; }
     });
@@ -590,20 +592,20 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     return { tabId: opened.id, created: true };
   }
   
-  async function openImageWorkspaceSidePanel(tabId) {
+  async function openImageWorkspaceSidePanel(tabId, prepared = false) {
     if (!chrome.sidePanel?.setOptions || !chrome.sidePanel?.open) throw new Error('Side Panel is unavailable.');
-    await prepareImageWorkspaceSidePanel(tabId);
+    if (!prepared) await prepareImageWorkspaceSidePanel(tabId);
     await chrome.sidePanel.open({ tabId });
   }
   
-  async function openImageWorkspace(tabId, preferredMode = 'sidePanel') {
+  async function openImageWorkspace(tabId, preferredMode = 'sidePanel', prepared = false) {
     if (preferredMode === 'page') {
       preparedImageSidePanels.delete(tabId);
       await disableImageSidePanel(tabId);
       const page = await openImageWorkspacePage(tabId);
       return { mode: 'page', workspaceTabId: page.tabId, workspaceCreated: page.created };
     }
-    await openImageWorkspaceSidePanel(tabId);
+    await openImageWorkspaceSidePanel(tabId, prepared);
     return { mode: 'sidePanel', workspaceTabId: 0 };
   }
   
@@ -831,6 +833,11 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     }
     if (message.type === 'UI_IMAGE_OPEN') {
       const tabId = Number(message.tabId);
+      if (!Number.isInteger(tabId) || tabId < 0) throw new Error('The source tab is unavailable.');
+      const prepared = message.sidePanelPrepared === true;
+      if (prepared && context.sender?.url !== chrome.runtime.getURL('popup/index.html')) {
+        throw new Error('Prepared image workspaces can be opened only from the popup.');
+      }
       let sourceTab, workspace;
       if (message.workspaceMode === 'page') {
         // A page workspace can wait for source validation before opening.
@@ -839,7 +846,7 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
       } else {
         // Side Panel opening needs the popup's user gesture. Start it before
         // the first await, then clean it up if the source tab disappeared.
-        const workspacePromise = openImageWorkspace(tabId, message.workspaceMode);
+        const workspacePromise = openImageWorkspace(tabId, message.workspaceMode, prepared);
         const sourceTabPromise = chrome.tabs.get(tabId);
         const [workspaceResult, sourceResult] = await Promise.allSettled([workspacePromise, sourceTabPromise]);
         if (sourceResult.status === 'rejected') {
@@ -950,6 +957,9 @@ export function createImageDownloadProduct(platform, offscreen, observation) {
     }
     const session = await readImageSession(tabId);
     if (!session) return;
+    if (mediaSources && change.status === 'complete' && !await mediaSources.inspect(tabId, tab.url || session.pageUrl)) {
+      await stopImageSession(tabId, session.origin); return;
+    }
     if (change.url) {
       const nextOrigin = originFromUrl(change.url);
       if (!nextOrigin || nextOrigin !== session.origin) {

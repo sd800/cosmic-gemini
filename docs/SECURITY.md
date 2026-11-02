@@ -12,6 +12,8 @@ The extension-page CSP loads only packaged scripts and forbids objects, base-URL
 
 ## Document and media isolation
 
+Image Download and Video Download use a shared read-only source check before activation. PDF readers, extension pages, browser-owned pages, non-media documents, and inaccessible documents are excluded; the popup hides their controls, and the background rejects unapproved launches. Source decisions remain in memory and are invalidated on navigation.
+
 Document and PDF display run in opaque manifest sandboxes without extension APIs or same-origin access to the host. A sandbox accepts its private MessagePort only from its immediate parent with the exact owning extension origin, derived from its packaged module URL. Initialization is single-use and disabled after disposal. PDF parser startup follows this authenticated handshake.
 
 Sandbox CSP blocks remote resources, nested frames, embedded objects, form navigation, and evaluated scripts. Only packaged controllers execute. Office/mail markup is reconstructed using tag, attribute, style, image, and namespace allowlists before insertion. Source scripts, event handlers, arbitrary CSS, active objects, and remote images are excluded. Embedded raster images are inspected before browser decoding, including byte size, dimensions, animated-frame budgets, and cumulative pixel cost; repeated identical sources share the same budget entry. PDF scripting, XFA, editing, and active annotation layers are not enabled.

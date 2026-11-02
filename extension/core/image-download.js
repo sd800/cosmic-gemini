@@ -268,3 +268,9 @@ export function imageLayout(width, height) {
 export function imageSessionKey(tabId) {
   return `imageDownloadSession:${Number(tabId)}`;
 }
+
+
+export function imageSidePanelPath(tabId) {
+  if (!Number.isInteger(tabId) || tabId < 0) throw new Error('The source tab is unavailable.');
+  return `workspaces/image-download/image-download.html?sourceTab=${tabId}&view=side-panel`;
+}

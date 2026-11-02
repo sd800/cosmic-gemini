@@ -187,7 +187,7 @@ Instagram 可能要求登录或限制列表访问；只有完整读取两份列�
 - 第一行排列 **Native Scroll** 和 **Native Scroll 强力模式**。
 - 第二行排列 **No Autoplay** 和 **No Autoplay 强力模式**。
 - 第三行排列 **Any Copy** 和 **Any Copy 强力模式**。
-- 第四行排列 **Image Download** 和 **Video Download**。
+- 第四行在支持的网页中排列 **Image Download** 和 **Video Download**。PDF 阅读器、扩展页面、浏览器内置页、非媒体文档及无法访问的页面中不显示这两个入口。
 - 第五行在 Page Display 开启时显示 **Reduce White Point** 和 **Greyscale**。
 
 Native Scroll 与 No Autoplay 的控制按钮只调整当前网站，不会改变全局默认状态。即使全局设置已关闭，也可以为当前网站单独启用功能。即使全局设置已开启，也可以单独停用。关闭当前网站的强力模式后，该网站会恢复使用标准模式。

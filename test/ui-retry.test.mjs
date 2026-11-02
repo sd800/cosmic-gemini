@@ -346,7 +346,8 @@ test('a stopped image session cannot be revived by a late rescan response', asyn
     retryRead: task => task(), retryReadUntil, t: key => key
   });
   vm.runInContext(`let state = { active: true, groups: [] }, stateReadGeneration = 0,
-    scanActionGeneration = 0, scanPending = false, workspaceClosing = false;
+    scanActionGeneration = 0, scanPending = false, workspaceClosing = false, viewGeneration = 0;
+    const currentView = ticket => !workspaceClosing && ticket === viewGeneration;
     const sourceTabId = 7, workspaceView = 'page';
     ${between(imageSource, 'async function reload(', 'function updateWorkspaceControls(')}
     ${between(imageSource, 'async function stopSession(', '\nfor (const input of ')}
@@ -368,7 +369,8 @@ test('stopping Image Download clears its busy status before background cleanup f
     t: key => key
   });
   vm.runInContext(`let state = { active: true, status: 'scanning', groups: [] }, stateReadGeneration = 0,
-    scanActionGeneration = 0, scanPending = true, workspaceClosing = false;
+    scanActionGeneration = 0, scanPending = true, workspaceClosing = false, viewGeneration = 0;
+    const currentView = ticket => !workspaceClosing && ticket === viewGeneration;
     const sourceTabId = 7, workspaceView = 'page';
     ${between(imageSource, 'async function stopSession(', '\nfor (const input of ')}
     globalThis.ui = { stopSession, state: () => state };`, context);
@@ -391,7 +393,8 @@ test('stopping Image Download from the Side Panel preserves it until the close t
     t: key => key
   });
   vm.runInContext(`let state = { active: true, status: 'scanning', groups: [] }, stateReadGeneration = 0,
-    scanActionGeneration = 0, scanPending = true, workspaceClosing = false;
+    scanActionGeneration = 0, scanPending = true, workspaceClosing = false, viewGeneration = 0;
+    const currentView = ticket => !workspaceClosing && ticket === viewGeneration;
     const sourceTabId = 7, workspaceView = 'side-panel';
     ${between(imageSource, 'async function stopSession(', '\nfor (const input of ')}
     globalThis.ui = { stopSession, closing: () => workspaceClosing };`, context);

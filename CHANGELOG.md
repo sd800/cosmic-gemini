@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.1.6 — 2026-11-01
+
+- Restore Image Download opening from the popup by completing Side Panel configuration in the clicked document, then opening immediately in the background message handler before asynchronous source validation.
+- Keep other tools' Side Panel configuration unchanged while reading popup state, preserve failure cleanup, and continue supporting explicit page mode.
+- Reuse existing Image Download page workspaces even when Chrome omits extension-page URLs from tab queries.
+- Hide and disable Image Download and Video Download in PDF readers, extension pages, browser pages, non-media documents, and inaccessible documents. Recheck eligibility before launch and stop active discovery when a source becomes unsupported.
+
 ## 26.11.1.5 — 2026-11-01
 
 - Use purple icons and tinted backgrounds for active Any Copy, Any Copy Enhanced, Translate Override, and Stay on the page controls, including temporary-only activation and hover states. Inactive controls retain their neutral appearance.

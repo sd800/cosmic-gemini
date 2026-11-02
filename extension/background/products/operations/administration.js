@@ -31,7 +31,7 @@ export function createAdministrationProduct(platform) {
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
         // Reading popup state must not claim the tab's side panel for Image Download.
         // Each workspace claims it only after the user explicitly opens that product.
-        const state = await context.collectPageState(tab?.url || '', tab?.id, { prepareWorkspace: false, includePreferences: true });
+        const state = await context.collectPageState(tab?.url || '', tab?.id, { prepareWorkspace: false, includePreferences: true, refreshMediaSource: message.refreshMediaSource === true });
         return {
           tab: tab ? { id: tab.id, windowId: tab.windowId, url: tab.url || '', title: tab.title || '' } : null,
           state

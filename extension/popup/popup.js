@@ -1,3 +1,4 @@
+import { imageSidePanelPath } from '../core/image-download.js';
 import { INSTAGRAM_PANEL_PATH } from '../core/follow-list-instagram.js';
 import { loadLocale } from '../core/locale.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
@@ -76,6 +77,7 @@ function renderImageRow() {
   const feature = state.imageDownload;
   const toggle = document.querySelector('#imageDownload-status');
   toggle.disabled = !feature?.supported;
+  toggle.hidden = !feature?.supported;
   renderDownloadControlState(toggle, feature);
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'imageOpenTitle' : 'imageStartTitle'));
 }
@@ -524,6 +526,7 @@ function renderVideoRow() {
   const feature = state.videoDownload;
   const toggle = document.querySelector('#videoDownload-status');
   toggle.disabled = !feature?.supported;
+  toggle.hidden = !feature?.supported;
   renderDownloadControlState(toggle, feature);
   label(toggle, t(!feature?.supported ? 'unsupportedTitle' : feature.active ? 'videoOpenTitle' : 'videoStartTitle'));
   renderVideoPanel();
@@ -610,6 +613,7 @@ function render() {
   renderPageDisplayRow();
   renderImageRow();
   renderVideoRow();
+  document.getElementById('media-download-row').hidden = !state.imageDownload?.supported && !state.videoDownload?.supported;
   renderContextualProducts();
   for (const entry of POPUP_TOOLS) {
     const tools = entry.read(state);
@@ -631,7 +635,8 @@ function render() {
 async function reload(selectInitialView = true) {
   if (popupClosing) return;
   const ticket = ++stateReadGeneration;
-  const snapshot = await send({ type: 'UI_GET_ACTIVE_PAGE_STATE' });
+  const snapshot = await send({ type: 'UI_GET_ACTIVE_PAGE_STATE',
+    refreshMediaSource: selectInitialView && viewMode === null });
   if (ticket !== stateReadGeneration || popupClosing) return;
   currentTab = snapshot.tab || null;
   if (videoSelectionTabId !== currentTab?.id) {
@@ -759,25 +764,44 @@ const settingsButton = bindSettingsButton(document.querySelector('#all-settings'
   })
 });
 
+async function mediaSourceForClick(featureId) {
+  const tabId = currentTab?.id;
+  const snapshot = await send({ type: 'UI_GET_ACTIVE_PAGE_STATE', refreshMediaSource: true });
+  if (snapshot.tab?.id !== tabId || snapshot.state?.[featureId]?.supported !== true) {
+    currentTab = snapshot.tab || null; state = snapshot.state; render();
+    throw new Error('Media tools are unavailable on this page.');
+  }
+  return { ...snapshot.tab, workspaceMode: snapshot.state[featureId].workspaceMode };
+}
+
 document.querySelector('#videoDownload-status').addEventListener('click', () => void perform(async () => {
+  const source = await mediaSourceForClick('videoDownload');
   setVideoViewVisible(true);
   await send({
       type: 'UI_VIDEO_OPEN',
-      tabId: currentTab?.id,
-      url: currentTab?.url || '',
-      title: currentTab?.title || ''
+      tabId: source.id,
+      url: source.url,
+      title: source.title || ''
     });
     showView('video');
     await reloadAfterAction(false);
 }));
 
 document.querySelector('#imageDownload-status').addEventListener('click', () => void perform(async () => {
+    const source = await mediaSourceForClick('imageDownload');
+    const tabId = source.id;
+    const workspaceMode = source.workspaceMode || 'sidePanel';
+    if (workspaceMode === 'sidePanel') {
+      // Configure in this clicked document, which retains its DOM activation.
+      // The worker must open immediately when the following message arrives.
+      await chrome.sidePanel.setOptions({ tabId,
+        path: imageSidePanelPath(tabId),
+        enabled: true });
+    }
     await send({
-      type: 'UI_IMAGE_OPEN',
-      tabId: currentTab?.id,
-      url: currentTab?.url || '',
-      title: currentTab?.title || '',
-      workspaceMode: state.imageDownload?.workspaceMode || 'sidePanel'
+      type: 'UI_IMAGE_OPEN', tabId,
+      url: source.url, title: source.title || '', workspaceMode,
+      sidePanelPrepared: workspaceMode === 'sidePanel'
     });
     window.close();
 }));

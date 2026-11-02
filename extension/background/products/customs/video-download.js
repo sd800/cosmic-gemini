@@ -50,7 +50,7 @@ export function mediaHeaderRule(id, urlFilter, referrer, extensionId) {
   };
 }
 
-export function createVideoDownloadProduct(platform, offscreen, observation) {
+export function createVideoDownloadProduct(platform, offscreen, observation, mediaSources = null) {
   const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const { readSettings, sendTabMessage, setFeatureActivity, notifyCentralUi } = platform;
   const activeVideoProcessing = new Map();
@@ -1560,6 +1560,9 @@ export function createVideoDownloadProduct(platform, offscreen, observation) {
     if (change.status === 'loading' || change.url) clearPending(tabId);
     const session = await readVideoSession(tabId);
     if (!session) return;
+    if (mediaSources && change.status === 'complete' && !await mediaSources.inspect(tabId, tab.url || session.pageUrl)) {
+      await stopVideoSession(tabId, session.origin); return;
+    }
     if (change.url || change.status === 'loading') {
       cancelSiteDiscovery(tabId);
       cancelVideoSizeReads(tabId);

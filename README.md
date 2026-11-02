@@ -110,7 +110,7 @@ Clean links during navigation. The UTM option removes common campaign tags while
 
 #### Website Fixer
 
-Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, while Stay on the page keeps selected websites from sending you to other sites. The control window also offers quick, temporary access to both tools.
+Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, while Stay on the page keeps selected websites from sending you to other sites. The control window offers both tools: click for a temporary domain choice until Chrome exits, or hold to add or remove its saved rule. Holding an unlisted, inactive site also turns it on until Chrome exits; other holds keep the temporary choice unchanged. Saved rules follow each tool’s Settings switch; a grey outline marks a saved rule while that switch is off, and a purple outline marks it while on. Website Fixer has no master switch; its tools retain independent controls.
 
 ### Orbiters
 
@@ -192,7 +192,7 @@ The popup uses five compact rows, with two related controls in each row.
 
 Native Scroll and No Autoplay controls change only the current website. A current-site setting may enable a product while its global default is off, or disable it while the global default is on. Turning an active Enhanced control off returns that website to Standard mode.
 
-Clicking Any Copy in the popup turns it on or off for the current registrable domain and its subdomains until Chrome exits. This temporary choice applies across matching tabs and does not change Any Copy sites in Settings. A blue outline indicates an ongoing website policy, even when Any Copy is temporarily off. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
+Clicking Any Copy in the popup turns it on or off for the current registrable domain and its subdomains until Chrome exits. This temporary choice applies across matching tabs and does not change Any Copy sites in Settings. Hold the same button to add or remove the current domain and subdomains in Any Copy sites, automatically turning it on for this Chrome session if the site is both unlisted and inactive; otherwise the temporary choice stays unchanged. A purple outline indicates a saved website policy, even when Any Copy is temporarily off. Any Copy Enhanced applies only to the current tab and ends when you turn it off or close the tab. They may run together, and turning either one off does not change the other.
 
 For Reduce White Point and Greyscale, click for a temporary current-website choice, or press and hold for all websites. Closing the control window or a tab does not end the current-website choice; it lasts until Chrome exits.
 

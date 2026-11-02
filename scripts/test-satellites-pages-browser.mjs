@@ -65,7 +65,7 @@ try{
      assert.equal(await card.locator(':scope > .satellite-privacy').isVisible(),false);
    }
  };
- await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerEnabled');
+ await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerTranslateOverrideEnabled');
  assert.equal(await page.locator('#orbiter-chinese-response-claude .satellite-feature-icon svg').count(),1);
  const xhs=page.locator('#orbiter-xhs-image-dark-mode'),xhsDisclosure=xhs.locator(':scope > .section-heading > [data-card-disclosure]');
  const navigation=page.locator('#orbiter-xhs-navigation'),navigationDisclosure=navigation.locator('[data-card-disclosure]');
@@ -94,7 +94,7 @@ try{
  await page.locator('[data-feature-target="orbiter-leetcode-dark-mode"]').click();
  await page.waitForFunction(()=>document.querySelector('[data-feature-target="orbiter-leetcode-dark-mode"]').getAttribute('aria-current')==='location');
  await page.locator('[data-feature-link="satellites"]').click();await page.waitForURL('**/satellites.html');
- await assertPage('satellites','Satellites','#websiteFixerEnabled','#zhihuImageAdjustmentEnabled');
+ await assertPage('satellites','Satellites','#websiteFixerTranslateOverrideEnabled','#zhihuImageAdjustmentEnabled');
  const documentCard=page.locator('#satellite-document-preview'),documentDisclosure=documentCard.locator('[data-card-disclosure]');
  assert.equal(await page.locator('#documentPreviewEnabled').isVisible(),true);assert.equal(await page.locator('#documentOpenFile').isVisible(),false);
  assert.equal(await documentCard.locator('[data-i18n="documentPreviewDescription"]').isVisible(),false);
@@ -110,7 +110,7 @@ try{
  assert.equal(await page.locator('.satellite-category-heading').count(),0);
  await page.locator('#mailtoCaptureEnabled').check();await page.waitForFunction(()=>!document.querySelector('#mailtoCaptureEnabled').disabled);
  await page.goBack();await page.waitForURL('**/orbiters.html');
- await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerEnabled');
+ await assertPage('orbiters','Orbiters','#zhihuImageAdjustmentEnabled','#websiteFixerTranslateOverrideEnabled');
  assert.equal(await page.locator('#zhihuImageAdjustmentEnabled').isChecked(),true);
  await page.goForward();await page.waitForURL('**/satellites.html');
  assert.equal(await documentDisclosure.getAttribute('aria-expanded'),'false','in-page navigation keeps the current document layout choice');

@@ -365,10 +365,9 @@ function render() {
     document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
   }
   const websiteFixer = (states?.preferences || states)?.websiteFixer;
-  const websiteFixerEnabled = document.querySelector('#websiteFixerEnabled');
+  const websiteFixerOptions = document.querySelector('#websiteFixerOptions');
   const websiteFixerTranslateOverrideEnabled = document.querySelector('#websiteFixerTranslateOverrideEnabled');
-  if (websiteFixerEnabled) {
-    websiteFixerEnabled.checked = websiteFixer?.enabled === true;
+  if (websiteFixerOptions) {
     websiteFixerTranslateOverrideEnabled.checked = websiteFixer?.translateOverride?.enabled === true;
     document.querySelector('#websiteFixerStayOnPageEnabled').checked = websiteFixer?.stayOnPage?.enabled === true;
   }
@@ -502,12 +501,10 @@ function render() {
   }
   for (const control of pendingControls) control.disabled = true;
   if (documentPreviewEnabled) document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
-  if (websiteFixerEnabled) {
-    document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
-    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
-      || !websiteFixerTranslateOverrideEnabled.checked;
-    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked
-      || !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
+  if (websiteFixerOptions) {
+    websiteFixerOptions.disabled = false;
+    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerTranslateOverrideEnabled.checked;
+    document.querySelector('#websiteFixerStayOptions').disabled = !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
   }
 }
 
@@ -946,30 +943,17 @@ function bindView() {
     featureId: 'accessControl',
     enabled: accessControlTemporaryVisits.checked
   }), [accessControlTemporaryVisits]));
-  const websiteFixerEnabled = document.querySelector('#websiteFixerEnabled');
   const websiteFixerStayOnPageEnabled = document.querySelector('#websiteFixerStayOnPageEnabled');
   if (websiteFixerStayOnPageEnabled) websiteFixerStayOnPageEnabled.addEventListener('change', () => {
-    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked || !websiteFixerStayOnPageEnabled.checked;
+    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerStayOnPageEnabled.checked;
     void update(null, () => savePreference('websiteFixer', {
       type: 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE', featureId: 'websiteFixer', enabled: websiteFixerStayOnPageEnabled.checked
     }), [websiteFixerStayOnPageEnabled]);
   });
   const websiteFixerTranslateOverrideEnabled = document.querySelector('#websiteFixerTranslateOverrideEnabled');
-  if (websiteFixerEnabled) websiteFixerEnabled.addEventListener('change', () => {
-    document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
-    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
-      || !websiteFixerTranslateOverrideEnabled.checked;
-    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked
-      || !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
-    void update(null, () => savePreference('websiteFixer', {
-      type: 'UI_SET_ENABLED', featureId: 'websiteFixer', enabled: websiteFixerEnabled.checked
-    }), [websiteFixerEnabled]);
-  });
   if (websiteFixerTranslateOverrideEnabled) websiteFixerTranslateOverrideEnabled.addEventListener('change', () => {
-    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked
-      || !websiteFixerTranslateOverrideEnabled.checked;
-    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked
-      || !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
+    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerTranslateOverrideEnabled.checked;
+    document.querySelector('#websiteFixerStayOptions').disabled = !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
     void update(null, () => savePreference('websiteFixer', {
       type: 'UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', featureId: 'websiteFixer',
       enabled: websiteFixerTranslateOverrideEnabled.checked

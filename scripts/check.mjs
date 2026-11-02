@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.1.3');
+assert.equal(manifest.version, '26.11.1.4');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
@@ -242,7 +242,7 @@ for (const id of ['mailtoCaptureEnabled', 'websiteKnowledgeLanguages', 'websiteK
     `${id} must render off before settings are loaded.`);
 }
 assert.match(orbitersSettings, /class="incognito-status"[\s\S]*data-i18n="disabledInIncognito"/);
-assert.match(satellitesSettings, /satellitesName[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="whiteSofterEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*id="websiteFixerEnabled"/);
+assert.match(satellitesSettings, /satellitesName[\s\S]*id="mailtoCaptureEnabled"[\s\S]*id="clipboardProtectEnabled"[\s\S]*id="whiteSofterEnabled"[\s\S]*id="accessControlEnabled"[\s\S]*id="websiteKnowledgeEnabled"[\s\S]*id="websiteFixerTranslateOverrideEnabled"/);
 assert.match(orbitersSettings, /orbitersName[\s\S]*id="xhsImageDarkModeEnabled"[\s\S]*id="biliDailyLogin"[\s\S]*id="leetcodeDarkModeEnabled"[\s\S]*id="claudeBrowserIdentityEnabled"[\s\S]*id="chineseResponseClaudeEnabled"[\s\S]*data-product="follow-list-instagram"[\s\S]*id="zhihuImageAdjustmentEnabled"/);
 assert.doesNotMatch(satellitesSettings, /id="(?:xhsImageDarkModeEnabled|biliDailyLogin|zhihuImageAdjustmentEnabled)"/);
 assert.doesNotMatch(orbitersSettings, /id="(?:mailtoCaptureEnabled|websiteFixerEnabled|accessControlEnabled)"/);

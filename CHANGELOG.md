@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.1.4 — 2026-11-01
+
+- Add independent click and hold actions to Any Copy, Translate Override, and Stay on the page in the popup. Click to change the current domain and subdomains until Chrome exits; hold to add or remove their saved rules. Adding an unlisted, inactive site also turns it on for the current Chrome session; other holds preserve the temporary choice.
+- Make explicit temporary off choices take priority over saved Website Fixer rules, including after navigation or reopening a matching page. Keep unrelated websites and ordinary/private sessions separate.
+- Show saved website policies with a visible outline independently of the current temporary effect: grey when the corresponding Settings feature switch is off, and purple when it is on. Button highlighting continues to show the effective current-page state.
+- Remove the policy outline from Greyscale.
+- Remove Website Fixer's master switch from Settings and keep its authorization enabled. Translate Override and Stay on the page retain independent switches and website lists.
+
 ## 26.11.1.3 — 2026-11-01
 
 - Change the popup's Any Copy control to a temporary choice for the current site's registrable domain and subdomains, lasting until Chrome exits. Popup clicks no longer add or remove Any Copy sites.

@@ -1,3 +1,5 @@
+:root { --policy-outline: #7752b8; }
+@media (prefers-color-scheme: dark) { :root { --policy-outline: #c4a7f5; } }
 body { width: 152px; }
 body[data-view="video"] { width: 386px; }
 .popup-shell { display: grid; gap: 10px; padding: 12px; }
@@ -17,10 +19,13 @@ body:not([data-view="tools"]) #tools-page { visibility: hidden; pointer-events: 
 .feature-status[data-state="active"] { color: var(--blue); }
 .feature-status[data-state="active"][data-persistent="true"] { --icon-surface: color-mix(in srgb, var(--blue) 17%, var(--surface)); background: color-mix(in srgb, var(--blue) 17%, var(--surface)); }
 .feature-status[data-intervened="true"] { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--blue) 88%, var(--surface)); }
-#page-display-row .feature-status[data-global="true"], #anyCopy-status[data-saved-policy="true"] { box-shadow: 0 0 0 1.5px var(--blue); }
+.feature-status[data-saved-policy="true"] { box-shadow: 0 0 0 1.5px var(--muted); }
+#reduceWhitePoint-status[data-global="true"] { box-shadow: 0 0 0 1.5px var(--blue); }
+.feature-status[data-saved-policy="true"][data-policy-enabled="true"] { box-shadow: 0 0 0 1.5px var(--policy-outline); }
 .feature-status:disabled { cursor: default; opacity: .34; }
 .feature-toggle { cursor: pointer; }
 .feature-toggle:not(:disabled):hover { opacity: .78; }
+.feature-toggle[data-saved-policy="true"]:not(:disabled):hover { opacity: 1; }
 .utility-control:not(:disabled):hover { --icon-surface: var(--surface-raised); background: var(--surface-raised); }
 .feature-status[data-state="active"][data-persistent="true"]:hover { --icon-surface: color-mix(in srgb, var(--blue) 22%, var(--surface)); background: color-mix(in srgb, var(--blue) 22%, var(--surface)); }
 .feature-status svg { width: 21px; height: 21px; }

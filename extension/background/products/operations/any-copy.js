@@ -1,5 +1,5 @@
 import { createContextSessionStorage } from '../../commissions/central-cc.js';
-import { FEATURE_IDS, anyCopyState, hostnameFromUrl, normalizeRule, updateFeature } from '../../../core/config.js';
+import { FEATURE_IDS, anyCopyState, hostnameFromUrl, isIpAddress, normalizeRule, updateFeature } from '../../../core/config.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 import { siteKey } from '../../../core/site-key.js';
 
@@ -9,6 +9,7 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
   const sessionStorage = createContextSessionStorage(platform.isIncognitoContext?.() === true);
   const siteUpdates = createKeyedTaskQueue();
   const key = site => SESSION_PREFIX + site;
+  const ownsRule = (rule, site) => siteKey('https://' + rule.replace(/^\*\./, '')) === site;
 
   async function currentPage(message) {
     if (!Number.isInteger(message.tabId) || message.tabId < 0) throw new Error('The current tab is unavailable.');
@@ -46,9 +47,10 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
       const sessionOverride = typeof entry?.active === 'boolean';
       const persistent = base.supported && directives[product.id]?.persistent === true;
       const active = sessionOverride ? entry.active : persistent || base.active;
+      const savedSitePolicy = !!site && base.siteRules.some(rule => ownsRule(rule, site));
       return {
         ...base, site, active, enabled: active, sessionOverride,
-        persistentPolicy: base.active || persistent,
+        persistentPolicy: savedSitePolicy || base.active || persistent, savedSitePolicy,
         coordinated: persistent,
         coordinationSource: persistent ? String(directives[product.id].source || '') : ''
       };
@@ -61,12 +63,46 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
     async handleMessage(message, context = {}) {
       if (message.type === 'UI_TOGGLE_SITE_FEATURE') {
         if (context.sender?.url !== chrome.runtime.getURL('popup/index.html')) {
-          throw new Error('Temporary Any Copy choices are available only from the popup.');
+          throw new Error('Any Copy website choices are available only from the popup.');
         }
+        if (message.scope && !['session', 'persistent'].includes(message.scope)) throw new Error('Unknown Any Copy scope.');
         const initial = await currentPage(message);
         return siteUpdates.run(initial.site, async () => {
           const { tab, url, site } = await currentPage(message);
-          const settings = await platform.readSettings();
+          let settings = await platform.readSettings();
+          if (message.scope === 'persistent') {
+            const previous = (await sessionStorage.get(key(site)))[key(site)];
+            let temporaryChanged = false;
+            try {
+              settings = await platform.mutateSettings(async current => {
+                const saved = current[product.id].siteRules.some(rule => ownsRule(rule, site));
+                const rule = isIpAddress(site) || site === 'localhost' || siteKey('https://cg-site-check.' + site) !== site
+                  ? site : '*.' + site;
+                if (!saved) {
+                  const directives = await context.resolvePageDirectives?.(url);
+                  const before = await product.state(current, url, tab.id, directives);
+                  if (!before.active) {
+                    await sessionStorage.set({ [key(site)]: { active: true } });
+                    temporaryChanged = true;
+                  }
+                }
+                return updateFeature(current, product.id, feature => ({ ...feature,
+                  siteRules: saved ? feature.siteRules.filter(rule => !ownsRule(rule, site)) : [...feature.siteRules, rule]
+                }));
+              }, false);
+            } catch (error) {
+              if (temporaryChanged) {
+                if (previous === undefined) await sessionStorage.remove(key(site)).catch(() => {});
+                else await sessionStorage.set({ [key(site)]: previous }).catch(() => {});
+              }
+              throw error;
+            }
+            const directives = await context.resolvePageDirectives?.(url);
+            const state = await product.state(settings, url, tab.id, directives);
+            platform.notifyCentralUi?.();
+            await refreshSite(site, state.active).catch(() => {});
+            return state;
+          }
           const directives = await context.resolvePageDirectives?.(url);
           const state = await product.state(settings, url, tab.id, directives);
           const active = !state.active;

@@ -207,19 +207,18 @@
     document.querySelector('#accessControlTemporaryVisits').checked = cached.accessControl?.allowTemporaryVisits === true;
     document.querySelector('#accessControlOptions').disabled = !accessControlEnabled.checked;
   }
-  const websiteFixerEnabled = document.querySelector('#websiteFixerEnabled');
-  if (websiteFixerEnabled) {
-    websiteFixerEnabled.checked = cached.websiteFixer?.enabled === true;
+  const websiteFixerOptions = document.querySelector('#websiteFixerOptions');
+  if (websiteFixerOptions) {
     const translateOverride = document.querySelector('#websiteFixerTranslateOverrideEnabled');
     translateOverride.checked = cached.websiteFixer?.translateOverride?.enabled === true;
-    document.querySelector('#websiteFixerOptions').disabled = !websiteFixerEnabled.checked;
-    document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerEnabled.checked || !translateOverride.checked;
+    websiteFixerOptions.disabled = false;
+    document.querySelector('#websiteFixerTranslateOptions').disabled = !translateOverride.checked;
     const stay = document.querySelector('#websiteFixerStayOnPageEnabled');
     stay.checked = cached.websiteFixer?.stayOnPage?.enabled === true;
     const savedCount = cached.websiteFixer?.stayOnPage?.savedCount || 0;
     document.querySelector('[data-setting-group="stayOnPage"] .website-fixer-count').textContent = translate(
       savedCount === 1 ? 'websiteFixerSavedCountOne' : 'websiteFixerSavedCountMany', { count: savedCount });
-    document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerEnabled.checked || !stay.checked;
+    document.querySelector('#websiteFixerStayOptions').disabled = !stay.checked;
   }
   const knowledge = cached.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');

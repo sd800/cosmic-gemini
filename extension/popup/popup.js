@@ -117,7 +117,8 @@ function renderSiteFeature(featureId) {
     label(toggle, t('unavailable'));
     return;
   }
-  toggle.dataset.savedPolicy = String(featureId === 'anyCopy' && feature.persistentPolicy === true);
+  toggle.dataset.savedPolicy = String(featureId === 'anyCopy' && feature.savedSitePolicy === true);
+  toggle.dataset.policyEnabled = 'true';
   toggle.dataset.state = iconState(featureId, feature);
   toggle.dataset.persistent = String(feature.active);
   toggle.setAttribute('aria-pressed', String(feature.active));
@@ -129,7 +130,7 @@ function renderSiteFeature(featureId) {
     label(toggle, t(feature.active ? 'anyCopyEnhancedOnTitle' : 'anyCopyEnhancedOffTitle'));
   } else if (featureId === 'anyCopy') {
     toggle.disabled = false;
-    label(toggle, t(feature.active ? 'anyCopySessionOnTitle' : 'anyCopySessionOffTitle', { site: feature.site }));
+    label(toggle, t(feature.active ? 'anyCopySessionOnTitle' : 'anyCopySessionOffTitle', { site: feature.site, persistentAction: t(feature.savedSitePolicy ? 'policyRemove' : 'policyAdd') }));
   } else if (feature.active && !feature.exactActive) {
     toggle.disabled = false;
     label(toggle, t('siteFeatureCoveredTitle', { product, rule: feature.matchedRule }));
@@ -617,10 +618,12 @@ function render() {
     control.disabled = !tools.supported;
     control.dataset.state = enabled ? 'active' : 'off';
     control.dataset.persistent = String(enabled);
+    control.dataset.savedPolicy = String(tools.persistent);
+    control.dataset.policyEnabled = String(tools.persistentEnabled);
     if (typeof enabled === 'boolean') control.setAttribute('aria-pressed', String(enabled));
     else control.removeAttribute('aria-pressed');
     label(control, t(!tools.supported ? 'unsupportedTitle' : tools.titleKey || entry.nameKey, {
-      tool: t(entry.nameKey), site: tools.site
+      tool: t(entry.nameKey), site: tools.site, persistentAction: t(tools.persistent ? 'policyRemove' : 'policyAdd')
     }));
   }
 }
@@ -694,8 +697,8 @@ for (const featureId of ['nativeScroll', 'noAutoplay']) {
 
 const anyCopyControl = document.querySelector('#anyCopy-status');
 anyCopyControl.innerHTML = icon('anyCopy');
-anyCopyControl.addEventListener('click', () => void act(() => send({
-  type: 'UI_TOGGLE_SITE_FEATURE', featureId: 'anyCopy',
+bindDisplayButton(anyCopyControl, scope => void act(() => send({
+  type: 'UI_TOGGLE_SITE_FEATURE', featureId: 'anyCopy', scope: scope === 'global' ? 'persistent' : 'session',
   tabId: currentTab?.id, expectedHostname: state.anyCopy.hostname
 })));
 
@@ -739,7 +742,8 @@ for (const [index, entry] of POPUP_TOOLS.entries()) {
   control.className = 'feature-status feature-toggle';
   control.disabled = true;
   control.innerHTML = icon(entry.glyph);
-  control.addEventListener('click', () => void act(() => send(entry.request(state, currentTab))));
+  bindDisplayButton(control, scope => void act(() => send(entry.request(state, currentTab,
+    scope === 'global' ? 'persistent' : 'session'))));
   toolRow.append(control);
 }
 const settingsButton = bindSettingsButton(document.querySelector('#all-settings'), {

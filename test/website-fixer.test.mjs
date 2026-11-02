@@ -24,9 +24,9 @@ test('Standing exposes the navigation hook and rejects silently dropped province
   assert.throws(() => defineProvince({ id: 'unknown', products: {}, lostHook() {} }), /Unknown province hook/);
 });
 
-test('Website Fixer defaults off and matches only selected domains and their subdomains', () => {
+test('Website Fixer has a frozen enabled master and inactive children by default', () => {
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.websiteFixer, {
-    enabled: false, translateOverride: { enabled: false, whitelistDomains: [] }, stayOnPage: { enabled: false, whitelistDomains: [] }
+    enabled: true, translateOverride: { enabled: false, whitelistDomains: [] }, stayOnPage: { enabled: false, whitelistDomains: [] }
   });
   assert.equal(normalizeWebsiteFixerDomain('*.ILSOS.gov'), 'ilsos.gov');
   assert.throws(() => normalizeWebsiteFixerDomain('192.0.2.1'));
@@ -82,7 +82,7 @@ test('Website Fixer registers only allowlisted document-start scripts and unregi
   await product.handleMessage({ type: 'UI_ADD_RULE', listName: 'whitelistDomains', rule: 'ilsos.gov' }, sender);
   assert.deepEqual(calls, [], 'a saved domain alone does not register a page script');
   await product.handleMessage({ type: 'UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', enabled: true }, sender);
-  assert.deepEqual(calls, [], 'the subfeature still needs its master switch');
+  assert.deepEqual(calls, ['register'], 'the child switch authorizes its saved list with the master frozen on');
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }, sender);
   assert.deepEqual(calls, ['register']);
   assert.deepEqual(registered[0].matches, ['*://*.ilsos.gov/*']);
@@ -92,6 +92,9 @@ test('Website Fixer registers only allowlisted document-start scripts and unregi
   await product.handleMessage({ type: 'UI_ADD_RULE', listName: 'whitelistDomains', rule: 'example.com' }, sender);
   assert.deepEqual(calls, ['register', 'update']);
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false }, sender);
+  assert.equal(settings.websiteFixer.enabled, true, 'legacy commands cannot disable the frozen master');
+  assert.deepEqual(calls, ['register', 'update']);
+  await product.handleMessage({ type: 'UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', enabled: false }, sender);
   assert.deepEqual(calls, ['register', 'update', 'unregister']);
   await assert.rejects(product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }, {
     sender: { url: 'https://www.ilsos.gov/' }
@@ -283,7 +286,7 @@ test('Stay on the page owns bounded independent rules and preserves per-site add
   await rule('UI_ADD_RULE', 'https//a.example.co.uk/path');
   await rule('UI_ADD_RULE', 'translate.test', 'translateOverride');
   await product.handleMessage({ type: 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE', enabled: true }, sender);
-  assert.equal(registered.length, 0);
+  assert.equal(registered.length, 2);
   await product.handleMessage({ type: 'UI_SET_ENABLED', enabled: true }, sender);
   assert.equal(registered.length, 2);
   assert.deepEqual(registered.map(script => script.world), ['MAIN', 'ISOLATED']);
@@ -447,4 +450,16 @@ test('Stay on the page discards popup work started before a reset', async () => 
   stay.handleNavigationRequest({tabId:2,url:popup.url,initiator:source.url});
   await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(removed,[],'a reset cannot be undone by a delayed old settings reply');
+});
+
+
+test('Website Fixer ignores legacy master-off settings while preserving child controls', () => {
+  const settings = normalizeSettings({ websiteFixer: { enabled: false, translateOverride: {
+    enabled: false, whitelistDomains: ['example.com']
+  } } });
+  assert.equal(settings.websiteFixer.enabled, true);
+  assert.equal(websiteFixerState(settings, 'https://sub.example.com/').active, false);
+  settings.websiteFixer.translateOverride.enabled = true;
+  assert.equal(websiteFixerState(settings, 'https://sub.example.com/').active, true);
+  assert.equal(websiteFixerState(settings, 'https://evil.test/').active, false);
 });

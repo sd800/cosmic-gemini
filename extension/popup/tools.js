@@ -5,13 +5,13 @@ const websiteTool = (id, nameKey, glyph) => Object.freeze({
   read(state) {
     const tools = state?.websiteFixer?.tools;
     const enabled = tools?.[id] === true;
-    return { supported: tools?.supported === true, enabled, site: tools?.site || '',
+    return { supported: tools?.supported === true, enabled, persistent: tools?.persistent?.[id] === true, persistentEnabled: tools?.persistentEnabled?.[id] === true, site: tools?.site || '',
       titleKey: enabled ? 'popupToolOnTitle' : 'popupToolOffTitle' };
   },
-  request(state, tab) {
+  request(state, tab, scope = 'session') {
     const value = this.read(state);
     return { type: 'UI_SET_WEBSITE_FIXER_TOOL', featureId: 'websiteFixer', kind: id,
-      tabId: tab?.id, expectedSite: value.site, enabled: !value.enabled };
+      tabId: tab?.id, expectedSite: value.site, scope, enabled: scope === 'persistent' ? !value.persistent : !value.enabled };
   }
 });
 

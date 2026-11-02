@@ -37,12 +37,14 @@ try {
   settings.on('console', message => { if (message.type() === 'error') console.error('Settings console:', message.text()); });
   await settings.goto(base + '/settings/satellites.html');
   await settings.waitForSelector('#websiteFixerStayOnPageEnabled', { state: 'attached' });
-  await settings.locator('.switch:has(#websiteFixerEnabled)').click();
+  const disclosure = settings.locator('#satellite-website-fixer [data-card-disclosure]');
+  if (await disclosure.getAttribute('aria-expanded') === 'false') await disclosure.click();
+  assert.equal(await settings.locator('#websiteFixerEnabled').count(), 0);
   await settings.locator('.switch:has(#websiteFixerStayOnPageEnabled)').click();
   const section = settings.locator('[data-setting-group="stayOnPage"]');
   assert.equal(await section.locator('.website-fixer-count').textContent(), '0 websites saved.');
   await section.locator('input').fill('https://deep.stay.test/path'); await section.locator('button[type=submit]').click();
-  await section.locator('.website-fixer-saved').filter({ hasText: 'Website saved.' }).waitFor();
+  await section.locator('.website-fixer-saved').filter({ hasText: 'Website added.' }).waitFor();
   assert.equal(await section.locator('.website-fixer-count').textContent(), '1 website saved.');
   assert.equal(await section.locator('.rule-list').count(), 0);
   assert.equal(await section.getByText('stay.test', { exact: true }).count(), 0);

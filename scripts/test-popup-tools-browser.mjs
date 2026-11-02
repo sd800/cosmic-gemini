@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { SETTINGS_KEY } from '../extension/core/config.js';
 
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const artifacts = resolve('test-dist/popup-tools');
@@ -99,8 +100,55 @@ try {
   assert.deepEqual(await worker.evaluate(() => chrome.storage.local.get(null)), localBefore);
   assert.equal((await worker.evaluate(() => chrome.scripting.getRegisteredContentScripts()))
     .some(script => script.id.includes('-session')), false);
+  await source.goto(origin);
+  await open(); await popup.locator('#tools-toggle').click();
+  for (const kind of ['translateOverride', 'stayOnPage']) {
+    const button = popup.locator('#' + kind + '-tool');
+    await button.click({ delay: 650 });
+    await popup.waitForFunction(kind => document.getElementById(kind + '-tool').dataset.savedPolicy === 'true', kind);
+    assert.equal(await button.getAttribute('data-policy-enabled'), 'false');
+    await popup.waitForFunction(kind => document.getElementById(kind + '-tool').getAttribute('aria-pressed') === 'true', kind);
+    const after = await worker.evaluate(() => chrome.storage.session.get('cosmicGeminiWebsiteFixerTools'));
+    assert.deepEqual(after.cosmicGeminiWebsiteFixerTools[kind], [{ site: 'tools.test', enabled: true }]);
+    const mutedBorder = await button.evaluate(node => {
+      const style = getComputedStyle(node);
+      return { shadow: style.boxShadow, muted: style.getPropertyValue('--muted').trim() };
+    });
+    assert.notEqual(mutedBorder.shadow, 'none');
+    await button.click();
+    await popup.waitForFunction(kind => document.getElementById(kind + '-tool').getAttribute('aria-pressed') === 'false', kind);
+    // Turning on the corresponding Settings switch changes the border to purple.
+    await worker.evaluate(async ({ key, kind }) => {
+      const settings = (await chrome.storage.local.get(key))[key];
+      settings.websiteFixer[kind].enabled = true;
+      await chrome.storage.local.set({ [key]: settings });
+    }, { key: SETTINGS_KEY, kind });
+    await open(); await popup.locator('#tools-toggle').click();
+    assert.equal(await button.getAttribute('data-policy-enabled'), 'true');
+    assert.notEqual(await button.evaluate(node => getComputedStyle(node).boxShadow), mutedBorder.shadow);
+    assert.equal(await button.getAttribute('aria-pressed'), 'false');
+    const saved = await worker.evaluate(async ({ key, kind }) => (await chrome.storage.local.get(key))[key].websiteFixer[kind].whitelistDomains,
+      { key: SETTINGS_KEY, kind });
+    assert.deepEqual(saved, ['tools.test']);
+    // A saved rule cannot reactivate a page while the explicit session override is off.
+    await source.reload();
+    if (kind === 'translateOverride') assert.equal(await source.locator('meta[name="google"]').getAttribute('content'), 'notranslate');
+    else assert.equal(await source.evaluate(() => !!globalThis[Symbol.for('cosmic-gemini.website-fixer.stay-bootstrap')]?.enabled), false);
+    await open(); await popup.locator('#tools-toggle').click();
+    const offBefore = await worker.evaluate(() => chrome.storage.session.get('cosmicGeminiWebsiteFixerTools'));
+    await button.click({ delay: 650 });
+    await popup.waitForFunction(kind => document.getElementById(kind + '-tool').dataset.savedPolicy === 'false', kind);
+    assert.equal(await button.getAttribute('aria-pressed'), 'false');
+    assert.deepEqual(await worker.evaluate(() => chrome.storage.session.get('cosmicGeminiWebsiteFixerTools')), offBefore);
+  }
+  const settingsPage = await context.newPage();
+  await settingsPage.goto(base + 'settings/satellites.html');
+  await settingsPage.waitForFunction(() => document.documentElement.dataset.localePending === 'false');
+  assert.equal(await settingsPage.locator('#websiteFixerEnabled').count(), 0);
+  assert.equal(await settingsPage.locator('#websiteFixerOptions').isDisabled(), false);
+  await settingsPage.close();
   assert.deepEqual(errors, []);
-  console.log('Popup tools: layout, stable height, live activation/restoration, reopening, subdomains, session cleanup, and unchanged saved settings passed.');
+  console.log('Popup tools: layout, stable height, live activation/restoration, reopening, subdomains, session cleanup, unchanged saved settings for clicks, hold-state transitions, grey/purple policy outlines, saved-rule overrides, and the frozen master passed.');
 } finally {
   await context.close();
   await rm(folder, { recursive: true, force: true });

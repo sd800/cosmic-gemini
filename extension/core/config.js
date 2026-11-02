@@ -145,7 +145,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     })
   }),
   websiteFixer: Object.freeze({
-    enabled: false,
+    enabled: true, // Frozen master: individual tools own their authorization.
     translateOverride: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) }),
     stayOnPage: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) })
   }),
@@ -339,6 +339,12 @@ export function normalizeLeetcodeDarkModeTone(value) {
   return WHITE_TONES.normalize(value, true);
 }
 
+function normalizeWebsiteFixerGroup(value, normalizeDomain) {
+  const whitelistDomains = [...new Set((Array.isArray(value?.whitelistDomains) ? value.whitelistDomains : [])
+    .flatMap(entry => { try { return [normalizeDomain(entry)]; } catch { return []; } }))].slice(0, 100);
+  return { enabled: value?.enabled === true, whitelistDomains };
+}
+
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   const biliDailyLogin = value.biliDailyLogin || value.satellites?.biliDailyLogin || {};
@@ -419,21 +425,9 @@ export function normalizeSettings(value = {}) {
       ]))
     },
     websiteFixer: {
-      enabled: value.websiteFixer?.enabled === true,
-      translateOverride: {
-        enabled: value.websiteFixer?.translateOverride?.enabled === true,
-        whitelistDomains: [...new Set((Array.isArray(value.websiteFixer?.translateOverride?.whitelistDomains)
-          ? value.websiteFixer.translateOverride.whitelistDomains : []).flatMap(entry => {
-          try { return [normalizeWebsiteFixerDomain(entry)]; } catch { return []; }
-        }))].slice(0, 100)
-      },
-      stayOnPage: {
-        enabled: value.websiteFixer?.stayOnPage?.enabled === true,
-        whitelistDomains: [...new Set((Array.isArray(value.websiteFixer?.stayOnPage?.whitelistDomains)
-          ? value.websiteFixer.stayOnPage.whitelistDomains : []).flatMap(entry => {
-          try { return [normalizeWebsiteFixerSite(entry)]; } catch { return []; }
-        }))].slice(0, 100)
-      }
+      enabled: true,
+      translateOverride: normalizeWebsiteFixerGroup(value.websiteFixer?.translateOverride, normalizeWebsiteFixerDomain),
+      stayOnPage: normalizeWebsiteFixerGroup(value.websiteFixer?.stayOnPage, normalizeWebsiteFixerSite)
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',

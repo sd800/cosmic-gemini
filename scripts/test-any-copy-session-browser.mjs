@@ -80,8 +80,43 @@ try {
   await open(reopened);
   assert.equal(await button.getAttribute('aria-pressed'), 'false');
   await active(reopened, false);
+  // Holds preserve temporary state except when adding an inactive, unlisted site.
+  const temporaryBefore = await worker.evaluate(() => chrome.storage.session.get('anyCopySite:copy.test'));
+  await button.click({ delay: 650 });
+  await popup.waitForFunction(() => document.querySelector('#anyCopy-status').dataset.savedPolicy === 'false');
+  assert.equal(await button.getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(await worker.evaluate(() => chrome.storage.session.get('anyCopySite:copy.test')), temporaryBefore);
+  await button.click({ delay: 650 });
+  await popup.waitForFunction(() => document.querySelector('#anyCopy-status').dataset.savedPolicy === 'true'
+    && document.querySelector('#anyCopy-status').getAttribute('aria-pressed') === 'true');
+  assert.deepEqual(await worker.evaluate(() => chrome.storage.session.get('anyCopySite:copy.test')),
+    { 'anyCopySite:copy.test': { active: true } });
+  await active(reopened, true);
+  await button.click();
+  await popup.waitForFunction(() => document.querySelector('#anyCopy-status').getAttribute('aria-pressed') === 'false');
+  await active(reopened, false);
+  const offBefore = await worker.evaluate(() => chrome.storage.session.get('anyCopySite:copy.test'));
+  await button.click({ delay: 650 });
+  await popup.waitForFunction(() => document.querySelector('#anyCopy-status').dataset.savedPolicy === 'false');
+  assert.equal(await button.getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(await worker.evaluate(() => chrome.storage.session.get('anyCopySite:copy.test')), offBefore);
+  // Page Display keeps its original global Reduce White Point indicator; Greyscale has no policy outline.
+  await worker.evaluate(async key => {
+    const settings = (await chrome.storage.local.get(key))[key];
+    settings.pageDisplay.enabled = true;
+    settings.pageDisplay.reduceWhitePoint.enabled = true;
+    settings.pageDisplay.greyscale.enabled = true;
+    await chrome.storage.local.set({ [key]: settings });
+  }, SETTINGS_KEY);
+  await open(reopened);
+  const reduction = popup.locator('#reduceWhitePoint-status');
+  const greyscale = popup.locator('#greyscale-status');
+  assert.equal(await reduction.getAttribute('data-global'), 'true');
+  assert.equal(await greyscale.getAttribute('data-global'), 'true');
+  assert.notEqual(await reduction.evaluate(node => getComputedStyle(node).boxShadow), 'none');
+  assert.equal(await greyscale.evaluate(node => getComputedStyle(node).boxShadow), 'none');
   assert.deepEqual(errors, []);
-  await writeFile(join(artifacts, 'README.md'), `# Any Copy session checks\n\nRun scripts/test-any-copy-session-browser.mjs with PLAYWRIGHT_MODULE and TEST_CHROME set. Uses a disposable Chrome for Testing profile and local fixtures.\n\nVerified actual popup clicks, immediate same-domain and subdomain activation and restoration, isolation from unrelated domains, reload and reopen continuity, saved-rule preservation, and no persistent settings writes from popup actions, and a colored saved-policy outline that remains while temporarily off. Unit coverage in test/any-copy-session.test.mjs also checks browser-session clearing, worker recreation, coordinated activation, concurrent commands, private contexts, failed writes, and stale pages. No browsing logs are retained.\n`);
+  await writeFile(join(artifacts, 'README.md'), `# Any Copy session checks\n\nRun scripts/test-any-copy-session-browser.mjs with PLAYWRIGHT_MODULE and TEST_CHROME set. Uses a disposable Chrome for Testing profile and local fixtures.\n\nVerified actual popup clicks, immediate same-domain and subdomain activation and restoration, isolation from unrelated domains, reload and reopen continuity, saved-rule preservation, and no persistent settings writes from ordinary clicks, a colored saved-policy outline that remains while temporarily off, and actual holds with automatic activation and no following release click. Unit tests cover all four hold-state transitions. Unit coverage in test/any-copy-session.test.mjs also checks browser-session clearing, worker recreation, coordinated activation, concurrent commands, private contexts, failed writes, and stale pages. No browsing logs are retained.\n`);
   console.log('Any Copy: popup, live pages, subdomains, reload/reopen, and unchanged saved rules passed.');
 } catch (error) {
   console.error('Popup errors:', errors);

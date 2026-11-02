@@ -12,7 +12,7 @@ function fixture(saved = {}) {
     [3, { id: 3, url: 'https://other.co.uk/' }],
     [4, { id: 4, url: 'https://www.example.co.uk/', incognito: true }]
   ]);
-  let settings = normalizeSettings(saved), failWrite = false;
+  let settings = normalizeSettings(saved), failWrite = false, failSettings = false;
   const base = 'chrome-extension://test/';
   globalThis.chrome = {
     runtime: { getURL: path => base + path },
@@ -26,7 +26,8 @@ function fixture(saved = {}) {
   const platform = incognito => ({
     isIncognitoContext: () => incognito,
     async readSettings() { return settings; },
-    async mutateSettings(update) { settings = normalizeSettings(update(settings)); return settings; },
+    async mutateSettings(update) { const next = normalizeSettings(await update(settings));
+      if (failSettings) throw Error('settings write failed'); settings = next; return settings; },
     async setFeatureActivity(...args) { activity.push(args); },
     async refreshTabPage(id) { refreshed.push(id); }
   });
@@ -40,7 +41,7 @@ function fixture(saved = {}) {
   }, context);
   const state = (url, p = product) => p.state(settings, url, undefined, centralPageDirectives(settings, url));
   return { session, tabs, refreshed, activity, product, create, context, toggle, state,
-    settings: () => settings, failWrite: value => { failWrite = value; } };
+    settings: () => settings, failWrite: value => { failWrite = value; }, failSettings: value => { failSettings = value; } };
 }
 
 test('Any Copy popup shares a temporary eTLD+1 choice across tabs without changing saved sites', async () => {
@@ -136,4 +137,48 @@ test('IP addresses are exact, and unsupported pages never inherit a session choi
   assert.equal((await f.state('http://127.0.0.1:80/')).active, true);
   assert.equal((await f.state('http://127.0.0.2/')).active, false);
   assert.equal((await f.state('chrome://settings/')).active, false);
+});
+
+
+for (const listed of [false, true]) {
+  for (const temporary of [false, true]) {
+    test(`Any Copy hold: listed=${listed}, temporary=${temporary}`, async () => {
+      const f = fixture({ anyCopy: { siteRules: listed ? ['other.co.uk', '*.example.co.uk'] : ['other.co.uk'] } });
+      f.session['anyCopySite:example.co.uk'] = { active: temporary };
+      const result = await f.toggle(1, f.product, { scope: 'persistent' });
+      const expected = !listed && !temporary ? true : temporary;
+      assert.equal(result.active, expected);
+      assert.equal(result.persistentPolicy, !listed);
+      assert.deepEqual(f.session['anyCopySite:example.co.uk'], { active: expected });
+      assert.deepEqual(f.settings().anyCopy.siteRules, listed ? ['other.co.uk'] : ['other.co.uk', '*.example.co.uk']);
+    });
+  }
+}
+
+test('holding removes same-family legacy rules together and preserves unrelated websites', async () => {
+  const f = fixture({ anyCopy: { siteRules: ['example.co.uk', '*.example.co.uk', 'deep.example.co.uk', 'other.co.uk'] } });
+  await f.toggle(1, f.product, { scope: 'persistent' });
+  assert.deepEqual(f.settings().anyCopy.siteRules, ['other.co.uk']);
+  assert.equal((await f.state('https://deep.example.co.uk/')).active, false);
+});
+
+
+test('holding on a bare public suffix cannot authorize independent tenant domains', async () => {
+  const f = fixture();
+  f.tabs.get(1).url = 'https://co.uk/';
+  await f.toggle(1, f.product, { scope: 'persistent' });
+  assert.deepEqual(f.settings().anyCopy.siteRules, ['co.uk']);
+  assert.equal((await f.state('https://example.co.uk/')).active, false);
+});
+
+
+test('automatic temporary activation rolls back when the persistent Any Copy save fails', async () => {
+  const f = fixture();
+  f.session['anyCopySite:example.co.uk'] = { active: false };
+  f.failSettings(true);
+  await assert.rejects(f.toggle(1, f.product, { scope: 'persistent' }), /settings write failed/);
+  assert.deepEqual(f.settings().anyCopy.siteRules, []);
+  assert.deepEqual(f.session['anyCopySite:example.co.uk'], { active: false });
+  f.failSettings(false);
+  assert.equal((await f.toggle(1, f.product, { scope: 'persistent' })).active, true);
 });

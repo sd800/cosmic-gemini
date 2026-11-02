@@ -16,14 +16,38 @@ export function toolSite(url) {
   } catch { return ''; }
 }
 
+export function savedToolDomains(settings, kind) {
+  const feature = settings.websiteFixer;
+  const saved = feature[kind];
+  return feature.enabled && saved.enabled ? saved.whitelistDomains : [];
+}
+
+export function toolChoices(tools, kind, enabled) {
+  return tools[kind].filter(entry => entry.enabled === enabled).map(entry => entry.site);
+}
+
+export function hasSavedToolSite(settings, kind, site) {
+  return settings.websiteFixer[kind].whitelistDomains.some(domain => toolSite('https://' + domain) === site);
+}
+
+export function websiteToolEnabled(settings, tools, kind, url) {
+  const site = toolSite(url), hostname = hostnameFromUrl(url);
+  if (!site) return false;
+  const override = tools[kind].find(entry => entry.site === site);
+  return override ? override.enabled : savedToolDomains(settings, kind)
+    .some(domain => ruleMatches(hostname, '*.' + domain));
+}
+
 export function effectiveWebsiteFixerSettings(settings, tools) {
   const feature = settings.websiteFixer;
   return { ...settings, websiteFixer: { ...feature, enabled: true,
-    ...Object.fromEntries(WEBSITE_TOOL_KINDS.map(kind => [kind, { ...feature[kind], enabled: true,
-      whitelistDomains: [...new Set([
-        ...(feature.enabled && feature[kind].enabled ? feature[kind].whitelistDomains : []), ...tools[kind]
-      ])]
-    }]))
+    ...Object.fromEntries(WEBSITE_TOOL_KINDS.map(kind => {
+      const excludedDomains = toolChoices(tools, kind, false);
+      return [kind, { ...feature[kind], enabled: true, excludedDomains,
+        whitelistDomains: [...new Set([...savedToolDomains(settings, kind)
+          .filter(domain => !excludedDomains.includes(toolSite('https://' + domain))), ...toolChoices(tools, kind, true)])]
+      }];
+    }))
   } };
 }
 
@@ -35,19 +59,19 @@ export function createWebsiteFixerTools(platform) {
     const tools = empty();
     for (const kind of WEBSITE_TOOL_KINDS) {
       for (const value of Array.isArray(saved?.[kind]) ? saved[kind].slice(0, LIMIT) : []) {
-        if (typeof value !== 'string') continue;
-        try {
-          const site = toolSite('https://' + value);
-          if (!site) continue;
-          if (!tools[kind].includes(site)) tools[kind].push(site);
-        } catch {}
+        // Migrate earlier session-only positive lists without promoting them to saved rules.
+        const entry = typeof value === 'string' ? { site: value, enabled: true } : value;
+        if (typeof entry?.site !== 'string' || typeof entry.enabled !== 'boolean') continue;
+        const site = toolSite('https://' + entry.site);
+        if (site && !tools[kind].some(item => item.site === site)) tools[kind].push({ site, enabled: entry.enabled });
       }
     }
     return tools;
   }
   const permits = (settings, kind, url) => {
     const hostname = hostnameFromUrl(url);
-    return !!hostname && settings.websiteFixer[kind].whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain));
+    return !!hostname && !settings.websiteFixer[kind].excludedDomains?.includes(toolSite(url))
+      && settings.websiteFixer[kind].whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain));
   };
   return {
     read,
@@ -57,10 +81,12 @@ export function createWebsiteFixerTools(platform) {
       else await storage.set({ [SESSION_KEY]: tools });
     },
     clear: () => storage?.remove(SESSION_KEY),
-    state(url, tools) {
+    state(url, tools, settings) {
       const site = toolSite(url);
       return { site, supported: !!site && !!storage,
-        ...Object.fromEntries(WEBSITE_TOOL_KINDS.map(kind => [kind, !!site && tools[kind].includes(site)])) };
+        persistent: Object.fromEntries(WEBSITE_TOOL_KINDS.map(kind => [kind, !!site && hasSavedToolSite(settings, kind, site)])),
+        persistentEnabled: Object.fromEntries(WEBSITE_TOOL_KINDS.map(kind => [kind, settings.websiteFixer[kind].enabled === true])),
+        ...Object.fromEntries(WEBSITE_TOOL_KINDS.map(kind => [kind, !!site && websiteToolEnabled(settings, tools, kind, url)])) };
     },
     async candidate(message, current) {
       if (!WEBSITE_TOOL_KINDS.includes(message.kind) || typeof message.enabled !== 'boolean') throw new Error('Unknown website tool.');
@@ -70,10 +96,12 @@ export function createWebsiteFixerTools(platform) {
       if (!site || site !== message.expectedSite || !!tab.incognito !== incognito) {
         throw new Error('The page changed before the action completed.');
       }
-      const domains = current[message.kind];
-      if (message.enabled && domains.length >= LIMIT && !domains.includes(site)) throw new Error('The website tool has reached its session limit.');
-      return { site, tools: { ...current, [message.kind]: message.enabled
-        ? [...new Set([...domains, site])] : domains.filter(value => value !== site) } };
+      return { site, tools: message.scope === 'persistent' ? current : this.withChoice(current, message.kind, site, message.enabled) };
+    },
+    withChoice(current, kind, site, enabled) {
+      const domains = current[kind];
+      if (domains.length >= LIMIT && !domains.some(entry => entry.site === site)) throw new Error('The website tool has reached its session limit.');
+      return { ...current, [kind]: [...domains.filter(entry => entry.site !== site), { site, enabled }] };
     },
     async syncSites(sites, settings) {
       const selected = new Set(sites);

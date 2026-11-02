@@ -21,7 +21,7 @@ try {
  await prefs.waitForTimeout(500); // Chrome rebuilds extension hosts after changing incognito access.
  await prefs.goto(`chrome-extension://${id}/settings/satellites.html`);
  const event=context.waitForEvent('page');await prefs.evaluate(()=>chrome.windows.create({incognito:true,url:chrome.runtime.getURL('settings/satellites.html')}));const privatePrefs=await event;await privatePrefs.waitForLoadState();
- for(const page of [prefs,privatePrefs])await page.waitForFunction(()=>document.querySelector('#websiteFixerEnabled'));
+ for(const page of [prefs,privatePrefs])await page.waitForFunction(()=>document.querySelector('#websiteFixerTranslateOverrideEnabled'));
  const source={websiteFixer:{enabled:true,translateOverride:{enabled:true,whitelistDomains:['example.test']},stayOnPage:{enabled:true,whitelistDomains:['example.test']}},accessControl:{enabled:true,blockedDomains:['blocked.example.test']}};
  await prefs.evaluate(async value=>{const {normalizeSettings}=await import(chrome.runtime.getURL('core/config.js'));await chrome.storage.local.set({cosmicGeminiSettings:normalizeSettings(value)});},source);
  await prefs.waitForFunction(async()=>(await chrome.scripting.getRegisteredContentScripts()).length===3);

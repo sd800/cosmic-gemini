@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.1.5 — 2026-11-01
+
+- Use purple icons and tinted backgrounds for active Any Copy, Any Copy Enhanced, Translate Override, and Stay on the page controls, including temporary-only activation and hover states. Inactive controls retain their neutral appearance.
+- Soften grey policy outlines in both light and dark appearances while keeping them clearly visible.
+- Use warm yellow for active Reduce White Point icons and backgrounds, including temporary-only activation, and for its all-websites outline. Light appearance uses a darker gold shade for visibility.
+
 ## 26.11.1.4 — 2026-11-01
 
 - Add independent click and hold actions to Any Copy, Translate Override, and Stay on the page in the popup. Click to change the current domain and subdomains until Chrome exits; hold to add or remove their saved rules. Adding an unlisted, inactive site also turns it on for the current Chrome session; other holds preserve the temporary choice.

@@ -224,9 +224,9 @@ Native Scroll and No Autoplay settings begin with a global default. Website sett
 
 Both pages also show the same shared whitelist. On a matching website, neither product intercepts, observes, styles, pauses, or removes page content unless you explicitly start another click-activated tool. No Autoplay keeps audio autoplay permissions in a separate section.
 
-Popup product controls use only neutral and blue icon states. Primary products, including Any Copy Enhanced, use a stronger neutral color than the secondary mode controls for Native Scroll and No Autoplay.
+Popup product controls use neutral icons while off. Active Any Copy, Any Copy Enhanced, Translate Override, and Stay on the page controls use purple; Reduce White Point uses warm yellow. Other active controls use blue. Primary products, including Any Copy Enhanced, use a stronger neutral color than the secondary mode controls for Native Scroll and No Autoplay.
 
-Blue means that the product is available to work in the current tab. A blue control with a background is active and may continue changing or displaying page behavior. Image Download and Video Download use blue without a background while their current-tab sessions are active.
+A colored icon means that the product is available to work in the current tab. Reduce White Point uses warm yellow for its active icon and background, and for its all-websites outline. A highlighted control with a background is active and may continue changing or displaying page behavior. Image Download and Video Download use blue without a background while their current-tab sessions are active.
 
 After Native Scroll or No Autoplay intervenes on the page, a thin blue outline appears around the active Standard or Enhanced control.
 

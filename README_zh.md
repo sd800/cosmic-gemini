@@ -224,9 +224,9 @@ Native Scroll 与 No Autoplay 均先设置全局默认状态，再在“网站�
 
 两个页面还会显示同一份共用白名单。符合规则的网站不会受到这两项功能的拦截、观察、样式调整、暂停或内容移除。只有您主动开启其他点击后运行的工具时，相应工具才会执行操作。No Autoplay 的声音自动播放权限仍放在单独区域中。
 
-控制窗口中的功能按钮只使用中性色和蓝色。Any Copy 强力模式与其他一级功能在未启用时采用较清晰的中性色。Native Scroll 与 No Autoplay 的强力模式属于二级功能，会使用更低调的灰度。
+控制窗口中的功能按钮停用时使用中性色。启用时，Any Copy、Any Copy 强力模式、Translate Override 和 Stay on the page 使用紫色，Reduce White Point 使用暖黄色，其他功能使用蓝色。Any Copy 强力模式与其他一级功能在未启用时采用较清晰的中性色。Native Scroll 与 No Autoplay 的强力模式属于二级功能，会使用更低调的灰度。
 
-蓝色表示该功能可以在当前标签页中工作。蓝色按钮带有背景时，表示功能已经开启，并可能继续影响页面显示或操作。Image Download 与 Video Download 的当前标签页会话开启后只显示蓝色，不添加背景。
+彩色图标表示该功能可以在当前标签页中工作。Reduce White Point 启用时的图标和底色，以及全局策略边框均使用暖黄色。点亮的按钮带有背景时，表示功能已经开启，并可能继续影响页面显示或操作。Image Download 与 Video Download 的当前标签页会话开启后只显示蓝色，不添加背景。
 
 Native Scroll 或 No Autoplay 在页面中实际执行拦截后，当前使用的标准模式或强力模式按钮会出现蓝色细外框。
 

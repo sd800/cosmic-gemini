@@ -63,7 +63,7 @@ test('popup tools are eTLD+1 browser-session choices independent of saved switch
   assert.deepEqual(f.settings(), before);
   assert.equal(f.mutations(), 0);
   assert.deepEqual((await p.state(before, 'https://other.example.co.uk/')).tools,
-    { site: 'example.co.uk', supported: true, persistent: { translateOverride: false, stayOnPage: false }, persistentEnabled: { translateOverride: false, stayOnPage: false }, translateOverride: true, stayOnPage: true });
+    { site: 'example.co.uk', supported: true, persistent: { translateOverride: false, stayOnPage: false, crashPageWarden: false }, persistentEnabled: { translateOverride: false, stayOnPage: false, crashPageWarden: false }, translateOverride: true, stayOnPage: true, crashPageWarden: false });
   assert.equal((await p.state(before, 'https://other.example.co.uk/')).active, true);
   assert.equal((await p.state(before, 'https://example.co.uk.evil.test/')).tools.stayOnPage, false);
   assert.equal((await p.state(before, 'chrome://settings/')).tools.supported, false);
@@ -204,6 +204,27 @@ test('legacy positive session entries remain temporary and stored-list deletion 
   for (const key of Object.keys(f.session)) delete f.session[key];
   assert.equal((await f.active(p, 'translateOverride', 'https://example.co.uk/')).active, false);
 });
+
+for (const listed of [false, true]) {
+  for (const temporary of [false, true]) {
+    test(`Warden hold: listed=${listed}, temporary=${temporary}`, async () => {
+      const f = fixture();
+      f.setSettings({ websiteFixer: { crashPageWarden: { enabled: false,
+        whitelistDomains: listed ? ['unrelated.test', 'deep.example.co.uk'] : ['unrelated.test'] } } });
+      const p = f.product();
+      await f.send(p, 'crashPageWarden', temporary);
+      await f.send(p, 'crashPageWarden', !listed, { scope: 'persistent' });
+      const state = (await p.state(f.settings(), 'https://deep.example.co.uk/')).tools;
+      assert.equal(state.crashPageWarden, !listed && !temporary ? true : temporary);
+      assert.equal(state.persistent.crashPageWarden, !listed);
+      assert.equal(state.persistentEnabled.crashPageWarden, false);
+      assert.deepEqual(f.settings().websiteFixer.crashPageWarden.whitelistDomains,
+        listed ? ['unrelated.test'] : ['unrelated.test', '*.example.co.uk']);
+      await p.reset();
+      assert.equal(f.scripts.size, 0, 'both bootstrap and bridge registrations are removed');
+    });
+  }
+}
 
 
 for (const kind of ['translateOverride', 'stayOnPage']) {

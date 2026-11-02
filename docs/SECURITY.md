@@ -30,9 +30,17 @@ Domain lists are normalized as host data. Navigation controls apply to website-i
 
 Ordinary/private sessions remain separated. Document content and local file references stay in memory; settings and bounded session metadata are stored only for their documented purpose. Never write private document contents, full browsing captures, credentials, or access tokens into logs, tests, screenshots, or repository notes.
 
+## Crash Page Warden rescue authority
+
+Crash Page Warden operates only on documents authorized by its own saved or browser-session policy. The owning isolated bridge validates through Central before activating packaged MAIN-world guards. Authorization is tied to Chrome's tab, frame, document ID, and ordinary/private context; page-visible markers cannot grant debugger authority.
+
+The declared `debugger` permission prepares a rescue connection for an authorized root document, and `webNavigation` verifies document identity before intervention. The connection performs a `Runtime.disable` handshake and can issue `Runtime.terminateExecution` after sustained missing heartbeats. It does not enable Runtime content-event subscriptions, retrieve scripts, evaluate page expressions, profile execution, or record page content. `Page.enable` supplies browser-dialog open/closed event names so a user-facing prompt suspends the rescue deadline; event payloads are not inspected or retained. Navigation and tab closure release owned connections; browser-level cancellation remains available. Attempts and metadata are bounded and remain in browser-session storage.
+
+Switching off changes future activation. The already-authorized document retains its controls until reload, including after list deletion or reset. Old-document messages, replacement navigation, hidden-page transitions, and large clock delays are checked separately from a sustained execution stall.
+
 ## Maintenance and reporting
 
-Keep third-party code pinned with its provenance, licenses, and integrity data. Review dependency updates before shipping them. Use small synthetic regression cases for the changed boundary, including rejection paths and cleanup; do not test with private user content or perform stress tests by default.
+Keep third-party code pinned with its provenance, licenses, and integrity data. Review dependency updates before shipping them. Use regression tests for changed boundaries, including rejection paths and cleanup, with synthetic data that contains no private user content.
 
 Report suspected vulnerabilities through [GitHub private vulnerability reporting](https://github.com/sd800/cosmic-gemini/security/advisories/new). Include the affected version and a minimal synthetic reproduction, without private files, credentials, or session URLs.
 

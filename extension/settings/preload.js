@@ -59,6 +59,7 @@
     websiteKnowledgeControl: '<rect x="2.75" y="4" width="18.5" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M12 6h.01"/><path d="M7 12h10M7 15.5h7"/>',
     websiteFixer: '<path d="M20 7.5a5.4 5.4 0 0 1-7.2 5.1l-6.6 6.6a2 2 0 0 1-2.8-2.8l6.6-6.6A5.4 5.4 0 0 1 15.1 2l-2.8 2.8.6 3 3 .6L20 4.3a5.4 5.4 0 0 1 0 3.2Z"/>',
     translateOverride: '<g stroke="none"><path d="M12.4 6H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7.1l-1.2-3.8Z" fill="none" stroke="currentColor"/><path d="m11.7 18.2 1.2 3.8 3.4-3.8Z" fill="color-mix(in srgb, currentColor 68%, black)"/><path d="M11.1 2H4a2 2 0 0 0-2 2v12.2a2 2 0 0 0 2 2h12.3Z" fill="currentColor"/></g>',
+    crashPageWarden: '<path d="M12 2.5 20 6v5c0 5-3.2 8.5-8 10.5C7.2 19.5 4 16 4 11V6Z"/><path d="M7 12h3l1.5-4 3 8 1.5-4h2"/>',
     stayOnPage: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 8h18M6 6h.01M9 6h.01M10 13v-1a2 2 0 0 1 4 0v1"/><rect x="9" y="13" width="6" height="5" rx="1"/>',
     adMarshal: '<path d="M12 2.75 20 6v5.2c0 5.1-3.1 8.55-8 10.05-4.9-1.5-8-4.95-8-10.05V6Z"/><path d="m8.5 12 2.25 2.25L16 9"/>',
     zhihuImageAdjustment: '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><circle cx="8.5" cy="9" r="1.3"/><path d="m5 17 4.5-4.5 3 3 2.5-2.5 4 4M16 7h3m-3 0v3"/>',
@@ -212,6 +213,9 @@
     const translateOverride = document.querySelector('#websiteFixerTranslateOverrideEnabled');
     translateOverride.checked = cached.websiteFixer?.translateOverride?.enabled === true;
     websiteFixerOptions.disabled = false;
+    const warden = document.querySelector('#crashPageWardenEnabled');
+    warden.checked = cached.websiteFixer?.crashPageWarden?.enabled === true;
+    document.querySelector('#crashPageWardenOptions').disabled = !warden.checked;
     document.querySelector('#websiteFixerTranslateOptions').disabled = !translateOverride.checked;
     const stay = document.querySelector('#websiteFixerStayOnPageEnabled');
     stay.checked = cached.websiteFixer?.stayOnPage?.enabled === true;
@@ -381,7 +385,7 @@
     const rules = Array.isArray(sectionState[listName]) ? sectionState[listName].filter(rule => typeof rule === 'string') : [];
     const note = section.querySelector('.rule-list-note');
     if (note) {
-      note.hidden = !rules.some(rule => !isIpRule(rule));
+      note.hidden = section.dataset.settingGroup === 'crashPageWarden' || !rules.some(rule => !isIpRule(rule));
       if (!note.hidden) note.textContent = translate('generalDomainListNote');
     }
     list.replaceChildren();

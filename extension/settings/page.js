@@ -2,7 +2,7 @@ import { loadLocale } from '../core/locale.js';
 import { createCardDisclosures } from './card-disclosures.js';
 import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizePageDisplaySite, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeStayOnPageCommand, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
+import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeCrashPageWardenRuleInput, normalizeStayOnPageCommand, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
@@ -194,7 +194,7 @@ function renderList(section) {
   }
   const note = section.querySelector('.rule-list-note');
   if (note) {
-    note.hidden = !rules.some(rule => !isIpAddress(rule));
+    note.hidden = section.dataset.settingGroup === 'crashPageWarden' || !rules.some(rule => !isIpAddress(rule));
     if (!note.hidden) note.textContent = t('generalDomainListNote');
   }
   const signature = JSON.stringify([locale, rules]);
@@ -370,6 +370,7 @@ function render() {
   if (websiteFixerOptions) {
     websiteFixerTranslateOverrideEnabled.checked = websiteFixer?.translateOverride?.enabled === true;
     document.querySelector('#websiteFixerStayOnPageEnabled').checked = websiteFixer?.stayOnPage?.enabled === true;
+    document.querySelector('#crashPageWardenEnabled').checked = websiteFixer?.crashPageWarden?.enabled === true;
   }
   const knowledge = (states?.preferences || states)?.websiteKnowledgeControl;
   const knowledgeEnabled = document.querySelector('#websiteKnowledgeEnabled');
@@ -503,6 +504,7 @@ function render() {
   if (documentPreviewEnabled) document.querySelector('#documentPreviewOptions').disabled = !documentPreviewEnabled.checked;
   if (websiteFixerOptions) {
     websiteFixerOptions.disabled = false;
+    document.querySelector('#crashPageWardenOptions').disabled = !document.querySelector('#crashPageWardenEnabled').checked;
     document.querySelector('#websiteFixerTranslateOptions').disabled = !websiteFixerTranslateOverrideEnabled.checked;
     document.querySelector('#websiteFixerStayOptions').disabled = !document.querySelector('#websiteFixerStayOnPageEnabled').checked;
   }
@@ -720,6 +722,7 @@ function openRuleInputHelp(input) {
   const accessControl = section?.dataset.featureId === 'accessControl';
   const hiddenList = section?.dataset.hiddenList === 'true';
   const websiteFixer = section?.dataset.featureId === 'websiteFixer';
+  const crashPageWarden = websiteFixer && section?.dataset.settingGroup === 'crashPageWarden';
   const documentWhitelist = section?.dataset.featureId === 'documentPreview';
   const pageDisplayWebsites = section?.dataset.domainScope === 'site';
   const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
@@ -731,6 +734,8 @@ function openRuleInputHelp(input) {
   panel.rulesHeading.textContent = t('ruleInputRulesHeading');
   panel.rules.replaceChildren(...(pageDisplayWebsites
     ? [helpTextItem('reduceWhitePointWebsitesHelp'), helpTextItem('documentWhitelistIpHelp')]
+    : crashPageWarden
+    ? [helpTextItem('crashPageWardenScopeHelp')]
     : websiteFixer
     ? [helpTextItem('websiteFixerDomainHelp')]
     : documentWhitelist
@@ -738,7 +743,7 @@ function openRuleInputHelp(input) {
     : accessControl
     ? [helpTextItem('accessControlInputDomainHelp'), helpTextItem('accessControlInputIpHelp')]
     : [helpTextItem('ruleInputExactHelp'), helpTextItem('ruleInputWildcardHelp')]),
-  helpTextItem('ruleInputExpansionHelp'));
+  ...(crashPageWarden ? [] : [helpTextItem('ruleInputExpansionHelp')]));
   panel.aliasesSection.hidden = aliasGroups.length === 0;
   panel.aliasesHeading.textContent = t('accessControlInputAliasesHeading');
   panel.aliases.replaceChildren();
@@ -943,6 +948,13 @@ function bindView() {
     featureId: 'accessControl',
     enabled: accessControlTemporaryVisits.checked
   }), [accessControlTemporaryVisits]));
+  const crashPageWardenEnabled = document.querySelector('#crashPageWardenEnabled');
+  if (crashPageWardenEnabled) crashPageWardenEnabled.addEventListener('change', () => {
+    document.querySelector('#crashPageWardenOptions').disabled = !crashPageWardenEnabled.checked;
+    void update(null, () => savePreference('websiteFixer', {
+      type: 'UI_SET_CRASH_PAGE_WARDEN', featureId: 'websiteFixer', enabled: crashPageWardenEnabled.checked
+    }), [crashPageWardenEnabled]);
+  });
   const websiteFixerStayOnPageEnabled = document.querySelector('#websiteFixerStayOnPageEnabled');
   if (websiteFixerStayOnPageEnabled) websiteFixerStayOnPageEnabled.addEventListener('change', () => {
     document.querySelector('#websiteFixerStayOptions').disabled = !websiteFixerStayOnPageEnabled.checked;
@@ -1234,7 +1246,7 @@ function bindView() {
           rule = sectionFeatureId === 'accessControl'
             ? normalizeAccessControlRuleInput(input.value)
             : sectionFeatureId === 'websiteFixer'
-              ? normalizeWebsiteFixerDomain(normalizeGeneralDomainInput(input.value))
+              ? settingGroup === 'crashPageWarden' ? normalizeCrashPageWardenRuleInput(input.value) : normalizeWebsiteFixerDomain(normalizeGeneralDomainInput(input.value))
               : section.dataset.domainScope === 'site'
                 ? normalizePageDisplaySite(normalizeGeneralDomainInput(input.value))
               : section.dataset.domainScope === 'subdomains'

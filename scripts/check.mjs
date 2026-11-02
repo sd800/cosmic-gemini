@@ -33,13 +33,13 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.2.1');
+assert.equal(manifest.version, '26.11.2.2');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
-  'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
+  'activeTab', 'alarms', 'debugger', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webNavigation', 'webRequest'
 ]);
 assert.deepEqual(manifest.host_permissions.sort(), ['http://*/*', 'https://*/*']);
 assert.equal(manifest.background.service_worker, 'background/central.js');
@@ -261,9 +261,9 @@ assert.match(settingsStyle, /\.document-whitelist>p:not\(\.form-message\):not\(\
   'Document whitelist description spacing must not apply to validation or list notes.');
 assert.match(settingsStyle, /\.rule-list \.empty \{ min-height: 0;/,
   'Empty website lists must not inherit populated row height.');
-assert.match(settingsSource, /note\.hidden = !rules\.some\(rule => !isIpAddress\(rule\)\)/);
-assert.match(settingsPreload, /note\.hidden = !rules\.some\(rule => !isIpRule\(rule\)\)/);
-assert.equal((satellitesSettings.match(/<ul class="rule-list"><\/ul>\s*<p class="rule-list-note" hidden><\/p>/g) || []).length, 3);
+assert.match(settingsSource, /note\.hidden = [^;]*!rules\.some\(rule => !isIpAddress\(rule\)\)/);
+assert.match(settingsPreload, /note\.hidden = [^;]*!rules\.some\(rule => !isIpRule\(rule\)\)/);
+assert.equal((satellitesSettings.match(/<ul class="rule-list"><\/ul>\s*<p class="rule-list-note" hidden><\/p>/g) || []).length, 4);
 assert.doesNotMatch(settingsSource + settingsPreload, /accessControlSubdomainsSuffix|access-control-rule-scope/);
 assert.match(readme, /### Satellites[\s\S]*#### Access Control[\s\S]*### Orbiters/);
 assert.match(readmeZh, /### Satellites[\s\S]*#### Access Control[\s\S]*### Orbiters/);

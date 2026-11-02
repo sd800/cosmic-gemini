@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.2.2 — 2026-11-02
+
+- Add Crash Page Warden under Website Fixer and to the popup Tools page, off by default. Settings offers an editable website list with exact-host and explicit wildcard rules.
+- Reuse click/hold policies: click for a temporary domain-and-subdomain choice until Chrome exits; hold to add or remove a saved rule. Keep saved-rule outlines and ordinary/private policies consistent with the other website tools.
+- Limit runaway recurring callbacks and marked heavy frames while preserving ordinary article content, images, authentication, expand controls, and pagination. An independent watchdog uses a prepared Chrome debugger connection to interrupt sustained script stalls, with document checks to protect pages reached by navigation.
+- Keep protection and stopped components unchanged after switching off or removing a rule; the current document remains controlled until reload. Release rescue connections on navigation or tab closure, and handle hidden pages, native dialogs, printing, worker restart, and sleep/wake without treating them as ordinary script stalls.
+
 ## 26.11.2.1 — 2026-11-02
 
 - Hold an active Image Download or Video Download icon in the popup to stop that tab’s session, including discovery with a highlighted background and the icon-only grace period. Ordinary clicks continue opening the respective workspace or media list.

@@ -82,7 +82,7 @@ const DEFAULT_FEATURE = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 44,
+  version: 45,
   nsna: Object.freeze({
     whitelistRules: Object.freeze([])
   }),
@@ -147,7 +147,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   websiteFixer: Object.freeze({
     enabled: true, // Frozen master: individual tools own their authorization.
     translateOverride: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) }),
-    stayOnPage: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) })
+    stayOnPage: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) }),
+    crashPageWarden: Object.freeze({ enabled: false, whitelistDomains: Object.freeze([]) })
   }),
   imageDownload: Object.freeze({
     workspaceMode: 'sidePanel',
@@ -256,6 +257,12 @@ export function normalizeWebsiteFixerDomain(value) {
   return domain;
 }
 
+export function normalizeCrashPageWardenDomain(value) {
+  const rule = normalizeRule(value);
+  normalizeWebsiteFixerDomain(rule);
+  return rule;
+}
+
 function normalizeRules(value) {
   const rules = [];
   for (const entry of Array.isArray(value) ? value : []) {
@@ -349,7 +356,7 @@ export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   const biliDailyLogin = value.biliDailyLogin || value.satellites?.biliDailyLogin || {};
   return {
-    version: 44,
+    version: 45,
     nsna: {
       whitelistRules: normalizeRules(value.nsna?.whitelistRules)
     },
@@ -427,7 +434,8 @@ export function normalizeSettings(value = {}) {
     websiteFixer: {
       enabled: true,
       translateOverride: normalizeWebsiteFixerGroup(value.websiteFixer?.translateOverride, normalizeWebsiteFixerDomain),
-      stayOnPage: normalizeWebsiteFixerGroup(value.websiteFixer?.stayOnPage, normalizeWebsiteFixerSite)
+      stayOnPage: normalizeWebsiteFixerGroup(value.websiteFixer?.stayOnPage, normalizeWebsiteFixerSite),
+      crashPageWarden: normalizeWebsiteFixerGroup(value.websiteFixer?.crashPageWarden, normalizeCrashPageWardenDomain)
     },
     imageDownload: {
       workspaceMode: value.imageDownload?.workspaceMode === 'page' ? 'page' : 'sidePanel',
@@ -674,6 +682,7 @@ export function websiteFixerState(settings, url) {
     supported: !!hostname,
     active: !!hostname && feature.enabled && [feature.translateOverride, feature.stayOnPage].some(fix =>
       fix.enabled && fix.whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain)))
+      || !!hostname && feature.crashPageWarden.enabled && feature.crashPageWarden.whitelistDomains.some(rule => ruleMatches(hostname, rule))
   };
 }
 

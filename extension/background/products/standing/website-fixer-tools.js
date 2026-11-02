@@ -1,10 +1,10 @@
 import { hostnameFromUrl, normalizeWebsiteFixerSite, ruleMatches } from '../../../core/config.js';
 import { siteKey } from '../../../core/site-key.js';
 
-export const WEBSITE_TOOL_KINDS = Object.freeze(['translateOverride', 'stayOnPage']);
+export const WEBSITE_TOOL_KINDS = Object.freeze(['translateOverride', 'stayOnPage', 'crashPageWarden']);
 const SESSION_KEY = 'cosmicGeminiWebsiteFixerTools';
 const LIMIT = 100;
-const empty = () => ({ translateOverride: [], stayOnPage: [] });
+const empty = () => ({ translateOverride: [], stayOnPage: [], crashPageWarden: [] });
 
 export function toolSite(url) {
   const hostname = hostnameFromUrl(url);
@@ -26,8 +26,11 @@ export function toolChoices(tools, kind, enabled) {
   return tools[kind].filter(entry => entry.enabled === enabled).map(entry => entry.site);
 }
 
+export const websiteToolRule = (kind, domain) => kind === 'crashPageWarden' ? domain : '*.' + domain;
+export const websiteToolFamily = rule => toolSite('https://' + rule.replace(/^\*\./, ''));
+
 export function hasSavedToolSite(settings, kind, site) {
-  return settings.websiteFixer[kind].whitelistDomains.some(domain => toolSite('https://' + domain) === site);
+  return settings.websiteFixer[kind].whitelistDomains.some(domain => websiteToolFamily(domain) === site);
 }
 
 export function websiteToolEnabled(settings, tools, kind, url) {
@@ -35,7 +38,7 @@ export function websiteToolEnabled(settings, tools, kind, url) {
   if (!site) return false;
   const override = tools[kind].find(entry => entry.site === site);
   return override ? override.enabled : savedToolDomains(settings, kind)
-    .some(domain => ruleMatches(hostname, '*.' + domain));
+    .some(domain => ruleMatches(hostname, websiteToolRule(kind, domain)));
 }
 
 export function effectiveWebsiteFixerSettings(settings, tools) {
@@ -45,7 +48,7 @@ export function effectiveWebsiteFixerSettings(settings, tools) {
       const excludedDomains = toolChoices(tools, kind, false);
       return [kind, { ...feature[kind], enabled: true, excludedDomains,
         whitelistDomains: [...new Set([...savedToolDomains(settings, kind)
-          .filter(domain => !excludedDomains.includes(toolSite('https://' + domain))), ...toolChoices(tools, kind, true)])]
+          .filter(domain => !excludedDomains.includes(websiteToolFamily(domain))), ...toolChoices(tools, kind, true)])]
       }];
     }))
   } };
@@ -71,7 +74,7 @@ export function createWebsiteFixerTools(platform) {
   const permits = (settings, kind, url) => {
     const hostname = hostnameFromUrl(url);
     return !!hostname && !settings.websiteFixer[kind].excludedDomains?.includes(toolSite(url))
-      && settings.websiteFixer[kind].whitelistDomains.some(domain => ruleMatches(hostname, '*.' + domain));
+      && settings.websiteFixer[kind].whitelistDomains.some(domain => ruleMatches(hostname, websiteToolRule(kind, domain)));
   };
   return {
     read,

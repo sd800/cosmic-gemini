@@ -7,9 +7,10 @@ import {
   updateFeature,
   websiteFixerState
 } from '../../../core/config.js';
-import { normalizeGeneralDomainInput } from '../../../core/website-rule-input.js';
+import { normalizeGeneralDomainInput, normalizeCrashPageWardenRuleInput } from '../../../core/website-rule-input.js';
+import { createCrashPageWarden } from './website-fixer-warden.js';
 import { createStayOnPage } from './website-fixer-stay.js';
-import { createWebsiteFixerTools, effectiveWebsiteFixerSettings, hasSavedToolSite, savedToolDomains, toolChoices, toolSite, websiteToolEnabled } from './website-fixer-tools.js';
+import { createWebsiteFixerTools, effectiveWebsiteFixerSettings, hasSavedToolSite, savedToolDomains, toolChoices, toolSite, websiteToolFamily, websiteToolEnabled, WEBSITE_TOOL_KINDS } from './website-fixer-tools.js';
 
 const SCRIPT_ID = 'cosmic-gemini-website-fixer-translate';
 const SCRIPT_FILE = 'content/website-fixer/website-fixer-translate.js';
@@ -23,6 +24,7 @@ export function createWebsiteFixerProduct(platform) {
   const scriptId = id => incognito ? id + '-incognito' : id;
   const contextFile = kind => `content/website-fixer/website-fixer-${kind}-${incognito ? 'incognito' : 'regular'}.js`;
   const tools = createWebsiteFixerTools(platform);
+  const warden = createCrashPageWarden(platform);
   const stay = createStayOnPage({ ...platform, readSettings: async () =>
     effectiveWebsiteFixerSettings(await platform.readSettings(), await tools.read()) });
   let queue = Promise.resolve();
@@ -42,6 +44,7 @@ export function createWebsiteFixerProduct(platform) {
     const settings = providedSettings || await platform.readSettings();
     const temporary = providedTools || await tools.read();
     await stay.reconcile(effectiveWebsiteFixerSettings(settings, temporary));
+    await warden.reconcile(settings, temporary);
     const matches = domains => domains.map(domain => `*://*.${domain}/*`).sort();
     const translateMatches = matches(savedToolDomains(settings, 'translateOverride'));
     const stayMatches = matches(savedToolDomains(settings, 'stayOnPage'));
@@ -89,12 +92,15 @@ export function createWebsiteFixerProduct(platform) {
     async state(settings, url) {
       const temporary = await tools.read();
       return { ...websiteFixerState(settings, url),
-        active: ['translateOverride', 'stayOnPage'].some(kind => websiteToolEnabled(settings, temporary, kind, url)),
+        active: WEBSITE_TOOL_KINDS.some(kind => websiteToolEnabled(settings, temporary, kind, url)),
         tools: tools.state(url, temporary, settings) };
     },
     async handleMessage(message, context) {
+      if (message.type === 'CG_CRASH_PAGE_WARDEN_HEARTBEAT') return warden.heartbeat(context.sender, message.visible);
       if (message.type === 'CG_WEBSITE_FIXER_ACTIVATE') {
+        if (message.kind === 'crashPageWarden') await commands;
         const settings = await platform.readSettings(); // Also verifies a fresh private-window session.
+        if (message.kind === 'crashPageWarden') return warden.activate(settings, await tools.read(), context.sender);
         return { active: ['translateOverride', 'stayOnPage'].includes(message.kind)
           && websiteToolEnabled(settings, await tools.read(), message.kind, context.sender.url) };
       }
@@ -117,10 +123,10 @@ export function createWebsiteFixerProduct(platform) {
                 if (enableTemporary) candidate = { ...candidate, tools: tools.withChoice(previous, message.kind, candidate.site, true) };
                 const next = updateFeature(current, FEATURE_IDS.WEBSITE_FIXER, feature => {
                   const group = feature[message.kind];
-                  const domains = group.whitelistDomains.filter(domain => toolSite('https://' + domain) !== candidate.site);
+                  const domains = group.whitelistDomains.filter(domain => websiteToolFamily(domain) !== candidate.site);
                   if (!saved && domains.length >= DOMAIN_LIMIT) throw new Error('Website Fixer has reached its domain limit.');
                   return { ...feature, [message.kind]: { ...group,
-                    whitelistDomains: saved ? domains : [...domains, candidate.site]
+                    whitelistDomains: saved ? domains : [...domains, message.kind === 'crashPageWarden' ? '*.' + candidate.site : candidate.site]
                   } };
                 });
                 await ensureReconciled(next, candidate.tools);
@@ -141,7 +147,8 @@ export function createWebsiteFixerProduct(platform) {
               throw error;
             }
           }
-          await tools.syncSites([candidate.site], effectiveWebsiteFixerSettings(settings, candidate.tools));
+          if (message.kind === 'crashPageWarden') await warden.syncSites([candidate.site], settings, candidate.tools);
+          else await tools.syncSites([candidate.site], effectiveWebsiteFixerSettings(settings, candidate.tools));
           platform.notifyCentralUi?.();
           return tools.state(`https://${candidate.site}/`, candidate.tools, settings);
         });
@@ -153,16 +160,16 @@ export function createWebsiteFixerProduct(platform) {
         let revise;
         if (message.type === 'UI_SET_ENABLED') {
           revise = feature => ({ ...feature, enabled: true }); // Frozen compatibility command; no Settings switch.
-        } else if (['UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE'].includes(message.type)) {
-          const group = message.type === 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE' ? 'stayOnPage' : 'translateOverride';
+        } else if (['UI_SET_WEBSITE_FIXER_TRANSLATE_OVERRIDE', 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE', 'UI_SET_CRASH_PAGE_WARDEN'].includes(message.type)) {
+          const group = message.type === 'UI_SET_CRASH_PAGE_WARDEN' ? 'crashPageWarden' : message.type === 'UI_SET_WEBSITE_FIXER_STAY_ON_PAGE' ? 'stayOnPage' : 'translateOverride';
           revise = feature => ({ ...feature, [group]: { ...feature[group], enabled: message.enabled === true } });
         } else if (['UI_ADD_RULE', 'UI_DELETE_RULE', 'UI_ALPHABETIZE_RULES', 'UI_CLEAR_RULES'].includes(message.type)
           && message.listName === 'whitelistDomains') {
           const group = message.settingGroup || 'translateOverride';
-          if (!['translateOverride', 'stayOnPage'].includes(group)) throw new Error('Unknown Website Fixer option.');
-          const normalize = group === 'stayOnPage' ? normalizeWebsiteFixerSite : normalizeWebsiteFixerDomain;
+          if (!WEBSITE_TOOL_KINDS.includes(group)) throw new Error('Unknown Website Fixer option.');
+          const normalize = group === 'crashPageWarden' ? normalizeCrashPageWardenRuleInput : group === 'stayOnPage' ? normalizeWebsiteFixerSite : normalizeWebsiteFixerDomain;
           const domain = ['UI_ADD_RULE', 'UI_DELETE_RULE'].includes(message.type)
-            ? normalize(normalizeGeneralDomainInput(message.rule || '')) : '';
+            ? normalize(group === 'crashPageWarden' ? message.rule : normalizeGeneralDomainInput(message.rule || '')) : '';
           revise = feature => {
             const current = feature[group].whitelistDomains;
             if (message.type === 'UI_ADD_RULE' && current.length >= DOMAIN_LIMIT && !current.includes(domain)) {
@@ -180,6 +187,9 @@ export function createWebsiteFixerProduct(platform) {
             await ensureReconciled(next);
             return next;
           });
+          if (message.type === 'UI_SET_CRASH_PAGE_WARDEN' || message.settingGroup === 'crashPageWarden') {
+            await warden.syncSites(settings.websiteFixer.crashPageWarden.whitelistDomains.map(websiteToolFamily), settings, await tools.read());
+          }
           return settings.websiteFixer;
         } catch (error) {
           // A failed storage write or partial registration must leave the last
@@ -196,10 +206,12 @@ export function createWebsiteFixerProduct(platform) {
       return ensureReconciled();
     },
     async handleTabUpdated(tabId, change, tab) {
+      await warden.handleTabUpdated(tabId, change);
       await stay.handleTabUpdated(tabId, change, tab);
       if (change.url) return ensureReconciled();
     },
     async handleTabRemoved(tabId) {
+      await warden.handleTabRemoved(tabId);
       stay.handleTabRemoved(tabId);
       return ensureReconciled();
     },
@@ -213,6 +225,7 @@ export function createWebsiteFixerProduct(platform) {
       const previous = await tools.read();
       await tools.clear();
       await stay.reset();
+      await warden.reset();
       const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID, ...STAY_SCRIPTS, ...TOOL_SCRIPTS].map(scriptId) });
       if (registered.length) await chrome.scripting.unregisterContentScripts({ ids: registered.map(script => script.id) });
       const settings = effectiveWebsiteFixerSettings(await platform.readSettings(), await tools.read());

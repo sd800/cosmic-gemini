@@ -26,6 +26,7 @@ export const DEVELOPER_FEATURES = Object.freeze({
   adMarshal: { title: 'adMarshalName', tag: 'ad-marshal', province: 'standing' },
   websiteFixer: { title: 'websiteFixerName', tag: 'website-fixer', province: 'standing' },
   translateOverride: { title: 'websiteFixerTranslateName', tag: 'translate-override', parent: 'websiteFixer' },
+  crashPageWarden: { title: 'crashPageWardenName', tag: 'crash-page-warden', parent: 'websiteFixer' },
   stayOnPage: { title: 'websiteFixerStayName', tag: 'stay-on-page', parent: 'websiteFixer' },
   xhsImageDarkMode: { title: 'xhsImageDarkModeSettingsName', name: 'xhsImageDarkModeName', tag: 'xhs-image-dark-mode', province: 'operations' },
   zhihuImageAdjustment: { title: 'zhihuImageAdjustmentName', tag: 'zhihu-image-adjustment', province: 'operations' },

@@ -26,7 +26,7 @@ test('Standing exposes the navigation hook and rejects silently dropped province
 
 test('Website Fixer has a frozen enabled master and inactive children by default', () => {
   assert.deepEqual(DEFAULT_INCOGNITO_SETTINGS.websiteFixer, {
-    enabled: true, translateOverride: { enabled: false, whitelistDomains: [] }, stayOnPage: { enabled: false, whitelistDomains: [] }
+    enabled: true, translateOverride: { enabled: false, whitelistDomains: [] }, stayOnPage: { enabled: false, whitelistDomains: [] }, crashPageWarden: { enabled: false, whitelistDomains: [] }
   });
   assert.equal(normalizeWebsiteFixerDomain('*.ILSOS.gov'), 'ilsos.gov');
   assert.throws(() => normalizeWebsiteFixerDomain('192.0.2.1'));
@@ -65,7 +65,7 @@ test('Website Fixer registers only allowlisted document-start scripts and unregi
     runtime: { getURL: path => 'chrome-extension://test/' + path },
     declarativeNetRequest: { getSessionRules: async () => [], updateSessionRules: async () => {} },
     scripting: {
-      async getRegisteredContentScripts() { return registered; },
+      async getRegisteredContentScripts({ ids }) { return registered.filter(script => ids.includes(script.id)); },
       async registerContentScripts(scripts) { calls.push('register'); registered = scripts; },
       async updateContentScripts(scripts) { calls.push('update'); registered = scripts; },
       async unregisterContentScripts() { calls.push('unregister'); registered = []; }

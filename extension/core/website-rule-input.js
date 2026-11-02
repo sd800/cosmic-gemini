@@ -1,4 +1,4 @@
-import { normalizeAccessControlDomain, normalizeRule, normalizeWebsiteFixerSite } from './config.js';
+import { normalizeAccessControlDomain, normalizeRule, normalizeWebsiteFixerSite, normalizeCrashPageWardenDomain } from './config.js';
 import { etld } from './etld.js';
 import { siteKey } from './site-key.js';
 
@@ -55,6 +55,22 @@ export function normalizeGeneralDomainInput(value) {
   const domain = siteKey(url.href);
   if (!domain) throw new Error('Enter a valid website URL.');
   return domain;
+}
+
+// This tool deliberately preserves an exact hostname instead of reducing a
+// pasted URL to eTLD+1. Wildcards are an explicit user choice.
+export function normalizeCrashPageWardenRuleInput(value) {
+  if (typeof value !== 'string') throw new Error('Enter a hostname or wildcard rule.');
+  const raw = value.trim();
+  if (raw.includes('\\')) throw new Error('Enter a valid website URL.');
+  const prefix = /^(https?)(?::\/\/|\/\/|:\/|:|\/)/i.exec(raw);
+  const scheme = /^[a-z][a-z\d+.-]*:\/\//i.test(raw);
+  if (!prefix && !scheme && !raw.includes('/')) return normalizeCrashPageWardenDomain(raw);
+  let url;
+  try { url = new URL(prefix ? `${prefix[1]}://${raw.slice(prefix[0].length)}` : scheme ? raw : `https://${raw}`); }
+  catch { throw new Error('Enter a valid website URL.'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Enter an HTTP or HTTPS website URL without credentials.');
+  return normalizeCrashPageWardenDomain(url.hostname);
 }
 
 export function normalizeAccessControlRuleInput(value) {

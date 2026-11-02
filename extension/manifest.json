@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cosmic Gemini",
   "description": "A personal toolkit for the web.",
-  "version": "26.11.2.1",
+  "version": "26.11.2.2",
   "minimum_chrome_version": "120",
   "icons": {
     "16": "icons/icon-16.png",
@@ -15,12 +15,14 @@
     "activeTab",
     "alarms",
     "downloads",
+    "debugger",
     "declarativeNetRequestWithHostAccess",
     "offscreen",
     "sidePanel",
     "scripting",
     "unlimitedStorage",
-    "webRequest"
+    "webRequest",
+    "webNavigation"
   ],
   "host_permissions": [
     "http://*/*",

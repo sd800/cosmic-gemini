@@ -10,7 +10,7 @@ function rules(value) {
 
 export function settingsViewCache(states = {}) {
   return {
-    version: 43,
+    version: 44,
     nsna: {
       whitelistRules: rules(states.nsna?.whitelistRules)
     },
@@ -51,6 +51,7 @@ export function settingsViewCache(states = {}) {
         enabled: states.websiteFixer?.translateOverride?.enabled === true,
         whitelistDomains: rules(states.websiteFixer?.translateOverride?.whitelistDomains)
       },
+      crashPageWarden: { enabled: states.websiteFixer?.crashPageWarden?.enabled === true, whitelistDomains: rules(states.websiteFixer?.crashPageWarden?.whitelistDomains) },
       stayOnPage: {
         enabled: states.websiteFixer?.stayOnPage?.enabled === true,
         savedCount: rules(states.websiteFixer?.stayOnPage?.whitelistDomains).length

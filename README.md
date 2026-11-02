@@ -110,7 +110,9 @@ Clean links during navigation. The UTM option removes common campaign tags while
 
 #### Website Fixer
 
-Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, while Stay on the page keeps selected websites from sending you to other sites. The control window offers both tools: click for a temporary domain choice until Chrome exits, or hold to add or remove its saved rule. Holding an unlisted, inactive site also turns it on until Chrome exits; other holds keep the temporary choice unchanged. Saved rules follow each tool’s Settings switch; a grey outline marks a saved rule while that switch is off, and a purple outline marks it while on. Website Fixer has no master switch; its tools retain independent controls.
+Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, Stay on the page keeps selected websites from sending you to other sites, and Crash Page Warden restrains runaway page work. The control window offers these tools: click for a temporary domain choice until Chrome exits, or hold to add or remove its saved rule. Holding an unlisted, inactive site also turns it on until Chrome exits; other holds keep the temporary choice unchanged. Saved rules follow each tool’s Settings switch; a grey outline marks a saved rule while that switch is off, and a purple outline marks it while on. Website Fixer has no master switch; its tools retain independent controls.
+
+Crash Page Warden is a last-line reading safeguard for heavy or unresponsive pages. It limits recurring expensive tasks, removes clearly marked heavy additions, and uses an independent watchdog to interrupt sustained script stalls. Settings supports exact hostnames and explicit subdomain wildcards, with a visible editable website list. Popup clicks apply to the current domain and subdomains until Chrome exits; holds follow the saved-rule interaction above. Once protection starts, it stays on that document even after switching off; reload the page to release it. Chrome may show a debugging notice while its rescue connection is active.
 
 ### Orbiters
 
@@ -226,7 +228,7 @@ Native Scroll and No Autoplay settings begin with a global default. Website sett
 
 Both pages also show the same shared whitelist. On a matching website, neither product intercepts, observes, styles, pauses, or removes page content unless you explicitly start another click-activated tool. No Autoplay keeps audio autoplay permissions in a separate section.
 
-Popup product controls use neutral icons while off. Active Any Copy, Any Copy Enhanced, Translate Override, and Stay on the page controls use purple; Reduce White Point uses warm yellow. Other active controls use blue. Primary products, including Any Copy Enhanced, use a stronger neutral color than the secondary mode controls for Native Scroll and No Autoplay.
+Popup product controls use neutral icons while off. Active Any Copy, Any Copy Enhanced, Translate Override, Stay on the page, and Crash Page Warden controls use purple; Reduce White Point uses warm yellow. Other active controls use blue. Primary products, including Any Copy Enhanced, use a stronger neutral color than the secondary mode controls for Native Scroll and No Autoplay.
 
 A colored icon means that the product is available to work in the current tab. Reduce White Point uses warm yellow for its active icon and background, and for its all-websites outline. A highlighted control with a background is active and may continue changing or displaying page behavior. Image Download and Video Download use blue without a background while their current-tab sessions are active.
 

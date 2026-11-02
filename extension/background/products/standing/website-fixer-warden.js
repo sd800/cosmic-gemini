@@ -1,5 +1,4 @@
 import { WARDEN_CSP, WARDEN_KEY, wardenPageUrl, sameWardenPage } from '../../../core/crash-page-warden.js';
-import { WHITE_TONES } from '../../../core/config.js';
 import { translator } from '../../../shared/localization.js';
 import { savedToolDomains, toolChoices, toolSite, websiteToolEnabled } from './website-fixer-tools.js';
 
@@ -95,7 +94,8 @@ export function createCrashPageWarden(platform) {
       const desired = { id, matches: rules.map(rule => `*://${rule}/*`).sort(),
         excludeMatches: toolChoices(tools, 'crashPageWarden', false).map(site => `*://*.${site}/*`).sort(),
         allFrames: false, runAt: 'document_start', world: 'ISOLATED', persistAcrossSessions: !incognito,
-        css: [ROOT + 'reader.css'], js: [ROOT + 'bootstrap.js', ROOT + (incognito ? 'incognito.js' : 'regular.js'),
+        css: [ROOT + 'reader.css'], js: [ROOT + 'bootstrap.js', 'shared/white-tones.js', 'content/shared/white-cap-layer.js',
+          ROOT + 'white-softer.js', ROOT + (incognito ? 'incognito.js' : 'regular.js'),
           'vendor/readability/Readability.js', ROOT + 'extract.js', ROOT + 'runtime.js'] };
       const current = old.find(script => script.id === id);
       if (!rules.length) {
@@ -124,7 +124,7 @@ export function createCrashPageWarden(platform) {
       put({ tabId, url, documentId: sender.documentId, stage: 'ready', at: Date.now() });
       await save().catch(() => {});
       const locale = await platform.getLocale?.() || 'en-US', t = translator(locale);
-      return { active: true, locale, whiteRGB: settings.whiteSofter?.enabled ? WHITE_TONES.get(settings.whiteSofter.tone).rgb : null,
+      return { active: true, locale,
         labels: { copy: t('wardenCopyLink'), copied: t('wardenCopied'),
           smaller: t('wardenSmallerText'), larger: t('wardenLargerText'), fallback: t('wardenNoArticle'),
           contact: t('wardenCopyContact') } };

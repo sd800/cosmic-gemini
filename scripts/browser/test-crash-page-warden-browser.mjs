@@ -4,8 +4,13 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { WHITE_TONES } from '../../extension/core/config.js';
 
+function brightest(buffer) {
+  const result = spawnSync('python3', ['-c', 'from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps(max(im.getdata(),key=sum)))'], { input: buffer });
+  assert.equal(result.status, 0, String(result.stderr)); return JSON.parse(result.stdout);
+}
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const artifacts = resolve('test-dist/crash-page-warden'); await mkdir(artifacts, { recursive: true });
 const paragraph = 'A useful reading page keeps the complete article, its illustrations, and the surrounding explanation. The reader should be able to follow an argument without an advertising player or a recurring reporting task consuming the page. Ordinary links, lists, quotations, and tables remain available, with clear typography and space for captions.';
@@ -28,7 +33,7 @@ const server = createServer((req, res) => {
   if (req.url === '/source.js') { scripts++; res.setHeader('Content-Type', 'text/javascript'); res.end('window.externalSourceRan=true;'); return; }
   if (req.url === '/source.css') { styles++; res.setHeader('Content-Type', 'text/css'); res.end('body{background:red}'); return; }
   if (req.url === '/frame') { frames++; res.setHeader('Content-Type', 'text/html'); res.end('<p>Advertising frame</p>'); return; }
-  if (req.url === '/image.svg') { res.setHeader('Content-Type', 'image/svg+xml'); res.end('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="450"><rect width="900" height="450" fill="#20324b"/><circle cx="650" cy="120" r="60" fill="#e6c98b"/><path d="M0 400 230 160 500 450M350 450 660 220 900 450" fill="#628c9c"/></svg>'); return; }
+  if (req.url === '/image.svg') { res.setHeader('Content-Type', 'image/svg+xml'); res.end('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="450"><rect width="900" height="450" fill="#20324b"/><rect x="20" y="20" width="100" height="100" fill="white"/><circle cx="650" cy="120" r="60" fill="#e6c98b"/><path d="M0 400 230 160 500 450M350 450 660 220 900 450" fill="#628c9c"/></svg>'); return; }
   views.set(req.url, (views.get(req.url) || 0) + 1); res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(html);
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -106,6 +111,9 @@ try {
   const luminance = rgb => rgb.map(channel => channel / 255).map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4)
     .reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
   const channels = color => color.match(/\d+(?:\.\d+)?/g).slice(0, 3).map(Number);
+  await page.bringToFront();
+  const heading = await page.locator('#cg-warden-root h1').elementHandle();
+  const paletteViews = views.get('/article?view=1');
   for (const tone of [null, ...WHITE_TONES.tones]) {
     const replies = await settings.evaluate(async tone => {
       const replies = [];
@@ -114,7 +122,11 @@ try {
       return replies;
     }, tone);
     assert.ok(replies.every(reply => reply.ok), 'palette preferences are saved');
-    await page.reload(); await page.waitForFunction(() => document.documentElement.dataset.cgWarden === 'ready');
+    await page.waitForFunction(rgb => document.documentElement.style.getPropertyValue('--cg-warden-white') === rgb
+      && document.querySelectorAll('[data-cg-warden-white-softer]:popover-open').length === (rgb ? 1 : 0)
+      && document.querySelectorAll('[data-cosmic-gemini-white-softer]').length === 0, tone?.rgb || '');
+    assert.equal(await heading.evaluate(node => node === document.querySelector('#cg-warden-root h1')), true, 'palette changes retain the article DOM');
+    assert.equal(views.get('/article?view=1'), paletteViews, 'palette changes never reload the page');
     for (const colorScheme of ['light', 'dark']) {
       await page.emulateMedia({ colorScheme });
       // Contact click behavior was checked above; invoke it directly here so the
@@ -127,10 +139,23 @@ try {
           .map(selector => ({ selector, color: getComputedStyle(document.querySelector(selector)).color }))
       }));
       const expectedPaper = colorScheme === 'dark' ? [23, 24, 25] : tone ? tone.rgb.split(' ').map(Number) : [250, 249, 247];
-      assert.deepEqual(channels(colors.background), expectedPaper, `${tone?.id || 'off'} / ${colorScheme}: paper color`);
+      assert.deepEqual(channels(colors.background), tone && colorScheme === 'light' ? [255, 255, 255] : expectedPaper, `${tone?.id || 'off'} / ${colorScheme}: native paper color`);
+      const expectedWhite = tone ? tone.rgb.split(' ').map(Number) : colorScheme === 'dark' ? [227, 229, 232] : [250, 249, 247];
+      assert.deepEqual(brightest(await page.locator('#cg-warden-root h1').screenshot()), expectedWhite, 'rendered text/paper matches the selected tone exactly');
+      await page.locator('#cg-warden-content img').evaluate(img => img.scrollIntoView({ behavior: 'instant', block: 'center' }));
+      // Let the compositor settle after an instant scroll; background/sandbox
+      // documents cannot be used as a requestAnimationFrame timing source.
+      await page.waitForTimeout(40);
+      const imageBounds = await page.locator('#cg-warden-content img').boundingBox();
+      const capture = await page.screenshot();
+      const sampled = spawnSync('python3', ['-c', 'from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps(im.getpixel((int(sys.argv[1]),int(sys.argv[2])))))',
+        String(Math.round(imageBounds.x + imageBounds.width * .05)), String(Math.round(imageBounds.y + imageBounds.height * .1))], { input: capture });
+      assert.equal(sampled.status, 0, String(sampled.stderr));
+      assert.deepEqual(JSON.parse(sampled.stdout), tone ? tone.rgb.split(' ').map(Number) : [255, 255, 255], 'white image pixels follow the same tone exactly');
       const paper = luminance(expectedPaper);
       for (const text of colors.text) {
-        const ink = luminance(channels(text.color));
+        const nativeInk = channels(text.color);
+        const ink = luminance(tone && nativeInk.every(value => value === 255) ? tone.rgb.split(' ').map(Number) : nativeInk);
         const contrast = (Math.max(ink, paper) + .05) / (Math.min(ink, paper) + .05);
         assert.ok(contrast >= 4.5, `${tone?.id || 'off'} / ${colorScheme}: ${text.selector} contrast ${contrast.toFixed(2)} (${text.color})`);
       }
@@ -138,6 +163,7 @@ try {
       if (tone?.id === 'warm-minus-1') await page.screenshot({ path: join(artifacts, `static-white-softer-${colorScheme}.png`) });
       if (tone?.id === 'warm-minus-1' && colorScheme === 'dark') {
         await page.emulateMedia({ media: 'print' });
+        await page.waitForFunction(() => !document.querySelector('[data-cg-warden-white-softer]'));
         const print = await page.evaluate(() => ({ paper: getComputedStyle(document.body).backgroundColor,
           ink: getComputedStyle(document.querySelector('h1')).color, link: getComputedStyle(document.querySelector('#cg-warden-content a')).color }));
         assert.deepEqual(print, { paper: 'rgb(255, 255, 255)', ink: 'rgb(0, 0, 0)', link: 'rgb(11, 79, 180)' });
@@ -146,6 +172,7 @@ try {
     }
   }
   assert.equal((await settings.evaluate(() => chrome.runtime.sendMessage({ type: 'UI_SET_ENABLED', featureId: 'whiteSofter', enabled: false }))).ok, true);
+  await page.waitForFunction(() => !document.documentElement.style.getPropertyValue('--cg-warden-white') && !document.querySelector('[data-cg-warden-white-softer]'));
 
   const binary = await context.newPage(); const response = await binary.goto(origin + '/image.svg');
   assert.equal(response.headers()['content-security-policy'], undefined, 'native HTML guards do not apply to image documents');
@@ -185,6 +212,6 @@ try {
   const saved = await worker.evaluate(async () => (await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings);
   assert.deepEqual(saved.websiteFixer.crashPageWarden.whitelistDomains, ['*.warden.test']);
   assert.deepEqual(errors, []);
-  await writeFile(join(artifacts, 'README.md'), '# Crash Page Warden\n\nCurrent check: scripts/browser/test-crash-page-warden-browser.mjs (PLAYWRIGHT_MODULE and TEST_CHROME point to local installations). static-article.html exercises original-address static conversion, one automatic reload, blocked source scripts/styles/frames, article metadata and images, sanitization, text sizing, automatic themes, dormant Dark Reader interop, and no forced theme lock, all White Softer tones with text/link/control contrast in both appearances, file-response exclusion, exact rules, repeat-activation idempotence, off/reload behavior, and popup click/hold. static-light.png and static-dark.png show the reader. probe-static.mjs verifies isolated extension code/style operation under response sandbox CSP. Earlier article.html and probe-rescue.mjs concern the retired watchdog and are not current feature checks. No request/content logs or browser profiles are retained.\n');
+  await writeFile(join(artifacts, 'README.md'), '# Crash Page Warden\n\nCurrent check: scripts/browser/test-crash-page-warden-browser.mjs (PLAYWRIGHT_MODULE and TEST_CHROME point to local installations). static-article.html exercises original-address static conversion, one automatic reload, blocked source scripts/styles/frames, article metadata and images, sanitization, text sizing, automatic themes, dormant Dark Reader interop, and no forced theme lock, live White Softer on/off and all tones without reloading or replacing the article, one reader-owned cap with the ordinary-page layer inactive, and text/link/control contrast in both appearances, file-response exclusion, exact rules, repeat-activation idempotence, off/reload behavior, and popup click/hold. static-light.png and static-dark.png show the reader. static-white-softer-light.png and static-white-softer-dark.png show its owned palette; rendered heading and image pixels are checked in RAM for exact tone values. probe-static.mjs verifies isolated extension code/style operation under response sandbox CSP. Earlier article.html and probe-rescue.mjs concern the retired watchdog and are not current feature checks. No request/content logs or browser profiles are retained.\n');
   console.log('Warden static reader: original URL, one automatic reload, source-code blocking, article/images, sanitization, themes, file exclusion, lifecycle, and popup policies passed.');
 } finally { await context?.close(); await rm(profile, { recursive: true, force: true }); await new Promise(resolve => server.close(resolve)); }

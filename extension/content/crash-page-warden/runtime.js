@@ -18,6 +18,7 @@
   async function render() {
     let options = null;
     try { const reply = await state.reply; options = reply?.ok && reply.result?.active ? reply.result : null; } catch {}
+    await state.whiteSofter?.ready;
     // Registration and the response CSP already started protection for this
     // document. A concurrent off choice applies to subsequent reloads.
     const labels = options?.labels || { copy: 'Copy page link', copied: 'Copied', smaller: 'Smaller text', larger: 'Larger text', fallback: 'Available page content', contact: 'Copy' };
@@ -29,7 +30,7 @@
     root.removeAttribute('data-cg-warden-theme');
     for (const name of ['class', 'style']) root.removeAttribute(name);
     for (const attribute of [...root.attributes]) if (/^on/i.test(attribute.name)) root.removeAttribute(attribute.name);
-    if (/^\d{1,3} \d{1,3} \d{1,3}$/.test(options?.whiteRGB || '')) root.style.setProperty('--cg-warden-white', options.whiteRGB);
+    state.whiteSofter?.render();
     root.lang = article.lang || options?.locale || 'en-US';
     root.dir = article.dir === 'rtl' ? 'rtl' : 'ltr';
     const head = document.head || document.createElement('head');
@@ -85,6 +86,7 @@
     // root contents so a second source head or stray active node cannot remain.
     root.replaceChildren(head, body);
     root.dataset.cgWarden = 'ready'; state.ready = true;
+    state.whiteSofter?.render();
     if (location.hash) {
       let id = ''; try { id = decodeURIComponent(location.hash.slice(1)); } catch {}
       const anchor = content.querySelector('[data-cg-warden-anchor="current"]') || document.getElementById(id);

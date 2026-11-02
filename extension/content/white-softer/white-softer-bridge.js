@@ -21,6 +21,12 @@
   };
 
   const dispatchConfig = config => {
+    const reader = globalThis[Symbol.for('cosmic-gemini.crash-page-warden.static')];
+    if (reader?.started && reader.whiteSofter) {
+      // The isolated reader follows confirmed preferences itself. Keep this
+      // bridge's MAIN-world layer inactive without overwriting that palette.
+      config = { active: false };
+    }
     if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
   };
   const stopPrepaintCheck = () => globalThis[Symbol.for('cosmic-gemini.white-softer.prepaint-check')]?.dispose?.();

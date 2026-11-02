@@ -11,7 +11,8 @@
   let prepaintReady = false;
   const announce = feature => {
     window.dispatchEvent(new CustomEvent(CHECK, { detail: JSON.stringify({
-      active: feature?.enabled === true, tone: feature?.tone || 'warm-minus-1'
+      active: feature?.enabled === true && !globalThis[Symbol.for('cosmic-gemini.crash-page-warden.static')]?.started,
+      tone: feature?.tone || 'warm-minus-1'
     }) }));
     // A disabled early read can precede MAIN script injection. Keep listening
     // until its ready signal so that a late stale layer is actually removed.

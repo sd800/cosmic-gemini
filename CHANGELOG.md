@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.2.5 — 2026-11-02
+
+- Let Crash Page Warden own White Softer rendering on static reading pages. Apply the shared tone to paper and white text, including headings and controls, and reuse the white-cap primitive for remaining bright pixels such as images.
+- Follow White Softer on/off and tone changes immediately without reloading or rebuilding the article. Keep one active reading-page layer, retire ordinary-page processing, and preserve context isolation and cached-page restoration.
+
 ## 26.11.2.4 — 2026-11-02
 
 - Freeze the Dark Reader suppression implementation: retain its source without injecting it, and remove active theme-lock and style-suppression hooks.

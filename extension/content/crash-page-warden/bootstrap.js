@@ -13,6 +13,7 @@
     policy.content = "script-src 'none'; style-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; connect-src 'none'; media-src 'none'; font-src 'none'; form-action 'none'; base-uri 'none'";
     head.prepend(policy);
     document.documentElement.dataset.cgWarden = 'loading';
+    state.whiteSofter?.start();
     state.reply = chrome.runtime.sendMessage({ type: 'CG_WEBSITE_FIXER_ACTIVATE', featureId: 'websiteFixer', kind: 'crashPageWarden' }).catch(() => null);
   };
   Object.defineProperty(globalThis, key, { value: state });

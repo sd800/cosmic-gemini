@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 // Discover every suite, and isolate its Chrome mocks from other suites.
 // Run serially to keep resource usage predictable.
-const directory = new URL('../test/', import.meta.url);
+const directory = new URL('../../test/', import.meta.url);
 const files = readdirSync(directory).filter(name => name.endsWith('.test.mjs')).sort()
   .map(name => fileURLToPath(new URL(name, directory)));
 if (!files.length) throw new Error('No test suites found.');

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { SETTINGS_KEY } from '../extension/core/config.js';
+import { SETTINGS_KEY } from '../../extension/core/config.js';
 
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const artifacts = resolve('test-dist/popup-tools');

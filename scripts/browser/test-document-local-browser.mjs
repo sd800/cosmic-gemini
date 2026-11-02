@@ -4,10 +4,10 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { viewerPdf } from '../test/fixtures/pdf-viewer.mjs';
-import { emailMetadataSample } from '../test/fixtures/additional-document-formats.mjs';
-import { spreadsheetEntries, presentationEntries } from '../test/fixtures/office-formats.mjs';
-import { storedZip } from '../test/fixtures/zip.mjs';
+import { viewerPdf } from '../../test/fixtures/pdf-viewer.mjs';
+import { emailMetadataSample } from '../../test/fixtures/additional-document-formats.mjs';
+import { spreadsheetEntries, presentationEntries } from '../../test/fixtures/office-formats.mjs';
+import { storedZip } from '../../test/fixtures/zip.mjs';
 
 const { chromium } = await import(process.env.CONTEXT_PLAYWRIGHT ? pathToFileURL(process.env.CONTEXT_PLAYWRIGHT).href : 'playwright');
 const profile = await mkdtemp(join(tmpdir(), 'cg-local-document-qa-'));
@@ -21,7 +21,7 @@ const email=emailMetadataSample.replace('by inbox.example.test;', 'by inbox.exam
 await writeFile(join(samples,'sample.eml'),email);
 await writeFile(join(samples,'plain.eml'),'From: Example <contact@example.test>\r\nTo: reader@example.test\r\nSubject: Plain text reading notes\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nHello Alex,\r\n\r\n  Two spaces stay here.\r\n    Four spaces stay here.\r\n\r\nRegards,\r\nExample');
 for(const [format,entries] of [['xlsx',spreadsheetEntries()],['pptx',presentationEntries()]]) await writeFile(join(samples,'sample.'+format),Buffer.from(storedZip(entries)));
-await writeFile(join(samples, 'README.md'), '# Local document fixtures\n\nSynthetic RTF/PDF/EML/XLSX/PPTX files, gesture tests, and light/dark/narrow EML screenshots from `scripts/test-document-local-browser.mjs`. The script recreates fixtures in this ignored directory. It tests native file selection, RAM-backed reload, safe mail layout, and ctrl-wheel pinch zoom across document/sheet/slide readers using a disposable Chrome profile. Use `DOCUMENT_QA=settings` for the shared language/file-opening card, or `DOCUMENT_QA=email` for metadata-only changes; screenshots include default, expanded, bilingual, and narrow mail layouts. No personal files or browser profiles are saved here.\n');
+await writeFile(join(samples, 'README.md'), '# Local document fixtures\n\nSynthetic RTF/PDF/EML/XLSX/PPTX files, gesture tests, and light/dark/narrow EML screenshots from `scripts/browser/test-document-local-browser.mjs`. The script recreates fixtures in this ignored directory. It tests native file selection, RAM-backed reload, safe mail layout, and ctrl-wheel pinch zoom across document/sheet/slide readers using a disposable Chrome profile. Use `DOCUMENT_QA=settings` for the shared language/file-opening card, or `DOCUMENT_QA=email` for metadata-only changes; screenshots include default, expanded, bilingual, and narrow mail layouts. No personal files or browser profiles are saved here.\n');
 await mkdir(join(profile,'Default'),{recursive:true});
 await writeFile(join(profile,'Default','Preferences'),JSON.stringify({download:{default_directory:join(profile,'downloads'),prompt_for_download:false}}));
 const extension = resolve('extension');

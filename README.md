@@ -110,9 +110,9 @@ Clean links during navigation. The UTM option removes common campaign tags while
 
 #### Website Fixer
 
-Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, Stay on the page keeps selected websites from sending you to other sites, and Crash Page Warden restrains runaway page work. The control window offers these tools: click for a temporary domain choice until Chrome exits, or hold to add or remove its saved rule. Holding an unlisted, inactive site also turns it on until Chrome exits; other holds keep the temporary choice unchanged. Saved rules follow each tool’s Settings switch; a grey outline marks a saved rule while that switch is off, and a purple outline marks it while on. Website Fixer has no master switch; its tools retain independent controls.
+Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, Stay on the page keeps selected websites from sending you to other sites, and Crash Page Warden offers static reading for heavy pages. The control window offers these tools: click for a temporary domain choice until Chrome exits, or hold to add or remove its saved rule. Holding an unlisted, inactive site also turns it on until Chrome exits; other holds keep the temporary choice unchanged. Saved rules follow each tool’s Settings switch; a grey outline marks a saved rule while that switch is off, and a purple outline marks it while on. Website Fixer has no master switch; its tools retain independent controls.
 
-Crash Page Warden is a last-line reading safeguard for heavy or unresponsive pages. It limits recurring expensive tasks, removes clearly marked heavy additions, and uses an independent watchdog to interrupt sustained script stalls. Settings supports exact hostnames and explicit subdomain wildcards, with a visible editable website list. Popup clicks apply to the current domain and subdomains until Chrome exits; holds follow the saved-rule interaction above. Once protection starts, it stays on that document even after switching off; reload the page to release it. Chrome may show a debugging notice while its rescue connection is active.
+Crash Page Warden turns heavy pages into static reading pages in the same tab, at the original address. Enabling it automatically reloads matching open pages once, stops website scripts and embedded players, and rebuilds the article with its title, author, date, images, captions, links, and tables. It provides text sizing, automatic light/dark appearance, and page-link copying. Settings supports exact hostnames and explicit subdomain wildcards. Popup clicks apply to the current domain and subdomains until Chrome exits; holds follow the saved-rule interaction above. Switching off leaves the current static page in place until you reload it.
 
 ### Orbiters
 
@@ -266,7 +266,7 @@ When Bili Daily Login is enabled, its background schedule contacts only Bilibili
 
 ## Compatibility
 
-Cosmic Gemini targets Chrome 120 or later on macOS, Windows, and Linux. Chrome prevents extensions from running on internal pages such as `chrome://`, the Chrome Web Store, and some built-in viewers.
+Cosmic Gemini targets Chrome 128 or later on macOS, Windows, and Linux. Chrome prevents extensions from running on internal pages such as `chrome://`, the Chrome Web Store, and some built-in viewers.
 
 Image Download and Video Download can access compatible sources available to the current browser session. Video Download does not decrypt DRM.
 

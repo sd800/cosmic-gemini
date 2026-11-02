@@ -1,3 +1,1 @@
-if (chrome.extension.inIncognitoContext === false) {
-  void globalThis[Symbol.for('cosmic-gemini.crash-page-warden.bridge')]?.activate();
-}
+if (chrome.extension.inIncognitoContext === false) globalThis[Symbol.for('cosmic-gemini.crash-page-warden.static')]?.start();

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { SETTINGS_KEY } from '../extension/core/config.js';
+import { SETTINGS_KEY } from '../../extension/core/config.js';
 
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const artifacts = resolve('test-dist/any-copy-session');
@@ -116,7 +116,7 @@ try {
   assert.notEqual(await reduction.evaluate(node => getComputedStyle(node).boxShadow), 'none');
   assert.equal(await greyscale.evaluate(node => getComputedStyle(node).boxShadow), 'none');
   assert.deepEqual(errors, []);
-  await writeFile(join(artifacts, 'README.md'), `# Any Copy session checks\n\nRun scripts/test-any-copy-session-browser.mjs with PLAYWRIGHT_MODULE and TEST_CHROME set. Uses a disposable Chrome for Testing profile and local fixtures.\n\nVerified actual popup clicks, immediate same-domain and subdomain activation and restoration, isolation from unrelated domains, reload and reopen continuity, saved-rule preservation, and no persistent settings writes from ordinary clicks, a colored saved-policy outline that remains while temporarily off, and actual holds with automatic activation and no following release click. Unit tests cover all four hold-state transitions. Unit coverage in test/any-copy-session.test.mjs also checks browser-session clearing, worker recreation, coordinated activation, concurrent commands, private contexts, failed writes, and stale pages. No browsing logs are retained.\n`);
+  await writeFile(join(artifacts, 'README.md'), `# Any Copy session checks\n\nRun scripts/browser/test-any-copy-session-browser.mjs with PLAYWRIGHT_MODULE and TEST_CHROME set. Uses a disposable Chrome for Testing profile and local fixtures.\n\nVerified actual popup clicks, immediate same-domain and subdomain activation and restoration, isolation from unrelated domains, reload and reopen continuity, saved-rule preservation, and no persistent settings writes from ordinary clicks, a colored saved-policy outline that remains while temporarily off, and actual holds with automatic activation and no following release click. Unit tests cover all four hold-state transitions. Unit coverage in test/any-copy-session.test.mjs also checks browser-session clearing, worker recreation, coordinated activation, concurrent commands, private contexts, failed writes, and stale pages. No browsing logs are retained.\n`);
   console.log('Any Copy: popup, live pages, subdomains, reload/reopen, and unchanged saved rules passed.');
 } catch (error) {
   console.error('Popup errors:', errors);

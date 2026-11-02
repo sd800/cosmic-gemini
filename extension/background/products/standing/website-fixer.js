@@ -96,7 +96,6 @@ export function createWebsiteFixerProduct(platform) {
         tools: tools.state(url, temporary, settings) };
     },
     async handleMessage(message, context) {
-      if (message.type === 'CG_CRASH_PAGE_WARDEN_HEARTBEAT') return warden.heartbeat(context.sender, message.visible);
       if (message.type === 'CG_WEBSITE_FIXER_ACTIVATE') {
         if (message.kind === 'crashPageWarden') await commands;
         const settings = await platform.readSettings(); // Also verifies a fresh private-window session.
@@ -199,7 +198,10 @@ export function createWebsiteFixerProduct(platform) {
         }
       });
     },
-    initialize: () => ensureReconciled(),
+    async initialize() {
+      await ensureReconciled();
+      return warden.syncSites(null, await platform.readSettings(), await tools.read());
+    },
     handleNavigationRequest: stay.handleNavigationRequest,
     async handleTabCreated(tab) {
       await stay.handleTabCreated(tab);

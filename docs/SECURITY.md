@@ -30,13 +30,13 @@ Domain lists are normalized as host data. Navigation controls apply to website-i
 
 Ordinary/private sessions remain separated. Document content and local file references stay in memory; settings and bounded session metadata are stored only for their documented purpose. Never write private document contents, full browsing captures, credentials, or access tokens into logs, tests, screenshots, or repository notes.
 
-## Crash Page Warden rescue authority
+## Crash Page Warden static reading
 
-Crash Page Warden operates only on documents authorized by its own saved or browser-session policy. The owning isolated bridge validates through Central before activating packaged MAIN-world guards. Authorization is tied to Chrome's tab, frame, document ID, and ordinary/private context; page-visible markers cannot grant debugger authority.
+Crash Page Warden uses its own saved and browser-session policies and context-owned tab IDs. Native response rules apply only to HTML/XHTML GET main frames; source scripts and active embeds are disabled before the isolated extension reader reconstructs the document. Its CSP sandbox preserves the origin, while script, worker, connection, frame, object, form, and source-style restrictions remove active website behavior. File responses retain their normal handling. The extension declares no debugger or webNavigation permission.
 
-The declared `debugger` permission prepares a rescue connection for an authorized root document, and `webNavigation` verifies document identity before intervention. The connection performs a `Runtime.disable` handshake and can issue `Runtime.terminateExecution` after sustained missing heartbeats. It does not enable Runtime content-event subscriptions, retrieve scripts, evaluate page expressions, profile execution, or record page content. `Page.enable` supplies browser-dialog open/closed event names so a user-facing prompt suspends the rescue deadline; event payloads are not inspected or retained. Navigation and tab closure release owned connections; browser-level cancellation remains available. Attempts and metadata are bounded and remain in browser-session storage.
+Mozilla Readability runs locally on a bounded source document. Its result is treated as untrusted input and copied into newly created approved elements and text nodes. Source event handlers, arbitrary attributes, CSS, scripts, frames, forms, executable URLs, and credentials in URLs are not copied. External image URLs use the browser's normal image loading, and contact protocols offer copying without launching another app. Rebuilt IDs cannot clobber reader controls, and internal links retain safe original fragment names.
 
-Switching off changes future activation. The already-authorized document retains its controls until reload, including after list deletion or reset. Old-document messages, replacement navigation, hidden-page transitions, and large clock delays are checked separately from a sustained execution stall.
+The original tab and URL remain in place. Activation reloads a matching open document once after rule installation; document receipts, context checks, and reload coalescing prevent loops. Switching off changes subsequent activation, while the current static document remains until reload. Document content stays in page memory, and bounded session metadata identifies only current protected tabs. Native rules are verified before saves are acknowledged, and their owned ranges are separate from Access Control and other features.
 
 ## Maintenance and reporting
 

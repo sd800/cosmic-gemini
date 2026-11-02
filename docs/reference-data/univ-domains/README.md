@@ -131,8 +131,8 @@ Affiliation alone is not equivalence: independently constituted research institu
 After reviewing changes to `registry.json`, run:
 
 ```sh
-node scripts/update-univ-domains.mjs
-node scripts/update-univ-domains.mjs --check
+node scripts/update/update-univ-domains.mjs
+node scripts/update/update-univ-domains.mjs --check
 node --test test/mailto-capture-runtime.test.mjs
 ```
 

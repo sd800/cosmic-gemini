@@ -2,6 +2,16 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.2.3 — 2026-11-02
+
+- Rebuild Crash Page Warden as an in-place static reader. Keep the same tab and original URL, automatically reload matching open pages once when enabled, and block website scripts, connections, and embedded frames before rebuilding the reading view.
+- Extract articles locally with Mozilla Readability and reconstruct approved markup. Retain headings, author/date metadata, images, captions, lists, quotations, tables, and ordinary links; add text sizing, automatic light/dark appearance, page-link copying, and copy-only contact-link popovers. Keep the reading header unbranded and omit the www. prefix from displayed site names.
+- Keep the existing click/hold website policies and editable exact/wildcard list. Preserve current static pages after switching off, and apply the new policy on reload. Avoid repeat reloads when an already-protected document is encountered again.
+- Limit native protection to HTML GET responses and context-owned tabs, leaving file responses and other products' network rules intact. Use Chrome 128 or later for response-header matching.
+- Remove the previous scheduler watchdog and release the debugger and webNavigation permissions.
+- Keep a stable Dark Reader lock and disable residual theme styles so automatic reader themes are applied once.
+- Group development scripts into build, checks, browser, update, and vendor folders, and update commands, fixture imports, generated notices, and documentation.
+
 ## 26.11.2.2 — 2026-11-02
 
 - Add Crash Page Warden under Website Fixer and to the popup Tools page, off by default. Settings offers an editable website list with exact-host and explicit wildcard rules.

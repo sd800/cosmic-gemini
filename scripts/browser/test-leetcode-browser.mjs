@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { WHITE_TONES } from '../extension/core/config.js';
+import { WHITE_TONES } from '../../extension/core/config.js';
 function brightest(buffer) {
  const result=spawnSync('python3',['-c','from PIL import Image\nimport sys,io,json\nim=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB")\nprint(json.dumps(max(im.getdata(),key=sum)))'],{input:buffer});
  assert.equal(result.status,0,String(result.stderr));return JSON.parse(result.stdout);

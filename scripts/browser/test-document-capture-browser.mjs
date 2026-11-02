@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createServer } from 'node:http';
-import { viewerPdf } from '../test/fixtures/pdf-viewer.mjs';
+import { viewerPdf } from '../../test/fixtures/pdf-viewer.mjs';
 const { chromium } = await import(process.env.CONTEXT_PLAYWRIGHT ? pathToFileURL(process.env.CONTEXT_PLAYWRIGHT).href : 'playwright');
 const profile = await mkdtemp(join(tmpdir(), 'cg-capture-qa-')), extension = resolve('extension');
 let entries = 0, served = 0;

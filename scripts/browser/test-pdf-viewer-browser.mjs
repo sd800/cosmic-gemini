@@ -1,12 +1,12 @@
 // Optional integration QA. Uses its own temporary profile, never a user's Chrome.
-// PDF_VIEWER_CHROME=/path/to/chrome PDF_VIEWER_PLAYWRIGHT=/path/to/playwright/index.mjs node scripts/test-pdf-viewer-browser.mjs
+// PDF_VIEWER_CHROME=/path/to/chrome PDF_VIEWER_PLAYWRIGHT=/path/to/playwright/index.mjs node scripts/browser/test-pdf-viewer-browser.mjs
 import assert from 'node:assert/strict';
 import { auditPdfLifecycle, savePdfAudit } from './qa-pdf-lifecycle.mjs';
 import { cp, mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { viewerPdf, scannedPdf } from '../test/fixtures/pdf-viewer.mjs';
+import { viewerPdf, scannedPdf } from '../../test/fixtures/pdf-viewer.mjs';
 const { chromium } = await import(process.env.PDF_VIEWER_PLAYWRIGHT ? pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGHT).href : 'playwright');
 const folder = await mkdtemp(join(tmpdir(), 'cg-pdf-qa-')), extension = join(folder, 'extension');
 const metrics = {}, errors = [], network = [], failures = [];
@@ -130,7 +130,7 @@ try {
     const frame=await open(viewerPdf(6), 'en-US', 1); await ready(frame);
     const screenshot=join(folder,'audit-reader.png');await page.screenshot({path:screenshot});
     metrics.lifecycleAudit=await auditPdfLifecycle(frame);
-    metrics.artifacts=await savePdfAudit(metrics.lifecycleAudit,screenshot,viewerPdf(6),'PDF_QA=audit node scripts/test-pdf-viewer-browser.mjs');
+    metrics.artifacts=await savePdfAudit(metrics.lifecycleAudit,screenshot,viewerPdf(6),'PDF_QA=audit node scripts/browser/test-pdf-viewer-browser.mjs');
   } else if (process.env.PDF_QA === 'lifecycle') {
     const frame=await open(viewerPdf(6)); await ready(frame);
 

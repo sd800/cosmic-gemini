@@ -6,7 +6,7 @@ Package: https://registry.npmjs.org/mammoth/-/mammoth-1.12.3.tgz
 The browser bundle is rebuilt locally from the upstream source with locked
 compatible dependencies and Cosmic Gemini’s local formatting adapter and static spreadsheet/presentation, legacy Office, RTF, OpenDocument and email readers. Exact-match
 build hooks carry formatting context through parsing and HTML conversion and reuse
-parsed XML parts. First-party adapter sources are in `scripts/document-renderer/`.
+parsed XML parts. First-party adapter sources are in `scripts/build/document-renderer/`.
 Full runtime dependency notices are included in
 THIRD_PARTY_NOTICES.txt. JSZip is used under its MIT license.
 
@@ -19,7 +19,7 @@ Browser bundle SHA-256:
 PostalMime 4.0.8 is bundled for email parsing. A version-checked build hook expands logical assignment into equivalent syntax for the dependency scanner.
 
 Build inputs: docs/document-renderer-build/package-lock.json.
-Build command: node scripts/build-document-renderer.mjs <build-directory>.
+Build command: node scripts/build/build-document-renderer.mjs <build-directory>.
 
 The renderer is loaded only by Document Preview's dedicated worker. No CDN or
 remote conversion service is used. External file access and embedded style maps

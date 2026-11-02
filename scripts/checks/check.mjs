@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 
-const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const project = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const extension = join(project, 'extension');
 const ignoredPlatformEntries = new Set(['.DS_Store']);
 
@@ -33,13 +33,13 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.2.2');
+assert.equal(manifest.version, '26.11.2.3');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
 assert.equal(manifest.version_name, undefined);
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
-  'activeTab', 'alarms', 'debugger', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webNavigation', 'webRequest'
+  'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'
 ]);
 assert.deepEqual(manifest.host_permissions.sort(), ['http://*/*', 'https://*/*']);
 assert.equal(manifest.background.service_worker, 'background/central.js');

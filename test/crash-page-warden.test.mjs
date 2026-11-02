@@ -78,6 +78,7 @@ test('reconciliation retires watchdog hooks, preserves other rules, and isolates
   const script = f.scripts.get('cosmic-gemini-crash-page-warden');
   assert.equal(script.world, 'ISOLATED'); assert.equal(script.runAt, 'document_start'); assert.equal(script.allFrames, false);
   assert.equal(script.js[0], 'content/crash-page-warden/bootstrap.js');
+  assert.equal(script.js.includes('content/crash-page-warden/appearance.js'), false, 'frozen Dark Reader suppression is not injected');
   assert.deepEqual(f.rules().find(r => r.id === 940001).condition.tabIds, [7]);
   assert.ok(f.rules().some(r => r.id === 920001));
   await f.product.reset();

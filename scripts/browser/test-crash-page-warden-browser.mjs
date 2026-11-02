@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { WHITE_TONES } from '../../extension/core/config.js';
 
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const artifacts = resolve('test-dist/crash-page-warden'); await mkdir(artifacts, { recursive: true });
@@ -15,7 +16,7 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>
 <article><h1>Reading without the heavy page</h1><p>${paragraph}</p><p>${paragraph}</p>
 <figure><img data-src="/image.svg" alt="An article illustration"><figcaption>A caption belongs with its illustration.</figcaption></figure>
 <h2 id="next-section">An ordinary section</h2><p>${paragraph}</p><p>${paragraph}</p><blockquote>A useful quotation.</blockquote>
-<ul><li>First reading point</li><li>Second reading point</li></ul><table><tr><th>Item</th><th>Result</th></tr><tr><td>Reading</td><td>Available</td></tr></table>
+<pre><code>const reading = true;</code></pre><ul><li>First reading point</li><li>Second reading point</li></ul><table><tr><th>Item</th><th>Result</th></tr><tr><td>Reading</td><td>Available</td></tr></table>
 <p><a href="#next-section">Section link</a> <a href="/next">Next article</a> <a href="mailto:contact@example.edu">Email contact</a></p>
 <a href="javascript:window.injectionRan=true" onclick="window.injectionRan=true">Unsafe action</a>
 <form><input value="private input"><button>Submit</button></form><iframe src="/frame" title="Advertisement"></iframe>
@@ -35,9 +36,8 @@ const origin = `http://warden.test:${server.address().port}`, url = origin + '/a
 const profile = await mkdtemp(join(tmpdir(), 'cg-warden-static-')); let context;
 try {
   const extension = resolve('extension');
-  const extensionPaths = [extension, process.env.TEST_DARK_READER_EXTENSION].filter(Boolean).join(',');
   context = await chromium.launchPersistentContext(profile, { executablePath: process.env.TEST_CHROME, headless: true,
-    viewport: { width: 1150, height: 900 }, args: [`--disable-extensions-except=${extensionPaths}`, `--load-extension=${extensionPaths}`,
+    viewport: { width: 1150, height: 900 }, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`,
       '--no-proxy-server', '--host-resolver-rules=MAP *.test 127.0.0.1'] });
   const worker = context.serviceWorkers().find(worker => worker.url().endsWith('/background/central.js')) || await context.waitForEvent('serviceworker', { predicate: worker => worker.url().endsWith('/background/central.js') });
   const base = `chrome-extension://${new URL(worker.url()).host}/`;
@@ -46,12 +46,6 @@ try {
   const page = await context.newPage(); const policies = [];
   page.on('response', response => { if (response.url() === url) policies.push(response.headers()['content-security-policy'] || ''); });
   await page.goto(url); await page.waitForFunction(() => window.originalRan === true);
-  if (process.env.TEST_DARK_READER_EXTENSION) {
-    const darkWorker = context.serviceWorkers().find(worker => worker.url().endsWith('/background/index.js'))
-      || await context.waitForEvent('serviceworker', { predicate: worker => worker.url().endsWith('/background/index.js') });
-    assert.equal(await darkWorker.evaluate(() => chrome.runtime.getManifest().name), 'Dark Reader');
-    await page.waitForFunction(() => document.documentElement.hasAttribute('data-darkreader-mode'));
-  }
   const settings = await context.newPage(); const errors = [];
   settings.on('pageerror', error => errors.push(error.message));
   await settings.goto(base + 'settings/satellites.html'); await settings.waitForFunction(() => document.documentElement.dataset.localePending === 'false');
@@ -69,9 +63,9 @@ try {
   assert.equal(await page.locator('#cg-warden-root h1').innerText(), 'Reading without the heavy page');
   assert.equal(await page.locator('.cg-warden-site').innerText(), 'warden.test');
   assert.doesNotMatch(await page.locator('.cg-warden-toolbar').innerText(), /Crash Page Warden/);
-  assert.equal(await page.locator('meta[name=darkreader-lock]').count(), 1);
+  assert.equal(await page.locator('meta[name=darkreader-lock]').count(), 0, 'the reader does not opt out of Dark Reader');
   await page.waitForFunction(() => !document.documentElement.hasAttribute('data-darkreader-mode'));
-  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgb(250, 249, 247)', 'the reader follows light appearance without a second Dark Reader pass');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgb(250, 249, 247)', 'the reader follows light appearance');
   assert.match(await page.locator('#cg-warden-content').innerText(), /complete article/);
   assert.match(await page.locator('.cg-warden-metadata').innerText(), /Example Author/);
   assert.equal(await page.locator('#cg-warden-content table').count(), 1);
@@ -97,9 +91,61 @@ try {
       document.documentElement.setAttribute('data-darkreader-mode', 'filter');
     } });
   }, url);
-  await page.waitForFunction(() => document.querySelector('#dark-reader-style')?.media === 'not all' && !document.documentElement.hasAttribute('data-darkreader-mode'));
-  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).filter), 'none');
+  assert.equal(await page.locator('meta[name=darkreader-lock]').count(), 0);
+  assert.equal(await page.locator('#dark-reader-style').getAttribute('media'), null, 'frozen interop leaves other extension styles alone');
+  assert.equal(await page.locator('html').getAttribute('data-darkreader-mode'), 'filter');
+  await worker.evaluate(async url => {
+    const tab = (await chrome.tabs.query({})).find(tab => tab.url?.split('#')[0] === url);
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'ISOLATED', func: () => {
+      document.getElementById('dark-reader-style')?.remove(); document.documentElement.removeAttribute('data-darkreader-mode');
+    } });
+  }, url);
   await page.screenshot({ path: join(artifacts, 'static-light.png') });
+
+  // Check the complete palette/appearance combination, not only the canvas.
+  const luminance = rgb => rgb.map(channel => channel / 255).map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4)
+    .reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
+  const channels = color => color.match(/\d+(?:\.\d+)?/g).slice(0, 3).map(Number);
+  for (const tone of [null, ...WHITE_TONES.tones]) {
+    const replies = await settings.evaluate(async tone => {
+      const replies = [];
+      if (tone) replies.push(await chrome.runtime.sendMessage({ type: 'UI_SET_WHITE_SOFTER_TONE', featureId: 'whiteSofter', tone: tone.id }));
+      replies.push(await chrome.runtime.sendMessage({ type: 'UI_SET_ENABLED', featureId: 'whiteSofter', enabled: !!tone }));
+      return replies;
+    }, tone);
+    assert.ok(replies.every(reply => reply.ok), 'palette preferences are saved');
+    await page.reload(); await page.waitForFunction(() => document.documentElement.dataset.cgWarden === 'ready');
+    for (const colorScheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme });
+      // Contact click behavior was checked above; invoke it directly here so the
+      // palette matrix measures colors independently of scroll positioning.
+      await page.evaluate(() => document.querySelector('a[href^="mailto:"]').click());
+      const colors = await page.evaluate(() => ({
+        background: getComputedStyle(document.body).backgroundColor,
+        text: ['h1', '#cg-warden-content h2', '#cg-warden-content p', '#cg-warden-content li', 'th', 'td', 'pre', 'code',
+          '.cg-warden-metadata', '.cg-warden-site', 'figcaption', 'blockquote', '#cg-warden-content a', '.cg-warden-actions button', '.cg-warden-contact p', '.cg-warden-contact button']
+          .map(selector => ({ selector, color: getComputedStyle(document.querySelector(selector)).color }))
+      }));
+      const expectedPaper = colorScheme === 'dark' ? [23, 24, 25] : tone ? tone.rgb.split(' ').map(Number) : [250, 249, 247];
+      assert.deepEqual(channels(colors.background), expectedPaper, `${tone?.id || 'off'} / ${colorScheme}: paper color`);
+      const paper = luminance(expectedPaper);
+      for (const text of colors.text) {
+        const ink = luminance(channels(text.color));
+        const contrast = (Math.max(ink, paper) + .05) / (Math.min(ink, paper) + .05);
+        assert.ok(contrast >= 4.5, `${tone?.id || 'off'} / ${colorScheme}: ${text.selector} contrast ${contrast.toFixed(2)} (${text.color})`);
+      }
+      await page.keyboard.press('Escape');
+      if (tone?.id === 'warm-minus-1') await page.screenshot({ path: join(artifacts, `static-white-softer-${colorScheme}.png`) });
+      if (tone?.id === 'warm-minus-1' && colorScheme === 'dark') {
+        await page.emulateMedia({ media: 'print' });
+        const print = await page.evaluate(() => ({ paper: getComputedStyle(document.body).backgroundColor,
+          ink: getComputedStyle(document.querySelector('h1')).color, link: getComputedStyle(document.querySelector('#cg-warden-content a')).color }));
+        assert.deepEqual(print, { paper: 'rgb(255, 255, 255)', ink: 'rgb(0, 0, 0)', link: 'rgb(11, 79, 180)' });
+        await page.emulateMedia({ media: 'screen' });
+      }
+    }
+  }
+  assert.equal((await settings.evaluate(() => chrome.runtime.sendMessage({ type: 'UI_SET_ENABLED', featureId: 'whiteSofter', enabled: false }))).ok, true);
 
   const binary = await context.newPage(); const response = await binary.goto(origin + '/image.svg');
   assert.equal(response.headers()['content-security-policy'], undefined, 'native HTML guards do not apply to image documents');
@@ -139,6 +185,6 @@ try {
   const saved = await worker.evaluate(async () => (await chrome.storage.local.get('cosmicGeminiSettings')).cosmicGeminiSettings);
   assert.deepEqual(saved.websiteFixer.crashPageWarden.whitelistDomains, ['*.warden.test']);
   assert.deepEqual(errors, []);
-  await writeFile(join(artifacts, 'README.md'), '# Crash Page Warden\n\nCurrent check: scripts/browser/test-crash-page-warden-browser.mjs (PLAYWRIGHT_MODULE and TEST_CHROME point to local installations). static-article.html exercises original-address static conversion, one automatic reload, blocked source scripts/styles/frames, article metadata and images, sanitization, text sizing, automatic themes and Dark Reader isolation (TEST_DARK_READER_EXTENSION optionally loads its installed code in the isolated test profile), file-response exclusion, exact rules, repeat-activation idempotence, off/reload behavior, and popup click/hold. static-light.png and static-dark.png show the reader. probe-static.mjs verifies isolated extension code/style operation under response sandbox CSP. Earlier article.html and probe-rescue.mjs concern the retired watchdog and are not current feature checks. No request/content logs or browser profiles are retained.\n');
+  await writeFile(join(artifacts, 'README.md'), '# Crash Page Warden\n\nCurrent check: scripts/browser/test-crash-page-warden-browser.mjs (PLAYWRIGHT_MODULE and TEST_CHROME point to local installations). static-article.html exercises original-address static conversion, one automatic reload, blocked source scripts/styles/frames, article metadata and images, sanitization, text sizing, automatic themes, dormant Dark Reader interop, and no forced theme lock, all White Softer tones with text/link/control contrast in both appearances, file-response exclusion, exact rules, repeat-activation idempotence, off/reload behavior, and popup click/hold. static-light.png and static-dark.png show the reader. probe-static.mjs verifies isolated extension code/style operation under response sandbox CSP. Earlier article.html and probe-rescue.mjs concern the retired watchdog and are not current feature checks. No request/content logs or browser profiles are retained.\n');
   console.log('Warden static reader: original URL, one automatic reload, source-code blocking, article/images, sanitization, themes, file exclusion, lifecycle, and popup policies passed.');
 } finally { await context?.close(); await rm(profile, { recursive: true, force: true }); await new Promise(resolve => server.close(resolve)); }

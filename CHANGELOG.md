@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.2.4 — 2026-11-02
+
+- Freeze the Dark Reader suppression implementation: retain its source without injecting it, and remove active theme-lock and style-suppression hooks.
+- Fix Crash Page Warden text and background colors when White Softer is enabled. Use valid shared-palette colors in both appearances so headings, body text, and controls remain readable.
+- Strengthen muted text and link contrast across all palette choices, and keep print output in a consistent light palette.
+- Extend reader tests to check text, links, metadata, tables, code, and popover controls against their background across all White Softer tones and light/dark appearances.
+
 ## 26.11.2.3 — 2026-11-02
 
 - Rebuild Crash Page Warden as an in-place static reader. Keep the same tab and original URL, automatically reload matching open pages once when enabled, and block website scripts, connections, and embedded frames before rebuilding the reading view.

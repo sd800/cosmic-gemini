@@ -1,4 +1,7 @@
+// Frozen: retained for reference, excluded from reader registrations and inactive on direct injection.
 (() => {
+  const FROZEN = true;
+  if (FROZEN) return;
   const state = globalThis[Symbol.for('cosmic-gemini.crash-page-warden.static')];
   if (!state || state.lockDarkReader) return;
   let head, body, headObserver, bodyObserver, rootObserver, queued = false;

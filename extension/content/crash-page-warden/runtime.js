@@ -36,11 +36,10 @@
     // Retain our restrictive meta policy while discarding refresh, preloads,
     // source styles, and other presentation left by the original document.
     const policy = [...head.querySelectorAll('meta[http-equiv]')].find(node => node.httpEquiv.toLowerCase() === 'content-security-policy');
-    const lock = state.lock || element('meta'); lock.name = 'darkreader-lock'; state.lock = lock;
     const charset = element('meta'); charset.setAttribute('charset', 'utf-8');
     const scheme = element('meta'); scheme.name = 'color-scheme'; scheme.content = 'light dark';
     const title = element('title', article.title);
-    head.replaceChildren(...(policy ? [policy] : []), charset, scheme, lock, title);
+    head.replaceChildren(...(policy ? [policy] : []), charset, scheme, title);
     if (!document.head) root.prepend(head);
     const body = element('body'); body.id = 'cg-warden-root'; body.dataset.textSize = 'normal';
     const toolbar = element('header', '', 'cg-warden-toolbar');
@@ -86,7 +85,6 @@
     // root contents so a second source head or stray active node cannot remain.
     root.replaceChildren(head, body);
     root.dataset.cgWarden = 'ready'; state.ready = true;
-    state.lockDarkReader?.();
     if (location.hash) {
       let id = ''; try { id = decodeURIComponent(location.hash.slice(1)); } catch {}
       const anchor = content.querySelector('[data-cg-warden-anchor="current"]') || document.getElementById(id);

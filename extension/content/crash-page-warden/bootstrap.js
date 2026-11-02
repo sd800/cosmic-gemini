@@ -11,10 +11,8 @@
     const head = document.head || document.documentElement.insertBefore(document.createElement('head'), document.documentElement.firstChild);
     const policy = document.createElement('meta'); policy.httpEquiv = 'Content-Security-Policy';
     policy.content = "script-src 'none'; style-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; connect-src 'none'; media-src 'none'; font-src 'none'; form-action 'none'; base-uri 'none'";
-    const lock = document.createElement('meta'); lock.name = 'darkreader-lock'; state.lock = lock;
-    head.prepend(policy, lock);
+    head.prepend(policy);
     document.documentElement.dataset.cgWarden = 'loading';
-    state.lockDarkReader?.();
     state.reply = chrome.runtime.sendMessage({ type: 'CG_WEBSITE_FIXER_ACTIVATE', featureId: 'websiteFixer', kind: 'crashPageWarden' }).catch(() => null);
   };
   Object.defineProperty(globalThis, key, { value: state });

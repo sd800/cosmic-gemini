@@ -95,7 +95,7 @@ export function createCrashPageWarden(platform) {
       const desired = { id, matches: rules.map(rule => `*://${rule}/*`).sort(),
         excludeMatches: toolChoices(tools, 'crashPageWarden', false).map(site => `*://*.${site}/*`).sort(),
         allFrames: false, runAt: 'document_start', world: 'ISOLATED', persistAcrossSessions: !incognito,
-        css: [ROOT + 'reader.css'], js: [ROOT + 'bootstrap.js', ROOT + 'appearance.js', ROOT + (incognito ? 'incognito.js' : 'regular.js'),
+        css: [ROOT + 'reader.css'], js: [ROOT + 'bootstrap.js', ROOT + (incognito ? 'incognito.js' : 'regular.js'),
           'vendor/readability/Readability.js', ROOT + 'extract.js', ROOT + 'runtime.js'] };
       const current = old.find(script => script.id === id);
       if (!rules.length) {

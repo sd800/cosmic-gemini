@@ -5,7 +5,7 @@ Run commands from the project root. `npm test` and `npm run check` remain the ma
 | Folder | Purpose |
 | --- | --- |
 | `checks/` | Static checks and the unit-test runner. |
-| `browser/` | Browser integration checks and their shared PDF lifecycle helper. |
+| `browser/` | Browser integration checks, shared lifecycle helpers, and optional native address-bar verification under `support/`. |
 | `build/` | Generated document-renderer bundles and the compact site-key helper. First-party renderer adapters live in `build/document-renderer/`. |
 | `update/` | Curated suffix, telephone, and institution-reference updates. |
 | `vendor/` | Pinned PDF.js packaging and its rendering patch. |

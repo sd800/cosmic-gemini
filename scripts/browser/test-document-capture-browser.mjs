@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createServer } from 'node:http';
+import { readNativeAddress } from './support/native-address.mjs';
 import { viewerPdf } from '../../test/fixtures/pdf-viewer.mjs';
 import { storedZip } from '../../test/fixtures/zip.mjs';
 import { readingEntries } from '../../test/fixtures/document-formatting.mjs';
@@ -50,7 +51,8 @@ await new Promise(resolve => server.listen(0, resolve));
 await mkdir(resolve('test-dist/original-url'), {recursive:true});
 await mkdir(join(profile,'Default'),{recursive:true});
 await writeFile(join(profile,'Default','Preferences'),JSON.stringify({download:{default_directory:join(profile,'downloads'),prompt_for_download:false}}));
-const context = await chromium.launchPersistentContext(profile, {headless:true,executablePath:process.env.CONTEXT_CHROME,
+const nativeAddress = process.env.CONTEXT_NATIVE_ADDRESS === '1';
+const context = await chromium.launchPersistentContext(profile, {headless:!nativeAddress,executablePath:process.env.CONTEXT_CHROME,
   args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
 async function workspaceFor(page) {
   await page.waitForFunction(()=>!!document.querySelector('iframe'));
@@ -60,6 +62,32 @@ async function workspaceFor(page) {
     await page.waitForTimeout(75);
   }
   throw Error('Document workspace did not mount.');
+}
+async function checkHistory(page) {
+  const cdp=await context.newCDPSession(page);
+  try {
+    const history=await cdp.send('Page.getNavigationHistory');
+    assert.equal(history.entries.length,1,'opening Preview must replace the initial blank history entry');
+    assert.equal(history.entries[0].url,page.url());
+  } finally { await cdp.detach(); }
+  if(nativeAddress)assert.equal(readNativeAddress().replace(/^https?:\/\//,''),page.url().replace(/^https?:\/\//,''),'the visible address bar must show the file URL too');
+}
+async function checkToolbar(host, pdf=false) {
+  const header=host.locator(pdf?'header':'.document-toolbar');
+  assert.equal(await header.locator('.identity,.brand,#document-icon').count(),0,'no product branding remains in the reading toolbar');
+  for(const width of [1280,720,480]) {
+    await host.page().setViewportSize({width,height:900});
+    const layout=await header.evaluate(node=>{
+      const box=node.getBoundingClientRect();
+      const controls=[...node.querySelectorAll('button,input,select')].filter(e=>e.getClientRects().length&&!e.closest('[hidden],.document-feedback'));
+      return{height:box.height,centers:controls.map(e=>{const r=e.getBoundingClientRect();return r.top+r.height/2;})};
+    });
+    if(pdf&&width===1280){const center=await host.locator('nav').evaluate(e=>{const r=e.getBoundingClientRect();return r.left+r.width/2;});assert.ok(Math.abs(center-width/2)<2,'PDF reading tools remain centered');}
+    assert.ok(layout.height<72,'reading controls remain on one row at '+width);
+    assert.ok(Math.max(...layout.centers)-Math.min(...layout.centers)<8,'controls share the row at '+width);
+  }
+  await host.page().setViewportSize({width:1280,height:900});
+  await host.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 }
 async function choose(page, name) {
   await page.getByRole('link',{name,exact:true}).click();
@@ -86,6 +114,8 @@ try {
   assert.equal(entries,2,'preparation must revisit the stable authenticated entry point');
   assert.equal(served,2);
   assert.match(await frame.locator('.textLayer').first().textContent(),/PDF Viewer page 1/);
+  await checkHistory(preview);
+  const pdfFrame=workspace.childFrames().find(f=>f.url().includes('/pdf-viewer/viewer.html'));await checkToolbar(pdfFrame,true);
   await preview.screenshot({path:resolve('test-dist/original-url/preview.png')});
   // The web-accessible shell alone never grants access to a document.
   const hostile=await context.newPage(); await hostile.goto(page.url());
@@ -99,6 +129,8 @@ try {
     await opened.waitForURL(`http://127.0.0.1:${server.address().port}/samples/sample.${format}`);
     const host=await workspaceFor(opened), content=host.frameLocator('#document');
     await content.locator('body').getByText(sample[2],{exact:false}).first().waitFor();
+    await checkHistory(opened);await checkToolbar(host);
+    if(['docx','pptx'].includes(format))await opened.screenshot({path:resolve('test-dist/original-url/toolbar-'+format+'.png')});
     assert.equal(sampleRequests.get(format),2,'one intercepted download and one prepared RAM fetch for '+format);
     await opened.close();
   }
@@ -116,6 +148,6 @@ try {
   const errors = await extensions.evaluate(id=>new Promise(resolve=>chrome.developerPrivate.getExtensionsInfo(
     {includeDisabled:true,includeTerminated:true},items=>resolve(items.find(item=>item.id===id)?.runtimeErrors||[]))),id);
   assert.deepEqual(errors,[],'capture and cancellation must not produce unchecked runtime errors');
-  await writeFile(resolve('test-dist/original-url/README.md'), '# Original file URL checks\n\nRun scripts/browser/test-document-capture-browser.mjs with CONTEXT_PLAYWRIGHT and CONTEXT_CHROME pointing to the installed browser tools. It creates authenticated, single-use PDF and synthetic DOCX, XLSX, PPTX, RTF, and EML downloads from existing test fixtures. It checks original-address rendering, RAM reuse, cross-origin fallback, unbound-frame rejection, refresh after source closure, and extension errors. preview.png shows the original-address PDF. probe.mjs is the same-origin shell experiment. Browser profiles are temporary; no request logs or private documents are retained.\n');
+  await writeFile(resolve('test-dist/original-url/README.md'), '# Original file URL checks\n\nRun scripts/browser/test-document-capture-browser.mjs with CONTEXT_PLAYWRIGHT and CONTEXT_CHROME pointing to the installed browser tools. CONTEXT_NATIVE_ADDRESS=1 enables a headed macOS check of the actual Chrome for Testing address field, in addition to internal URLs and initial navigation history. The native helper never targets the personal Chrome process. It creates authenticated, single-use PDF and synthetic DOCX, XLSX, PPTX, RTF, and EML downloads from existing test fixtures. It checks original-address rendering, one-row unbranded toolbars at desktop/narrow widths, RAM reuse, cross-origin fallback, unbound-frame rejection, refresh after source closure, and extension errors. preview.png shows the original-address PDF. probe.mjs is the same-origin shell experiment. Browser profiles are temporary; no request logs or private documents are retained.\n');
   console.log('PASS: original file URLs for PDF/DOCX/XLSX/PPTX/RTF/EML, RAM refresh, cross-origin fallback, unbound-frame rejection, no extension errors.');
 } finally { await context.close(); await new Promise(resolve=>server.close(resolve)); await rm(profile,{recursive:true,force:true}); }

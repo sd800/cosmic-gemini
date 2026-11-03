@@ -11,7 +11,6 @@ const params = new URLSearchParams(location.hash.slice(1));
 const id = params.get('id'), mode = params.get('mode');
 let locale = await loadLocale(), t = translator(locale);
 document.documentElement.lang = locale; localizeDocument(t);
-document.querySelector('#document-icon').innerHTML = icon('documentPreview');
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
 const notices = createDocumentStatus(status, document.querySelector('#loading-progress'));
 let contentViewer, metadata, blob, worker, workerTimer, pdfViewer, rendered, expired = false, downloadPending = false;

@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.3.1 — 2026-11-03
+
+- Fix same-origin Document Preview windows displaying about:blank in Chrome's visible address bar even though internal document and tab URLs had changed. Commit the original file URL into the initial history item without another file request or an extra Back entry.
+- Remove product icons and wordmarks from document and PDF reading toolbars. Keep filenames and reading actions on one row; retain centered PDF navigation, worksheet/slide selection, email-language controls, zoom, appearance, and original-file download.
+- Keep narrow toolbars on one row with truncated filenames and horizontally accessible controls. Display loading progress along the toolbar divider and show notices without shifting the reading area.
+- Extend preview tests to distinguish native address-bar display from internal URL state and verify initial history, toolbar alignment, and prepared-file refresh.
+
 ## 26.11.2.6 — 2026-11-02
 
 - Keep the original file address when Preview is explicitly chosen for a same-origin website download, across PDF, Office, Rich Text, OpenDocument, and email formats. Continue using the prepared file without another download; use the existing standalone reader when an original-address window is unavailable.

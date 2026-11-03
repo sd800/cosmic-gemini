@@ -11,7 +11,6 @@
 </head>
 <body>
   <header class="document-toolbar notranslate" translate="no">
-    <div class="identity"><span id="document-icon" aria-hidden="true"></span><div class="identity-text"><strong>Document Preview</strong><span class="brand">Cosmic Gemini</span></div></div>
     <div class="document-info">
       <h1 id="filename"></h1>
       <p id="metadata"></p>
@@ -30,10 +29,10 @@
       <button id="theme-toggle" class="theme-toggle" type="button"></button>
       <button id="download" class="primary-button" type="button" data-i18n="documentDownloadAction" disabled></button>
     </nav>
+    <div id="loading-progress" role="progressbar" data-i18n-aria-label="documentLoading"><span></span></div>
     <div class="document-feedback">
       <p id="layout-note" hidden></p>
       <p id="status" role="status" data-i18n="documentLoading"></p>
-      <div id="loading-progress" role="progressbar" data-i18n-aria-label="documentLoading"><span></span></div>
       <div id="choice" hidden>
         <label><input id="remember" type="checkbox"><span data-i18n="documentRemember"></span></label>
         <div class="choice-actions"><button id="preview" class="primary-button" type="button" data-i18n="documentPreviewAction"></button><button id="choice-download" class="secondary-button" type="button" data-i18n="documentDownloadAction"></button></div>

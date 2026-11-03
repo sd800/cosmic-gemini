@@ -103,8 +103,8 @@ The focused suite covers configuration isolation, current-site overrides, exact 
 
 ## Merged preview toolbar
 
-- Check short and long English/Chinese filenames in light/dark appearance at desktop and narrow widths. Keep the product name above Cosmic Gemini, center the filename over the source website, truncate filenames to one line with an ellipsis and a full-name hover title, and omit file size. No empty feedback row or horizontal overflow after loading.
-- Exercise document zoom/theme/download and spreadsheet/slide navigation; all controls must remain reachable, including with long part names. Verify loading, choice, failure, and expiry feedback inside the toolbar and full-viewport PDF display.
+- Check short and long English/Chinese filenames in light/dark appearance at desktop and narrow widths. Keep branding absent and all reading controls on one row, with an ellipsized filename and full-name hover title. Source/family metadata is inline when space permits; file size stays outside the toolbar. Narrow action groups remain accessible by horizontal scrolling without wrapping or an empty feedback row.
+- Exercise document zoom/theme/download and spreadsheet/slide navigation; all controls must remain reachable, including with long part names. Verify divider-based loading, non-shifting choice/failure/expiry feedback, and the unbranded single-row PDF toolbar with centered navigation.
 
 ### Word reading fidelity and toolbar translation
 
@@ -292,4 +292,4 @@ Verify that enabling an open matching page reloads it once and retains its origi
 
 ## Original-address document previews
 
-Run `scripts/browser/test-document-capture-browser.mjs` with the documented browser/runtime environment. Tests cover intercepted authenticated downloads, original-address PDF/DOCX/XLSX/PPTX/RTF/EML rendering, the existing cross-origin fallback, no additional fetch for wrapper creation, refresh from RAM after source closure, rejection of unbound website frames, and clean Chrome extension errors. Reusable fixtures and the current screenshot are documented in ignored `test-dist/original-url/README.md`. Controller tests cover per-document authorization, private contexts, simultaneous rule ownership, render acknowledgement, navigation, and cancellation.
+Run `scripts/browser/test-document-capture-browser.mjs` with the documented browser/runtime environment. Tests cover intercepted authenticated downloads, original-address PDF/DOCX/XLSX/PPTX/RTF/EML rendering, the existing cross-origin fallback, no additional fetch for wrapper creation, refresh from RAM after source closure, rejection of unbound website frames, and clean Chrome extension errors. Reusable fixtures and the current screenshot are documented in ignored `test-dist/original-url/README.md`. Controller tests cover per-document authorization, private contexts, simultaneous rule ownership, render acknowledgement, navigation, and cancellation. Tests require a single initial history item and one-row toolbar geometry at desktop and narrow widths. Optional `CONTEXT_NATIVE_ADDRESS=1` uses headed Chrome for Testing on macOS to read its actual accessibility address field through `scripts/browser/support/native-address.mjs`; an internal DOM, tab, or CDP URL alone does not prove the visible address. Ordinary test runs stay headless and never attach to a personal browser.

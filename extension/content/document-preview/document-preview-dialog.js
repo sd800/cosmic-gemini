@@ -69,7 +69,10 @@ export function showDocumentChoice(payload) {
               nonce = crypto.randomUUID(); target.name = 'cosmic-gemini-document:' + nonce;
               target.document.open();
               target.document.write('<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; frame-src chrome-extension:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>Document Preview</title><style>html{color-scheme:light dark;background:light-dark(#faf9f7,#171819);color:light-dark(#24272b,#e3e5e8);font:16px/1.5 system-ui}body{margin:0}p{padding:36px}</style><p id="loading"></p>');
-              target.document.close(); target.history.replaceState(null, '', url.href);
+              target.document.close();
+              // Commit the initial history item so Chrome updates its visible
+              // address too; replacing the blank item only updates internal URLs.
+              target.history.pushState(null, '', url.href);
               target.document.documentElement.dataset.cgDocumentPreviewShell = 'true';
               target.document.title = current.filename + ' · Document Preview';
               const dark = current.appearance === 'dark' || current.appearance !== 'light' && matchMedia('(prefers-color-scheme:dark)').matches;

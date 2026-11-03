@@ -33,10 +33,21 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.3.1');
+assert.equal(manifest.version, '26.11.3.2');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
-assert.equal(JSON.parse(await readFile(join(project, 'package.json'), 'utf8')).version, manifest.version);
-assert.equal(manifest.version_name, undefined);
+const packageMetadata = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
+assert.equal(packageMetadata.version, manifest.version);
+const releaseName = manifest.version_name?.match(/^(\d{2}\.\d{1,2}\.\d{1,2}\.[1-9]\d*) \(([1-9]\d*)\)$/);
+assert.ok(releaseName, 'Display versions require an ASCII-space cumulative release number');
+assert.equal(releaseName[1], manifest.version);
+assert.equal(packageMetadata.version_name, manifest.version_name);
+for (const name of ['CHANGELOG.md', 'CHANGELOG_zh.md']) {
+  const changelog = await readFile(join(project, name), 'utf8');
+  const releases = [...changelog.matchAll(/^## (\d+(?:\.\d+)+)(?: \([1-9]\d*\))?(?: — [^\n]+)?$/gm)];
+  assert.equal(releases[0]?.[1], manifest.version);
+  assert.ok(changelog.includes('## ' + manifest.version_name + ' — '), 'Current release heading uses the complete display version');
+  assert.equal(new Set(releases.map(match => match[1])).size, Number(releaseName[2]), 'Cumulative release number matches distinct recorded versions');
+}
 assert.equal(manifest.description, 'A personal toolkit for the web.');
 assert.deepEqual(manifest.permissions.sort(), [
   'activeTab', 'alarms', 'declarativeNetRequestWithHostAccess', 'downloads', 'offscreen', 'scripting', 'sidePanel', 'storage', 'unlimitedStorage', 'webRequest'

@@ -9,9 +9,9 @@ The maintained trust boundaries, injection defenses, and vulnerability-reporting
 
 ## Release versioning
 
-Cosmic Gemini uses `YY.M.D.NUM` calendar versions: a two-digit year, an unpadded month and day, and the day's sequential revision number. The sequence starts at `1` on a new release date and increases for each subsequent release that day. The manifest and private project metadata carry the same four-part version. Historical releases retain their original numbers.
+Cosmic Gemini displays versions as `YY.M.D.NUM (TOTAL_NUM)`: a two-digit year, an unpadded month and day, the day's sequential revision number, and this product's cumulative release number. NUM starts at `1` on a new date. TOTAL_NUM increases once per distinct recorded release and continues across dates. The manifest and private project metadata keep the numeric four-part string in `version` and the complete display in `version_name`, separated by one ASCII space and ASCII parentheses. UI surfaces read `version_name`. Historical release headings retain their existing format.
 
-Each release commit contains only the subject `Release YY.M.D.NUM`, with no additional prefix, suffix, or commit body. Releases use commits rather than tags.
+Current changelog headings use `YY.M.D.NUM (TOTAL_NUM) — YYYY-MM-DD`. Each release commit contains only `Release YY.M.D.NUM (TOTAL_NUM)` as its subject, with no commit body. Releases use commits rather than tags.
 
 ## Central Coordination Commission
 

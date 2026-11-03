@@ -2,6 +2,10 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.3.2 (480) — 2026-11-03
+
+- Add the cumulative release number to displayed versions, extension and project metadata, and release records. Keep the four-part calendar version in the machine-readable version field.
+
 ## 26.11.3.1 — 2026-11-03
 
 - Fix same-origin Document Preview windows displaying about:blank in Chrome's visible address bar even though internal document and tab URLs had changed. Commit the original file URL into the initial history item without another file request or an extra Back entry.

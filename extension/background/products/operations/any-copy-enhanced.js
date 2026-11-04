@@ -12,6 +12,7 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.ANY_COPY_ENHANCED,
     bridge: 'content/any-copy-enhanced/any-copy-enhanced-bridge.js',
     runtime: 'content/any-copy-enhanced/any-copy-enhanced-runtime.js',
+    awaitConfiguration: true,
     async isActive(tabId) {
       if (!Number.isInteger(tabId)) return false;
       return (await sessionStorage.get(key(tabId)))[key(tabId)]?.active === true;

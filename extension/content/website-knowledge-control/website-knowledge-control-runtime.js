@@ -10,12 +10,18 @@
   }
   if (globalThis[KEY]) { globalThis[KEY].announce(); return; }
   const token = randomToken();
-  let configured = false;
-  const announce = () => window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: token }));
+  let configured = false, disposed = false;
+  const announce = () => {
+    if (disposed) return;
+    window.addEventListener(PREFIX + 'configure', configure, true);
+    window.addEventListener(PREFIX + 'dispose', dispose, true);
+    window.addEventListener(PREFIX + 'bridge-ready', announce, true);
+    window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: token }));
+  };
   function configure(event) {
     let message;
     try { message = JSON.parse(event.detail); } catch { return; }
-    if (message?.token !== token) return;
+    if (message?.token !== token || disposed) return;
     const config = message.config;
     // A document keeps the browser information it received at load time. Later
     // settings changes are picked up only by the next document.
@@ -29,12 +35,13 @@
     }, 10);
   }
   function dispose(event) {
-    if (event?.detail !== token) return;
+    if (event?.detail !== token || disposed) return;
+    disposed = true;
     window.removeEventListener(PREFIX + 'configure', configure, true);
     window.removeEventListener(PREFIX + 'dispose', dispose, true);
     window.removeEventListener(PREFIX + 'bridge-ready', announce, true);
   }
-  Object.defineProperty(globalThis, KEY, { configurable: true, value: { token, announce } });
+  Object.defineProperty(globalThis, KEY, { configurable: true, value: { token, announce, onDispose: dispose } });
   window.addEventListener(PREFIX + 'configure', configure, true);
   window.addEventListener(PREFIX + 'dispose', dispose, true);
   window.addEventListener(PREFIX + 'bridge-ready', announce, true);

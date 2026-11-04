@@ -88,3 +88,13 @@ test('stopping discovery cancels pending clone reads and avoids late text proces
   assert.equal(runtime.responseReaders.size, 0);
   assert.equal(messages.length, before);
 });
+
+test('a queued scan message cannot revive a stopped page runtime', async t => {
+  const { runtime, context, messages } = await fixture(t);
+  runtime.stop();
+  const count = messages.length;
+  context.runtime = runtime;
+  vm.runInContext("runtime.onMessage({source:globalThis,data:{marker:'cosmic-gemini-video-download',type:'scan'}})", context);
+  assert.equal(runtime.active, false);
+  assert.equal(messages.length, count);
+});

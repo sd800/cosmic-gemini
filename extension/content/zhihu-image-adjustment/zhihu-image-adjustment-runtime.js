@@ -320,6 +320,7 @@
   }
   function schedule() { if(enabled&&!raf)raf=requestAnimationFrame(refresh); }
   function onPointer(event) {
+    if(!enabled)return;
     if(menuRecord&&!event.composedPath().includes(menuRecord.host)) {
       closeMenu(); dismissClick={target:event.target,until:performance.now()+600};
       event.preventDefault();event.stopImmediatePropagation();return;
@@ -329,6 +330,7 @@
     if(image&&isContentImage(image)&&!protectedImage(image))clicked={key:imageKey(image),time:performance.now()};
   }
   function onContextMenu(event) {
+    if(!enabled)return;
     // Claim only our own shadow host, before the site's document/React capture.
     // The button's transparent hit margin remains part of that same target.
     const host = event.composedPath().find(node => controls.has(node));
@@ -338,6 +340,7 @@
     if (menuRecord !== record) openMenu(record);
   }
   function onKey(event) {
+    if(!enabled)return;
     if (!menuRecord) return;
     if(event.key==='Escape'||event.key==='Tab') {
       const button=menuRecord.button;closeMenu();
@@ -361,7 +364,7 @@
     window.removeEventListener('contextmenu',onContextMenu,true);
     window.removeEventListener('keydown',onKey,true);document.removeEventListener('visibilitychange',schedule);
   }
-  const onClick = event => { if(dismissClick&&performance.now()<dismissClick.until&&event.target===dismissClick.target){dismissClick=null;event.preventDefault();event.stopImmediatePropagation();return;} dismissClick=null; const image=event.target;if(image instanceof HTMLImageElement&&isContentImage(image)&&!protectedImage(image)){clicked={key:imageKey(image),time:performance.now()};schedule();} };
+  const onClick = event => { if(!enabled)return; if(dismissClick&&performance.now()<dismissClick.until&&event.target===dismissClick.target){dismissClick=null;event.preventDefault();event.stopImmediatePropagation();return;} dismissClick=null; const image=event.target;if(image instanceof HTMLImageElement&&isContentImage(image)&&!protectedImage(image)){clicked={key:imageKey(image),time:performance.now()};schedule();} };
   function start() {
     enabled=true;
     intersection=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){const r=records.get(e.target);if(r)enqueue(r);}}, {rootMargin:'500px 0px'});
@@ -390,7 +393,11 @@
     window.addEventListener('keydown',onKey,true);document.addEventListener('visibilitychange',schedule);
     refresh();
   }
-  const announce=()=>window.dispatchEvent(new CustomEvent(EVENT('main-ready'),{detail:token}));
+  const announce=()=>{
+    if(disposed)return;
+    window.addEventListener(EVENT('configure'),configure,true);window.addEventListener(EVENT('dispose'),dispose,true);window.addEventListener(EVENT('bridge-ready'),announce,true);
+    window.dispatchEvent(new CustomEvent(EVENT('main-ready'),{detail:token}));
+  };
   function configure(event) {
     let message;try{message=JSON.parse(event.detail);}catch{return;}
     if(message?.token!==token||disposed)return;
@@ -401,10 +408,10 @@
     if(active&&!enabled)start();else if(!active&&enabled)stop();else if(enabled){revision++;for(const cancel of loads)cancel();pending.clear();schedule();}
   }
   function dispose(event) {
-    if(event.detail!==token)return;stop();disposed=true;choices.clear();results.clear();
+    if(event.detail!==token||disposed)return;stop();disposed=true;choices.clear();results.clear();
     window.removeEventListener(EVENT('configure'),configure,true);window.removeEventListener(EVENT('dispose'),dispose,true);window.removeEventListener(EVENT('bridge-ready'),announce,true);
     delete globalThis[KEY];
   }
   window.addEventListener(EVENT('configure'),configure,true);window.addEventListener(EVENT('dispose'),dispose,true);window.addEventListener(EVENT('bridge-ready'),announce,true);
-  Object.defineProperty(globalThis,KEY,{value:{token,announce},configurable:true});announce();
+  Object.defineProperty(globalThis,KEY,{value:{token,announce,onDispose:dispose},configurable:true});announce();
 })();

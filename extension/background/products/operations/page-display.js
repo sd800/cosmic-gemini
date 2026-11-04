@@ -59,7 +59,6 @@ export function createPageDisplayProduct(pageRuntimeHost, platform) {
     pageStyleFiles,
     preservePageStylesOnRefresh: true,
     awaitConfiguration: true,
-    recoverInactiveRuntimeOnRefresh: true,
     async state(settings, url) { return pageDisplayState(settings, url, await temporary.read()); },
     async sync(context, settings) {
       const state = await product.state(settings, context.topUrl);

@@ -40,6 +40,7 @@
 
   class XhsKeyboardNavigationRuntime {
     constructor() {
+      this.disposed = false;
       this.token = token;
       this.enabled = false;
       this.onConfigure = this.onConfigure.bind(this);
@@ -51,14 +52,21 @@
       window.addEventListener(READY, this.onBridgeReady, true);
     }
 
-    announce() { window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token })); }
+    announce() {
+      if (this.disposed) return;
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+      if (this.enabled) document.addEventListener('keydown', this.onKeyDown, true);
+      window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
+    }
     onBridgeReady() { this.announce(); }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
       if (typeof message?.token !== 'string' || !message.token) return;
-      if (message.token !== this.token) return;
+      if (message.token !== this.token || this.disposed) return;
       const enabled = message.config?.active === true
         && location.hostname === 'www.xiaohongshu.com';
       if (enabled === this.enabled) return;
@@ -68,7 +76,8 @@
     }
 
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.destroy();
     }
 
@@ -78,7 +87,7 @@
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
-      try { delete globalThis[RUNTIME_KEY]; } catch {}
+      try { if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY]; } catch {}
     }
 
     keyDirection(event) {

@@ -2,6 +2,17 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.7 (487) — 2026-11-04
+
+- Extend the inactive-page boundary across page features. Disabled or excluded products do not load their code or styles; explicit settings refreshes no longer inject cleanup probes into pages that never started the product. Confirm owned cleanup only for a previously present bridge, including after document rebuilding erased its Window listeners.
+- Make Any Copy, Any Copy Enhanced, Clipboard Protect, Mailto Capture, and Ad Marshal await their final current configuration before activation completes. Share overlapping reads, discard superseded decisions, and prevent late configuration or announcement callbacks from reviving disposed runtimes. Other governed page runtimes follow the same disposal boundary.
+- Release behavior listeners, observers, styles, and owned API wrappers when protection stops. Retained clipboard, network, image, and link callbacks become native pass-through or remain silent. Mailto Capture also immediately removes open/closing floating surfaces and cancels pending positioning work.
+- Cancel a selected Image Download area capture if the feature stops before its delayed dispatch. Ignore queued Video Download scan messages/publications after shutdown so a retired scanner cannot restart itself.
+- Preserve later website style changes during Any Copy cleanup. Any Copy Enhanced restores overflow only on the original root it changed, without applying an old scroll lock to a replacement document shell.
+- Apply Translate Override and Stay on the page shutdown or saved-site removal to already open matching pages. Invalidate pending activation replies, limit updates to the changed tool, and preserve independent session policies. Stay on the page restores owned navigation APIs, removes behavior/context-menu listeners, cancels queued reports, and supports clean reactivation.
+- Preserve established document-lifetime behavior for Website Knowledge Control and Crash Page Warden. Keep manual local-document opening and document External Links Capture independent of their website switches.
+- Add tests for inactive supported routes, zero product injection, document-rebuild cleanup, stale replies, native API/style restoration, saved-site removal, and deactivation/reactivation.
+
 ## 26.11.4.6 (486) — 2026-11-04
 
 - Enforce Native Scroll and No Autoplay exclusions before product loading. Initially inactive pages, including websites matched by Always inactive rules or the shared whitelist, receive no corresponding bridge, runtime, stylesheet, or cleanup injection; No Autoplay child frames follow the inactive top-page policy.

@@ -5,6 +5,7 @@ export function createClipboardProtectProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.CLIPBOARD_PROTECT,
     bridge: 'content/clipboard-protect/clipboard-protect-bridge.js',
     runtime: 'content/clipboard-protect/clipboard-protect-runtime.js',
+    awaitConfiguration: true,
     state(settings, url, _tabId, directives = {}) {
       const base = clipboardProtectState(settings, url);
       const yieldedToAnyCopy = directives?.[product.id]?.yieldToAnyCopy === true;

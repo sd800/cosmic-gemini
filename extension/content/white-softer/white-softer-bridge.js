@@ -37,7 +37,10 @@
     retryResolve = null;
     resolve?.();
   };
-  const dispose = () => {
+  const dispose = (confirmed = false) => {
+    // Keep only the internal stop receipt until the host confirms MAIN cleanup.
+    // A page rebuild may have erased the MAIN dispose listener.
+    if (confirmed) { try { chrome.runtime.onMessage.removeListener(onMessage); } catch {} }
     if (disposed) return;
     disposed = true;
     configRevision += 1;
@@ -46,7 +49,6 @@
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
-    try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
   const readConfig = async () => {
@@ -92,9 +94,9 @@
   }
   function onMessage(message, _sender, sendResponse) {
     if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'whiteSofter') {
-      dispose();
+      dispose(true);
       sendResponse({ disposed: true });
-    } else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'whiteSofter') {
+    } else if (!disposed && message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'whiteSofter') {
       configRevision += 1;
       finishRetry();
       void requestConfig().then(configured => sendResponse({ configured }));

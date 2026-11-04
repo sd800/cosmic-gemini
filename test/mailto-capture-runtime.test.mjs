@@ -919,6 +919,7 @@ test('Mailto Capture intercepts trusted mailto, tel, and sms activation and rele
 
 test('Mailto Capture closes only for outside activation or Escape', async () => {
   const { runtime } = await runtimeFixture();
+  runtime.active = true;
   const host = {};
   runtime.host = host;
   const closes = [];

@@ -191,6 +191,7 @@ export function createAdMarshalProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.AD_MARSHAL,
     bridge: 'content/ad-marshal/ad-marshal-bridge.js',
     runtime: 'content/ad-marshal/ad-marshal-runtime.js',
+    awaitConfiguration: true,
     state(settings, url) { return adMarshalState(settings, url); },
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);

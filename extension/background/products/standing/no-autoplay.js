@@ -6,7 +6,6 @@ export function createNoAutoplayProduct(pageRuntimeHost) {
     bridge: 'content/no-autoplay/no-autoplay-bridge.js',
     runtime: 'content/no-autoplay/no-autoplay-runtime.js',
     awaitConfiguration: true,
-    confirmRuntimeDisposal: true,
     state(settings, url) { return featureState(settings, product.id, url); },
     async sync(context, settings) {
       const state = product.state(settings, context.topUrl);

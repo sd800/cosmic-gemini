@@ -23,6 +23,7 @@ export function createMailtoCaptureProduct(pageRuntimeHost, platform) {
       'content/mailto-capture/univ-domains.js'
     ],
     runtime: 'content/mailto-capture/mailto-capture-runtime.js',
+    awaitConfiguration: true,
     async state(settings, url) {
       const state = mailtoCaptureState(settings, url);
       return state.active ? { ...state, locale: await locale() } : state;

@@ -148,7 +148,16 @@ test('Any Copy Enhanced keeps static breaks and safe URLs without rebuilding exe
   assert.equal(target.childNodes[2].attributes.src, 'https://example.com/photo.png');
   context.document.documentElement = new ReaderElement('html');
   runtime.originalOverflow = { value: 'scroll', priority: 'important' };
+  runtime.overflowRoot = context.document.documentElement;
+  runtime.overflowRoot.style.setProperty('overflow', 'hidden', 'important');
   runtime.hideReader();
   assert.equal(context.document.documentElement.style.getPropertyValue('overflow'), 'scroll');
   assert.equal(context.document.documentElement.style.getPropertyPriority('overflow'), 'important');
+  const oldRoot = context.document.documentElement;
+  runtime.originalOverflow = { value: 'scroll', priority: '' }; runtime.overflowRoot = oldRoot;
+  oldRoot.style.setProperty('overflow', 'auto', '');
+  context.document.documentElement = new ReaderElement('html');
+  runtime.hideReader();
+  assert.equal(oldRoot.style.getPropertyValue('overflow'), 'auto', 'later page changes remain intact');
+  assert.equal(context.document.documentElement.style.getPropertyValue('overflow'), '', 'a replacement document shell is untouched');
 });

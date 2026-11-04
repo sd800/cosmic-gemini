@@ -26,6 +26,7 @@
 
   class AnyCopyRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.active = false;
       this.reported = false;
@@ -43,15 +44,15 @@
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(READY, this.onBridgeReady, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
-      window.addEventListener('copy', this.onCopy, true);
-      window.addEventListener('keydown', this.onKeyDown, true);
-      window.addEventListener('selectstart', this.onSelectionEvent, true);
-      window.addEventListener('contextmenu', this.onSelectionEvent, true);
-      window.addEventListener('pointerdown', this.onPointerDown, true);
-      window.addEventListener('mousedown', this.onPointerDown, true);
     }
 
     announce() {
+      if (this.disposed) return;
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+
+      if (this.active) this.attachBehaviorListeners();
       window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
     }
 
@@ -61,7 +62,8 @@
     }
 
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.active = false;
       this.disable();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
@@ -73,13 +75,13 @@
       window.removeEventListener('contextmenu', this.onSelectionEvent, true);
       window.removeEventListener('pointerdown', this.onPointerDown, true);
       window.removeEventListener('mousedown', this.onPointerDown, true);
-      try { delete window[RUNTIME_KEY]; } catch {}
+      try { if (window[RUNTIME_KEY] === this) delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       const shouldRun = message.config?.active === true;
       if (shouldRun === this.active) {
         if (shouldRun) this.ensureStyle();
@@ -90,13 +92,29 @@
       else this.disable();
     }
 
+    attachBehaviorListeners() {
+      window.addEventListener('copy', this.onCopy, true);
+      window.addEventListener('keydown', this.onKeyDown, true);
+      window.addEventListener('selectstart', this.onSelectionEvent, true);
+      window.addEventListener('contextmenu', this.onSelectionEvent, true);
+      window.addEventListener('pointerdown', this.onPointerDown, true);
+      window.addEventListener('mousedown', this.onPointerDown, true);
+    }
+
     enable() {
+      this.attachBehaviorListeners();
       this.reported = false;
       this.ensureStyle();
       this.reportIntervention();
     }
 
     disable() {
+      window.removeEventListener('copy', this.onCopy, true);
+      window.removeEventListener('keydown', this.onKeyDown, true);
+      window.removeEventListener('selectstart', this.onSelectionEvent, true);
+      window.removeEventListener('contextmenu', this.onSelectionEvent, true);
+      window.removeEventListener('pointerdown', this.onPointerDown, true);
+      window.removeEventListener('mousedown', this.onPointerDown, true);
       this.style?.remove();
       this.style = null;
       this.observer?.disconnect();
@@ -104,6 +122,8 @@
       for (const [element, properties] of this.savedStyles) {
         if (!(element instanceof Element)) continue;
         for (const [property, original] of properties) {
+          if (element.style.getPropertyValue(property) !== 'text'
+            || element.style.getPropertyPriority(property) !== 'important') continue;
           if (original.value) element.style.setProperty(property, original.value, original.priority);
           else element.style.removeProperty(property);
         }
@@ -250,7 +270,7 @@
     }
 
     reportIntervention() {
-      if (this.reported) return;
+      if (!this.active || this.reported) return;
       this.reported = true;
       window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
     }

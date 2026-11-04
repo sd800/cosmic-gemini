@@ -22,6 +22,7 @@
   document.documentElement.append(overlay);
   let start = null;
   let disposed = false;
+  let captureTimer = 0;
   const point = event => ({ x: Math.max(0, Math.min(innerWidth, event.clientX)), y: Math.max(0, Math.min(innerHeight, event.clientY)) });
   const draw = current => {
     if (!start) return;
@@ -34,24 +35,30 @@
     box.style.height = `${Math.abs(current.y - start.y)}px`;
   };
   const stop = event => { event.preventDefault(); event.stopImmediatePropagation(); };
+  const hideOverlay = () => {
+    overlay.remove();
+    removeEventListener('keydown', cancel, true);
+  };
   const removeOverlay = () => {
     if (disposed) return;
     disposed = true;
-    overlay.remove();
-    removeEventListener('keydown', cancel, true);
+    if (captureTimer) clearTimeout(captureTimer);
+    captureTimer = 0;
+    hideOverlay();
     if (globalThis[CAPTURE_KEY] === captureRuntime) delete globalThis[CAPTURE_KEY];
   };
   const captureRuntime = Object.freeze({ dispose: removeOverlay });
   globalThis[CAPTURE_KEY] = captureRuntime;
   overlay.addEventListener('pointerdown', event => {
+    if (disposed || captureTimer) return;
     stop(event);
     start = point(event);
     overlay.setPointerCapture(event.pointerId);
     draw(start);
   }, true);
-  overlay.addEventListener('pointermove', event => { if (start) { stop(event); draw(point(event)); } }, true);
+  overlay.addEventListener('pointermove', event => { if (!disposed && !captureTimer && start) { stop(event); draw(point(event)); } }, true);
   overlay.addEventListener('pointerup', event => {
-    if (!start) return;
+    if (disposed || captureTimer || !start) return;
     stop(event);
     const end = point(event);
     const rect = {
@@ -62,9 +69,14 @@
       viewportWidth: innerWidth,
       viewportHeight: innerHeight
     };
-    removeOverlay();
-    if (rect.width < 8 || rect.height < 8) return;
-    setTimeout(() => {
+    hideOverlay();
+    if (rect.width < 8 || rect.height < 8) { removeOverlay(); return; }
+    // Keep the controller reachable until dispatch so stopping Image Download
+    // can cancel a selection made just before the feature was turned off.
+    captureTimer = setTimeout(() => {
+      captureTimer = 0;
+      if (disposed) return;
+      removeOverlay();
       void sendRuntimeMessage({ type: 'CG_IMAGE_CAPTURE_RECT', rect }).catch(() => {});
     }, 80);
   }, true);

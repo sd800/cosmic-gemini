@@ -12,6 +12,7 @@
 
   class WhiteSofterRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.layer = globalThis[PREPAINT_KEY]?.handoff()
         || new (globalThis[Symbol.for('cosmic-gemini.white-cap-layer')])('data-cosmic-gemini-white-softer', { protectDarkTransitions: true });
@@ -20,6 +21,7 @@
       this.announce = this.announce.bind(this);
     }
     announce() {
+      if (this.disposed) return;
       // document.open() clears Window listeners without replacing this runtime.
       // Idempotent reattachment keeps reinjection able to configure it again.
       window.addEventListener(PREFIX + 'configure', this.onConfigure, true);
@@ -30,17 +32,18 @@
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       if (message.config?.active !== true) { this.layer.disable(); return; }
       this.layer.enable(message.config.tone);
     }
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.layer.disable();
       window.removeEventListener(PREFIX + 'configure', this.onConfigure, true);
       window.removeEventListener(PREFIX + 'dispose', this.onDispose, true);
       window.removeEventListener(PREFIX + 'bridge-ready', this.announce, true);
-      try { delete globalThis[KEY]; } catch {}
+      try { if (globalThis[KEY] === this) delete globalThis[KEY]; } catch {}
     }
   }
   const runtime = new WhiteSofterRuntime();

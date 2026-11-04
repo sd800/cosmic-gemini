@@ -14,6 +14,7 @@
 
   class ClipboardProtectRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.active = false;
       this.snapshots = new WeakMap();
@@ -33,13 +34,19 @@
     }
 
     announce() {
+      if (this.disposed) return;
+      window.addEventListener(PREFIX + 'configure', this.onConfigure, true);
+      window.addEventListener(PREFIX + 'dispose', this.onDispose, true);
+      window.addEventListener(PREFIX + 'bridge-ready', this.announce, true);
+
+      if (this.active) window.addEventListener('copy', this.onCopy, true);
       window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: this.token }));
     }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       if (message.config?.active === true) this.enable();
       else this.disable();
     }
@@ -107,10 +114,12 @@
       // Snapshot before their first clipboard write and keep our final handler reachable.
       this.clipboardGetter = function () {
         const value = Reflect.apply(runtime.originalClipboard.get, this, []);
+        if (!runtime.active) return value;
         runtime.snapshot(this);
         return value;
       };
       this.stopWrapper = function (...args) {
+        if (!runtime.active) return Reflect.apply(runtime.originalStop, this, args);
         if (runtime.snapshot(this)) return undefined;
         return Reflect.apply(runtime.originalStop, this, args);
       };
@@ -157,12 +166,13 @@
     }
 
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.disable();
       window.removeEventListener(PREFIX + 'configure', this.onConfigure, true);
       window.removeEventListener(PREFIX + 'bridge-ready', this.announce, true);
       window.removeEventListener(PREFIX + 'dispose', this.onDispose, true);
-      try { delete globalThis[KEY]; } catch {}
+      try { if (globalThis[KEY] === this) delete globalThis[KEY]; } catch {}
     }
   }
 

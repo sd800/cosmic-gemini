@@ -7,9 +7,10 @@
   const key=Symbol.for('cosmic-gemini.url-tracking-cleaner.runtime'),prefix='cosmic-gemini:url-tracking-cleaner:';
   if(globalThis[key]){globalThis[key].announce();return;}
   const helper=globalThis[Symbol.for('cosmic-gemini.url-tracking-cleaner.parameters')],token=randomToken();
-  let active=false,options={},openPatch=null;
+  let active=false,disposed=false,options={},openPatch=null;
   const events=['pointerdown','click','auxclick','contextmenu'],completionEvents=['click','auxclick'];
   const onLink=event=>{
+    if(!active)return;
     if(event.defaultPrevented||event.type==='pointerdown'&&event.isPrimary===false)return;
     const path=event.composedPath();
     const link=path.find(node=>node instanceof HTMLAnchorElement);
@@ -45,10 +46,18 @@
     for(const name of completionEvents)window.removeEventListener(name,onLink,false);
     restoreOpen();
   };
-  const announce=()=>window.dispatchEvent(new CustomEvent(prefix+'main-ready',{detail:token}));
+  const announce=()=>{
+    if(disposed)return;
+    window.addEventListener(prefix+'configure',configure,true);window.addEventListener(prefix+'dispose',dispose,true);window.addEventListener(prefix+'bridge-ready',announce,true);
+    if(active){
+      for(const name of events)window.addEventListener(name,onLink,{capture:true,passive:true});
+      for(const name of completionEvents)window.addEventListener(name,onLink,{passive:true});
+    }
+    window.dispatchEvent(new CustomEvent(prefix+'main-ready',{detail:token}));
+  };
   function configure(event){
     let message;try{message=JSON.parse(event.detail);}catch{return;}
-    if(message?.token!==token)return;
+    if(message?.token!==token||disposed)return;
     options={utmParameters:message.config?.utmParameters!==false,bilibiliParameters:message.config?.bilibiliParameters===true};
     const next=message.config?.active===true;
     if(next&&!active){
@@ -60,10 +69,10 @@
     else if(!next&&active)stop();
   }
   function dispose(event){
-    if(event.detail!==token)return;stop();
+    if(event.detail!==token||disposed)return;disposed=true;stop();
     window.removeEventListener(prefix+'configure',configure,true);window.removeEventListener(prefix+'dispose',dispose,true);window.removeEventListener(prefix+'bridge-ready',announce,true);
     delete globalThis[key];
   }
   window.addEventListener(prefix+'configure',configure,true);window.addEventListener(prefix+'dispose',dispose,true);window.addEventListener(prefix+'bridge-ready',announce,true);
-  Object.defineProperty(globalThis,key,{value:{token,announce,get active(){return active}},configurable:true});announce();
+  Object.defineProperty(globalThis,key,{value:{token,announce,onDispose:dispose,get active(){return active}},configurable:true});announce();
 })();

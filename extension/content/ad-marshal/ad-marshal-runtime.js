@@ -138,6 +138,7 @@
 
   class AdMarshalRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.active = false;
       this.siteId = '';
@@ -180,22 +181,29 @@
       window.addEventListener(READY, this.onBridgeReady, true);
     }
 
-    announce() { window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token })); }
+    announce() {
+      if (this.disposed) return;
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+      window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
+    }
     onBridgeReady() { this.announce(); }
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       if (message.config?.active === true) this.enable(message.config.siteId || siteIdForLocation());
       else this.disable();
     }
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.disable();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
-      try { delete globalThis[RUNTIME_KEY]; } catch {}
+      try { if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY]; } catch {}
     }
 
     enable(siteId) {
@@ -208,6 +216,7 @@
       this.emptyResponseUrl = URL.createObjectURL(new Blob(['{}'], { type: 'application/json' }));
       const runtime = this;
       this.fetchWrapper = function adMarshalFetch(resource, options) {
+        if (!runtime.active) return Reflect.apply(runtime.originalFetch, this, arguments);
         if (runtime.active && shouldNeutralize(resource, runtime.siteId)) {
           return Promise.resolve(new Response('{}', {
             status: 200,
@@ -217,19 +226,23 @@
         return Reflect.apply(runtime.originalFetch, this, [resource, options]);
       };
       this.xhrOpenWrapper = function adMarshalXhrOpen(method, url, async = true, ...rest) {
+        if (!runtime.active) return Reflect.apply(runtime.originalXhrOpen, this, arguments);
         if (runtime.active && shouldNeutralize(url, runtime.siteId)) {
           return Reflect.apply(runtime.originalXhrOpen, this, ['GET', runtime.emptyResponseUrl, async !== false]);
         }
         return Reflect.apply(runtime.originalXhrOpen, this, [method, url, async, ...rest]);
       };
       this.sendBeaconWrapper = function adMarshalSendBeacon(url, data) {
+        if (!runtime.active) return Reflect.apply(runtime.originalSendBeacon, this, arguments);
         if (runtime.active && shouldNeutralize(url, runtime.siteId)) return true;
         return Reflect.apply(runtime.originalSendBeacon, this, [url, data]);
       };
       this.imageSrcGetter = function adMarshalImageSrcGet() {
+        if (!runtime.active) return Reflect.apply(runtime.imageSrcDescriptor.get, this, []);
         return runtime.imageSources.get(this) || Reflect.apply(runtime.imageSrcDescriptor.get, this, []);
       };
       this.imageSrcSetter = function adMarshalImageSrcSet(value) {
+        if (!runtime.active) return Reflect.apply(runtime.imageSrcDescriptor.set, this, [value]);
         if (runtime.active && shouldNeutralize(value, runtime.siteId)) {
           runtime.imageSources.set(this, String(value));
           Reflect.apply(runtime.imageSrcDescriptor.set, this, [TRANSPARENT_IMAGE_URL]);
@@ -238,6 +251,7 @@
         Reflect.apply(runtime.imageSrcDescriptor.set, this, [value]);
       };
       this.imageSetAttributeWrapper = function adMarshalImageSetAttribute(name, value) {
+        if (!runtime.active) return Reflect.apply(runtime.originalImageSetAttribute, this, arguments);
         if (runtime.active && String(name).toLowerCase() === 'src' && shouldNeutralize(value, runtime.siteId)) {
           runtime.imageSources.set(this, String(value));
           return Reflect.apply(runtime.originalImageSetAttribute, this, [name, TRANSPARENT_IMAGE_URL]);
@@ -630,6 +644,7 @@
       this.newsSuspendedPlayers = new WeakSet();
       this.newsMediaLoadingStates = new WeakMap();
       this.styleElement?.remove();
+      this.imageSources = new WeakMap();
       this.styleElement = null;
       if (!wasActive) return;
       if (globalThis.fetch === this.fetchWrapper) globalThis.fetch = this.originalFetch;

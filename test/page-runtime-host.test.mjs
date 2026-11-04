@@ -77,7 +77,7 @@ test('an inactive product does not inject cleanup code into a page that never st
   assert.equal(activityWrites, 0);
 });
 
-test('explicit opted-in shutdown disposes an orphaned runtime even without its event listeners or bridge', async () => {
+test('explicit inactive refresh never probes a fresh document; a known bridge authorizes orphan cleanup', async () => {
   const { createPageDisplayProduct }=await import('../extension/background/products/operations/page-display.js');
   const executions=[],removals=[],activity=[];
   const scope=createContext({cleanups:0});
@@ -88,11 +88,15 @@ test('explicit opted-in shutdown disposes an orphaned runtime even without its e
     async executeScript(details){executions.push(details);scope.args=details.args;return [{result:runInContext(`(${details.func})(...args)`,scope)}];},
     async removeCSS(details){removals.push(details);}
   }};
-  const platform={async sendTabMessage(){return undefined;},async setFeatureActivity(...args){activity.push(args);}};
+  let present=false;
+  const platform={async sendTabMessage(){return present?{disposed:true}:undefined;},async setFeatureActivity(...args){activity.push(args);}};
   const host=createPageRuntimeHost(platform),descriptor=createPageDisplayProduct(host,platform);
   const context={tabId:9,frameId:0,documentId:'orphaned-document'};
   await host.sync(descriptor,context,false);
   assert.equal(executions.length,0,'normal inactive pages still receive no cleanup injection');
+  await host.sync(descriptor,{...context,explicitRefresh:true},false);
+  assert.equal(executions.length,0,'an explicit settings refresh does not authorize injection into a fresh inactive page');
+  present=true;
   await host.sync(descriptor,{...context,explicitRefresh:true},false);
   assert.equal(scope.cleanups,1);
   assert.equal(scope[Symbol.for('cosmic-gemini.page-display.runtime')],undefined);
@@ -446,32 +450,13 @@ test('authorized runtime dependencies load in order in the same main-world docum
   assert.deepEqual(executions[1].target, { tabId: 3, documentIds: ['identity-frame'] });
 });
 
-// Older page bridges can receive startup and refresh replies out of order.
-for (const [name, featureId] of [['any-copy','anyCopy'],['any-copy-enhanced','anyCopyEnhanced'],['mailto-capture','mailtoCapture'],
-  ['clipboard-protect','clipboardProtect'],['ad-marshal','adMarshal']]) {
-  test(`${name} bridge ignores superseded configuration and failure replies`, async () => {
-    const {readFile}=await import('node:fs/promises');
-    const requests=[],events=[],listeners=new Map();let message;
-    const window={addEventListener(type,fn){listeners.set(type,fn);},removeEventListener(type){listeners.delete(type);},dispatchEvent(event){events.push(event);listeners.get(event.type)?.(event);}};
-    const context=createContext({window,location:{href:'https://example.com'},CustomEvent:class {constructor(type,init){this.type=type;this.detail=init?.detail;}},
-      setTimeout,clearTimeout,chrome:{runtime:{sendMessage(input){if(input.type!=='CG_PAGE_STATE')return Promise.resolve({ok:true});return new Promise(resolve=>requests.push(resolve));},onMessage:{addListener(fn){message=fn;},removeListener(){}}}}});
-    runInContext(await readFile(new URL(`../extension/content/${name}/${name}-bridge.js`,import.meta.url),'utf8'),context);
-    window.dispatchEvent({type:`cosmic-gemini:${name}:main-ready`,detail:'token'});
-    message({type:'CG_REFRESH_FEATURE_CONFIG',featureId},{},()=>{});
-    requests[1]({ok:true,result:{[featureId]:{active:true,mode:'enhanced'}}});
-    await new Promise(resolve=>setImmediate(resolve));
-    requests[0]({ok:true,result:{[featureId]:{active:false}}});
-    await new Promise(resolve=>setImmediate(resolve));
-    assert.ok(context[Symbol.for(`cosmic-gemini.${name}.bridge`)],'a stale disabled reply cannot tear down the current runtime');
-    assert.equal(events.filter(event=>event.type.endsWith(':configure')).length,1);
-    context[Symbol.for(`cosmic-gemini.${name}.bridge`)].dispose();
-  });
-}
-
-// Visual runtimes must keep the final acknowledgement pending during retries.
+// Product bridges must keep the final acknowledgement pending during retries.
 for (const [name, featureId] of [['page-display', 'pageDisplay'], ['xhs-image-dark-mode', 'xhsImageDarkMode'],
   ['leetcode-dark-mode', 'leetcodeDarkMode'], ['chinese-response-claude', 'chineseResponseClaude'],
-  ['website-knowledge-control', 'websiteKnowledgeControl'], ['native-scroll', 'nativeScroll'], ['no-autoplay', 'noAutoplay']]) {
+  ['website-knowledge-control', 'websiteKnowledgeControl'], ['native-scroll', 'nativeScroll'], ['no-autoplay', 'noAutoplay'],
+  ['any-copy','anyCopy'], ['any-copy-enhanced','anyCopyEnhanced'], ['mailto-capture','mailtoCapture'],
+  ['clipboard-protect','clipboardProtect'], ['ad-marshal','adMarshal'], ['url-tracking-cleaner','urlTrackingCleaner'],
+  ['zhihu-image-adjustment','zhihuImageAdjustment'], ['xhs-navigation','xhsNavigation']]) {
   test(`${name} refresh preserves effects through overlapping reads, transient failure and navigation`, async () => {
     const { readFile } = await import('node:fs/promises');
     const window = new EventTarget(), requests = [], configs = [], timers = new Map();
@@ -514,6 +499,9 @@ for (const [name, featureId] of [['page-display', 'pageDisplay'], ['xhs-image-da
     }
     assert.equal((await exhausted).configured, false, 'persistent errors stop after four genuine failures');
     assert.equal(requests.length, 4); assert.equal(timers.size, 0);
+    let stopped;
+    message({ type: 'CG_STOP_CENTRAL_FEATURE', featureId }, {}, reply => { stopped = reply; });
+    assert.equal(stopped.disposed, true, 'local disposal still confirms a previously present runtime to the host');
   });
 }
 

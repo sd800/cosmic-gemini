@@ -106,7 +106,7 @@ export function createWebsiteFixerTools(platform) {
       if (domains.length >= LIMIT && !domains.some(entry => entry.site === site)) throw new Error('The website tool has reached its session limit.');
       return { ...current, [kind]: [...domains.filter(entry => entry.site !== site), { site, enabled }] };
     },
-    async syncSites(sites, settings) {
+    async syncSites(sites, settings, kinds = ['translateOverride', 'stayOnPage']) {
       const selected = new Set(sites);
       if (!selected.size) return;
       const tabs = (await chrome.tabs.query({})).filter(tab => !!tab.incognito === incognito && selected.has(toolSite(tab.url)));
@@ -123,15 +123,18 @@ export function createWebsiteFixerTools(platform) {
             : value.origin && value.origin !== 'null' ? value.origin : value.referrer;
           if (siteKey(url) !== site) continue;
           const target = { tabId: tab.id, documentIds: [frame.documentId] };
-          if (frame.frameId === 0) {
+          if (frame.frameId === 0 && kinds.includes('translateOverride')) {
             if (permits(settings, 'translateOverride', url)) {
               await chrome.scripting.executeScript({ target, world: 'ISOLATED', files: [
                 'content/website-fixer/website-fixer-translate.js', 'content/website-fixer/website-fixer-tool-translate.js'
               ] });
             } else await chrome.scripting.executeScript({ target, world: 'ISOLATED', func: () => {
+              const pending = globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-pending')];
+              if (pending) pending.revision += 1;
               globalThis[Symbol.for('cosmic-gemini.website-fixer.translate')]?.dispose?.();
             } });
           }
+          if (!kinds.includes('stayOnPage')) continue;
           if (permits(settings, 'stayOnPage', url)) {
             await chrome.scripting.executeScript({ target, world: 'MAIN', files: [
               'content/website-fixer/website-fixer-site-key.js', 'content/website-fixer/website-fixer-stay.js'
@@ -139,9 +142,21 @@ export function createWebsiteFixerTools(platform) {
             await chrome.scripting.executeScript({ target, world: 'ISOLATED', files: [
               'content/website-fixer/website-fixer-stay-browser-menu.js', 'content/website-fixer/website-fixer-tool-stay.js'
             ] });
-          } else await chrome.scripting.executeScript({ target, world: 'ISOLATED', func: () => {
-            globalThis[Symbol.for('cosmic-gemini.website-fixer.stay-menu')]?.dispose?.();
-          } });
+          } else {
+            const stopped = await chrome.scripting.executeScript({ target, world: 'ISOLATED', func: () => {
+              const pending = globalThis[Symbol.for('cosmic-gemini.website-fixer.stay-pending')];
+              if (pending) pending.revision += 1;
+              const menu = globalThis[Symbol.for('cosmic-gemini.website-fixer.stay-menu')];
+              if (!menu) return false;
+              menu.dispose();
+              return true;
+            } });
+            // Document rebuilding can erase the MAIN-world deactivate listener.
+            // A known isolated controller authorizes this additional cleanup.
+            if (stopped.some(result => result.result === true)) await chrome.scripting.executeScript({ target, world: 'MAIN', func: () => {
+              globalThis[Symbol.for('cosmic-gemini.website-fixer.stay-bootstrap')]?.deactivate?.();
+            } });
+          }
         }
       }));
     }

@@ -40,6 +40,7 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
     id: FEATURE_IDS.ANY_COPY,
     bridge: 'content/any-copy/any-copy-bridge.js',
     runtime: 'content/any-copy/any-copy-runtime.js',
+    awaitConfiguration: true,
     async state(settings, url, _tabId, directives = {}) {
       const base = anyCopyState(settings, url);
       const site = base.supported ? siteKey(url) : '';

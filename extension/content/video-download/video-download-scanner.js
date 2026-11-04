@@ -58,6 +58,7 @@
     }
 
     onMessage(message, sender, respond) {
+      if (!this.active) return false;
       if (message?.type === 'CG_VIDEO_SCAN') {
         this.active = true;
         this.observe();
@@ -287,6 +288,7 @@
     }
 
     async publish(candidates, includeSeen = false) {
+      if (!this.active) return [];
       const unique = [];
       for (const candidate of candidates) {
         if (!candidate?.url) continue;
@@ -304,6 +306,7 @@
     }
 
     scan(includeSeen = false) {
+      if (!this.active) return Promise.resolve([]);
       return this.publish(this.collect(), includeSeen);
     }
 

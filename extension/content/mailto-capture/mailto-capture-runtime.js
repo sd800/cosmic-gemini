@@ -83,6 +83,7 @@
 
   class MailtoCaptureRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.active = false;
       this.locale = 'en-US';
@@ -106,13 +107,19 @@
       window.addEventListener(READY, this.onBridgeReady, true);
     }
 
-    announce() { window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token })); }
+    announce() {
+      if (this.disposed) return;
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+      window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
+    }
     onBridgeReady() { this.announce(); }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       const nextActive = message.config?.active === true;
       const nextLocale = message.config?.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
       const localeChanged = nextLocale !== this.locale;
@@ -123,12 +130,13 @@
     }
 
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.disable();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
-      try { delete globalThis[RUNTIME_KEY]; } catch {}
+      try { if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY]; } catch {}
       try { delete globalThis[NANP_KEY]; } catch {}
       try { delete globalThis[PHONE_KEY]; } catch {}
     }
@@ -152,7 +160,8 @@
         window.removeEventListener('resize', this.onViewportChange, false);
       }
       this.active = false;
-      this.close();
+      this.close(false, true);
+      this.finishClosing();
     }
 
     anchorFromEvent(event) {
@@ -177,13 +186,14 @@
     }
 
     onPointerDown(event) {
-      if (!this.host) return;
+      if (!this.active || !this.host) return;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
       if (path.includes(this.host)) return;
       this.close();
     }
 
     onKeyDown(event) {
+      if (!this.active) return;
       if (event.key === 'Escape' && this.host) {
         event.preventDefault();
         event.stopPropagation();
@@ -192,10 +202,10 @@
     }
 
     onViewportChange() {
-      if (!this.host || this.viewportFrame) return;
+      if (!this.active || !this.host || this.viewportFrame) return;
       this.viewportFrame = requestAnimationFrame(() => {
         this.viewportFrame = 0;
-        this.position();
+        if (this.active) this.position();
       });
     }
 

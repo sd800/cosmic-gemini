@@ -42,6 +42,7 @@
 
   class ChineseResponseClaudeRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.active = false;
       this.responseDisplay = location.hostname === 'claude.ai';
@@ -66,12 +67,18 @@
       window.addEventListener(READY, this.onBridgeReady, true);
     }
 
-    announce() { window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token })); }
+    announce() {
+      if (this.disposed) return;
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+      window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
+    }
     onBridgeReady() { this.announce(); }
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       const responseDisplay = location.hostname === 'claude.ai' && message.config?.responseDisplay === true;
       const browserIdentity = message.config?.browserIdentityActive === true;
       if (message.config?.active === true) {
@@ -94,12 +101,13 @@
       else this.disable();
     }
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.disable();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
-      try { delete globalThis[RUNTIME_KEY]; } catch {}
+      try { if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY]; } catch {}
     }
 
     selectTimeZone(timeZone, offset) {
@@ -346,6 +354,7 @@
     }
 
     onDiscoveryMutations(mutations) {
+      if (!this.active || !this.responseDisplay) return;
       let rootsWereRemoved = false;
       for (const mutation of mutations) {
         const owner = this.assistantRoot(mutation.target);
@@ -370,6 +379,7 @@
     }
 
     onResponseMutations(mutations) {
+      if (!this.active || !this.responseDisplay) return;
       for (const mutation of mutations) {
         if (mutation.type === 'characterData') {
           if (this.isRecordedOutput(mutation.target)) continue;

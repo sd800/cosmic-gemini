@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.4.6');
+assert.equal(manifest.version, '26.11.4.7');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 const packageMetadata = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
 assert.equal(packageMetadata.version, manifest.version);
@@ -858,20 +858,7 @@ assert.match(centralPage, /cosmic-gemini\.central/);
 assert.match(centralPage, /CG_SYNC_CENTRAL/);
 assert.match(centralPage, /syncFailures/);
 assert.doesNotMatch(centralPage, /nativeScroll|noAutoplay|mailtoCapture|adMarshal|anyCopy|pageDisplay|reduceWhitePoint|greyscale|imageDownload|videoDownload|chrome\.storage/);
-for (const bridge of ['clipboard-protect/clipboard-protect-bridge.js', 'mailto-capture/mailto-capture-bridge.js', 'ad-marshal/ad-marshal-bridge.js', 'any-copy/any-copy-bridge.js', 'any-copy-enhanced/any-copy-enhanced-bridge.js']) {
-  const value = await source('content', bridge);
-  assert.doesNotMatch(value, /chrome\.storage/);
-  assert.match(value, /CG_PAGE_STATE', featureId:/);
-  assert.match(value, /configFailures/);
-  assert.match(value, /const requestConfig = async \(\) => \{\s*if \(disposed\) return;/);
-  assert.match(value, /sendMessage[\s\S]*if \(disposed\) return;/);
-  assert.match(value, /sendResponse\(\{ disposed: true \}\)/);
-  assert.match(value, /Configuration is temporarily unavailable/);
-  assert.match(value, /sendRuntimeMessage[\s\S]*try \{[\s\S]*chrome\.runtime\.sendMessage[\s\S]*Promise\.reject/,
-    `${bridge} must catch synchronous extension-context invalidation before returning a rejected promise`);
-  assert.doesNotMatch(value, /void chrome\.runtime\.sendMessage/);
-}
-for (const name of ['native-scroll', 'no-autoplay', 'page-display', 'xhs-image-dark-mode', 'xhs-navigation', 'leetcode-dark-mode', 'chinese-response-claude', 'website-knowledge-control']) {
+for (const name of ['any-copy', 'any-copy-enhanced', 'clipboard-protect', 'mailto-capture', 'ad-marshal', 'url-tracking-cleaner', 'zhihu-image-adjustment', 'native-scroll', 'no-autoplay', 'page-display', 'xhs-image-dark-mode', 'xhs-navigation', 'leetcode-dark-mode', 'chinese-response-claude', 'website-knowledge-control']) {
   const bridge = await source('content', `${name}/${name}-bridge.js`);
   assert.doesNotMatch(bridge, /chrome\.storage/);
   assert.match(bridge, /pendingConfig = readConfig\(\)\.finally/,

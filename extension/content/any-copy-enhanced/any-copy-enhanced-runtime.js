@@ -31,8 +31,10 @@
 
   class AnyCopyEnhancedRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.active = false;
+      this.overflowRoot = null;
       this.reported = false;
       this.readerHost = null;
       this.readerObserver = null;
@@ -47,6 +49,11 @@
     }
 
     announce() {
+      if (this.disposed) return;
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+
       window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
     }
 
@@ -56,19 +63,20 @@
     }
 
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.active = false;
       this.hideReader();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
-      try { delete window[RUNTIME_KEY]; } catch {}
+      try { if (window[RUNTIME_KEY] === this) delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       this.active = message.config?.active === true;
       if (window !== top) return;
       if (this.active) this.showReader();
@@ -141,6 +149,7 @@
     }
 
     onReaderCopy(event) {
+      if (!this.active) return;
       const text = window.getSelection()?.toString() || '';
       if (!text || !event.clipboardData) return;
       event.stopPropagation();
@@ -199,6 +208,7 @@
       article.addEventListener('copy', event => this.onReaderCopy(event), true);
       shadow.append(style, article);
       this.readerHost = host;
+      this.overflowRoot = document.documentElement;
       this.originalOverflow = {
         value: document.documentElement.style.getPropertyValue('overflow'),
         priority: document.documentElement.style.getPropertyPriority('overflow')
@@ -219,16 +229,19 @@
       this.readerObserver = null;
       this.readerHost?.remove();
       this.readerHost = null;
-      if (this.originalOverflow !== null) {
-        if (this.originalOverflow.value) document.documentElement.style.setProperty('overflow', this.originalOverflow.value, this.originalOverflow.priority);
-        else document.documentElement.style.removeProperty('overflow');
+      const root = this.overflowRoot;
+      if (this.originalOverflow !== null && root?.style.getPropertyValue('overflow') === 'hidden'
+        && root.style.getPropertyPriority('overflow') === 'important') {
+        if (this.originalOverflow.value) root.style.setProperty('overflow', this.originalOverflow.value, this.originalOverflow.priority);
+        else root.style.removeProperty('overflow');
       }
+      this.overflowRoot = null;
       this.originalOverflow = null;
       this.reported = false;
     }
 
     reportIntervention() {
-      if (this.reported) return;
+      if (!this.active || this.reported) return;
       this.reported = true;
       window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
     }

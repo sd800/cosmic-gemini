@@ -45,6 +45,7 @@
 
   class PageDisplayRuntime {
     constructor() {
+      this.disposed = false;
       this.token = randomToken();
       this.active = false;
       this.reduction = '0';
@@ -70,6 +71,7 @@
     }
 
     announce() {
+      if (this.disposed) return;
       // document.open can erase Window listeners while this runtime survives.
       window.addEventListener(CONFIGURE, this.onConfigure, true);
       window.addEventListener(DISPOSE, this.onDispose, true);
@@ -85,17 +87,18 @@
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       if (message.config?.active === true) this.enable(message.config);
       else this.disable();
     }
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.disable();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
-      try { delete globalThis[RUNTIME_KEY]; } catch {}
+      try { if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY]; } catch {}
     }
 
     createOverlay() {

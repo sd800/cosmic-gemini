@@ -16,7 +16,13 @@
   let navigationWindow = window;
   try { if (top.location.origin === location.origin) navigationWindow = top; } catch {}
   const navigation = navigationWindow.navigation;
-  const announce = () => window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: token }));
+  const announce = () => {
+    if (disposed) return;
+    window.addEventListener(PREFIX + 'bridge-ready', announce);
+    window.addEventListener(PREFIX + 'configure', configure);
+    window.addEventListener(PREFIX + 'dispose', dispose);
+    window.dispatchEvent(new CustomEvent(PREFIX + 'main-ready', { detail: token }));
+  };
   function source() {
     try {
       const url = new URL(top.location.href), frame = new URL(location.href);
@@ -76,13 +82,13 @@
   }
   function configure(event) {
     let message; try { message = JSON.parse(event.detail); } catch { return; }
-    if (message?.token !== token) return;
+    if (message?.token !== token || disposed) return;
     configured = message.config?.active === true;
     tone = palette.normalize(message.config?.tone, true);
     update();
   }
   function dispose(event, preserveAppearance = false) {
-    if (event?.detail !== token) return;
+    if (event?.detail !== token || disposed) return;
     // The outgoing document may still be painted during navigation. Release
     // external references without stripping its final dark surface. Explicit
     // disable still restores the original appearance immediately.
@@ -112,6 +118,6 @@
   navigationWindow.addEventListener('popstate', update);
   navigation?.addEventListener('navigatesuccess', update);
   document.addEventListener('DOMContentLoaded', update);
-  Object.defineProperty(globalThis, KEY, { value: { announce, token }, configurable: true });
+  Object.defineProperty(globalThis, KEY, { value: { announce, token, onDispose: dispose }, configurable: true });
   announce();
 })();

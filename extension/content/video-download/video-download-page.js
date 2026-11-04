@@ -290,6 +290,7 @@
     }
 
     onMessage(event) {
+      if (!this.active) return;
       if (event.source !== globalThis || event.data?.marker !== MARKER) return;
       if (event.data.type === 'scan') {
         this.active = true;

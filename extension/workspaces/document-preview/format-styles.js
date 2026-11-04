@@ -73,3 +73,15 @@ export function formatStylesheet(formatting) {
   }
   return 'body{'+paper.join(';')+'}'+light.join('')+'@media(prefers-color-scheme:dark){'+dark.join('')+'}';
 }
+
+// Trusted slide wrappers scope authored colors independently of the reader UI.
+// Source markup cannot introduce these wrapper classes or data attributes.
+export function slideAppearanceStyles(formatting) {
+  const light=[],dark=[];
+  acceptedStyles(formatting).forEach((style,index)=>{
+    const colors=Object.entries(style).filter(([key])=>key==='color'||key==='background-color'||key.endsWith('-color'));
+    const selector=mode=>`:is(.cg-slide-page,.cg-slide-miniature)[data-slide-dark=${mode}] .cg-f${index}.cg-f${index}`;
+    if(colors.length){light.push(selector(false)+'{'+colors.map(([key,value])=>key+':'+value).join(';')+'}');dark.push(selector(true)+'{'+colors.map(([key,value])=>key+':'+darkColor(value,key)).join(';')+'}');}
+  });
+  return `:is(.cg-slide-page,.cg-slide-miniature)[data-slide-dark=false]{color:#202124;color-scheme:light}:is(.cg-slide-page,.cg-slide-miniature)[data-slide-dark=true]{color:${DOCUMENT_DARK_TEXT};color-scheme:dark}`+light.join('')+dark.join('');
+}

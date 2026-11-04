@@ -96,6 +96,8 @@ Supported formats include Word, Excel, PowerPoint, Rich Text, OpenDocument, PDF,
 
 Previews retain common formatting, although complex layouts may differ from the original. In PDFs that already contain text, you can select and copy it. Files are processed locally; previews do not run macros or load remote content.
 
+Click the filename or file information to view Document properties. PDF and presentation previews provide a right-click appearance menu for all pages or only the current page, with Auto, Light, and Dark choices.
+
 #### Ad Marshal
 
 Stop persistent advertising, reporting, and tracking components from repeatedly reconnecting on managed sites. Ad Marshal uses lightweight, site-specific rules to neutralize known loaders and request loops at the source, return local success responses to matching telemetry calls, and hide related advertising containers.
@@ -113,6 +115,7 @@ Clean links during navigation. The UTM option removes common campaign tags while
 Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, Stay on the page keeps selected websites from sending you to other sites, and Crash Page Warden offers static reading for heavy pages. The control window offers these tools: click for a temporary domain choice until Chrome exits, or hold to add or remove its saved rule. Holding an unlisted, inactive site also turns it on until Chrome exits; other holds keep the temporary choice unchanged. Saved rules follow each tool’s Settings switch; a grey outline marks a saved rule while that switch is off, and a purple outline marks it while on. Website Fixer has no master switch; its tools retain independent controls.
 
 Crash Page Warden turns heavy pages into static reading pages in the same tab, at the original address. Enabling it automatically reloads matching open pages once, stops website scripts and embedded players, and rebuilds the article with its title, author, date, images, captions, links, and tables. It provides text sizing, automatic light/dark appearance, and page-link copying. Settings supports exact hostnames and explicit subdomain wildcards. Popup clicks apply to the current domain and subdomains until Chrome exits; holds follow the saved-rule interaction above. Switching off leaves the current static page in place until you reload it.
+
 
 ### Orbiters
 

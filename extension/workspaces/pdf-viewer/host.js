@@ -2,7 +2,7 @@ import { PDF_LIMITS } from './model.js';
 // This host is the only connection to a product. The opaque viewer has no
 // extension APIs, storage access, network capability, or arbitrary command channel.
 // The source URL crosses this boundary only as inert text for Document properties.
-export function createPdfViewer({ container, bytes, filename, documentUrl = '', locale, sampling, dark, onDownload, onTheme, onError, onReady = () => {} }) {
+export function createPdfViewer({ container, bytes, filename, documentUrl = '', locale, sampling, dark, themeMode = 'auto', onDownload, onTheme, onError, onReady = () => {} }) {
   const validBytes = value => value instanceof ArrayBuffer && value.byteLength > 0 && value.byteLength <= PDF_LIMITS.bytes;
   if (bytes !== undefined && !validBytes(bytes)) throw Error('Invalid PDF size');
   const iframe = document.createElement('iframe');
@@ -43,7 +43,7 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
     else if (data.type === 'parsed') clearTimeout(timeout);
     else if (data.type === 'ready' || data.type === 'password') { loaded = true; clearTimeout(timeout); onReady(); }
     else if (data.type === 'download') onDownload();
-    else if (data.type === 'theme') onTheme();
+    else if (data.type === 'theme') {if(data.mode===undefined)onTheme();else if(['auto','light','dark'].includes(data.mode))onTheme(data.mode);}
     else if (data.type === 'fullscreen') {
       // User activation from the reader reaches its ancestor. Fullscreen belongs
       // to the trusted host; the opaque sandbox never receives extra privileges.
@@ -54,7 +54,7 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
   };
   iframe.addEventListener('load', () => {
     if (closed) return;
-    iframe.contentWindow.postMessage({ type: 'CG_PDF_INIT', filename, documentUrl, locale, sampling, dark }, '*', [channel.port2]);
+    iframe.contentWindow.postMessage({ type: 'CG_PDF_INIT', filename, documentUrl, locale, sampling, dark, themeMode }, '*', [channel.port2]);
     frameLoaded = true; sendDocument();
   }, { once: true });
   container.append(iframe);
@@ -63,12 +63,12 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
       if (closed || opened || !validBytes(data)) throw Error('Invalid PDF open');
       opened = true; pending = data; armTimeout(); sendDocument();
     },
-    setTheme(value) {
+    setTheme(value, mode = themeMode) {
       if (closed) return;
-      dark = !!value;
+      dark = !!value; if(['auto','light','dark'].includes(mode))themeMode=mode;
       iframe.style.background = dark ? '#121416' : '#e8eaed';
       iframe.style.colorScheme = dark ? 'dark' : 'light';
-      channel.port1.postMessage({ type: 'theme', dark });
+      channel.port1.postMessage({ type: 'theme', dark, themeMode });
     },
     destroy
   };

@@ -130,7 +130,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const saved = (await chrome.storage.session.get(sessionKey))[sessionKey];
       state = saved?.epoch && Array.isArray(saved.documents)
         ? saved : { epoch: crypto.randomUUID(), documents: [], choices: {} };
-      state.themes = Object.fromEntries(Object.entries(state.themes || {}).filter(([, value]) => value === 'light' || value === 'dark'));
+      state.themes = Object.fromEntries(Object.entries(state.themes || {}).filter(([, value]) => DOCUMENT_APPEARANCES.includes(value)));
       const enabled = (await platform.readSettings()).documentPreview?.enabled === true;
       ingress.setEnabled(enabled);
       await prune();
@@ -454,7 +454,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         return { prepared: true };
       }
       if (message.type === 'UI_DOCUMENT_SET_THEME') {
-        if (!workspace || ![null, 'light', 'dark'].includes(message.theme)) throw Error('Unknown appearance.');
+        if (!workspace || ![null, ...DOCUMENT_APPEARANCES].includes(message.theme)) throw Error('Unknown appearance.');
         return serial(async () => {
           await currentDocument(doc.id);
           const previous = { ...state.themes };

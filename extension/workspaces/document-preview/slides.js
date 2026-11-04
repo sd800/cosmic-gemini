@@ -3,13 +3,15 @@ import { acceptedStyles } from './format-styles.js';
 
 // Only nearby pages/miniatures contain document DOM. All other pages retain
 // their dimensions so scrolling stays continuous without expanding the deck.
-export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1 }, onSelect, onError) {
+export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1, dark = false, themes = [] }, onSelect, onError) {
   if (!Array.isArray(parts) || !parts.length || parts.length > 300 ||
       parts.some(part => typeof part?.html !== 'string') ||
       parts.reduce((size, part) => size + part.html.length, 0) > 48 * 1024 * 1024) throw Error('documentTooLarge');
   const controller = new AbortController(), { signal } = controller;
   const cache = new Map(), pageNodes = new Map(), thumbNodes = new Map(), visibleThumbs = new Set();
-  const styles = acceptedStyles(formatting);
+  const styles = acceptedStyles(formatting), overrides=new Map();
+  for(const entry of Array.isArray(themes)?themes.slice(0,parts.length):[])if(Array.isArray(entry)&&Number.isInteger(entry[0])&&entry[0]>=0&&entry[0]<parts.length&&['light','dark'].includes(entry[1]))overrides.set(...entry);
+  const pageDark=i=>overrides.has(i)?overrides.get(i)==='dark':dark;
   const points = value => typeof value === 'string' && /^\d+(?:\.\d+)?pt$/.test(value) ? parseFloat(value) * 4 / 3 : 0;
   const sizes = parts.map(part => {
     // Converter-provided sizes are hints for empty placeholders only. Markup
@@ -28,7 +30,7 @@ export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1
   const stack = document.createElement('div'); stack.className = 'cg-slide-stack'; viewport.append(stack);
   const pages = parts.map((part, i) => {
     const page = document.createElement('section'); page.className = 'cg-slide-page';
-    page.dataset.index = String(i); page.setAttribute('aria-label', `${label} ${i + 1}`); stack.append(page);
+    page.dataset.index = String(i);page.dataset.slideDark=String(pageDark(i)); page.setAttribute('aria-label', `${label} ${i + 1}`); stack.append(page);
     return page;
   });
   const buttons = parts.map((part, i) => {
@@ -37,7 +39,7 @@ export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1
     button.type = 'button'; button.className = 'cg-slide-thumbnail'; button.dataset.index = String(i); button.tabIndex = -1;
     button.setAttribute('aria-label', `${label} ${i + 1}`); button.title = String(part.name || `${label} ${i + 1}`).slice(0, 300);
     number.className = 'cg-slide-number'; number.textContent = String(i + 1);
-    preview.className = 'cg-slide-miniature'; preview.setAttribute('aria-hidden', 'true'); preview.inert = true;
+    preview.className = 'cg-slide-miniature';preview.dataset.slideDark=String(pageDark(i)); preview.setAttribute('aria-hidden', 'true'); preview.inert = true;
     preview.style.aspectRatio = `${sizes[i].width} / ${sizes[i].paperHeight}`;
     button.append(preview, number); item.append(button); list.append(item);
     return button;
@@ -182,6 +184,8 @@ export function createSlidesView({ parts, formatting, label, index = 0, zoom = 1
   layout(false); select(Math.max(0, Math.min(parts.length - 1, index)));
   return {
     select,
+    setTheme(value){if(dark===(value===true))return;dark=value===true;pages.forEach((node,i)=>node.dataset.slideDark=String(pageDark(i)));buttons.forEach((node,i)=>node.firstElementChild.dataset.slideDark=String(pageDark(i)));},
+    setPageTheme(i,mode){if(closed||!Number.isInteger(i)||i<0||i>=parts.length||!['auto','light','dark'].includes(mode))return;if(mode==='auto')overrides.delete(i);else overrides.set(i,mode);pages[i].dataset.slideDark=buttons[i].firstElementChild.dataset.slideDark=String(pageDark(i));},
     setZoom(value, point) {
       if (closed || !Number.isFinite(value)) return;
       zoomAnchor = null;

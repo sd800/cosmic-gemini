@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.2 (482) — 2026-11-04
+
+- Open Document properties from the filename or adjacent file information in Document Preview. Show file name, original URL, type, size, and available slide/worksheet counts, plus available Office/OpenDocument title, author, subject, keywords, creation/modification dates, and application metadata.
+- Add custom right-click appearance menus to PDF and presentation previews. Choose Auto, Light, or Dark for all pages/slides, or override only the current page/slide; current-page Auto follows the document appearance.
+- Keep page-specific choices in memory for the open document, synchronize main views and thumbnails, preserve dark-paper handling, and retain reading position and zoom without reloading document bytes. Keep source metadata inert and bound optional property-part reads.
+
 ## 26.11.4.1 (481) — 2026-11-04
 
 - Apply Native Scroll and No Autoplay website policies to the registrable main domain and all of its subdomains, including popup controls, inactive/Standard/Enhanced modes, the shared whitelist, and audio-autoplay permissions.

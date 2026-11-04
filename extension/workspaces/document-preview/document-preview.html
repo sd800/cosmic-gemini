@@ -8,12 +8,13 @@
   <script src="appearance-hint.js"></script>
   <link rel="stylesheet" href="../../shared/ui.css">
   <link rel="stylesheet" href="document-preview.css">
+  <link rel="stylesheet" href="../pdf-viewer/appearance-menu.css">
 </head>
 <body>
   <header class="document-toolbar notranslate" translate="no">
     <div class="document-info">
-      <h1 id="filename"></h1>
-      <p id="metadata"></p>
+      <h1><button id="filename" type="button" aria-haspopup="dialog" aria-controls="properties-dialog" disabled></button></h1>
+      <button id="metadata" type="button" aria-haspopup="dialog" aria-controls="properties-dialog" disabled></button>
     </div>
     <nav class="toolbar-actions">
       <div id="part-controls" hidden><button id="part-previous" type="button">‹</button><label id="part-label" for="document-part"></label><select id="document-part"></select><button id="part-next" type="button">›</button></div>
@@ -42,6 +43,11 @@
   <main>
     <iframe id="document" title="Document content" sandbox="allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" hidden></iframe>
   </main>
+  <div id="appearance-menu" class="notranslate" translate="no" popover="auto" role="menu" tabindex="-1"></div>
+  <dialog id="properties-dialog" class="notranslate" translate="no" aria-labelledby="properties-title">
+    <h2 id="properties-title" tabindex="-1"></h2><p id="properties-status" role="status"></p><dl id="properties-list"></dl>
+    <div class="dialog-actions"><button id="properties-close" type="button"></button></div>
+  </dialog>
   <script type="module" src="document-preview.js"></script>
 </body>
 </html>

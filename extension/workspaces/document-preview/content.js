@@ -9,7 +9,8 @@ import { isSandboxHost } from '../../shared/sandbox-host.js';
 const controller = new AbortController(), { signal } = controller;
 let port, capture, generation = 0, locale = 'en-US', stylesheet = '', dark = false;
 let slides, slidesResources, renderId = 0, slideIndex = 0, slideZoom = 1;
-let email = false;
+let email = false, slideCount=0;
+let slideOverrides=new Map();
 const zoom = createDocumentZoom({signal,slides:()=>slides,onChange:value=>port?.postMessage({type:'zoom',id:renderId,zoom:value})});
 function closeCapture() {
   generation++;
@@ -27,10 +28,12 @@ function loadSlides() {
 function applyTheme() {
   document.documentElement.dataset.dark = String(dark);
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+  slides?.setTheme(dark);
   // Extension-scheme sandbox frames do not consistently inherit the embedding
   // element's preferred scheme. Switch only cached, validated presentation CSS.
-  document.querySelector('#document-styles').textContent = stylesheet.replaceAll(
+  const node=document.querySelector('#document-styles'),css=stylesheet.replaceAll(
     '@media(prefers-color-scheme:dark)', dark ? '@media all' : '@media not all');
+  if(node.textContent!==css)node.textContent=css;
 }
 window.addEventListener('message', event => {
   if (signal.aborted || port || event.source !== parent || !isSandboxHost(event.origin, import.meta.url) ||
@@ -43,6 +46,7 @@ window.addEventListener('message', event => {
       locale=data.locale;document.documentElement.lang=locale;localizeEmail(locale,data.labels);
       closeCapture();void capture?.then(dialog=>dialog.setLocale(locale));return;
     }
+    if(data?.type==='slide-theme'&&data.id===renderId&&Number.isInteger(data.index)&&data.index>=0&&data.index<slideCount&&['auto','light','dark'].includes(data.mode)){if(data.mode==='auto')slideOverrides.delete(data.index);else slideOverrides.set(data.index,data.mode);slides?.setPageTheme(data.index,data.mode);return;}
     if (data?.type === 'select-slide' && data.id === renderId && Number.isInteger(data.index)) {
       slideIndex = data.index; slides?.select(slideIndex); return;
     }
@@ -60,7 +64,8 @@ window.addEventListener('message', event => {
 async function render(data) {
   closeCapture(); const request = generation;
   renderId = data.id; slides?.destroy(); slides = null;
-  email=false;
+  email=false;slideCount=data.type==='slides'&&Array.isArray(data.parts)&&data.parts.length<=300?data.parts.length:0;slideOverrides=new Map();
+  for(const entry of Array.isArray(data.themes)?data.themes.slice(0,slideCount):[])if(Array.isArray(entry)&&Number.isInteger(entry[0])&&entry[0]>=0&&entry[0]<slideCount&&['light','dark'].includes(entry[1]))slideOverrides.set(...entry);
   document.body.replaceChildren();
   slideIndex = Number.isInteger(data.index) ? data.index : 0;
   slideZoom = Number.isFinite(data.zoom) ? Math.max(.5, Math.min(2, data.zoom)) : 1;
@@ -75,7 +80,7 @@ async function render(data) {
     if (module) {
       if (data.formatting?.kind !== 'pptx') throw Error('invalidDocument');
       slides = module.createSlidesView({parts:data.parts,formatting:data.formatting,
-        label:typeof data.label === 'string' ? data.label.slice(0, 64) : (locale === 'zh-CN' ? '幻灯片' : 'Slide'),index:slideIndex,zoom:slideZoom}, index => {
+        dark,themes:[...slideOverrides],label:typeof data.label === 'string' ? data.label.slice(0, 64) : (locale === 'zh-CN' ? '幻灯片' : 'Slide'),index:slideIndex,zoom:slideZoom}, index => {
         closeCapture(); port.postMessage({type:'slide',id:renderId,index});
       }, () => port.postMessage({type:'error',id:renderId}));
     } else {

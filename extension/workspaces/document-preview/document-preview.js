@@ -1,3 +1,5 @@
+import { createAppearanceMenu } from '../pdf-viewer/appearance-menu.js';
+import { labels as pdfLabels } from '../pdf-viewer/labels.js';
 import { loadLocale } from '../../core/locale.js';
 import { localizeDocument, translator } from '../../shared/localization.js';
 import { icon, send } from '../../shared/ui.js';
@@ -14,6 +16,9 @@ document.documentElement.lang = locale; localizeDocument(t);
 const status = document.querySelector('#status'), downloadButton = document.querySelector('#download');
 const notices = createDocumentStatus(status, document.querySelector('#loading-progress'));
 let contentViewer, metadata, blob, worker, workerTimer, pdfViewer, rendered, expired = false, downloadPending = false;
+const lifetime=new AbortController();
+let properties,appearanceMenu;
+const slideThemes=new Map();
 let generation = 0, suspended = false, previewRequested = false;
 const current = value => !expired && !suspended && value === generation;
 const assertCurrent = value => { if (!current(value)) throw new Error('Document view ended.'); };
@@ -32,7 +37,7 @@ function ensureContent() {
     contentViewer = createDocumentContent(frame, locale, () => {
       if (current(started)) { notices.show(t('documentRenderFailed')); reportUrlPreview(false); }
     }, index => {
-      if (current(started) && isSlides()) updatePartControls(index);
+      if (current(started) && isSlides()) {updatePartControls(index);appearanceMenu?.refresh();}
     }, value => { if (current(started)) updateZoom(value*100,true); }, () => { if (current(started)) reportUrlPreview(true); });
   }
   return contentViewer;
@@ -57,13 +62,13 @@ emailLanguage.onclick=()=>{
   for(const [button,key] of [[zoomOut,'documentZoomOut'],[zoomIn,'documentZoomIn'],[zoomReset,'documentZoomReset']])button.title=t(key);
   for(const key of ['documentLoading','documentActionFailed','documentDownloadStarted','documentRenderFailed','documentExpired'])if(status.textContent===old(key)){status.textContent=t(key);break;}
   document.querySelector('#metadata').textContent=[metadata.local?t('documentLocalFile'):metadata.site,t('documentToolbarEmail')].join(' · ');
-  updateEmailLanguage();updateTheme();contentViewer?.setEmailLocale(locale,emailLabels());
+  Object.assign(menuText,pdfLabels[locale]);updateEmailLanguage();updateTheme();contentViewer?.setEmailLocale(locale,emailLabels());
 };
 function showPart(index) {
   const parts = rendered?.parts; if (!parts?.length || expired || suspended) return;
   index = Math.max(0, Math.min(parts.length - 1, index));
   if (!Number.isInteger(index)) return;
-  updatePartControls(index);
+  updatePartControls(index);appearanceMenu?.refresh();
   if (isSlides()) contentViewer?.selectSlide(index);
   else showContent(parts[index].html);
 }
@@ -103,11 +108,12 @@ function updateTheme() {
   // opaque content controller; document markup is not re-parsed or reloaded.
   frame.style.colorScheme = dark ? 'dark' : 'light';
   contentViewer?.setTheme(dark);
-  pdfViewer?.setTheme(dark);
+  pdfViewer?.setTheme(dark,theme);
+  appearanceMenu?.refresh();
   themeToggle.innerHTML = icon(dark ? 'pageDisplay' : 'moon');
   themeToggle.title = t(dark ? 'documentThemeLight' : 'documentThemeDark');
   themeToggle.setAttribute('aria-label', themeToggle.title);
-  themeAuto.hidden = siteTheme === null;
+  themeAuto.hidden = isSlides() || siteTheme === null;
   themeAuto.title = t('documentThemeFollow');
   themeToggle.disabled = themeAuto.disabled = !metadata || expired || themeSaving;
 }
@@ -129,17 +135,21 @@ themeToggle.onclick = () => {
 };
 themeAuto.onclick = () => void setSiteTheme(null);
 appearance.addEventListener('change', updateTheme);
+const menuText={...pdfLabels[locale]};
+appearanceMenu=createAppearanceMenu({text:menuText,signal:lifetime.signal,trigger:themeToggle,enabled:()=>isSlides(),getPage:()=>Number(partSelect.value||0)+1,getMode:scope=>scope==='page'?(slideThemes.get(Number(partSelect.value||0))||'auto'):(siteTheme||defaultTheme),onChoose:(value,scope)=>{if(expired||suspended)return;if(scope==='global')void setSiteTheme(value);else if(isSlides()){const index=Number(partSelect.value||0);if(value==='auto')slideThemes.delete(index);else slideThemes.set(index,value);contentViewer?.setSlideTheme(index,value);appearanceMenu.refresh();}}});
 updateTheme();
 const blobDownloads = new Set();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
 function reportUrlPreview(ready) { if (window !== top) void command('UI_DOCUMENT_URL_READY', { ready }).catch(() => {}); }
 
 function expire() {
+  properties?.close();appearanceMenu?.close();
   frame.hidden = true;
   generation += 1; expired = true; contentViewer?.destroy(); contentViewer = null; blob = null; rendered = null; pdfViewer?.destroy(); pdfViewer = null; worker?.terminate(); clearTimeout(workerTimer);
   worker = null; blobDownloads.clear();
   document.body.classList.remove('pdf-active');
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
+  document.querySelector('#filename').disabled=document.querySelector('#metadata').disabled=true;
   zoomControls.hidden = true; partControls.hidden = true;
   frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); notices.show(t('documentExpired')); updateTheme();
   updateEmailLanguage();
@@ -152,9 +162,9 @@ async function preparePdfViewer() {
   const theme = siteTheme || defaultTheme;
   const ownedViewer = pdfViewer = createPdfViewer({ container: document.querySelector('main'),
     filename: metadata.filename, documentUrl: metadata.url, locale, sampling: metadata.pdfSampling,
-    dark: theme === 'dark' || (theme === 'auto' && appearance.matches),
+    themeMode:theme, dark: theme === 'dark' || (theme === 'auto' && appearance.matches),
     onDownload: () => { if (current(started)) void download(); },
-    onTheme: () => { if (current(started)) void setSiteTheme(toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)); },
+    onTheme: mode => { if (current(started)) void setSiteTheme(mode || toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)); },
     onError: () => {
       if (!current(started) || pdfViewer !== ownedViewer) return;
       ownedViewer.destroy(); pdfViewer = null;
@@ -198,6 +208,7 @@ async function preview() {
         partControls.hidden = rendered.parts.length < 2;
         if (isSlides()) {
           ensureContent().renderSlides(rendered.parts, rendered.formatting, t('documentSlide'));
+          for(const [index,theme]of slideThemes)contentViewer.setSlideTheme(index,theme);
           // The sandbox now owns the deck; the host needs only its labels/count.
           rendered.parts = rendered.parts.map(part => ({name:part.name}));
           updatePartControls(0); updateZoom(zoom);
@@ -262,6 +273,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 window.addEventListener('pagehide', () => {
+  properties?.close();appearanceMenu?.close();
   suspended = true; generation += 1;
   contentViewer?.destroy(); contentViewer = null; pdfViewer?.destroy(); pdfViewer = null;
   worker?.terminate(); worker = null; clearTimeout(workerTimer); blob = null; rendered = null; notices.clear();
@@ -302,10 +314,13 @@ document.querySelector('#preview').onclick = () => void choose('preview');
 document.querySelector('#choice-download').onclick = () => void choose('download');
 function showMetadata() {
   document.body.dataset.format = metadata.format;
+  if(isSlides())Object.assign(menuText,locale==='zh-CN'?{themeGlobal:'全部幻灯片',themePage:'当前幻灯片',themeFollowDocument:'跟随全部幻灯片的外观'}:{themeGlobal:'All slides',themePage:'Current slide',themeFollowDocument:'Follow the appearance of all slides'});
   defaultTheme = normalizeDocumentAppearance(metadata.appearance); siteTheme = metadata.siteTheme; themeRevision += 1;
   updateTheme();
   document.querySelector('#filename').textContent = metadata.filename;
-  document.querySelector('#filename').title = metadata.filename;
+  for(const element of [document.querySelector('#filename'),document.querySelector('#metadata')]){element.disabled=false;element.title=metadata.filename+' — '+pdfLabels[locale].properties;}
+  // Retain the usual left click on all formats; right-click scopes are for decks.
+
   document.title = metadata.filename + ' · Document Preview';
   const family = documentKind(metadata.format);
   const typeKey = {docx:'documentToolbarDocuments',xlsx:'documentToolbarSpreadsheets',pptx:'documentToolbarSlides',pdf:'documentToolbarPdf',eml:'documentToolbarEmail'}[family];
@@ -331,6 +346,8 @@ async function loadPreparedDocument(previewPdf = false) {
   showMetadata();
   downloadButton.disabled = false;
 }
+async function openProperties(){if(expired||suspended||!metadata)return;if(!properties){const {createDocumentProperties}=await import('./properties.js');if(expired||suspended)return;properties||=createDocumentProperties({getDocument:()=>({metadata,blob,rendered}),getLocale:()=>locale,signal:lifetime.signal});}void properties.open();}
+for(const id of ['filename','metadata'])document.getElementById(id).addEventListener('click',()=>void openProperties());
 const initial = generation;
 try {
   const first = await command('UI_DOCUMENT_GET'); assertCurrent(initial); metadata = first; showMetadata();

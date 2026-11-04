@@ -3,6 +3,7 @@
 export function createDocumentContent(frame, locale, onError, onSlide = () => {}, onZoom = () => {}, onReady = () => {}) {
   const channel = new MessageChannel(); let ready = false, closed = false, pending, dark = frame.style.colorScheme === 'dark';
   let renderId = 0, slideCount = 0, zoom = 1, emailLabels;
+  const slideThemes=new Map();
   frame.style.visibility = 'hidden';
   const timeout = setTimeout(() => { if (!closed && !ready) onError(); }, 10000);
   const send = () => { if (!closed && ready && pending) { channel.port1.postMessage(pending); pending = null; } };
@@ -26,12 +27,18 @@ export function createDocumentContent(frame, locale, onError, onSlide = () => {}
     renderSlides(parts, formatting, label) {
       if (closed) return;
       slideCount = parts.length;
-      pending = {type:'slides',id:++renderId,parts,formatting,locale,label,index:0,zoom}; send();
+      pending = {type:'slides',id:++renderId,parts,formatting,locale,label,index:0,zoom,themes:[...slideThemes]}; send();
     },
     selectSlide(index) {
       if (closed || !Number.isInteger(index) || index < 0 || index >= slideCount) return;
       if (pending?.type === 'slides') pending.index = index;
       else if (ready) channel.port1.postMessage({type:'select-slide',id:renderId,index});
+    },
+    setSlideTheme(index,mode) {
+      if(closed||!Number.isInteger(index)||index<0||index>=slideCount||!['auto','light','dark'].includes(mode))return;
+      if(mode==='auto')slideThemes.delete(index);else slideThemes.set(index,mode);
+      if(pending?.type==='slides')pending.themes=[...slideThemes];
+      else if(ready)channel.port1.postMessage({type:'slide-theme',id:renderId,index,mode});
     },
     setZoom(value) {
       if (!Number.isFinite(value)) return;

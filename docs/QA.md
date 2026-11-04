@@ -297,3 +297,7 @@ Run `scripts/browser/test-document-capture-browser.mjs` with the documented brow
 ## NS/NA main-domain scope
 
 Run `node --test test/nsna-sites.test.mjs test/config.test.mjs test/operations-products.test.mjs test/website-rule-input.test.mjs test/settings-page.test.mjs test/platform-settings.test.mjs` for registrable-domain normalization, mode conflicts, shared whitelist/audio matching, IP and suffix boundaries, cached preferences, popup mutations, and stale sibling-host rejection. Reusable background browser checks in ignored `test-dist/nsna-sites/` cover pasted URLs, legacy-rule display, Settings navigation, validation clearing, and persisted reload. These checks use a disposable profile and no external website visits.
+
+## Scoped reader appearance and file properties
+
+Test filename and file-information activation for local and online non-PDF documents, lazy cached Office/OpenDocument metadata, compact ISO offsets, missing properties, markup-like text, forbidden XML declarations, and narrow/short dialog reopening. Test the custom PDF/presentation menus with right-click and Shift+F10, Escape/outside dismissal, all-pages Auto/Light/Dark, current-page overrides and inherited Auto, source dark paper, synchronized thumbnails, navigation, and system-theme changes. Confirm that appearance edits retain loaded bytes, zoom, and reading position, and leave original files unchanged. Reusable fixtures and screenshots belong in ignored test-dist, with a README and no request logs.

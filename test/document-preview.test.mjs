@@ -166,10 +166,11 @@ async function previewWorkspace(format='rtf') {
   const source = (await readFile(new URL('../extension/workspaces/document-preview/document-preview.js', import.meta.url), 'utf8'))
     .replace(/^import .*;\n/gm, '');
   const workspace = await runInNewContext(`(async()=>{${source}\nreturn {setSiteTheme,download};})()`, {
-    URLSearchParams, setTimeout, clearTimeout,
+    URLSearchParams, setTimeout, clearTimeout, AbortController,
+    pdfLabels:{'en-US':{properties:'Document properties'}},createAppearanceMenu:()=>({refresh(){},close(){}}),
     location:{hash:'#id=fixture&mode=choose&appearance=dark'}, history:{replaceState() {}},
     window:{addEventListener:(type,callback)=>listeners.set(type,callback),close() {throw Error('unexpected close');}},
-    document:{documentElement:root,body:element('body'),querySelector:element,querySelectorAll:()=>[]},
+    document:{documentElement:root,body:element('body'),querySelector:element,getElementById:id=>element('#'+id),querySelectorAll:()=>[]},
     matchMedia:()=>({matches:false,addEventListener() {}}),
     loadLocale:async()=> 'en-US',localizeDocument() {},translator:()=>key=>key,icon:()=>'',
     normalizeDocumentAppearance:value=>['dark','light'].includes(value)?value:'auto',toggleDocumentAppearance() {},documentKind:()=>format==='eml'?'eml':'docx',
@@ -757,6 +758,8 @@ test('document appearance defaults, site overrides and resets follow the source 
   }
   assert.equal(opened.pdfSampling, 4, 'previously returned reader metadata is a snapshot');
   assert.equal(first.pdfSampling, undefined, 'document cache does not freeze a global rendering preference');
+  await setTheme(first,'auto');assert.equal((await get(first)).siteTheme,'auto','explicit reader Auto follows the system independently of Settings');
+  assert.equal((await get(first,createDocumentPreviewProduct(env.platform,env))).siteTheme,'auto','worker initialization retains an explicit Auto session choice');
   await setDefault('dark'); await setTheme(first,'light');
   assert.equal((await get(first)).appearance, 'dark'); assert.equal((await get(first)).siteTheme, 'light');
   env.tabs[0].url = 'https://docs.example.com/downloads';

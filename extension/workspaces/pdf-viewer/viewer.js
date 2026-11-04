@@ -1,3 +1,5 @@
+import { createPageAppearance } from './page-appearance.js';
+import { createAppearanceMenu } from './appearance-menu.js';
 import { showReaderDialog } from './dialog.js';
 import { createPdfWorker } from './worker.js';
 import { isSandboxHost } from '../../shared/sandbox-host.js';
@@ -16,11 +18,12 @@ let port, task, pdf, viewer, pdfWorker, parseTimer, destroyed = false, firstPage
 const lifetime = new AbortController(), signal = lifetime.signal;
 const eventBus = new EventBus(), viewport = $('viewport');
 let workerReady;
+const pageAppearance=createPageAppearance({pages:$('pages'),thumbnails:$('thumbnails'),getDark:()=>themeDark});
 let thumbnailObserver, thumbnailTask, thumbnailBusy = false, thumbnailGeneration = 0, outlineLoaded = false;
 const nearThumbnails = new Set(), thumbnailCache = new Map(), printUrls = new Set();
 let documentFilename, documentUrl = '', documentBytes = 0, properties;
 let customZoomScale = null;
-let darkPaper, themeDark = false;
+let darkPaper, themeDark = false, themeMode='auto', appearanceMenu;
 let printing = false, printTask, zoomFrame = 0, wheelFactor = 1, wheelOrigin, passwordCancelled = false;
 const emit = type => { if (!destroyed) port?.postMessage({ type }); };
 let taskBusy = false, renderBusy = false, renderProgressTimer = 0, visiblePageViews = [];
@@ -43,16 +46,17 @@ function syncRenderProgress() {
     }, 200);
   }
 }
-function theme(dark) {
+function theme(dark, mode = themeMode) {
+  if(['auto','light','dark'].includes(mode))themeMode=mode;
   if (destroyed) return;
-  themeDark = !!dark;
+  themeDark = !!dark; pageAppearance.apply();
   document.documentElement.dataset.dark = String(themeDark);
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-  setReaderIcon($('theme'), dark ? 'sun' : 'moon');
-  if (themeDark) for (const view of viewer?.getCachedPageViews() || []) updateDarkPaper(view);
+  setReaderIcon($('theme'), dark ? 'sun' : 'moon'); appearanceMenu?.refresh();
+  for (const view of viewer?.getCachedPageViews() || []) updateDarkPaper(view);
 }
 function updateDarkPaper(view, failed = false) {
-  if (!darkPaper || !view || (!themeDark && !failed)) return;
+  if (!darkPaper || !view || (!pageAppearance.dark(view.id) && !failed)) return;
   // A detail canvas is only a crop. Wait for the complete base page instead.
   if (!failed && view.renderingState !== RenderingStates.FINISHED) return;
   const result = failed ? darkPaper.reject(view.id) : darkPaper.decide(view.id, view.canvas,
@@ -96,7 +100,7 @@ window.addEventListener('message', event => {
         if (!destroyed && !passwordCancelled) { status('failed'); emit('error'); void task?.destroy().catch(() => {}); pdfWorker?.destroy(); }
       });
     }
-    else if (data?.type === 'theme') theme(data.dark);
+    else if (data?.type === 'theme') theme(data.dark,data.themeMode);
     else if (data?.type === 'fullscreen-error') status('fullScreenFailed');
     else if (data?.type === 'fullscreen') {
       setReaderIcon($('fullscreen'), data.active ? 'fullscreen-exit' : 'fullscreen');
@@ -111,8 +115,10 @@ window.addEventListener('message', event => {
   $('filename').textContent = documentFilename;
   $('filename').title = `${documentFilename} — ${text.properties}`;
   $('filename').setAttribute('aria-label', $('filename').title);
-  theme(input.dark); status('loading', true);
-  setReaderIcons(document); emit('shell-ready');
+  theme(input.dark,input.themeMode); status('loading', true);
+  setReaderIcons(document);
+  appearanceMenu=createAppearanceMenu({text,signal,getMode:scope=>scope==='page'?pageAppearance.get(viewer?.currentPageNumber||1):themeMode,getPage:()=>viewer?.currentPageNumber||1,onChoose:(mode,scope,page)=>{if(scope==='page'){pageAppearance.set(page,mode);for(const view of viewer?.getCachedPageViews()||[])updateDarkPaper(view);}else port?.postMessage({type:'theme',mode});}});
+  emit('shell-ready');
   // Keep form navigation forbidden by the sandbox, including method=dialog.
   // These controls only validate local input and close the local dialog.
   for (const form of document.querySelectorAll('dialog form')) {
@@ -184,6 +190,7 @@ async function open(bytes, sampling) {
     syncRenderProgress();
   }, { signal });
   eventBus.on('pagesinit', () => {
+    pageAppearance.apply(); appearanceMenu?.refresh();
     for (const control of document.querySelectorAll('header nav button, header nav input, header nav select')) control.disabled = false;
     viewer.currentScaleValue = '1';
     // Setting the initial scale aligns the first paper edge with the viewport.
@@ -196,6 +203,7 @@ async function open(bytes, sampling) {
     $('filename').disabled = false;
   }, { signal });
   eventBus.on('pagechanging', ({ pageNumber }) => {
+    appearanceMenu?.refresh();
     $('page').value = pageNumber; $('previous').disabled = pageNumber === 1; $('next').disabled = pageNumber === pdf.numPages;
     for (const node of $('thumbnails').children) node.setAttribute('aria-current', String(Number(node.dataset.page) === pageNumber));
   }, { signal });
@@ -328,7 +336,7 @@ async function renderLinks(number, linkService) {
 function createThumbnails() {
   const fragment = document.createDocumentFragment();
   for (let i = 1; i <= pdf.numPages; i++) { const button = document.createElement('button'); button.className = 'thumbnail'; button.dataset.page = i; button.toggleAttribute('data-original-dark', darkPaper.get(i) === 2); button.textContent = String(i); button.title = text.page + ' ' + i; button.onclick = () => { viewer.currentPageNumber = i; }; fragment.append(button); }
-  $('thumbnails').append(fragment);
+  $('thumbnails').append(fragment); pageAppearance.apply();
   thumbnailObserver = new IntersectionObserver(entries => { for (const entry of entries) { if (entry.isIntersecting) nearThumbnails.add(entry.target); else nearThumbnails.delete(entry.target); } void drawThumbnails(); }, { root: $('sidebar'), rootMargin: '160px' });
   for (const node of $('thumbnails').children) thumbnailObserver.observe(node);
 }

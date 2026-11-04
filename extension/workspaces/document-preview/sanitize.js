@@ -1,5 +1,5 @@
 import { externalLinkTarget } from '../../shared/external-links-capture/target.js';
-import { acceptedStyles, formatStylesheet, DOCUMENT_DARK_TEXT } from './format-styles.js';
+import { acceptedStyles, formatStylesheet, slideAppearanceStyles, DOCUMENT_DARK_TEXT } from './format-styles.js';
 import { wrapEmail, emailStyles } from './email-view.js';
 import { rasterBudget } from './raster-image.js';
 const ALLOWED = new Set('p h1 h2 h3 h4 h5 h6 strong em u s del sub sup br hr ul ol li table colgroup col thead tbody tfoot tr th td a img blockquote pre code span div dl dt dd ruby rt rp'.split(' '));
@@ -145,5 +145,6 @@ export function documentStyles(formatting) {
     @media(prefers-color-scheme:dark){.cg-sheet{background:#292a2d}.cg-sheet th{background:#303238;color:#aeb4bc}}
     @media(max-width:700px){body.cg-format-xlsx,body.cg-format-pptx{min-width:100%;padding:0}}
     ${emailStyles}
+    ${formatting?.kind==='pptx'?slideAppearanceStyles(formatting):''}
     `;
 }

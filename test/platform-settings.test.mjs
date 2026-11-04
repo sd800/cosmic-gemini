@@ -453,3 +453,20 @@ test('failed shared reads are retryable and external settings changes invalidate
  platform.handleStorageChanged({[SETTINGS_KEY]:{oldValue:{},newValue:mock.local[SETTINGS_KEY]}},'local');mock.api.storage.local.get=get;
  assert.equal((await platform.readSettings()).nativeScroll.enabled,true);release();assert.equal((await old).nativeScroll.enabled,false);
 });
+
+test('unchanged initialization and preferences avoid repeat persistent writes while migration still persists', async () => {
+  const mock = chromeMock(); globalThis.chrome = mock.api;
+  let writes = 0; const set = mock.api.storage.local.set;
+  mock.api.storage.local.set = async values => { writes++; return set(values); };
+  const platform = createPlatform();
+  await platform.ensureSettings(); assert.equal(writes, 1);
+  await Promise.all([platform.ensureSettings(), platform.ensureSettings(), createPlatform().ensureSettings()]);
+  assert.equal(writes, 1, 'repeated initialization and worker recreation keep already normalized storage intact');
+  await platform.mutateSettings(current => current, false); assert.equal(writes, 1);
+  await platform.mutateSettings(current => ({ ...current, nativeScroll: { ...current.nativeScroll, enabled: true } }), false);
+  assert.equal(writes, 2);
+  await platform.mutateSettings(current => current, false); assert.equal(writes, 2);
+  mock.local[SETTINGS_KEY] = { nativeScroll: { enabled: true } };
+  await platform.ensureSettings(); assert.equal(writes, 3, 'legacy incomplete data is still normalized and saved');
+  assert.ok(mock.local[SETTINGS_KEY].websiteFixer);
+});

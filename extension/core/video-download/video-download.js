@@ -1,3 +1,5 @@
+import { equalJson } from '../json-equal.js';
+
 export const VIDEO_SESSION_PREFIX = 'videoDownloadSession:';
 
 export function knownVideoFileSize(candidate = {}) {
@@ -258,7 +260,7 @@ export function mergeVideoCandidate(existing, incoming) {
   else if (incoming.downloadable === false && preferred.downloadable !== true) preferred.downloadable = false;
   if (incoming.protected === true) preferred.protected = true;
   if (incoming.hasAudio === true) preferred.hasAudio = true;
-  return preferred;
+  return equalJson(existing, preferred) ? existing : preferred;
 }
 
 function parseAttributeList(value) {

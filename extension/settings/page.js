@@ -1,4 +1,4 @@
-import { loadLocale } from '../core/locale.js';
+import { loadLocale, saveLocaleCache } from '../core/locale.js';
 import { createCardDisclosures } from './card-disclosures.js';
 import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizePageDisplaySite, normalizeUrlTrackingSite, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
@@ -600,7 +600,7 @@ async function savePreference(preference, command, toPreference) {
 
 function cacheLocale() {
   if (!incognitoContext) {
-    try { localStorage.setItem('cosmicGeminiInterfaceLocale', locale); } catch {}
+    saveLocaleCache(locale);
   }
 }
 

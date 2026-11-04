@@ -89,6 +89,10 @@ export function settingsViewCache(states = {}) {
   };
 }
 
-export function saveSettingsViewCache(states, storage = globalThis.localStorage) {
-  try { storage?.setItem(SETTINGS_VIEW_CACHE_KEY, JSON.stringify(settingsViewCache(states))); } catch {}
+export function saveSettingsViewCache(states, storage) {
+  try {
+    if (storage === undefined) storage = globalThis.localStorage;
+    const value = JSON.stringify(settingsViewCache(states));
+    if (storage?.getItem?.(SETTINGS_VIEW_CACHE_KEY) !== value) storage?.setItem(SETTINGS_VIEW_CACHE_KEY, value);
+  } catch {}
 }

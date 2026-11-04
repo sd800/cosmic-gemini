@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.8 (488) — 2026-11-04
+
+- Avoid rewriting unchanged persistent preferences during initialization, service-worker recreation, and repeated settings commands. Initial defaults and normalization/migration changes are still saved, and failed writes remain retryable.
+- Skip unchanged Settings first-frame and language-cache writes when popup activity or media progress refreshes the interface. Keep explicit language changes, cache reset, and private-window isolation intact.
+- Enumerate session key names without reading unrelated payloads where Chrome supports it. Activity cleanup, private-session cleanup, Any Copy cleanup, and Reset no longer need to clone every saved media candidate list; image/video startup reads only its own session/artifact groups. Older Chrome builds keep a compatible single-read fallback.
+- Coalesce duplicate image/video network discoveries in keyed pending batches. Reuse unchanged candidate records, and skip repeated sorting, serialization, session saves, and resulting workspace refreshes when no new resource facts were found. New resources and improved dimensions, file sizes, quality, and playback metadata continue to update normally.
+- Release serialization-queue references to completed settings and document results while preserving ordering, return values, and recovery after failures.
+- Add tests for unchanged write counts, initial/migrated settings, cache deletion, context-scoped key enumeration, duplicate discovery, and richer metadata updates. Retain existing RAM-based session/document storage and bounded media-processing behavior.
+
 ## 26.11.4.7 (487) — 2026-11-04
 
 - Extend the inactive-page boundary across page features. Disabled or excluded products do not load their code or styles; explicit settings refreshes no longer inject cleanup probes into pages that never started the product. Confirm owned cleanup only for a previously present bridge, including after document rebuilding erased its Window listeners.

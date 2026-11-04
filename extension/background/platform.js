@@ -12,6 +12,7 @@ import {
 } from '../core/config.js';
 import { normalizeLocale } from '../core/locale.js';
 import { createKeyedTaskQueue } from '../core/keyed-task-queue.js';
+import { equalJson } from '../core/json-equal.js';
 
 const DEFAULT_ICONS = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 const ACTIVITY_PREFIX = 'tabActivity:';
@@ -37,7 +38,8 @@ export function createPlatform() {
 
   function queueWrite(task) {
     const operation = writeQueue.then(task);
-    writeQueue = operation.catch(() => undefined);
+    // The tail is only a barrier; do not retain the completed settings result.
+    writeQueue = operation.then(() => undefined, () => undefined);
     return operation;
   }
 
@@ -54,21 +56,26 @@ export function createPlatform() {
     });
   }
 
-  async function readSettings() {
+  async function readSettingsSnapshot() {
     await prepareIncognitoSession();
     // Share only an in-flight storage read. Every caller still owns its snapshot;
     // no persistent cache can conceal changes or a failed write.
     if(!settingsRead){
       const current=Promise.resolve().then(()=>settingsStorage.get(settingsKey))
-        .then(stored=>normalizeSettings(stored[settingsKey]||defaultSettings))
+        .then(stored=>({ raw: stored[settingsKey], value: normalizeSettings(stored[settingsKey]||defaultSettings) }))
         .finally(()=>{if(settingsRead===current)settingsRead=null;});
       settingsRead=current;
     }
-    return structuredClone(await settingsRead);
+    return settingsRead;
   }
 
-  async function writeSettings(value) {
+  async function readSettings() {
+    return structuredClone((await readSettingsSnapshot()).value);
+  }
+
+  async function writeSettings(value, previous) {
     const settings = normalizeSettings(value);
+    if (previous !== undefined && equalJson(previous, settings)) return settings;
     settingsRead=null;
     try{await settingsStorage.set({ [settingsKey]: settings });}
     finally{settingsRead=null;}
@@ -121,7 +128,7 @@ export function createPlatform() {
     return queueWrite(async () => {
       await prepareIncognitoSession();
       const stored = await settingsStorage.get(settingsKey);
-      const settings = await writeSettings(stored[settingsKey] || defaultSettings);
+      const settings = await writeSettings(stored[settingsKey] || defaultSettings, stored[settingsKey]);
       return settings;
     });
   }
@@ -179,9 +186,10 @@ export function createPlatform() {
 
   async function mutateSettings(update, refresh = true) {
     return queueWrite(async () => {
-      const current = await readSettings();
+      const snapshot = await readSettingsSnapshot();
+      const current = structuredClone(snapshot.value);
       const candidate = typeof update === 'function' ? await update(current) : update;
-      const next = await writeSettings(candidate);
+      const next = await writeSettings(candidate, snapshot.raw);
       if (refresh) scheduleOpenPageRefresh();
       return next;
     });
@@ -304,10 +312,9 @@ export function createPlatform() {
   }
 
   async function clearOrphanedActivity() {
-    const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
+    const [names, tabs] = await Promise.all([sessionStorage.keys(ACTIVITY_PREFIX), chrome.tabs.query({})]);
     const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
-    const keys = Object.keys(values).filter(key => {
-      if (!key.startsWith(ACTIVITY_PREFIX)) return false;
+    const keys = names.filter(key => {
       const tabId = Number(key.slice(ACTIVITY_PREFIX.length));
       return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
     });
@@ -396,8 +403,8 @@ export function createPlatform() {
       resettingStorage = true;
       try {
         await activityQueue.drain();
-        const sessionValues = await sessionStorage.get(null);
-        const disposableSessionKeys = Object.keys(sessionValues)
+        const sessionKeys = await sessionStorage.keys();
+        const disposableSessionKeys = sessionKeys
           .filter(key => !RETAINED_DOWNLOAD_PREFIXES.some(prefix => key.startsWith(prefix)))
           .filter(key => key !== INCOGNITO_WINDOWS_KEY && key !== PRIVATE_TABS_KEY && key !== REGULAR_TABS_KEY)
           .filter(key => key !== settingsKey)

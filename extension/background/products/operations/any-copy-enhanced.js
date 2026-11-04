@@ -51,10 +51,9 @@ export function createAnyCopyEnhancedProduct(pageRuntimeHost, platform) {
       await tabUpdates.run(tabId, () => sessionStorage.remove(key(tabId)));
     },
     async cleanupOrphans() {
-      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
+      const [names, tabs] = await Promise.all([sessionStorage.keys(SESSION_PREFIX), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
-      const keys = Object.keys(values).filter(value => {
-        if (!value.startsWith(SESSION_PREFIX)) return false;
+      const keys = names.filter(value => {
         const tabId = Number(value.slice(SESSION_PREFIX.length));
         return !Number.isInteger(tabId) || !liveTabIds.has(tabId);
       });

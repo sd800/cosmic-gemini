@@ -10,6 +10,14 @@ export function preferredLocale(languages = globalThis.navigator?.languages || [
   return normalizeLocale(first);
 }
 
+export function saveLocaleCache(value, storage) {
+  const locale = normalizeLocale(value);
+  try {
+    if (storage === undefined) storage = globalThis.localStorage;
+    if (storage?.getItem?.(LOCALE_CACHE_KEY) !== locale) storage?.setItem(LOCALE_CACHE_KEY, locale);
+  } catch {}
+}
+
 export async function loadLocale({ cacheResult = true } = {}) {
   const incognitoContext = chrome.extension?.inIncognitoContext === true;
   let locale = preferredLocale();
@@ -24,7 +32,7 @@ export async function loadLocale({ cacheResult = true } = {}) {
     if (response?.ok && response.result?.locale) locale = normalizeLocale(response.result.locale);
   } catch {}
   if (!incognitoContext && cacheResult) {
-    try { globalThis.localStorage?.setItem(LOCALE_CACHE_KEY, locale); } catch {}
+    saveLocaleCache(locale);
   }
   return locale;
 }

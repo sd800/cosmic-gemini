@@ -474,3 +474,23 @@ test('YouTube separated tracks are deciphered into video and audio-only download
   assert.equal(candidates[1].kind, 'audio');
   assert.equal(candidates[1].url, 'https://video.example/audio.webm?cpn=cpn');
 });
+
+test('duplicate video discovery does not save again, but richer metadata does', async t => {
+  const f = await discoveryFixture(t);
+  await f.send({ type: 'UI_VIDEO_OPEN' });
+  const candidate = { url: 'https://media.test/direct.mp4', width: 120, height: 100, source: 'page' };
+  let writes = 0;
+  const set = chrome.storage.session.set;
+  chrome.storage.session.set = async values => { if (values[videoSessionKey(f.tab.id)]) writes++; return set(values); };
+  await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [candidate], pageUrl: f.tab.url });
+  const initial = writes;
+  await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [candidate], pageUrl: f.tab.url });
+  // The first merge can fill optional normalized metadata; the stable subsequent
+  // report must not sort/serialize/save an unchanged media list.
+  const stable = writes;
+  await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [candidate], pageUrl: f.tab.url });
+  assert.equal(writes, stable);
+  await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [{ ...candidate, width: 240 }], pageUrl: f.tab.url });
+  assert.equal(writes, stable + 1);
+  assert.ok(initial > 0);
+});

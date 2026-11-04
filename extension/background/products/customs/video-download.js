@@ -202,7 +202,9 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     try {
       const priorCollecting = new Set(activeTabs);
       const restoredCollecting = new Set();
-      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
+      const [values, tabs] = await Promise.all([sessionStorage.getByPrefix([
+        'videoDownloadSession:', 'videoDownloadArtifact:'
+      ]), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       for (const [key, value] of Object.entries(values)) {
         if (!key.startsWith('videoDownloadSession:') || value?.active !== true || !Number.isInteger(value.tabId)) continue;
@@ -318,13 +320,15 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     const existing = pendingNetworkCandidates.get(tabId);
     if (existing && existing.discoveryId !== session.discoveryId) clearPending(tabId);
     const pending = pendingNetworkCandidates.get(tabId) || {
-      candidates: [], timer: 0, pageUrl: session.pageUrl, discoveryId: session.discoveryId
+      candidates: new Map(), timer: 0, pageUrl: session.pageUrl, discoveryId: session.discoveryId
     };
-    if (pending.candidates.length < 800) pending.candidates.push(candidate);
+    if (pending.candidates.has(candidate.id) || pending.candidates.size < 800) {
+      pending.candidates.set(candidate.id, mergeVideoCandidate(pending.candidates.get(candidate.id), candidate));
+    }
     if (!pending.timer) {
       pending.timer = setTimeout(() => {
         if (pendingNetworkCandidates.get(tabId) === pending) pendingNetworkCandidates.delete(tabId);
-        void addVideoCandidates(tabId, pending.candidates, true, pending.pageUrl, pending.discoveryId).catch(() => {});
+        void addVideoCandidates(tabId, [...pending.candidates.values()], true, pending.pageUrl, pending.discoveryId).catch(() => {});
       }, 140);
     }
     pendingNetworkCandidates.set(tabId, pending);
@@ -797,6 +801,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
         return { session: null, addedHls: [], addedDash: [] };
       }
       const byId = new Map(session.candidates.map(candidate => [candidate.id, candidate]));
+      let changed = false;
       const addedHls = [];
       const addedDash = [];
       for (const raw of rawCandidates.slice(0, 100)) {
@@ -808,14 +813,14 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
         if (!candidate) continue;
         const existing = byId.get(candidate.id);
         const merged = mergeVideoCandidate(existing, candidate);
-        byId.set(candidate.id, merged);
+        if (merged !== existing) { byId.set(candidate.id, merged); changed = true; }
         if (!existing && merged.kind === 'hls') addedHls.push(merged);
         if (!existing && merged.kind === 'dash' && merged.source !== 'dash-variant') addedDash.push(merged);
       }
-      session.candidates = limitVideoCandidatesForSession(sortVideoCandidates([...byId.values()]));
-      session.updatedAt = Date.now();
-      session.status = session.candidates.some(candidate => !candidate.master) ? 'found' : 'scanning';
-      await saveVideoSession(session);
+      if (changed) session.candidates = limitVideoCandidatesForSession(sortVideoCandidates([...byId.values()]));
+      const status = session.candidates.some(candidate => !candidate.master) ? 'found' : 'scanning';
+      if (session.status !== status) { session.status = status; changed = true; }
+      if (changed) { session.updatedAt = Date.now(); await saveVideoSession(session); }
       const retainedIds = new Set(session.candidates.map(candidate => candidate.id));
       return {
         session,

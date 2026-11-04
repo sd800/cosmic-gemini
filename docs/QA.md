@@ -334,3 +334,7 @@ Run `scripts/browser/test-feature-inactive-browser.mjs` with `CONTEXT_PLAYWRIGHT
 `test/feature-inactive.test.mjs` covers canceled activation replies across ordinary/private/session entry points and pending browser-menu report cancellation. The feature runtime and page-runtime-host tests cover bridge retries, final acknowledgements, previously present stop receipts, ownership restoration, and inactive callbacks. Website Knowledge Control's document policy and Crash Page Warden's sticky behavior are intentional exceptions.
 
 `test/image-capture-runtime.test.mjs` verifies canceling a completed selection before its delayed capture dispatch and normal one-time dispatch. `test/video-page-runtime.test.mjs` verifies that a queued scan message cannot revive a stopped page runtime.
+
+## Storage/discovery efficiency
+
+Use `test/performance-storage.test.mjs`, `test/platform-settings.test.mjs`, `test/locale.test.mjs`, and the image/video download tests. Count storage API calls in memory: repeated normalized initialization/settings commands and equivalent UI snapshots must not write again, whereas first save, migration, changed preferences, and richer media metadata must save. Key-only enumeration must request no values; prefix reads must not fetch unrelated/foreign-context records. Verify the compatible single-read fallback without native key enumeration, independent settings snapshots, and existing reset/download-artifact retention. Reusable concise findings live under ignored `test-dist/performance-storage/`.

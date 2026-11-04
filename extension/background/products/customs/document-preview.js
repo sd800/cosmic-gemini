@@ -25,7 +25,12 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const captures = new Map();
   const preparations = new Map();
   const downloadNames = new Map();
-  const serial = task => { const result = queue.then(task); queue = result.catch(() => {}); return result; };
+  const serial = task => {
+    const result = queue.then(task);
+    // Keep ordering/failure recovery without retaining the last document result.
+    queue = result.then(() => undefined, () => undefined);
+    return result;
+  };
   const persist = () => chrome.storage.session.set({ [sessionKey]: state });
   async function tabsInContext() {
     const tabs = (await chrome.tabs.query({})).filter(tab => !!tab.incognito === platform.isIncognitoContext());

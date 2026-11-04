@@ -134,7 +134,7 @@ export function createAnyCopyProduct(pageRuntimeHost, platform) {
     },
     async reset() {
       await siteUpdates.drain();
-      const keys = Object.keys(await sessionStorage.get(null)).filter(value => value.startsWith(SESSION_PREFIX));
+      const keys = await sessionStorage.keys(SESSION_PREFIX);
       if (keys.length) await sessionStorage.remove(keys);
     }
   });

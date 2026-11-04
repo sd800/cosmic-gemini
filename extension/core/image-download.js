@@ -1,3 +1,5 @@
+import { equalJson } from './json-equal.js';
+
 const IMAGE_MIME_EXTENSIONS = Object.freeze({
   'image/avif': 'avif',
   'image/bmp': 'bmp',
@@ -179,7 +181,7 @@ export function mergeImageCandidate(existing, incoming) {
     discoveredAt: Math.min(existing.discoveredAt || Date.now(), incoming.discoveredAt || Date.now())
   };
   merged.score = imageRecommendationScore(merged);
-  return merged;
+  return equalJson(existing, merged) ? existing : merged;
 }
 
 export function groupImageCandidates(rawCandidates = []) {

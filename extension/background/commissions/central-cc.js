@@ -10,13 +10,31 @@ export function createContextSessionStorage(incognito = false) {
   const encode = key => (incognito ? PRIVATE_PREFIX : '') + key;
   const owns = key => incognito ? key.startsWith(PRIVATE_PREFIX) : !key.startsWith(PRIVATE_PREFIX);
   const decode = key => incognito ? key.slice(PRIVATE_PREFIX.length) : key;
+  const decodeValues = values => Object.fromEntries(Object.entries(values).filter(([key]) => owns(key)).map(([key, value]) => [decode(key), value]));
+  async function keys(prefixes = null) {
+    const area = chrome.storage.session;
+    // Enumerate names without cloning every product's potentially large media
+    // session. Older supported Chrome builds retain the existing fallback.
+    const names = typeof area.getKeys === 'function' ? await area.getKeys() : Object.keys(await area.get(null));
+    const selected = prefixes == null ? null : Array.isArray(prefixes) ? prefixes : [prefixes];
+    return names.filter(owns).map(decode).filter(key => !selected || selected.some(prefix => key.startsWith(prefix)));
+  }
   return Object.freeze({
+    keys,
+    getByPrefix(prefixes) {
+      const area = chrome.storage.session;
+      if (typeof area.getKeys !== 'function') {
+        const selected = Array.isArray(prefixes) ? prefixes : [prefixes];
+        return area.get(null).then(values => Object.fromEntries(Object.entries(decodeValues(values))
+          .filter(([key]) => selected.some(prefix => key.startsWith(prefix)))));
+      }
+      return keys(prefixes).then(names => names.length ? area.get(names.map(encode)).then(decodeValues) : {});
+    },
     get(keys) {
       const request = keys == null ? null : typeof keys === 'string' ? encode(keys)
         : Array.isArray(keys) ? keys.map(encode)
           : Object.fromEntries(Object.entries(keys).map(([key, value]) => [encode(key), value]));
-      return chrome.storage.session.get(request).then(values =>
-        Object.fromEntries(Object.entries(values).filter(([key]) => owns(key)).map(([key, value]) => [decode(key), value])));
+      return chrome.storage.session.get(request).then(decodeValues);
     },
     set(values) { return chrome.storage.session.set(Object.fromEntries(Object.entries(values).map(([key, value]) => [encode(key), value]))); },
     remove(keys) { return chrome.storage.session.remove(Array.isArray(keys) ? keys.map(encode) : encode(keys)); }
@@ -44,7 +62,7 @@ export function createCentralCoordinationCommission(incognito) {
     },
     async endPrivateSession() {
       const storage = createContextSessionStorage(true);
-      const keys = Object.keys(await storage.get(null));
+      const keys = await storage.keys();
       if (keys.length) await storage.remove(keys);
       await chrome.storage.session.remove(PRIVATE_TABS_KEY);
     }

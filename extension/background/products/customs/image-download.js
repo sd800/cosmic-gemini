@@ -43,7 +43,9 @@ export function createImageDownloadProduct(platform, offscreen, observation, med
     try {
       const priorCollecting = new Set(activeTabs);
       const restoredCollecting = new Set();
-      const [values, tabs] = await Promise.all([sessionStorage.get(null), chrome.tabs.query({})]);
+      const [values, tabs] = await Promise.all([sessionStorage.getByPrefix([
+        'imageDownloadSession:', 'imageCaptureArtifact:', 'imageDownloadArtifact:'
+      ]), chrome.tabs.query({})]);
       const liveTabIds = new Set(tabs.map(tab => tab.id).filter(Number.isInteger));
       const liveCaptureArtifacts = new Set();
       for (const [key, value] of Object.entries(values)) {
@@ -141,12 +143,16 @@ export function createImageDownloadProduct(platform, offscreen, observation, med
   }
 
   function queueCandidate(tabId, candidate) {
-    const pending = pendingNetworkCandidates.get(tabId) || { candidates: [], timer: 0 };
-    if (pending.candidates.length < 2000) pending.candidates.push(candidate);
+    candidate = normalizeImageCandidate(candidate);
+    if (!candidate) return;
+    const pending = pendingNetworkCandidates.get(tabId) || { candidates: new Map(), timer: 0 };
+    if (pending.candidates.has(candidate.url) || pending.candidates.size < 2000) {
+      pending.candidates.set(candidate.url, mergeImageCandidate(pending.candidates.get(candidate.url), candidate));
+    }
     if (!pending.timer) {
       pending.timer = setTimeout(() => {
         pendingNetworkCandidates.delete(tabId);
-        void addImageCandidates(tabId, pending.candidates).catch(() => {});
+        void addImageCandidates(tabId, [...pending.candidates.values()]).catch(() => {});
       }, 140);
     }
     pendingNetworkCandidates.set(tabId, pending);
@@ -203,15 +209,19 @@ export function createImageDownloadProduct(platform, offscreen, observation, med
 
   function mergeCandidates(session, rawCandidates) {
     const byUrl = new Map((session.candidates || []).map(candidate => [candidate.url, candidate]));
+    let changed = false;
     for (const raw of rawCandidates.slice(0, 1600)) {
       const candidate = normalizeImageCandidate(raw);
       if (!candidate) continue;
-      byUrl.set(candidate.url, mergeImageCandidate(byUrl.get(candidate.url), candidate));
+      const previous = byUrl.get(candidate.url);
+      const merged = mergeImageCandidate(previous, candidate);
+      if (merged !== previous) { byUrl.set(candidate.url, merged); changed = true; }
     }
-    session.candidates = limitImageCandidatesForSession(sortImageCandidates([...byUrl.values()]));
-    session.status = session.candidates.length ? 'found' : 'scanning';
-    session.updatedAt = Date.now();
-    return session;
+    if (changed) session.candidates = limitImageCandidatesForSession(sortImageCandidates([...byUrl.values()]));
+    const status = session.candidates.length ? 'found' : 'scanning';
+    if (session.status !== status) { session.status = status; changed = true; }
+    if (changed) session.updatedAt = Date.now();
+    return changed;
   }
 
   async function addImageCandidates(tabId, rawCandidates, expectedCapture = null) {
@@ -224,8 +234,7 @@ export function createImageDownloadProduct(platform, offscreen, observation, med
         if (current.pageUrl !== expectedCapture.pageUrl || current.startedAt !== expectedCapture.startedAt
           || live.url !== expectedCapture.pageUrl || live.pendingUrl) return null;
       }
-      mergeCandidates(current, rawCandidates);
-      await saveImageSession(current);
+      if (mergeCandidates(current, rawCandidates)) await saveImageSession(current);
       return current;
     });
     if (session) {

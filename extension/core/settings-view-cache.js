@@ -9,7 +9,7 @@ function rules(value) {
 }
 
 export function settingsViewCache(states = {}) {
-  const nsna = normalizeSettings({ nsna: states.nsna, nativeScroll: states.nativeScroll, noAutoplay: states.noAutoplay });
+  const nsna = normalizeSettings({ urlTrackingCleaner:states.urlTrackingCleaner, nsna: states.nsna, nativeScroll: states.nativeScroll, noAutoplay: states.noAutoplay });
   return {
     version: 44,
     nsna: nsna.nsna,
@@ -22,7 +22,7 @@ export function settingsViewCache(states = {}) {
       enabled: states.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: states.clipboardProtect?.enabled === true },
-    urlTrackingCleaner: { enabled: states.urlTrackingCleaner?.enabled === true, utmParameters: states.urlTrackingCleaner?.utmParameters !== false, bilibiliParameters: states.urlTrackingCleaner?.bilibiliParameters === true },
+    urlTrackingCleaner: nsna.urlTrackingCleaner,
     whiteSofter: { enabled: states.whiteSofter?.enabled === true, tone: normalizeWhiteSofterTone(states.whiteSofter?.tone) },
     documentPreview: {
       enabled: states.documentPreview?.enabled === true,

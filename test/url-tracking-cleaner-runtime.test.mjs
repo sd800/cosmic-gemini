@@ -8,14 +8,14 @@ const source = readFileSync(new URL('../extension/content/url-tracking-cleaner/u
 const key = Symbol.for('cosmic-gemini.url-tracking-cleaner.runtime');
 const prefix = 'cosmic-gemini:url-tracking-cleaner:';
 
-function fixture({ writable = true } = {}) {
+function fixture({ writable = true, randomSource = crypto } = {}) {
   const events = new EventTarget(), calls = [], result = {};
   const original = function (...args) {
     calls.push({ receiver: this, args });
     if (args[0] === 'throw') throw new TypeError('native failure');
     return result;
   };
-  const context = createContext({ URL, crypto, CustomEvent, document: { baseURI: 'https://example.test/base/' },
+  const context = createContext({ URL, crypto:randomSource, CustomEvent, document: { baseURI: 'https://example.test/base/' },
     addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events),
     dispatchEvent: events.dispatchEvent.bind(events) });
   context.window = context;
@@ -93,4 +93,11 @@ test('locked page properties are respected without preventing runtime activation
   assert.equal(f.context.open, f.original);
   f.dispose();
   assert.equal(f.context.open, f.original);
+});
+
+
+test('HTTP runtime without randomUUID uses cryptographic random values and still cleans navigation',()=>{
+ let reads=0;const randomSource={getRandomValues:bytes=>{reads++;return crypto.getRandomValues(bytes);}};
+ const f=fixture({randomSource});assert.equal(reads,1);assert.match(f.context[key].token,/^[a-f0-9]{36}$/);
+ f.configure(true);f.context.open('http://example.test/?utm_source=http&keep=1');assert.equal(f.calls[0].args[0],'http://example.test/?keep=1');f.dispose();
 });

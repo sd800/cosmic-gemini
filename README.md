@@ -110,6 +110,8 @@ The current managed-site choices cover Tencent News and Zhihu.
 
 Clean links during navigation. The UTM option removes common campaign tags while preserving other parameters. The optional Bilibili option removes the question mark and everything after it from links on bilibili.com and its subdomains.
 
+UTM parameters also offers **Only on listed websites**: clean UTM tags only when navigating from the listed main domains or their subdomains. The source list is optional; Bilibili cleanup remains independent.
+
 #### Website Fixer
 
 Website Fixer improves website behavior with selectable fixes. Translate Override helps restore browser translation, Stay on the page keeps selected websites from sending you to other sites, and Crash Page Warden offers static reading for heavy pages. The control window offers these tools: click for a temporary domain choice until Chrome exits, or hold to add or remove its saved rule. Holding an unlisted, inactive site also turns it on until Chrome exits; other holds keep the temporary choice unchanged. Saved rules follow each tool’s Settings switch; a grey outline marks a saved rule while that switch is off, and a purple outline marks it while on. Website Fixer has no master switch; its tools retain independent controls.

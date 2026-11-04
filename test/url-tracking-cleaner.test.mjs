@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_SETTINGS, DEFAULT_INCOGNITO_SETTINGS, normalizeSettings, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY } from '../extension/core/config.js';
+import { DEFAULT_SETTINGS, DEFAULT_INCOGNITO_SETTINGS, normalizeSettings, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, normalizeUrlTrackingSite } from '../extension/core/config.js';
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { UTM_PARAMETERS, URL_TRACKING_RULE_IDS, urlTrackingCleanerRule, urlTrackingCleanerState, urlTrackingCleanerRules, cleanTrackingUrl } from '../extension/core/url-tracking-cleaner.js';
 import { createUrlTrackingCleanerProduct } from '../extension/background/products/standing/url-tracking-cleaner.js';
 const copy=value=>structuredClone(value);
 
-function fixture({incognito=false,enabled=true,utmParameters=true,bilibiliParameters=false}={}) {
-  let settings=normalizeSettings({urlTrackingCleaner:{enabled,utmParameters,bilibiliParameters}});
+function fixture({incognito=false,enabled=true,utmParameters=true,bilibiliParameters=false,onlyListedSites=false,siteRules=[]}={}) {
+  let settings=normalizeSettings({urlTrackingCleaner:{enabled,utmParameters,bilibiliParameters,onlyListedSites,siteRules}});
   const rules=new Map([[77,{id:77,priority:1,action:{type:'block'},condition:{urlFilter:'unrelated'}}]]);
   const state={updates:0,writes:0,failRules:false,failWrite:false,omit:false,tabs:[{id:5,incognito:false},{id:3,incognito:false},{id:8,incognito:true}]};
   globalThis.chrome={tabs:{query:async()=>copy(state.tabs)},declarativeNetRequest:{
@@ -20,9 +20,9 @@ function fixture({incognito=false,enabled=true,utmParameters=true,bilibiliParame
 }
 
 test('URL Tracking Cleaner defaults and cached preferences keep master/UTM choices separate',()=>{
-  for(const defaults of [DEFAULT_SETTINGS,DEFAULT_INCOGNITO_SETTINGS,normalizeSettings()])assert.deepEqual(defaults.urlTrackingCleaner,{enabled:false,utmParameters:true,bilibiliParameters:false});
-  const saved=normalizeSettings({urlTrackingCleaner:{enabled:true,utmParameters:false,bilibiliParameters:false}});
-  assert.deepEqual(settingsViewCache(saved).urlTrackingCleaner,{enabled:true,utmParameters:false,bilibiliParameters:false});
+  for(const defaults of [DEFAULT_SETTINGS,DEFAULT_INCOGNITO_SETTINGS,normalizeSettings()])assert.deepEqual(defaults.urlTrackingCleaner,{enabled:false,utmParameters:true,bilibiliParameters:false,onlyListedSites:false,siteRules:[]});
+  const saved=normalizeSettings({urlTrackingCleaner:{enabled:true,utmParameters:false,bilibiliParameters:false,onlyListedSites:false,siteRules:[]}});
+  assert.deepEqual(settingsViewCache(saved).urlTrackingCleaner,{enabled:true,utmParameters:false,bilibiliParameters:false,onlyListedSites:false,siteRules:[]});
   assert.equal(urlTrackingCleanerState(saved,'https://example.test/').active,false);
   assert.equal(urlTrackingCleanerState(normalizeSettings({urlTrackingCleaner:{enabled:true}}),'https://example.test/').active,true);
   assert.equal(urlTrackingCleanerState(normalizeSettings({urlTrackingCleaner:{enabled:true}}),'file:///tmp/test').active,false);
@@ -53,7 +53,7 @@ test('incognito owns a different rule and never includes ordinary tabs',async()=
 test('master and UTM saves install before persistence and preserve child preference while disabled',async()=>{
   const f=fixture({enabled:false});await f.product.initialize();assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),false);
   await f.product.handleMessage({type:'UI_SET_ENABLED',enabled:true});assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),true);
-  await f.product.handleMessage({type:'UI_SET_URL_TRACKING_SETTING',name:'utmParameters',value:false});assert.deepEqual(f.settings().urlTrackingCleaner,{enabled:true,utmParameters:false,bilibiliParameters:false});assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),false);
+  await f.product.handleMessage({type:'UI_SET_URL_TRACKING_SETTING',name:'utmParameters',value:false});assert.deepEqual(f.settings().urlTrackingCleaner,{enabled:true,utmParameters:false,bilibiliParameters:false,onlyListedSites:false,siteRules:[]});assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),false);
   await f.product.handleMessage({type:'UI_SET_ENABLED',enabled:false});assert.equal(f.settings().urlTrackingCleaner.utmParameters,false);
   await assert.rejects(f.product.handleMessage({type:'UI_SET_URL_TRACKING_SETTING',name:'other',value:true}));assert.equal(f.state.writes,3);
 });
@@ -108,4 +108,35 @@ test('each context removes only its own selected-rule set when both options chan
   const f=fixture({utmParameters:true,bilibiliParameters:true});await f.product.initialize();assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),true);assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.bilibiliRegular),true);
   await f.product.handleMessage({type:'UI_SET_URL_TRACKING_SETTING',name:'utmParameters',value:false});assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),false);assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.bilibiliRegular),true);
   await f.product.handleMessage({type:'UI_SET_URL_TRACKING_SETTING',name:'bilibiliParameters',value:false});assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.bilibiliRegular),false);assert.equal(f.settings().urlTrackingCleaner.enabled,true);assert.equal(f.rules.has(77),true);
+});
+
+test('source-site scope uses registrable domains and rejects suffix-wide entries',()=>{
+ for(const [input,output]of [['www.example.com','example.com'],['*.read.example.co.uk','example.co.uk'],['server.corp','server.corp'],['食狮.com.cn','xn--85x722f.com.cn']])assert.equal(normalizeUrlTrackingSite(input),output);
+ for(const value of ['com','co.uk','github.io','foo.ck','127.0.0.1','localhost'])assert.throws(()=>normalizeUrlTrackingSite(value));
+ const settings=normalizeSettings({urlTrackingCleaner:{enabled:true,onlyListedSites:true,siteRules:['www.example.com','example.com','co.uk','https://invalid.test/']}});
+ assert.deepEqual(settings.urlTrackingCleaner.siteRules,['example.com']);
+ assert.deepEqual(settingsViewCache(settings).urlTrackingCleaner,settings.urlTrackingCleaner);
+ assert.equal(urlTrackingCleanerState(settings,'https://nested.read.example.com/').active,true);
+ for(const url of ['https://example.com.evil.test/','https://other.test/','file:///tmp/fixture'])assert.equal(urlTrackingCleanerState(settings,url).active,false);
+ const rules=urlTrackingCleanerRules([3],false,{...settings.urlTrackingCleaner,bilibiliParameters:true});
+ assert.equal(rules.length,2);assert.deepEqual(rules[0].condition.initiatorDomains,['example.com']);assert.equal(rules[1].condition.initiatorDomains,undefined,'Bilibili stays independent of the UTM source filter');
+  const outside=urlTrackingCleanerState(normalizeSettings({urlTrackingCleaner:{...settings.urlTrackingCleaner,bilibiliParameters:true}}),'https://other.test');assert.equal(outside.active,true);assert.equal(outside.utmParameters,false);assert.equal(outside.bilibiliParameters,true);
+ assert.deepEqual(rules[1].condition.requestDomains,['bilibili.com'],'destination-specific rule keeps its independent target scope');
+ assert.deepEqual(urlTrackingCleanerRules([3],false,{...settings.urlTrackingCleaner,siteRules:[]}),[],'restricted empty list never widens native scope');
+ assert.equal(urlTrackingCleanerState(normalizeSettings({urlTrackingCleaner:{...settings.urlTrackingCleaner,enabled:false}}),'https://example.com').active,false);
+});
+
+test('source website list mutations share native confirmation, rollback, and the master gate',async()=>{
+ const f=fixture({onlyListedSites:true});await f.product.initialize();assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),false);
+ const message={featureId:'urlTrackingCleaner',listName:'siteRules'};
+ await f.product.handleMessage({...message,type:'UI_ADD_RULE',rule:'www.example.org'});
+ assert.deepEqual(f.settings().urlTrackingCleaner.siteRules,['example.org']);assert.deepEqual(f.rules.get(URL_TRACKING_RULE_IDS.regular).condition.initiatorDomains,['example.org']);
+ f.state.failWrite=true;await assert.rejects(f.product.handleMessage({...message,type:'UI_DELETE_RULE',rule:'example.org'}),/storage failure/);
+ assert.deepEqual(f.rules.get(URL_TRACKING_RULE_IDS.regular).condition.initiatorDomains,['example.org']);f.state.failWrite=false;
+ await f.product.handleMessage({...message,type:'UI_ADD_RULE',rule:'a.example.com'});await f.product.handleMessage({...message,type:'UI_ALPHABETIZE_RULES'});
+ assert.deepEqual(f.settings().urlTrackingCleaner.siteRules,['example.com','example.org']);
+ await f.product.handleMessage({...message,type:'UI_DELETE_RULE',rule:'sub.example.org'});assert.deepEqual(f.settings().urlTrackingCleaner.siteRules,['example.com']);
+ await f.product.handleMessage({type:'UI_SET_ENABLED',enabled:false});assert.equal(f.rules.has(URL_TRACKING_RULE_IDS.regular),false);assert.deepEqual(f.settings().urlTrackingCleaner.siteRules,['example.com']);
+ await f.product.handleMessage({...message,type:'UI_CLEAR_RULES'});assert.deepEqual(f.settings().urlTrackingCleaner.siteRules,[]);
+ await assert.rejects(f.product.handleMessage({...message,type:'UI_ADD_RULE',rule:'co.uk'}));await assert.rejects(f.product.handleMessage({...message,type:'UI_CLEAR_RULES',listName:'other'}));
 });

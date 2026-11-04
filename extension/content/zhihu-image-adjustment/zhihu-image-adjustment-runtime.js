@@ -1,9 +1,14 @@
 (() => {
+  function randomToken() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(18));
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
   const NAME = 'zhihu-image-adjustment', KEY = Symbol.for(`cosmic-gemini.${NAME}.runtime`);
   const EVENT = suffix => `cosmic-gemini:${NAME}:${suffix}`;
   if (globalThis[KEY]) { globalThis[KEY].announce(); return; }
   const classifier = globalThis[Symbol.for('cosmic-gemini.image-reading-surface')];
-  const token = crypto.randomUUID();
+  const token = randomToken();
   const BODY = '.RichText.ztext, .RichContent-inner, .Post-RichTextContainer';
   const IMAGE = 'figure img, img.zh-lightbox-thumb';
   const IGNORE = '.LinkCard, .VideoCard, .Avatar, .CommentItem, .ztext-math, [data-tex], .RichText-video';
@@ -390,7 +395,9 @@
     let message;try{message=JSON.parse(event.detail);}catch{return;}
     if(message?.token!==token||disposed)return;
     const next=message.config||{},active=next.active===true&&supported();
-    config={smallImages:next.smallImages!==false,darkImages:next.darkImages!==false,matchPageTheme:next.matchPageTheme!==false,locale:next.locale==='zh-CN'?'zh-CN':'en-US'};
+    const normalized={smallImages:next.smallImages!==false,darkImages:next.darkImages!==false,matchPageTheme:next.matchPageTheme!==false,locale:next.locale==='zh-CN'?'zh-CN':'en-US'};
+    if(active===enabled&&Object.keys(normalized).every(key=>normalized[key]===config[key]))return;
+    config=normalized;
     if(active&&!enabled)start();else if(!active&&enabled)stop();else if(enabled){revision++;for(const cancel of loads)cancel();pending.clear();schedule();}
   }
   function dispose(event) {

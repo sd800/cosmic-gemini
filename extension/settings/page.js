@@ -1,6 +1,6 @@
 import { loadLocale } from '../core/locale.js';
 import { createCardDisclosures } from './card-disclosures.js';
-import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizePageDisplaySite, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
+import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizePageDisplaySite, normalizeUrlTrackingSite, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
 import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeCrashPageWardenRuleInput, normalizeStayOnPageCommand, normalizeNsnaRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
@@ -179,6 +179,12 @@ function applyLocale() {
   cardDisclosures.localize(t);
 }
 
+function renderUrlTrackingScope(enabled,onlyListed,utmSelected=true) {
+  const option=document.querySelector('#urlTrackingScopeOption'),list=document.querySelector('#urlTrackingWebsites');
+  if(option)option.hidden=!enabled||!utmSelected;
+  if(list){list.hidden=!enabled||!utmSelected||!onlyListed;list.disabled=!enabled||!utmSelected||!onlyListed;}
+}
+
 function renderList(section) {
   const current = sectionState(section);
   if (!current) return;
@@ -326,6 +332,8 @@ function render() {
     document.querySelector('#urlTrackingCleanerOptions').disabled = !urlTrackingEnabled.checked;
     document.querySelector('#urlTrackingUtmParameters').checked = preference?.utmParameters !== false;
     document.querySelector('#urlTrackingBilibiliParameters').checked = preference?.bilibiliParameters === true;
+    const only=document.querySelector('#urlTrackingOnlyListedSites');if(only)only.checked=preference?.onlyListedSites===true;
+    renderUrlTrackingScope(urlTrackingEnabled.checked,preference?.onlyListedSites===true,preference?.utmParameters!==false);
   }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = (states?.preferences || states)?.clipboardProtect?.enabled === true;
@@ -731,15 +739,16 @@ function openRuleInputHelp(input) {
   const crashPageWarden = websiteFixer && section?.dataset.settingGroup === 'crashPageWarden';
   const documentWhitelist = section?.dataset.featureId === 'documentPreview';
   const pageDisplayWebsites = section?.dataset.domainScope === 'site';
+  const tracking=section?.dataset.domainScope==='tracking';
   const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
   const nsna = Boolean(input.closest('[data-domain-scope="nsna"]'));
   const aliasGroups = accessControl ? ACCESS_CONTROL_ALIAS_GROUPS : [];
   panel.heading.textContent = t(accessControl ? 'accessControlInputHelpHeading' : 'ruleInputHelpHeading');
-  panel.intro.textContent = t(nsna ? 'nsnaDomainHelp' : pageDisplayWebsites ? 'reduceWhitePointWebsitesHelp' : documentWhitelist ? 'documentWhitelistDescription' : accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
+  panel.intro.textContent = t(tracking?'urlTrackingWebsitesHelp':nsna ? 'nsnaDomainHelp' : pageDisplayWebsites ? 'reduceWhitePointWebsitesHelp' : documentWhitelist ? 'documentWhitelistDescription' : accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
   panel.behavior.hidden = !behaviorEditor;
   panel.behavior.textContent = behaviorEditor ? t('ruleInputBehaviorHelp') : '';
   panel.rulesHeading.textContent = t('ruleInputRulesHeading');
-  panel.rules.replaceChildren(...(nsna
+  panel.rules.replaceChildren(...(tracking?[helpTextItem('urlTrackingWebsitesHelp')]:nsna
     ? [helpTextItem('documentWhitelistDomainHelp'), helpTextItem('documentWhitelistIpHelp')]
     : pageDisplayWebsites
     ? [helpTextItem('reduceWhitePointWebsitesHelp'), helpTextItem('documentWhitelistIpHelp')]
@@ -752,7 +761,7 @@ function openRuleInputHelp(input) {
     : accessControl
     ? [helpTextItem('accessControlInputDomainHelp'), helpTextItem('accessControlInputIpHelp')]
     : [helpTextItem('ruleInputExactHelp'), helpTextItem('ruleInputWildcardHelp')]),
-  ...(crashPageWarden || nsna ? [] : [helpTextItem('ruleInputExpansionHelp')]));
+  ...(crashPageWarden || nsna || tracking ? [] : [helpTextItem('ruleInputExpansionHelp')]));
   panel.aliasesSection.hidden = aliasGroups.length === 0;
   panel.aliasesHeading.textContent = t('accessControlInputAliasesHeading');
   panel.aliases.replaceChildren();
@@ -864,8 +873,14 @@ function bindView() {
   const mailtoCaptureEnabled = document.querySelector('#mailtoCaptureEnabled');
   const urlTrackingEnabled = document.querySelector('#urlTrackingCleanerEnabled');
   const urlTrackingUtm = document.querySelector('#urlTrackingUtmParameters');
+  const urlTrackingOnly=document.querySelector('#urlTrackingOnlyListedSites');
+  if(urlTrackingOnly)urlTrackingOnly.addEventListener('change',()=>{
+    renderUrlTrackingScope(urlTrackingEnabled.checked,urlTrackingOnly.checked,urlTrackingUtm.checked);
+    void update(null,()=>savePreference('urlTrackingCleaner',{type:'UI_SET_URL_TRACKING_SETTING',featureId:'urlTrackingCleaner',name:'onlyListedSites',value:urlTrackingOnly.checked}),[urlTrackingOnly]);
+  });
   if (urlTrackingEnabled) urlTrackingEnabled.addEventListener('change', () => {
     document.querySelector('#urlTrackingCleanerOptions').disabled = !urlTrackingEnabled.checked;
+    renderUrlTrackingScope(urlTrackingEnabled.checked,urlTrackingOnly?.checked===true,urlTrackingUtm.checked);
     void update(null, () => savePreference('urlTrackingCleaner', {
       type: 'UI_SET_ENABLED', featureId: 'urlTrackingCleaner', enabled: urlTrackingEnabled.checked
     }), [urlTrackingEnabled]);
@@ -874,9 +889,10 @@ function bindView() {
   if (urlTrackingBilibili) urlTrackingBilibili.addEventListener('change', () => void update(null, () => savePreference('urlTrackingCleaner', {
     type: 'UI_SET_URL_TRACKING_SETTING', featureId: 'urlTrackingCleaner', name: 'bilibiliParameters', value: urlTrackingBilibili.checked
   }), [urlTrackingBilibili]));
-  if (urlTrackingUtm) urlTrackingUtm.addEventListener('change', () => void update(null, () => savePreference('urlTrackingCleaner', {
-    type: 'UI_SET_URL_TRACKING_SETTING', featureId: 'urlTrackingCleaner', name: 'utmParameters', value: urlTrackingUtm.checked
-  }), [urlTrackingUtm]));
+  if (urlTrackingUtm) urlTrackingUtm.addEventListener('change', () => {
+    renderUrlTrackingScope(urlTrackingEnabled.checked,urlTrackingOnly?.checked===true,urlTrackingUtm.checked);
+    void update(null, () => savePreference('urlTrackingCleaner', {type:'UI_SET_URL_TRACKING_SETTING',featureId:'urlTrackingCleaner',name:'utmParameters',value:urlTrackingUtm.checked}),[urlTrackingUtm]);
+  });
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   const whiteSofterEnabled = document.querySelector('#whiteSofterEnabled');
   if (whiteSofterEnabled) whiteSofterEnabled.addEventListener('change', () => {
@@ -1252,7 +1268,9 @@ function bindView() {
         if (sectionFeatureId === 'websiteFixer' && settingGroup === 'stayOnPage') {
           ({ type: commandType, rule } = normalizeStayOnPageCommand(input.value));
         } else {
-          rule = section.dataset.domainScope === 'nsna'
+          rule = section.dataset.domainScope === 'tracking'
+            ? normalizeUrlTrackingSite(normalizeGeneralDomainInput(input.value))
+            : section.dataset.domainScope === 'nsna'
             ? normalizeNsnaRuleInput(input.value)
             : sectionFeatureId === 'accessControl'
             ? normalizeAccessControlRuleInput(input.value)
@@ -1265,7 +1283,7 @@ function bindView() {
                 : normalizeWebsiteRuleInput(input.value);
         }
       } catch {
-        message.textContent = t(section.dataset.domainScope === 'nsna' ? 'nsnaInvalidDomain' : sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
+        message.textContent = t(section.dataset.domainScope === 'tracking'?'urlTrackingInvalidSite':section.dataset.domainScope === 'nsna' ? 'nsnaInvalidDomain' : sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
         return;
       }
       if (commandType === 'UI_ADD_RULE' && (sectionState(section)?.[listName] || []).includes(rule)) {

@@ -185,7 +185,15 @@
         </div>
         <fieldset id="urlTrackingCleanerOptions" class="knowledge-options" disabled>
           <legend class="sr-only" data-i18n="urlTrackingCleanerName"></legend>
-          <div class="knowledge-row knowledge-checkbox-row"><label for="urlTrackingUtmParameters"><input id="urlTrackingUtmParameters" type="checkbox" checked><span><strong data-i18n="urlTrackingUtmParameters"></strong><small data-i18n="urlTrackingUtmHelp"></small></span></label></div>
+          <div id="urlTrackingUtmOption" class="knowledge-row knowledge-checkbox-row"><label for="urlTrackingUtmParameters"><input id="urlTrackingUtmParameters" type="checkbox" checked><span><strong data-i18n="urlTrackingUtmParameters"></strong><small data-i18n="urlTrackingUtmHelp"></small></span></label>
+            <div id="urlTrackingScopeOption" class="url-tracking-scope" hidden>
+              <div class="knowledge-row knowledge-checkbox-row"><label for="urlTrackingOnlyListedSites"><input id="urlTrackingOnlyListedSites" type="checkbox"><span><strong id="urlTrackingWebsitesHeading" data-i18n="urlTrackingOnlyListedSites"></strong></span></label></div>
+              <fieldset id="urlTrackingWebsites" class="rule-panel page-display-websites" data-feature-id="urlTrackingCleaner" data-list-section="siteRules" data-domain-scope="tracking" data-empty-key="documentWhitelistEmpty" aria-labelledby="urlTrackingWebsitesHeading" disabled hidden>
+                <form class="rule-form" novalidate><input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" aria-labelledby="urlTrackingWebsitesHeading" data-i18n-placeholder="websiteFixerDomainPlaceholder"><button type="submit" class="primary-button" data-i18n="add"></button></form>
+                <p class="form-message" role="status"></p><ul class="rule-list"></ul><p class="rule-list-note" hidden></p>
+              </fieldset>
+            </div>
+          </div>
           <div class="knowledge-row knowledge-checkbox-row"><label for="urlTrackingBilibiliParameters"><input id="urlTrackingBilibiliParameters" type="checkbox"><span><strong data-i18n="urlTrackingBilibiliParameters"></strong><small data-i18n="urlTrackingBilibiliHelp"></small></span></label></div>
         </fieldset>
         <div class="satellite-privacy"><strong data-i18n="privacyHeading"></strong><p data-i18n="urlTrackingCleanerPrivacy"></p></div>

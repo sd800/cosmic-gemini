@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.3 (483) — 2026-11-04
+
+- Fix webpage runtime initialization on ordinary HTTP pages where the secure-context UUID API is unavailable. Use cryptographic random bytes for runtime tokens and document-preview nonces; retain UUID formatting where document ownership requires it.
+- Add an optional Only on listed websites checkbox beneath UTM parameters. Restrict UTM cleaning to navigation initiated by listed registrable domains and their subdomains; accept website addresses, display the normalized domain list, and preserve saved entries when either parent is off.
+- Hide the UTM website restriction and its list while URL Tracking Cleaner or UTM parameters is off. Keep Bilibili parameters independent of the UTM source restriction. Apply the same source scope to native pre-navigation transforms and link/scripted-open handling, with an empty restricted list matching no UTM sources.
+- Reduce shared configuration overhead by merging concurrent storage reads, returning independent settings snapshots, and validating only the preference groups needed by each product state check. Preserve write serialization, failure recovery, and external-update visibility.
+- Reduce repeated image-control updates for unchanged preferences, retain active image analysis rather than restarting it, and register Mailto Capture scroll/resize listeners only while its floating window is open.
+
 ## 26.11.4.2 (482) — 2026-11-04
 
 - Open Document properties from the filename or adjacent file information in Document Preview. Show file name, original URL, type, size, and available slide/worksheet counts, plus available Office/OpenDocument title, author, subject, keywords, creation/modification dates, and application metadata.

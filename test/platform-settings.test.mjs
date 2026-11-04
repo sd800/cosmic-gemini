@@ -409,3 +409,25 @@ test('the Central Coordination Commission isolates shared session data, reset an
   assert.equal((await ordinary.get('retained')).retained, true);
   assert.deepEqual(await createCentralCoordinationCommission(false).networkScope(), {});
 });
+
+test('concurrent settings reads share storage work while returning independent snapshots',async()=>{
+ const mock=chromeMock();globalThis.chrome=mock.api;let release,started,reads=0;
+ const gate=new Promise(resolve=>release=resolve),entered=new Promise(resolve=>started=resolve);
+ const get=mock.api.storage.local.get;mock.api.storage.local.get=async keys=>{reads++;started();await gate;return get(keys);};
+ const platform=createPlatform();const a=platform.readSettings(),b=platform.readSettings(),c=platform.readSettings();await entered;release();
+ const values=await Promise.all([a,b,c]);assert.equal(reads,1);
+ values[0].nativeScroll.enabled=true;assert.equal(values[1].nativeScroll.enabled,false);
+ mock.api.storage.local.get=get;await platform.mutateSettings(current=>({...current,nativeScroll:{...current.nativeScroll,enabled:true}}),false);
+ assert.equal((await platform.readSettings()).nativeScroll.enabled,true);
+});
+
+test('failed shared reads are retryable and external settings changes invalidate in-flight sharing',async()=>{
+ const mock=chromeMock();globalThis.chrome=mock.api;const platform=createPlatform(),get=mock.api.storage.local.get;
+ mock.api.storage.local.get=async()=>{throw Error('read unavailable');};await assert.rejects(platform.readSettings(),/read unavailable/);
+ mock.api.storage.local.get=get;assert.equal((await platform.readSettings()).nativeScroll.enabled,false);
+ let release,started;const gate=new Promise(resolve=>release=resolve),entered=new Promise(resolve=>started=resolve);
+ mock.api.storage.local.get=async keys=>{const result=await get(keys);started();await gate;return result;};
+ const old=platform.readSettings();await entered;mock.local[SETTINGS_KEY]={nativeScroll:{enabled:true}};
+ platform.handleStorageChanged({[SETTINGS_KEY]:{oldValue:{},newValue:mock.local[SETTINGS_KEY]}},'local');mock.api.storage.local.get=get;
+ assert.equal((await platform.readSettings()).nativeScroll.enabled,true);release();assert.equal((await old).nativeScroll.enabled,false);
+});

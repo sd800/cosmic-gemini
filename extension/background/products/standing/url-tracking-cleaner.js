@@ -1,4 +1,4 @@
-import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature } from '../../../core/config.js';
+import { FEATURE_IDS, SETTINGS_KEY, INCOGNITO_SETTINGS_KEY, updateFeature, normalizeUrlTrackingSite } from '../../../core/config.js';
 import { URL_TRACKING_RULE_IDS, urlTrackingCleanerRules, urlTrackingCleanerState } from '../../../core/url-tracking-cleaner.js';
 
 const signature = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
@@ -16,7 +16,7 @@ export function createUrlTrackingCleanerProduct(platform, pageRuntimeHost) {
   }
   async function apply(settings) {
     const preference = settings.urlTrackingCleaner;
-    const active = preference?.enabled === true && (preference.utmParameters !== false || preference.bilibiliParameters === true);
+    const active = preference?.enabled === true && (preference.bilibiliParameters===true||preference.utmParameters!==false&&(preference.onlyListedSites!==true||preference.siteRules?.length>0));
     let next = [];
     if (active) {
       const tabs = await chrome.tabs.query({});
@@ -52,14 +52,24 @@ export function createUrlTrackingCleanerProduct(platform, pageRuntimeHost) {
     handleMessage(message) {
       return serialize(async () => {
         const master = message.type === 'UI_SET_ENABLED';
-        if ((!master && (message.type !== 'UI_SET_URL_TRACKING_SETTING' || !['utmParameters', 'bilibiliParameters'].includes(message.name)))
-          || typeof (master ? message.enabled : message.value) !== 'boolean') throw new Error('Unsupported URL Tracking Cleaner setting.');
+        const list=['UI_ADD_RULE','UI_DELETE_RULE','UI_CLEAR_RULES','UI_ALPHABETIZE_RULES'].includes(message.type);
+        if(list&&(message.listName!=='siteRules'||message.settingGroup))throw new Error('Unknown website list.');
+        const rule=list&&['UI_ADD_RULE','UI_DELETE_RULE'].includes(message.type)?normalizeUrlTrackingSite(message.rule):null;
+        if (!list&&((!master && (message.type !== 'UI_SET_URL_TRACKING_SETTING' || !['utmParameters', 'bilibiliParameters', 'onlyListedSites'].includes(message.name)))
+          || typeof (master ? message.enabled : message.value) !== 'boolean')) throw new Error('Unsupported URL Tracking Cleaner setting.');
         let previous;
         try {
           const settings = await platform.mutateSettings(async current => {
             previous = current;
-            const next = updateFeature(current, product.id, feature => ({ ...feature,
-              [master ? 'enabled' : message.name]: master ? message.enabled : message.value }));
+            const next = updateFeature(current, product.id, feature => {
+              if(!list)return {...feature,[master?'enabled':message.name]:master?message.enabled:message.value};
+              let siteRules=[...feature.siteRules];
+              if(message.type==='UI_ADD_RULE'&&!siteRules.includes(rule)){if(siteRules.length>=1000)throw new Error('Website list is full.');siteRules.push(rule);}
+              else if(message.type==='UI_DELETE_RULE')siteRules=siteRules.filter(value=>value!==rule);
+              else if(message.type==='UI_CLEAR_RULES')siteRules=[];
+              else if(message.type==='UI_ALPHABETIZE_RULES')siteRules.sort((a,b)=>a.localeCompare(b));
+              return {...feature,siteRules};
+            });
             await ensureApplied(next);
             return next;
           });

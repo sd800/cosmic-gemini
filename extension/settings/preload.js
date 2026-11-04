@@ -184,6 +184,9 @@
     document.querySelector('#urlTrackingCleanerOptions').disabled = !urlTrackingEnabled.checked;
     document.querySelector('#urlTrackingUtmParameters').checked = preference?.utmParameters !== false;
     document.querySelector('#urlTrackingBilibiliParameters').checked = preference?.bilibiliParameters === true;
+    document.querySelector('#urlTrackingOnlyListedSites').checked=preference?.onlyListedSites===true;
+    document.querySelector('#urlTrackingScopeOption').hidden=!urlTrackingEnabled.checked||preference?.utmParameters===false;
+    const list=document.querySelector('#urlTrackingWebsites');list.hidden=list.disabled=!urlTrackingEnabled.checked||preference?.utmParameters===false||preference?.onlyListedSites!==true;
   }
   const clipboardProtectEnabled = document.querySelector('#clipboardProtectEnabled');
   if (clipboardProtectEnabled) clipboardProtectEnabled.checked = !incognitoContext && cached.clipboardProtect?.enabled === true;

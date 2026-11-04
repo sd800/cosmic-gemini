@@ -740,3 +740,13 @@ test('URL Tracking Cleaner renders saved master/UTM state and dims only by its m
     assert.equal(master.checked,enabled);assert.equal(utm.checked,selected);assert.equal(bilibili.checked,bili);assert.equal(options.disabled,!enabled);
   }
 });
+
+test('URL Tracking Cleaner source-list checkbox is hidden by master-off and preserves its saved choice',async()=>{
+ const {api,nodes}=controller();for(const id of ['urlTrackingCleanerEnabled','urlTrackingUtmParameters','urlTrackingBilibiliParameters','urlTrackingOnlyListedSites'])nodes.set('#'+id,new Element('input'));
+ for(const [id,type]of [['urlTrackingCleanerOptions','fieldset'],['urlTrackingWebsites','fieldset'],['urlTrackingScopeOption','div']])nodes.set('#'+id,new Element(type));
+ for(const enabled of [true,false])for(const onlyListedSites of [true,false])for(const utmParameters of [true,false]){
+  await api.hydrate({preferences:{urlTrackingCleaner:{enabled,onlyListedSites,utmParameters,siteRules:['example.com']}}});api.render();
+  assert.equal(nodes.get('#urlTrackingOnlyListedSites').checked,onlyListedSites);assert.equal(nodes.get('#urlTrackingScopeOption').hidden,!enabled||!utmParameters);
+  assert.equal(nodes.get('#urlTrackingWebsites').hidden,!enabled||!utmParameters||!onlyListedSites);assert.equal(nodes.get('#urlTrackingWebsites').disabled,!enabled||!utmParameters||!onlyListedSites);
+ }
+});

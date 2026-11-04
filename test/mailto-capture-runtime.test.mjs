@@ -1000,3 +1000,13 @@ test('Mailto Capture clears a closing popover before opening another without res
   assert.ok(removed >= 1);
   assert.equal(focused, 0);
 });
+
+test('closed capture UI has no scroll or resize listeners, and repeated openings release them',async()=>{
+ const {context,runtime}=await runtimeFixture();runtime.enable();
+ const listeners=name=>(context.window.listeners.get(name)||[]).length;
+ assert.equal(listeners('scroll'),0);assert.equal(listeners('resize'),0);
+ runtime.render=()=>{};const anchor=new FakeAnchor('mailto:contact@example.test');
+ runtime.show(anchor,anchor.href);assert.equal(listeners('scroll'),1);assert.equal(listeners('resize'),1);
+ runtime.show(anchor,anchor.href);assert.equal(listeners('scroll'),1);
+ runtime.close();assert.equal(listeners('scroll'),0);assert.equal(listeners('resize'),0);runtime.disable();
+});

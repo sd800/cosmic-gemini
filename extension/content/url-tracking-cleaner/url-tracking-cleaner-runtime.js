@@ -1,7 +1,12 @@
 (() => {
+  function randomToken() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(18));
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
   const key=Symbol.for('cosmic-gemini.url-tracking-cleaner.runtime'),prefix='cosmic-gemini:url-tracking-cleaner:';
   if(globalThis[key]){globalThis[key].announce();return;}
-  const helper=globalThis[Symbol.for('cosmic-gemini.url-tracking-cleaner.parameters')],token=crypto.randomUUID();
+  const helper=globalThis[Symbol.for('cosmic-gemini.url-tracking-cleaner.parameters')],token=randomToken();
   let active=false,options={},openPatch=null;
   const events=['pointerdown','click','auxclick','contextmenu'],completionEvents=['click','auxclick'];
   const onLink=event=>{

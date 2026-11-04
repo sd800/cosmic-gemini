@@ -140,8 +140,6 @@
       window.addEventListener('auxclick', this.onActivate, true);
       window.addEventListener('pointerdown', this.onPointerDown, true);
       window.addEventListener('keydown', this.onKeyDown, true);
-      window.addEventListener('scroll', this.onViewportChange, { capture: true, passive: true });
-      window.addEventListener('resize', this.onViewportChange, { passive: true });
     }
 
     disable() {
@@ -271,6 +269,8 @@
       this.close(false, true);
       this.anchor = anchor;
       this.capture = capture;
+      window.addEventListener('scroll', this.onViewportChange, { capture: true, passive: true });
+      window.addEventListener('resize', this.onViewportChange, { passive: true });
       this.render();
     }
 
@@ -590,6 +590,8 @@
     }
 
     close(restoreFocus = false, immediate = false) {
+      window.removeEventListener('scroll', this.onViewportChange, true);
+      window.removeEventListener('resize', this.onViewportChange, false);
       if (this.viewportFrame) cancelAnimationFrame(this.viewportFrame);
       this.viewportFrame = 0;
       const host = this.host;

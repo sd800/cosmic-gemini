@@ -1,5 +1,13 @@
 // Injected on demand into the isolated world; no listeners exist before a capture.
 export function showDocumentChoice(payload) {
+  // This function is serialized into an isolated webpage world, including HTTP.
+  function randomNonce() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+    const bytes=globalThis.crypto.getRandomValues(new Uint8Array(16));
+    bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+    const hex=Array.from(bytes,byte=>byte.toString(16).padStart(2,'0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
   const key = Symbol.for('cosmic-gemini.document-preview.dialog');
   if (globalThis[key]) { globalThis[key].enqueue(payload); return true; }
   const queue = [payload];
@@ -66,7 +74,7 @@ export function showDocumentChoice(payload) {
           if (url.origin === location.origin && /^https?:$/.test(url.protocol) && !url.username && !url.password) {
             target = window.open('about:blank', '_blank');
             if (target) {
-              nonce = crypto.randomUUID(); target.name = 'cosmic-gemini-document:' + nonce;
+              nonce = randomNonce(); target.name = 'cosmic-gemini-document:' + nonce;
               target.document.open();
               target.document.write('<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; frame-src chrome-extension:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>Document Preview</title><style>html{color-scheme:light dark;background:light-dark(#faf9f7,#171819);color:light-dark(#24272b,#e3e5e8);font:16px/1.5 system-ui}body{margin:0}p{padding:36px}</style><p id="loading"></p>');
               target.document.close();

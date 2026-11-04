@@ -1,5 +1,7 @@
 // UTM removal preserves other query bytes; the optional Bilibili policy clears its query.
 import './url-tracking-parameters.js';
+import { siteKey } from './site-key.js';
+import { normalizeUrlTrackingSite } from './config.js';
 const helper = globalThis[Symbol.for('cosmic-gemini.url-tracking-cleaner.parameters')];
 export const cleanTrackingUrl = helper.clean;
 export const UTM_PARAMETERS = Object.freeze(helper.names.flatMap(name => [name, name.toUpperCase()]));
@@ -8,11 +10,14 @@ const UTM_FILTER = '^https?://[^?#]+\\?(?:[^#]*&)?(?:utm_|UTM_)';
 
 export function urlTrackingCleanerState(settings, value) {
   const preference = settings.urlTrackingCleaner || {};
-  const enabled = preference.enabled === true, utmParameters = preference.utmParameters !== false;
+  const enabled = preference.enabled === true;
   const bilibiliParameters = preference.bilibiliParameters === true;
   let supported = false;
   try { supported = ['http:', 'https:'].includes(new URL(value).protocol); } catch {}
-  return { enabled, utmParameters, bilibiliParameters, supported, active: enabled && (utmParameters || bilibiliParameters) && supported };
+  const onlyListedSites=preference.onlyListedSites===true, site=onlyListedSites?siteKey(value):'';
+  const sourceAllowed=!onlyListedSites||(preference.siteRules||[]).includes(site);
+  const utmParameters=preference.utmParameters!==false&&sourceAllowed;
+  return { enabled, utmParameters, bilibiliParameters, onlyListedSites, supported, active: enabled && (utmParameters || bilibiliParameters) && supported };
 }
 
 export function urlTrackingCleanerRule(tabIds, incognito = false) {
@@ -33,7 +38,13 @@ export function urlTrackingCleanerRules(tabIds, incognito, preference) {
   if (preference?.enabled !== true) return [];
   const base = urlTrackingCleanerRule(tabIds, incognito);
   if (!base) return [];
-  const rules = preference.utmParameters !== false ? [base] : [];
+  const rules=[];
+  if(preference.utmParameters!==false){
+    if(preference.onlyListedSites===true){
+      const domains=[...new Set((preference.siteRules||[]).flatMap(value=>{try{return [normalizeUrlTrackingSite(value)];}catch{return [];}}))];
+      if(domains.length)rules.push({...base,condition:{...base.condition,initiatorDomains:domains}});
+    }else rules.push(base);
+  }
   if (preference.bilibiliParameters === true) rules.push({
     ...base,
     id: URL_TRACKING_RULE_IDS[incognito ? 'bilibiliIncognito' : 'bilibiliRegular'],

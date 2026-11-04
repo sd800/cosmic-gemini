@@ -301,3 +301,10 @@ Run `node --test test/nsna-sites.test.mjs test/config.test.mjs test/operations-p
 ## Scoped reader appearance and file properties
 
 Test filename and file-information activation for local and online non-PDF documents, lazy cached Office/OpenDocument metadata, compact ISO offsets, missing properties, markup-like text, forbidden XML declarations, and narrow/short dialog reopening. Test the custom PDF/presentation menus with right-click and Shift+F10, Escape/outside dismissal, all-pages Auto/Light/Dark, current-page overrides and inherited Auto, source dark paper, synchronized thumbnails, navigation, and system-theme changes. Confirm that appearance edits retain loaded bytes, zoom, and reading position, and leave original files unchanged. Reusable fixtures and screenshots belong in ignored test-dist, with a README and no request logs.
+
+
+## Source-scoped UTM cleanup and configuration efficiency
+
+Use `scripts/browser/test-url-tracking-scope-browser.mjs` with `CONTEXT_PLAYWRIGHT` and `CONTEXT_CHROME` pointing to the test runtime/browser. It uses a headless disposable profile and routed synthetic HTTP pages. Verify that randomUUID is absent, runtime initialization succeeds, listed sources/subdomains clean native/script/new-tab navigation before the destination request, unlisted sources and target-only matches retain UTM tags, and Bilibili remains independent. Check the nested checkbox/list, parent-off hiding, saved values, URL normalization, reload cache, and bilingual presentation. Fixtures/screenshots and concise notes belong in ignored test-dist; no request logs are saved.
+
+Targeted unit coverage includes configuration-read coalescing, independent snapshots, read/write failures, external-update invalidation, product-local validation, unchanged image configuration, floating-window listener lifetime, HTTP nonce generation, source-list normalization, empty-list behavior, and native-rule rollback.

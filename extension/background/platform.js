@@ -27,6 +27,7 @@ export function createPlatform() {
   const settingsAreaName = incognitoContext ? 'session' : 'local';
   const defaultSettings = incognitoContext ? DEFAULT_INCOGNITO_SETTINGS : DEFAULT_SETTINGS;
   let writeQueue = Promise.resolve();
+  let settingsRead = null;
   let resettingStorage = false;
   let pageRefreshTimer = 0;
   let toolbarRefreshTimer = 0;
@@ -55,13 +56,22 @@ export function createPlatform() {
 
   async function readSettings() {
     await prepareIncognitoSession();
-    const stored = await settingsStorage.get(settingsKey);
-    return normalizeSettings(stored[settingsKey] || defaultSettings);
+    // Share only an in-flight storage read. Every caller still owns its snapshot;
+    // no persistent cache can conceal changes or a failed write.
+    if(!settingsRead){
+      const current=Promise.resolve().then(()=>settingsStorage.get(settingsKey))
+        .then(stored=>normalizeSettings(stored[settingsKey]||defaultSettings))
+        .finally(()=>{if(settingsRead===current)settingsRead=null;});
+      settingsRead=current;
+    }
+    return structuredClone(await settingsRead);
   }
 
   async function writeSettings(value) {
     const settings = normalizeSettings(value);
-    await settingsStorage.set({ [settingsKey]: settings });
+    settingsRead=null;
+    try{await settingsStorage.set({ [settingsKey]: settings });}
+    finally{settingsRead=null;}
     return settings;
   }
 
@@ -348,6 +358,7 @@ export function createPlatform() {
   function handleStorageChanged(changes, areaName) {
     if (areaName !== settingsAreaName || !changes || typeof changes !== 'object') return false;
     const settingsChange = changes[settingsKey];
+    if(settingsChange)settingsRead=null;
     if (settingsChange && pageSettingsSignature(settingsChange.oldValue) !== pageSettingsSignature(settingsChange.newValue)) {
       scheduleOpenPageRefresh();
     }

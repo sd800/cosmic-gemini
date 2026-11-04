@@ -401,7 +401,7 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .knowledge-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 40%); align-items: center; gap: 24px; padding: 16px 0; border-top: 1px solid var(--line); }
 .knowledge-row label { display: flex; gap: 9px; align-items: flex-start; cursor: pointer; min-width: 0; }
 .knowledge-label { min-width: 0; }
-.knowledge-row input { width: 15px; height: 15px; flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--switch-blue); }
+.knowledge-row input[type=checkbox] { width: 15px; height: 15px; flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--switch-blue); }
 .knowledge-row strong { display: block; font-size: 13px; }
 .knowledge-row small { display: block; font-size: 12px; line-height: 1.5; color: var(--muted); margin-top: 4px; }
 .knowledge-row select { width: 100%; min-width: 0; }
@@ -480,3 +480,7 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .zhihu-theme-setting:has(input:disabled) .zhihu-theme-help { opacity: .55; }
 #zhihuImageAdjustmentOptions + .satellite-privacy { margin-top: 14px; }
 @media (max-width: 640px) { .zhihu-theme-setting { margin-right: 0; } }
+
+#urlTrackingUtmOption{row-gap:12px}.url-tracking-scope{min-width:0;margin-left:24px}.url-tracking-scope>.knowledge-row{padding:0;border-top:0}
+
+#urlTrackingWebsites{margin-top:10px;padding-top:0;border-top:0}

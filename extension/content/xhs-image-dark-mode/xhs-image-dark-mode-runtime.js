@@ -216,6 +216,10 @@
       if (message?.token !== this.token) return;
       const config = message.config || {};
       const nextActive = config.active === true && location.hostname === 'www.xiaohongshu.com';
+      const unchanged=nextActive===this.active&&this.locale===(config.locale==='zh-CN'?'zh-CN':'en-US')
+        &&this.overrideDarkMode===(config.overrideDarkMode===true)&&this.showImageControl===(config.showImageControl!==false)
+        &&this.controlOpacity===clamp(config.controlOpacity||0.5,0.2,0.9);
+      if(unchanged){if(nextActive)this.evaluateTheme(false);return;}
       this.closeControlMenu();
       this.locale = config.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
       this.overrideDarkMode = config.overrideDarkMode === true;

@@ -99,7 +99,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabled: false
   }),
   clipboardProtect: Object.freeze({ enabled: false }),
-  urlTrackingCleaner: Object.freeze({ enabled: false, utmParameters: true, bilibiliParameters: false }),
+  urlTrackingCleaner: Object.freeze({ enabled: false, utmParameters: true, bilibiliParameters: false, onlyListedSites: false, siteRules: Object.freeze([]) }),
   whiteSofter: Object.freeze({ enabled: false, tone: 'warm-minus-1' }),
   documentPreview: Object.freeze({ enabled: false, appearance: 'auto', pdfSampling: 4, whitelistDomains: Object.freeze([]) }),
   langGoogle: Object.freeze({ enabled: false }),
@@ -359,6 +359,13 @@ function normalizeWebsiteFixerGroup(value, normalizeDomain) {
   return { enabled: value?.enabled === true, whitelistDomains };
 }
 
+export function normalizeUrlTrackingSite(value) {
+  const domain=siteKey('https://'+normalizeWebsiteFixerDomain(value));
+  // Reject bare public suffixes so a saved suffix cannot widen native scope.
+  if(!domain||siteKey('https://domain-check.'+domain)!==domain)throw new Error('Enter a website domain.');
+  return domain;
+}
+
 export function normalizeSettings(value = {}) {
   const whitePointReduction = Number(value.pageDisplay?.reduceWhitePoint?.reduction);
   const biliDailyLogin = value.biliDailyLogin || value.satellites?.biliDailyLogin || {};
@@ -376,7 +383,7 @@ export function normalizeSettings(value = {}) {
       enabled: value.mailtoCapture?.enabled === true
     },
     clipboardProtect: { enabled: value.clipboardProtect?.enabled === true },
-    urlTrackingCleaner: { enabled: value.urlTrackingCleaner?.enabled === true, utmParameters: value.urlTrackingCleaner?.utmParameters !== false, bilibiliParameters: value.urlTrackingCleaner?.bilibiliParameters === true },
+    urlTrackingCleaner: { enabled: value.urlTrackingCleaner?.enabled === true, utmParameters: value.urlTrackingCleaner?.utmParameters !== false, bilibiliParameters: value.urlTrackingCleaner?.bilibiliParameters === true, onlyListedSites: value.urlTrackingCleaner?.onlyListedSites === true, siteRules: normalizeRules(value.urlTrackingCleaner?.siteRules, normalizeUrlTrackingSite).slice(0,1000) },
     whiteSofter: { enabled: value.whiteSofter?.enabled === true, tone: normalizeWhiteSofterTone(value.whiteSofter?.tone) },
     documentPreview: {
       enabled: value.documentPreview?.enabled === true,
@@ -519,7 +526,7 @@ export function isClaudeFamilyUrl(value) {
 }
 
 export function featureState(settings, featureId, url) {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({[featureId]:settings?.[featureId],nsna:settings?.nsna});
   const feature = normalized[featureId];
   if (!feature) throw new Error('Unknown feature.');
   const hostname = hostnameFromUrl(url);
@@ -573,7 +580,7 @@ export function featureState(settings, featureId, url) {
 }
 
 export function siteFeatureState(settings, featureId, url) {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({[featureId]:settings?.[featureId]});
   const feature = normalized[featureId];
   if (featureId !== FEATURE_IDS.ANY_COPY || !feature) {
     throw new Error('Unknown site feature.');
@@ -611,7 +618,7 @@ export function anyCopyEnhancedState(url, tabActive = false) {
 }
 
 export function mailtoCaptureState(settings, url) {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({mailtoCapture:settings?.mailtoCapture});
   const hostname = hostnameFromUrl(url);
   const enabled = normalized.mailtoCapture.enabled === true;
   return {
@@ -634,7 +641,7 @@ export function normalizePageDisplaySite(value) {
 }
 
 export function pageDisplayState(settings, url, temporary = {}) {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({pageDisplay:settings?.pageDisplay});
   const hostname = hostnameFromUrl(url);
   const feature = normalized.pageDisplay;
   const enabled = feature.enabled === true;
@@ -658,7 +665,7 @@ export function pageDisplayState(settings, url, temporary = {}) {
 }
 
 export function adMarshalState(settings, url) {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({adMarshal:settings?.adMarshal});
   const hostname = hostnameFromUrl(url);
   const siteId = hostname === 'news.qq.com' || hostname === 'view.inews.qq.com'
     ? 'newsQqCom'
@@ -684,7 +691,7 @@ export function adMarshalState(settings, url) {
 }
 
 export function websiteFixerState(settings, url) {
-  const feature = normalizeSettings(settings).websiteFixer;
+  const feature = normalizeSettings({websiteFixer:settings?.websiteFixer}).websiteFixer;
   const hostname = hostnameFromUrl(url);
   return {
     ...feature,
@@ -700,7 +707,7 @@ export function normalizeWebsiteFixerSite(value) {
 }
 
 export function xhsImageDarkModeState(settings, url, pageState = {}) {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({xhsImageDarkMode:settings?.xhsImageDarkMode});
   const feature = normalized.xhsImageDarkMode;
   const hostname = hostnameFromUrl(url);
   const supported = hostname === 'www.xiaohongshu.com';
@@ -722,7 +729,7 @@ export function xhsImageDarkModeState(settings, url, pageState = {}) {
 }
 
 export function xhsNavigationState(settings, url) {
-  const feature = normalizeSettings(settings).xhsNavigation;
+  const feature = normalizeSettings({xhsNavigation:settings?.xhsNavigation,xhsImageDarkMode:settings?.xhsImageDarkMode}).xhsNavigation;
   const hostname = hostnameFromUrl(url);
   const supported = hostname === 'www.xiaohongshu.com';
   return {
@@ -735,7 +742,7 @@ export function xhsNavigationState(settings, url) {
 }
 
 export function chineseResponseClaudeState(settings, url, pageState = {}) {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({chineseResponseClaude:settings?.chineseResponseClaude});
   const feature = normalized.chineseResponseClaude;
   const hostname = hostnameFromUrl(url);
   const supported = isClaudeFamilyHostname(hostname);

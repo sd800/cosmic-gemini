@@ -422,7 +422,7 @@ test('shared whitelist edits work from every Settings entry after in-page naviga
     const result = await standing.handleMessage('nativeScroll', {
       type: 'UI_ADD_NSNA_WHITELIST_RULE', rule: '  *.Douyin.com  '
     }, context);
-    assert.deepEqual(result.whitelistRules, ['*.douyin.com']);
+    assert.deepEqual(result.whitelistRules, ['douyin.com']);
     for (const product of ['nativeScroll', 'noAutoplay']) {
       for (const hostname of ['douyin.com', 'www.douyin.com', 'live.douyin.com']) {
         const state = featureState(settings, product, `https://${hostname}/`);

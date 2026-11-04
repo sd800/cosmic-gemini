@@ -238,21 +238,21 @@ The Cosmic Gemini mark in the browser toolbar remains unchanged. Activity contin
 
 ### Website rules
 
-`example.com` or an IP address matches that host only. `*.example.com` matches the root domain and all of its subdomains. Popup actions save exact current-site overrides, while Settings also accepts wildcard domain rules.
+Native Scroll and No Autoplay use the registrable main domain and all of its subdomains. Enter a domain or paste a website URL; a subdomain is grouped with its main domain automatically. IP addresses and localhost remain exact matches.
 
 Native Scroll and No Autoplay each have a global default plus three website behaviors: Always inactive, Always use Standard mode, and Always use Enhanced mode. A website without a matching rule follows the global default. Standard and Enhanced rules keep their matching websites active even when that default is off.
 
 The shared whitelist takes priority over those product-specific rules and keeps both products inactive. Removing a website from the shared whitelist restores its previously saved Native Scroll and No Autoplay behavior.
 
-An exact rule takes priority over a wildcard, followed by the most specific wildcard. Each saved rule belongs to one behavior, and its behavior can be changed directly in Settings. This makes it possible to place a narrow exception inside a broader rule without maintaining overlapping lists.
+Each main domain has one behavior that can be changed directly in Settings. Existing host and wildcard entries are grouped automatically; conflicts use Always inactive first, then Standard, then Enhanced.
 
-The popup's primary control creates an exact current-site behavior or returns an existing exact rule to the broader setting. The Enhanced control enables the current site when necessary and switches it between Enhanced and Standard mode.
+The popup's primary control sets the current main domain and its subdomains, or removes that site's override to follow the global default. The Enhanced control switches the same site between Enhanced and Standard mode.
 
 Any Copy keeps its own saved website activation list; temporary popup choices take priority until Chrome exits. Any Copy Enhanced uses no website rules and keeps only a current-tab session state. On a website where No Autoplay is disabled, video, audio, and Web Audio may autoplay.
 
 ### Audio autoplay
 
-When No Autoplay is enabled, audio autoplay is blocked without interrupting you with a page prompt. In No Autoplay settings, you can allow audio elements and Web Audio on all sites or add hostname or IP-address rules for selected websites. These permissions do not allow autoplaying video.
+When No Autoplay is enabled, audio autoplay is blocked without interrupting you with a page prompt. In No Autoplay settings, you can allow audio elements and Web Audio on all sites or add domain or IP-address rules for selected websites. Domain entries include all subdomains. These permissions do not allow autoplaying video.
 
 ## Privacy
 

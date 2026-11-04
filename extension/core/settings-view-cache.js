@@ -9,25 +9,12 @@ function rules(value) {
 }
 
 export function settingsViewCache(states = {}) {
+  const nsna = normalizeSettings({ nsna: states.nsna, nativeScroll: states.nativeScroll, noAutoplay: states.noAutoplay });
   return {
     version: 44,
-    nsna: {
-      whitelistRules: rules(states.nsna?.whitelistRules)
-    },
-    nativeScroll: {
-      enabled: states.nativeScroll?.enabled === true,
-      inactiveRules: rules(states.nativeScroll?.inactiveRules),
-      enhancedRules: rules(states.nativeScroll?.enhancedRules),
-      standardRules: rules(states.nativeScroll?.standardRules)
-    },
-    noAutoplay: {
-      enabled: states.noAutoplay?.enabled === true,
-      inactiveRules: rules(states.noAutoplay?.inactiveRules),
-      enhancedRules: rules(states.noAutoplay?.enhancedRules),
-      standardRules: rules(states.noAutoplay?.standardRules),
-      audioAutoplayAllSites: states.noAutoplay?.audioAutoplayAllSites === true,
-      permanentAudioAllowRules: rules(states.noAutoplay?.permanentAudioAllowRules)
-    },
+    nsna: nsna.nsna,
+    nativeScroll: nsna.nativeScroll,
+    noAutoplay: nsna.noAutoplay,
     anyCopy: {
       siteRules: rules(states.anyCopy?.siteRules)
     },

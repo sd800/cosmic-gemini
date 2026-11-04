@@ -120,9 +120,9 @@ test('user-maintained domain rules are normalized, deduplicated, and kept in ins
     noAutoplay: { enhancedRules: ['media.example.com'] },
     anyCopy: { siteRules: ['copy.example.com'] }
   });
-  assert.deepEqual(settings.nativeScroll.inactiveRules, ['b.example.com', '*.example.com']);
-  assert.deepEqual(settings.nsna.whitelistRules, ['private.example.com', '*.shared.example']);
-  assert.deepEqual(settings.noAutoplay.enhancedRules, ['media.example.com']);
+  assert.deepEqual(settings.nativeScroll.inactiveRules, ['example.com']);
+  assert.deepEqual(settings.nsna.whitelistRules, ['example.com', 'shared.example']);
+  assert.deepEqual(settings.noAutoplay.enhancedRules, ['example.com']);
   assert.deepEqual(settings.anyCopy.siteRules, ['copy.example.com']);
 });
 
@@ -140,8 +140,8 @@ test('deprecated activation and mode fields are ignored', () => {
   });
   assert.equal(settings.nativeScroll.enabled, false);
   assert.deepEqual(settings.nativeScroll.inactiveRules, []);
-  assert.deepEqual(settings.nativeScroll.standardRules, ['standard.example.com', 'conflict.example.com']);
-  assert.deepEqual(settings.nativeScroll.enhancedRules, ['enhanced.example.com']);
+  assert.deepEqual(settings.nativeScroll.standardRules, ['example.com']);
+  assert.deepEqual(settings.nativeScroll.enhancedRules, []);
 });
 
 test('exact and wildcard rules match their intended hostnames', () => {
@@ -196,7 +196,7 @@ test('numeric-leading domains and internationalized hostnames survive saving and
     assert.equal(rule, '*.' + canonical);
     const settings = normalizeSettings({ nsna: { whitelistRules: [rule] },
       nativeScroll: { enabled: true }, noAutoplay: { enabled: true } });
-    assert.deepEqual(settings.nsna.whitelistRules, [rule]);
+    assert.deepEqual(settings.nsna.whitelistRules, [canonical]);
     for (const host of [hostname, 'www.' + hostname]) {
       assert.equal(featureState(settings, 'nativeScroll', 'https://' + host).active, false);
       assert.equal(featureState(settings, 'noAutoplay', 'https://' + host).active, false);
@@ -205,7 +205,7 @@ test('numeric-leading domains and internationalized hostnames survive saving and
   }
 });
 
-test('inactive behavior overrides broader Enhanced behavior when it is more specific', () => {
+test('inactive behavior wins when legacy host rules merge into one registrable domain', () => {
   const state = featureState({
     nativeScroll: {
       enabled: true,
@@ -215,7 +215,7 @@ test('inactive behavior overrides broader Enhanced behavior when it is more spec
   }, FEATURE_IDS.NATIVE_SCROLL, 'https://docs.example.com/a');
   assert.equal(state.active, false);
   assert.equal(state.behavior, 'inactive');
-  assert.equal(state.behaviorRule, 'docs.example.com');
+  assert.equal(state.behaviorRule, 'example.com');
 });
 
 test('Standard behavior overrides broader Enhanced behavior', () => {
@@ -268,7 +268,7 @@ test('shared NSNA whitelist takes priority over both product behavior rules', ()
     const state = featureState(settings, featureId, 'https://app.private.example');
     assert.equal(state.active, false);
     assert.equal(state.sharedWhitelisted, true);
-    assert.equal(state.sharedWhitelistRule, '*.private.example');
+    assert.equal(state.sharedWhitelistRule, 'private.example');
     assert.equal(state.behaviorOverride, 'sharedWhitelist');
   }
   assert.equal(featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://app.private.example').audioAllowed, false);
@@ -297,13 +297,13 @@ test('No Autoplay audio permission applies only while No Autoplay is active', ()
     noAutoplay: {
       enabled: true,
       permanentAudioAllowRules: ['*.music.example'],
-      inactiveRules: ['quiet.music.example']
+      inactiveRules: ['quiet.example']
     }
   };
   const allowed = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://play.music.example');
   assert.equal(allowed.active, true);
   assert.equal(allowed.audioAllowed, true);
-  const inactive = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://quiet.music.example');
+  const inactive = featureState(settings, FEATURE_IDS.NO_AUTOPLAY, 'https://quiet.example');
   assert.equal(inactive.active, false);
   assert.equal(inactive.audioAllowed, false);
   assert.equal(featureState({}, FEATURE_IDS.NO_AUTOPLAY, 'https://radio.example').audioAllowed, false);
@@ -586,10 +586,10 @@ test('settings first-frame cache keeps preferences without page activity', () =>
   assert.deepEqual(cache.nativeScroll, {
     enabled: false,
     inactiveRules: ['example.com'],
-    enhancedRules: ['*.docs.example'],
+    enhancedRules: ['docs.example'],
     standardRules: ['read.example']
   });
-  assert.deepEqual(cache.nsna, { whitelistRules: ['*.private.example'] });
+  assert.deepEqual(cache.nsna, { whitelistRules: ['private.example'] });
   assert.deepEqual(cache.biliDailyLogin, { enabled: true });
   assert.deepEqual(cache.adMarshal, {
     managedSites: { tencentNews: true, zhihu: false }

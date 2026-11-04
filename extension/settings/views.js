@@ -1,13 +1,14 @@
-const rulePanel = (listName, headingKey, helpKey, emptyKey = '') => `
-  <section class="rule-panel" data-list-section="${listName}"${emptyKey ? ` data-empty-key="${emptyKey}"` : ''}>
+const rulePanel = (listName, headingKey, helpKey, emptyKey = '', scope = '') => `
+  <section class="rule-panel" data-list-section="${listName}"${scope ? ` data-domain-scope="${scope}"` : ''}${emptyKey ? ` data-empty-key="${emptyKey}"` : ''}>
     <h3 data-i18n="${headingKey}"></h3>
     <p data-i18n="${helpKey}"></p>
     <form class="rule-form" novalidate>
-      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
+      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="${scope === 'nsna' ? 'nsnaDomainPlaceholder' : 'rulePlaceholder'}">
       <button class="primary-button" type="submit" data-i18n="add"></button>
     </form>
     <p class="form-message" aria-live="polite"></p>
     <ul class="rule-list"></ul>
+    ${scope === 'nsna' ? '<p class="caption rule-list-note" hidden></p>' : ''}
   </section>`;
 
 const behaviorPanel = (listName, headingKey, helpKey, emptyKey) => `
@@ -24,11 +25,11 @@ const introTitle = (iconName, headingKey) => `
   </div>`;
 
 const websiteBehaviorCard = helpKey => `
-  <section class="card website-behavior-card" data-behavior-card>
+  <section class="card website-behavior-card" data-behavior-card data-domain-scope="nsna">
     <div class="group-heading"><h2 data-i18n="websiteBehaviorHeading"></h2><p data-i18n="${helpKey}"></p></div>
     <form class="behavior-rule-form" novalidate>
       <label class="sr-only" for="website-rule" data-i18n="websiteRuleLabel"></label>
-      <input id="website-rule" type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
+      <input id="website-rule" type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="nsnaDomainPlaceholder">
       <label class="sr-only" for="website-behavior" data-i18n="websiteBehaviorLabel"></label>
       <select id="website-behavior">
         <option value="inactive" data-i18n="inactiveSitesHeading"></option>
@@ -43,20 +44,20 @@ const websiteBehaviorCard = helpKey => `
       ${behaviorPanel('standardRules', 'standardSitesHeading', 'standardSitesHelp', 'emptyStandardSites')}
       ${behaviorPanel('enhancedRules', 'enhancedSitesHeading', 'enhancedSitesHelp', 'emptyEnhancedSites')}
     </div>
-    <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
+    <p class="caption rule-list-note" data-nsna-list-note hidden></p>
   </section>`;
 
 const sharedWhitelistSection = () => `
-  <section class="card rule-card nsna-whitelist-card" data-feature-id="nsna" data-list-section="whitelistRules" data-empty-key="emptySharedWhitelist">
+  <section class="card rule-card nsna-whitelist-card" data-feature-id="nsna" data-list-section="whitelistRules" data-empty-key="emptySharedWhitelist" data-domain-scope="nsna">
     <h2 data-i18n="sharedWhitelistHeading"></h2>
     <p data-i18n="sharedWhitelistHelp"></p>
     <form class="rule-form" novalidate>
-      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="rulePlaceholder">
+      <input type="text" autocapitalize="none" autocomplete="off" spellcheck="false" data-i18n-placeholder="nsnaDomainPlaceholder">
       <button class="primary-button" type="submit" data-i18n="add"></button>
     </form>
     <p class="form-message" aria-live="polite"></p>
     <ul class="rule-list"></ul>
-    <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
+    <p class="caption rule-list-note" hidden></p>
   </section>`;
 
 const audioAllowSection = () => `
@@ -67,8 +68,7 @@ const audioAllowSection = () => `
       <span><strong data-i18n="audioAllowAllSitesHeading"></strong><small data-i18n="audioAllowAllSitesHelp"></small></span>
       <span class="switch"><input id="audioAutoplayAllSites" type="checkbox"><span></span></span>
     </label>
-    ${rulePanel('permanentAudioAllowRules', 'audioAllowedSitesHeading', 'audioAllowedSitesHelp')}
-    <p class="caption behavior-rule-help"><span data-i18n="exactHostnameHelp"></span><span data-i18n="wildcardHostnameHelp"></span></p>
+    ${rulePanel('permanentAudioAllowRules', 'audioAllowedSitesHeading', 'audioAllowedSitesHelp', '', 'nsna')}
   </fieldset>`;
 
 const anyCopyRuleSection = (featureId, headingKey, helpKey, emptyKey) => `

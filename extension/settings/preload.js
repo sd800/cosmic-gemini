@@ -333,6 +333,12 @@
 
   const behaviorByList = { inactiveRules: 'inactive', standardRules: 'standard', enhancedRules: 'enhanced' };
   const behaviorLabel = { inactive: 'inactiveSitesHeading', standard: 'standardSitesHeading', enhanced: 'enhancedSitesHeading' };
+  const behaviorNote = document.querySelector('[data-nsna-list-note]');
+  if (behaviorNote) {
+    const domains = ['inactiveRules', 'standardRules', 'enhancedRules'].flatMap(key => cached[feature]?.[key] || []);
+    behaviorNote.hidden = !domains.some(rule => !isIpRule(rule) && rule !== 'localhost');
+    if (!behaviorNote.hidden) behaviorNote.textContent = translate('generalDomainListNote');
+  }
   for (const section of document.querySelectorAll('[data-behavior-list]')) {
     const listName = section.dataset.behaviorList;
     const list = section.querySelector('.rule-list');
@@ -385,7 +391,7 @@
     const rules = Array.isArray(sectionState[listName]) ? sectionState[listName].filter(rule => typeof rule === 'string') : [];
     const note = section.querySelector('.rule-list-note');
     if (note) {
-      note.hidden = section.dataset.settingGroup === 'crashPageWarden' || !rules.some(rule => !isIpRule(rule));
+      note.hidden = section.dataset.settingGroup === 'crashPageWarden' || !rules.some(rule => !isIpRule(rule) && rule !== 'localhost');
       if (!note.hidden) note.textContent = translate('generalDomainListNote');
     }
     list.replaceChildren();

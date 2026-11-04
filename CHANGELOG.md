@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.1 (481) — 2026-11-04
+
+- Apply Native Scroll and No Autoplay website policies to the registrable main domain and all of its subdomains, including popup controls, inactive/Standard/Enhanced modes, the shared whitelist, and audio-autoplay permissions.
+- Accept pasted website URLs in all corresponding Settings inputs, normalize them to the main domain, and show the shared subdomain-coverage note only when domain entries exist.
+- Merge existing hostname and wildcard rules into main-domain entries while preserving insertion order. Resolve merged mode conflicts with inactive first, then Standard, then Enhanced; retain the shared whitelist's highest priority.
+- Keep IP and local-host matching exact, preserve public/private suffix boundaries, and continue rejecting popup actions after the source hostname changes. Synchronize the Settings cache with the normalized rules.
+
 ## 26.11.3.2 (480) — 2026-11-03
 
 - Add the cumulative release number to displayed versions, extension and project metadata, and release records. Keep the four-part calendar version in the machine-readable version field.

@@ -1,4 +1,4 @@
-import { normalizeAccessControlDomain, normalizeRule, normalizeWebsiteFixerSite, normalizeCrashPageWardenDomain } from './config.js';
+import { normalizeAccessControlDomain, normalizeRule, normalizeNsnaSite, normalizeWebsiteFixerSite, normalizeCrashPageWardenDomain } from './config.js';
 import { etld } from './etld.js';
 import { siteKey } from './site-key.js';
 
@@ -55,6 +55,10 @@ export function normalizeGeneralDomainInput(value) {
   const domain = siteKey(url.href);
   if (!domain) throw new Error('Enter a valid website URL.');
   return domain;
+}
+
+export function normalizeNsnaRuleInput(value) {
+  return normalizeNsnaSite(normalizeGeneralDomainInput(value));
 }
 
 // This tool deliberately preserves an exact hostname instead of reducing a

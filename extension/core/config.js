@@ -239,6 +239,13 @@ export function normalizeRule(value) {
   return wildcard ? '*.' + hostname : hostname;
 }
 
+// NS/NA policies share one registrable domain; IPs, localhost, and bare
+// public suffixes retain the exact keys supplied by siteKey.
+export function normalizeNsnaSite(value) {
+  const rule = normalizeRule(value);
+  return siteKey('https://' + (rule.startsWith('*.') ? rule.slice(2) : rule));
+}
+
 export function isIpAddress(value) {
   try { return isIpHostname(canonicalHostname(value)); }
   catch { return false; }
@@ -263,11 +270,11 @@ export function normalizeCrashPageWardenDomain(value) {
   return rule;
 }
 
-function normalizeRules(value) {
+function normalizeRules(value, normalize = normalizeRule) {
   const rules = [];
   for (const entry of Array.isArray(value) ? value : []) {
     try {
-      const rule = normalizeRule(entry);
+      const rule = normalize(entry);
       if (!rules.includes(rule)) rules.push(rule);
     } catch {}
   }
@@ -275,10 +282,10 @@ function normalizeRules(value) {
 }
 
 function normalizeFeature(value = {}, includeAudioRules = false) {
-  const inactiveRules = normalizeRules(value.inactiveRules);
-  const explicitStandardRules = normalizeRules(value.standardRules)
+  const inactiveRules = normalizeRules(value.inactiveRules, normalizeNsnaSite);
+  const explicitStandardRules = normalizeRules(value.standardRules, normalizeNsnaSite)
     .filter(rule => !inactiveRules.includes(rule));
-  const enhancedRules = normalizeRules(value.enhancedRules)
+  const enhancedRules = normalizeRules(value.enhancedRules, normalizeNsnaSite)
     .filter(rule => !inactiveRules.includes(rule) && !explicitStandardRules.includes(rule));
   const normalized = {
     enabled: value.enabled === true,
@@ -288,7 +295,7 @@ function normalizeFeature(value = {}, includeAudioRules = false) {
   };
   if (includeAudioRules) {
     normalized.audioAutoplayAllSites = value.audioAutoplayAllSites === true;
-    normalized.permanentAudioAllowRules = normalizeRules(value.permanentAudioAllowRules);
+    normalized.permanentAudioAllowRules = normalizeRules(value.permanentAudioAllowRules, normalizeNsnaSite);
   }
   return normalized;
 }
@@ -358,7 +365,7 @@ export function normalizeSettings(value = {}) {
   return {
     version: 45,
     nsna: {
-      whitelistRules: normalizeRules(value.nsna?.whitelistRules)
+      whitelistRules: normalizeRules(value.nsna?.whitelistRules, normalizeNsnaSite)
     },
     nativeScroll: normalizeFeature(value.nativeScroll || {}, false),
     noAutoplay: normalizeFeature(value.noAutoplay || {}, true),
@@ -516,49 +523,51 @@ export function featureState(settings, featureId, url) {
   const feature = normalized[featureId];
   if (!feature) throw new Error('Unknown feature.');
   const hostname = hostnameFromUrl(url);
+  const site = [FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId) ? siteKey(url) : hostname;
   const sharedWhitelistRule = [FEATURE_IDS.NATIVE_SCROLL, FEATURE_IDS.NO_AUTOPLAY].includes(featureId) && hostname
-    ? matchingRule(hostname, normalized.nsna.whitelistRules)
+    ? matchingRule(site, normalized.nsna.whitelistRules)
     : '';
-  const matchedInactiveRule = hostname ? matchingRule(hostname, feature.inactiveRules) : '';
-  const matchedEnhancedRule = hostname ? matchingRule(hostname, feature.enhancedRules) : '';
-  const matchedStandardRule = hostname ? matchingRule(hostname, feature.standardRules) : '';
+  const matchedInactiveRule = hostname ? matchingRule(site, feature.inactiveRules) : '';
+  const matchedEnhancedRule = hostname ? matchingRule(site, feature.enhancedRules) : '';
+  const matchedStandardRule = hostname ? matchingRule(site, feature.standardRules) : '';
   const matchedAudioRule = featureId === FEATURE_IDS.NO_AUTOPLAY && hostname
-    ? matchingRule(hostname, feature.permanentAudioAllowRules)
+    ? matchingRule(site, feature.permanentAudioAllowRules)
     : '';
   const selection = hostname
-    ? resolveBehavior(hostname, feature)
+    ? resolveBehavior(site, feature)
     : { behavior: 'inactive', rule: '' };
   const active = !!hostname && !sharedWhitelistRule && selection.behavior !== 'inactive';
   const behavior = sharedWhitelistRule ? 'inactive' : selection.behavior;
   return {
     ...feature,
     hostname,
+    site,
     supported: !!hostname,
     active,
     mode: active && behavior === 'enhanced' ? 'enhanced' : 'standard',
     behavior,
     sharedWhitelisted: !!sharedWhitelistRule,
     sharedWhitelistRule,
-    exactSharedWhitelisted: !!hostname && normalized.nsna.whitelistRules.includes(hostname),
+    exactSharedWhitelisted: !!hostname && normalized.nsna.whitelistRules.includes(site),
     matchedInactiveRule,
-    exactInactive: !!hostname && feature.inactiveRules.includes(hostname),
+    exactInactive: !!hostname && feature.inactiveRules.includes(site),
     matchedEnhancedRule,
-    exactEnhanced: !!hostname && feature.enhancedRules.includes(hostname),
+    exactEnhanced: !!hostname && feature.enhancedRules.includes(site),
     matchedStandardRule,
-    exactStandard: !!hostname && feature.standardRules.includes(hostname),
+    exactStandard: !!hostname && feature.standardRules.includes(site),
     behaviorRule: sharedWhitelistRule || selection.rule,
     behaviorOverride: sharedWhitelistRule ? 'sharedWhitelist' : selection.rule ? selection.behavior : '',
     exactBehaviorOverride: !!hostname && (
-      feature.inactiveRules.includes(hostname)
-      || feature.standardRules.includes(hostname)
-      || feature.enhancedRules.includes(hostname)
+      feature.inactiveRules.includes(site)
+      || feature.standardRules.includes(site)
+      || feature.enhancedRules.includes(site)
     ),
     audioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY
       ? active && (feature.audioAutoplayAllSites === true || !!matchedAudioRule)
       : false,
     matchedAudioRule,
     exactAudioAllowed: featureId === FEATURE_IDS.NO_AUTOPLAY && !!hostname
-      ? feature.permanentAudioAllowRules.includes(hostname)
+      ? feature.permanentAudioAllowRules.includes(site)
       : false
   };
 }

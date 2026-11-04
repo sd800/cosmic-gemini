@@ -2,7 +2,7 @@ import { loadLocale } from '../core/locale.js';
 import { createCardDisclosures } from './card-disclosures.js';
 import { isIpAddress, normalizeAccessControlDomain, normalizeWebsiteFixerDomain, normalizePageDisplaySite, normalizeLeetcodeDarkModeTone, normalizeWhiteSofterTone, WHITE_TONES } from '../core/config.js';
 import { saveSettingsViewCache } from '../core/settings-view-cache.js';
-import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeCrashPageWardenRuleInput, normalizeStayOnPageCommand, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
+import { ACCESS_CONTROL_ALIAS_GROUPS, normalizeAccessControlRuleInput, normalizeGeneralDomainInput, normalizeCrashPageWardenRuleInput, normalizeStayOnPageCommand, normalizeNsnaRuleInput, normalizeWebsiteRuleInput } from '../core/website-rule-input.js';
 import { localizeDocument, translator } from '../shared/localization.js';
 import { icon, retryRead, send } from '../shared/ui.js';
 import { createSettingsState } from './state.js';
@@ -194,7 +194,7 @@ function renderList(section) {
   }
   const note = section.querySelector('.rule-list-note');
   if (note) {
-    note.hidden = section.dataset.settingGroup === 'crashPageWarden' || !rules.some(rule => !isIpAddress(rule));
+    note.hidden = section.dataset.settingGroup === 'crashPageWarden' || !rules.some(rule => !isIpAddress(rule) && rule !== 'localhost');
     if (!note.hidden) note.textContent = t('generalDomainListNote');
   }
   const signature = JSON.stringify([locale, rules]);
@@ -246,6 +246,12 @@ function createBehaviorSelect(rule, selected) {
 function renderBehaviorList(section) {
   const current = state();
   if (!current) return;
+  const note = section.closest('[data-behavior-card]')?.querySelector('[data-nsna-list-note]');
+  const domains = ['inactiveRules', 'standardRules', 'enhancedRules'].flatMap(key => current[key] || []);
+  if (note) {
+    note.hidden = !domains.some(rule => !isIpAddress(rule) && rule !== 'localhost');
+    if (!note.hidden) note.textContent = t('generalDomainListNote');
+  }
   const listName = section.dataset.behaviorList;
   const selected = behaviorByList[listName];
   const rules = current[listName] || [];
@@ -726,13 +732,16 @@ function openRuleInputHelp(input) {
   const documentWhitelist = section?.dataset.featureId === 'documentPreview';
   const pageDisplayWebsites = section?.dataset.domainScope === 'site';
   const behaviorEditor = Boolean(input.closest('[data-behavior-card]'));
+  const nsna = Boolean(input.closest('[data-domain-scope="nsna"]'));
   const aliasGroups = accessControl ? ACCESS_CONTROL_ALIAS_GROUPS : [];
   panel.heading.textContent = t(accessControl ? 'accessControlInputHelpHeading' : 'ruleInputHelpHeading');
-  panel.intro.textContent = t(pageDisplayWebsites ? 'reduceWhitePointWebsitesHelp' : documentWhitelist ? 'documentWhitelistDescription' : accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
+  panel.intro.textContent = t(nsna ? 'nsnaDomainHelp' : pageDisplayWebsites ? 'reduceWhitePointWebsitesHelp' : documentWhitelist ? 'documentWhitelistDescription' : accessControl ? 'accessControlInputHelpIntro' : 'ruleInputHelpIntro');
   panel.behavior.hidden = !behaviorEditor;
   panel.behavior.textContent = behaviorEditor ? t('ruleInputBehaviorHelp') : '';
   panel.rulesHeading.textContent = t('ruleInputRulesHeading');
-  panel.rules.replaceChildren(...(pageDisplayWebsites
+  panel.rules.replaceChildren(...(nsna
+    ? [helpTextItem('documentWhitelistDomainHelp'), helpTextItem('documentWhitelistIpHelp')]
+    : pageDisplayWebsites
     ? [helpTextItem('reduceWhitePointWebsitesHelp'), helpTextItem('documentWhitelistIpHelp')]
     : crashPageWarden
     ? [helpTextItem('crashPageWardenScopeHelp')]
@@ -743,7 +752,7 @@ function openRuleInputHelp(input) {
     : accessControl
     ? [helpTextItem('accessControlInputDomainHelp'), helpTextItem('accessControlInputIpHelp')]
     : [helpTextItem('ruleInputExactHelp'), helpTextItem('ruleInputWildcardHelp')]),
-  ...(crashPageWarden ? [] : [helpTextItem('ruleInputExpansionHelp')]));
+  ...(crashPageWarden || nsna ? [] : [helpTextItem('ruleInputExpansionHelp')]));
   panel.aliasesSection.hidden = aliasGroups.length === 0;
   panel.aliasesHeading.textContent = t('accessControlInputAliasesHeading');
   panel.aliases.replaceChildren();
@@ -1167,8 +1176,8 @@ function bindView() {
         return;
       }
       let rule;
-      try { rule = normalizeWebsiteRuleInput(input.value); }
-      catch { message.textContent = t('invalidRule'); return; }
+      try { rule = normalizeNsnaRuleInput(input.value); }
+      catch { message.textContent = t('nsnaInvalidDomain'); return; }
       void update(behaviorCard, async () => {
         await savePreference(featureId, { type: 'UI_SET_BEHAVIOR_RULE', featureId, rule, behavior: select.value });
         input.value = '';
@@ -1243,7 +1252,9 @@ function bindView() {
         if (sectionFeatureId === 'websiteFixer' && settingGroup === 'stayOnPage') {
           ({ type: commandType, rule } = normalizeStayOnPageCommand(input.value));
         } else {
-          rule = sectionFeatureId === 'accessControl'
+          rule = section.dataset.domainScope === 'nsna'
+            ? normalizeNsnaRuleInput(input.value)
+            : sectionFeatureId === 'accessControl'
             ? normalizeAccessControlRuleInput(input.value)
             : sectionFeatureId === 'websiteFixer'
               ? settingGroup === 'crashPageWarden' ? normalizeCrashPageWardenRuleInput(input.value) : normalizeWebsiteFixerDomain(normalizeGeneralDomainInput(input.value))
@@ -1254,7 +1265,7 @@ function bindView() {
                 : normalizeWebsiteRuleInput(input.value);
         }
       } catch {
-        message.textContent = t(sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
+        message.textContent = t(section.dataset.domainScope === 'nsna' ? 'nsnaInvalidDomain' : sectionFeatureId === 'accessControl' ? 'accessControlInvalidDomain' : 'invalidRule');
         return;
       }
       if (commandType === 'UI_ADD_RULE' && (sectionState(section)?.[listName] || []).includes(rule)) {

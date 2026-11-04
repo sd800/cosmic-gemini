@@ -3,6 +3,7 @@ import {
   featureState,
   hostnameFromUrl,
   normalizeRule,
+  normalizeNsnaSite,
   updateFeature
 } from '../../core/config.js';
 import { createPageRuntimeHost } from '../features/page-runtime-host.js';
@@ -166,29 +167,31 @@ export function createStandingProvince(platform) {
     }
     if (message.type === 'UI_TOGGLE_PAGE_FEATURE') {
       const hostname = await currentPageHostname(message);
+      const site = normalizeNsnaSite(hostname);
       const settings = await platform.mutateSettings(current => {
         const state = featureState(current, governed.id, `https://${hostname}/`);
         return updateFeature(current, governed.id, feature => {
-          if (state.exactBehaviorOverride) return withoutBehaviorRule(feature, hostname);
-          return withBehaviorRule(feature, hostname, state.active ? 'inactive' : 'standard');
+          if (state.exactBehaviorOverride) return withoutBehaviorRule(feature, site);
+          return withBehaviorRule(feature, site, state.active ? 'inactive' : 'standard');
         });
       });
       return settings[governed.id];
     }
     if (message.type === 'UI_TOGGLE_PAGE_ENHANCED') {
       const hostname = await currentPageHostname(message);
+      const site = normalizeNsnaSite(hostname);
       const settings = await platform.mutateSettings(current => {
         const state = featureState(current, governed.id, `https://${hostname}/`);
         return updateFeature(current, governed.id, feature => withBehaviorRule(
           feature,
-          hostname,
+          site,
           state.active && state.mode === 'enhanced' ? 'standard' : 'enhanced'
         ));
       });
       return settings[governed.id];
     }
     if (message.type === 'UI_SET_BEHAVIOR_RULE' || message.type === 'UI_DELETE_BEHAVIOR_RULE') {
-      const rule = normalizeRule(message.rule || '');
+      const rule = normalizeNsnaSite(message.rule || '');
       const behavior = message.type === 'UI_SET_BEHAVIOR_RULE' && WEBSITE_BEHAVIORS.has(message.behavior)
         ? message.behavior : '';
       if (message.type === 'UI_SET_BEHAVIOR_RULE' && !behavior) throw new Error('Unknown website behavior.');
@@ -201,7 +204,7 @@ export function createStandingProvince(platform) {
       // Settings views share a document; in-page navigation can retain its original sender URL.
       const allowed = String(context.sender.url || '').startsWith(chrome.runtime.getURL('settings/'));
       if (!allowed) throw new Error('The shared whitelist can be changed only from Settings.');
-      const rule = normalizeRule(message.rule || '');
+      const rule = normalizeNsnaSite(message.rule || '');
       const settings = await platform.mutateSettings(current => ({
         ...current,
         nsna: {
@@ -220,7 +223,7 @@ export function createStandingProvince(platform) {
       if (message.type === 'UI_ADD_RULE' && !String(context.sender.url || '').startsWith(chrome.runtime.getURL('settings/'))) {
         throw new Error('That rule must be added from No Autoplay settings.');
       }
-      const rule = normalizeRule(message.rule || '');
+      const rule = normalizeNsnaSite(message.rule || '');
       const settings = await platform.mutateSettings(current => updateFeature(current, governed.id, feature => ({
         ...feature,
         permanentAudioAllowRules: message.type === 'UI_ADD_RULE'

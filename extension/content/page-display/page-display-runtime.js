@@ -122,7 +122,7 @@
     refreshShadeColor() {
       this.appearanceRefreshQueued = false;
       if (!this.active || !this.host) return;
-      const shade = this.shadeIsInsideInversion() ? 'light' : 'dark';
+      const shade = this.reduction !== '0' && this.shadeIsInsideInversion() ? 'light' : 'dark';
       if (this.host.getAttribute('data-shade') !== shade) this.host.setAttribute('data-shade', shade);
       // Computed filter values change during CSS transitions without further
       // attribute mutations. Follow only running filter animations on actual
@@ -244,8 +244,9 @@
       if (!root || root.namespaceURI !== HTML_NS || root.localName !== 'html'
         || (document.contentType !== 'text/html' && document.readyState !== 'complete')) return;
       this.createOverlay();
-      this.host.setAttribute('data-greyscale', String(this.greyscale));
-      this.host.setAttribute('data-reduction', this.reduction);
+      const greyscale = String(this.greyscale);
+      if (this.host.getAttribute('data-greyscale') !== greyscale) this.host.setAttribute('data-greyscale', greyscale);
+      if (this.host.getAttribute('data-reduction') !== this.reduction) this.host.setAttribute('data-reduction', this.reduction);
       const fullscreen = document.fullscreenElement;
       const replaced = fullscreen && REPLACED_FULLSCREEN.has(fullscreen.localName);
       const target = replaced ? root : fullscreen || root;
@@ -278,7 +279,6 @@
       this.mount();
       if (reduceWhitePoint) this.startAppearanceTracking();
       else this.stopAppearanceTracking();
-      this.refreshShadeColor();
       document.addEventListener('fullscreenchange', this.mount, true);
       document.addEventListener('readystatechange', this.mount, true);
     }

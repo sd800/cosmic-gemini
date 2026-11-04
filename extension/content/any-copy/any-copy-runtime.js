@@ -181,7 +181,10 @@
             priority: element.style.getPropertyPriority(property)
           });
         }
-        element.style.setProperty(property, 'text', 'important');
+        if (element.style.getPropertyValue(property) !== 'text'
+          || element.style.getPropertyPriority(property) !== 'important') {
+          element.style.setProperty(property, 'text', 'important');
+        }
       }
     }
 
@@ -196,12 +199,18 @@
       });
     }
 
-    onMutations() {
+    onMutations(records) {
       if (!this.active) return;
       this.ensureStyle();
-      for (const element of this.savedStyles.keys()) {
-        if (element.isConnected) this.forceSelectable(element);
-        else this.savedStyles.delete(element);
+      const removed = records.some(record => record.removedNodes?.length);
+      if (removed) {
+        for (const element of this.savedStyles.keys()) {
+          if (!element.isConnected) this.savedStyles.delete(element);
+        }
+      }
+      const changed = new Set(records.filter(record => record.type === 'attributes').map(record => record.target));
+      for (const element of changed) {
+        if (element.isConnected && this.savedStyles.has(element)) this.forceSelectable(element);
       }
     }
 

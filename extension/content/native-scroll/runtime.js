@@ -422,7 +422,9 @@
 
     beginGesture() {
       this.gestureUntil = performance.now() + 450;
-      this.applyStyles();
+      // The cancellation guard is immediate; layout inspection can share one
+      // frame across wheel events and page mutations in the same gesture.
+      this.scheduleInspection();
     }
 
     reportSuppression() {

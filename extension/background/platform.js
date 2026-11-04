@@ -274,7 +274,11 @@ export function createPlatform() {
     if (resettingStorage || !Number.isInteger(tabId) || !Object.values(FEATURE_IDS).includes(featureId)) return;
     return activityQueue.run(tabId, async () => {
       const activity = await readActivityRecord(tabId);
-      activity[featureId] = value === true;
+      const next = value === true;
+      // Candidate lists publish their own UI updates. An unchanged activity
+      // bit needs neither another storage write nor three toolbar API calls.
+      if ((activity[featureId] === true) === next) return;
+      activity[featureId] = next;
       const key = activityKey(tabId);
       if (Object.values(activity).some(Boolean)) await sessionStorage.set({ [key]: activity });
       else await sessionStorage.remove(key);

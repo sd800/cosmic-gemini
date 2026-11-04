@@ -3,6 +3,12 @@ import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
 const NO_ANY_COPY_DIRECTIVE = Object.freeze({ persistent: false, source: '' });
 const NO_CLIPBOARD_PROTECT_DIRECTIVE = Object.freeze({ yieldToAnyCopy: false });
 
+export function productPageDirectives(productId, resolve) {
+  // Only this policy pair consumes cross-product configuration. Independent
+  // bridge reads need no Any Copy session lookup or coordination.
+  return [FEATURE_IDS.ANY_COPY, FEATURE_IDS.CLIPBOARD_PROTECT].includes(productId) ? resolve() : undefined;
+}
+
 export function centralPageDirectives(settings, url, resolved = {}) {
   const hostname = hostnameFromUrl(url);
   const adMarshalKeepsAnyCopyActive = settings?.adMarshal?.managedSites?.zhihu === true

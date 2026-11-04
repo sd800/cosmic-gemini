@@ -316,6 +316,11 @@
 
     queueTarget(target) {
       if (!this.active || !target) return;
+      // A response/root scan already includes its pending child blocks.
+      for (const pending of this.pendingTargets) {
+        if (pending === target || pending.contains?.(target)) return;
+        if (target.contains?.(pending)) this.pendingTargets.delete(pending);
+      }
       this.pendingTargets.add(target);
       if (this.flushQueued) return;
       this.flushQueued = true;

@@ -176,6 +176,7 @@ test('Translate Override clears page-wide and nested opt-outs, including late re
     const values = { ...attributes };
     return {
       nodeType: 1, localName, children, connected: true,
+      get isConnected() { return this.connected; },
       getAttribute(attribute) { return values[attribute] ?? null; },
       hasAttribute(attribute) { return Object.hasOwn(values, attribute); },
       setAttribute(attribute, value) { values[attribute] = value; },
@@ -225,7 +226,7 @@ test('Translate Override clears page-wide and nested opt-outs, including late re
 test('Translate Override catches the document root when the script starts before parsing', () => {
   let callback;
   const root = {
-    nodeType: 1, localName: 'html', attributes: { translate: 'no' },
+    nodeType: 1, localName: 'html', isConnected: true, attributes: { translate: 'no' },
     getAttribute(name) { return this.attributes[name] ?? null; },
     removeAttribute(name) { delete this.attributes[name]; },
     querySelectorAll() { return []; }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { featureState, normalizeSettings } from '../extension/core/config.js';
+import { FEATURE_IDS, featureState, normalizeSettings } from '../extension/core/config.js';
 import { createAnyCopyProduct } from '../extension/background/products/operations/any-copy.js';
 import { createAnyCopyEnhancedProduct } from '../extension/background/products/operations/any-copy-enhanced.js';
 import { createPageDisplayProduct } from '../extension/background/products/operations/page-display.js';
@@ -10,7 +10,17 @@ import { createChineseResponseClaudeProduct } from '../extension/background/prod
 import { createOperationsProvince } from '../extension/background/provinces/operations.js';
 import { createStandingProvince } from '../extension/background/provinces/standing.js';
 import { createAdministrationProduct } from '../extension/background/products/operations/administration.js';
-import { centralPageDirectives, syncCentralPageProducts } from '../extension/background/central-policy.js';
+import { centralPageDirectives, productPageDirectives, syncCentralPageProducts } from '../extension/background/central-policy.js';
+
+test('independent product configuration avoids copy-policy session queries', async () => {
+  const expected = { current: true };
+  const coordinated = [];
+  for (const productId of Object.values(FEATURE_IDS)) {
+    const result = await productPageDirectives(productId, async () => { coordinated.push(productId); return expected; });
+    assert.equal(result, ['anyCopy', 'clipboardProtect'].includes(productId) ? expected : undefined);
+  }
+  assert.deepEqual(coordinated.sort(), ['anyCopy', 'clipboardProtect']);
+});
 
 test('popup cache receives saved preferences separately from effective state', async () => {
   const base = 'chrome-extension://cosmic-gemini/';

@@ -121,6 +121,12 @@ export async function imagePageDiscovery(options = {}) {
   const scanStartedAt = performance.now();
   const expensiveWorkDeadline = scanStartedAt + (deep ? 4_000 : 1_500);
   const withinExpensiveWorkBudget = () => performance.now() < expensiveWorkDeadline;
+  let sliceDeadline = scanStartedAt + 8;
+  const pauseScan = async () => {
+    if (typeof globalThis.scheduler?.yield === 'function') await globalThis.scheduler.yield();
+    else await new Promise(resolve => setTimeout(resolve, 0));
+    sliceDeadline = performance.now() + 8;
+  };
   const originalScroll = { x: window.scrollX, y: window.scrollY };
 
   if (deep) {
@@ -240,12 +246,14 @@ export async function imagePageDiscovery(options = {}) {
   const roots = [document];
   const allElements = [];
   for (let rootIndex = 0; rootIndex < roots.length; rootIndex += 1) {
-    let elements = [];
-    try { elements = [...roots[rootIndex].querySelectorAll('*')]; } catch {}
-    for (const element of elements) {
+    // Stop enumeration at the existing cap instead of materializing every
+    // element in a large document before taking its first bounded slice.
+    const walker = document.createTreeWalker(roots[rootIndex], NodeFilter.SHOW_ELEMENT);
+    for (let element = walker.nextNode(); element; element = walker.nextNode()) {
       allElements.push(element);
       if (element.shadowRoot && roots.length < 80) roots.push(element.shadowRoot);
       if (allElements.length >= (deep ? 18000 : 12000)) break;
+      if (performance.now() >= sliceDeadline) await pauseScan();
     }
     if (allElements.length >= (deep ? 18000 : 12000)) break;
   }
@@ -259,6 +267,7 @@ export async function imagePageDiscovery(options = {}) {
 
   let imageIndex = 0;
   for (const img of allElements.filter(element => element instanceof HTMLImageElement)) {
+    if (performance.now() >= sliceDeadline) await pauseScan();
     const key = family('img', imageIndex++);
     const meta = {
       familyKey: key,
@@ -286,6 +295,7 @@ export async function imagePageDiscovery(options = {}) {
 
   let elementIndex = 0;
   for (const element of allElements) {
+    if (performance.now() >= sliceDeadline) await pauseScan();
     const key = family('element', elementIndex++);
     if (element instanceof HTMLInputElement && element.type === 'image') {
       add(element.src, { familyKey: key, source: 'image', width: element.width, height: element.height });
@@ -317,6 +327,7 @@ export async function imagePageDiscovery(options = {}) {
   let svgIndex = 0;
   for (const svg of allElements.filter(element => element instanceof SVGSVGElement).slice(0, 250)) {
     if (!withinExpensiveWorkBudget()) break;
+    if (performance.now() >= sliceDeadline) await pauseScan();
     try {
       const clone = svg.cloneNode(true);
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -331,6 +342,7 @@ export async function imagePageDiscovery(options = {}) {
   let canvasIndex = 0;
   for (const canvas of allElements.filter(element => element instanceof HTMLCanvasElement).slice(0, 80)) {
     if (!withinExpensiveWorkBudget()) break;
+    if (performance.now() >= sliceDeadline) await pauseScan();
     if ((Number(canvas.width) || 0) * (Number(canvas.height) || 0) > 16_000_000) continue;
     try {
       const url = canvas.toDataURL('image/png');

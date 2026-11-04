@@ -78,6 +78,24 @@ test('Any Copy writes the original selection and suppresses page copy handlers',
   runtime.onSelectionEvent({ isTrusted: true, target: document.documentElement,
     stopImmediatePropagation: () => { pageIntercepted = true; } });
   assert.equal(pageIntercepted, true, 'ordinary page restrictions remain suppressed');
+  const protectedText = new Element(); protectedText.isConnected = true;
+  protectedText.style.setProperty('user-select', 'none');
+  let writes = 0;
+  const setProperty = protectedText.style.setProperty.bind(protectedText.style);
+  protectedText.style.setProperty = (...args) => { writes++; setProperty(...args); };
+  runtime.forceSelectable(protectedText);
+  assert.equal(writes, 2);
+  runtime.onMutations([{ type: 'attributes', target: protectedText }]);
+  assert.equal(writes, 2, 'own mutation delivery settles without another style write');
+  protectedText.style.setProperty('user-select', 'none', 'important');
+  runtime.onMutations([{ type: 'attributes', target: protectedText }]);
+  assert.equal(writes, 4, 'a later website restriction is repaired once');
+  assert.equal(protectedText.style.getPropertyValue('user-select'), 'text');
+  runtime.onMutations([{ type: 'attributes', target: new Element() }]);
+  assert.equal(writes, 4, 'unrelated mutations do not rewrite protected elements');
+  protectedText.isConnected = false;
+  runtime.onMutations([{ type: 'childList', removedNodes: [protectedText] }]);
+  assert.equal(runtime.savedStyles.size, 0, 'detached elements are released');
   runtime.onDispose({ detail: runtime.token });
   assert.equal(window[Symbol.for('cosmic-gemini.any-copy.runtime')], undefined);
 });

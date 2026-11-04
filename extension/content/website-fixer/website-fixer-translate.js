@@ -104,9 +104,18 @@ globalThis[Symbol.for('cosmic-gemini.website-fixer.translate-activate')] = () =>
   }
 
   const observer = new MutationObserver(records => {
+    const roots = new Set(), attributes = new Set();
     for (const record of records) {
-      if (record.type === 'attributes') clearOptOut(record.target);
-      else for (const node of record.addedNodes) clearTree(node);
+      if (record.type === 'attributes') attributes.add(record.target);
+      else for (const node of record.addedNodes) if (node.nodeType === 1 && node.isConnected) roots.add(node);
+    }
+    const covered = node => {
+      for (let parent = node.parentElement; parent; parent = parent.parentElement) if (roots.has(parent)) return true;
+      return false;
+    };
+    for (const node of roots) if (!covered(node)) clearTree(node);
+    for (const node of attributes) {
+      if (node.isConnected && !roots.has(node) && !covered(node)) clearOptOut(node);
     }
   });
   observer.observe(document, {

@@ -75,6 +75,24 @@ test('Claude response observation limits character changes to assistant roots', 
   assert.equal(FakeMutationObserver.instances.every(observer => observer.disconnected), true);
 });
 
+test('pending response roots absorb overlapping child-block work in either arrival order', async () => {
+  const { runtime } = await runtimeFixture();
+  runtime.active = true;
+  const block = {}, sibling = {};
+  const root = { contains: node => node === block || node === sibling };
+  const processed = [];
+  runtime.processRoot = node => processed.push(node);
+  root.matches = () => true;
+  runtime.queueTarget(block);
+  runtime.queueTarget(root);
+  runtime.queueTarget(sibling);
+  runtime.queueTarget(root);
+  assert.equal(runtime.pendingTargets.size, 1);
+  await Promise.resolve();
+  assert.deepEqual(processed, [root]);
+  assert.equal(runtime.pendingTargets.size, 0);
+});
+
 test('Claude browser identity normalization uses stable US defaults and restores native APIs', async () => {
   const navigatorPrototype = {};
   Object.defineProperties(navigatorPrototype, {

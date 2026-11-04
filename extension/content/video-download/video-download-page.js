@@ -105,16 +105,19 @@
     return candidates;
   }
 
-  function candidatesFromValue(root, source) {
+  function candidatesFromValue(root, source, manifests = null, baseUrl = location.href) {
     const candidates = [];
     const queue = [root];
     const seen = new WeakSet();
     let inspected = 0;
-    while (queue.length && inspected < 50000 && candidates.length < 500) {
-      const value = queue.shift();
+    let cursor = 0;
+    while (cursor < queue.length && inspected < 50000 && candidates.length < 500) {
+      const value = queue[cursor];
+      queue[cursor++] = null;
       inspected += 1;
       if (typeof value === 'string') {
         candidates.push(...urlsFromText(value, source));
+        if (manifests && manifests.length < 12) manifests.push(...manifestsFromText(value, baseUrl, source));
         continue;
       }
       if (!value || typeof value !== 'object' || seen.has(value)) continue;
@@ -125,6 +128,7 @@
       try { values = Array.isArray(value) ? value : Object.values(value); }
       catch { continue; }
       for (const child of values.slice(0, 5000)) {
+        if (queue.length >= 50000) break;
         if (child && (typeof child === 'object' || typeof child === 'string')) queue.push(child);
       }
     }
@@ -139,6 +143,7 @@
       this.trackedXhrOpen = null;
       this.trackedXhrSend = null;
       this.active = true;
+      this.responseReaders = new Set();
       this.messageListening = false;
       this.onMessage = this.onMessage.bind(this);
       this.install();
@@ -154,18 +159,37 @@
       globalThis.postMessage({ marker: MARKER, type: 'manifests', manifests: manifests.slice(0, 12) }, location.origin);
     }
 
-    publishWrappedManifest(response) {
-      const length = Number(response.headers?.get?.('content-length') || 0);
-      if (!/\.m3u8(?:$|[?#])/i.test(response.url || '') || length > 2 * 1024 * 1024) return;
-      void response.clone().arrayBuffer().then(buffer => {
-        if (!this.active || buffer.byteLength > 2 * 1024 * 1024) return;
-        globalThis.postMessage({
-          marker: MARKER,
-          type: 'wrapped-manifest',
-          data: bytesToBase64(new Uint8Array(buffer)),
-          baseUrl: response.url || location.href
-        }, location.origin);
-      }).catch(() => {});
+    async readResponse(response) {
+      let reader;
+      try {
+        reader = response.clone().body?.getReader();
+        if (!reader) return null;
+        this.responseReaders.add(reader);
+        const chunks = [];
+        let size = 0;
+        while (this.active) {
+          const { value, done } = await reader.read();
+          if (!this.active) return null;
+          if (done) {
+            const bytes = new Uint8Array(size);
+            let offset = 0;
+            for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+            return bytes;
+          }
+          size += value.byteLength;
+          if (size > MAX_TEXT_LENGTH) return null;
+          chunks.push(value);
+        }
+        return null;
+      } finally {
+        if (reader) {
+          this.responseReaders.delete(reader);
+          // A cloned response tees the original stream. Do not wait for tee
+          // cancellation: the website still owns and consumes the other branch.
+          try { void reader.cancel().catch(() => {}); } catch {}
+          try { reader.releaseLock(); } catch {}
+        }
+      }
     }
 
     scan() {
@@ -174,12 +198,8 @@
         globalThis.__PLAYINFO__, globalThis.ytInitialPlayerResponse, globalThis.playerConfig,
         globalThis.__NUXT__, globalThis.__APOLLO_STATE__
       ];
-      const candidates = globals.flatMap(value => candidatesFromValue(value, 'page-state'));
       const manifests = [];
-      for (const value of globals) {
-        try { manifests.push(...manifestsFromText(JSON.stringify(value), location.href, 'page-state')); }
-        catch {}
-      }
+      const candidates = globals.flatMap(value => candidatesFromValue(value, 'page-state', manifests));
       for (const script of document.scripts) {
         const text = script.textContent || '';
         if (text && text.length <= MAX_TEXT_LENGTH) candidates.push(...urlsFromText(text, 'page-script'));
@@ -192,15 +212,21 @@
 
     inspectResponse(response) {
       if (!this.active || !response) return;
-      this.publishWrappedManifest(response);
       const type = String(response.headers?.get?.('content-type') || '').toLowerCase();
       const length = Number(response.headers?.get?.('content-length') || 0);
       if (length > MAX_TEXT_LENGTH) return;
+      const wrapped = /\.m3u8(?:$|[?#])/i.test(response.url || '');
       const useful = type.includes('json') || type.includes('javascript') || type.includes('xml')
         || type.includes('mpegurl') || type.startsWith('text/');
-      if (!useful) return;
-      void response.clone().text().then(text => {
-        if (text.length > MAX_TEXT_LENGTH) return;
+      if (!useful && !wrapped) return;
+      return this.readResponse(response).then(bytes => {
+        if (!this.active || !bytes) return;
+        if (wrapped && bytes.byteLength <= 2 * 1024 * 1024) {
+          globalThis.postMessage({ marker: MARKER, type: 'wrapped-manifest', data: bytesToBase64(bytes),
+            baseUrl: response.url || location.href }, location.origin);
+        }
+        if (!useful) return;
+        const text = new TextDecoder().decode(bytes);
         let candidates = urlsFromText(text, 'page-response');
         if (type.includes('json')) {
           try { candidates = candidates.concat(candidatesFromValue(JSON.parse(text), 'page-json')); }
@@ -235,10 +261,18 @@
           if (!runtime.active) return;
           const type = String(this.getResponseHeader?.('content-type') || '').toLowerCase();
           if (!(type.includes('json') || type.includes('javascript') || type.includes('xml') || type.includes('mpegurl') || type.startsWith('text/'))) return;
+          const baseUrl = this.responseURL || this.__cosmicGeminiVideoUrl || location.href;
+          if (this.responseType === 'json') {
+            // The browser has already parsed this object. Traverse it once;
+            // serializing and reparsing duplicates both CPU work and memory.
+            const manifests = [];
+            try { runtime.publish(candidatesFromValue(this.response, 'page-xhr-json', manifests, baseUrl)); } catch {}
+            runtime.publishManifests(manifests);
+            return;
+          }
           let text = '';
           try {
             if (!this.responseType || this.responseType === 'text') text = this.responseText;
-            else if (this.responseType === 'json' && this.response !== null) text = JSON.stringify(this.response);
           } catch {}
           if (!text || text.length > MAX_TEXT_LENGTH) return;
           let candidates = urlsFromText(text, 'page-xhr');
@@ -247,7 +281,7 @@
             catch {}
           }
           runtime.publish(candidates);
-          runtime.publishManifests(manifestsFromText(text, this.responseURL || this.__cosmicGeminiVideoUrl || location.href, 'page-xhr'));
+          runtime.publishManifests(manifestsFromText(text, baseUrl, 'page-xhr'));
         }, { once: true });
         return Reflect.apply(runtime.originalXhrSend, this, args);
       };
@@ -265,6 +299,8 @@
 
     stop() {
       this.active = false;
+      for (const reader of this.responseReaders) { try { void reader.cancel().catch(() => {}); } catch {} }
+      this.responseReaders.clear();
       if (globalThis.fetch === this.trackedFetch) globalThis.fetch = this.originalFetch;
       if (XMLHttpRequest.prototype.open === this.trackedXhrOpen) XMLHttpRequest.prototype.open = this.originalXhrOpen;
       if (XMLHttpRequest.prototype.send === this.trackedXhrSend) XMLHttpRequest.prototype.send = this.originalXhrSend;

@@ -138,7 +138,7 @@
           childList: true,
           subtree: true,
           attributes: true,
-          attributeFilter: ['src', 'data-src', 'data-video-src', 'content']
+          attributeFilter: ['src', 'data-src', 'data-video-src', 'data-stream-url', 'content']
         });
       }
       if (!this.performanceObserver && typeof PerformanceObserver === 'function') {
@@ -156,17 +156,29 @@
         document.addEventListener('loadedmetadata', this.onLoadedMetadata, true);
         this.metadataListening = true;
       }
-      void this.scan();
       globalThis.postMessage({ marker: PAGE_MARKER, type: 'scan' }, location.origin);
+    }
+
+    queueRoot(root) {
+      if (!root?.isConnected) return;
+      // Keep disjoint subtrees. A framework can report both an inserted
+      // container and its descendants in the same mutation delivery.
+      for (const pending of this.pendingRoots) {
+        if (pending === root || pending.contains?.(root)) return;
+        if (root.contains?.(pending)) this.pendingRoots.delete(pending);
+      }
+      this.pendingRoots.add(root);
     }
 
     onMutation(records) {
       if (!this.active) return;
       for (const record of records) {
-        if (record.type === 'attributes') this.pendingRoots.add(record.target);
+        if (record.type === 'attributes') {
+          if (record.target.matches?.('video,audio,source,[data-video-src],[data-stream-url],meta')) this.queueRoot(record.target);
+        }
         for (const node of record.addedNodes || []) {
           if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-            this.pendingRoots.add(node);
+            this.queueRoot(node);
           }
         }
         if (this.pendingRoots.size > 32) {
@@ -175,12 +187,13 @@
           break;
         }
       }
-      if (this.scanTimer) return;
+      if (!this.pendingRoots.size || this.scanTimer) return;
       this.scanTimer = setTimeout(() => {
         this.scanTimer = 0;
         const roots = [...this.pendingRoots];
         this.pendingRoots.clear();
-        const candidates = roots.flatMap(root => this.collect(root, false));
+        if (!this.active) return;
+        const candidates = roots.filter(root => root.isConnected).flatMap(root => this.collect(root, false));
         void this.publish(candidates);
       }, 160);
     }
@@ -279,6 +292,7 @@
         if (!candidate?.url) continue;
         const signature = [candidate.url, candidate.kind, candidate.width, candidate.height, candidate.duration, candidate.contentLength].join('|');
         if (!includeSeen && this.seen.has(signature)) continue;
+        if (!this.seen.has(signature) && this.seen.size >= 2000) this.seen.delete(this.seen.values().next().value);
         this.seen.add(signature);
         unique.push(candidate);
       }

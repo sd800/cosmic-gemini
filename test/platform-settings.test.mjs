@@ -162,6 +162,28 @@ test('concurrent activity updates preserve every product state', async () => {
   });
 });
 
+test('unchanged activity reports do not write storage or repaint the toolbar', async () => {
+  const mock = chromeMock();
+  globalThis.chrome = mock.api;
+  let writes = 0, notifications = 0;
+  const save = mock.api.storage.session.set;
+  mock.api.storage.session.set = async values => { writes++; return save(values); };
+  const platform = createPlatform();
+  platform.connectCentralUi({ name: 'central-ui:popup', onDisconnect: { addListener() {} },
+    postMessage() { notifications++; } });
+  await platform.setFeatureActivity(17, 'noAutoplay', false);
+  assert.equal(mock.actionTitles.length, 0);
+  await platform.setFeatureActivity(17, 'noAutoplay', true);
+  const before = { writes, notifications, titles: mock.actionTitles.length };
+  await Promise.all(Array.from({ length: 3 }, () => platform.setFeatureActivity(17, 'noAutoplay', true)));
+  assert.deepEqual({ writes, notifications, titles: mock.actionTitles.length }, before);
+  await platform.setFeatureActivity(17, 'noAutoplay', false);
+  assert.equal(notifications, before.notifications + 1);
+  assert.equal(mock.actionTitles.at(-1).title, 'Cosmic Gemini');
+  await platform.clearTabActivity(17);
+  assert.equal(mock.actionTitles.at(-1).title, 'Cosmic Gemini', 'explicit navigation cleanup still repairs toolbar state');
+});
+
 test('reset is serialized behind settings writes and leaves defaults in storage', async () => {
   const mock = chromeMock();
   globalThis.chrome = mock.api;

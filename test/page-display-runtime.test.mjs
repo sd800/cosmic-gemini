@@ -86,6 +86,23 @@ async function runtimeFixture() {
   return { context, document, runtime: context[Symbol.for('cosmic-gemini.page-display.runtime')] };
 }
 
+test('unchanged display attributes are not rewritten and greyscale needs no filter reads', async () => {
+  const { context, runtime } = await runtimeFixture();
+  let reads = 0;
+  context.getComputedStyle = () => { reads++; return { filter: 'none' }; };
+  runtime.enable({ greyscale: { enabled: true } });
+  const host = runtime.host;
+  let writes = 0;
+  const set = host.setAttribute.bind(host);
+  host.setAttribute = (...args) => { writes++; set(...args); };
+  runtime.mount(); runtime.enable({ greyscale: { enabled: true } });
+  assert.equal(writes, 0);
+  assert.equal(reads, 0);
+  runtime.enable({ reduceWhitePoint: { enabled: true, reduction: .3 } });
+  assert.ok(reads > 0, 'white-point reduction still compensates page inversion');
+  runtime.disable();
+});
+
 test('Reduce White Point follows only active ancestor filter animations and retires frame work', async () => {
   const { context, document, runtime } = await runtimeFixture();
   const frames = new Map(); let next = 0;

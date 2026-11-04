@@ -82,12 +82,18 @@
       try { message = JSON.parse(event.detail); } catch { return; }
       if (message?.token !== this.token) return;
       const config = message.config || {};
+      const nextActive = config.active === true;
+      const nextMode = config.mode === 'enhanced' ? 'enhanced' : 'standard';
+      const nextAudioAllowed = config.audioAllowed === true && nextMode !== 'enhanced';
+      if (this.configured && this.active === nextActive && this.mode === nextMode
+        && this.audioAllowed === nextAudioAllowed
+        && (!nextActive || nextMode !== 'enhanced' || this.observer || !document.documentElement)) return;
       const wasActive = this.active;
       const wasAudioAllowed = this.audioAllowed;
       this.configured = true;
-      this.active = config.active === true;
-      this.mode = config.mode === 'enhanced' ? 'enhanced' : 'standard';
-      this.audioAllowed = config.audioAllowed === true && this.mode !== 'enhanced';
+      this.active = nextActive;
+      this.mode = nextMode;
+      this.audioAllowed = nextAudioAllowed;
       if (!this.active) {
         this.disableObserver();
         this.reported = false;

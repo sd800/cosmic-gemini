@@ -102,6 +102,26 @@ function wheelEvent(context, target = context.document.body, path = null) {
   });
 }
 
+test('gesture guards remain immediate while repeated layout inspection shares a frame', async () => {
+  const context = makeContext();
+  const frames = new Map(); let next = 0;
+  context.requestAnimationFrame = callback => { frames.set(++next, callback); return next; };
+  context.cancelAnimationFrame = id => frames.delete(id);
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.enable('standard');
+  let inspections = 0;
+  runtime.applyStyles = () => { inspections++; };
+  runtime.beginGesture(); runtime.beginGesture(); runtime.scheduleInspection();
+  assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollTo', [0, 100]), true);
+  assert.equal(inspections, 0);
+  assert.equal(frames.size, 1);
+  const callback = [...frames.values()][0]; frames.clear(); callback();
+  assert.equal(inspections, 1);
+  runtime.beginGesture(); runtime.disable();
+  assert.equal(frames.size, 0, 'disable cancels deferred inspection');
+});
+
 test('late activation preserves native wheel scrolling and rejects queued root takeover movement', async () => {
   const context = makeContext();
   let scriptedMoves = 0;

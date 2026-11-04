@@ -2,7 +2,7 @@ import { FEATURE_IDS, hostnameFromUrl } from '../core/config.js';
 import { BILI_DAILY_ALARM } from '../core/bili-daily-login.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
 import { DOCUMENT_CLEANUP_ALARM_PREFIX } from '../core/document-preview/document-preview.js';
-import { centralPageDirectives, syncCentralPageProducts } from './central-policy.js';
+import { centralPageDirectives, productPageDirectives, syncCentralPageProducts } from './central-policy.js';
 import { validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';
 import { createCustomsProvince } from './provinces/customs.js';
@@ -158,7 +158,7 @@ async function collectProductPageState(sender, message) {
   const url = sender.tab?.url || message.url || sender.url || '';
   const tabId = sender.tab?.id;
   const settings = await platform.readSettings();
-  const directives = await resolvedPageDirectives(settings, url, tabId);
+  const directives = await productPageDirectives(productId, () => resolvedPageDirectives(settings, url, tabId));
   return {
     [productId]: await provinceForProduct(productId).getProductState(productId, {
       settings, directives, url, tabId, frameUrl: sender.url, frameId: sender.frameId

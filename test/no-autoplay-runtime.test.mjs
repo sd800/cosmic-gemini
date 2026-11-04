@@ -68,6 +68,34 @@ async function nativeControlsFixture(t, {webkitAlias = false} = {}) {
   return { runtime, document, navigator, context, configure, advance: ms => { now += ms; } };
 }
 
+test('unchanged configuration does not rescan media, but a mode change still applies', async t => {
+  const { runtime, configure } = await nativeControlsFixture(t);
+  let scans = 0, suspends = 0;
+  runtime.removeMedia = () => { scans++; };
+  runtime.suspendAutomaticContexts = () => { suspends++; };
+  configure('enhanced');
+  assert.equal(scans, 1);
+  configure('enhanced');
+  configure('enhanced', { audioAllowed: true });
+  assert.equal(scans, 1, 'audio allowance has no effect in enhanced mode');
+  assert.equal(suspends, 1);
+  configure('standard', { audioAllowed: true });
+  assert.equal(runtime.audioAllowed, true);
+  assert.equal(runtime.observer, null);
+  configure('enhanced');
+  assert.equal(scans, 2);
+});
+
+test('an identical Enhanced decision still attaches observation when the parsed root arrives', async t => {
+  const { runtime, document, configure } = await nativeControlsFixture(t);
+  document.documentElement = null;
+  configure('enhanced');
+  assert.equal(runtime.observer, null);
+  document.documentElement = {};
+  configure('enhanced');
+  assert.ok(runtime.observer);
+});
+
 test('native control play is media-local, expires, and cannot bypass the script play guard', async t => {
   const {runtime,document,navigator,context,advance} = await nativeControlsFixture(t);
   const video = new FakeVideo();

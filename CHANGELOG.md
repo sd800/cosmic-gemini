@@ -2,6 +2,16 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.4 (484) — 2026-11-04
+
+- Reduce shared background work: unchanged feature-activity reports no longer rewrite session state or refresh toolbar icons, and individual configuration requests query cross-product copy policies only when needed by Any Copy or Clipboard Protect.
+- Fix Any Copy's selection observer repeatedly rewriting its own styles. Repair only changed protected elements, release detached elements, and let self-generated mutations settle without another write. Coalesce overlapping Translate Override subtree repairs and Claude response-formatting targets.
+- Keep No Autoplay's existing media hooks and observation when configuration is unchanged instead of rescanning Enhanced-mode pages. Native Scroll now shares layout inspection across events within one frame while applying its gesture guard immediately.
+- Avoid unchanged Page Display attribute writes and unnecessary page-filter reads when only Greyscale is active. Preserve immediate white-point updates, fullscreen handling, and deactivation cleanup.
+- Make Image Download enrichment yield between short work slices, and stop DOM enumeration at its existing element limit without first allocating the entire document tree. Retain responsive/original sources, CSS images, and open shadow-root discovery.
+- Remove duplicate initial Video Download scans, combine overlapping dynamic subtrees, skip scan timers for removed-only or detached changes, detect updated stream attributes, and bound the per-page deduplication set.
+- Read each inspected video-discovery response through one size-bounded clone, including responses without a declared length; cancel pending clone reads when discovery stops while leaving the website's response available. Reuse parsed JSON objects and bounded cursor-based traversal instead of whole-state serialization and repeated queue shifting.
+
 ## 26.11.4.3 (483) — 2026-11-04
 
 - Fix webpage runtime initialization on ordinary HTTP pages where the secure-context UUID API is unavailable. Use cryptographic random bytes for runtime tokens and document-preview nonces; retain UUID formatting where document ownership requires it.

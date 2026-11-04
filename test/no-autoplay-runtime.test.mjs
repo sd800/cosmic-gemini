@@ -27,6 +27,7 @@ class FakeMedia extends SimpleEventTarget {
   pause() { this.paused += 1; }
   hasAttribute(name) { return this.attributes.has(name); }
   getAttribute(name) { return name === 'src' ? this.src : ''; }
+  setAttribute(name) { this.attributes.add(name); }
   getBoundingClientRect() { return this.rect; }
   removeAttribute(name) { this.attributes.delete(name); }
   remove() { this.removed = true; this.isConnected = false; }
@@ -396,6 +397,51 @@ test('manual playback survives off/on and runtime reinjection using inert weak d
   await video.play(); linked.state = 'interrupted'; await linked.resume();
   assert.equal(linked.state, 'running');
   await assert.rejects(new FakeVideo().play(), { name: 'NotAllowedError' });
+});
+
+test('inactive cleanup discards denied HTML plays and retained hooks become direct native calls', async t => {
+  const { runtime, context, document, configure } = await nativeControlsFixture(t);
+  const video = new FakeVideo(), audio = new FakeAudio();
+  const guardedPlay = FakeMedia.prototype.play, guardedResume = FakeAudioContext.prototype.resume;
+  const guardedFactory = FakeAudioContext.prototype.createMediaElementSource;
+  const retainedConstructor = context.AudioContext, retainedSource = context.MediaElementAudioSourceNode;
+  await assert.rejects(video.play(), { name: 'NotAllowedError' });
+  await assert.rejects(audio.play(), { name: 'NotAllowedError' });
+  const owned = new context.AudioContext(), unowned = new FakeAudioContext();
+  await unowned.suspend();
+  configure('standard', { active: false });
+  assert.equal(video.played, 0); assert.equal(audio.played, 0, 'disabling does not replay previously denied requests');
+  assert.equal(runtime.pendingVideo.size, 0); assert.equal(runtime.pendingAudio.size, 0);
+  assert.equal(owned.resumed, 1, 'release only the suspension previously owned by this runtime');
+  assert.equal(unowned.resumed, 0);
+  const unexpected = () => { throw Error('inactive inspection'); };
+  runtime.shouldBlockMedia = runtime.shouldBlockAudioContext = runtime.hasUserIntent = unexpected;
+  runtime.bindMediaSource = unexpected; document.querySelectorAll = unexpected;
+  runtime.blockMedia(video); runtime.removeMedia(document); runtime.stopInitialPlayback();
+  runtime.onPlay({ get target() { unexpected(); } });
+  runtime.onUserIntent({ isTrusted: true, composedPath: unexpected });
+  await guardedPlay.call(video); await guardedResume.call(unowned);
+  guardedFactory.call(unowned, video);
+  new retainedConstructor(); new retainedSource(unowned, { mediaElement: video });
+  assert.equal(video.played, 1); assert.equal(video.paused, 1, 'only the original blocked pause occurred');
+  assert.equal(unowned.resumed, 1);
+});
+
+test('manual playback or deactivation restores only autoplay attributes removed by this runtime', async t => {
+  const { runtime, configure } = await nativeControlsFixture(t);
+  const manual = new FakeVideo(), blocked = new FakeVideo(), untouched = new FakeVideo();
+  manual.attributes.add('autoplay'); blocked.attributes.add('autoplay');
+  await assert.rejects(manual.play(), { name: 'NotAllowedError' });
+  await assert.rejects(blocked.play(), { name: 'NotAllowedError' });
+  assert.equal(manual.hasAttribute('autoplay'), false);
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', composedPath: () => [manual] });
+  await manual.play();
+  assert.equal(manual.hasAttribute('autoplay'), true);
+  configure('standard', { active: false });
+  assert.equal(blocked.hasAttribute('autoplay'), true);
+  assert.equal(untouched.hasAttribute('autoplay'), false);
+  assert.equal(runtime.autoplayAttributeRefs.size, 0);
+  assert.equal(blocked.played, 0, 'native attribute restoration does not replay the rejected play call');
 });
 
 test('Web Audio tracking stays bounded and releases closed or disposed contexts', async t => {

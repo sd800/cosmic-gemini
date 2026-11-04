@@ -122,6 +122,28 @@ test('gesture guards remain immediate while repeated layout inspection shares a 
   assert.equal(frames.size, 0, 'disable cancels deferred inspection');
 });
 
+test('disabled Native Scroll leaves retained methods and delayed callbacks inert', async () => {
+  const context = makeContext(); let nativeCalls = 0;
+  context.window.scrollTo = function () { if (this !== context.window) throw new TypeError('native receiver'); nativeCalls++; };
+  const originalScroll = context.window.scrollTo;
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.enable('standard');
+  const retainedScroll = context.window.scrollTo, retainedCancel = context.Event.prototype.preventDefault;
+  runtime.disable();
+  assert.equal(context.window.scrollTo, originalScroll);
+  context.getComputedStyle = () => { throw Error('inactive style read'); };
+  context.requestAnimationFrame = () => { throw Error('inactive frame'); };
+  runtime.onMutation(); runtime.applyStyles(); runtime.scheduleInspection(); runtime.beginGesture();
+  retainedScroll.call(context.window, 0, 20);
+  assert.equal(nativeCalls, 1);
+  assert.throws(() => retainedScroll.call({}, 0, 20), /native receiver/, 'retain the original receiver behavior while inactive');
+  const event = wheelEvent(context);
+  retainedCancel.call(event);
+  assert.equal(event.defaultPrevented, true, 'page cancellation is native again');
+  assert.equal(runtime.observer, null); assert.equal(runtime.rootObservers.length, 0);
+});
+
 test('late activation preserves native wheel scrolling and rejects queued root takeover movement', async () => {
   const context = makeContext();
   let scriptedMoves = 0;

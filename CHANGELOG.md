@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.6 (486) — 2026-11-04
+
+- Enforce Native Scroll and No Autoplay exclusions before product loading. Initially inactive pages, including websites matched by Always inactive rules or the shared whitelist, receive no corresponding bridge, runtime, stylesheet, or cleanup injection; No Autoplay child frames follow the inactive top-page policy.
+- Wait for the final current NS/NA configuration before completing activation or inserting Native Scroll styles. Share overlapping bridge reads, reject superseded page decisions, and retain bounded retry behavior so a startup/settings race cannot install an old active stylesheet after the feature becomes inactive.
+- Confirm cleanup for previously present NS/NA bridges after document rebuilding has erased Window listeners. Reconnect active protocol/behavior listeners safely, observe replacement document shells where needed, and make disposed runtimes idempotent and unrecoverable by late configuration replies.
+- Make retained playback, audio-context, scrolling, cancellation, and scroll-position wrappers forward native calls immediately while inactive. Cancel pending frame work, and keep delayed media/DOM/event callbacks silent after deactivation.
+- Stop replaying previously denied HTML media requests when No Autoplay is disabled. Restore only owned autoplay-attribute changes and audio-context suspensions, leave unrelated media unchanged, and let subsequent playback follow the website and browser. Preserve the deliberate-player behavior from the preceding release.
+- Add tests for zero product injection on fresh excluded pages and subdomains, inactive child frames, native API/style restoration, shutdown without replay, stale startup decisions, retained wrappers, and cleanup after document rebuilding.
+
 ## 26.11.4.5 (485) — 2026-11-04
 
 - Preserve manually started playback for the lifetime of its current document. Pause/resume, buffering, seeking, replay, quality/source changes, and No Autoplay mode changes no longer retire that player's authorization; Enhanced mode also preserves manually activated players.

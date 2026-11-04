@@ -34,11 +34,13 @@
       this.token = randomToken();
       this.hostname = String(globalThis.location?.hostname || '').toLowerCase();
       this.active = false;
+      this.disposed = false;
       this.mode = 'standard';
       this.reported = false;
       this.gestureUntil = 0;
       this.touchY = null;
       this.observer = null;
+      this.observedDocumentRoot = null;
       this.rootObservers = [];
       this.observedNodes = [];
       this.frame = 0;
@@ -67,6 +69,11 @@
     }
 
     announce() {
+      if (this.disposed) return;
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      if (this.active) { this.attachBehaviorListeners(); this.observeDocument(); }
       window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
     }
 
@@ -75,18 +82,19 @@
     }
 
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       this.disable();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
-      try { delete window[RUNTIME_KEY]; } catch {}
+      try { if (window[RUNTIME_KEY] === this) delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       const config = message.config || {};
       const shouldRun = config.active === true;
       const mode = config.mode === 'enhanced' ? 'enhanced' : 'standard';
@@ -113,13 +121,18 @@
         this.patchWheelCancellation();
         this.patchRootScrollPositions();
       }
+      this.attachBehaviorListeners();
+      this.observeDocument();
+      this.applyStyles();
+    }
+
+    attachBehaviorListeners() {
+      if (!this.active || this.usesNativeInteractionCompatibility()) return;
       this.originalAddEventListener.call(window, 'wheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'mousewheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'click', this.onClick, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'touchstart', this.onTouchStart, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'touchmove', this.onTouchMove, { capture: true, passive: true });
-      this.observeDocument();
-      this.applyStyles();
     }
 
     disable() {
@@ -135,6 +148,7 @@
       this.originalRemoveEventListener.call(window, 'touchmove', this.onTouchMove, true);
       this.observer?.disconnect();
       this.observer = null;
+      this.observedDocumentRoot = null;
       for (const observer of this.rootObservers) observer.disconnect();
       this.rootObservers = [];
       this.observedNodes = [];
@@ -157,9 +171,14 @@
     }
 
     observeDocument() {
-      this.observer?.disconnect();
-      this.observer = new MutationObserver(this.onMutation);
-      this.observer.observe(document.documentElement, { childList: true });
+      if (!this.active || this.usesNativeInteractionCompatibility()) return;
+      if (!this.observer || this.observedDocumentRoot !== document.documentElement) {
+        this.observer?.disconnect();
+        this.observer = new MutationObserver(this.onMutation);
+        this.observer.observe(document, { childList: true });
+        if (document.documentElement) this.observer.observe(document.documentElement, { childList: true });
+        this.observedDocumentRoot = document.documentElement;
+      }
       this.syncRootObservers();
     }
 
@@ -181,7 +200,7 @@
 
     onMutation() {
       if (!this.active) return;
-      this.syncRootObservers();
+      this.observeDocument();
       this.scheduleInspection();
     }
 
@@ -189,6 +208,7 @@
       if (this.frame || !this.active) return;
       this.frame = requestAnimationFrame(() => {
         this.frame = 0;
+        if (!this.active) return;
         this.applyStyles();
       });
     }
@@ -421,6 +441,7 @@
     }
 
     beginGesture() {
+      if (!this.active) return;
       this.gestureUntil = performance.now() + 450;
       // The cancellation guard is immediate; layout inspection can share one
       // frame across wheel events and page mutations in the same gesture.
@@ -428,7 +449,7 @@
     }
 
     reportSuppression() {
-      if (this.reported) return;
+      if (!this.active || this.reported) return;
       this.reported = true;
       window.dispatchEvent(new CustomEvent(SUPPRESSED, { detail: this.token }));
     }
@@ -444,6 +465,7 @@
         if (typeof original !== 'function' || original[PATCH_FLAG]) continue;
         const runtime = this;
         function guardedScroll(...args) {
+          if (!runtime.active) return Reflect.apply(original, this, args);
           const receiver = owner === window ? window : this;
           if (runtime.shouldBlockScriptedScroll(receiver, name, args)) {
             runtime.reportSuppression();
@@ -465,6 +487,7 @@
       if (typeof original !== 'function') return;
       const runtime = this;
       function guardedCancel(...args) {
+        if (!runtime.active) return Reflect.apply(original, this, args);
         // Existing page listeners cannot be enumerated. Catch their actual
         // cancellation attempt instead of blocking every wheel listener.
         if (this instanceof Event && (this.type === 'wheel' || this.type === 'mousewheel') && runtime.isPageWheel(this)) {
@@ -488,6 +511,7 @@
         const descriptor = Object.getOwnPropertyDescriptor(owner, name);
         if (!descriptor?.configurable || typeof descriptor.set !== 'function') continue;
         function guardedPosition(value) {
+          if (!runtime.active) return Reflect.apply(descriptor.set, this, [value]);
           if ((this === document.documentElement || this === document.body)
             && runtime.shouldBlockScriptedScroll(this, name, [value])) {
             runtime.reportSuppression();

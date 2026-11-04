@@ -28,6 +28,7 @@
       try { delete window[SESSION_KEY]; } catch {}
       this.token = randomToken();
       this.active = false;
+      this.disposed = false;
       this.configured = false;
       this.mode = 'standard';
       this.audioAllowed = false;
@@ -41,6 +42,8 @@
       this.userPlayback = retained?.userPlayback instanceof WeakSet ? retained.userPlayback : new WeakSet();
       this.pendingAudio = new Set();
       this.pendingVideo = new Set();
+      this.autoplayAttributes = new WeakMap();
+      this.autoplayAttributeRefs = new Set();
       this.pendingContexts = new Map();
       this.pendingContextEntries = new WeakMap();
       this.pendingContextRefs = new Set();
@@ -67,16 +70,27 @@
     }
 
     announce() {
+      if (this.disposed) return;
+      // document.open() may erase Window listeners while retaining the runtime.
+      window.addEventListener(CONFIGURE, this.onConfigure, true);
+      window.addEventListener(READY, this.onBridgeReady, true);
+      window.addEventListener(DISPOSE, this.onDispose, true);
+      if (this.active) {
+        this.installBehaviorHooks();
+        if (this.mode === 'enhanced') this.enableEnhancedObserver();
+      }
       window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
     }
 
     onBridgeReady() {
+      if (this.disposed) return;
       this.announce();
       if (this.reported) window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
     }
 
     onDispose(event) {
-      if (event?.detail !== this.token) return;
+      if (event?.detail !== this.token || this.disposed) return;
+      this.disposed = true;
       // Inert, weak, document-local policy survives off/on reinjection without
       // keeping media or contexts alive, observing the page, or storing URLs.
       try { Object.defineProperty(window, SESSION_KEY, { configurable: true, value: {
@@ -86,19 +100,20 @@
       } }); } catch {}
       this.active = false;
       this.disableObserver();
-      this.resumePendingMedia(true);
+      this.pendingAudio.clear(); this.pendingVideo.clear();
       this.resumePendingContexts();
       this.removeBehaviorHooks();
+      this.restoreAutoplayAttributes();
       window.removeEventListener(CONFIGURE, this.onConfigure, true);
       window.removeEventListener(READY, this.onBridgeReady, true);
       window.removeEventListener(DISPOSE, this.onDispose, true);
-      try { delete window[RUNTIME_KEY]; } catch {}
+      try { if (window[RUNTIME_KEY] === this) delete window[RUNTIME_KEY]; } catch {}
     }
 
     onConfigure(event) {
       let message;
       try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token) return;
+      if (message?.token !== this.token || this.disposed) return;
       const config = message.config || {};
       const nextActive = config.active === true;
       const nextMode = config.mode === 'enhanced' ? 'enhanced' : 'standard';
@@ -115,9 +130,10 @@
       if (!this.active) {
         this.disableObserver();
         this.reported = false;
-        this.resumePendingMedia(true);
+        this.pendingAudio.clear(); this.pendingVideo.clear();
         this.resumePendingContexts();
         this.removeBehaviorHooks();
+        this.restoreAutoplayAttributes();
         return;
       }
       this.installBehaviorHooks();
@@ -134,7 +150,7 @@
         }
       }
       if (!wasAudioAllowed && this.audioAllowed) {
-        this.resumePendingMedia(false);
+        this.resumePendingAudio();
         this.resumePendingContexts();
       }
     }
@@ -144,6 +160,7 @@
       const runtime = this;
       const original = HTMLMediaElement.prototype.play;
       this.patchedPlay = function cosmicGeminiPlay() {
+        if (!runtime.active) return Reflect.apply(original, this, arguments);
         if (!(this instanceof HTMLMediaElement)) return Reflect.apply(original, this, arguments);
         if (!runtime.shouldBlockMedia(this)) {
           if (runtime.hasUserIntent(this)) runtime.authorizeMedia(this);
@@ -167,6 +184,7 @@
         const original = shared?.original || constructor?.prototype?.resume;
         if (!constructor?.prototype || typeof original !== 'function') return;
         const wrappedResume = shared?.wrappedResume || function cosmicGeminiResume() {
+          if (!runtime.active) return Reflect.apply(original, this, arguments);
           if (!(this instanceof constructor)) return Reflect.apply(original, this, arguments);
           if (this.state === 'closed' || !runtime.shouldBlockAudioContext(this)) {
             runtime.rememberAudioContext(this, original, runtime.hasRecentPlaybackIntent()
@@ -187,7 +205,7 @@
           if (typeof originalSource === 'function') {
             const wrapper = function cosmicGeminiMediaSource(...args) {
               const source = Reflect.apply(originalSource, this, args);
-              runtime.bindMediaSource(source);
+              if (runtime.active) runtime.bindMediaSource(source);
               return source;
             };
             try {
@@ -203,6 +221,7 @@
           const wrapped = new Proxy(constructor, {
             construct(target, args, newTarget) {
               const context = Reflect.construct(target, args, newTarget === wrapped ? target : newTarget);
+              if (!runtime.active) return context;
               runtime.rememberAudioContext(context, original, runtime.hasRecentPlaybackIntent());
               if (runtime.shouldBlockAudioContext(context)) {
                 runtime.rememberPendingContext(context, original);
@@ -230,7 +249,7 @@
         const wrapped = new Proxy(sourceConstructor, {
           construct(target, args, newTarget) {
             const source = Reflect.construct(target, args, newTarget === wrapped ? target : newTarget);
-            runtime.bindMediaSource(source);
+            if (runtime.active) runtime.bindMediaSource(source);
             return source;
           }
         });
@@ -244,12 +263,12 @@
     }
 
     installBehaviorHooks() {
-      if (this.behaviorHooksInstalled) return;
       window.addEventListener('pointerdown', this.onUserIntent, true);
       window.addEventListener('click', this.onUserIntent, true);
       window.addEventListener('keydown', this.onUserIntent, true);
       window.addEventListener('play', this.onPlay, true);
       for (const type of ['pause', 'ended', 'emptied']) window.addEventListener(type, this.onPlaybackStopped, true);
+      if (this.behaviorHooksInstalled) return;
       this.patchMediaPlay();
       this.patchAudioContexts();
       this.behaviorHooksInstalled = true;
@@ -296,7 +315,7 @@
     }
 
     onUserIntent(event) {
-      if (!event.isTrusted) return;
+      if (!this.active || !event.isTrusted) return;
       if (event.isPrimary === false || (typeof event.button === 'number' && event.button !== 0) || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.type === 'keydown' && !['Enter', ' ', 'Spacebar'].includes(event.key)) return;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
@@ -472,6 +491,7 @@
       this.userPlayback.add(media);
       const player = this.mediaPlayers.get(media)?.deref();
       if (player) this.authorizedPlayers.add(player);
+      this.restoreAutoplayAttribute(media);
       const refs = this.mediaContexts.get(media);
       if (!refs) return;
       for (const reference of refs) {
@@ -500,6 +520,7 @@
     }
 
     onPlay(event) {
+      if (!this.active) return;
       const media = event.target;
       if (!(media instanceof HTMLMediaElement) || event.isTrusted !== true) return;
       if (this.active && this.isNativePlaybackIntent(event, media)) {
@@ -514,7 +535,7 @@
     }
 
     onPlaybackStopped(event) {
-      if (event.isTrusted !== true || !(event.target instanceof HTMLMediaElement)) return;
+      if (!this.active || event.isTrusted !== true || !(event.target instanceof HTMLMediaElement)) return;
       // A deliberate player remains authorized through buffering, pauses,
       // replay, and source/quality changes. Only this document's lifetime owns it.
       if (event.type === 'emptied') {
@@ -525,9 +546,21 @@
     }
 
     blockMedia(media) {
+      if (!this.active) return;
       this.userPlayback.delete(media);
       try { Reflect.apply(this.originalPause, media, []); } catch {}
-      try { media.removeAttribute('autoplay'); } catch {}
+      try {
+        if (media.hasAttribute('autoplay')) {
+          let entry = this.autoplayAttributes.get(media);
+          if (!entry) {
+            for (const reference of this.autoplayAttributeRefs) if (!reference.deref()) this.autoplayAttributeRefs.delete(reference);
+            entry = { reference: new WeakRef(media) };
+            this.autoplayAttributes.set(media, entry); this.autoplayAttributeRefs.add(entry.reference);
+          }
+          entry.value = media.getAttribute('autoplay');
+          media.removeAttribute('autoplay');
+        }
+      } catch {}
       this.reportIntervention();
       if (this.mode === 'enhanced') {
         media.remove();
@@ -541,7 +574,7 @@
     }
 
     stopInitialPlayback(selector = 'video,audio') {
-      if (!document.querySelectorAll) return;
+      if (!this.active || !document.querySelectorAll) return;
       for (const media of document.querySelectorAll(selector)) {
         const requestedAutoplay = media.hasAttribute?.('autoplay') === true;
         const alreadyPlaying = media.paused === false;
@@ -549,10 +582,25 @@
       }
     }
 
+    restoreAutoplayAttribute(media) {
+      const entry = this.autoplayAttributes.get(media);
+      if (!entry) return;
+      this.autoplayAttributes.delete(media); this.autoplayAttributeRefs.delete(entry.reference);
+      try { if (!media.hasAttribute('autoplay')) media.setAttribute('autoplay', entry.value); } catch {}
+    }
+
+    restoreAutoplayAttributes() {
+      for (const reference of this.autoplayAttributeRefs) {
+        const media = reference.deref();
+        if (media) this.restoreAutoplayAttribute(media);
+      }
+      this.autoplayAttributeRefs.clear(); this.autoplayAttributes = new WeakMap();
+    }
+
     enableEnhancedObserver() {
       if (this.observer || !document.documentElement) return;
       this.observer = new MutationObserver(this.onMutations);
-      this.observer.observe(document.documentElement, { childList: true, subtree: true });
+      this.observer.observe(document, { childList: true, subtree: true });
     }
 
     disableObserver() {
@@ -568,7 +616,7 @@
     }
 
     removeMedia(root) {
-      if (!root) return;
+      if (!this.active || !root) return;
       if (root instanceof HTMLMediaElement) {
         if (this.shouldBlockMedia(root)) this.blockMedia(root);
         return;
@@ -611,6 +659,7 @@
     }
 
     suspendAutomaticContexts() {
+      if (!this.active) return;
       for (const [context, entry] of this.audioContexts) {
         if (context.state === 'closed') { this.audioContexts.delete(context); continue; }
         if (context.state !== 'running' || this.hasUserAudioContext(context) || this.hasLinkedMediaIntent(context)) continue;
@@ -620,19 +669,13 @@
       }
     }
 
-    resumePendingMedia(includeVideo) {
+    resumePendingAudio() {
+      if (!this.active) return;
       for (const media of this.pendingAudio) {
         if (!media?.isConnected || !(media instanceof HTMLAudioElement)) continue;
         try { void Promise.resolve(Reflect.apply(this.originalPlay, media, [])).catch(() => {}); } catch {}
       }
       this.pendingAudio.clear();
-      if (includeVideo) {
-        for (const media of this.pendingVideo) {
-          if (!media?.isConnected || !(media instanceof HTMLVideoElement)) continue;
-          try { void Promise.resolve(Reflect.apply(this.originalPlay, media, [])).catch(() => {}); } catch {}
-        }
-        this.pendingVideo.clear();
-      }
     }
 
     resumePendingContexts() {
@@ -650,7 +693,7 @@
     }
 
     reportIntervention() {
-      if (this.reported) return;
+      if (!this.active || this.reported) return;
       this.reported = true;
       window.dispatchEvent(new CustomEvent(INTERVENED, { detail: this.token }));
     }

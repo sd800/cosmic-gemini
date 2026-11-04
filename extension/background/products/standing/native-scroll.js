@@ -9,6 +9,8 @@ export function createNativeScrollProduct(pageRuntimeHost) {
     runtime: 'content/native-scroll/runtime.js',
     pageStyleFiles: Object.freeze([standardStylesheet, enhancedStylesheet]),
     preservePageStylesOnRefresh: true,
+    awaitConfiguration: true,
+    confirmRuntimeDisposal: true,
     topFrameOnly: true,
     state(settings, url) { return featureState(settings, product.id, url); },
     async sync(context, settings) {

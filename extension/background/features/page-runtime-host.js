@@ -98,6 +98,11 @@ export function createPageRuntimeHost(platform) {
         { type: 'CG_STOP_CENTRAL_FEATURE', featureId: product.id },
         options
       );
+      if (response?.disposed === true && product.confirmRuntimeDisposal === true) {
+        // A known bridge can outlive Window listeners erased by document.open.
+        // Confirm cleanup only for a product that was actually present.
+        await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});
+      }
       if (recover || response?.disposed === true) {
         await removePageStyles(target, product);
         if (frameId === 0 && !document.retired) await platform.setFeatureActivity(tabId, product.id, false);

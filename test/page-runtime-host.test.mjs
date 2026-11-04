@@ -115,6 +115,47 @@ test('an existing bridge confirms inactive cleanup before toolbar activity is cl
   assert.equal(activityWrites, 1);
 });
 
+for (const create of [createNativeScrollProduct, createNoAutoplayProduct]) {
+test(`${create.name} never injects into an inactive fresh document`, async () => {
+  let messages = 0;
+  globalThis.chrome = { scripting: {
+    async executeScript() { throw Error('inactive injection'); }, async insertCSS() { throw Error('inactive CSS'); },
+    async removeCSS() { throw Error('no owned CSS to remove'); }
+  } };
+  const host = createPageRuntimeHost({ async sendTabMessage() { messages++; }, async setFeatureActivity() {} });
+  const descriptor = create(host);
+  await host.sync(descriptor, { tabId: 9, frameId: 0, documentId: 'fresh-excluded' }, false);
+  assert.equal(messages, 1, 'a no-op bridge stop query installs nothing in the page');
+});
+
+test(`${create.name} confirms cleanup after document.open erased the runtime listeners`, async () => {
+  const scope = createContext({ cleanups: 0 }); let removals = 0;
+  const platform = { async sendTabMessage() { return { disposed: true }; }, async setFeatureActivity() {} };
+  const host = createPageRuntimeHost(platform), descriptor = create(host);
+  const name = descriptor.id.replace(/[A-Z]/g, match => '-' + match.toLowerCase());
+  runInContext(`globalThis[Symbol.for('cosmic-gemini.${name}.runtime')]={token:'owned',onDispose(){cleanups++;}}`, scope);
+  globalThis.chrome = { scripting: {
+    async executeScript(details) { scope.args = details.args; return [{ result: runInContext(`(${details.func})(...args)`, scope) }]; },
+    async removeCSS() { removals++; }
+  } };
+  await host.sync(descriptor, { tabId: 9, frameId: 0, documentId: 'rebuilt' }, false);
+  assert.equal(scope.cleanups, 1);
+  assert.equal(removals, descriptor.pageStyleFiles?.length ? 1 : 0);
+});
+
+test(`${create.name} cannot install styles after final configuration becomes inactive`, async () => {
+  let inserted = 0;
+  const platform = { async sendTabMessage() { return { configured: false, disposed: true }; }, async setFeatureActivity() {} };
+  const host = createPageRuntimeHost(platform), descriptor = create(host);
+  globalThis.chrome = { scripting: {
+    async executeScript() { return []; }, async removeCSS() {}, async insertCSS() { inserted++; }
+  } };
+  await assert.rejects(host.sync(descriptor, { tabId: 9, frameId: 0, documentId: 'superseded' }, true,
+    descriptor.pageStyleFiles?.slice(0, 1) || []), /did not apply/);
+  assert.equal(inserted, 0);
+});
+}
+
 test('delayed cleanup in an old document cannot erase the new document activity', async () => {
   let release, stopping;
   const stopped = new Promise(resolve => { stopping = resolve; });
@@ -406,8 +447,7 @@ test('authorized runtime dependencies load in order in the same main-world docum
 });
 
 // Older page bridges can receive startup and refresh replies out of order.
-for (const [name, featureId] of [['native-scroll','nativeScroll'],['no-autoplay','noAutoplay'],
-  ['any-copy','anyCopy'],['any-copy-enhanced','anyCopyEnhanced'],['mailto-capture','mailtoCapture'],
+for (const [name, featureId] of [['any-copy','anyCopy'],['any-copy-enhanced','anyCopyEnhanced'],['mailto-capture','mailtoCapture'],
   ['clipboard-protect','clipboardProtect'],['ad-marshal','adMarshal']]) {
   test(`${name} bridge ignores superseded configuration and failure replies`, async () => {
     const {readFile}=await import('node:fs/promises');
@@ -431,7 +471,7 @@ for (const [name, featureId] of [['native-scroll','nativeScroll'],['no-autoplay'
 // Visual runtimes must keep the final acknowledgement pending during retries.
 for (const [name, featureId] of [['page-display', 'pageDisplay'], ['xhs-image-dark-mode', 'xhsImageDarkMode'],
   ['leetcode-dark-mode', 'leetcodeDarkMode'], ['chinese-response-claude', 'chineseResponseClaude'],
-  ['website-knowledge-control', 'websiteKnowledgeControl']]) {
+  ['website-knowledge-control', 'websiteKnowledgeControl'], ['native-scroll', 'nativeScroll'], ['no-autoplay', 'noAutoplay']]) {
   test(`${name} refresh preserves effects through overlapping reads, transient failure and navigation`, async () => {
     const { readFile } = await import('node:fs/promises');
     const window = new EventTarget(), requests = [], configs = [], timers = new Map();

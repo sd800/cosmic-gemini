@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = Symbol.for('cosmic-gemini.no-autoplay.bridge');
-  if (globalThis[BRIDGE_KEY]) return;
+  if (globalThis[BRIDGE_KEY]) { globalThis[BRIDGE_KEY].reconnect?.(); return; }
   const READY = 'cosmic-gemini:no-autoplay:bridge-ready';
   const MAIN_READY = 'cosmic-gemini:no-autoplay:main-ready';
   const CONFIGURE = 'cosmic-gemini:no-autoplay:configure';
@@ -8,9 +8,10 @@
   const INTERVENED = 'cosmic-gemini:no-autoplay:intervened';
   let token = '';
   let disposed = false;
-  let configFailures = 0;
-  let configRequest = 0;
-  let configRetry = 0;
+  let retryTimer = 0;
+  let retryResolve = null;
+  let pendingConfig = null;
+  let configRevision = 0;
 
   const sendRuntimeMessage = message => {
     try {
@@ -21,14 +22,20 @@
   };
 
   const dispatchConfig = config => {
-    if (!token) return;
-    window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
+    if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
+  };
+  const finishRetry = () => {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = 0;
+    const resolve = retryResolve;
+    retryResolve = null;
+    resolve?.();
   };
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    configRequest += 1;
-    if (configRetry) clearTimeout(configRetry);
+    configRevision += 1;
+    finishRetry();
     dispatchConfig({ active: false });
     if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
     window.removeEventListener(MAIN_READY, onMainReady, true);
@@ -36,50 +43,73 @@
     try { chrome.runtime.onMessage.removeListener(onMessage); } catch {}
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
-  const requestConfig = async () => {
-    if (disposed) return;
-    const request = ++configRequest;
-    try {
-      const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'noAutoplay' });
-      if (disposed || request !== configRequest) return;
-      const config = response?.result?.noAutoplay;
-      if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
-      if (!config?.active) { dispose(); return; }
-      if (configRetry) clearTimeout(configRetry);
-      configRetry = 0;
-      configFailures = 0;
-      dispatchConfig(config);
-      void sendRuntimeMessage({ type: 'CG_CONFIG_APPLIED', featureId: 'noAutoplay', active: true }).catch(() => {});
-    } catch {
-      if (disposed || request !== configRequest) return;
-      configFailures += 1;
-      if (configFailures >= 4) { dispose(); return; }
-      if (!configRetry) configRetry = setTimeout(() => {
-        configRetry = 0;
-        void requestConfig();
-      }, [80, 240, 800][configFailures - 1]);
+  const route = () => {
+    try { return `${window.top.location.href}\n${location.href}`; } catch { return location.href; }
+  };
+  const readConfig = async () => {
+    let failures = 0;
+    while (!disposed) {
+      const revision = configRevision, requestedRoute = route();
+      try {
+        const response = await sendRuntimeMessage({ type: 'CG_PAGE_STATE', featureId: 'noAutoplay' });
+        if (disposed) return false;
+        if (revision !== configRevision || requestedRoute !== route()) { if (response?.ok) failures = 0; continue; }
+        const config = response?.result?.noAutoplay;
+        if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
+        if (!config?.active) { dispose(); return false; }
+        dispatchConfig(config);
+        return true;
+      } catch {
+        if (disposed) return false;
+        if (revision !== configRevision || requestedRoute !== route()) continue;
+        failures += 1;
+        if (failures >= 4) break;
+        await new Promise(resolve => {
+          retryResolve = resolve;
+          retryTimer = setTimeout(finishRetry, [80, 240, 800][failures - 1]);
+        });
+      }
     }
+    dispose();
+    return false;
+  };
+  const requestConfig = () => {
+    if (disposed) return Promise.resolve(false);
+    // Readiness and host refreshes overlap. All waiters must receive the final
+    // result; a transient failure must not tear down styles before retrying.
+    if (!pendingConfig) pendingConfig = readConfig().finally(() => { pendingConfig = null; });
+    return pendingConfig;
   };
   function onMainReady(event) {
     if (typeof event.detail !== 'string' || !event.detail) return;
+    if (token && token !== event.detail) configRevision += 1;
     token = event.detail;
     void requestConfig();
   }
   function onIntervened(event) {
-    if (!token || event.detail !== token) return;
+    if (!token || disposed || event.detail !== token) return;
     void sendRuntimeMessage({ type: 'CG_FEATURE_INTERVENED', featureId: 'noAutoplay', pageUrl: location.href }).catch(() => {});
   }
   function onMessage(message, _sender, sendResponse) {
     if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'noAutoplay') {
       dispose();
       sendResponse({ disposed: true });
+    } else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'noAutoplay') {
+      configRevision += 1;
+      finishRetry();
+      void requestConfig().then(configured => sendResponse({ configured }));
+      return true;
     }
-    else if (message?.type === 'CG_REFRESH_FEATURE_CONFIG' && message.featureId === 'noAutoplay') void requestConfig();
+    return false;
   }
 
-  window.addEventListener(MAIN_READY, onMainReady, true);
-  window.addEventListener(INTERVENED, onIntervened, true);
+  function reconnect() {
+    if (disposed) return;
+    window.addEventListener(MAIN_READY, onMainReady, true);
+    window.addEventListener(INTERVENED, onIntervened, true);
+    window.dispatchEvent(new CustomEvent(READY));
+  }
   chrome.runtime.onMessage.addListener(onMessage);
-  Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose }, configurable: true });
-  window.dispatchEvent(new CustomEvent(READY));
+  Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose, reconnect }, configurable: true });
+  reconnect();
 })();

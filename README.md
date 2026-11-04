@@ -18,7 +18,7 @@ Background: Some websites replace the browser’s native scrolling with scripted
 
 ### No Autoplay
 
-No Autoplay stops video and audio that starts without your action. Media you intentionally play remains available. Audio autoplay stays blocked unless you allow it for all sites or through a matching website rule. Enhanced mode removes media elements on selected websites.
+No Autoplay stops video and audio that starts without your action. A player you intentionally start remains available through buffering, pause/resume, replay, and quality changes, including its companion audio and connected Web Audio processing. Audio autoplay stays blocked unless you allow it for all sites or through a matching website rule. Enhanced mode removes unrequested media elements on selected websites while preserving manually activated players.
 
 Background: Pages can begin playing video or sound before you ask, interrupting reading and competing with audio already in use. No Autoplay keeps media quiet until you choose to start it.
 

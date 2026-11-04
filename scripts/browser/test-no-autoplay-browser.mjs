@@ -148,13 +148,77 @@ try {
   await command({type:'UI_SET_AUDIO_AUTOPLAY_ALL_SITES',enabled:false});
   await page.waitForFunction(()=>automaticContext.state==='suspended'&&manualContext.state==='running'&&!video.paused);
   await page.evaluate(()=>Promise.all([automaticContext.close(),manualContext.close()]));
+
+  // Manual players keep their own video and Web Audio timelines through
+  // buffering/restart and audio permission changes, without authorizing others.
+  for (const modern of [false,true]) {
+    await page.evaluate(async modern=>{
+      window.graphMedia=video;
+      if(modern){
+        const replacement=video.cloneNode(true);replacement.id='modernVideo';
+        document.querySelector('#player').append(replacement);window.graphMedia=replacement;
+        await replacement.play();
+      }
+      const context=new AudioContext();window.linkedContext=context;
+      const source=modern?new MediaElementAudioSourceNode(context,{mediaElement:graphMedia}):context.createMediaElementSource(graphMedia);
+      source.connect(context.destination);
+    },modern);
+    await page.waitForFunction(()=>linkedContext.state==='running');
+    await expireIntent();
+    await page.evaluate(async()=>{graphMedia.pause();await linkedContext.suspend();await linkedContext.resume();await graphMedia.play();});
+    await page.waitForFunction(()=>linkedContext.state==='running'&&!graphMedia.paused);
+    const clock=await page.evaluate(()=>linkedContext.currentTime);
+    await page.waitForFunction(before=>linkedContext.currentTime>before+.08,clock);
+    await page.evaluate(()=>linkedContext.close());
+  }
+  await expireIntent();
+  await page.evaluate(async()=>{
+    const companion=document.createElement('audio');companion.id='companion';companion.src='/sound.wav';companion.loop=true;
+    document.querySelector('#player').append(companion);await companion.play();companion.pause();await companion.play();
+    video.currentTime=.25;
+  });
+  await isPlaying('companion');await isPlaying('video');
+  assert.equal(await page.evaluate(async()=>{try{await document.querySelector('#other').play();return 'played';}catch(error){return error.name;}}),'NotAllowedError');
   await setMode('noAutoplay','enhanced');
-  await page.waitForFunction(()=>!document.querySelector('video,audio'));
+  await page.waitForFunction(key=>window[Symbol.for(key)]?.mode==='enhanced',naKey);
+  assert.equal(await page.locator('#video').count(),1,'Enhanced mode retains a manually started player');
+  assert.equal(await page.locator('#companion').count(),1);
+  await isPlaying('video');await isPlaying('companion');
   await page.evaluate(()=>{const v=document.createElement('video');v.src='/clip.webm';document.body.append(v);});
-  await page.waitForFunction(()=>!document.querySelector('video,audio'));
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll('video')).some(video=>!video.id));
   await setMode('noAutoplay','inactive');await setMode('nativeScroll','inactive');
   await page.waitForFunction(({naKey,nsKey})=>!window[Symbol.for(naKey)]&&!window[Symbol.for(nsKey)],{naKey,nsKey});
+
+  // Related managed-media paths must also leave deliberate playback intact.
+  await context.route('https://news.qq.com/**',route=>new URL(route.request().url()).pathname==='/clip.webm'
+    ?route.fulfill({contentType:'video/webm',body:videoBytes})
+    :route.fulfill({contentType:'text/html',body:'<!doctype html><title>Managed media fixture</title><div class="qnt-p" id="article-player"><div class="videoPlayer" id="surface"><button id="play-button">Play</button><video id="managed" src="/clip.webm" controls loop width="480" height="270"></video></div></div><script>document.querySelector("#play-button").onclick=()=>document.querySelector("#managed").play()</script>'}));
+  const managed=await context.newPage();managed.on('pageerror',error=>errors.push(error.message));
+  await managed.goto('https://news.qq.com/fixture');
+  await managed.addScriptTag({content:await readFile(resolve('extension/content/ad-marshal/ad-marshal-runtime.js'),'utf8')});
+  await managed.evaluate(()=>{
+    const runtime=window[Symbol.for('cosmic-gemini.ad-marshal.runtime')];
+    runtime.onConfigure({detail:JSON.stringify({token:runtime.token,config:{active:true,siteId:'newsQqCom'}})});
+  });
+  await managed.locator('#play-button').click();
+  await managed.waitForFunction(()=>!document.querySelector('#managed').paused);
+  assert.equal(await managed.locator('#managed').evaluate(video=>video.muted),false);
+  const before=await managed.locator('#managed').evaluate(video=>({source:video.currentSrc,time:video.currentTime}));
+  await managed.evaluate(()=>{
+    document.querySelector('#surface').className='videoPlayerMini';
+    const rail=document.createElement('div');rail.id='content-right';rail.className='content-right';
+    const wrapper=document.createElement('div');wrapper.className='video-wrap';
+    wrapper.append(document.querySelector('#article-player'));rail.append(wrapper);document.body.append(rail);
+  });
+  await managed.waitForFunction(time=>document.querySelector('#managed')?.currentTime>time+.08,before.time);
+  assert.equal(await managed.locator('#managed').isVisible(),true);
+  assert.equal(await managed.locator('#managed').evaluate(video=>video.currentSrc),before.source);
+  assert.equal(await managed.locator('#managed').evaluate(video=>video.paused),false);
+  await managed.evaluate(()=>{
+    const runtime=window[Symbol.for('cosmic-gemini.ad-marshal.runtime')];runtime.onDispose({detail:runtime.token});
+  });
+  await managed.close();
   assert.deepEqual(errors,[]);
-  await writeFile(join(artifacts,'README.md'),`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Unit tests cover gesture expiry, source resets, audio permission changes, Web Audio rejections/deduplication/aliases, and wrapper ownership.\n`);
-  console.log('PASS: Keyboard, full screen, attribute autoplay, Web Audio permission revocation, Enhanced removal, clean disposal, and no page errors.');
+  await writeFile(join(artifacts,'README.md'),`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Playback coverage also includes linked Web Audio clock progression through factory and constructor associations, companion audio, source/quality changes, manual Enhanced-mode exemptions, and managed-player floating/reparenting without hiding or reloading. Unit tests cover gesture expiry, document-lifetime authorization, audio permission changes, weak ownership beyond the strong map limit, Web Audio interruptions/rejections/aliases, reinjection, and wrapper ownership.\n`);
+  console.log('PASS: Keyboard/fullscreen; manual video/Web Audio clocks; pause/replay and companion audio; independent autoplay denial; Enhanced manual-player exemption; cleanup and no page errors.');
 } finally {await context.close();await rm(folder,{recursive:true,force:true});}

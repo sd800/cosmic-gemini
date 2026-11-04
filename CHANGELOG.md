@@ -2,6 +2,15 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.4.5 (485) — 2026-11-04
+
+- Preserve manually started playback for the lifetime of its current document. Pause/resume, buffering, seeking, replay, quality/source changes, and No Autoplay mode changes no longer retire that player's authorization; Enhanced mode also preserves manually activated players.
+- Extend deliberate playback to companion media within a uniquely identified local player, while keeping page roots, ambiguous multi-player containers, and unrelated players outside that authorization. A click without a subsequent playback request still expires normally.
+- Associate Web Audio contexts with their media through both media-source factories and source-node constructors. Release owned audio suspension when the linked player is manually started, and retain deliberate context authorization through suspended/interrupted states and tracking-map eviction. Leave website playback positions and playback rates unchanged.
+- Keep document-local playback authorization in inert weak metadata across feature off/on and runtime reinjection. Track outstanding audio suspensions weakly so deactivation releases live contexts even after they leave the bounded strong tracking map.
+- Make existing managed-media restrictions yield to deliberate playback. Restore the prior mute/preload state, preserve companion audio and floating playback, and avoid pausing, hiding, reloading, or releasing manually activated media containers. Deactivation restores remaining owned mute/preload changes and removes the owned hiding stylesheet without restarting playback.
+- Extend playback tests to cover native controls, video and Web Audio clock progression, companion audio, pause/replay, source changes, Enhanced-mode exceptions, weak ownership, reinjection, managed-player layout transitions, and independent autoplay blocking.
+
 ## 26.11.4.4 (484) — 2026-11-04
 
 - Reduce shared background work: unchanged feature-activity reports no longer rewrite session state or refresh toolbar icons, and individual configuration requests query cross-product copy policies only when needed by Any Copy or Clipboard Protect.

@@ -28,7 +28,7 @@
   const NEWS_QQ_MEDIA_CONTAINER_SELECTOR = [
     '#content-right.content-right',
     NEWS_QQ_REMOVED_VIDEO_SELECTOR,
-    '.qnt-p .videoPlayerMini'
+    `.qnt-p:not([${NEWS_MEDIA_ACTIVE_MARKER}]) .videoPlayerMini`
   ].join(',');
   const TENCENT_QQ_TRACKING_HOSTS = [
     'h.trace.qq.com',
@@ -57,7 +57,8 @@
       style: `${NEWS_QQ_AD_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
       hostStyles: Object.freeze({
         'news.qq.com': [
-          `${NEWS_QQ_MEDIA_CONTAINER_SELECTOR}{display:none!important;visibility:hidden!important;}`,
+          `${NEWS_QQ_MEDIA_CONTAINER_SELECTOR.split(',').map(selector =>
+            `${selector}:not([${NEWS_MEDIA_ACTIVE_MARKER}]):not(:has([${NEWS_MEDIA_ACTIVE_MARKER}]))`).join(',')}{display:none!important;visibility:hidden!important;}`,
           `.qnt-p:not([${NEWS_MEDIA_ACTIVE_MARKER}]) .txp_poster_img{display:block!important;visibility:visible!important;opacity:1!important;}`
         ].join('')
       }),
@@ -164,6 +165,7 @@
       this.newsUserUnmutedMedia = new WeakSet();
       this.newsSuspendedPlayers = new WeakSet();
       this.newsMediaLoadingStates = new WeakMap();
+      this.newsMediaRestoreRefs = new Set();
       this.originalMediaPause = HTMLMediaElement.prototype.pause;
       this.onConfigure = this.onConfigure.bind(this);
       this.onDispose = this.onDispose.bind(this);
@@ -277,16 +279,24 @@
       try { media.removeAttribute('autoplay'); } catch {}
     }
 
-    prepareNewsMedia(media, { force = false, reload = false } = {}) {
+    isNewsMediaActivated(media) {
+      return this.newsActivatedMedia.has(media) || media.hasAttribute?.(NEWS_MEDIA_ACTIVE_MARKER)
+        || media.closest?.('.qnt-p')?.hasAttribute(NEWS_MEDIA_ACTIVE_MARKER) === true;
+    }
+
+    prepareNewsMedia(media, { reload = false } = {}) {
       if (!(media instanceof HTMLMediaElement)) return;
-      if (!force && this.newsActivatedMedia.has(media)) return;
+      if (this.isNewsMediaActivated(media)) { this.restoreNewsMedia(media); return; }
+      if (!this.newsMediaLoadingStates.has(media)) {
+        for (const reference of this.newsMediaRestoreRefs) if (!reference.deref()) this.newsMediaRestoreRefs.delete(reference);
+        const reference = new WeakRef(media);
+        this.newsMediaLoadingStates.set(media, { preload: media.getAttribute('preload'), muted: media.muted, reference });
+        this.newsMediaRestoreRefs.add(reference);
+        reload = true;
+      }
       this.pauseNewsMedia(media);
       if (media instanceof HTMLVideoElement && !this.newsUserUnmutedMedia.has(media)) {
         try { media.muted = true; } catch {}
-      }
-      if (!this.newsMediaLoadingStates.has(media)) {
-        this.newsMediaLoadingStates.set(media, { preload: media.getAttribute('preload') });
-        reload = true;
       }
       try {
         if (media.getAttribute('preload') !== 'none') {
@@ -302,17 +312,25 @@
       for (const media of this.mediaElementsWithin(root)) this.prepareNewsMedia(media);
     }
 
-    activateNewsMedia(media) {
-      if (!(media instanceof HTMLMediaElement)) return;
+    restoreNewsMedia(media) {
       const state = this.newsMediaLoadingStates.get(media);
-      if (state) {
-        try {
+      if (!state) return;
+      this.newsMediaLoadingStates.delete(media);
+      this.newsMediaRestoreRefs.delete(state.reference);
+      try {
+        if (media.getAttribute('preload') === 'none') {
           if (state.preload === null) media.removeAttribute('preload');
           else media.setAttribute('preload', state.preload);
-        } catch {}
-        this.newsMediaLoadingStates.delete(media);
-      }
+        }
+        if (media instanceof HTMLVideoElement && media.muted && !this.newsUserUnmutedMedia.has(media)) media.muted = state.muted;
+      } catch {}
+    }
+
+    activateNewsMedia(media) {
+      if (!(media instanceof HTMLMediaElement)) return;
+      this.restoreNewsMedia(media);
       this.newsActivatedMedia.add(media);
+      media.setAttribute(NEWS_MEDIA_ACTIVE_MARKER, '');
       try { media.closest?.('.qnt-p')?.setAttribute(NEWS_MEDIA_ACTIVE_MARKER, ''); } catch {}
     }
 
@@ -358,7 +376,7 @@
       const playbackControl = this.isNewsPlaybackControlEvent(event);
       if (!volumeControl && !playbackControl) return;
       for (const media of mediaItems) {
-        const previouslyActivated = this.newsActivatedMedia.has(media);
+        const previouslyActivated = this.isNewsMediaActivated(media);
         if (playbackControl) this.newsMediaIntent.set(media, until);
         if (volumeControl || (previouslyActivated && event.target === media && media.controls)) {
           this.newsUnmuteIntent.set(media, until);
@@ -378,12 +396,15 @@
     onNewsMediaPlay(event) {
       const media = event.target;
       if (!this.isNewsMediaPolicyActive() || !(media instanceof HTMLMediaElement)) return;
+      if (this.isNewsMediaActivated(media)) { this.restoreNewsMedia(media); return; }
+      let nativeIntent = false;
+      try {
+        nativeIntent = event.isTrusted === true && media.controls === true && navigator.userActivation?.isActive === true
+          && (media.getRootNode?.() || document).activeElement === media;
+      } catch {}
+      if (nativeIntent || this.hasNewsMediaIntent(media)) { this.activateNewsMedia(media); return; }
       if (media.closest?.('.videoPlayerMini')) {
-        this.prepareNewsMedia(media, { force: true });
-        return;
-      }
-      if (this.hasNewsMediaIntent(media)) {
-        this.activateNewsMedia(media);
+        this.prepareNewsMedia(media);
         return;
       }
       this.prepareNewsMedia(media);
@@ -392,6 +413,7 @@
     onNewsVolumeChange(event) {
       const media = event.target;
       if (!this.isNewsMediaPolicyActive() || !(media instanceof HTMLVideoElement)) return;
+      if (this.isNewsMediaActivated(media)) { this.restoreNewsMedia(media); return; }
       if (this.hasNewsUnmuteIntent(media)) {
         if (!media.muted && media.volume > 0) this.newsUserUnmutedMedia.add(media);
         else this.newsUserUnmutedMedia.delete(media);
@@ -424,6 +446,7 @@
     }
 
     releaseNewsMediaContainer(container) {
+      if (this.mediaElementsWithin(container).some(media => this.isNewsMediaActivated(media))) return;
       for (const video of container.querySelectorAll('video')) {
         try {
           video.pause();
@@ -448,14 +471,14 @@
       if (!this.active || !player?.matches?.('.videoPlayerMini') || !player.closest('.qnt-p')) return;
       this.newsSuspendedPlayers.add(player);
       for (const media of this.mediaElementsWithin(player)) {
-        this.prepareNewsMedia(media, { force: true });
+        this.prepareNewsMedia(media);
       }
     }
 
     restoreNewsInlinePlayer(player) {
       if (!this.newsSuspendedPlayers.has(player)) return;
       for (const media of this.mediaElementsWithin(player)) {
-        if (this.newsActivatedMedia.has(media)) this.activateNewsMedia(media);
+        if (this.isNewsMediaActivated(media)) this.activateNewsMedia(media);
       }
       this.newsSuspendedPlayers.delete(player);
     }
@@ -501,7 +524,7 @@
             const media = record.target instanceof HTMLMediaElement
               ? record.target
               : record.target?.closest?.('video,audio');
-            if (media && !this.newsActivatedMedia.has(media)) {
+            if (media && !this.isNewsMediaActivated(media)) {
               this.prepareNewsMedia(media, { reload: record.attributeName === 'src' });
             }
             continue;
@@ -597,10 +620,17 @@
       this.newsVideoContainerObserver = null;
       document.removeEventListener('readystatechange', this.startNewsVideoContainerRemoval);
       this.removeNewsMediaGuards();
+      for (const reference of this.newsMediaRestoreRefs) {
+        const media = reference.deref();
+        if (media) this.restoreNewsMedia(media);
+      }
+      this.newsMediaRestoreRefs.clear();
       this.newsActivatedMedia = new WeakSet();
       this.newsUserUnmutedMedia = new WeakSet();
       this.newsSuspendedPlayers = new WeakSet();
       this.newsMediaLoadingStates = new WeakMap();
+      this.styleElement?.remove();
+      this.styleElement = null;
       if (!wasActive) return;
       if (globalThis.fetch === this.fetchWrapper) globalThis.fetch = this.originalFetch;
       if (XMLHttpRequest.prototype.open === this.xhrOpenWrapper) XMLHttpRequest.prototype.open = this.originalXhrOpen;

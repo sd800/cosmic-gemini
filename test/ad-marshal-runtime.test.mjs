@@ -258,6 +258,7 @@ test('Ad Marshal removes side modules while suspending article media until expli
     composedPath: () => [playControl, ordinaryPlayer, playerRoot]
   });
   assert.equal(video.hasAttribute('preload'), false);
+  assert.equal(video.muted, false, 'manual activation restores the mute state from before intervention');
   assert.equal(playerRoot.hasAttribute('data-cosmic-gemini-news-media-active'), true);
   const pauseCountBeforeManualPlay = video.pauseCount;
   runtime.onNewsMediaPlay({ target: video });
@@ -265,7 +266,7 @@ test('Ad Marshal removes side modules while suspending article media until expli
 
   video.muted = false;
   runtime.onNewsVolumeChange({ target: video });
-  assert.equal(video.muted, true);
+  assert.equal(video.muted, false, 'a manually activated player keeps its own volume behavior');
 
   const volumeControl = ordinaryPlayer.appendChild(new FakeElement('button', 'txp_btn_volume'));
   runtime.onNewsMediaIntent({
@@ -283,8 +284,8 @@ test('Ad Marshal removes side modules while suspending article media until expli
   ordinaryPlayer.className = 'videoPlayerMini';
   floatingObserver.callback([{ type: 'attributes', target: ordinaryPlayer, addedNodes: [] }]);
 
-  assert.ok(video.pauseCount > pauseCountBeforeManualPlay);
-  assert.equal(video.getAttribute('preload'), 'none');
+  assert.equal(video.pauseCount, pauseCountBeforeManualPlay);
+  assert.equal(video.hasAttribute('preload'), false);
   assert.equal(video.attributes.has('src'), true);
   assert.equal(source.attributes.has('src'), true);
   assert.equal(ordinaryPlayer.removed, false);
@@ -292,7 +293,11 @@ test('Ad Marshal removes side modules while suspending article media until expli
 
   const pauseCountBeforeFloatingPlay = video.pauseCount;
   runtime.onNewsMediaPlay({ target: video });
-  assert.ok(video.pauseCount > pauseCountBeforeFloatingPlay);
+  assert.equal(video.pauseCount, pauseCountBeforeFloatingPlay);
+  const loadsBeforeRelease = video.loadCount;
+  runtime.releaseNewsMediaContainer(ordinaryPlayer);
+  assert.equal(video.loadCount, loadsBeforeRelease);
+  assert.equal(ordinaryPlayer.removed, false, 'manual media is never released as a background module');
 
   ordinaryPlayer.className = 'videoPlayer';
   floatingObserver.callback([{ type: 'attributes', target: ordinaryPlayer, addedNodes: [] }]);
@@ -307,11 +312,52 @@ test('Ad Marshal removes side modules while suspending article media until expli
   runtime.onNewsMediaPlay({ target: audio });
   assert.ok(audio.pauseCount > audioPauseCount);
 
+  const ownedStyle = runtime.styleElement;
   runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) });
+  assert.equal(audio.hasAttribute('preload'), false, 'disable restores owned preload changes');
+  assert.equal(runtime.newsMediaRestoreRefs.size, 0);
+  assert.equal(ownedStyle.removed, true, 'disable releases the owned hiding stylesheet');
   assert.equal(mediaObserver.disconnected, true);
   assert.equal(floatingObserver.disconnected, true);
   assert.equal(context.window.listeners.get('play')?.length || 0, 0);
   assert.equal(context.window.listeners.get('volumechange')?.length || 0, 0);
   assert.equal(runtime.newsFloatingPlayerObserver, null);
   runtime.onDispose({ detail: runtime.token });
+});
+
+test('native manual playback keeps its clock, source, volume, and floating presentation', async () => {
+  const { context } = makeContext();
+  vm.runInContext(await readFile(new URL('../extension/content/ad-marshal/ad-marshal-runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context[Symbol.for('cosmic-gemini.ad-marshal.runtime')];
+  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, siteId: 'newsQqCom' } }) });
+  try {
+    const player = context.document.body.appendChild(new FakeElement('div', 'qnt-p'));
+    const floating = player.appendChild(new FakeElement('div', 'videoPlayerMini'));
+    const video = floating.appendChild(new FakeVideo());
+    video.controls = true;
+    runtime.prepareNewsMedia(video);
+    const pauses = video.pauseCount, loads = video.loadCount;
+    context.document.activeElement = video; context.navigator.userActivation.isActive = true;
+    runtime.onNewsMediaPlay({ target: video, isTrusted: true });
+    assert.equal(video.muted, false);
+    runtime.updateNewsFloatingPlayer(floating);
+    runtime.prepareNewsMedia(video, { reload: true });
+    runtime.releaseNewsMediaContainer(floating);
+    assert.equal(video.pauseCount, pauses);
+    assert.equal(video.loadCount, loads);
+    assert.equal(video.hasAttribute('src'), true);
+    assert.equal(floating.removed, false);
+    const companion = floating.appendChild(new FakeAudio());
+    runtime.prepareNewsMedia(companion);
+    assert.equal(companion.pauseCount, 0, 'the manually activated player keeps its companion audio');
+    const automaticRoot = context.document.body.appendChild(new FakeElement('div', 'qnt-p'));
+    const automatic = automaticRoot.appendChild(new FakeElement('div', 'videoPlayerMini'));
+    const blocked = automatic.appendChild(new FakeVideo());
+    runtime.updateNewsFloatingPlayer(automatic);
+    assert.ok(blocked.pauseCount > 0);
+    assert.equal(blocked.muted, true);
+    runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) });
+    assert.equal(blocked.muted, false, 'disable does not leave a forced mute behind');
+    assert.equal(blocked.hasAttribute('preload'), false);
+  } finally { runtime.onDispose({ detail: runtime.token }); }
 });

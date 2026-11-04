@@ -42,6 +42,16 @@ class FakeAudioContext {
     this.resumed += 1; this.state = 'running'; return Promise.resolve();
   }
   suspend() { this.suspended += 1; this.state = 'suspended'; return Promise.resolve(); }
+  createMediaElementSource(media) {
+    if (!(this instanceof FakeAudioContext)) throw new TypeError('Invalid receiver');
+    return new FakeMediaSource(this, { mediaElement: media });
+  }
+}
+class FakeMediaSource {
+  constructor(context, { mediaElement } = {}) {
+    if (!(mediaElement instanceof FakeMedia)) throw new TypeError('Invalid media');
+    this.context = context; this.mediaElement = mediaElement;
+  }
 }
 
 async function nativeControlsFixture(t, {webkitAlias = false} = {}) {
@@ -52,7 +62,8 @@ async function nativeControlsFixture(t, {webkitAlias = false} = {}) {
   const context = {
     window, document, navigator,
     HTMLMediaElement: FakeMedia, HTMLAudioElement: FakeAudio, HTMLVideoElement: FakeVideo,
-    AudioContext: FakeAudioContext, MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
+    AudioContext: FakeAudioContext, MediaElementAudioSourceNode: FakeMediaSource,
+    MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent,
     performance: { now: () => now }, crypto: { getRandomValues: values => values.fill(8) }
   };
   if (webkitAlias) {
@@ -64,7 +75,10 @@ async function nativeControlsFixture(t, {webkitAlias = false} = {}) {
   const runtime = window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
   const configure = (mode, overrides = {}) => runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, mode, audioAllowed: false, ...overrides } }) });
   configure('standard');
-  t.after(() => runtime.onDispose({ detail: runtime.token }));
+  t.after(() => {
+    const current = window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
+    current?.onDispose({ detail: current.token });
+  });
   return { runtime, document, navigator, context, configure, advance: ms => { now += ms; } };
 }
 
@@ -96,7 +110,7 @@ test('an identical Enhanced decision still attaches observation when the parsed 
   assert.ok(runtime.observer);
 });
 
-test('native control play is media-local, expires, and cannot bypass the script play guard', async t => {
+test('native control authorization stays with the deliberate player and cannot bypass other players', async t => {
   const {runtime,document,navigator,context,advance} = await nativeControlsFixture(t);
   const video = new FakeVideo();
   video.controls = true;
@@ -114,7 +128,8 @@ test('native control play is media-local, expires, and cannot bypass the script 
   assert.equal(new context.AudioContext().suspended, 1);
   advance(15001);
   navigator.userActivation.isActive = false;
-  await assert.rejects(video.play(), {name:'NotAllowedError'});
+  await video.play();
+  await assert.rejects(new FakeVideo().play(), {name:'NotAllowedError'});
   navigator.userActivation.isActive = true;
   const beforeResume = video.paused;
   runtime.onPlay({target:video, isTrusted:true});
@@ -136,7 +151,7 @@ test('native playback exception rejects missing controls, missing focus, synthet
   }
 });
 
-test('native audio and focus inside a shadow root work, while Enhanced mode still removes media', async t => {
+test('native audio and shadow focus work, and Enhanced mode preserves manual media only', async t => {
   const {runtime,document,navigator,configure} = await nativeControlsFixture(t);
   const audio = new FakeAudio();
   audio.controls = true;
@@ -150,7 +165,10 @@ test('native audio and focus inside a shadow root work, while Enhanced mode stil
   assert.equal(runtime.pendingAudio.has(audio), false);
   configure('enhanced');
   runtime.onPlay({target:audio,isTrusted:true});
-  assert.equal(audio.removed, true);
+  assert.equal(audio.removed, false);
+  const automatic = new FakeAudio();
+  runtime.onPlay({target:automatic,isTrusted:true});
+  assert.equal(automatic.removed, true);
 });
 
 test('right clicks, modifier shortcuts, and secondary pointers do not authorize playback', async t => {
@@ -173,9 +191,9 @@ test('play-control naming supports common controls without treating text entry o
   await assert.rejects(new FakeVideo().play(),{name:'NotAllowedError'});
 });
 
-test('player associations exclude page roots and hidden sibling media', async t => {
+test('deliberate local players allow companion audio without authorizing page roots or other players', async t => {
   const {runtime,document,advance} = await nativeControlsFixture(t);
-  const visible = new FakeVideo(), hidden = new FakeVideo(), unrelated = new FakeVideo();
+  const visible = new FakeVideo(), hidden = new FakeAudio(), unrelated = new FakeVideo();
   visible.rect = unrelated.rect = {width:640,height:360};
   const player = {querySelectorAll:()=>[visible,hidden]};
   visible.parentElement = hidden.parentElement = player;
@@ -185,8 +203,11 @@ test('player associations exclude page roots and hidden sibling media', async t 
   const control = {localName:'button',className:'videoPlayButton',getAttribute:()=>''};
   runtime.onUserIntent({isTrusted:true,type:'pointerdown',composedPath:()=>[control,player,document.body,document]});
   advance(2100);
+  await assert.rejects(hidden.play(), {name:'NotAllowedError'}, 'intent alone does not authorize hidden companions');
   await visible.play();
-  await assert.rejects(hidden.play(), {name:'NotAllowedError'});
+  await hidden.play();
+  advance(16000);
+  await hidden.play();
   await assert.rejects(unrelated.play(), {name:'NotAllowedError'});
   runtime.onUserIntent({isTrusted:true,type:'pointerdown',composedPath:()=>[control,document.body,document]});
   advance(2100);
@@ -198,7 +219,7 @@ test('player associations exclude page roots and hidden sibling media', async t 
   await assert.rejects(unrelated.play(), {name:'NotAllowedError'}, 'an ambiguous multi-player container cannot grant a long permission');
 });
 
-test('active user playback survives redundant play and audio-permission changes, then expires on stop', async t => {
+test('deliberate player authorization survives pause, replay, and audio-permission changes', async t => {
   const {runtime,document,navigator,configure,advance} = await nativeControlsFixture(t);
   const automatic = new FakeAudio(), manual = new FakeAudio(), video = new FakeVideo();
   automatic.paused = manual.paused = video.paused = false;
@@ -221,12 +242,12 @@ test('active user playback survives redundant play and audio-permission changes,
   assert.equal(video.paused, false, 'an audio-only policy change never pauses video');
   manual.paused = true;
   runtime.onPlaybackStopped({target:manual,type:'pause',isTrusted:true});
-  assert.equal(runtime.shouldBlockMedia(manual), true);
+  assert.equal(runtime.shouldBlockMedia(manual), false);
   manual.paused = false;
-  assert.equal(runtime.shouldBlockMedia(manual), true, 'script playback after a real stop requires new intent');
+  assert.equal(runtime.shouldBlockMedia(manual), false, 'the deliberate player may resume without a new deadline');
 });
 
-test('source resets retire active playback authorization', async t => {
+test('source changes preserve the deliberate player and retire stale blocked requests', async t => {
   const {runtime,document,navigator,advance} = await nativeControlsFixture(t);
   const video = new FakeVideo();
   video.controls = true; video.paused = false;
@@ -234,7 +255,7 @@ test('source resets retire active playback authorization', async t => {
   runtime.onPlay({target:video,isTrusted:true});
   runtime.onPlaybackStopped({target:video,type:'emptied',isTrusted:true});
   navigator.userActivation.isActive = false; advance(16000);
-  assert.equal(runtime.shouldBlockMedia(video), true);
+  assert.equal(runtime.shouldBlockMedia(video), false, 'quality/source changes belong to the same deliberate player');
   const replaced = new FakeVideo();
   await assert.rejects(replaced.play(),{name:'NotAllowedError'});
   assert.equal(runtime.pendingVideo.has(replaced),true);
@@ -284,8 +305,97 @@ test('audio-permission revocation and Enhanced mode suspend running Web Audio wi
   await manual.resume();
   assert.equal(manual.state,'running','redundant resume does not interrupt deliberate running audio');
   configure('enhanced');
-  assert.equal(manual.state,'suspended','Enhanced mode also suspends already-running contexts');
-  assert.equal(runtime.pendingContexts.size,2);
+  assert.equal(manual.state,'running','Enhanced mode retains deliberate audio processing');
+  assert.equal(runtime.pendingContexts.size,1);
+});
+
+test('a media click without an actual play request is only a short-lived intent', async t => {
+  const { runtime, advance } = await nativeControlsFixture(t);
+  const video = new FakeVideo();
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', composedPath: () => [video] });
+  advance(16000);
+  await assert.rejects(video.play(), { name: 'NotAllowedError' });
+});
+
+for (const modern of [false, true]) {
+test(`manual video releases only its associated Web Audio clock (${modern ? 'node constructor' : 'factory'})`, async t => {
+  const { runtime, context, document, navigator, advance, configure } = await nativeControlsFixture(t);
+  const video = new FakeVideo(); video.controls = true;
+  const linked = new context.AudioContext(), unrelated = new context.AudioContext();
+  const source = modern ? new context.MediaElementAudioSourceNode(linked, { mediaElement: video })
+    : linked.createMediaElementSource(video);
+  assert.equal(source.context, linked);
+  assert.equal(linked.state, 'suspended');
+  document.activeElement = video; navigator.userActivation.isActive = true;
+  runtime.onPlay({ target: video, isTrusted: true });
+  assert.equal(linked.state, 'running', 'native play releases the owned audio suspension');
+  assert.equal(linked.resumed, 1);
+  assert.equal(unrelated.state, 'suspended');
+  navigator.userActivation.isActive = false; advance(16000);
+  video.paused = true; runtime.onPlaybackStopped({ target: video, type: 'pause', isTrusted: true });
+  await video.play();
+  await linked.suspend(); await linked.resume();
+  assert.equal(linked.state, 'running', 'buffering/audio-device recovery does not lose permission');
+  linked.state = 'interrupted'; await linked.resume();
+  assert.equal(linked.state, 'running');
+  configure('enhanced');
+  runtime.removeMedia(video);
+  assert.equal(video.removed, false);
+  assert.equal(linked.state, 'running');
+  await assert.rejects(new FakeVideo().play(), { name: 'NotAllowedError' });
+  await assert.rejects(unrelated.resume(), { name: 'NotAllowedError' });
+});
+}
+
+test('a graph attached after manual video starts inherits only that player authorization', async t => {
+  const { runtime, context, advance } = await nativeControlsFixture(t);
+  const video = new FakeVideo();
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', composedPath: () => [video] });
+  await video.play(); advance(16000);
+  const linked = new context.AudioContext();
+  assert.equal(linked.state, 'suspended');
+  linked.createMediaElementSource(video);
+  assert.equal(linked.state, 'running');
+  assert.equal(runtime.hasUserAudioContext(linked), true);
+  const unrelated = new context.AudioContext();
+  unrelated.createMediaElementSource(new FakeVideo());
+  assert.equal(unrelated.state, 'suspended');
+});
+
+test('weak context ownership preserves authorization and releases suspensions beyond the strong map limit', async t => {
+  const { runtime, context, advance, configure } = await nativeControlsFixture(t);
+  const video = new FakeVideo(), linked = new context.AudioContext();
+  linked.createMediaElementSource(video);
+  const automatic = Array.from({ length: 10 }, () => new context.AudioContext());
+  assert.equal(runtime.pendingContexts.size, 8);
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', composedPath: () => [video] });
+  await video.play(); advance(16000);
+  assert.equal(linked.state, 'running', 'a weakly owned older context is still released');
+  await linked.suspend(); await linked.resume();
+  configure('standard', { active: false });
+  assert.equal(automatic.every(audio => audio.state === 'running'), true, 'no forgotten clock remains frozen after disable');
+  assert.equal(runtime.pendingContextRefs.size, 0);
+  assert.equal(context.MediaElementAudioSourceNode, FakeMediaSource);
+  assert.equal(FakeAudioContext.prototype.createMediaElementSource.name, 'createMediaElementSource');
+});
+
+test('manual playback survives off/on and runtime reinjection using inert weak document metadata', async t => {
+  const { runtime, context, advance, configure } = await nativeControlsFixture(t);
+  const video = new FakeVideo(), linked = new context.AudioContext();
+  linked.createMediaElementSource(video);
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', composedPath: () => [video] });
+  await video.play(); advance(16000);
+  configure('standard', { active: false }); configure('standard');
+  await video.play(); await linked.suspend(); await linked.resume();
+  runtime.onDispose({ detail: runtime.token });
+  assert.ok(context.window[Symbol.for('cosmic-gemini.no-autoplay.playback-session')]);
+  vm.runInContext(await readFile(new URL('../extension/content/no-autoplay/no-autoplay-runtime.js', import.meta.url), 'utf8'), context);
+  const next = context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
+  assert.notEqual(next, runtime);
+  next.onConfigure({ detail: JSON.stringify({ token: next.token, config: { active: true, mode: 'standard' } }) });
+  await video.play(); linked.state = 'interrupted'; await linked.resume();
+  assert.equal(linked.state, 'running');
+  await assert.rejects(new FakeVideo().play(), { name: 'NotAllowedError' });
 });
 
 test('Web Audio tracking stays bounded and releases closed or disposed contexts', async t => {

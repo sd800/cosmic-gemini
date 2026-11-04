@@ -5,6 +5,7 @@
   const DISPOSE = 'cosmic-gemini:no-autoplay:dispose';
   const INTERVENED = 'cosmic-gemini:no-autoplay:intervened';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.no-autoplay.runtime');
+  const SESSION_KEY = Symbol.for('cosmic-gemini.no-autoplay.playback-session');
   const CONTROL_INTENT_MS = 2000;
   const ASSOCIATED_MEDIA_INTENT_MS = 15000;
   const MAX_ASSOCIATION_PATH_DEPTH = 10;
@@ -23,6 +24,8 @@
 
   class NoAutoplayRuntime {
     constructor() {
+      const retained = window[SESSION_KEY];
+      try { delete window[SESSION_KEY]; } catch {}
       this.token = randomToken();
       this.active = false;
       this.configured = false;
@@ -33,11 +36,19 @@
       this.observer = null;
       this.mediaIntent = new WeakMap();
       this.playerIntent = new WeakMap();
-      this.userPlayback = new WeakSet();
+      this.mediaPlayers = retained?.mediaPlayers instanceof WeakMap ? retained.mediaPlayers : new WeakMap();
+      this.authorizedPlayers = retained?.authorizedPlayers instanceof WeakSet ? retained.authorizedPlayers : new WeakSet();
+      this.userPlayback = retained?.userPlayback instanceof WeakSet ? retained.userPlayback : new WeakSet();
       this.pendingAudio = new Set();
       this.pendingVideo = new Set();
       this.pendingContexts = new Map();
+      this.pendingContextEntries = new WeakMap();
+      this.pendingContextRefs = new Set();
       this.audioContexts = new Map();
+      this.authorizedContexts = retained?.authorizedContexts instanceof WeakSet ? retained.authorizedContexts : new WeakSet();
+      this.mediaContexts = retained?.mediaContexts instanceof WeakMap ? retained.mediaContexts : new WeakMap();
+      this.contextMedia = retained?.contextMedia instanceof WeakMap ? retained.contextMedia : new WeakMap();
+      this.mediaSourcePatch = null;
       this.originalPlay = HTMLMediaElement.prototype.play;
       this.originalPause = HTMLMediaElement.prototype.pause;
       this.patchedPlay = null;
@@ -66,6 +77,13 @@
 
     onDispose(event) {
       if (event?.detail !== this.token) return;
+      // Inert, weak, document-local policy survives off/on reinjection without
+      // keeping media or contexts alive, observing the page, or storing URLs.
+      try { Object.defineProperty(window, SESSION_KEY, { configurable: true, value: {
+        userPlayback: this.userPlayback, authorizedContexts: this.authorizedContexts,
+        mediaContexts: this.mediaContexts, contextMedia: this.contextMedia,
+        mediaPlayers: this.mediaPlayers, authorizedPlayers: this.authorizedPlayers
+      } }); } catch {}
       this.active = false;
       this.disableObserver();
       this.resumePendingMedia(true);
@@ -106,7 +124,7 @@
       if (this.mode === 'enhanced') {
         this.enableEnhancedObserver();
         this.removeMedia(document);
-        this.suspendAutomaticContexts(true);
+        this.suspendAutomaticContexts();
       } else {
         this.disableObserver();
         if (!wasActive) this.stopInitialPlayback();
@@ -128,6 +146,7 @@
       this.patchedPlay = function cosmicGeminiPlay() {
         if (!(this instanceof HTMLMediaElement)) return Reflect.apply(original, this, arguments);
         if (!runtime.shouldBlockMedia(this)) {
+          if (runtime.hasUserIntent(this)) runtime.authorizeMedia(this);
           runtime.pendingAudio.delete(this);
           runtime.pendingVideo.delete(this);
           return Reflect.apply(original, this, arguments);
@@ -150,8 +169,9 @@
         const wrappedResume = shared?.wrappedResume || function cosmicGeminiResume() {
           if (!(this instanceof constructor)) return Reflect.apply(original, this, arguments);
           if (this.state === 'closed' || !runtime.shouldBlockAudioContext(this)) {
-            runtime.rememberAudioContext(this, original, runtime.hasRecentPlaybackIntent() || runtime.hasUserAudioContext(this));
-            runtime.pendingContexts.delete(this);
+            runtime.rememberAudioContext(this, original, runtime.hasRecentPlaybackIntent()
+              || runtime.hasUserAudioContext(this) || runtime.hasLinkedMediaIntent(this));
+            runtime.forgetPendingContext(this);
             return Reflect.apply(original, this, arguments);
           }
           runtime.rememberPendingContext(this, original);
@@ -161,7 +181,21 @@
         };
         if (!shared) {
           constructor.prototype.resume = wrappedResume;
-          patched.set(constructor, { original, wrappedResume });
+          const sourceDescriptor = Object.getOwnPropertyDescriptor(constructor.prototype, 'createMediaElementSource');
+          const originalSource = constructor.prototype.createMediaElementSource;
+          let wrappedSource = null;
+          if (typeof originalSource === 'function') {
+            const wrapper = function cosmicGeminiMediaSource(...args) {
+              const source = Reflect.apply(originalSource, this, args);
+              runtime.bindMediaSource(source);
+              return source;
+            };
+            try {
+              constructor.prototype.createMediaElementSource = wrapper;
+              if (constructor.prototype.createMediaElementSource === wrapper) wrappedSource = wrapper;
+            } catch {}
+          }
+          patched.set(constructor, { original, wrappedResume, originalSource, wrappedSource, sourceDescriptor });
         }
         const descriptor = Object.getOwnPropertyDescriptor(globalThis, property);
         let wrappedConstructor = null;
@@ -170,7 +204,7 @@
             construct(target, args, newTarget) {
               const context = Reflect.construct(target, args, newTarget === wrapped ? target : newTarget);
               runtime.rememberAudioContext(context, original, runtime.hasRecentPlaybackIntent());
-              if (runtime.shouldBlockAudioContext()) {
+              if (runtime.shouldBlockAudioContext(context)) {
                 runtime.rememberPendingContext(context, original);
                 runtime.reportIntervention();
                 try { void Promise.resolve(context.suspend()).catch(() => {}); } catch {}
@@ -186,10 +220,27 @@
             value: wrapped
           });
         } catch {}
-        this.audioContextPatches.push({ property, constructor, original, wrappedResume, wrappedConstructor, descriptor });
+        this.audioContextPatches.push({ property, constructor, ...patched.get(constructor), wrappedConstructor, descriptor });
       };
       patch('AudioContext', globalThis.AudioContext);
       patch('webkitAudioContext', globalThis.webkitAudioContext);
+      const sourceConstructor = globalThis.MediaElementAudioSourceNode;
+      if (typeof sourceConstructor === 'function') {
+        const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'MediaElementAudioSourceNode');
+        const wrapped = new Proxy(sourceConstructor, {
+          construct(target, args, newTarget) {
+            const source = Reflect.construct(target, args, newTarget === wrapped ? target : newTarget);
+            runtime.bindMediaSource(source);
+            return source;
+          }
+        });
+        try {
+          Object.defineProperty(globalThis, 'MediaElementAudioSourceNode', {
+            configurable: true, enumerable: descriptor?.enumerable ?? true, writable: true, value: wrapped
+          });
+          this.mediaSourcePatch = { original: sourceConstructor, wrapped, descriptor };
+        } catch {}
+      }
     }
 
     installBehaviorHooks() {
@@ -218,18 +269,29 @@
       for (const entry of this.audioContextPatches) {
         try {
           if (entry.constructor.prototype.resume === entry.wrappedResume) entry.constructor.prototype.resume = entry.original;
+          if (entry.wrappedSource && entry.constructor.prototype.createMediaElementSource === entry.wrappedSource) {
+            if (entry.sourceDescriptor) Object.defineProperty(entry.constructor.prototype, 'createMediaElementSource', entry.sourceDescriptor);
+            else delete entry.constructor.prototype.createMediaElementSource;
+          }
           if (entry.wrappedConstructor && globalThis[entry.property] === entry.wrappedConstructor) {
             if (entry.descriptor) Object.defineProperty(globalThis, entry.property, entry.descriptor);
             else delete globalThis[entry.property];
           }
         } catch {}
       }
+      const sourcePatch = this.mediaSourcePatch;
+      if (sourcePatch && globalThis.MediaElementAudioSourceNode === sourcePatch.wrapped) {
+        try {
+          if (sourcePatch.descriptor) Object.defineProperty(globalThis, 'MediaElementAudioSourceNode', sourcePatch.descriptor);
+          else delete globalThis.MediaElementAudioSourceNode;
+        } catch {}
+      }
+      this.mediaSourcePatch = null;
       this.audioContextPatches = [];
       this.behaviorHooksInstalled = false;
       this.userIntentUntil = -1;
       this.mediaIntent = new WeakMap();
       this.playerIntent = new WeakMap();
-      this.userPlayback = new WeakSet();
       this.audioContexts.clear();
     }
 
@@ -270,7 +332,10 @@
         if (!candidates.length) continue;
         if (candidates.length > 1) return;
         this.playerIntent.set(node, deadline);
-        for (const media of candidates) this.mediaIntent.set(media, deadline);
+        for (const media of candidates) {
+          this.mediaIntent.set(media, deadline);
+          this.mediaPlayers.set(media, new WeakRef(node));
+        }
         return;
       }
     }
@@ -320,11 +385,12 @@
 
     hasUserIntent(media) {
       if (this.hasRecentPlaybackIntent()) return true;
-      if (media.paused === false && this.userPlayback.has(media)) return true;
+      if (this.userPlayback.has(media)) return true;
       const now = performance.now();
       if ((this.mediaIntent.get(media) || -1) > now) return true;
       let node = media;
       for (let depth = 0; node && depth < MAX_ASSOCIATION_PATH_DEPTH; depth += 1) {
+        if (this.authorizedPlayers.has(node)) return true;
         if ((this.playerIntent.get(node) || -1) > now && this.isVisibleMedia(media)) return true;
         node = node.parentElement || node.parentNode || node.host || null;
       }
@@ -346,22 +412,80 @@
 
     shouldBlockMedia(media) {
       if (!this.active) return false;
-      if (this.mode === 'enhanced') return true;
       if (this.hasUserIntent(media)) return false;
+      if (this.mode === 'enhanced') return true;
       if (media instanceof HTMLAudioElement && this.audioAllowed) return false;
       return true;
     }
 
     hasUserAudioContext(context) {
-      return !!context && context.state === 'running' && this.audioContexts.get(context)?.userStarted === true;
+      return !!context && context.state !== 'closed' && this.authorizedContexts.has(context);
     }
 
     shouldBlockAudioContext(context) {
       if (!this.active) return false;
+      if (this.hasUserAudioContext(context)) return false;
+      if (this.hasLinkedMediaIntent(context)) return false;
       if (this.mode === 'enhanced') return true;
       if (this.hasRecentPlaybackIntent()) return false;
-      if (this.hasUserAudioContext(context)) return false;
       return !this.audioAllowed;
+    }
+
+    bindMediaSource(source) {
+      if (!this.active) return;
+      const media = source?.mediaElement, context = source?.context;
+      if (!(media instanceof HTMLMediaElement) || !context) return;
+      const remember = (map, owner, value) => {
+        let refs = map.get(owner);
+        if (!refs) { refs = new Set(); map.set(owner, refs); }
+        for (const reference of refs) {
+          const current = reference.deref();
+          if (!current) refs.delete(reference);
+          else if (current === value) return;
+        }
+        refs.add(new WeakRef(value));
+      };
+      remember(this.mediaContexts, media, context);
+      remember(this.contextMedia, context, media);
+      if (this.hasUserIntent(media)) this.authorizeMedia(media);
+    }
+
+    hasLinkedMediaIntent(context) {
+      const refs = context && this.contextMedia.get(context);
+      if (!refs) return false;
+      for (const reference of refs) {
+        const media = reference.deref();
+        if (!media) refs.delete(reference);
+        else if (this.hasUserIntent(media)) return true;
+      }
+      return false;
+    }
+
+    authorizeMedia(media) {
+      if (!this.active) return;
+      if (!this.mediaPlayers.get(media)?.deref()) {
+        const path = [];
+        for (let node = media; node && path.length < MAX_ASSOCIATION_PATH_DEPTH;
+          node = node.parentElement || node.parentNode || node.host || null) path.push(node);
+        this.associatePlaybackIntent(path, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
+      }
+      this.userPlayback.add(media);
+      const player = this.mediaPlayers.get(media)?.deref();
+      if (player) this.authorizedPlayers.add(player);
+      const refs = this.mediaContexts.get(media);
+      if (!refs) return;
+      for (const reference of refs) {
+        const context = reference.deref();
+        if (!context || context.state === 'closed') { refs.delete(reference); continue; }
+        this.authorizedContexts.add(context);
+        const entry = this.audioContexts.get(context);
+        if (entry) entry.userStarted = true;
+        const pending = this.pendingContextEntries.get(context);
+        if (pending) {
+          this.forgetPendingContext(context);
+          try { void Promise.resolve(Reflect.apply(pending.resume, context, [])).catch(() => {}); } catch {}
+        }
+      }
     }
 
     isNativePlaybackIntent(event, media) {
@@ -378,12 +502,12 @@
     onPlay(event) {
       const media = event.target;
       if (!(media instanceof HTMLMediaElement) || event.isTrusted !== true) return;
-      if (this.active && this.mode !== 'enhanced' && this.isNativePlaybackIntent(event, media)) {
+      if (this.active && this.isNativePlaybackIntent(event, media)) {
         this.mediaIntent.set(media, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
       }
       if (this.shouldBlockMedia(media)) this.blockMedia(media);
       else {
-        if (this.hasUserIntent(media)) this.userPlayback.add(media);
+        if (this.hasUserIntent(media)) this.authorizeMedia(media);
         this.pendingAudio.delete(media);
         this.pendingVideo.delete(media);
       }
@@ -391,8 +515,8 @@
 
     onPlaybackStopped(event) {
       if (event.isTrusted !== true || !(event.target instanceof HTMLMediaElement)) return;
-      // A queued pause from an earlier block must not revoke a newer play.
-      if (event.type === 'emptied' || event.target.paused === true || event.target.ended === true) this.userPlayback.delete(event.target);
+      // A deliberate player remains authorized through buffering, pauses,
+      // replay, and source/quality changes. Only this document's lifetime owns it.
       if (event.type === 'emptied') {
         this.mediaIntent.delete(event.target);
         this.pendingAudio.delete(event.target);
@@ -446,11 +570,11 @@
     removeMedia(root) {
       if (!root) return;
       if (root instanceof HTMLMediaElement) {
-        this.blockMedia(root);
+        if (this.shouldBlockMedia(root)) this.blockMedia(root);
         return;
       }
       if (!root.querySelectorAll) return;
-      for (const media of root.querySelectorAll('video,audio')) this.blockMedia(media);
+      for (const media of root.querySelectorAll('video,audio')) if (this.shouldBlockMedia(media)) this.blockMedia(media);
     }
 
     rememberPending(collection, value) {
@@ -459,22 +583,37 @@
     }
 
     rememberPendingContext(context, resume) {
+      if (!this.pendingContextEntries.has(context)) {
+        for (const reference of this.pendingContextRefs) if (!reference.deref()) this.pendingContextRefs.delete(reference);
+        const reference = new WeakRef(context);
+        this.pendingContextEntries.set(context, { resume, reference });
+        this.pendingContextRefs.add(reference);
+      }
       if (!this.pendingContexts.has(context) && this.pendingContexts.size >= 8) this.pendingContexts.delete(this.pendingContexts.keys().next().value);
       this.pendingContexts.set(context, resume);
+    }
+
+    forgetPendingContext(context) {
+      const entry = this.pendingContextEntries.get(context);
+      if (entry) this.pendingContextRefs.delete(entry.reference);
+      this.pendingContextEntries.delete(context);
+      this.pendingContexts.delete(context);
     }
 
     rememberAudioContext(context, resume, userStarted) {
       if (!this.active) return;
       for (const existing of this.audioContexts.keys()) if (existing.state === 'closed') this.audioContexts.delete(existing);
       if (context.state === 'closed') return;
+      userStarted ||= this.authorizedContexts.has(context);
+      if (userStarted) this.authorizedContexts.add(context);
       if (!this.audioContexts.has(context) && this.audioContexts.size >= 8) this.audioContexts.delete(this.audioContexts.keys().next().value);
       this.audioContexts.set(context, { resume, userStarted });
     }
 
-    suspendAutomaticContexts(includeUser = false) {
+    suspendAutomaticContexts() {
       for (const [context, entry] of this.audioContexts) {
         if (context.state === 'closed') { this.audioContexts.delete(context); continue; }
-        if (context.state !== 'running' || (!includeUser && entry.userStarted)) continue;
+        if (context.state !== 'running' || this.hasUserAudioContext(context) || this.hasLinkedMediaIntent(context)) continue;
         this.rememberPendingContext(context, entry.resume);
         this.reportIntervention();
         try { void Promise.resolve(context.suspend()).catch(() => {}); } catch {}
@@ -497,10 +636,16 @@
     }
 
     resumePendingContexts() {
-      for (const [context, resume] of this.pendingContexts) {
+      for (const reference of this.pendingContextRefs) {
+        const context = reference.deref();
+        if (!context) continue;
+        const resume = this.pendingContextEntries.get(context)?.resume;
+        this.forgetPendingContext(context);
         try { if (context.state !== 'closed' && typeof resume === 'function') void Promise.resolve(Reflect.apply(resume, context, [])).catch(() => {}); }
         catch {}
       }
+      this.pendingContextRefs.clear();
+      this.pendingContextEntries = new WeakMap();
       this.pendingContexts.clear();
     }
 

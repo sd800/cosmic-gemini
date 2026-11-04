@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.4.4');
+assert.equal(manifest.version, '26.11.4.5');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 const packageMetadata = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
 assert.equal(packageMetadata.version, manifest.version);
@@ -729,12 +729,12 @@ assert.match(adMarshalRuntime, /globalThis\.fetch = this\.fetchWrapper[\s\S]*XML
 assert.match(adMarshalRuntime, /TRANSPARENT_IMAGE_URL[\s\S]*HTMLImageElement\.prototype/);
 assert.match(adMarshalRuntime, /127\.0\.0\.1[\s\S]*adMarshalImageSrcSet/);
 assert.match(adMarshalRuntime, /tonglan-ad-channel\.ad-news[\s\S]*rectangle-ad-channel\.ad-news[\s\S]*NEWS_QQ_AD_CONTAINER_SELECTOR[\s\S]*this\.ensureStyle\(\)/);
-assert.match(adMarshalRuntime, /NEWS_QQ_MEDIA_CONTAINER_SELECTOR[\s\S]*#content-right\.content-right[\s\S]*NEWS_QQ_REMOVED_VIDEO_SELECTOR[\s\S]*\.qnt-p \.videoPlayerMini/);
+assert.match(adMarshalRuntime, /NEWS_QQ_MEDIA_CONTAINER_SELECTOR[\s\S]*#content-right\.content-right[\s\S]*NEWS_QQ_REMOVED_VIDEO_SELECTOR[\s\S]*\.qnt-p:not\(\[\$\{NEWS_MEDIA_ACTIVE_MARKER\}\]\) \.videoPlayerMini/);
 assert.match(adMarshalRuntime, /NEWS_QQ_REMOVED_VIDEO_SELECTOR[\s\S]*\.qqcom-jxvideo[\s\S]*\.video-wrap[\s\S]*iframe\[src\*="video\.qq\.com"\][\s\S]*iframe\[src\*="v\.qq\.com"\]/);
 assert.match(adMarshalRuntime, /startNewsVideoContainerRemoval[\s\S]*removeNewsVideoContainers\(document\)[\s\S]*record\.addedNodes/);
 assert.match(adMarshalRuntime, /releaseNewsMediaContainer[\s\S]*video\.pause\(\)[\s\S]*video\.removeAttribute\('src'\)[\s\S]*container\.matches\('iframe'\)[\s\S]*container\.remove\(\)/);
 assert.match(adMarshalRuntime, /startNewsFloatingPlayerMonitoring[\s\S]*document\.querySelector\('\.qnt-p'\)[\s\S]*observeNewsFloatingPlayerRoot/);
-assert.match(adMarshalRuntime, /suspendNewsFloatingPlayer[\s\S]*prepareNewsMedia\(media, \{ force: true \}\)/);
+assert.match(adMarshalRuntime, /prepareNewsMedia\(media,[\s\S]*isNewsMediaActivated\(media\)\) \{ this\.restoreNewsMedia\(media\); return; \}[\s\S]*pauseNewsMedia\(media\)/);
 assert.doesNotMatch(adMarshalRuntime, /suspendNewsFloatingPlayer[\s\S]{0,500}(?:releaseNewsMediaContainer|player\.remove\(\))/,
   'The Tencent News floating player must be suspended without deleting its node or media sources.');
 assert.match(adMarshalRuntime, /observeNewsFloatingPlayerRoot[\s\S]*record\.addedNodes[\s\S]*attributeFilter: \['class'\]/);
@@ -750,7 +750,8 @@ assert.match(adMarshalRuntime, /NEWS_MEDIA_ACTIVE_MARKER[\s\S]*txp_poster_img[\s
 assert.match(adMarshalRuntime, /removeNewsMediaGuards[\s\S]*removeEventListener\('pointerdown'[\s\S]*removeEventListener\('play'[\s\S]*removeEventListener\('volumechange'/);
 assert.match(adMarshalRuntime, /hostStyles:[\s\S]*'news\.qq\.com'[\s\S]*config\?\.hostStyles\?\.\[location\.hostname\.toLowerCase\(\)\]/);
 assert.match(adMarshalRuntime, /STYLE_MARKER[\s\S]*document\.querySelector[\s\S]*setAttribute\(STYLE_MARKER, this\.siteId\)/);
-assert.doesNotMatch(adMarshalRuntime, /this\.styleElement\?\.remove\(\)/);
+assert.match(adMarshalRuntime, /disable\(\)[\s\S]*this\.styleElement\?\.remove\(\)/,
+  'Disabling managed-media restrictions must release their owned hiding stylesheet.');
 assert.match(adMarshalRuntime, /wwwQqCom[\s\S]*h5\.ssp\.qq\.com[\s\S]*qqhome-col-1:has\(> \.game-rank-wrap\)/);
 assert.match(adMarshalRuntime, /zhihuCom[\s\S]*hostSuffix: '\.zhihu\.com'[\s\S]*zhihu-web-analytics\.zhihu\.com[\s\S]*\/za-js-sdk@/);
 assert.doesNotMatch(adMarshalRuntime, /douyinCom|gmailCom|play\.google\.com\/log/);

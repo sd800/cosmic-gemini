@@ -34,6 +34,7 @@
       this.audioAllowed = false;
       this.reported = false;
       this.userIntentUntil = -1;
+      this.surfaceIntent = null;
       this.observer = null;
       this.mediaIntent = new WeakMap();
       this.playerIntent = new WeakMap();
@@ -99,6 +100,7 @@
         mediaPlayers: this.mediaPlayers, authorizedPlayers: this.authorizedPlayers
       } }); } catch {}
       this.active = false;
+      this.surfaceIntent = null;
       this.disableObserver();
       this.pendingAudio.clear(); this.pendingVideo.clear();
       this.resumePendingContexts();
@@ -128,6 +130,7 @@
       this.mode = nextMode;
       this.audioAllowed = nextAudioAllowed;
       if (!this.active) {
+        this.surfaceIntent = null;
         this.disableObserver();
         this.reported = false;
         this.pendingAudio.clear(); this.pendingVideo.clear();
@@ -320,6 +323,7 @@
       if (event.type === 'keydown' && !['Enter', ' ', 'Spacebar'].includes(event.key)) return;
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
       if (path.some(node => this.isTextEntry(node))) return;
+      this.surfaceIntent = null;
       for (const node of path) {
         if (node instanceof HTMLMediaElement) {
           this.mediaIntent.set(node, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
@@ -330,7 +334,59 @@
         const now = performance.now();
         this.userIntentUntil = now + CONTROL_INTENT_MS;
         this.associatePlaybackIntent(path, now + ASSOCIATED_MEDIA_INTENT_MS);
+        return;
       }
+      this.rememberSurfaceIntent(event, path);
+    }
+
+    rememberSurfaceIntent(event, path) {
+      // Unlabelled covers can be the real play control. Keep weak local scopes
+      // and the input point; inspect media only if playback is actually requested.
+      // Do not scan the page or grant a page-wide audio/video permission on clicks.
+      if (path.some(node => ['a', 'area'].includes(String(node?.localName || '').toLowerCase())
+        && node.hasAttribute?.('href'))) return;
+      let x = event.clientX, y = event.clientY;
+      if (event.type === 'keydown' || event.type === 'click' && event.detail === 0) {
+        const control = path.find(node => String(node?.localName || '').toLowerCase() === 'button'
+          || node?.getAttribute?.('role') === 'button');
+        if (!control?.getBoundingClientRect) return;
+        let rect;
+        try { rect = control.getBoundingClientRect(); } catch { return; }
+        if (!(rect.width > 0 && rect.height > 0)) return;
+        x = rect.left + rect.width / 2; y = rect.top + rect.height / 2;
+      }
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      const scopes = [];
+      for (const node of path.slice(0, MAX_ASSOCIATION_PATH_DEPTH)) {
+        if (node === document || node === document.body || node === document.documentElement) break;
+        if (typeof node?.contains === 'function' && typeof node.querySelectorAll === 'function') scopes.push(new WeakRef(node));
+      }
+      if (scopes.length) this.surfaceIntent = { x, y, scopes, until: performance.now() + ASSOCIATED_MEDIA_INTENT_MS };
+    }
+
+    hasSurfaceIntent(media) {
+      const intent = this.surfaceIntent;
+      if (!intent) return false;
+      if (intent.until <= performance.now()) { this.surfaceIntent = null; return false; }
+      if (!(media instanceof HTMLMediaElement) || media.isConnected === false) return false;
+      let rect;
+      try { rect = media.getBoundingClientRect?.(); } catch { return false; }
+      if (!rect || !(rect.width >= 16 && rect.height >= 16
+        && intent.x >= rect.left && intent.x <= rect.right && intent.y >= rect.top && intent.y <= rect.bottom)) return false;
+      for (const reference of intent.scopes) {
+        const scope = reference.deref();
+        try {
+          if (!scope?.contains(media)) continue;
+          let found = null;
+          for (const candidate of scope.querySelectorAll('video,audio')) {
+            if (candidate !== media && !this.isVisibleMedia(candidate)) continue;
+            if (found) return false;
+            found = candidate;
+          }
+          return found === media;
+        } catch {}
+      }
+      return false;
     }
 
     associatePlaybackIntent(path, deadline) {
@@ -407,6 +463,7 @@
       if (this.userPlayback.has(media)) return true;
       const now = performance.now();
       if ((this.mediaIntent.get(media) || -1) > now) return true;
+      if (this.hasSurfaceIntent(media)) return true;
       let node = media;
       for (let depth = 0; node && depth < MAX_ASSOCIATION_PATH_DEPTH; depth += 1) {
         if (this.authorizedPlayers.has(node)) return true;

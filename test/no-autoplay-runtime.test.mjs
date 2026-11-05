@@ -610,3 +610,72 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   runtime.onDispose({ detail: runtime.token });
   assert.equal(context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')], undefined);
 });
+
+function surfacePlayer(document, media) {
+  const player = { localName: 'div', querySelectorAll: () => media,
+    contains: node => media.includes(node), parentElement: document.body };
+  for (const node of media) node.parentElement = player;
+  const cover = { localName: 'div', className: 'large-glyph', getAttribute: () => '',
+    hasAttribute: () => false, contains: () => false, querySelectorAll: () => [] };
+  return { player, cover, path: () => [cover, player, document.body, document] };
+}
+
+test('an unlabelled player cover authorizes its visible media without page-wide playback permission', async t => {
+  const { runtime, document, context, advance } = await nativeControlsFixture(t);
+  document.body = {};
+  const video = new FakeVideo(), hidden = new FakeAudio(), other = new FakeVideo();
+  video.rect = other.rect = { left: 20, top: 20, right: 660, bottom: 380, width: 640, height: 360 };
+  const { path } = surfacePlayer(document, [video, hidden]);
+  runtime.onUserIntent({ type: 'pointerdown', isTrusted: true, button: 0, clientX: 200, clientY: 150, composedPath: path });
+  assert.equal(runtime.hasRecentPlaybackIntent(), false);
+  assert.equal(new context.AudioContext().suspended, 1, 'an unlinked audio context gains no permission');
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+  await assert.rejects(hidden.play(), { name: 'NotAllowedError' }, 'hidden companions wait for actual primary playback');
+  runtime.onPlaybackStopped({ type: 'emptied', target: video, isTrusted: true });
+  advance(2100);
+  await video.play();
+  await hidden.play();
+  advance(16000);
+  await video.play(); await hidden.play();
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+});
+
+test('surface intent supports media created after the cover click, without a click-time subtree scan', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  const media = [], { path, player } = surfacePlayer(document, media);
+  let scans = 0;
+  player.querySelectorAll = () => { scans++; return media; };
+  runtime.onUserIntent({ type: 'click', detail: 1, isTrusted: true, clientX: 30, clientY: 40, composedPath: path });
+  assert.equal(scans, 0);
+  const video = new FakeVideo(); video.rect = { left: 0, top: 0, right: 640, bottom: 360, width: 640, height: 360 };
+  video.parentElement = player; media.push(video);
+  await video.play(); assert.equal(video.played, 1);
+});
+
+for (const scenario of ['outside', 'ambiguous', 'link', 'synthetic', 'expired', 'root', 'off']) {
+  test(`surface intent rejects ${scenario} activation`, async t => {
+    const { runtime, document, advance } = await nativeControlsFixture(t);
+    document.body = {};
+    const video = new FakeVideo(); video.rect = { left: 20, top: 20, right: 660, bottom: 380, width: 640, height: 360 };
+    const media = [video], { path, cover } = surfacePlayer(document, media);
+    if (scenario === 'ambiguous') { const other = new FakeVideo(); other.rect = video.rect; media.push(other); }
+    if (scenario === 'link') { cover.localName = 'a'; cover.hasAttribute = name => name === 'href'; }
+    runtime.onUserIntent({ type: 'click', detail: 1, isTrusted: scenario !== 'synthetic',
+      clientX: scenario === 'outside' ? 900 : 100, clientY: 100,
+      composedPath: scenario === 'root' ? () => [cover, document.body, document] : path });
+    if (scenario === 'expired') advance(15001);
+    if (scenario === 'off') { runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) }); assert.equal(runtime.surfaceIntent, null); return; }
+    await assert.rejects(video.play(), { name: 'NotAllowedError' });
+  });
+}
+
+test('keyboard activation of an unlabelled overlay button is scoped to the media under its center', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  const video = new FakeVideo(); video.rect = { left: 0, top: 0, right: 640, bottom: 360, width: 640, height: 360 };
+  const { path, cover } = surfacePlayer(document, [video]);
+  cover.localName = 'button'; cover.getBoundingClientRect = () => ({ left: 280, top: 140, width: 80, height: 80 });
+  runtime.onUserIntent({ type: 'keydown', key: 'Enter', isTrusted: true, composedPath: path });
+  await video.play(); assert.equal(runtime.hasRecentPlaybackIntent(), false);
+});

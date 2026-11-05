@@ -48,6 +48,20 @@ try {
     const path=new URL(route.request().url()).pathname;
     if(path==='/clip.webm')return route.fulfill({contentType:'video/webm',body:videoBytes});
     if(path==='/sound.wav')return route.fulfill({contentType:'audio/wav',body:audioBytes});
+    if(path.startsWith('/surface'))return route.fulfill({contentType:'text/html',body:`<!doctype html><title>Media surface fixture</title>
+      <style>#frame{position:relative;width:640px;height:360px}video{width:100%;height:100%}#cover{position:absolute;inset:0;display:grid;place-items:center;background:#3458;cursor:pointer}#other{display:none}</style>
+      <div id="frame"><div id="cover">▶</div></div><video id="other" src="/clip.webm" muted></video>
+      <script>
+      function createMedia(){
+        const media=document.createElement('video');media.id='video';media.src='/clip.webm';media.muted=true;media.loop=true;
+        document.querySelector('#frame').prepend(media);return media;
+      }
+      ${path==='/surface'?'createMedia();':''}
+      document.querySelector('#cover').onclick=async()=>{
+        try{await (document.querySelector('#video')||createMedia()).play();document.querySelector('#cover').remove();}
+        catch(error){window.surfaceError=error.name;}
+      };
+      </script>`});
     return route.fulfill({contentType:'text/html',body:`<!doctype html><title>Native media controls fixture</title>
       <style>body{font:16px system-ui;margin:20px}video{display:block;width:640px;height:360px}button{font:inherit;margin:8px}#other{display:none}</style>
       <button id="unrelated">Ordinary action</button><button id="fullscreen">Full screen</button>
@@ -189,6 +203,25 @@ try {
   await setMode('noAutoplay','inactive');await setMode('nativeScroll','inactive');
   await page.waitForFunction(({naKey,nsKey})=>!window[Symbol.for(naKey)]&&!window[Symbol.for(nsKey)],{naKey,nsKey});
 
+  // Fresh documents ensure prior native/custom controls cannot mask surface recognition.
+  for(const [mode,path]of [['standard','/surface'],['standard','/surface-lazy'],['enhanced','/surface-lazy']]){
+    await setMode('noAutoplay',mode);
+    await page.goto(`https://media-controls.test${path}`);
+    await page.waitForFunction(({key,mode})=>window[Symbol.for(key)]?.active&&window[Symbol.for(key)].mode===mode,{key:naKey,mode});
+    await page.locator('#cover').click();await isPlaying('video');
+    await page.waitForFunction(()=>document.querySelector('#video').currentTime>0);
+    assert.equal(await page.evaluate(()=>window.surfaceError||null),null);
+    assert.equal(await page.evaluate(key=>window[Symbol.for(key)].hasRecentPlaybackIntent(),naKey),false);
+    if(mode==='standard')assert.equal(await page.evaluate(async()=>{
+      try{await document.querySelector('#other').play();return 'played';}catch(error){return error.name;}
+    }),'NotAllowedError','an unlabelled cover does not authorize another player');
+    await page.locator('#video').evaluate(async video=>{video.pause();video.src='/clip.webm?revision=2';video.load();await video.play();});
+    await isPlaying('video');
+    console.log(`PASS: No Autoplay ${mode}; unlabelled ${path.endsWith('lazy')?'lazy':'existing'} media surface and source reset.`);
+  }
+  await setMode('noAutoplay','inactive');
+  await page.waitForFunction(key=>!window[Symbol.for(key)],naKey);
+
   // Related managed-media paths must also leave deliberate playback intact.
   await context.route('https://news.qq.com/**',route=>new URL(route.request().url()).pathname==='/clip.webm'
     ?route.fulfill({contentType:'video/webm',body:videoBytes})
@@ -219,6 +252,10 @@ try {
   });
   await managed.close();
   assert.deepEqual(errors,[]);
-  await writeFile(join(artifacts,'README.md'),`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Playback coverage also includes linked Web Audio clock progression through factory and constructor associations, companion audio, source/quality changes, manual Enhanced-mode exemptions, and managed-player floating/reparenting without hiding or reloading. Unit tests cover gesture expiry, document-lifetime authorization, audio permission changes, weak ownership beyond the strong map limit, Web Audio interruptions/rejections/aliases, reinjection, and wrapper ownership.\n`);
+  const readmePath=join(artifacts,'README.md');
+  const previousReadme=await readFile(readmePath,'utf8').catch(()=> '');
+  const notesStart=previousReadme.indexOf('\n## ');
+  const retainedNotes=notesStart<0?'':previousReadme.slice(notesStart);
+  await writeFile(readmePath,`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unlabelled covers over existing/lazy media, surface source resets, Enhanced lazy-player activation, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Playback coverage also includes linked Web Audio clock progression through factory and constructor associations, companion audio, source/quality changes, manual Enhanced-mode exemptions, and managed-player floating/reparenting without hiding or reloading. Unit tests cover surface geometry, keyboard activation, navigation/ambiguity rejection, zero click-time subtree scans, gesture expiry, document-lifetime authorization, audio permission changes, weak ownership beyond the strong map limit, Web Audio interruptions/rejections/aliases, reinjection, and wrapper ownership.\n`+retainedNotes);
   console.log('PASS: Keyboard/fullscreen; manual video/Web Audio clocks; pause/replay and companion audio; independent autoplay denial; Enhanced manual-player exemption; cleanup and no page errors.');
 } finally {await context.close();await rm(folder,{recursive:true,force:true});}

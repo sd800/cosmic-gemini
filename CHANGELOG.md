@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.5.1 (489) — 2026-11-05
+
+- Fix manual playback from custom player covers that have no recognizable play label. Associate trusted input with the single visible media beneath it in the same local player, including media created after the click and playback that starts after setup.
+- Keep this permission local: unrelated players, hidden media before primary playback, ordinary links, ambiguous multi-player containers, and synthetic input remain subject to autoplay protection. Preserve deliberate playback through source changes and replay, along with the existing companion-audio policy.
+- Record cover input using bounded weak references, without scanning media on every click, adding observers, or polling. Clear pending cover intent when protection stops. Extend tests for cover clicks, keyboard activation, delayed media creation, source changes, and independent autoplay blocking.
+
 ## 26.11.4.8 (488) — 2026-11-04
 
 - Avoid rewriting unchanged persistent preferences during initialization, service-worker recreation, and repeated settings commands. Initial defaults and normalization/migration changes are still saved, and failed writes remain retryable.

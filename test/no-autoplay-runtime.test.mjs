@@ -492,7 +492,7 @@ test('Web Audio constructor aliases share a guard and restore their property des
   assert.equal(legacy.resumed,1);
 });
 
-test('No Autoplay blocks automatic media, preserves direct play, and keeps video blocked when audio is allowed', async () => {
+test('No Autoplay blocks automatic media, preserves direct play, and keeps video blocked when audio is allowed', async t => {
   let now = 100;
   const window = new SimpleEventTarget();
   const alreadyPlayingAudio = new FakeAudio();
@@ -514,6 +514,7 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
   const source = await readFile(new URL('../extension/content/no-autoplay/no-autoplay-runtime.js', import.meta.url), 'utf8');
   vm.runInContext(source, context);
   const runtime = context.window[Symbol.for('cosmic-gemini.no-autoplay.runtime')];
+  t.after(() => runtime.onDispose({ detail: runtime.token }));
   const assertBlocked = media => assert.rejects(media.play(), error => error?.name === 'NotAllowedError');
   assert.equal(context.HTMLMediaElement.prototype.play, runtime.originalPlay);
   assert.equal(context.AudioContext, FakeAudioContext);
@@ -552,8 +553,10 @@ test('No Autoplay blocks automatic media, preserves direct play, and keeps video
     textContent: 'Play',
     getAttribute: () => ''
   };
-  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', target: playControl, composedPath: () => [playControl] });
   const customControlVideo = new FakeVideo();
+  customControlVideo.rect = { width: 640, height: 360 };
+  document.querySelectorAll = () => [customControlVideo];
+  runtime.onUserIntent({ isTrusted: true, type: 'pointerdown', target: playControl, composedPath: () => [playControl] });
   await customControlVideo.play();
   assert.equal(customControlVideo.played, 1);
 
@@ -660,7 +663,7 @@ for (const scenario of ['outside', 'ambiguous', 'link', 'synthetic', 'expired', 
     const video = new FakeVideo(); video.rect = { left: 20, top: 20, right: 660, bottom: 380, width: 640, height: 360 };
     const media = [video], { path, cover } = surfacePlayer(document, media);
     if (scenario === 'ambiguous') { const other = new FakeVideo(); other.rect = video.rect; media.push(other); }
-    if (scenario === 'link') { cover.localName = 'a'; cover.hasAttribute = name => name === 'href'; }
+    if (scenario === 'link') { cover.localName = 'a'; cover.getAttribute = name => name === 'href' ? '/elsewhere' : ''; }
     runtime.onUserIntent({ type: 'click', detail: 1, isTrusted: scenario !== 'synthetic',
       clientX: scenario === 'outside' ? 900 : 100, clientY: 100,
       composedPath: scenario === 'root' ? () => [cover, document.body, document] : path });
@@ -678,4 +681,176 @@ test('keyboard activation of an unlabelled overlay button is scoped to the media
   cover.localName = 'button'; cover.getBoundingClientRect = () => ({ left: 280, top: 140, width: 80, height: 80 });
   runtime.onUserIntent({ type: 'keydown', key: 'Enter', isTrusted: true, composedPath: path });
   await video.play(); assert.equal(runtime.hasRecentPlaybackIntent(), false);
+});
+
+
+function explicitControl(label = 'Play') {
+  return { localName: 'button', textContent: label, getAttribute: () => '',
+    querySelectorAll: () => [], contains: () => false };
+}
+
+test('explicit local controls do not open a global HTML-media or Web Audio window', async t => {
+  const { runtime, document, context } = await nativeControlsFixture(t);
+  document.body = {};
+  const video = new FakeVideo(), other = new FakeVideo();
+  video.rect = { width: 640, height: 360 };
+  const { player } = surfacePlayer(document, [video]), control = explicitControl();
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control, player, document.body] });
+  assert.equal(runtime.hasRecentPlaybackIntent(), false);
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+  assert.equal(new context.AudioContext().state, 'suspended');
+  await video.play();
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+});
+
+test('external controls honor ARIA media targets rather than nearby unrelated players', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  const target = new FakeVideo(), nearby = new FakeVideo();
+  target.rect = nearby.rect = { width: 640, height: 360 };
+  const { player } = surfacePlayer(document, [nearby]);
+  const control = explicitControl('▶');
+  control.getAttribute = name => name === 'aria-controls' ? 'target' : '';
+  control.getRootNode = () => ({ getElementById: id => id === 'target' ? target : null });
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control, player, document.body] });
+  await assert.rejects(nearby.play(), { name: 'NotAllowedError' });
+  await target.play();
+});
+
+test('labelled-by and play-glyph buttons support the document sole player without root authorization', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  for (const label of ['▶', 'labelled-by']) {
+    const video = new FakeVideo(), other = new FakeVideo();
+    video.rect = other.rect = { width: 640, height: 360 };
+    video.parentElement = other.parentElement = document.body;
+    const media = [video]; document.querySelectorAll = () => media;
+    const control = explicitControl(label);
+    if (label === 'labelled-by') {
+      control.getAttribute = name => name === 'aria-labelledby' ? 'label' : '';
+      control.getRootNode = () => ({ getElementById: () => ({ textContent: 'Play video' }) });
+    }
+    runtime.onUserIntent({ type: 'keydown', key: 'Enter', isTrusted: true, composedPath: () => [control, document.body] });
+    media.push(other);
+    await assert.rejects(other.play(), { name: 'NotAllowedError' });
+    await video.play();
+    assert.equal(runtime.authorizedPlayers.has(document.body), false);
+  }
+});
+
+test('explicit local audio controls permit delayed hidden audio without releasing other media', async t => {
+  const { runtime, document, advance } = await nativeControlsFixture(t);
+  document.body = {};
+  const audio = new FakeAudio(), other = new FakeAudio();
+  const { player } = surfacePlayer(document, [audio]), control = explicitControl('Listen');
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control, player, document.body] });
+  advance(2100);
+  await audio.play();
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+});
+
+test('explicit controls cover late local creation and a late sole document player', async t => {
+  const { runtime, document, advance } = await nativeControlsFixture(t);
+  document.body = {};
+  for (const local of [true, false]) {
+    const media = [], { player } = surfacePlayer(document, media), control = explicitControl();
+    document.querySelectorAll = () => media;
+    runtime.onUserIntent({ type: 'click', isTrusted: true,
+      composedPath: () => local ? [control, player, document.body] : [control, document.body] });
+    advance(2100);
+    const video = new FakeVideo(); video.rect = { width: 640, height: 360 };
+    video.parentElement = local ? player : document.body; media.push(video);
+    await video.play();
+    await assert.rejects(new FakeVideo().play(), { name: 'NotAllowedError' });
+  }
+});
+
+test('unplayed local intent does not authorize a newly inserted second visible media', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  const video = new FakeVideo(), other = new FakeVideo();
+  video.rect = other.rect = { width: 640, height: 360 };
+  const media = [video], { player } = surfacePlayer(document, media), control = explicitControl();
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control, player, document.body] });
+  other.parentElement = player; media.push(other);
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+  await video.play();
+});
+
+test('media-free controls authorize only one Web Audio context, including Enhanced mode', async t => {
+  const { runtime, context, configure, advance } = await nativeControlsFixture(t);
+  for (const mode of ['standard', 'enhanced']) {
+    configure(mode);
+    const control = explicitControl('Listen');
+    runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control] });
+    const manual = new context.AudioContext(), other = new context.AudioContext();
+    await manual.resume();
+    await assert.rejects(other.resume(), { name: 'NotAllowedError' });
+    await assert.rejects(new FakeVideo().play(), { name: 'NotAllowedError' });
+    advance(2100);
+    await manual.resume();
+    assert.equal(manual.state, 'running');
+  }
+});
+
+test('autoplay options and playback-rate controls never masquerade as play controls', async t => {
+  const { runtime } = await nativeControlsFixture(t);
+  for (const label of ['autoPlayButton', 'auto-play-toggle', 'playbackRate', '自动播放', '播放速度']) {
+    const control = explicitControl(label); control.className = label;
+    assert.equal(runtime.isPlaybackControl(control), false, label);
+    runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control] });
+    await assert.rejects(new FakeVideo().play(), { name: 'NotAllowedError' });
+  }
+});
+
+
+test('missing declared targets do not fall back to an unrelated sole video', async t => {
+  const { runtime, document, advance } = await nativeControlsFixture(t);
+  document.body = {};
+  const other = new FakeVideo(); other.rect = { width: 640, height: 360 };
+  document.querySelectorAll = () => [other];
+  let target = null;
+  const control = explicitControl();
+  control.getAttribute = name => name === 'aria-controls' ? 'later' : '';
+  control.getRootNode = () => ({ getElementById: () => target });
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control, document.body] });
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+  advance(2100); target = new FakeAudio();
+  await target.play();
+  await assert.rejects(other.play(), { name: 'NotAllowedError' });
+});
+
+test('autoplay switches over a video do not inherit cover or ARIA playback intent', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  for (const kind of ['autoPlayButton', 'switch', 'playbackRate']) {
+    const video = new FakeVideo(); video.rect = { left: 0, top: 0, right: 640, bottom: 360, width: 640, height: 360 };
+    const { player } = surfacePlayer(document, [video]), control = explicitControl('Play');
+    control.className = kind;
+    control.getAttribute = name => name === 'aria-controls' ? 'video' : name === 'role' && kind === 'switch' ? 'switch' : '';
+    control.getRootNode = () => ({ getElementById: () => video });
+    runtime.onUserIntent({ type: 'click', detail: 1, clientX: 20, clientY: 20, isTrusted: true,
+      composedPath: () => [control, player, document.body] });
+    await assert.rejects(video.play(), { name: 'NotAllowedError' });
+  }
+});
+
+test('inactive cleanup clears deferred control targets and audio-context choice', async t => {
+  const { runtime, configure, context } = await nativeControlsFixture(t);
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [explicitControl('Listen')] });
+  assert.ok(runtime.controlIntent);
+  new context.AudioContext(); assert.ok(runtime.intentContext);
+  configure('standard', { active: false });
+  assert.equal(runtime.controlIntent, null); assert.equal(runtime.intentContext, null);
+});
+
+
+test('a closed audio context cannot consume a pending manual context selection', async t => {
+  const { runtime, context } = await nativeControlsFixture(t);
+  const closed = new context.AudioContext(); closed.state = 'closed';
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [explicitControl('Listen')] });
+  await assert.rejects(closed.resume(), { name: 'InvalidStateError' });
+  const manual = new context.AudioContext(); await manual.resume();
+  assert.equal(manual.state, 'running');
+  await assert.rejects(new context.AudioContext().resume(), { name: 'NotAllowedError' });
 });

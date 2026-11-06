@@ -2,6 +2,14 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.5.2 (490) — 2026-11-05
+
+- Restrict explicit play controls to their associated media instead of opening a temporary page-wide playback window. Keep unrelated video, audio, and audio contexts blocked immediately after a manual play action.
+- Support external controls with ARIA media targets, accessible labels, and play glyphs. Resolve declared targets created after input, allow delayed hidden audio and local player setup, and identify a detached control's sole document player without authorizing the document or body as a player.
+- Recheck unplayed local associations when another visible media element is inserted. Keep missing declared targets from falling back to an unrelated player, and distinguish autoplay switches, playback-speed options, and ordinary navigation links from playback actions.
+- Let explicit media-free audio controls start one Web Audio context in Standard or Enhanced mode. Preserve the existing manually started player, companion audio, linked audio clocks, replay, and source-change behavior; clear deferred control state on deactivation.
+- Extend tests for immediate unrelated-player denial, external and delayed targets, hidden audio, keyboard controls, Shadow DOM, embedded players, audio-context isolation, and inactive cleanup. Keep pending associations weak and event-driven, without new polling, observers, or persistent page data.
+
 ## 26.11.5.1 (489) — 2026-11-05
 
 - Fix manual playback from custom player covers that have no recognizable play label. Associate trusted input with the single visible media beneath it in the same local player, including media created after the click and playback that starts after setup.

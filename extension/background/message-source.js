@@ -17,6 +17,40 @@ const PAGE_MESSAGE_TYPES = new Set([
 ]);
 
 const OFFSCREEN_MESSAGE_TYPES = new Set(['CG_VIDEO_DOWNLOAD_PROGRESS']);
+const pendingPageSources = new Map();
+
+function readPageDocumentSource({ tabId, documentId }) {
+  return chrome.scripting.executeScript({ target: { tabId, documentIds: [documentId] }, world: 'ISOLATED', injectImmediately: true,
+    func: () => ({ url: location.href, origin: location.origin }) });
+}
+
+// Chrome can retain an initial blank URL in an otherwise active child sender.
+// Resolve only that ambiguity, in the exact browser-owned document, before
+// applying the ordinary source validation. Never use a message's claimed URL.
+export function resolvePageMessageSource(message, sender, extensionBase, readDocument = readPageDocumentSource) {
+  if (!PAGE_MESSAGE_TYPES.has(message?.type) || !['about:blank', 'about:srcdoc'].includes(sender?.url)) return sender;
+  if (!Number.isInteger(sender.tab?.id) || sender.tab.id < 0 || !Number.isInteger(sender.frameId) || sender.frameId < 0
+    || typeof sender.documentId !== 'string' || !sender.documentId || sender.documentId.length > 128
+    || sender.documentLifecycle !== 'active') return sender;
+  try {
+    const base = new URL(extensionBase), origin = new URL(sender.origin);
+    if (base.protocol !== 'chrome-extension:' || sender.id !== base.host || !['http:', 'https:'].includes(origin.protocol) || origin.origin !== sender.origin) return sender;
+    const key = `${base.host}:${sender.tab.id}:${sender.frameId}:${sender.documentId}:${origin.origin}`;
+    let pending = pendingPageSources.get(key);
+    if (!pending) {
+      pending = Promise.resolve().then(() => readDocument({ tabId: sender.tab.id, frameId: sender.frameId, documentId: sender.documentId }));
+      pendingPageSources.set(key, pending);
+      void pending.finally(() => { if (pendingPageSources.get(key) === pending) pendingPageSources.delete(key); }).catch(() => {});
+    }
+    return pending.then(results => {
+      const verified = results.find(item => item.documentId === sender.documentId && item.frameId === sender.frameId)?.result;
+      const url = new URL(verified?.url);
+      if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin.origin || verified.origin !== origin.origin) return sender;
+      return { ...sender, url: url.href };
+    }).catch(() => sender);
+  } catch { return sender; }
+}
+
 const UI_PATHS = new Set([
   '/popup/index.html',
   ...['all-settings','satellites','orbiters','native-scroll','no-autoplay','any-copy','page-display','image-download','video-download']

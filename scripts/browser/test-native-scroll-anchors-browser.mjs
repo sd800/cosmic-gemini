@@ -18,6 +18,9 @@ context.on('page', page => page.on('pageerror', error => errors.push(String(erro
 try {
   await context.route('https://native-scroll.test/**', route => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/observers') return route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Native interaction fixture</title>
+      <style>body{margin:0}#content{height:9000px}button{position:fixed;top:10px;padding:12px}#key{left:10px}#pointer{left:190px}#panel{position:fixed;right:10px;bottom:10px;width:180px;height:90px;overflow-x:auto}#panel div{width:1000px;height:40px}</style>
+      <main id="content"></main><button id="key">Keyboard action</button><button id="pointer">Pointer action</button><div id="panel"><div>Horizontal content</div></div>` });
     if (path === '/style.css') return route.fulfill({ contentType: 'text/css', body: `
       html{scroll-behavior:smooth}body{margin:0;font:16px system-ui}nav{position:fixed;top:0;left:0;background:#eee;padding:12px;z-index:10}
       nav a{margin-right:20px}section{height:2200px;padding-top:1px}h2{scroll-margin-top:80px}
@@ -62,11 +65,63 @@ try {
       await page.waitForFunction(()=>Math.abs(scrollY)<=1);
     }
   }
+  for (const mode of ['standard', 'enhanced']) {
+    await command({ type: 'UI_SET_BEHAVIOR_RULE', featureId: 'nativeScroll', rule: 'native-scroll.test', behavior: mode });
+    await page.goto('https://native-scroll.test/observers');
+    await page.waitForFunction(({key,mode}) => window[Symbol.for(key)]?.active && window[Symbol.for(key)].mode === mode, {key,mode});
+    await page.evaluate(() => {
+      window.passiveCount=0;window.observerCount=0;
+      window.passive=()=>passiveCount++;window.observer=()=>observerCount++;
+      window.addEventListener('wheel',passive,{passive:true});
+    });
+    await page.mouse.move(500,300);await page.mouse.wheel(0,100);
+    await page.waitForFunction(()=>passiveCount>0&&scrollY>0);
+    assert.equal(await page.evaluate(key=>window[Symbol.for(key)].gestureUntil,key),0);
+    await page.evaluate(()=>window.addEventListener('wheel',observer,{passive:false}));
+    await page.mouse.wheel(0,100);await page.waitForFunction(()=>observerCount>0);
+    assert.equal(await page.evaluate(key=>window[Symbol.for(key)].reported,key),false,'observers alone do not report takeover');
+    await page.evaluate(()=>{
+      window.canceller=event=>{event.returnValue=false;window.cancelled=event.defaultPrevented;requestAnimationFrame(()=>document.documentElement.scrollTop=0);};
+      window.addEventListener('wheel',canceller,{passive:false});
+      document.querySelector('#key').onkeydown=event=>{if(event.key==='Enter')scrollTo({top:1600,behavior:'instant'});};
+      document.querySelector('#pointer').onpointerdown=()=>scrollTo({top:2200,behavior:'instant'});
+    });
+    const before=await page.evaluate(()=>scrollY);
+    await page.mouse.wheel(0,100);await page.waitForFunction(before=>window.cancelled===false&&scrollY>before,before);
+    await page.locator('#key').focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>scrollY===1600);
+    await page.mouse.move(500,300);await page.mouse.wheel(0,80);
+    await page.waitForFunction(key=>window[Symbol.for(key)].gestureUntil>performance.now(),key);
+    await page.locator('#pointer').click();await page.waitForFunction(()=>scrollY===2200);
+    const nested=await page.evaluate(()=>{
+      const panel=document.querySelector('#panel');
+      window[Symbol.for('cosmic-gemini.native-scroll.runtime')].beginGesture();panel.scrollTo({left:100,behavior:'instant'});return panel.scrollLeft;
+    });
+    assert.equal(nested,100);
+    await page.evaluate(()=>{
+      window.removeEventListener('wheel',observer);window.removeEventListener('wheel',canceller);
+      window.onceCount=0;window.abortedCount=0;window.optionReads=0;
+      const callback=()=>{};const options={get capture(){optionReads++;return false;},passive:false};
+      window.addEventListener('wheel',callback,options);window.removeEventListener('wheel',callback,options);
+      window.addEventListener('wheel',()=>onceCount++,{once:true,passive:false});
+      const controller=new AbortController();window.addEventListener('wheel',()=>abortedCount++,{signal:controller.signal,passive:false});controller.abort();
+    });
+    assert.equal(await page.evaluate(()=>optionReads),2,'native add/remove each read capture once');
+    await page.mouse.click(500,300);await page.mouse.wheel(0,80);await page.waitForFunction(()=>onceCount===1);
+    await page.mouse.wheel(0,80);
+    assert.deepEqual(await page.evaluate(key=>[onceCount,abortedCount,window[Symbol.for(key)].gestureUntil],key),[1,0,0]);
+    const cdp=await context.newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+    await page.evaluate(()=>{window.touchMoves=0;window.addEventListener('touchmove',event=>{event.preventDefault();window.touchCancelled=event.defaultPrevented;window.touchTrusted=event.isTrusted;touchMoves++;},{passive:false});});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:500,y:500}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:500,y:400}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await page.waitForFunction(()=>touchMoves>0&&touchTrusted===true&&touchCancelled===false);
+    await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.detach();
+    results.push({mode,observers:true,keyboard:true,pointer:true,horizontalAPI:true,listenerOptions:true,touch:true});
+  }
   await command({ type: 'UI_SET_BEHAVIOR_RULE', featureId: 'nativeScroll', rule: 'native-scroll.test', behavior: 'inactive' });
   await page.waitForFunction(key => !window[Symbol.for(key)], key);
-  assert.equal(await page.evaluate(()=>Event.prototype.preventDefault===originalCancel&&window.scrollTo===originalScroll),true);
-  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).scrollBehavior),'smooth');
+  assert.equal(await page.evaluate(()=>/\[native code\]/.test(Function.prototype.toString.call(Event.prototype.preventDefault))&&/\[native code\]/.test(Function.prototype.toString.call(window.scrollTo))),true);
   assert.deepEqual(errors,[]);
   await writeFile(join(artifacts,'anchor-results.json'),JSON.stringify({passed:true,results},null,2)+'\n');
-  console.log('PASS: Standard/Enhanced authored smooth fragments, scroll margins, scripted anchors immediately after guarded wheels, nested smooth CSS, and cleanup.');
+  console.log('PASS: Standard/Enhanced smooth anchors; native observer delivery; cancellation/root takeover protection; keyboard/pointer actions; horizontal APIs; native listener option counts, once/abort cleanup; trusted touch; deactivation.');
 } finally { await context.close(); await rm(folder,{recursive:true,force:true}); }

@@ -10,6 +10,10 @@ Page events use a separate fixed message allowlist and require an HTTP/HTTPS tab
 
 The extension-page CSP loads only packaged scripts and forbids objects, base-URL overrides, and form navigation. Rendered titles, errors, and source metadata use text nodes or escaped templates. New UI entry points must be reviewed before joining the sender allowlist.
 
+### Frame source verification
+
+When Chrome retains an initial blank URL in an active frame's sender metadata, Central verifies the actual HTTP(S) location in the exact browser-owned document. The document ID, frame ID, extension identity, active lifecycle, and origin must match before ordinary page-source validation proceeds. Page-provided URLs do not establish authority. Opaque frames, inactive documents, foreign origins, and extension UI commands remain outside this recovery path. Normal page messages use their existing validation without an extra document read; verification shares only in-flight work and stores no browsing history.
+
 ## Document and media isolation
 
 Image Download and Video Download use a shared read-only source check before activation. PDF readers, extension pages, browser-owned pages, non-media documents, and inaccessible documents are excluded; the popup hides their controls, and the background rejects unapproved launches. Source decisions remain in memory and are invalidated on navigation.

@@ -39,6 +39,8 @@
       this.reported = false;
       this.gestureUntil = 0;
       this.touchY = null;
+      this.touchX = null;
+      this.touchDeltas = new WeakMap();
       this.observer = null;
       this.observedDocumentRoot = null;
       this.rootObservers = [];
@@ -59,6 +61,7 @@
       this.onClick = this.onClick.bind(this);
       this.onTouchStart = this.onTouchStart.bind(this);
       this.onTouchMove = this.onTouchMove.bind(this);
+      this.onTouchEnd = this.onTouchEnd.bind(this);
       this.onMutation = this.onMutation.bind(this);
       this.onConfigure = this.onConfigure.bind(this);
       this.onBridgeReady = this.onBridgeReady.bind(this);
@@ -130,22 +133,28 @@
       if (!this.active || this.usesNativeInteractionCompatibility()) return;
       this.originalAddEventListener.call(window, 'wheel', this.onWheel, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'mousewheel', this.onWheel, { capture: true, passive: true });
-      this.originalAddEventListener.call(window, 'click', this.onClick, { capture: true, passive: true });
+      for (const type of ['click', 'pointerdown', 'keydown']) {
+        this.originalAddEventListener.call(window, type, this.onClick, { capture: true, passive: true });
+      }
       this.originalAddEventListener.call(window, 'touchstart', this.onTouchStart, { capture: true, passive: true });
       this.originalAddEventListener.call(window, 'touchmove', this.onTouchMove, { capture: true, passive: true });
+      for (const type of ['touchend', 'touchcancel']) {
+        this.originalAddEventListener.call(window, type, this.onTouchEnd, { capture: true, passive: true });
+      }
     }
 
     disable() {
       if (!this.active && this.normalizedWrappers.size === 0 && this.originalMethods.length === 0 && this.originalProperties.length === 0 && !this.listenerMethodsPatched) return;
       this.active = false;
       this.reported = false;
-      this.touchY = null;
+      this.onTouchEnd();
       this.gestureUntil = 0;
       this.originalRemoveEventListener.call(window, 'wheel', this.onWheel, true);
       this.originalRemoveEventListener.call(window, 'mousewheel', this.onWheel, true);
-      this.originalRemoveEventListener.call(window, 'click', this.onClick, true);
+      for (const type of ['click', 'pointerdown', 'keydown']) this.originalRemoveEventListener.call(window, type, this.onClick, true);
       this.originalRemoveEventListener.call(window, 'touchstart', this.onTouchStart, true);
       this.originalRemoveEventListener.call(window, 'touchmove', this.onTouchMove, true);
+      for (const type of ['touchend', 'touchcancel']) this.originalRemoveEventListener.call(window, type, this.onTouchEnd, true);
       this.observer?.disconnect();
       this.observer = null;
       this.observedDocumentRoot = null;
@@ -230,17 +239,23 @@
 
     restoreNormalizedWrappers() {
       for (const element of this.normalizedWrappers) {
-        if (element instanceof Element) element.removeAttribute('data-native-scroll-normalized');
+        if (element instanceof Element && element.dataset.nativeScrollNormalized === 'true') element.removeAttribute('data-native-scroll-normalized');
       }
       this.normalizedWrappers.clear();
     }
 
     normalizeTransformScroller() {
+      for (const element of this.normalizedWrappers) {
+        if (element.isConnected === false) {
+          if (element.dataset.nativeScrollNormalized === 'true') element.removeAttribute('data-native-scroll-normalized');
+          this.normalizedWrappers.delete(element);
+        }
+      }
       const body = document.body;
       if (!body || body.children.length > 30) return;
       const viewportArea = Math.max(1, innerWidth * innerHeight);
       for (const element of body.children) {
-        if (this.isSafeElement(element)) continue;
+        if (element.dataset.nativeScrollNormalized === 'true' || this.isSafeElement(element)) continue;
         const style = getComputedStyle(element);
         if (!['fixed', 'absolute'].includes(style.position) || style.transform === 'none') continue;
         const rect = element.getBoundingClientRect();
@@ -289,41 +304,66 @@
     }
 
     isDisallowedUnload(type) {
-      if (String(type).toLowerCase() !== 'unload') return false;
+      if (type !== 'unload') return false;
       const policy = document.permissionsPolicy || document.featurePolicy;
       if (typeof policy?.allowsFeature !== 'function') return false;
       try { return policy.allowsFeature('unload') === false; }
       catch { return false; }
     }
 
+    listenerOptions(options) {
+      if (typeof options === 'boolean') return { capture: options };
+      if (options == null) return {};
+      if (typeof options !== 'object') return null;
+      // Native add/remove already converted the dictionary. Inspect data only;
+      // never invoke a website's options getters a second time for bookkeeping.
+      const values = {};
+      try {
+        for (const name of ['capture', 'passive', 'once', 'signal']) {
+          let owner = options, descriptor;
+          for (let depth = 0; owner && depth < 4; depth += 1) {
+            descriptor = Object.getOwnPropertyDescriptor(owner, name);
+            if (descriptor) break;
+            owner = Object.getPrototypeOf(owner);
+          }
+          if (descriptor && !('value' in descriptor)) return null;
+          if (descriptor) values[name] = descriptor.value;
+        }
+      } catch { return null; }
+      return values;
+    }
+
     recordListener(target, type, listener, options) {
-      const normalizedType = String(type).toLowerCase();
-      if (!['wheel', 'mousewheel', 'touchmove'].includes(normalizedType) || !listener) return;
-      const capture = typeof options === 'boolean' ? options : options?.capture === true;
+      if (!['wheel', 'mousewheel', 'touchmove'].includes(type)
+        || !listener || !['object', 'function'].includes(typeof listener)) return;
+      const values = this.listenerOptions(options);
+      if (!values || values.signal?.aborted) return;
+      const capture = !!values.capture;
+      const passive = values.passive === undefined
+        ? [window, document, document.body].includes(target)
+        : !!values.passive;
       let byType = this.listenerRegistry.get(target);
-      if (!byType) {
-        byType = new Map();
-        this.listenerRegistry.set(target, byType);
-      }
-      const records = (byType.get(normalizedType) || []).filter(record => record.listener.deref());
+      if (!byType) { byType = new Map(); this.listenerRegistry.set(target, byType); }
+      const records = (byType.get(type) || []).filter(record => record.listener.deref() && !record.signal?.deref()?.aborted);
       if (!records.some(record => record.listener.deref() === listener && record.capture === capture)) {
-        records.push({ listener: new WeakRef(listener), capture });
+        records.push({ listener: new WeakRef(listener), capture, passive, once: !!values.once,
+          signal: values.signal ? new WeakRef(values.signal) : null });
       }
-      byType.set(normalizedType, records);
+      byType.set(type, records);
     }
 
     forgetListener(target, type, listener, options) {
-      const normalizedType = String(type).toLowerCase();
-      const capture = typeof options === 'boolean' ? options : options?.capture === true;
-      const byType = this.listenerRegistry.get(target);
-      const records = byType?.get(normalizedType);
+      if (!['wheel', 'mousewheel', 'touchmove'].includes(type)) return;
+      const values = this.listenerOptions(options);
+      const capture = values ? !!values.capture : null;
+      const byType = this.listenerRegistry.get(target), records = byType?.get(type);
       if (!records) return;
       const next = records.filter(record => {
         const current = record.listener.deref();
-        return current && (current !== listener || record.capture !== capture);
+        return current && !record.signal?.deref()?.aborted && (current !== listener || capture !== null && record.capture !== capture);
       });
-      if (next.length) byType.set(normalizedType, next);
-      else byType.delete(normalizedType);
+      if (next.length) byType.set(type, next);
+      else byType.delete(type);
     }
 
     hasHijackListener(event, type) {
@@ -335,12 +375,14 @@
         for (const eventType of eventTypes) {
           const records = byType?.get(eventType);
           if (!records) continue;
-          const live = records.filter(record => record.listener.deref());
+          const live = records.filter(record => record.listener.deref() && !record.signal?.deref()?.aborted);
           if (live.length !== records.length) {
             if (live.length) byType.set(eventType, live);
             else byType.delete(eventType);
           }
-          if (live.length) return true;
+          // Once listeners expire natively and can be retained by website code.
+          // Observe their actual cancellation instead of arming a stale guard.
+          if (live.some(record => !record.passive && !record.once)) return true;
         }
         try {
           if (type === 'wheel' && (typeof target.onwheel === 'function' || typeof target.onmousewheel === 'function')) return true;
@@ -352,28 +394,46 @@
 
     onWheel(event) {
       if (!this.shouldHandleWheel(event)) return;
+      // Observation is not takeover. Keep wheel listeners running; suppress an
+      // actual cancellation or scripted movement, without cancelling native scroll.
       this.beginGesture();
-      event.stopImmediatePropagation();
-      this.reportSuppression();
     }
 
     onTouchStart(event) {
-      if (!this.active || event.touches?.length !== 1) {
-        this.touchY = null;
+      if (!this.active || event.isTrusted !== true || event.touches?.length !== 1) {
+        if (this.active) this.onTouchEnd();
         return;
       }
+      this.gestureUntil = 0;
       this.touchY = event.touches[0].clientY;
+      this.touchX = event.touches[0].clientX;
+    }
+
+    onTouchEnd() {
+      this.touchY = null; this.touchX = null;
+      this.touchDeltas = new WeakMap();
+    }
+
+    isPageTouch(event) {
+      if (!this.active || !event.isTrusted || event.defaultPrevented || event.cancelable === false || event.ctrlKey || event.metaKey) return false;
+      if (event.touches?.length !== 1) { this.onTouchEnd(); return false; }
+      if (this.touchY === null) return false;
+      let delta = this.touchDeltas.get(event);
+      if (!delta) {
+        const point = event.touches[0];
+        delta = { x: Number(this.touchX) - Number(point.clientX), y: Number(this.touchY) - Number(point.clientY) };
+        this.touchDeltas.set(event, delta);
+        this.touchX = point.clientX; this.touchY = point.clientY;
+      }
+      if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y) || Math.max(Math.abs(delta.x), Math.abs(delta.y)) < 1 || this.isSafeEvent(event)) return false;
+      const horizontal = Math.abs(delta.x) > Math.abs(delta.y);
+      if (horizontal && this.hasScrollableAncestor(event, delta.x, 'x')) return false;
+      if (!horizontal && this.mode === 'standard' && this.hasScrollableAncestor(event, delta.y)) return false;
+      return true;
     }
 
     onTouchMove(event) {
-      if (!this.active || this.touchY === null || event.touches?.length !== 1 || this.isSafeEvent(event) || !this.hasHijackListener(event, 'touchmove')) return;
-      const nextY = event.touches[0].clientY;
-      const deltaY = this.touchY - nextY;
-      this.touchY = nextY;
-      if (Math.abs(deltaY) < 1 || (this.mode === 'standard' && this.hasScrollableAncestor(event, deltaY))) return;
-      this.beginGesture();
-      event.stopImmediatePropagation();
-      this.reportSuppression();
+      if (this.isPageTouch(event) && this.hasHijackListener(event, 'touchmove')) this.beginGesture();
     }
 
     shouldHandleWheel(event) {
@@ -381,7 +441,7 @@
     }
 
     isPageWheel(event) {
-      if (!this.active || !event.isTrusted || event.defaultPrevented || event.ctrlKey || event.metaKey) return false;
+      if (!this.active || !event.isTrusted || event.defaultPrevented || event.cancelable === false || event.ctrlKey || event.metaKey) return false;
       const deltaX = Number(event.deltaX ?? -(event.wheelDeltaX || 0));
       const deltaY = Number(event.deltaY ?? -(event.wheelDeltaY || event.wheelDelta || 0));
       if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return false;
@@ -486,22 +546,33 @@
       const original = owner.preventDefault;
       if (typeof original !== 'function') return;
       const runtime = this;
+      const protects = event => event instanceof Event && (event.type === 'touchmove' ? runtime.isPageTouch(event)
+        : (event.type === 'wheel' || event.type === 'mousewheel') && runtime.isPageWheel(event));
+      const suppress = event => {
+        runtime.beginGesture(); event.stopImmediatePropagation(); runtime.reportSuppression();
+      };
       function guardedCancel(...args) {
         if (!runtime.active) return Reflect.apply(original, this, args);
-        // Existing page listeners cannot be enumerated. Catch their actual
-        // cancellation attempt instead of blocking every wheel listener.
-        if (this instanceof Event && (this.type === 'wheel' || this.type === 'mousewheel') && runtime.isPageWheel(this)) {
-          runtime.beginGesture();
-          this.stopImmediatePropagation();
-          runtime.reportSuppression();
-          return undefined;
-        }
+        // Catch actual cancellation, including listeners registered before us.
+        if (protects(this)) { suppress(this); return undefined; }
         return Reflect.apply(original, this, args);
       }
       try {
         owner.preventDefault = guardedCancel;
         this.originalMethods.push([owner, 'preventDefault', original, guardedCancel]);
       } catch {}
+      const descriptor = Object.getOwnPropertyDescriptor(owner, 'returnValue');
+      if (descriptor?.configurable && typeof descriptor.set === 'function') {
+        function guardedReturnValue(value) {
+          if (!runtime.active) return Reflect.apply(descriptor.set, this, [value]);
+          if (!value && protects(this)) { suppress(this); return; }
+          return Reflect.apply(descriptor.set, this, [value]);
+        }
+        try {
+          Object.defineProperty(owner, 'returnValue', { ...descriptor, set: guardedReturnValue });
+          this.originalProperties.push([owner, 'returnValue', descriptor, guardedReturnValue]);
+        } catch {}
+      }
     }
 
     patchRootScrollPositions() {
@@ -545,10 +616,10 @@
       if (!this.active || performance.now() > this.gestureUntil) return false;
       if (receiver === window) return true;
       if (!(receiver instanceof Element) || this.isSafeElement(receiver)) return false;
-      if (this.mode === 'enhanced') return true;
       if (receiver === document.documentElement || receiver === document.body) return true;
-      if (name === 'scrollIntoView') return true;
       const style = getComputedStyle(receiver);
+      if (/(auto|scroll|overlay)/.test(style.overflowX) && receiver.scrollWidth > receiver.clientWidth + 1) return false;
+      if (this.mode === 'enhanced' || name === 'scrollIntoView') return true;
       return !/(auto|scroll|overlay)/.test(style.overflowY);
     }
   }

@@ -3,7 +3,7 @@ import { BILI_DAILY_ALARM } from '../core/bili-daily-login.js';
 import { DOWNLOAD_SCAN_ALARM_PREFIX } from '../core/download-session.js';
 import { DOCUMENT_CLEANUP_ALARM_PREFIX } from '../core/document-preview/document-preview.js';
 import { centralPageDirectives, productPageDirectives, syncCentralPageProducts } from './central-policy.js';
-import { validateMessageSource, validatePortSource } from './message-source.js';
+import { resolvePageMessageSource, validateMessageSource, validatePortSource } from './message-source.js';
 import { createPlatform } from './platform.js';
 import { createCustomsProvince } from './provinces/customs.js';
 import { createCustomsResponseIngress } from './provinces/customs-response-ingress.js';
@@ -183,7 +183,10 @@ function messageContext(sender) {
 }
 
 async function dispatchMessage(message, sender) {
-  validateMessageSource(message, sender, chrome.runtime.getURL(''));
+  const extensionBase = chrome.runtime.getURL('');
+  const resolved = resolvePageMessageSource(message, sender, extensionBase);
+  if (resolved !== sender) sender = await resolved;
+  validateMessageSource(message, sender, extensionBase);
   if (message.type === 'CG_SYNC_CENTRAL') return syncPageProducts(sender, message);
   if (message.type === 'CG_PAGE_STATE') return collectProductPageState(sender, message);
   const productId = productForMessage(message);
@@ -234,12 +237,8 @@ chrome.windows.onCreated.addListener(window => {
 chrome.windows.onRemoved.addListener(windowId => {
   void dispatchEvent('windowRemoved', windowId);
 });
-chrome.downloads.onChanged.addListener(delta => {
-  void dispatchEvent('downloadChanged', delta);
-});
-chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  return provinces.customs.handleDeterminingFilename(item, suggest);
-});
+chrome.downloads.onChanged.addListener(delta => void dispatchEvent('downloadChanged', delta));
+chrome.downloads.onDeterminingFilename.addListener((item, suggest) => provinces.customs.handleDeterminingFilename(item, suggest));
 chrome.alarms.onAlarm.addListener(alarm => {
   const province = alarm.name.startsWith(DOWNLOAD_SCAN_ALARM_PREFIX) || alarm.name.startsWith(DOCUMENT_CLEANUP_ALARM_PREFIX)
     ? provinces.customs : alarm.name === BILI_DAILY_ALARM ? provinces.standing : provinces.operations;

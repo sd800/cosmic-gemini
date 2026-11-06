@@ -2,6 +2,17 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.5.3 (491) — 2026-11-05
+
+- Separate Native Scroll observation from takeover prevention. Keep ordinary wheel and touch listeners running; intervene on actual native-scroll cancellation, including legacy return-value cancellation, or queued scripted takeover movement instead of blocking a listener merely because it exists.
+- Respect passive listener defaults, aborted signals, one-shot registrations, case-sensitive event names, and native listener-option conversion. Avoid stale gesture guards and additional calls to website-defined options getters.
+- Retire the previous scroll guard before trusted keyboard and pointer actions, preserving immediate anchor, control, and scripted navigation. Keep genuine horizontal container APIs available in both modes; preserve protected, synthetic, multi-touch, and non-cancelable gestures.
+- Avoid repeated Enhanced-mode normalization marker writes and release detached transformed wrappers. Keep layout inspection coalesced, listener/signal metadata weak, and cleanup reversible without adding polling or persistent browsing data.
+- Make No Autoplay register only the media actually requested by a manual action. Prevent hidden-audio authorization from seeding intent on a visible sibling, use accessible audio labels to resolve mixed players, and preserve independently started Web Audio alongside native media.
+- Evaluate manual-media intent once per guarded playback decision. Distinguish ordinary linked-video navigation from independent play buttons inside linked cards, retaining manual playback without widening unrelated autoplay permission.
+- Resolve active frame messages whose browser metadata still reports an initial blank URL by checking the exact document ID, frame, actual HTTP(S) location, and matching browser origin. Do not trust a message-provided URL; keep foreign, opaque, inactive, and extension-command sources outside this recovery path. Ordinary HTTP(S) messages need no added document read.
+- Extend tests for native observer delivery, wheel/touch cancellation, keyboard and pointer actions, horizontal APIs, listener lifecycle, exact media authorization, mixed audio players, frame initialization, and inactive-site isolation.
+
 ## 26.11.5.2 (490) — 2026-11-05
 
 - Restrict explicit play controls to their associated media instead of opening a temporary page-wide playback window. Keep unrelated video, audio, and audio contexts blocked immediately after a manual play action.

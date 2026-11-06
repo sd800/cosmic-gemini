@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateMessageSource, validatePortSource } from '../extension/background/message-source.js';
+import { resolvePageMessageSource, validateMessageSource, validatePortSource } from '../extension/background/message-source.js';
 
 const extensionBase = 'chrome-extension://cosmic-gemini/';
 
@@ -93,4 +93,52 @@ test('central rejects oversized command names and foreign or inactive page/proce
     {url:extensionBase+'offscreen/video-download.html',origin:'null'}]){
     assert.throws(()=>validateMessageSource({type:'CG_VIDEO_DOWNLOAD_PROGRESS'},sender,extensionBase),/local processor/);
   }
+});
+
+
+const blankSender = { id: 'cosmic-gemini', url: 'about:blank', origin: 'https://example.test',
+  tab: { id: 7 }, frameId: 4, documentId: 'child-document', documentLifecycle: 'active' };
+const verifiedChild = result => [{ frameId: 4, documentId: 'child-document', result: { url: 'https://example.test/player', origin: 'https://example.test', ...result } }];
+
+test('initial blank metadata resolves only through the exact active same-origin browser document', async () => {
+  let target;
+  const sender = await resolvePageMessageSource({ type: 'CG_SYNC_CENTRAL', url: 'https://untrusted.test/' }, blankSender, extensionBase,
+    async value => { target = value; return verifiedChild(); });
+  assert.deepEqual(target, { tabId: 7, frameId: 4, documentId: 'child-document' });
+  assert.equal(sender.url, 'https://example.test/player');
+  assert.equal(blankSender.url, 'about:blank', 'do not mutate the browser packet');
+  assert.equal(validateMessageSource({ type: 'CG_SYNC_CENTRAL' }, sender, extensionBase), true);
+});
+
+test('ordinary sources and ineligible blank packets perform no verification injection', async () => {
+  let reads = 0; const read = async () => { reads++; return verifiedChild(); };
+  for (const [type, override] of [['UI_GET', {}], ['CG_UNKNOWN', {}], ['CG_SYNC_CENTRAL', { url: 'https://example.test/' }],
+    ['CG_SYNC_CENTRAL', { id: 'foreign' }], ['CG_SYNC_CENTRAL', { origin: 'null' }], ['CG_SYNC_CENTRAL', { origin: 'chrome-extension://cosmic-gemini' }],
+    ['CG_SYNC_CENTRAL', { documentId: '' }], ['CG_SYNC_CENTRAL', { documentLifecycle: 'cached' }], ['CG_SYNC_CENTRAL', { tab: { id: -1 } }]]) {
+    const source = { ...blankSender, ...override };
+    assert.equal(await resolvePageMessageSource({ type }, source, extensionBase, read), source);
+  }
+  assert.equal(reads, 0);
+});
+
+test('blank source verification rejects navigation, origin/document mismatches, opaque documents, and failures', async () => {
+  const readers = [async () => verifiedChild({ url: 'about:blank' }), async () => verifiedChild({ url: 'https://other.test/player' }),
+    async () => verifiedChild({ origin: 'null' }), async () => [{ ...verifiedChild()[0], documentId: 'replacement' }],
+    async () => [{ ...verifiedChild()[0], frameId: 8 }], async () => { throw Error('Document no longer exists'); }];
+  for (const read of readers) {
+    const sender = await resolvePageMessageSource({ type: 'CG_PAGE_STATE' }, blankSender, extensionBase, read);
+    assert.equal(sender, blankSender);
+    assert.throws(() => validateMessageSource({ type: 'CG_PAGE_STATE' }, sender, extensionBase), /webpage runtimes/);
+  }
+});
+
+test('overlapping blank-source reads share work without caching completed document locations', async () => {
+  let reads = 0, finish;
+  const read = () => { reads++; return new Promise(resolve => { finish = resolve; }); };
+  const first = resolvePageMessageSource({ type: 'CG_SYNC_CENTRAL' }, blankSender, extensionBase, read);
+  const second = resolvePageMessageSource({ type: 'CG_PAGE_STATE' }, { ...blankSender }, extensionBase, read);
+  await Promise.resolve(); finish(verifiedChild());
+  const values = await Promise.all([first, second]); assert.equal(reads, 1); assert.notEqual(values[0], values[1]);
+  const next = await resolvePageMessageSource({ type: 'CG_PAGE_STATE' }, blankSender, extensionBase, async () => { reads++; return verifiedChild({ url: 'https://example.test/new-route' }); });
+  assert.equal(reads, 2); assert.equal(next.url, 'https://example.test/new-route');
 });

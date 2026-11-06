@@ -48,7 +48,7 @@ class FakeElement extends SimpleEventTarget {
   }
   append(child) { child.isConnected = true; this.children.push(child); }
   remove() { this.isConnected = false; }
-  removeAttribute() {}
+  removeAttribute(name) { if (name === 'data-native-scroll-normalized') delete this.dataset.nativeScrollNormalized; }
   matches() { return false; }
   closest() { return null; }
   getBoundingClientRect() { return { width: 800, height: 1000 }; }
@@ -66,6 +66,8 @@ class FakeMutationObserver { observe() {} disconnect() {} }
 class FakeEvent {
   constructor(type) { this.type = type; this.defaultPrevented = false; this.stopped = false; }
   preventDefault() { this.defaultPrevented = true; }
+  get returnValue() { return !this.defaultPrevented; }
+  set returnValue(value) { if (!value) this.preventDefault(); }
   stopImmediatePropagation() { this.stopped = true; }
 }
 class FakeCustomEvent { constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.target = null; } }
@@ -293,7 +295,9 @@ test('both modes preserve horizontal containers at either edge, RTL layouts and 
     assert.equal(protectedEvent.defaultPrevented, true);
     const pageEvent = Object.assign(wheelEvent(context), { deltaX: 80, deltaY: 0 });
     runtime.onWheel(pageEvent);
-    assert.equal(pageEvent.stopped, true, 'only the page-wide takeover handler is suppressed');
+    assert.equal(pageEvent.stopped, false, 'listeners are allowed to observe the native gesture');
+    pageEvent.preventDefault();
+    assert.equal(pageEvent.stopped, true, 'only an actual takeover attempt suppresses propagation');
     assert.equal(pageEvent.defaultPrevented, false);
   }
   runtime.onDispose({ detail: runtime.token });
@@ -313,6 +317,9 @@ test('Native Scroll stays quiet on native pages and suppresses registered takeov
   context.window.addEventListener('wheel', () => {});
   const hijackedEvent = wheelEvent(context);
   runtime.onWheel(hijackedEvent);
+  assert.equal(hijackedEvent.stopped, false, 'an observer is not a takeover');
+  assert.equal(interventions, 0);
+  hijackedEvent.preventDefault();
   assert.equal(hijackedEvent.stopped, true);
   assert.equal(interventions, 1);
   runtime.onDispose({ detail: runtime.token });
@@ -446,7 +453,7 @@ test('Native Scroll recognizes existing hijack listeners after it is disabled an
   vm.runInContext(source, context);
   const firstRuntime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
   firstRuntime.onConfigure({ detail: JSON.stringify({ token: firstRuntime.token, config: { active: true, mode: 'standard' } }) });
-  context.document.addEventListener('wheel', () => {});
+  context.document.addEventListener('wheel', () => {}, { passive: false });
   firstRuntime.onDispose({ detail: firstRuntime.token });
   assert.equal(context.EventTarget.prototype.addEventListener, originalAdd);
   assert.equal(context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')], undefined);
@@ -456,11 +463,16 @@ test('Native Scroll recognizes existing hijack listeners after it is disabled an
   secondRuntime.onConfigure({ detail: JSON.stringify({ token: secondRuntime.token, config: { active: true, mode: 'standard' } }) });
   const standardEvent = wheelEvent(context);
   secondRuntime.onWheel(standardEvent);
+  assert.equal(standardEvent.stopped, false);
+  assert.equal(secondRuntime.gestureUntil > context.performance.now(), true);
+  standardEvent.preventDefault();
   assert.equal(standardEvent.stopped, true);
 
   secondRuntime.onConfigure({ detail: JSON.stringify({ token: secondRuntime.token, config: { active: true, mode: 'enhanced' } }) });
   const enhancedEvent = wheelEvent(context);
   secondRuntime.onWheel(enhancedEvent);
+  assert.equal(enhancedEvent.stopped, false);
+  enhancedEvent.preventDefault();
   assert.equal(enhancedEvent.stopped, true);
   secondRuntime.onDispose({ detail: secondRuntime.token });
 });
@@ -509,6 +521,8 @@ test('Xiaohongshu native-interaction compatibility does not apply to other websi
   context.window.addEventListener('wheel', () => {});
   const event = wheelEvent(context);
   runtime.onWheel(event);
+  assert.equal(event.stopped, false);
+  event.preventDefault();
   assert.equal(event.stopped, true);
   runtime.onDispose({ detail: runtime.token });
 });
@@ -554,4 +568,178 @@ test('Native Scroll preserves authored smooth anchors and retires a preceding wh
     }finally{runtime.onDispose({detail:runtime.token});}
     assert.equal(context.window.listeners.get('click').length,0,'the trusted-click listener is released');
   }
+});
+
+
+async function scrollFixture(t, mode = 'standard', before = () => {}) {
+  const context = makeContext();
+  const originalAdd = context.EventTarget.prototype.addEventListener, originalRemove = context.EventTarget.prototype.removeEventListener;
+  before(context);
+  vm.runInContext(await readFile(new URL('../extension/content/native-scroll/runtime.js', import.meta.url), 'utf8'), context);
+  const runtime = context.window[Symbol.for('cosmic-gemini.native-scroll.runtime')];
+  runtime.enable(mode); t.after(() => {
+    runtime.onDispose({ detail: runtime.token });
+    context.EventTarget.prototype.addEventListener = originalAdd;context.EventTarget.prototype.removeEventListener = originalRemove;
+  });
+  return { context, runtime };
+}
+
+test('scroll observers keep their events and only actual takeover reports an intervention', async t => {
+  const { context, runtime } = await scrollFixture(t);
+  let observed = 0;
+  const passive = () => { observed++; }, observer = () => { observed++; };
+  context.window.addEventListener('wheel', passive, { passive: true });
+  const native = wheelEvent(context); runtime.onWheel(native); passive(native);
+  assert.equal(runtime.gestureUntil, 0); assert.equal(native.stopped, false);
+  context.window.addEventListener('wheel', observer, { passive: false });
+  const watched = wheelEvent(context); runtime.onWheel(watched); observer(watched);
+  assert.equal(observed, 2); assert.equal(watched.stopped, false); assert.equal(runtime.reported, false);
+  assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollBy', [0, 50]), true);
+  watched.preventDefault();
+  assert.equal(watched.defaultPrevented, false); assert.equal(watched.stopped, true); assert.equal(runtime.reported, true);
+});
+
+test('listener metadata respects passive defaults, case, once, aborted signals, and removals', async t => {
+  const { context, runtime } = await scrollFixture(t);
+  const event = wheelEvent(context), callback = () => {}, signal = { aborted: false };
+  for (const options of [undefined, { passive: true }, { passive: false, once: true }, { passive: false, signal: { aborted: true } }]) {
+    runtime.recordListener(context.window, 'wheel', callback, options);
+    assert.equal(runtime.hasHijackListener(event, 'wheel'), false);
+    runtime.forgetListener(context.window, 'wheel', callback, options);
+  }
+  runtime.recordListener(context.window, 'Wheel', callback, { passive: false });
+  assert.equal(runtime.hasHijackListener(event, 'wheel'), false);
+  runtime.recordListener(context.document.documentElement, 'wheel', callback, undefined);
+  assert.equal(runtime.hasHijackListener(event, 'wheel'), true, 'HTML element does not receive the root passive default');
+  runtime.forgetListener(context.document.documentElement, 'wheel', callback);
+  runtime.recordListener(context.window, 'wheel', callback, { passive: false, signal });
+  assert.equal(runtime.hasHijackListener(event, 'wheel'), true);
+  signal.aborted = true;
+  assert.equal(runtime.hasHijackListener(event, 'wheel'), false);
+  runtime.recordListener(context.window, 'wheel', callback, { passive: false });
+  runtime.forgetListener(context.window, 'wheel', callback, { get capture() { throw Error('do not evaluate options getters'); } });
+  assert.equal(runtime.hasHijackListener(event, 'wheel'), false);
+});
+
+test('native listener option getters run once without an extra bookkeeping conversion', async t => {
+  let reads = 0;
+  const { context, runtime } = await scrollFixture(t, 'standard', context => {
+    const native = context.EventTarget.prototype.addEventListener;
+    context.EventTarget.prototype.addEventListener = function(type, listener, options) {
+      if (type === 'wheel' && options && typeof options === 'object') void options.capture;
+      return Reflect.apply(native, this, [type, listener, options]);
+    };
+  });
+  const options = { get capture() { reads++; return true; }, passive: false };
+  context.window.addEventListener('wheel', () => {}, options);
+  assert.equal(reads, 1);
+  const event = wheelEvent(context); runtime.onWheel(event);
+  assert.equal(event.stopped, false);
+  event.preventDefault(); assert.equal(event.defaultPrevented, false, 'actual cancellation remains guarded without preflight metadata');
+});
+
+test('keyboard and pointer actions release a previous gesture, while synthetic actions do not', async t => {
+  const { context, runtime } = await scrollFixture(t);
+  for (const type of ['keydown', 'pointerdown']) {
+    runtime.beginGesture();
+    context.window.dispatchEvent(Object.assign(new FakeEvent(type), { isTrusted: false }));
+    assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollTo', [0, 100]), true);
+    context.window.dispatchEvent(Object.assign(new FakeEvent(type), { isTrusted: true }));
+    assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollTo', [0, 100]), false);
+  }
+  runtime.disable();
+  for (const type of ['keydown', 'pointerdown', 'touchend', 'touchcancel']) assert.equal(context.window.listeners.get(type)?.length, 0);
+});
+
+test('both modes allow genuine horizontal container APIs during a root guard', async t => {
+  const { context, runtime } = await scrollFixture(t);
+  const panel = new FakeElement('div'); panel.scrollWidth = 1200; panel.computed = { overflowX: 'auto', overflowY: 'visible' };
+  for (const mode of ['standard', 'enhanced']) {
+    runtime.mode = mode; runtime.beginGesture();
+    for (const name of ['scrollLeft', 'scrollBy', 'scrollTo', 'scrollIntoView']) assert.equal(runtime.shouldBlockScriptedScroll(panel, name, [-80, 0]), false);
+    assert.equal(runtime.shouldBlockScriptedScroll(context.document.documentElement, 'scrollLeft', [-80]), true);
+  }
+});
+
+function touchEvent(context, x, y, extra = {}) {
+  const event = Object.assign(new FakeEvent('touchmove'), { isTrusted: true, cancelable: true,
+    touches: [{ clientX: x, clientY: y }], target: context.document.body, ...extra });
+  event.composedPath = () => [event.target, context.document.body, context.document.documentElement, context.document, context.window];
+  return event;
+}
+
+test('touch observers remain intact while earlier real cancellation is intercepted', async t => {
+  const { context, runtime } = await scrollFixture(t);
+  runtime.onTouchStart({ isTrusted: true, touches: [{ clientX: 100, clientY: 200 }] });
+  context.window.addEventListener('touchmove', () => {}, { passive: false });
+  const event = touchEvent(context, 100, 170); runtime.onTouchMove(event);
+  assert.equal(event.stopped, false); assert.equal(runtime.reported, false);
+  event.preventDefault(); assert.equal(event.stopped, true); assert.equal(event.defaultPrevented, false);
+  runtime.gestureUntil = 0;
+  const early = touchEvent(context, 100, 140);
+  early.preventDefault(); assert.equal(early.defaultPrevented, false);
+  assert.equal(runtime.touchY, 140, 'a cancellation before capture updates the touch position');
+  runtime.onTouchEnd(); assert.equal(runtime.touchY, null);
+  const later = touchEvent(context, 100, 100); later.preventDefault(); assert.equal(later.defaultPrevented, true);
+});
+
+test('synthetic, multi-touch, protected and horizontal-container gestures keep native behavior', async t => {
+  const { context, runtime } = await scrollFixture(t);
+  const panel = new FakeElement('div'); panel.scrollWidth = 1200; panel.computed = { overflowX: 'auto', direction: 'rtl' };
+  const input = new FakeElement('input'); input.matches = () => true;
+  for (const mode of ['standard', 'enhanced']) {
+    runtime.mode = mode;
+    for (const extra of [{ isTrusted: false }, { cancelable: false }, { target: input }, { target: panel }]) {
+      runtime.onTouchStart({ isTrusted: true, touches: [{ clientX: 200, clientY: 200 }] });
+      const event = touchEvent(context, 100, 200, extra); runtime.onTouchMove(event); event.preventDefault();
+      assert.equal(event.stopped, false); assert.equal(event.defaultPrevented, true);
+    }
+  }
+  runtime.onTouchStart({ isTrusted: true, touches: [{ clientX: 100, clientY: 200 }] });
+  runtime.onTouchMove(touchEvent(context, 100, 170, { touches: [{ clientX: 100, clientY: 170 }, { clientX: 200, clientY: 170 }] }));
+  assert.equal(runtime.touchY, null);
+  assert.equal(runtime.isPageTouch(touchEvent(context, 100, 150)), false);
+});
+
+test('enhanced wrapper normalization avoids repeated writes and releases detached nodes', async t => {
+  const { context, runtime } = await scrollFixture(t, 'enhanced');
+  const wrapper = new FakeElement('main'); wrapper.computed = { position: 'fixed', transform: 'matrix(1,0,0,1,0,-50)' };
+  let writes = 0, value;
+  Object.defineProperty(wrapper.dataset, 'nativeScrollNormalized', { configurable: true, get: () => value, set: next => { value = next; writes++; } });
+  context.document.body.children = [wrapper];
+  runtime.normalizeTransformScroller(); runtime.normalizeTransformScroller();
+  assert.equal(writes, 1); assert.equal(runtime.normalizedWrappers.size, 1);
+  wrapper.isConnected = false; context.document.body.children = Array.from({ length: 31 }, () => new FakeElement('div'));
+  runtime.normalizeTransformScroller(); assert.equal(runtime.normalizedWrappers.size, 0);
+});
+
+
+test('event type conversion stays native and unload policy remains case-sensitive', async t => {
+  let reads = 0;
+  const { context, runtime } = await scrollFixture(t, 'standard', context => {
+    const native = context.EventTarget.prototype.addEventListener;
+    context.EventTarget.prototype.addEventListener = function(type, listener, options) {
+      return Reflect.apply(native, this, [String(type), listener, options]);
+    };
+  });
+  const listener = () => {};
+  context.window.addEventListener({ toString() { reads++; return 'wheel'; } }, listener, { passive: false });
+  assert.equal(reads, 1); assert.equal(context.window.listeners.get('wheel').includes(listener), true);
+  context.document.permissionsPolicy = { allowsFeature: () => false };
+  assert.equal(runtime.isDisallowedUnload('unload'), true);assert.equal(runtime.isDisallowedUnload('UNLOAD'), false);
+});
+
+
+test('legacy returnValue cancellation keeps the same native input boundary and restores its descriptor', async t => {
+  const before = Object.getOwnPropertyDescriptor(FakeEvent.prototype, 'returnValue');
+  const { context, runtime } = await scrollFixture(t);
+  const retained = Object.getOwnPropertyDescriptor(FakeEvent.prototype, 'returnValue').set;
+  const wheel = wheelEvent(context); wheel.returnValue = false;
+  assert.equal(wheel.defaultPrevented, false); assert.equal(wheel.stopped, true);
+  for (const event of [Object.assign(new FakeEvent('click'), { isTrusted: true }), Object.assign(wheelEvent(context), { isTrusted: false })]) {
+    event.returnValue = false; assert.equal(event.defaultPrevented, true); assert.equal(event.stopped, false);
+  }
+  runtime.disable();
+  assert.equal(Object.getOwnPropertyDescriptor(FakeEvent.prototype, 'returnValue').set, before.set);
+  const native = wheelEvent(context); Reflect.apply(retained, native, [false]); assert.equal(native.defaultPrevented, true);
 });

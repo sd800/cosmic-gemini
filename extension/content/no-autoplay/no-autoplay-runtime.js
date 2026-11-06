@@ -169,8 +169,9 @@
       this.patchedPlay = function cosmicGeminiPlay() {
         if (!runtime.active) return Reflect.apply(original, this, arguments);
         if (!(this instanceof HTMLMediaElement)) return Reflect.apply(original, this, arguments);
-        if (!runtime.shouldBlockMedia(this)) {
-          if (runtime.hasUserIntent(this)) runtime.authorizeMedia(this);
+        const manual = runtime.hasUserIntent(this);
+        if (!runtime.shouldBlockMedia(this, manual)) {
+          if (manual) runtime.authorizeMedia(this);
           runtime.pendingAudio.delete(this);
           runtime.pendingVideo.delete(this);
           return Reflect.apply(original, this, arguments);
@@ -332,30 +333,34 @@
       const action = path.find(node => ['button', 'a', 'input'].includes(String(node?.localName || '').toLowerCase())
         || node?.getAttribute?.('role'));
       if (action && this.isPlaybackOption(action)) return;
+      if (this.isNavigationInput(path)) return;
       for (const node of path) {
         if (node instanceof HTMLMediaElement) {
           this.mediaIntent.set(node, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
           return;
         }
       }
-      if (this.isNavigationInput(path)) return;
       const controls = path.filter(node => this.isPlaybackControl(node));
       const targetInfo = this.controlTargets(path), targets = targetInfo.targets;
       const declaredTargets = targetInfo.ids.length > 0;
+      const audioOnly = !declaredTargets && controls.some(node => {
+        const label = this.controlText(node).toLowerCase();
+        return /(^|\W)(listen|audio)(?=$|\W)|音频|收听|朗读|试听/.test(label) && !/video|视频/.test(label);
+      });
       if (controls.length || targets.length) {
         const now = performance.now(), deadline = now + ASSOCIATED_MEDIA_INTENT_MS;
         const scopes = this.localScopes(path);
         // Explicit ARIA targets take precedence over an unrelated nearby player.
         const association = declaredTargets ? targets : scopes;
-        this.controlIntent = { scopes: association.map(node => new WeakRef(node)), until: deadline,
+        this.controlIntent = { scopes: association.map(node => new WeakRef(node)), until: deadline, audioOnly,
           targets: declaredTargets ? { ids: targetInfo.ids, root: new WeakRef(targetInfo.root) } : null };
         const media = this.associatePlaybackIntent(association, deadline, { allowHidden: true,
-          documentFallback: !declaredTargets && controls.length > 0 });
+          documentFallback: !declaredTargets && controls.length > 0, audioOnly });
         if (media) this.controlIntent = null;
         // Media permissions are always scoped. A media-free audio control can
         // start one Web Audio context, rather than unlocking every context.
-        if (!media && !declaredTargets && !association.some(node => this.mediaCandidates(node).any)) {
-          this.controlIntent.documentFallback = !this.mediaCandidates(document).any;
+        if (!media && !declaredTargets && !association.some(node => this.mediaCandidates(node, audioOnly).any)) {
+          this.controlIntent.documentFallback = !this.mediaCandidates(document, audioOnly).any;
           this.userIntentUntil = now + CONTROL_INTENT_MS;
         }
         return;
@@ -364,11 +369,17 @@
     }
 
     isNavigationInput(path) {
-      return path.some(node => {
-        if (!['a', 'area'].includes(String(node?.localName || '').toLowerCase())) return false;
-        const href = node.getAttribute?.('href');
-        return href != null && !!href.trim() && !/^(?:#|javascript:)/i.test(href.trim());
-      });
+      for (const node of path) {
+        const tag = String(node?.localName || '').toLowerCase();
+        if (['a', 'area'].includes(tag)) {
+          const href = String(node.getAttribute?.('href') || '').trim();
+          if (href && !/^(?:#|javascript:)/i.test(href)) return true;
+        }
+        // An actual button inside a linked media card owns its activation;
+        // the surrounding link must not invalidate that independent action.
+        if (tag === 'button' || node?.getAttribute?.('role') === 'button') return false;
+      }
+      return false;
     }
 
     localScopes(path) {
@@ -442,12 +453,12 @@
       return false;
     }
 
-    mediaCandidates(root) {
+    mediaCandidates(root, audioOnly = false) {
       try {
         const candidates = root instanceof HTMLMediaElement ? [root] : root.querySelectorAll('video,audio');
         let single = null, visible = null, count = 0;
         for (const media of candidates) {
-          if (!(media instanceof HTMLMediaElement) || media.isConnected === false) continue;
+          if (!(media instanceof HTMLMediaElement) || media.isConnected === false || audioOnly && !(media instanceof HTMLAudioElement)) continue;
           count += 1; single = media;
           if (this.isVisibleMedia(media)) {
             if (visible) return { any: true, ambiguous: true };
@@ -458,26 +469,26 @@
       } catch { return {}; }
     }
 
-    associatePlaybackIntent(path, deadline, { allowHidden = false, documentFallback = false } = {}) {
+    associatePlaybackIntent(path, deadline, { allowHidden = false, documentFallback = false, audioOnly = false } = {}) {
       let hidden = null, sawMedia = false;
       for (const node of this.localScopes(path)) {
-        const candidates = this.mediaCandidates(node);
+        const candidates = this.mediaCandidates(node, audioOnly);
         sawMedia ||= candidates.any;
         if (candidates.ambiguous) return null;
         if (candidates.visible) {
-          this.rememberPlayerIntent(node, candidates.visible, deadline);
+          this.rememberPlayerIntent(node, candidates.visible, deadline, audioOnly ? null : candidates);
           return candidates.visible;
         }
-        if (!hidden && allowHidden && candidates.single) hidden = { node, media: candidates.single };
+        if (!hidden && allowHidden && candidates.single) hidden = { node, media: candidates.single, candidates };
       }
       if (hidden) {
-        this.rememberPlayerIntent(hidden.node, hidden.media, deadline);
+        this.rememberPlayerIntent(hidden.node, hidden.media, deadline, audioOnly ? null : hidden.candidates);
         return hidden.media;
       }
       if (documentFallback && !sawMedia) {
         const candidates = this.mediaCandidates(document);
         const media = candidates.visible || candidates.single;
-        if (!candidates.ambiguous && media) {
+        if (!candidates.ambiguous && media && (!audioOnly || media instanceof HTMLAudioElement)) {
           // A detached toolbar may control the document's only player. Never
           // retain document/body as an authorized player for later insertions.
           this.mediaIntent.set(media, deadline);
@@ -487,16 +498,18 @@
       return null;
     }
 
-    rememberPlayerIntent(player, media, deadline) {
+    rememberPlayerIntent(player, media, deadline, candidates = null) {
       this.mediaIntent.set(media, deadline);
       if (player === media) return;
+      candidates ||= this.mediaCandidates(player);
+      if (candidates.ambiguous || (candidates.visible || candidates.single) !== media) return;
       this.playerIntent.set(player, deadline);
       this.mediaPlayers.set(media, new WeakRef(player));
     }
 
     hasControlIntent(media) {
       const intent = this.controlIntent;
-      if (!intent) return false;
+      if (!intent || intent.audioOnly && !(media instanceof HTMLAudioElement)) return false;
       if (intent.until <= performance.now()) { this.controlIntent = null; return false; }
       let scopes = intent.scopes.map(reference => reference.deref());
       if (intent.targets) {
@@ -507,12 +520,12 @@
         if (!scope || scope === document.body || scope === document.documentElement || scope === document) continue;
         try {
           if (scope !== media && !scope?.contains?.(media)) continue;
-          const candidate = this.associatePlaybackIntent([scope], intent.until, { allowHidden: true });
+          const candidate = this.associatePlaybackIntent([scope], intent.until, { allowHidden: true, audioOnly: intent.audioOnly });
           return candidate === media;
         } catch {}
       }
       if (intent.documentFallback) {
-        const candidates = this.mediaCandidates(document);
+        const candidates = this.mediaCandidates(document, intent.audioOnly);
         return !candidates.ambiguous && (candidates.visible || candidates.single) === media;
       }
       return false;
@@ -531,6 +544,21 @@
       return !!(media.currentSrc || media.src || media.getAttribute?.('src'));
     }
 
+    controlText(node) {
+      const attribute = name => String(node.getAttribute?.(name) || '').slice(0, 256);
+      let labelled = '';
+      const ids = attribute('aria-labelledby').trim().split(/\s+/).filter(Boolean).slice(0, 4);
+      if (ids.length) {
+        try {
+          const root = node.getRootNode?.() || document;
+          labelled = ids.map(id => String(root.getElementById?.(id)?.textContent || '').slice(0, 128)).join(' ');
+        } catch {}
+      }
+      const interactive = ['button', 'a', 'input'].includes(String(node.localName || '').toLowerCase()) || attribute('role') === 'button';
+      const text = interactive ? String(node.textContent || attribute('value') || '').slice(0, 128) : '';
+      return [attribute('aria-label'), attribute('title'), labelled || text].join(' ').trim().slice(0, 384);
+    }
+
     isPlaybackOption(node) {
       if (typeof node?.getAttribute !== 'function') return false;
       const role = node.getAttribute('role') || '';
@@ -538,7 +566,7 @@
       if (node.localName === 'input' && ['checkbox', 'radio'].includes(node.getAttribute('type'))) return true;
       const action = ['button', 'a', 'input'].includes(node.localName) || role === 'button';
       const description = [node.getAttribute('id'), node.getAttribute('aria-label'), node.getAttribute('title'),
-        typeof node.className === 'string' ? node.className : '', action ? String(node.textContent || '').slice(0, 128) : '']
+        typeof node.className === 'string' ? node.className : '', action ? this.controlText(node) : '']
         .join(' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
       return /auto[\s:_-]*play|playback[\s:_-]*(?:speed|rate)|自动播放|播放速度/.test(description);
     }
@@ -559,10 +587,7 @@
       const tagName = String(node.localName || node.tagName || '').toLowerCase();
       const role = attribute('role').toLowerCase();
       if (!['button', 'a', 'input'].includes(tagName) && role !== 'button') return false;
-      const root = node.getRootNode?.() || document;
-      const labelled = attribute('aria-labelledby').trim().split(/\s+/).slice(0, 4)
-        .map(id => root.getElementById?.(id)?.textContent || '').join(' ');
-      const text = String(labelled || node.textContent || attribute('value') || '').trim().slice(0, 128).toLowerCase();
+      const text = this.controlText(node).toLowerCase();
       if (/auto[\s:_-]*play|playback[\s:_-]*(?:speed|rate)|自动播放|播放速度/.test(text)) return false;
       return /(^|\s)(play|replay|resume|unmute|listen)(?=$|\s)|播放|重播|解除静音|取消静音|^[▶►▷⏵⏯]\uFE0F?$/.test(text);
     }
@@ -613,9 +638,10 @@
       return denial;
     }
 
-    shouldBlockMedia(media) {
+    shouldBlockMedia(media, manual) {
       if (!this.active) return false;
-      if (this.hasUserIntent(media)) return false;
+      if (manual === undefined) manual = this.hasUserIntent(media);
+      if (manual) return false;
       if (this.mode === 'enhanced') return true;
       if (media instanceof HTMLAudioElement && this.audioAllowed) return false;
       return true;
@@ -667,10 +693,20 @@
     authorizeMedia(media) {
       if (!this.active) return;
       if (!this.mediaPlayers.get(media)?.deref()) {
-        const path = [];
-        for (let node = media.parentElement || media.parentNode || null; node && path.length < MAX_ASSOCIATION_PATH_DEPTH;
-          node = node.parentElement || node.parentNode || node.host || null) path.push(node);
-        this.associatePlaybackIntent(path, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
+        let node = media.parentElement || media.parentNode || null;
+        for (let depth = 0; node && depth < MAX_ASSOCIATION_PATH_DEPTH; depth += 1) {
+          if (node === document.body || node === document.documentElement || node === document) break;
+          const candidates = this.mediaCandidates(node);
+          if (candidates.any) {
+            // Authorization must never seed a sibling's intent while guessing
+            // this requested media's player, including hidden audio beside video.
+            if (!candidates.ambiguous && (candidates.visible || candidates.single) === media) {
+              this.rememberPlayerIntent(node, media, performance.now() + ASSOCIATED_MEDIA_INTENT_MS, candidates);
+            }
+            break;
+          }
+          node = node.parentElement || node.parentNode || node.host || null;
+        }
       }
       this.userPlayback.add(media);
       const player = this.mediaPlayers.get(media)?.deref();
@@ -710,9 +746,10 @@
       if (this.active && this.isNativePlaybackIntent(event, media)) {
         this.mediaIntent.set(media, performance.now() + ASSOCIATED_MEDIA_INTENT_MS);
       }
-      if (this.shouldBlockMedia(media)) this.blockMedia(media);
+      const manual = this.hasUserIntent(media);
+      if (this.shouldBlockMedia(media, manual)) this.blockMedia(media);
       else {
-        if (this.hasUserIntent(media)) this.authorizeMedia(media);
+        if (manual) this.authorizeMedia(media);
         this.pendingAudio.delete(media);
         this.pendingVideo.delete(media);
       }

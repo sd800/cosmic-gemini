@@ -854,3 +854,76 @@ test('a closed audio context cannot consume a pending manual context selection',
   assert.equal(manual.state, 'running');
   await assert.rejects(new context.AudioContext().resume(), { name: 'NotAllowedError' });
 });
+
+
+test('a video inside an ordinary navigation link does not gain playback intent', async t => {
+  const { runtime } = await nativeControlsFixture(t);
+  const video = new FakeVideo();
+  const link = { localName: 'a', getAttribute: name => name === 'href' ? '/another-page' : '' };
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [video, link] });
+  await assert.rejects(video.play(), { name: 'NotAllowedError' });
+  link.getAttribute = name => name === 'href' ? '#' : '';
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [video, link] });
+  await video.play();
+});
+
+test('a scripted media request resolves manual intent only once before native playback', async t => {
+  const { runtime } = await nativeControlsFixture(t);
+  const video = new FakeVideo(); let checks = 0;
+  const original = runtime.hasUserIntent.bind(runtime);
+  runtime.hasUserIntent = media => { checks++; return original(media); };
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [video] });
+  await video.play(); assert.equal(checks, 1);
+});
+
+
+test('direct hidden-audio authorization never seeds a visible sibling playback intent', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  const audio = new FakeAudio(), video = new FakeVideo(); video.rect = { width: 640, height: 360 };
+  surfacePlayer(document, [audio, video]);
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [audio] });
+  await audio.play();
+  await assert.rejects(video.play(), { name: 'NotAllowedError' });
+});
+
+test('audio controls select hidden audio even beside a visible video without authorizing its container', async t => {
+  const { runtime, document, advance } = await nativeControlsFixture(t);
+  document.body = {};
+  const audio = new FakeAudio(), video = new FakeVideo(); video.rect = { width: 640, height: 360 };
+  const { player } = surfacePlayer(document, [audio, video]), control = explicitControl('Listen to audio');
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [control, player, document.body] });
+  advance(2100); await audio.play();
+  await assert.rejects(video.play(), { name: 'NotAllowedError' });
+  assert.equal(runtime.authorizedPlayers.has(player), false);
+});
+
+test('a media-free Listen control does not select the document sole unrelated video', async t => {
+  const { runtime, document, context } = await nativeControlsFixture(t);
+  const video = new FakeVideo(); video.rect = { width: 640, height: 360 };
+  document.querySelectorAll = () => [video];
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [explicitControl('Listen')] });
+  await new context.AudioContext().resume();
+  await assert.rejects(video.play(), { name: 'NotAllowedError' });
+});
+
+
+test('an independent play button inside a linked card remains a playback action', async t => {
+  const { runtime, document } = await nativeControlsFixture(t); document.body = {};
+  const video = new FakeVideo(); video.rect = { width: 640, height: 360 };
+  const { player } = surfacePlayer(document, [video]), control = explicitControl('Play video');
+  const link = { localName: 'a', getAttribute: name => name === 'href' ? '/details' : '' };
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [control, player, link, document.body] });
+  await video.play(); await assert.rejects(new FakeVideo().play(), { name: 'NotAllowedError' });
+});
+
+
+test('a media-free Listen control retains Web Audio intent when unrelated native audio and video coexist', async t => {
+  const { runtime, document, context } = await nativeControlsFixture(t);
+  const audio = new FakeAudio(), video = new FakeVideo(); audio.rect = video.rect = { width: 320, height: 180 };
+  document.querySelectorAll = () => [audio, video];
+  runtime.onUserIntent({ isTrusted: true, type: 'click', composedPath: () => [explicitControl('Listen')] });
+  await new context.AudioContext().resume();
+  await assert.rejects(audio.play(), { name: 'NotAllowedError' });
+  await assert.rejects(video.play(), { name: 'NotAllowedError' });
+});

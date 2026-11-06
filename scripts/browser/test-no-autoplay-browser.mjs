@@ -53,12 +53,13 @@ try {
       <style>video{display:block;width:320px;height:180px}button{font:16px system-ui;margin:8px}</style>
       <video id="other" src="/clip.webm" muted loop></video><div id="host"></div>
       <script>
-      const shadow=${path==='/intent-shadow'},audio=${path==='/intent-audio'},lazy=${path==='/intent-lazy'||path==='/intent-audio'};
+      const shadow=${path==='/intent-shadow'},audio=${path==='/intent-audio'||path==='/intent-audio-local'},lazy=${path==='/intent-lazy'||path==='/intent-audio'};
       const root=shadow?document.querySelector('#host').attachShadow({mode:'open'}):document.querySelector('#host');
       root.innerHTML='<span id="caption">Play media</span><button id="trigger" aria-controls="target" aria-labelledby="caption">▶</button><div id="slot"></div>';
       function create(){const media=document.createElement(audio?'audio':'video');media.id='target';media.src=audio?'/sound.wav':'/clip.webm';media.muted=true;media.loop=true;
         media.style.cssText=audio?'display:none':'display:block;width:320px;height:180px';root.querySelector('#slot').append(media);window.targetMedia=media;return media;}
       if(!lazy)create();
+      ${path==='/intent-audio-local'?"root.querySelector('#trigger').removeAttribute('aria-controls');root.querySelector('#caption').textContent='Listen to audio';":''}
       root.querySelector('#trigger').onclick=()=>setTimeout(async()=>{try{await (window.targetMedia||create()).play();}catch(error){window.intentError=error.name;}},lazy?2100:0);
       </script>`});
     if(path.startsWith('/surface'))return route.fulfill({contentType:'text/html',body:`<!doctype html><title>Media surface fixture</title>
@@ -237,7 +238,7 @@ try {
   await setMode('noAutoplay','inactive');
   await page.waitForFunction(key=>!window[Symbol.for(key)],naKey);
 
-  for(const [mode,path]of [['standard','/intent-aria'],['standard','/intent-lazy'],['standard','/intent-audio'],['enhanced','/intent-audio'],['standard','/intent-shadow']]){
+  for(const [mode,path]of [['standard','/intent-aria'],['standard','/intent-lazy'],['standard','/intent-audio'],['enhanced','/intent-audio'],['standard','/intent-shadow'],['standard','/intent-audio-local']]){
     await setMode('noAutoplay',mode);await page.goto(`https://media-controls.test${path}`);
     await page.waitForFunction(key=>window[Symbol.for(key)]?.active,naKey);
     await page.locator('#trigger').focus();await page.keyboard.press('Enter');

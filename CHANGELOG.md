@@ -2,6 +2,11 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.7.2 (493) — 2026-11-07
+
+- Keep Native Scroll from blocking deferred position restoration after an ordinary wheel or touch listener runs. Preserve scrolling and anchor positioning inside nested panels in Standard and Enhanced mode, including at the panels’ edges. Continue protecting native scrolling from page-level takeover.
+- Let the original-address document preview use its own appearance without a third-party dynamic recoloring pass.
+
 ## 26.11.7.1 (492) — 2026-11-07
 
 - Add Original to the PDF appearance menu for all pages or the current page. Keep the PDF's source colors while allowing the reader interface to follow the system appearance.

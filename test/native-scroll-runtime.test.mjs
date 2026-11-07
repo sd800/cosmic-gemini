@@ -98,7 +98,7 @@ function makeContext(hostname = 'example.com') {
 
 function wheelEvent(context, target = context.document.body, path = null) {
   return Object.assign(new FakeEvent('wheel'), {
-    isTrusted: true, defaultPrevented: false, ctrlKey: false, metaKey: false,
+    isTrusted: true, eventPhase: 2, defaultPrevented: false, ctrlKey: false, metaKey: false,
     deltaX: 0, deltaY: 30, target,
     composedPath: () => path || [target, context.document.body, context.document.documentElement, context.document, context.window],
   });
@@ -210,7 +210,7 @@ test('wheel cancellation fallback preserves controls, zoom and nested gestures',
   nested.scrollTop = 200;
   const atEnd = wheelEvent(context, nested);
   atEnd.preventDefault();
-  assert.equal(atEnd.defaultPrevented, false, 'a completed nested scroller can chain to the page');
+  assert.equal(atEnd.defaultPrevented, true, 'a nested scroller can intentionally contain the gesture at its edge');
   runtime.onDispose({ detail: runtime.token });
 });
 
@@ -464,7 +464,8 @@ test('Native Scroll recognizes existing hijack listeners after it is disabled an
   const standardEvent = wheelEvent(context);
   secondRuntime.onWheel(standardEvent);
   assert.equal(standardEvent.stopped, false);
-  assert.equal(secondRuntime.gestureUntil > context.performance.now(), true);
+  assert.equal(secondRuntime.shouldBlockScriptedScroll(context.window, 'scrollBy'), true);
+  assert.equal(secondRuntime.gestureUntil, 0);
   standardEvent.preventDefault();
   assert.equal(standardEvent.stopped, true);
 
@@ -594,7 +595,10 @@ test('scroll observers keep their events and only actual takeover reports an int
   context.window.addEventListener('wheel', observer, { passive: false });
   const watched = wheelEvent(context); runtime.onWheel(watched); observer(watched);
   assert.equal(observed, 2); assert.equal(watched.stopped, false); assert.equal(runtime.reported, false);
-  assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollBy', [0, 50]), true);
+  assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollBy'), true, 'synchronous root takeover is blocked');
+  watched.eventPhase = 0;
+  assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollBy'), false, 'later anchor updates run after an ordinary observer');
+  watched.eventPhase = 2;
   watched.preventDefault();
   assert.equal(watched.defaultPrevented, false); assert.equal(watched.stopped, true); assert.equal(runtime.reported, true);
 });
@@ -742,4 +746,24 @@ test('legacy returnValue cancellation keeps the same native input boundary and r
   runtime.disable();
   assert.equal(Object.getOwnPropertyDescriptor(FakeEvent.prototype, 'returnValue').set, before.set);
   const native = wheelEvent(context); Reflect.apply(retained, native, [false]); assert.equal(native.defaultPrevented, true);
+});
+
+test('nested conversation panes keep wheel ownership and local anchor APIs in either mode', async t => {
+  const { context, runtime } = await scrollFixture(t);
+  const panel = new FakeElement('main'), message = new FakeElement('article');
+  panel.computed = { overflowY: 'auto' };
+  panel.scrollTop = panel.scrollHeight - panel.clientHeight;
+  message.parentElement = panel;
+  for (const mode of ['standard', 'enhanced']) {
+    runtime.mode = mode;
+    const event = wheelEvent(context, message, [message, panel, context.document.body, context.document.documentElement, context.document, context.window]);
+    event.preventDefault();
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.stopped, false);
+    runtime.beginGesture();
+    assert.equal(runtime.shouldBlockScriptedScroll(panel, 'scrollTo'), false);
+    assert.equal(runtime.shouldBlockScriptedScroll(message, 'scrollIntoView'), false);
+    assert.equal(runtime.shouldBlockScriptedScroll(context.window, 'scrollTo'), true);
+    runtime.clearGesture();
+  }
 });

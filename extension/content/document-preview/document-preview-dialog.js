@@ -76,7 +76,7 @@ export function showDocumentChoice(payload) {
             if (target) {
               nonce = randomNonce(); target.name = 'cosmic-gemini-document:' + nonce;
               target.document.open();
-              target.document.write('<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; frame-src chrome-extension:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>Document Preview</title><style>html{color-scheme:light dark;background:light-dark(#faf9f7,#171819);color:light-dark(#24272b,#e3e5e8);font:16px/1.5 system-ui}body{margin:0}p{padding:36px}</style><p id="loading"></p>');
+              target.document.write('<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta name="darkreader-lock"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; frame-src chrome-extension:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>Document Preview</title><style>html{color-scheme:light dark;background:light-dark(#faf9f7,#171819);color:light-dark(#24272b,#e3e5e8);font:16px/1.5 system-ui}body{margin:0}p{padding:36px}</style><p id="loading"></p>');
               target.document.close();
               // Commit the initial history item so Chrome updates its visible
               // address too; replacing the blank item only updates internal URLs.

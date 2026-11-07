@@ -1,26 +1,26 @@
 // Native fragment and scripted anchor scrolling in an isolated browser.
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 const { chromium } = await import(pathToFileURL(process.env.PDF_VIEWER_PLAYWRIGHT).href);
 const folder = await mkdtemp(join(tmpdir(), 'cg-native-anchors-'));
-const artifacts = resolve('test-dist/native-scroll'); await mkdir(artifacts, { recursive: true });
 const context = await chromium.launchPersistentContext(join(folder, 'profile'), {
   executablePath: process.env.PDF_VIEWER_CHROME, headless: true, viewport: { width: 1000, height: 720 },
   ignoreDefaultArgs: ['--disable-extensions'], args: ['--enable-unsafe-extension-debugging']
 });
 context.setDefaultTimeout(10000);
 const key = 'cosmic-gemini.native-scroll.runtime';
-const errors = [], results = [];
+const errors = [];
 context.on('page', page => page.on('pageerror', error => errors.push(String(error))));
 try {
   await context.route('https://native-scroll.test/**', route => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/observers') return route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Native interaction fixture</title>
-      <style>body{margin:0}#content{height:9000px}button{position:fixed;top:10px;padding:12px}#key{left:10px}#pointer{left:190px}#panel{position:fixed;right:10px;bottom:10px;width:180px;height:90px;overflow-x:auto}#panel div{width:1000px;height:40px}</style>
-      <main id="content"></main><button id="key">Keyboard action</button><button id="pointer">Pointer action</button><div id="panel"><div>Horizontal content</div></div>` });
+      <style>body{margin:0}#content{height:9000px}button{position:fixed;top:10px;padding:12px}#key{left:10px}#pointer{left:190px}#panel{position:fixed;right:10px;bottom:10px;width:180px;height:90px;overflow-x:auto}#panel div{width:1000px;height:40px}#conversation{position:fixed;left:20px;bottom:20px;width:260px;height:180px;overflow-y:auto;overscroll-behavior:contain}#conversation article{height:260px}</style>
+      <main id="content"></main><button id="key">Keyboard action</button><button id="pointer">Pointer action</button><div id="panel"><div>Horizontal content</div></div>
+      <section id="conversation"><article>Earlier message</article><article id="anchor-message">Current message</article><article>Latest message</article></section>` });
     if (path === '/style.css') return route.fulfill({ contentType: 'text/css', body: `
       html{scroll-behavior:smooth}body{margin:0;font:16px system-ui}nav{position:fixed;top:0;left:0;background:#eee;padding:12px;z-index:10}
       nav a{margin-right:20px}section{height:2200px;padding-top:1px}h2{scroll-margin-top:80px}
@@ -60,7 +60,6 @@ try {
       await page.locator('#'+link).click();
       await page.waitForFunction(destination => scrollY > 5 && scrollY < destination-5, destination, { polling: 'raf', timeout: 2000 });
       await page.waitForFunction(target => Math.abs(document.getElementById(target).getBoundingClientRect().top-80)<2, target);
-      results.push({mode,link,smooth:true,scrollMargin:true});
       await page.locator('#reset').click();
       await page.waitForFunction(()=>Math.abs(scrollY)<=1);
     }
@@ -80,6 +79,26 @@ try {
     await page.evaluate(()=>window.addEventListener('wheel',observer,{passive:false}));
     await page.mouse.wheel(0,100);await page.waitForFunction(()=>observerCount>0);
     assert.equal(await page.evaluate(key=>window[Symbol.for(key)].reported,key),false,'observers alone do not report takeover');
+    await page.evaluate(()=>{
+      window.layoutPosition = null;
+      window.addEventListener('wheel',()=>requestAnimationFrame(()=>{
+        scrollTo({top:1000,behavior:'instant'}); window.layoutPosition=scrollY;
+      }),{once:true});
+    });
+    await page.mouse.wheel(0,80);await page.waitForFunction(()=>layoutPosition!==null);
+    assert.equal(await page.evaluate(()=>layoutPosition),1000,'a non-canceling listener must not suppress later position restoration');
+
+    await page.evaluate(()=>{
+      const panel=document.querySelector('#conversation');panel.scrollTop=panel.scrollHeight;
+      panel.addEventListener('wheel',event=>{
+        event.preventDefault();window.panelCancelled=event.defaultPrevented;
+        requestAnimationFrame(()=>{document.querySelector('#anchor-message').scrollIntoView({behavior:'instant',block:'start'});window.panelPosition=panel.scrollTop;});
+      },{passive:false,once:true});
+    });
+    await page.mouse.move(150,625);await page.mouse.wheel(0,80);
+    await page.waitForFunction(()=>typeof window.panelPosition==='number');
+    assert.deepEqual(await page.evaluate(()=>[panelCancelled,panelPosition]),[true,260],'conversation scrollers own edge gestures and preserve local positioning');
+    await page.mouse.move(500,300);
     await page.evaluate(()=>{
       window.canceller=event=>{event.returnValue=false;window.cancelled=event.defaultPrevented;requestAnimationFrame(()=>document.documentElement.scrollTop=0);};
       window.addEventListener('wheel',canceller,{passive:false});
@@ -116,12 +135,11 @@ try {
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     await page.waitForFunction(()=>touchMoves>0&&touchTrusted===true&&touchCancelled===false);
     await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.detach();
-    results.push({mode,observers:true,keyboard:true,pointer:true,horizontalAPI:true,listenerOptions:true,touch:true});
   }
   await command({ type: 'UI_SET_BEHAVIOR_RULE', featureId: 'nativeScroll', rule: 'native-scroll.test', behavior: 'inactive' });
   await page.waitForFunction(key => !window[Symbol.for(key)], key);
   assert.equal(await page.evaluate(()=>/\[native code\]/.test(Function.prototype.toString.call(Event.prototype.preventDefault))&&/\[native code\]/.test(Function.prototype.toString.call(window.scrollTo))),true);
   assert.deepEqual(errors,[]);
-  await writeFile(join(artifacts,'anchor-results.json'),JSON.stringify({passed:true,results},null,2)+'\n');
-  console.log('PASS: Standard/Enhanced smooth anchors; native observer delivery; cancellation/root takeover protection; keyboard/pointer actions; horizontal APIs; native listener option counts, once/abort cleanup; trusted touch; deactivation.');
+
+  console.log('PASS: Standard/Enhanced smooth anchors; native observer delivery and deferred layout position; local conversation scrolling; cancellation/root takeover protection; keyboard/pointer actions; horizontal APIs; native listener option counts, once/abort cleanup; trusted touch; deactivation.');
 } finally { await context.close(); await rm(folder,{recursive:true,force:true}); }

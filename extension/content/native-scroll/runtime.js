@@ -38,6 +38,7 @@
       this.mode = 'standard';
       this.reported = false;
       this.gestureUntil = 0;
+      this.observedGesture = null;
       this.touchY = null;
       this.touchX = null;
       this.touchDeltas = new WeakMap();
@@ -148,7 +149,7 @@
       this.active = false;
       this.reported = false;
       this.onTouchEnd();
-      this.gestureUntil = 0;
+      this.clearGesture();
       this.originalRemoveEventListener.call(window, 'wheel', this.onWheel, true);
       this.originalRemoveEventListener.call(window, 'mousewheel', this.onWheel, true);
       for (const type of ['click', 'pointerdown', 'keydown']) this.originalRemoveEventListener.call(window, type, this.onClick, true);
@@ -394,9 +395,9 @@
 
     onWheel(event) {
       if (!this.shouldHandleWheel(event)) return;
-      // Observation is not takeover. Keep wheel listeners running; suppress an
-      // actual cancellation or scripted movement, without cancelling native scroll.
-      this.beginGesture();
+      // Catch synchronous takeover from an eligible handler. Merely receiving
+      // a wheel event must not block later layout or position updates.
+      this.observedGesture = new WeakRef(event);
     }
 
     onTouchStart(event) {
@@ -404,7 +405,7 @@
         if (this.active) this.onTouchEnd();
         return;
       }
-      this.gestureUntil = 0;
+      this.clearGesture();
       this.touchY = event.touches[0].clientY;
       this.touchX = event.touches[0].clientX;
     }
@@ -427,13 +428,11 @@
       }
       if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y) || Math.max(Math.abs(delta.x), Math.abs(delta.y)) < 1 || this.isSafeEvent(event)) return false;
       const horizontal = Math.abs(delta.x) > Math.abs(delta.y);
-      if (horizontal && this.hasScrollableAncestor(event, delta.x, 'x')) return false;
-      if (!horizontal && this.mode === 'standard' && this.hasScrollableAncestor(event, delta.y)) return false;
-      return true;
+      return !this.hasScrollableAncestor(event, horizontal ? 'x' : 'y');
     }
 
     onTouchMove(event) {
-      if (this.isPageTouch(event) && this.hasHijackListener(event, 'touchmove')) this.beginGesture();
+      if (this.isPageTouch(event) && this.hasHijackListener(event, 'touchmove')) this.observedGesture = new WeakRef(event);
     }
 
     shouldHandleWheel(event) {
@@ -449,11 +448,9 @@
       if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 0.5) return false;
       if (this.isSafeEvent(event)) return false;
       // A page-wide smooth-scroll handler must not consume browser history
-      // gestures. Local horizontal scrollers retain their own wheel behavior
-      // in both modes, including at their edges and in RTL layouts.
-      if (horizontal && this.hasScrollableAncestor(event, deltaX, 'x')) return false;
-      if (!horizontal && this.mode === 'standard' && this.hasScrollableAncestor(event, deltaY)) return false;
-      return true;
+      // gestures. Local scroll containers own their input in both modes, even
+      // at an edge where they may choose to contain the gesture.
+      return !this.hasScrollableAncestor(event, horizontal ? 'x' : 'y');
     }
 
     isSafeEvent(event) {
@@ -477,27 +474,26 @@
       return this.isXhsHost();
     }
 
-    hasScrollableAncestor(event, delta, axis = 'y') {
+    isLocalScroller(element, axis) {
+      if (!(element instanceof Element) || element === document.body || element === document.documentElement) return false;
+      const style = getComputedStyle(element);
+      return (axis !== 'y' && /(auto|scroll|overlay)/.test(style.overflowX) && element.scrollWidth > element.clientWidth + 1)
+        || (axis !== 'x' && /(auto|scroll|overlay)/.test(style.overflowY) && element.scrollHeight > element.clientHeight + 1);
+    }
+
+    hasScrollableAncestor(event, axis) {
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
-      for (const node of path) {
-        if (!(node instanceof Element) || node === document.body || node === document.documentElement) continue;
-        const style = getComputedStyle(node);
-        if (axis === 'x') {
-          if (/(auto|scroll|overlay)/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1) return true;
-          continue;
-        }
-        if (!/(auto|scroll|overlay)/.test(style.overflowY)) continue;
-        if (node.scrollHeight <= node.clientHeight + 1) continue;
-        if (delta < 0 && node.scrollTop > 0) return true;
-        if (delta > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) return true;
-      }
-      return false;
+      return path.some(node => this.isLocalScroller(node, axis));
     }
 
     onClick(event) {
-      // A deliberate click starts a new action; a preceding wheel guard must
-      // not suppress the link's own smooth scroll or fragment navigation.
-      if (this.active && event.isTrusted) this.gestureUntil = 0;
+      // A deliberate action takes precedence over the preceding scroll guard.
+      if (this.active && event.isTrusted) this.clearGesture();
+    }
+
+    clearGesture() {
+      this.gestureUntil = 0;
+      this.observedGesture = null;
     }
 
     beginGesture() {
@@ -527,7 +523,7 @@
         function guardedScroll(...args) {
           if (!runtime.active) return Reflect.apply(original, this, args);
           const receiver = owner === window ? window : this;
-          if (runtime.shouldBlockScriptedScroll(receiver, name, args)) {
+          if (runtime.shouldBlockScriptedScroll(receiver, name)) {
             runtime.reportSuppression();
             return undefined;
           }
@@ -584,7 +580,7 @@
         function guardedPosition(value) {
           if (!runtime.active) return Reflect.apply(descriptor.set, this, [value]);
           if ((this === document.documentElement || this === document.body)
-            && runtime.shouldBlockScriptedScroll(this, name, [value])) {
+            && runtime.shouldBlockScriptedScroll(this, name)) {
             runtime.reportSuppression();
             return;
           }
@@ -612,15 +608,19 @@
       this.originalProperties = [];
     }
 
-    shouldBlockScriptedScroll(receiver, name, args) {
-      if (!this.active || performance.now() > this.gestureUntil) return false;
+    shouldBlockScriptedScroll(receiver, name) {
+      if (!this.active || !(this.gestureUntil > performance.now() || this.observedGesture?.deref()?.eventPhase > 0)) return false;
       if (receiver === window) return true;
       if (!(receiver instanceof Element) || this.isSafeElement(receiver)) return false;
       if (receiver === document.documentElement || receiver === document.body) return true;
-      const style = getComputedStyle(receiver);
-      if (/(auto|scroll|overlay)/.test(style.overflowX) && receiver.scrollWidth > receiver.clientWidth + 1) return false;
-      if (this.mode === 'enhanced' || name === 'scrollIntoView') return true;
-      return !/(auto|scroll|overlay)/.test(style.overflowY);
+      // scrollIntoView can target a child of a native app panel. Preserve its
+      // scroll anchoring and follow-up positioning even during a root gesture.
+      for (let node = receiver; node && node !== document.body && node !== document.documentElement;) {
+        if (this.isLocalScroller(node)) return false;
+        if (name !== 'scrollIntoView') break;
+        node = node.parentElement || node.getRootNode?.().host;
+      }
+      return this.mode === 'enhanced' || name === 'scrollIntoView' || !/(auto|scroll|overlay)/.test(getComputedStyle(receiver).overflowY);
     }
   }
 

@@ -558,8 +558,14 @@
       const original = owner.preventDefault;
       if (typeof original !== 'function') return;
       const runtime = this;
-      const protects = event => event instanceof Event && (event.type === 'touchmove' ? runtime.isPageTouch(event)
-        : (event.type === 'wheel' || event.type === 'mousewheel') && runtime.isPageWheel(event));
+      const protects = event => {
+        if (!(event instanceof Event) || event.isTrusted !== true) return false;
+        try {
+          const type = event.type;
+          return type === 'touchmove' ? runtime.isPageTouch(event)
+            : (type === 'wheel' || type === 'mousewheel') && runtime.isPageWheel(event);
+        } catch { return false; }
+      };
       const suppress = event => {
         runtime.beginGesture(); event.stopImmediatePropagation(); runtime.reportSuppression();
       };

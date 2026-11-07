@@ -9,6 +9,7 @@ async function fixture(t, { smallBudget = false, ...globals } = {}) {
     URL, Uint8Array, TextDecoder, btoa, location: { href: 'https://example.test/', origin: 'https://example.test' },
     document: { scripts: [], baseURI: 'https://example.test/', title: 'Video' },
     XMLHttpRequest: class { open() {} send() {} }, fetch() {},
+    EventTarget: class { addEventListener(...args) { this.addEventListener(...args); } },
     addEventListener() {}, removeEventListener() {}, postMessage: value => messages.push(value), ...globals
   });
   let source = await readFile(new URL('../extension/content/video-download/video-download-page.js', import.meta.url), 'utf8');

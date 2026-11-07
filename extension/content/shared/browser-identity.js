@@ -7,6 +7,8 @@
   const NativeDateTimeFormat = Intl.DateTimeFormat;
   const nativeParse = Date.parse;
   const nativeOffset = Date.prototype.getTimezoneOffset;
+  const nativeGetTime = Date.prototype.getTime;
+  const nativeGetMilliseconds = Date.prototype.getUTCMilliseconds;
   const systemTimeZone = new NativeDateTimeFormat().resolvedOptions().timeZone;
   const systemLocale = new NativeDateTimeFormat().resolvedOptions().locale;
   const policies = new Map();
@@ -199,7 +201,7 @@
     }
 
     zonedParts(value) {
-      const time = Date.prototype.getTime.call(value);
+      const time = nativeGetTime.call(value);
       if (!Number.isFinite(time)) return null;
       this.zonedPartsFormatter ||= new this.nativeDateTimeFormat('en-US', {
         timeZone: this.identityTimeZone,
@@ -207,7 +209,7 @@
         hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
       });
       const parts = {};
-      for (const part of this.zonedPartsFormatter.formatToParts(value)) {
+      for (const part of this.zonedPartsFormatter.formatToParts(time)) {
         if (part.type !== 'literal') parts[part.type] = part.value;
       }
       return {
@@ -218,7 +220,7 @@
 
     zonedOffset(value, parts = this.zonedParts(value)) {
       if (!parts) return NaN;
-      const time = Date.prototype.getTime.call(value);
+      const time = nativeGetTime.call(value);
       const wholeSecondTime = Math.floor(time / 1000) * 1000;
       const representedAsUtc = this.partsTimestamp(parts);
       return Math.round((wholeSecondTime - representedAsUtc) / 60_000);
@@ -228,7 +230,7 @@
       this.zonedNameFormatter ||= new this.nativeDateTimeFormat('en-US', {
         timeZone: this.identityTimeZone, year: 'numeric', timeZoneName: 'long'
       });
-      return this.zonedNameFormatter.formatToParts(value).find(part => part.type === 'timeZoneName')?.value || '';
+      return this.zonedNameFormatter.formatToParts(nativeGetTime.call(value)).find(part => part.type === 'timeZoneName')?.value || '';
     }
 
     installZonedDateReads() {
@@ -253,7 +255,6 @@
           ...descriptor,
           value: new Proxy(original, { apply(target, receiver, args) {
             if (!runtime.live) return Reflect.apply(target, receiver, args);
-            Date.prototype.getTime.call(receiver);
             const parts = runtime.zonedParts(receiver);
             return parts ? read(parts) : NaN;
           } })
@@ -291,7 +292,6 @@
           ...descriptor,
           value: new Proxy(original, { apply(target, receiver, args) {
             if (!runtime.live) return Reflect.apply(target, receiver, args);
-            Date.prototype.getTime.call(receiver);
             const parts = runtime.zonedParts(receiver);
             if (!parts) return 'Invalid Date';
             const date = strings.toDateString(parts, receiver);
@@ -340,10 +340,10 @@
         const utcSetter = prototype[utcName];
         this.installIdentityProperty(prototype, name, { ...descriptor, value: new Proxy(original, { apply(target, receiver, args) {
           if (!runtime.live) return Reflect.apply(target, receiver, args);
-          const time = prototype.getTime.call(receiver);
+          const time = nativeGetTime.call(receiver);
           let parts = runtime.zonedParts(receiver);
           if (!parts && ['setFullYear', 'setYear'].includes(name)) parts = { year: 1970, month: 1, day: 1, hour: 0, minute: 0, second: 0 };
-          const local = new runtime.nativeDate(parts ? runtime.partsTimestamp(parts, Number.isFinite(time) ? receiver.getUTCMilliseconds() : 0) : NaN);
+          const local = new runtime.nativeDate(parts ? runtime.partsTimestamp(parts, Number.isFinite(time) ? nativeGetMilliseconds.call(receiver) : 0) : NaN);
           if (name === 'setYear') {
             const year = +args[0];
             args = [year >= 0 && year <= 99 ? Math.trunc(year) + 1900 : year];

@@ -89,9 +89,25 @@
       if (link && !permitted(link.getAttribute('href') || link.getAttribute('xlink:href'), link.baseURI)) stop(event);
     }
     for (const type of ['click', 'auxclick']) on(window, type, guardLink);
-    const formUrl = (form, submitter) => submitter?.hasAttribute('formaction') ? submitter.formAction : form.action;
+    const formAction = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'action').get;
+    const localName = Object.getOwnPropertyDescriptor(Element.prototype, 'localName').get;
+    const getAttribute = Element.prototype.getAttribute;
+    const submitterActions = {
+      button: Object.getOwnPropertyDescriptor(HTMLButtonElement.prototype, 'formAction').get,
+      input: Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'formAction').get
+    };
+    function formUrl(form, submitter) {
+      try {
+        if (submitter != null && nativeApply(getAttribute, submitter, ['formaction']) !== null) {
+          return nativeApply(submitterActions[nativeApply(localName, submitter, [])], submitter, []);
+        }
+        return nativeApply(formAction, form, []);
+      } catch { return null; } // Let the native method validate invalid receivers or submitters.
+    }
     on(window, 'submit', event => {
-      if (live() && !permitted(formUrl(event.target, event.submitter))) stop(event);
+      if (!live()) return;
+      const url = formUrl(event.target, event.submitter);
+      if (url !== null && !permitted(url)) stop(event);
     });
 
     // MAIN-world wrappers close target=_blank and programmatic submission gaps;
@@ -106,8 +122,10 @@
     }
     wrap(window, 'open', (original, receiver, args) => {
       if (!live()) return nativeApply(original, receiver == null ? window : receiver, args);
-      if (!permitted(args[0] || 'about:blank', document.baseURI)) return null;
-      const child = nativeApply(original, receiver == null ? window : receiver, args);
+      const url = args[0] === undefined ? '' : `${args[0]}`;
+      if (!permitted(url || 'about:blank', document.baseURI)) return null;
+      if (args.length) args[0] = url;
+      const child = nativeApply(original, receiver ?? window, args);
       if (child) {
         guardNavigation(child);
         try { patch(child, 'open', window.open.bind(child)); } catch {}
@@ -115,17 +133,19 @@
       return child;
     });
     for (const method of ['submit', 'requestSubmit']) wrap(HTMLFormElement.prototype, method, (original, form, args) => {
-      if (!permitted(formUrl(form, method === 'requestSubmit' ? args[0] : null))) return undefined;
+      const url = formUrl(form, method === 'requestSubmit' ? args[0] : null);
+      if (url !== null && !permitted(url)) return undefined;
       return nativeApply(original, form, args);
     });
     for (const method of ['back', 'forward', 'go']) wrap(History.prototype, method, (original, receiver, args) => {
       if (!live()) return nativeApply(original, receiver, args);
-      const delta = method === 'back' ? -1 : method === 'forward' ? 1 : Number(args[0] || 0);
+      const delta = method === 'back' ? -1 : method === 'forward' ? 1 : args[0] >> 0;
+      if (method === 'go' && args.length) args[0] = delta;
       if (delta !== 0) {
         // Only script-driven traversal is wrapped. Chrome's own Back/Forward
         // controls remain available; unknown cross-document entries fail closed.
         const current = navigation.currentEntry;
-        const target = navigation.entries().find(entry => entry.index === current?.index + Math.trunc(delta));
+        const target = navigation.entries().find(entry => entry.index === current?.index + delta);
         if (!target || !permitted(target.url)) return undefined;
       }
       return nativeApply(original, receiver, args);

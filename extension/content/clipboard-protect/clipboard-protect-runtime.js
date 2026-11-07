@@ -52,7 +52,9 @@
     }
 
     snapshot(event) {
-      if (!this.active || event.type !== 'copy' || !event.isTrusted || !event.eventPhase) return null;
+      if (!this.active || !(event instanceof Event) || event.isTrusted !== true) return null;
+      try { if (event.type !== 'copy' || !event.eventPhase) return null; }
+      catch { return null; }
       if (this.snapshots.has(event)) return this.snapshots.get(event);
       let data = null;
       try { data = this.selectionData(event); } catch {}

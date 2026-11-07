@@ -22,6 +22,15 @@
     return;
   }
 
+  function nativeGetter(constructor, name) {
+    return constructor?.prototype && Object.getOwnPropertyDescriptor(constructor.prototype, name)?.get;
+  }
+
+  const audioState = nativeGetter(globalThis.BaseAudioContext, 'state');
+  const audioNodeContext = nativeGetter(globalThis.AudioNode, 'context');
+  const mediaNodeElement = nativeGetter(globalThis.MediaElementAudioSourceNode, 'mediaElement');
+  const contextState = context => audioState ? Reflect.apply(audioState, context, []) : context.state;
+
   class NoAutoplayRuntime {
     constructor() {
       const retained = window[SESSION_KEY];
@@ -194,7 +203,7 @@
         const wrappedResume = shared?.wrappedResume || function cosmicGeminiResume() {
           if (!runtime.active) return Reflect.apply(original, this, arguments);
           if (!(this instanceof constructor)) return Reflect.apply(original, this, arguments);
-          if (this.state === 'closed' || !runtime.shouldBlockAudioContext(this)) {
+          if (contextState(this) === 'closed' || !runtime.shouldBlockAudioContext(this)) {
             runtime.rememberAudioContext(this, original, runtime.hasContextIntent(this)
               || runtime.hasUserAudioContext(this) || runtime.hasLinkedMediaIntent(this));
             runtime.forgetPendingContext(this);
@@ -604,7 +613,7 @@
     }
 
     hasContextIntent(context) {
-      if (!context || context.state === 'closed' || !this.hasRecentPlaybackIntent()) return false;
+      if (!context || contextState(context) === 'closed' || !this.hasRecentPlaybackIntent()) return false;
       const selected = this.intentContext?.deref();
       if (selected && selected !== context) return false;
       this.intentContext = new WeakRef(context);
@@ -648,7 +657,7 @@
     }
 
     hasUserAudioContext(context) {
-      return !!context && context.state !== 'closed' && this.authorizedContexts.has(context);
+      return !!context && contextState(context) !== 'closed' && this.authorizedContexts.has(context);
     }
 
     shouldBlockAudioContext(context) {
@@ -662,8 +671,12 @@
 
     bindMediaSource(source) {
       if (!this.active) return;
-      const media = source?.mediaElement, context = source?.context;
-      if (!(media instanceof HTMLMediaElement) || !context) return;
+      let media, context;
+      try {
+        media = mediaNodeElement ? Reflect.apply(mediaNodeElement, source, []) : source?.mediaElement;
+        context = audioNodeContext ? Reflect.apply(audioNodeContext, source, []) : source?.context;
+      } catch { return; }
+      if (!(media instanceof HTMLMediaElement) || !context || typeof context !== 'object') return;
       const remember = (map, owner, value) => {
         let refs = map.get(owner);
         if (!refs) { refs = new Set(); map.set(owner, refs); }
@@ -716,7 +729,7 @@
       if (!refs) return;
       for (const reference of refs) {
         const context = reference.deref();
-        if (!context || context.state === 'closed') { refs.delete(reference); continue; }
+        if (!context || contextState(context) === 'closed') { refs.delete(reference); continue; }
         this.authorizedContexts.add(context);
         const entry = this.audioContexts.get(context);
         if (entry) entry.userStarted = true;
@@ -871,8 +884,8 @@
 
     rememberAudioContext(context, resume, userStarted) {
       if (!this.active) return;
-      for (const existing of this.audioContexts.keys()) if (existing.state === 'closed') this.audioContexts.delete(existing);
-      if (context.state === 'closed') return;
+      for (const existing of this.audioContexts.keys()) if (contextState(existing) === 'closed') this.audioContexts.delete(existing);
+      if (contextState(context) === 'closed') return;
       userStarted ||= this.authorizedContexts.has(context);
       if (userStarted) this.authorizedContexts.add(context);
       if (!this.audioContexts.has(context) && this.audioContexts.size >= 8) this.audioContexts.delete(this.audioContexts.keys().next().value);
@@ -882,8 +895,8 @@
     suspendAutomaticContexts() {
       if (!this.active) return;
       for (const [context, entry] of this.audioContexts) {
-        if (context.state === 'closed') { this.audioContexts.delete(context); continue; }
-        if (context.state !== 'running' || this.hasUserAudioContext(context) || this.hasLinkedMediaIntent(context)) continue;
+        if (contextState(context) === 'closed') { this.audioContexts.delete(context); continue; }
+        if (contextState(context) !== 'running' || this.hasUserAudioContext(context) || this.hasLinkedMediaIntent(context)) continue;
         this.rememberPendingContext(context, entry.resume);
         this.reportIntervention();
         try { void Promise.resolve(context.suspend()).catch(() => {}); } catch {}
@@ -905,7 +918,7 @@
         if (!context) continue;
         const resume = this.pendingContextEntries.get(context)?.resume;
         this.forgetPendingContext(context);
-        try { if (context.state !== 'closed' && typeof resume === 'function') void Promise.resolve(Reflect.apply(resume, context, [])).catch(() => {}); }
+        try { if (contextState(context) !== 'closed' && typeof resume === 'function') void Promise.resolve(Reflect.apply(resume, context, [])).catch(() => {}); }
         catch {}
       }
       this.pendingContextRefs.clear();

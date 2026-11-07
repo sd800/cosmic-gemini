@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md)
 
+## 26.11.7.4 (495) — 2026-11-07
+
+- Video Download 侦测期间，保留不可扩展的 XMLHttpRequest 对象及自定义 URL 参数的正常调用，并将侦测记录与网页对象分开保存。
+- Ad Marshal 和 Stay on the page 保留浏览器原生的 URL 和参数转换行为，包括表单提交控件及脚本历史导航。
+- Date 和 Web Audio 包装直接读取原生状态，避免调用网页自行定义的属性。Native Scroll 和 Clipboard Protect 保留合成事件的原生方法。
+
 ## 26.11.7.3 (494) — 2026-11-07
 
 - 修复 Native Scroll 在网页独立调用 Window 事件注册和移除方法时的兼容性。按浏览器的原生中止状态校验监听器记录，避免特殊选项干扰已经成功的注册。

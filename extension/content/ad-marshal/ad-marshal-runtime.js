@@ -102,10 +102,16 @@
     return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  function urlString(value) {
-    if (value instanceof Request) return value.url;
-    if (value instanceof URL) return value.href;
-    return String(value || '');
+  const requestPrototype = globalThis.Request?.prototype;
+  const readRequestUrl = requestPrototype && Object.getOwnPropertyDescriptor(requestPrototype, 'url')?.get;
+
+  function fetchUrl(value) {
+    if (typeof value === 'string') return value;
+    if (!value || typeof value !== 'object') return '';
+    // A Request has a native URL slot. Other objects belong to native
+    // argument conversion; the network rules still see the final URL.
+    try { return Reflect.apply(readRequestUrl, value, []); }
+    catch { return ''; }
   }
 
   function siteIdForLocation() {
@@ -119,7 +125,7 @@
 
   function shouldNeutralize(value, siteId) {
     const config = SITE_CONFIGS[siteId];
-    const raw = urlString(value);
+    const raw = typeof value === 'string' ? value : '';
     if (!config || !raw) return false;
     const normalized = raw.toLowerCase();
     if (config.scriptPaths.some(fragment => normalized.includes(fragment))) return true;
@@ -217,25 +223,25 @@
       const runtime = this;
       this.fetchWrapper = function adMarshalFetch(resource, options) {
         if (!runtime.active) return Reflect.apply(runtime.originalFetch, this, arguments);
-        if (runtime.active && shouldNeutralize(resource, runtime.siteId)) {
+        if (runtime.active && shouldNeutralize(fetchUrl(resource), runtime.siteId)) {
           return Promise.resolve(new Response('{}', {
             status: 200,
             headers: { 'content-type': 'application/json; charset=utf-8' }
           }));
         }
-        return Reflect.apply(runtime.originalFetch, this, [resource, options]);
+        return Reflect.apply(runtime.originalFetch, this, arguments);
       };
       this.xhrOpenWrapper = function adMarshalXhrOpen(method, url, async = true, ...rest) {
         if (!runtime.active) return Reflect.apply(runtime.originalXhrOpen, this, arguments);
         if (runtime.active && shouldNeutralize(url, runtime.siteId)) {
           return Reflect.apply(runtime.originalXhrOpen, this, ['GET', runtime.emptyResponseUrl, async !== false]);
         }
-        return Reflect.apply(runtime.originalXhrOpen, this, [method, url, async, ...rest]);
+        return Reflect.apply(runtime.originalXhrOpen, this, arguments);
       };
       this.sendBeaconWrapper = function adMarshalSendBeacon(url, data) {
         if (!runtime.active) return Reflect.apply(runtime.originalSendBeacon, this, arguments);
         if (runtime.active && shouldNeutralize(url, runtime.siteId)) return true;
-        return Reflect.apply(runtime.originalSendBeacon, this, [url, data]);
+        return Reflect.apply(runtime.originalSendBeacon, this, arguments);
       };
       this.imageSrcGetter = function adMarshalImageSrcGet() {
         if (!runtime.active) return Reflect.apply(runtime.imageSrcDescriptor.get, this, []);
@@ -252,11 +258,11 @@
       };
       this.imageSetAttributeWrapper = function adMarshalImageSetAttribute(name, value) {
         if (!runtime.active) return Reflect.apply(runtime.originalImageSetAttribute, this, arguments);
-        if (runtime.active && String(name).toLowerCase() === 'src' && shouldNeutralize(value, runtime.siteId)) {
+        if (runtime.active && typeof name === 'string' && name.toLowerCase() === 'src' && shouldNeutralize(value, runtime.siteId)) {
           runtime.imageSources.set(this, String(value));
           return Reflect.apply(runtime.originalImageSetAttribute, this, [name, TRANSPARENT_IMAGE_URL]);
         }
-        return Reflect.apply(runtime.originalImageSetAttribute, this, [name, value]);
+        return Reflect.apply(runtime.originalImageSetAttribute, this, arguments);
       };
       globalThis.fetch = this.fetchWrapper;
       XMLHttpRequest.prototype.open = this.xhrOpenWrapper;

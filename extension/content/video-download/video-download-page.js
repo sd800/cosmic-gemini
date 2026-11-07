@@ -140,6 +140,7 @@
       this.originalFetch = globalThis.fetch;
       this.originalXhrOpen = XMLHttpRequest.prototype.open;
       this.originalXhrSend = XMLHttpRequest.prototype.send;
+      this.xhrUrls = new WeakMap();
       this.trackedXhrOpen = null;
       this.trackedXhrSend = null;
       this.active = true;
@@ -251,17 +252,23 @@
       this.trackedFetch = trackedFetch;
       globalThis.fetch = trackedFetch;
 
-      this.trackedXhrOpen = function trackedOpen(method, url, ...rest) {
-        if (runtime.active) this.__cosmicGeminiVideoUrl = normalizeUrl(url);
-        return Reflect.apply(runtime.originalXhrOpen, this, [method, url, ...rest]);
+      this.trackedXhrOpen = function trackedOpen(...args) {
+        const result = Reflect.apply(runtime.originalXhrOpen, this, args);
+        if (runtime.active && this && typeof this === 'object') {
+          // Native open owns URL coercion. A successful load also provides
+          // the final URL for URL objects, redirects, and other inputs.
+          if (typeof args[1] === 'string') runtime.xhrUrls.set(this, normalizeUrl(args[1]));
+          else runtime.xhrUrls.delete(this);
+        }
+        return result;
       };
-      this.trackedXhrSend = function trackedSend(...args) {
-        if (!runtime.active) return Reflect.apply(runtime.originalXhrSend, this, args);
-        this.addEventListener('load', () => {
+      const addListener = EventTarget.prototype.addEventListener;
+      function observeXhr() {
+        try {
           if (!runtime.active) return;
           const type = String(this.getResponseHeader?.('content-type') || '').toLowerCase();
           if (!(type.includes('json') || type.includes('javascript') || type.includes('xml') || type.includes('mpegurl') || type.startsWith('text/'))) return;
-          const baseUrl = this.responseURL || this.__cosmicGeminiVideoUrl || location.href;
+          const baseUrl = this.responseURL || runtime.xhrUrls.get(this) || location.href;
           if (this.responseType === 'json') {
             // The browser has already parsed this object. Traverse it once;
             // serializing and reparsing duplicates both CPU work and memory.
@@ -282,7 +289,14 @@
           }
           runtime.publish(candidates);
           runtime.publishManifests(manifestsFromText(text, baseUrl, 'page-xhr'));
-        }, { once: true });
+        } catch {} // Discovery must not interrupt a page's XHR handlers.
+      }
+      this.trackedXhrSend = function trackedSend(...args) {
+        if (runtime.active && this && typeof this === 'object') {
+          // Reuse a single callback so failed or retried sends don't stack
+          // observers. The browser retires it after the next successful load.
+          try { Reflect.apply(addListener, this, ['load', observeXhr, { once: true }]); } catch {}
+        }
         return Reflect.apply(runtime.originalXhrSend, this, args);
       };
       XMLHttpRequest.prototype.open = this.trackedXhrOpen;

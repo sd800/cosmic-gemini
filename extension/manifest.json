@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Cosmic Gemini",
   "description": "A personal toolkit for the web.",
-  "version": "26.11.7.3",
-  "version_name": "26.11.7.3 (494)",
+  "version": "26.11.7.4",
+  "version_name": "26.11.7.4 (495)",
   "minimum_chrome_version": "128",
   "icons": {
     "16": "icons/icon-16.png",

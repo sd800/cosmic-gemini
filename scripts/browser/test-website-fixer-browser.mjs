@@ -57,6 +57,7 @@ try {
   const scripts = await worker.evaluate(() => chrome.scripting.getRegisteredContentScripts());
   assert.equal(scripts.filter(s => s.id.includes('website-fixer-stay')).length, 2);
   const page = await context.newPage(); await page.goto(`http://outside.test:${port}/prior`); await page.goto(origin);
+  await page.waitForFunction(() => window[Symbol.for('cosmic-gemini.website-fixer.stay')] === true);
   const guard = await page.evaluate(() => ({ active: !!window[Symbol.for('cosmic-gemini.website-fixer.stay')], navigation: !!window.navigation }));
   assert.deepEqual(guard, { active: true, navigation: true });
   const manualPage = context.waitForEvent('page');

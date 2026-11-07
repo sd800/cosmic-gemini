@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.7.4 (495) — 2026-11-07
+
+- Keep legitimate XMLHttpRequest calls working during Video Download discovery, including on non-extensible requests and requests with custom URL conversion. Keep discovery metadata separate from webpage objects.
+- Preserve native URL and argument conversion in Ad Marshal and Stay on the page, including form submitters and scripted history traversal.
+- Read native Date and Web Audio state without invoking webpage-defined properties. Preserve synthetic event methods while Native Scroll or Clipboard Protect is active.
+
 ## 26.11.7.3 (494) — 2026-11-07
 
 - Preserve detached Window event registration and removal in Native Scroll. Validate listener metadata against the browser’s abort-signal state so unusual options cannot break a successful registration.

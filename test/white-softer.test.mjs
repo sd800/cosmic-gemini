@@ -6,6 +6,12 @@ import { normalizeSettings, DEFAULT_INCOGNITO_SETTINGS } from '../extension/core
 import { settingsViewCache } from '../extension/core/settings-view-cache.js';
 import { createWhiteSofterProduct } from '../extension/background/products/standing/white-softer.js';
 
+class ImmediateLayoutObserver {
+  constructor(callback) { this.callback = callback; }
+  observe() { this.callback(); }
+  disconnect() {}
+}
+
 test('White Softer normalizes saved choices and starts inactive in ordinary and incognito contexts', () => {
   assert.deepEqual(normalizeSettings().whiteSofter, { enabled: false, tone: 'warm-minus-1' });
   assert.equal(DEFAULT_INCOGNITO_SETTINGS.whiteSofter.enabled, false);
@@ -126,7 +132,7 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
     remove() { this.parentNode?.children.splice(this.parentNode.children.indexOf(this), 1); this.parentNode = null; }
   }
   const root = new Element();
-  const rootObservers = [];
+  const rootObservers = [], layoutObservers = [];
   const document = {
     contentType: 'text/html', readyState: 'loading', visibilityState: 'visible', body: null, documentElement: null, createElement: () => new Element(), createElementNS: () => new Element(),
     addEventListener() {}, removeEventListener() {}
@@ -136,6 +142,8 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
     CSSStyleSheet: class { replaceSync(css) { this.css = css; } },
     MutationObserver: class { constructor(callback) { this.callback = callback; rootObservers.push(this); }
       observe() {} disconnect() {} },
+    ResizeObserver: class { constructor(callback) { this.callback = callback; layoutObservers.push(this); }
+      observe(target) { this.target = target; } disconnect() { this.target = null; } },
     crypto: { getRandomValues(bytes) { bytes.fill(1); return bytes; } },
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } }
   });
@@ -153,10 +161,15 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   assert.equal(host.getAttribute('data-tone'), 'cool');
   assert.equal(host.open, false, 'prepare without forcing a paint of the empty document');
   document.body = new Element(); rootObservers[0].callback();
+  assert.equal(host.open, false, 'let Chrome resolve the page styles before showing the popover');
+  assert.equal(layoutObservers.at(-1).target, root);
+  layoutObservers.at(-1).callback();
+  assert.equal(layoutObservers.at(-1).target, null, 'the layout observer runs once');
   assert.equal(host.open, true);
   host.open = false; document.visibilityState = 'hidden'; rootObservers[0].callback();
   assert.equal(host.open, false, 'a newly loaded background surface waits for visibility');
   document.visibilityState = 'visible'; window.dispatchEvent({type:'pageshow'});
+  layoutObservers.at(-1).callback();
   assert.equal(host.open, true, 'restore the same surface before waiting for a background lookup');
   assert.equal(host.children.length, 0, 'the pixel filter is outside the page style tree');
   assert.equal(host.privateRoot.children.length, 2);
@@ -182,7 +195,10 @@ test('document-start prepaint hands its single filter to the normal runtime', ()
   document.documentElement = replacement;
   rootObservers[0].callback();
   assert.equal(host.parentNode, replacement, 'root replacement retains the same filter');
+  host.open = false; rootObservers[0].callback();
+  const pendingLayout = layoutObservers.at(-1);
   window.dispatchEvent({ type: 'cosmic-gemini:white-softer:dispose', detail: runtime.token });
+  assert.equal(pendingLayout.target, null, 'disposal cancels the pending opening');
   assert.equal(host.parentNode, null);
   vm.runInContext(readFileSync(new URL('../extension/content/white-softer/white-softer-prepaint.js', import.meta.url), 'utf8'), context);
   const staleHost = replacement.children[0];
@@ -232,7 +248,7 @@ test('XML waits for the native viewer, retains the latest tone and cancels defer
     removeEventListener(type, listener) { listeners.get(type)?.delete(listener); }
   };
   const context = vm.createContext({ document, Symbol, Math, Number, Array,
-    MutationObserver: class { observe() {} disconnect() {} } });
+    ResizeObserver: ImmediateLayoutObserver, MutationObserver: class { observe() {} disconnect() {} } });
   for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js']) {
     vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);
   }
@@ -288,7 +304,7 @@ test('white caps ignore disclosures and coalesce actual top-layer openings befor
       createElementNS: (_ns, name) => new Element(name),
       addEventListener(type, listener) { listeners.set(type, listener); },
       removeEventListener(type, listener) { if (listeners.get(type) === listener) listeners.delete(type); } },
-    MutationObserver: class { observe() {} disconnect() {} }
+    ResizeObserver: ImmediateLayoutObserver, MutationObserver: class { observe() {} disconnect() {} }
   });
   for (const file of ['shared/white-tones.js', 'content/shared/dark-transition-guard.js', 'content/shared/white-cap-layer.js']) {
     vm.runInContext(readFileSync(new URL('../extension/' + file, import.meta.url), 'utf8'), context);

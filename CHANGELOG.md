@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.7.8 (499) — 2026-11-07
+
+Prevent White Softer from triggering page resource loads while its display layer is being set up.
+
+- Open the display layer after Chrome lays out the page and before it paints that frame. This keeps mixed-content warnings for site images associated with the page and preserves filtering for popovers, dialogs, and full-screen content.
+
 ## 26.11.7.7 (498) — 2026-11-07
 
 Make recent release notes easier to understand by stating the purpose of each release before the implementation details.

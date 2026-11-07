@@ -8,6 +8,7 @@
       this.protectDarkTransitions = options.protectDarkTransitions === true;
       this.host = null;
       this.rootObserver = null;
+      this.layoutObserver = null;
       this.observedRoot = null;
       this.pendingTone = null;
       this.pendingPromotion = null;
@@ -127,7 +128,7 @@
       this.pendingTone = null;
       if (tone !== null) this.enable(tone);
     }
-    mount() {
+    mount(afterTopLayerChange = false) {
       if (!this.host) return;
       if (document.contentType !== 'text/html' && !this.hasHtmlSurface()) return;
       // document.open() clears Document listeners; root mutation remounts and
@@ -146,6 +147,7 @@
       this.transitionGuard?.enable();
       this.transitionGuard?.setRoot(target);
       if (target !== this.observedRoot) {
+        this.stopWaitingForLayout();
         this.rootObserver.disconnect();
         this.rootObserver.observe(document, { childList: true });
         if (target) this.rootObserver.observe(target, { childList: true });
@@ -171,13 +173,30 @@
           document.addEventListener('DOMContentLoaded', this.mount, { once: true });
           return;
         }
-        try {
-          this.host.showPopover();
-          document.removeEventListener('visibilitychange', this.mount, true);
-        }
-        catch {
-          if (document.readyState !== 'complete') document.addEventListener('readystatechange', this.mount, { once: true });
-        }
+        if (afterTopLayerChange === true) { this.openPopover(); return; }
+        if (this.layoutObserver) return;
+        // showPopover can resolve dirty page styles and initiate the site's
+        // image loads in the extension's call stack. Wait for natural layout
+        // and open the layer before that frame is painted.
+        this.layoutObserver = new ResizeObserver(() => {
+          this.stopWaitingForLayout();
+          if (this.host?.parentNode !== target || target !== document.documentElement) return;
+          if (document.visibilityState === 'hidden') { this.mount(); return; }
+          this.openPopover();
+        });
+        this.layoutObserver.observe(target);
+      }
+    }
+    stopWaitingForLayout() {
+      this.layoutObserver?.disconnect();
+      this.layoutObserver = null;
+    }
+    openPopover() {
+      try {
+        this.host.showPopover();
+        document.removeEventListener('visibilitychange', this.mount, true);
+      } catch {
+        if (document.readyState !== 'complete') document.addEventListener('readystatechange', this.mount, { once: true });
       }
     }
     isOpenTopLayer(target) {
@@ -229,8 +248,9 @@
     }
     promote() {
       if (!this.host) return;
-      if (this.host.matches(':popover-open')) this.host.hidePopover();
-      this.mount();
+      const wasOpen = this.host.matches(':popover-open');
+      if (wasOpen) this.host.hidePopover();
+      this.mount(wasOpen);
     }
     disable() {
       this.transitionGuard?.disable(); this.transitionGuard = null;
@@ -242,6 +262,7 @@
       document.removeEventListener('DOMContentLoaded', this.mount);
       document.removeEventListener('visibilitychange', this.mount, true);
       globalThis.removeEventListener?.('pageshow', this.mount, true);
+      this.stopWaitingForLayout();
       this.rootObserver?.disconnect();
       this.rootObserver = null;
       this.observedRoot = null;

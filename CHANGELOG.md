@@ -2,70 +2,51 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.7.7 (498) — 2026-11-07
+
+Make recent release notes easier to understand by stating the purpose of each release before the implementation details.
+
 ## 26.11.7.6 (497) — 2026-11-07
 
-**Cross-site security and daily scheduling**
-
-### Website and document permissions
+Strengthen cross-site and cross-tab isolation so permissions stay with the page and action the user approved. Limit scheduled Bilibili sign-ins to one attempt per day.
 
 - Keep Access Control blocks in force for equivalent hostname spellings. Scope temporary visits to the approved tab and require embedded requests to originate from the approved domain.
 - Keep remembered Document Preview actions within the exact source origin. Leave downloads started by foreign frames to Chrome so they cannot inherit the host site's choice or login session.
-
-### Clipboard authorization
-
 - Run Mailto Capture's controls and configuration in the extension's isolated world. Copy only after a trusted click on the copy control.
-
-### Daily check-in
-
 - Run Bili Daily Login once per day and block redirects to external sites during the scheduled check.
 
 ## 26.11.7.5 (496) — 2026-11-07
 
-**Safer media and document handling**
-
-### Media requests and screen capture
+Strengthen media and document security by limiting which actions webpage-supplied data can trigger.
 
 - Run Video Download's automatic size and playlist probes with the source page's network permissions. Keep media downloads scoped to the selected source, and show thumbnails from images already loaded in the page.
 - Require a real pointer drag to capture a screen region. Keep website-generated pointer events from completing a capture.
-
-### Document preview isolation
-
 - Bind Document Preview to its authorized tabs. Keep authenticated downloads and fresh signed file links working within the original download route, with credentials scoped to the source origin.
 
 ## 26.11.7.4 (495) — 2026-11-07
 
-**Preserving valid calls to browser APIs**
-
-### Browser API compatibility
+Improve browser API compatibility so legitimate calls keep working while page features are active.
 
 - Keep legitimate XMLHttpRequest calls working during Video Download discovery, including on non-extensible requests and requests with custom URL conversion. Keep discovery metadata separate from webpage objects.
 - Preserve native URL and argument conversion in Ad Marshal and Stay on the page, including form submitters and scripted history traversal.
-
-### Native state and event handling
-
 - Read native Date and Web Audio state without invoking webpage-defined properties. Preserve synthetic event methods while Native Scroll or Clipboard Protect is active.
 
 ## 26.11.7.3 (494) — 2026-11-07
 
-### Native Scroll listener compatibility
+Prevent Native Scroll from breaking valid event-listener registrations on websites.
 
 - Preserve detached Window event registration and removal in Native Scroll. Validate listener metadata against the browser’s abort-signal state so unusual options cannot break a successful registration.
 
 ## 26.11.7.2 (493) — 2026-11-07
 
-**Predictable scrolling and preview rendering**
-
-### Scroll position and anchors
+Reduce unexpected scroll jumps and keep the original-address document reader visually consistent.
 
 - Keep Native Scroll from blocking deferred position restoration after an ordinary wheel or touch listener runs. Preserve scrolling and anchor positioning inside nested panels in Standard and Enhanced mode, including at the panels’ edges. Continue protecting native scrolling from page-level takeover.
-
-### Document Preview appearance
-
 - Let the original-address document preview use its own appearance without a third-party dynamic recoloring pass.
 
 ## 26.11.7.1 (492) — 2026-11-07
 
-### PDF appearance and original colors
+Make automatic PDF appearance predictable and let readers see the original page colors when needed.
 
 - Add Original to the PDF appearance menu for all pages or the current page. Keep the PDF's source colors while allowing the reader interface to follow the system appearance.
 - Let PDF pages and thumbnails inherit the document's appearance. Keep their colors in sync when switching system appearance, navigating to reattached pages, or creating new thumbnails, while honoring explicit per-page overrides.
@@ -73,43 +54,30 @@
 
 ## 26.11.5.3 (491) — 2026-11-05
 
-**Keep normal scrolling and deliberate playback working under page protections**
-
-### Native scrolling and navigation
+Reduce interference with normal scrolling and deliberate media playback while preserving page protections.
 
 - Separate Native Scroll observation from takeover prevention. Keep ordinary wheel and touch listeners running; intervene on actual native-scroll cancellation, including legacy return-value cancellation, or queued scripted takeover movement instead of blocking a listener merely because it exists.
 - Respect passive listener defaults, aborted signals, one-shot registrations, case-sensitive event names, and native listener-option conversion. Avoid stale gesture guards and additional calls to website-defined options getters.
 - Retire the previous scroll guard before trusted keyboard and pointer actions, preserving immediate anchor, control, and scripted navigation. Keep genuine horizontal container APIs available in both modes; preserve protected, synthetic, multi-touch, and non-cancelable gestures.
 - Avoid repeated Enhanced-mode normalization marker writes and release detached transformed wrappers. Keep layout inspection coalesced, listener/signal metadata weak, and cleanup reversible without adding polling or persistent browsing data.
-
-### Manual playback
-
 - Make No Autoplay register only the media actually requested by a manual action. Prevent hidden-audio authorization from seeding intent on a visible sibling, use accessible audio labels to resolve mixed players, and preserve independently started Web Audio alongside native media.
 - Evaluate manual-media intent once per guarded playback decision. Distinguish ordinary linked-video navigation from independent play buttons inside linked cards, retaining manual playback without widening unrelated autoplay permission.
-
-### Frame identity and regression checks
-
 - Resolve active frame messages whose browser metadata still reports an initial blank URL by checking the exact document ID, frame, actual HTTP(S) location, and matching browser origin. Do not trust a message-provided URL; keep foreign, opaque, inactive, and extension-command sources outside this recovery path. Ordinary HTTP(S) messages need no added document read.
 - Extend tests for native observer delivery, wheel/touch cancellation, keyboard and pointer actions, horizontal APIs, listener lifecycle, exact media authorization, mixed audio players, frame initialization, and inactive-site isolation.
 
 ## 26.11.5.2 (490) — 2026-11-05
 
-**Separate intentional playback from unrelated autoplay**
-
-### Per-player authorization
+Keep manual playback usable without allowing unrelated media to start from the same action.
 
 - Restrict explicit play controls to their associated media instead of opening a temporary page-wide playback window. Keep unrelated video, audio, and audio contexts blocked immediately after a manual play action.
 - Support external controls with ARIA media targets, accessible labels, and play glyphs. Resolve declared targets created after input, allow delayed hidden audio and local player setup, and identify a detached control's sole document player without authorizing the document or body as a player.
 - Recheck unplayed local associations when another visible media element is inserted. Keep missing declared targets from falling back to an unrelated player, and distinguish autoplay switches, playback-speed options, and ordinary navigation links from playback actions.
-
-### Web Audio and regression checks
-
 - Let explicit media-free audio controls start one Web Audio context in Standard or Enhanced mode. Preserve the existing manually started player, companion audio, linked audio clocks, replay, and source-change behavior; clear deferred control state on deactivation.
 - Extend tests for immediate unrelated-player denial, external and delayed targets, hidden audio, keyboard controls, Shadow DOM, embedded players, audio-context isolation, and inactive cleanup. Keep pending associations weak and event-driven, without new polling, observers, or persistent page data.
 
 ## 26.11.5.1 (489) — 2026-11-05
 
-### Manual playback through custom covers
+Restore intentional playback on custom players whose covers do not expose recognizable play controls.
 
 - Fix manual playback from custom player covers that have no recognizable play label. Associate trusted input with the single visible media beneath it in the same local player, including media created after the click and playback that starts after setup.
 - Keep this permission local: unrelated players, hidden media before primary playback, ordinary links, ambiguous multi-player containers, and synthetic input remain subject to autoplay protection. Preserve deliberate playback through source changes and replay, along with the existing companion-audio policy.

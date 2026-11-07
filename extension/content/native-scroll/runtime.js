@@ -28,6 +28,21 @@
   ].join(',');
   const SCROLL_API_SAFE_SELECTOR = SAFE_SELECTOR + ',a[href]';
   const PATCH_FLAG = Symbol('native-scroll-patched');
+  const signalPrototype = globalThis.AbortSignal?.prototype;
+  const readSignalAborted = signalPrototype && Object.getOwnPropertyDescriptor(signalPrototype, 'aborted')?.get;
+
+  function isWeakTarget(value) {
+    return typeof value === 'function' || (typeof value === 'object' && value !== null);
+  }
+
+  function isAbortedOrInvalid(signal) {
+    if (signal === undefined || signal === null) return false;
+    if (!isWeakTarget(signal)) return true;
+    // Use the native state getter, even when an options proxy or a signal
+    // exposes different properties to JavaScript after the browser adds it.
+    try { return Reflect.apply(readSignalAborted, signal, []); }
+    catch { return true; }
+  }
 
   class NativeScrollRuntime {
     constructor() {
@@ -275,12 +290,13 @@
       this.patchedAddEventListener = function trackedAdd(type, listener, options) {
         if (runtime.active && runtime.isDisallowedUnload(type)) return undefined;
         const result = Reflect.apply(originalAdd, this, [type, listener, options]);
-        if (runtime.active) runtime.recordListener(this, type, listener, options);
+        // Chrome uses Window when a detached global call has no receiver.
+        if (runtime.active) runtime.recordListener(this ?? window, type, listener, options);
         return result;
       };
       this.patchedRemoveEventListener = function trackedRemove(type, listener, options) {
         const result = Reflect.apply(originalRemove, this, [type, listener, options]);
-        if (runtime.active) runtime.forgetListener(this, type, listener, options);
+        if (runtime.active) runtime.forgetListener(this ?? window, type, listener, options);
         return result;
       };
       EventTarget.prototype.addEventListener = this.patchedAddEventListener;
@@ -336,16 +352,16 @@
 
     recordListener(target, type, listener, options) {
       if (!['wheel', 'mousewheel', 'touchmove'].includes(type)
-        || !listener || !['object', 'function'].includes(typeof listener)) return;
+        || !isWeakTarget(target) || !isWeakTarget(listener)) return;
       const values = this.listenerOptions(options);
-      if (!values || values.signal?.aborted) return;
+      if (!values || isAbortedOrInvalid(values.signal)) return;
       const capture = !!values.capture;
       const passive = values.passive === undefined
         ? [window, document, document.body].includes(target)
         : !!values.passive;
       let byType = this.listenerRegistry.get(target);
       if (!byType) { byType = new Map(); this.listenerRegistry.set(target, byType); }
-      const records = (byType.get(type) || []).filter(record => record.listener.deref() && !record.signal?.deref()?.aborted);
+      const records = (byType.get(type) || []).filter(record => record.listener.deref() && !isAbortedOrInvalid(record.signal?.deref()));
       if (!records.some(record => record.listener.deref() === listener && record.capture === capture)) {
         records.push({ listener: new WeakRef(listener), capture, passive, once: !!values.once,
           signal: values.signal ? new WeakRef(values.signal) : null });
@@ -361,7 +377,7 @@
       if (!records) return;
       const next = records.filter(record => {
         const current = record.listener.deref();
-        return current && !record.signal?.deref()?.aborted && (current !== listener || capture !== null && record.capture !== capture);
+        return current && !isAbortedOrInvalid(record.signal?.deref()) && (current !== listener || capture !== null && record.capture !== capture);
       });
       if (next.length) byType.set(type, next);
       else byType.delete(type);
@@ -376,7 +392,7 @@
         for (const eventType of eventTypes) {
           const records = byType?.get(eventType);
           if (!records) continue;
-          const live = records.filter(record => record.listener.deref() && !record.signal?.deref()?.aborted);
+          const live = records.filter(record => record.listener.deref() && !isAbortedOrInvalid(record.signal?.deref()));
           if (live.length !== records.length) {
             if (live.length) byType.set(eventType, live);
             else byType.delete(eventType);

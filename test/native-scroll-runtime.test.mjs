@@ -85,7 +85,7 @@ function makeContext(hostname = 'example.com') {
   const context = {
     window, document, EventTarget: SimpleEventTarget, Element: FakeElement,
     MutationObserver: FakeMutationObserver, CustomEvent: FakeCustomEvent, Event: FakeEvent,
-    WeakMap, WeakRef, Map, Set, Symbol, JSON, Reflect, Number, String, Math,
+    WeakMap, WeakRef, Map, Set, Symbol, JSON, Reflect, Number, String, Math, AbortSignal,
     crypto: { getRandomValues: values => { values.fill(7); return values; } }, performance: { now: () => 100 },
     location: { hostname },
     innerWidth: 800, innerHeight: 800,
@@ -605,8 +605,10 @@ test('scroll observers keep their events and only actual takeover reports an int
 
 test('listener metadata respects passive defaults, case, once, aborted signals, and removals', async t => {
   const { context, runtime } = await scrollFixture(t);
-  const event = wheelEvent(context), callback = () => {}, signal = { aborted: false };
-  for (const options of [undefined, { passive: true }, { passive: false, once: true }, { passive: false, signal: { aborted: true } }]) {
+  const event = wheelEvent(context), callback = () => {}, controller = new AbortController();
+  const { signal } = controller;
+  Object.defineProperty(signal, 'aborted', { get() { throw Error('Do not read a page-defined signal property'); } });
+  for (const options of [undefined, { passive: true }, { passive: false, once: true }, { passive: false, signal: AbortSignal.abort() }, { passive: false, signal: 42 }]) {
     runtime.recordListener(context.window, 'wheel', callback, options);
     assert.equal(runtime.hasHijackListener(event, 'wheel'), false);
     runtime.forgetListener(context.window, 'wheel', callback, options);
@@ -618,7 +620,7 @@ test('listener metadata respects passive defaults, case, once, aborted signals, 
   runtime.forgetListener(context.document.documentElement, 'wheel', callback);
   runtime.recordListener(context.window, 'wheel', callback, { passive: false, signal });
   assert.equal(runtime.hasHijackListener(event, 'wheel'), true);
-  signal.aborted = true;
+  controller.abort();
   assert.equal(runtime.hasHijackListener(event, 'wheel'), false);
   runtime.recordListener(context.window, 'wheel', callback, { passive: false });
   runtime.forgetListener(context.window, 'wheel', callback, { get capture() { throw Error('do not evaluate options getters'); } });

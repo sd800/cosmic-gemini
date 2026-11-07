@@ -116,8 +116,37 @@ try {
       window[Symbol.for('cosmic-gemini.native-scroll.runtime')].beginGesture();panel.scrollTo({left:100,behavior:'instant'});return panel.scrollLeft;
     });
     assert.equal(nested,100);
-    await page.evaluate(()=>{
+    const listenerChecks = await page.evaluate(key=>{
       window.removeEventListener('wheel',observer);window.removeEventListener('wheel',canceller);
+      const { addEventListener: add, removeEventListener: remove } = window;
+      const { listenerRegistry } = window[Symbol.for(key)];
+      let delivered = 0;
+      const listener = () => { delivered++; };
+      const tracked = () => listenerRegistry.get(window)?.get('wheel')?.some(record=>record.listener.deref()===listener) === true;
+      const results = [];
+      for (const receiver of [undefined, null]) {
+        Reflect.apply(add, receiver, ['wheel', listener, { passive: false }]);
+        const added = tracked();
+        window.dispatchEvent(new Event('wheel'));
+        Reflect.apply(remove, receiver, ['wheel', listener]);
+        window.dispatchEvent(new Event('wheel'));
+        results.push([added, tracked(), delivered]);
+      }
+      // The browser reads a real signal. The subsequent bookkeeping reads a
+      // descriptor that disagrees with the value used by the browser.
+      const controller = new AbortController();
+      const options = new Proxy({}, {
+        get(_, name) { return name === 'signal' ? controller.signal : undefined; },
+        getOwnPropertyDescriptor(_, name) { if (name === 'signal') return { configurable: true, value: 42 }; }
+      });
+      add('wheel', listener, options);
+      window.dispatchEvent(new Event('wheel'));
+      controller.abort();
+      window.dispatchEvent(new Event('wheel'));
+      return { results, delivered };
+    }, key);
+    assert.deepEqual(listenerChecks,{results:[[true,false,1],[true,false,2]],delivered:3});
+    await page.evaluate(()=>{
       window.onceCount=0;window.abortedCount=0;window.optionReads=0;
       const callback=()=>{};const options={get capture(){optionReads++;return false;},passive:false};
       window.addEventListener('wheel',callback,options);window.removeEventListener('wheel',callback,options);
@@ -141,5 +170,5 @@ try {
   assert.equal(await page.evaluate(()=>/\[native code\]/.test(Function.prototype.toString.call(Event.prototype.preventDefault))&&/\[native code\]/.test(Function.prototype.toString.call(window.scrollTo))),true);
   assert.deepEqual(errors,[]);
 
-  console.log('PASS: Standard/Enhanced smooth anchors; native observer delivery and deferred layout position; local conversation scrolling; cancellation/root takeover protection; keyboard/pointer actions; horizontal APIs; native listener option counts, once/abort cleanup; trusted touch; deactivation.');
+  console.log('PASS: Standard/Enhanced smooth anchors; native observer delivery and deferred layout position; local conversation scrolling; cancellation/root takeover protection; keyboard/pointer actions; horizontal APIs; native listener option counts, detached Window calls, signal validation, once/abort cleanup; trusted touch; deactivation.');
 } finally { await context.close(); await rm(folder,{recursive:true,force:true}); }

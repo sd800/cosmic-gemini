@@ -16,6 +16,15 @@ const choices = new Map();
 const metadataSent = new Set();
 const pendingMetadata = new Map();
 const failedCandidates = new Set();
+const thumbnailRequests = new Map(), queuedThumbnails = new WeakMap();
+const thumbnailObserver = new IntersectionObserver(entries => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    thumbnailObserver.unobserve(entry.target);
+    queuedThumbnails.get(entry.target)?.();
+    queuedThumbnails.delete(entry.target);
+  }
+});
 let state = null;
 let t = key => key;
 let viewPort = null;
@@ -257,7 +266,21 @@ function createCard(group, index) {
   image.loading = 'lazy';
   image.decoding = 'async';
   image.alt = candidate.alt || '';
-  image.src = candidate.url;
+  const localPreview = candidate.artifactId && candidate.url.startsWith('blob:' + chrome.runtime.getURL('')) || /^data:image\//i.test(candidate.url);
+  if (localPreview) image.src = candidate.url;
+  else {
+    queuedThumbnails.set(preview, () => {
+      let request = thumbnailRequests.get(candidate.id);
+      if (!request) {
+        if (thumbnailRequests.size >= 120) thumbnailRequests.delete(thumbnailRequests.keys().next().value);
+        const fallbackId = group.candidates.find(item => item.id !== candidate.id && item.source === 'current-src')?.id;
+        request = send({ type: 'UI_IMAGE_GET_THUMBNAIL', featureId: 'imageDownload', tabId: sourceTabId, candidateId: candidate.id, fallbackId }).catch(() => '');
+        thumbnailRequests.set(candidate.id, request);
+      }
+      void request.then(value => { if (currentCard() && value?.startsWith('data:image/')) image.src = value; });
+    });
+    thumbnailObserver.observe(preview);
+  }
   image.addEventListener('error', () => {
     if (!currentCard()) return;
     failedCandidates.add(candidate.id);
@@ -271,7 +294,7 @@ function createCard(group, index) {
     renderGallery();
   });
   image.addEventListener('load', () => {
-    if (!currentCard() || !image.naturalWidth || metadataSent.has(candidate.id)) return;
+    if (!currentCard() || !image.naturalWidth || !localPreview || metadataSent.has(candidate.id)) return;
     if (image.naturalWidth === candidate.width && image.naturalHeight === candidate.height) return;
     metadataSent.add(candidate.id);
     pendingMetadata.set(candidate.id, { width: image.naturalWidth, height: image.naturalHeight });
@@ -336,6 +359,7 @@ function renderGallery() {
   galleryRenderFrame = 0;
   updateFilterSummary();
   const groups = filteredGroups();
+  thumbnailObserver.disconnect();
   grid.replaceChildren();
   empty.hidden = groups.length > 0 || state?.status === 'scanning';
   grid.hidden = groups.length === 0;

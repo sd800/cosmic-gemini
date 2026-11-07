@@ -373,10 +373,13 @@ function createVideoIdentity(feature, group, index, total) {
   identity.className = 'video-target';
   if (thumbnailUrl) {
     const image = document.createElement('img');
-    image.src = thumbnailUrl;
     image.alt = '';
     image.addEventListener('error', () => image.remove(), { once: true });
-    identity.append(image);
+    void send({ type: 'UI_VIDEO_GET_THUMBNAIL', featureId: 'videoDownload', tabId: currentTab?.id, url: thumbnailUrl }).then(value => {
+      if (!identity.isConnected || !value?.startsWith('data:image/')) return;
+      image.src = value;
+      identity.prepend(image);
+    }).catch(() => {});
   }
   if (titleText) {
     const title = document.createElement('strong');

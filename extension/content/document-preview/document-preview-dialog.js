@@ -97,7 +97,8 @@ export function showDocumentChoice(payload) {
       try { const result = await send(action, checkbox.checked, nonce); if (!result?.urlPreview) closeTarget(); await close(); }
       catch { closeTarget(); error.textContent = labels.failed; progress.setAttribute('aria-hidden', 'true'); preview.removeAttribute('aria-busy'); busy = false; preview.disabled = download.disabled = checkbox.disabled = false; }
     }
-    preview.onclick = () => void choose('preview'); download.onclick = () => void choose('download');
+    preview.onclick = event => { if (event.isTrusted) void choose('preview'); };
+    download.onclick = event => { if (event.isTrusted) void choose('download'); };
     const cancel = () => { if (!busy) { void send('dismiss').catch(() => {}); void close(); } };
     dismiss.onclick = cancel;
     dialog.addEventListener('cancel', event => { event.preventDefault(); cancel(); });

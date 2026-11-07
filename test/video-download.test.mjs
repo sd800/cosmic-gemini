@@ -36,9 +36,10 @@ function deferred() {
 }
 
 async function discoveryFixture(t) {
-  const previous = { chrome: globalThis.chrome, fetch: globalThis.fetch };
+  const previous = { chrome: globalThis.chrome, fetch: globalThis.fetch, location: globalThis.location };
   const data = {};
   const tab = { id: 61, url: 'https://example.test/video', title: 'Test' };
+  globalThis.location = { href: tab.url };
   const hooks = { page: async () => ({}), fetch: async () => ({ ok: false }) };
   globalThis.chrome = {
     extension: {},
@@ -50,8 +51,12 @@ async function discoveryFixture(t) {
     tabs: { async get() { return { ...tab }; }, async query() { return [{ ...tab }]; } },
     alarms: { async clear() {}, async create() {} },
     scripting: { async executeScript(options) {
-      return options.func?.name === 'siteVideoPageDiscovery'
-        ? [{ frameId: 0, result: await hooks.page() }] : [];
+      if (options.func?.name === 'siteVideoPageDiscovery') return [{ frameId: 0, result: await hooks.page() }];
+      if (['readPageVideoResponse', 'abortPageVideoResponse'].includes(options.func?.name)) {
+        assert.equal(options.world, 'ISOLATED');
+        return [{ frameId: 0, result: await options.func(...options.args) }];
+      }
+      return [];
     } }
   };
   globalThis.fetch = (...args) => hooks.fetch(...args);
@@ -64,7 +69,9 @@ async function discoveryFixture(t) {
     sender: { frameId: 0, tab: { ...tab }, url: tab.url }
   });
   t.after(async () => { await send({ type: 'UI_VIDEO_STOP' }); Object.assign(globalThis, previous); });
-  return { tab, product, hooks, send, stored: () => data[videoSessionKey(tab.id)] };
+  const observe = url => product.handleHeadersReceived({ tabId: tab.id, url, method: 'GET', statusCode: 200,
+    initiator: new URL(tab.url).origin, responseHeaders: [{ name: 'Access-Control-Allow-Origin', value: '*' }] });
+  return { tab, product, hooks, send, observe, stored: () => data[videoSessionKey(tab.id)] };
 }
 
 for (const transition of ['stop/restart', 'rescan', 'reload']) {
@@ -121,12 +128,16 @@ test(`video manifest reads are cancelled on ${transition} and can restart at the
   };
   const candidate = { url: 'https://media.test/video.m3u8' };
   await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [candidate], pageUrl: f.tab.url });
+  await f.observe(candidate.url);
   await entered.promise;
   if (transition === 'stop/restart') await f.send({ type: 'UI_VIDEO_STOP' });
   else await f.product.handleAlarm({ name: 'downloadScanPause:videoDownload:61' });
-  f.hooks.fetch = async () => new Response('#EXTM3U\n#EXTINF:7,\nnew.ts\n#EXT-X-ENDLIST');
+  const restarted = deferred();
+  f.hooks.fetch = async () => { restarted.resolve(); return new Response('#EXTM3U\n#EXTINF:7,\nnew.ts\n#EXT-X-ENDLIST'); };
   await f.send({ type: 'UI_VIDEO_OPEN' });
   await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [candidate], pageUrl: f.tab.url });
+  await f.observe(candidate.url);
+  await restarted.promise;
   try { assert.equal(firstSignal?.aborted, true); }
   finally { release.resolve(); }
   for (let i = 0; i < 25 && f.stored().candidates[0]?.duration !== 7; i += 1) {
@@ -139,12 +150,16 @@ test(`video manifest reads are cancelled on ${transition} and can restart at the
 test('cyclic HLS playlists do not cause repeated manifest requests', async t => {
   const f = await discoveryFixture(t);
   await f.send({ type: 'UI_VIDEO_OPEN' });
-  const requests = [];
+  const requests = [], reachedVariant = deferred();
   f.hooks.fetch = async url => {
     requests.push(url);
+    if (url.endsWith('/b.m3u8')) reachedVariant.resolve();
     return new Response(`#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=500000\n${url.endsWith('/a.m3u8') ? 'b' : 'a'}.m3u8`);
   };
   await f.send({ type: 'CG_VIDEO_CANDIDATES', candidates: [{ url: 'https://media.test/a.m3u8' }], pageUrl: f.tab.url });
+  await f.observe('https://media.test/a.m3u8');
+  await f.observe('https://media.test/b.m3u8');
+  await reachedVariant.promise;
   for (let i = 0; i < 15; i += 1) await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(requests, ['https://media.test/a.m3u8', 'https://media.test/b.m3u8']);
 });
@@ -273,10 +288,10 @@ test('stable candidate IDs stay deterministic without relying on randomUUID', ()
   assert.notEqual(first, stableVideoCandidateId('https://cdn.example/video.mp4?token=2'));
 });
 
-test('media downloads retain page referrers through temporary directory rules', () => {
+test('media download rules send only the source origin as referrer', () => {
   assert.equal(
     mediaRequestReferrer('https://www.bilibili.com/video/BV1example/?from=home#player'),
-    'https://www.bilibili.com/video/BV1example/'
+    'https://www.bilibili.com/'
   );
   assert.deepEqual(mediaRequestDirectoryFilters({
     videoUrl: 'https://video.example/path/video.m4s?token=1',

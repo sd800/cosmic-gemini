@@ -7,7 +7,7 @@ import { DOCUMENT_APPEARANCES, normalizeDocumentAppearance } from '../../../core
 import { translator } from '../../../shared/localization.js';
 import { showDocumentChoice } from '../../../content/document-preview/document-preview-dialog.js';
 import { canvasDocumentSource } from '../../../content/document-preview/document-preview-source.js';
-import { createDocumentRequestIngress } from '../../features/document-request-ingress.js';
+import { createDocumentRequestIngress, documentReplayOrigins, replayDocumentRequest } from '../../features/document-request-ingress.js';
 import { formatDocumentBytes } from '../../../core/document-preview/document-preview.js';
 import { createDocumentUrlPreview } from '../../features/document-url-preview.js';
 
@@ -25,6 +25,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const captures = new Map();
   const preparations = new Map();
   const downloadNames = new Map();
+  const openingWorkspaces = new Set();
   const serial = task => {
     const result = queue.then(task);
     // Keep ordering/failure recovery without retaining the last document result.
@@ -50,12 +51,16 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   }
   async function openPreviews(tabs) {
     await urlPreviews.reconcile(tabs).catch(() => {});
-    const ids = new Set(tabs.map(tab => previewId(tab.pendingUrl || tab.url)).filter(Boolean));
+    const ids = new Set();
+    const addOwned = (tabId, id) => {
+      if (id && (state.workspaces[tabId]?.id === id || urlPreviews.owns(tabId, id))) ids.add(id);
+    };
+    for (const tab of tabs) addOwned(tab.id, previewId(tab.pendingUrl || tab.url));
     // Extension tab URLs are not guaranteed to appear in tabs.query. Contexts
     // expose only our own documents and need no broad tabs permission.
     if (chrome.runtime.getContexts) {
       const contexts = await chrome.runtime.getContexts({contextTypes:['TAB'],incognito:platform.isIncognitoContext()});
-      for (const context of contexts) { const id = previewId(context.documentUrl); if (id && (!context.frameId || urlPreviews.owns(context.tabId, id))) ids.add(id); }
+      for (const context of contexts) addOwned(context.tabId, previewId(context.documentUrl));
     }
     return ids;
   }
@@ -99,7 +104,9 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const choiceCount = Object.keys(state.choices).length;
     const themeCount = Object.keys(state.themes).length;
     const previous = state;
+    const liveDocs = new Set(retained.map(doc => doc.id));
     const next = { ...state, documents: retained,
+      workspaces: Object.fromEntries(Object.entries(state.workspaces).filter(([, record]) => liveDocs.has(record.id))),
       choices: Object.fromEntries(Object.entries(state.choices).filter(([site]) => sites.has(site))),
       themes: Object.fromEntries(Object.entries(state.themes).filter(([site]) => sites.has(site) || retained.some(doc => doc.local && doc.site === site))) };
     try {
@@ -107,7 +114,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       // A failed deletion or metadata save must remain eligible for retry.
       for (const doc of expired) await store.remove(doc.id);
       state = next;
-      if (expired.length || lifetimeChanged || Object.keys(state.choices).length !== choiceCount || Object.keys(state.themes).length !== themeCount) {
+      if (expired.length || lifetimeChanged || Object.keys(state.choices).length !== choiceCount || Object.keys(state.themes).length !== themeCount
+        || Object.keys(state.workspaces).length !== Object.keys(previous.workspaces).length) {
         try { await persist(); } catch (error) { state = previous; throw error; }
       }
       await scheduleCleanup();
@@ -135,6 +143,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const saved = (await chrome.storage.session.get(sessionKey))[sessionKey];
       state = saved?.epoch && Array.isArray(saved.documents)
         ? saved : { epoch: crypto.randomUUID(), documents: [], choices: {} };
+      state.workspaces ||= {};
       state.themes = Object.fromEntries(Object.entries(state.themes || {}).filter(([, value]) => DOCUMENT_APPEARANCES.includes(value)));
       const enabled = (await platform.readSettings()).documentPreview?.enabled === true;
       ingress.setEnabled(enabled);
@@ -180,11 +189,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const controller = new AbortController();
       captures.set(controller, doc.site);
       try {
-        const response = await fetch(doc.url, {
-          credentials: 'include',
-          cache: 'no-store',
-          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)])
-        });
+        const response = await replayDocumentRequest(doc, AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]));
         const buffer = await readDocumentResponse(response, doc.format);
         const blob = new Blob([buffer], { type: DOCUMENT_TYPES[doc.format] });
         return await serial(async () => {
@@ -222,6 +227,27 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       await persist(); await scheduleCleanup();
     });
   }
+  async function openWorkspace(id, options) {
+    const mode = new URLSearchParams(new URL(options.url).hash.slice(1)).get('mode');
+    const opening = chrome.tabs.create(options).then(async tab => {
+      state.workspaces[tab.id] = { id, mode };
+      try { await persist(); }
+      catch (error) {
+        delete state.workspaces[tab.id];
+        await chrome.tabs.remove?.(tab.id).catch(() => {});
+        throw error;
+      }
+      return tab;
+    });
+    openingWorkspaces.add(opening);
+    try { return await opening; }
+    finally { openingWorkspaces.delete(opening); }
+  }
+  function removeWorkspace(tabId) {
+    if (!state?.workspaces[tabId]) return reconcile();
+    delete state.workspaces[tabId];
+    return serial(persist).then(reconcile);
+  }
   async function open(doc, mode = 'preview', sourceTabId = doc.sourceTabId, target = null) {
     const appearance = state.themes?.[doc.site] || normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance);
     const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({ id: doc.id, mode, appearance });
@@ -234,7 +260,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const position = source && siteKey(source.url) === doc.site && !!source.incognito === platform.isIncognitoContext()
       && Number.isInteger(source.index) && Number.isInteger(source.windowId)
       ? { windowId: source.windowId, index: source.index + 1, openerTabId: source.id } : {};
-    return chrome.tabs.create({ url, active: mode !== 'download', ...position });
+    return openWorkspace(doc.id, { url, active: mode !== 'download', ...position });
   }
   async function openLocal(message, sender) {
     if (!sender.url?.startsWith(chrome.runtime.getURL('settings/')) || sender.frameId !== 0
@@ -261,7 +287,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         state.documents.push(doc); await persist();
         const appearance = normalizeDocumentAppearance((await platform.readSettings()).documentPreview?.appearance);
         const url = chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + new URLSearchParams({id:doc.id,mode:'preview',appearance});
-        await chrome.tabs.create({url,active:true,windowId:tab.windowId,index:tab.index + 1,openerTabId:tab.id});
+        await openWorkspace(doc.id, {url,active:true,windowId:tab.windowId,index:tab.index + 1,openerTabId:tab.id});
       } catch (error) {
         state.documents = state.documents.filter(value => value.id !== doc.id);
         await store.remove(doc.id).catch(() => {}); await persist().catch(() => {});
@@ -313,16 +339,18 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       // Replay the observed GET entry point, allowing it to refresh signed CDN
       // redirects rather than reusing a stale final URL.
       let url = request.originalUrl || item.url || item.finalUrl;
-      if (!/^https?:\/\//i.test(url)) return;
+      if (!documentReplayOrigins([url]).length) return;
+      const sourceOrigin = new URL(tab.url).origin;
+      const replayOrigins = documentReplayOrigins([...(request.origins || []), request.originalUrl, request.url, item.url, item.finalUrl]);
       const filename = documentFilename(item), format = documentFormat(filename);
-      if (new URL(url).origin !== new URL(tab.url).origin) try {
+      if (new URL(url).origin !== sourceOrigin) try {
         const [source] = await chrome.scripting.executeScript({
           target: { tabId: tab.id, frameIds: [0] }, world: 'ISOLATED',
           func: canvasDocumentSource, args: [tab.url, filename, [request.originalUrl, item.url].filter(Boolean)]
         });
         if (typeof source?.result === 'string') {
           const resolved = new URL(source.result);
-          if (resolved.origin === new URL(tab.url).origin && !resolved.username && !resolved.password) url = resolved.href;
+          if (resolved.origin === sourceOrigin && !resolved.username && !resolved.password) url = resolved.href;
         }
       } catch { /* Restricted or departing pages retain the observed GET route. */ }
       const reportedSize = Math.max(0, Number(item.fileSize) || 0, Number(item.totalBytes) || 0);
@@ -333,12 +361,13 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         if (!sites.has(site) || !settings?.enabled || documentPreviewWhitelisted(tab.url, settings.whitelistDomains) || released) return;
         // Pending choices have independent lifetimes: dismissing one prompt
         // must not invalidate another prompt for the same download URL.
-        const existing = state.documents.find(doc => doc.prepared === true && doc.site === site
+        const existing = state.documents.find(doc => doc.prepared === true && doc.site === site && doc.sourceTabId === tab.id
           && doc.url === url && doc.filename === filename && doc.format === format);
-        if (existing) { savedDoc = existing; savedDoc.sourceTabId = tab.id; await persist(); }
+        if (existing) savedDoc = existing;
         else {
           if (state.documents.length >= 64) return;
-          savedDoc = { id: crypto.randomUUID(), site, sourceTabId: tab.id, filename, format, size: reportedSize, url, prepared: false, closedAt: Date.now() };
+          savedDoc = { id: crypto.randomUUID(), site, sourceTabId: tab.id, sourceOrigin, replayOrigins,
+            filename, format, size: reportedSize, url, prepared: false, closedAt: Date.now() };
           state.documents.push(savedDoc); await persist();
           await scheduleCleanup();
         }
@@ -433,10 +462,23 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       const workspace = senderUrl.split('#')[0] === chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH);
       const page = message.type === 'CG_DOCUMENT_CHOICE' && context.sender.frameId === 0;
       if (!workspace && !page) throw Error('Document action unavailable.');
-      if (workspace && context.sender.frameId > 0) await urlPreviews.authorize(context.sender, String(message.id || ''));
-      const doc = await currentDocument(String(message.id || ''));
-      if (page && siteKey(context.sender.tab?.url) !== doc.site) throw Error('The source website changed.');
-      if (workspace && new URLSearchParams(senderUrl.split('#')[1] || '').get('id') !== doc.id) throw Error('Wrong document.');
+      const id = String(message.id || '');
+      const tabId = context.sender.tab?.id;
+      if (workspace) {
+        const params = new URLSearchParams(senderUrl.split('#')[1] || '');
+        if (params.get('id') !== id) throw Error('Wrong document.');
+        if (context.sender.frameId > 0) await urlPreviews.authorize(context.sender, id);
+        else {
+          await initialize();
+          if (!state.workspaces[tabId] && openingWorkspaces.size) await Promise.allSettled(openingWorkspaces);
+          const owned = state.workspaces[tabId], mode = params.get('mode');
+          if (!Number.isInteger(tabId) || !(owned?.id === id && owned.mode === mode || mode === 'preview' && urlPreviews.owns(tabId, id))) {
+            throw Error('Document preview window unavailable.');
+          }
+        }
+      }
+      const doc = await currentDocument(id);
+      if (page && (tabId !== doc.sourceTabId || siteKey(context.sender.tab?.url) !== doc.site)) throw Error('The source website changed.');
       if (message.type === 'UI_DOCUMENT_URL_READY') {
         if (!workspace || context.sender.frameId <= 0 || typeof message.ready !== 'boolean') throw Error('Document status unavailable.');
         urlPreviews.report(context.sender.tab.id, message.ready); return { ready: message.ready };
@@ -504,8 +546,12 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (alarm.name !== cleanupAlarm) return false;
       await reconcile(); return true;
     },
-    handleTabUpdated(_id, change) { return change.url && (state?.documents.length || Object.keys(state?.choices || {}).length || Object.keys(state?.themes || {}).length || captures.size) ? reconcile() : false; },
-    handleTabRemoved() { return state?.documents.length || Object.keys(state?.choices || {}).length || Object.keys(state?.themes || {}).length || captures.size ? reconcile() : false; },
+    handleTabUpdated(id, change) {
+      if (!change.url || !(state?.documents.length || Object.keys(state?.choices || {}).length || Object.keys(state?.themes || {}).length || captures.size)) return false;
+      if (state.workspaces[id] && state.workspaces[id].id !== previewId(change.url)) return removeWorkspace(id);
+      return reconcile();
+    },
+    handleTabRemoved(id) { return state?.documents.length || Object.keys(state?.choices || {}).length || Object.keys(state?.themes || {}).length || captures.size ? removeWorkspace(id) : false; },
     handleStorageChanged(changes, area) {
       const key = platform.isIncognitoContext() ? INCOGNITO_SETTINGS_KEY : SETTINGS_KEY;
       const change = changes[key];

@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.7.5 (496) — 2026-11-07
+
+- Run Video Download's automatic size and playlist probes with the source page's network permissions. Keep media downloads scoped to the selected source, and show thumbnails from images already loaded in the page.
+- Require a real pointer drag to capture a screen region. Keep website-generated pointer events from completing a capture.
+- Bind Document Preview to its authorized tabs. Keep authenticated downloads and fresh signed file links working within the original download route, with credentials scoped to the source origin.
+
 ## 26.11.7.4 (495) — 2026-11-07
 
 - Keep legitimate XMLHttpRequest calls working during Video Download discovery, including on non-extensible requests and requests with custom URL conversion. Keep discovery metadata separate from webpage objects.

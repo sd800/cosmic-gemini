@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.7.4');
+assert.equal(manifest.version, '26.11.7.5');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 const packageMetadata = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
 assert.equal(packageMetadata.version, manifest.version);
@@ -161,11 +161,12 @@ const firstPartyJoined = sourceEntries.filter(([path]) => !path.includes(join(ex
 const networkFiles = sourceEntries.filter(([path, value]) => !path.includes(join(extension, 'vendor'))
   && /\bfetch\s*\(|XMLHttpRequest|WebSocket\s*\(/.test(value));
 assert.deepEqual(networkFiles.map(([path]) => path).sort(), [
+  join(extension, 'background/features/document-request-ingress.js'),
   join(extension, 'background/products/customs/video-download.js'),
   join(extension, 'background/products/standing/bili-daily-login.js'),
-  join(extension, 'background/products/customs/document-preview.js'),
   join(extension, 'content/ad-marshal/ad-marshal-runtime.js'),
   join(extension, 'content/video-download/video-download-page.js'),
+  join(extension, 'content/video-download/video-download-probe.js'),
   join(extension, 'core/video-download/site-video.js'),
   join(extension, 'core/video-download/twitter-video.js'),
   join(extension, 'offscreen/video-download.js'),

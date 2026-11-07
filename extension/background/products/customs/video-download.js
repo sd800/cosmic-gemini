@@ -1,7 +1,6 @@
 import { createContextSessionStorage } from '../../commissions/central-cc.js';
 import { FEATURE_IDS } from '../../../core/config.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
-import { readBoundedBytes } from '../../../core/bounded-response.js';
 import {
   bilibiliDashCandidates,
   bilibiliPageContext,
@@ -35,6 +34,8 @@ import {
   sanitizeVideoFilename,
   videoSessionKey
 } from '../../../core/video-download/video-download.js';
+import { readPageVideoResponse, abortPageVideoResponse } from '../../../content/video-download/video-download-probe.js';
+import { readMediaThumbnail } from '../../../shared/media-thumbnail.js';
 
 export function mediaHeaderRule(id, urlFilter, referrer, extensionId) {
   return {
@@ -68,12 +69,14 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
   const twitterDiscoveryJobs = new Map();
   const siteDiscoveryJobs = new Map();
   const videoSizeJobs = new Map();
+  const observedMedia = new Map();
 
   function matchesDiscovery(session, pageUrl, discoveryId) {
     return !!session && downloadScanCollects(session) && session.pageUrl === pageUrl && session.discoveryId === discoveryId;
   }
 
   function cancelSiteDiscovery(tabId) {
+    observedMedia.delete(tabId);
     siteDiscoveryJobs.get(tabId)?.controller.abort();
     siteDiscoveryJobs.delete(tabId);
     for (const [key, job] of expandingVideoManifests) {
@@ -116,6 +119,54 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     videoSizeJobs.delete(tabId);
   }
 
+  function observedMediaEntry(session, value) {
+    try {
+      const url = new URL(value);
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null;
+      url.hash = '';
+      const observed = observedMedia.get(session.tabId);
+      return observed?.discoveryId === session.discoveryId ? observed.urls.get(url.href) || null : null;
+    } catch { return null; }
+  }
+
+  function rememberObservedMedia(session, candidate, details) {
+    if (!['GET', 'HEAD'].includes(details.method) || !Number.isInteger(details.statusCode)
+      || details.statusCode < 200 || details.statusCode >= 300) return false;
+    let observed = observedMedia.get(session.tabId);
+    if (observed?.discoveryId !== session.discoveryId) {
+      observed = { discoveryId: session.discoveryId, urls: new Map() };
+      observedMedia.set(session.tabId, observed);
+    }
+    if (observed.urls.has(candidate.url) || observed.urls.size >= 200) return false;
+    const sameOrigin = originFromUrl(candidate.url) === session.origin;
+    const allowOrigin = details.responseHeaders?.find(header => header.name.toLowerCase() === 'access-control-allow-origin')?.value?.trim();
+    // An opaque response is a candidate, not permission to issue a privileged read.
+    const readable = sameOrigin ? details.initiator === session.origin : allowOrigin === '*' || allowOrigin === session.origin;
+    observed.urls.set(candidate.url, { readable, manifestProbed: false });
+    return true;
+  }
+
+  function claimManifestProbe(session, url) {
+    const entry = observedMediaEntry(session, url);
+    if (!entry?.readable || entry.manifestProbed) return false;
+    entry.manifestProbed = true;
+    return true;
+  }
+
+  async function probePageVideo(session, url, method, signal) {
+    signal.throwIfAborted();
+    const target = { tabId: session.tabId, frameIds: [0] }, id = runtimeToken();
+    const abort = () => { void chrome.scripting.executeScript({ target, world: 'ISOLATED', func: abortPageVideoResponse, args: [id] }).catch(() => {}); };
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      const [frame] = await chrome.scripting.executeScript({ target, world: 'ISOLATED', injectImmediately: true,
+        func: readPageVideoResponse, args: [session.pageUrl, url, method, id] });
+      signal.throwIfAborted();
+      if (!frame?.result) throw Error('Video response is unavailable to the source page.');
+      return frame.result;
+    } finally { signal.removeEventListener('abort', abort); }
+  }
+
   function queueVideoSizeReads(session) {
     if (!downloadScanCollects(session)) return;
     const tabId = session.tabId;
@@ -127,22 +178,23 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     }
     for (const candidate of session.candidates) {
       if (!['direct', 'audio', 'subtitle'].includes(candidate.kind) || knownVideoFileSize(candidate)
-        || job.seen.has(candidate.id) || job.seen.size >= 160) continue;
+        || job.seen.has(candidate.id) || job.seen.size >= 160 || !observedMediaEntry(session, candidate.url)?.readable) continue;
       job.seen.add(candidate.id);
       job.queue.push(candidate);
     }
     const drain = async () => {
       while (job.queue.length && !job.controller.signal.aborted) {
         const candidate = job.queue.shift();
+        if (!observedMediaEntry(session, candidate.url)?.readable) continue;
         const request = new AbortController();
         const abort = () => request.abort();
         job.controller.signal.addEventListener('abort', abort, { once: true });
         const timer = setTimeout(abort, 5000);
         try {
-          const size = await readVideoFileSize(candidate, (url, options) => withMediaRequestHeaders(candidate, job.pageUrl, () => {
-            if (job.controller.signal.aborted) request.abort();
-            return fetch(url, { ...options, signal: request.signal });
-          }));
+          const size = await readVideoFileSize(candidate, async url => {
+            const result = await probePageVideo(session, url, 'HEAD', request.signal);
+            return { ...result, headers: new Headers(result.headers) };
+          });
           if (!size || job.controller.signal.aborted || videoSizeJobs.get(tabId) !== job) continue;
           await updateVideoCandidate(tabId, candidate.id, current => videoSizeJobs.get(tabId) === job
             ? { ...current, contentLength: size, source: current.source === 'performance' ? 'file-metadata' : current.source }
@@ -315,20 +367,21 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     return entry.filename;
   }
 
-  function queueCandidate(session, candidate) {
+  function queueCandidate(session, candidate, newlyObserved) {
     const tabId = session.tabId;
     const existing = pendingNetworkCandidates.get(tabId);
     if (existing && existing.discoveryId !== session.discoveryId) clearPending(tabId);
     const pending = pendingNetworkCandidates.get(tabId) || {
-      candidates: new Map(), timer: 0, pageUrl: session.pageUrl, discoveryId: session.discoveryId
+      candidates: new Map(), newlyObserved: new Set(), timer: 0, pageUrl: session.pageUrl, discoveryId: session.discoveryId
     };
     if (pending.candidates.has(candidate.id) || pending.candidates.size < 800) {
       pending.candidates.set(candidate.id, mergeVideoCandidate(pending.candidates.get(candidate.id), candidate));
     }
+    if (newlyObserved && pending.candidates.has(candidate.id)) pending.newlyObserved.add(candidate.id);
     if (!pending.timer) {
       pending.timer = setTimeout(() => {
         if (pendingNetworkCandidates.get(tabId) === pending) pendingNetworkCandidates.delete(tabId);
-        void addVideoCandidates(tabId, [...pending.candidates.values()], true, pending.pageUrl, pending.discoveryId).catch(() => {});
+        void addVideoCandidates(tabId, [...pending.candidates.values()], true, pending.pageUrl, pending.discoveryId, pending.newlyObserved).catch(() => {});
       }, 140);
     }
     pendingNetworkCandidates.set(tabId, pending);
@@ -365,6 +418,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
       const response = await fetch(url, {
         cache: 'no-store',
         credentials: 'include',
+        redirect: 'error',
         headers: { Accept: 'application/json' }, signal: requestSignal
       });
       if (!response.ok) throw new Error('Bilibili request failed.');
@@ -471,7 +525,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
   }
 
   function scopeFrameCandidates(candidates, frameId = 0) {
-    return (Array.isArray(candidates) ? candidates : []).map(candidate => ({
+    return (Array.isArray(candidates) ? candidates.slice(0, 100) : []).map(candidate => ({
       ...candidate,
       mediaKey: candidate?.mediaKey ? `frame-${frameId}:${candidate.mediaKey}` : candidate?.mediaKey
     }));
@@ -620,7 +674,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
         const timer = setTimeout(abort, 8000);
         try {
           const response = await fetch(twitterSyndicationUrl(context.postId), {
-            credentials: 'omit', signal: request.signal
+            credentials: 'omit', redirect: 'error', signal: request.signal
           });
           if (response.ok) candidates = twitterVideoCandidates(await response.json(), context);
         } catch {}
@@ -681,13 +735,9 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
       let manifestUrl = candidate.manifestBaseUrl || candidate.manifestUrl || candidate.url;
       let text = candidate.manifestText || '';
       if (!text) {
-        const manifest = await discoveryRequest(job.controller.signal, signal => withMediaRequestHeaders(candidate, session.pageUrl, async () => {
-          signal.throwIfAborted();
-          const response = await fetch(candidate.url, { cache: 'no-store', credentials: 'include', redirect: 'follow', signal });
-          if (!response.ok) throw new Error('Video manifest request failed.');
-          return { url: response.url || candidate.url, text: new TextDecoder().decode(await readBoundedBytes(response, 8 * 1024 * 1024)) };
-        }));
-        manifestUrl = manifest.url;
+        if (!claimManifestProbe(session, candidate.url)) return;
+        const manifest = await probePageVideo(session, candidate.url, 'GET', job.controller.signal);
+        manifestUrl = candidate.url;
         text = manifest.text;
       }
       const variants = parseHlsMaster(text, manifestUrl);
@@ -760,6 +810,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
   }
   
   async function expandDashCandidate(tabId, candidate, session) {
+    if (!candidate.manifestText && !claimManifestProbe(session, candidate.url)) return;
     const expansionKey = `${tabId}:${session.discoveryId}:dash:${candidate.url}:${candidate.inlineId || ''}`;
     if (expandingVideoManifests.has(expansionKey)) return;
     const job = { tabId, controller: new AbortController() };
@@ -767,13 +818,17 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     try {
       if (!matchesDiscovery(await readVideoSession(tabId), session.pageUrl, session.discoveryId) || job.controller.signal.aborted) return;
       const expectedPageUrl = session.pageUrl;
-      await updateVideoCandidate(tabId, candidate.id, value => ({ ...value, master: true }), expectedPageUrl, session.discoveryId);
-      const variants = await withMediaRequestHeaders(candidate, session.pageUrl, () => sendDiscoveryTask({
+      const manifest = candidate.manifestText ? candidate : { ...candidate,
+        manifestText: (await probePageVideo(session, candidate.url, 'GET', job.controller.signal)).text,
+        manifestBaseUrl: candidate.url };
+      if (!manifest.manifestText) return;
+      const variants = await sendDiscoveryTask({
         type: 'CG_VIDEO_EXPAND_DASH',
-        candidate: { ...candidate, manifestUrl: candidate.url },
+        candidate: manifest,
         pageUrl: session.pageUrl
-      }, job.controller.signal));
+      }, job.controller.signal);
       if (Array.isArray(variants) && variants.length) {
+        await updateVideoCandidate(tabId, candidate.id, value => ({ ...value, master: true }), expectedPageUrl, session.discoveryId);
         await addVideoCandidates(tabId, variants.map(variant => ({
           ...variant,
           mediaKey: candidate.mediaKey || `dash:${candidate.inlineId || candidate.manifestUrl || candidate.url}`,
@@ -785,7 +840,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     finally { if (expandingVideoManifests.get(expansionKey) === job) expandingVideoManifests.delete(expansionKey); }
   }
   
-  async function addVideoCandidates(tabId, rawCandidates, expand = true, expectedPageUrl = '', expectedDiscoveryId = '') {
+  async function addVideoCandidates(tabId, rawCandidates, expand = true, expectedPageUrl = '', expectedDiscoveryId = '', newlyObserved) {
     if (!Array.isArray(rawCandidates)) return readVideoSession(tabId);
     const outcome = await sessionUpdates.run(tabId, async () => {
       const session = await readVideoSession(tabId);
@@ -814,8 +869,8 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
         const existing = byId.get(candidate.id);
         const merged = mergeVideoCandidate(existing, candidate);
         if (merged !== existing) { byId.set(candidate.id, merged); changed = true; }
-        if (!existing && merged.kind === 'hls') addedHls.push(merged);
-        if (!existing && merged.kind === 'dash' && merged.source !== 'dash-variant') addedDash.push(merged);
+        if ((!existing || newlyObserved?.has(merged.id)) && merged.kind === 'hls') addedHls.push(merged);
+        if ((!existing || newlyObserved?.has(merged.id)) && merged.kind === 'dash' && merged.source !== 'dash-variant') addedDash.push(merged);
       }
       if (changed) session.candidates = limitVideoCandidatesForSession(sortVideoCandidates([...byId.values()]));
       const status = session.candidates.some(candidate => !candidate.master) ? 'found' : 'scanning';
@@ -1087,8 +1142,9 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     if (activeVideoProcessing.has(processingKey)) return { alreadyProcessing: true };
     const session = await readVideoSession(tabId);
     if (!session) throw new Error('Video Download is not active in this tab.');
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.url !== session.pageUrl) throw new Error('The source page has changed.');
     if (twitterPostContext(session.pageUrl).isTwitter) {
-      const tab = await chrome.tabs.get(tabId);
       const expected = twitterTarget(session);
       if (!expected.postId || tab.url !== session.pageUrl) throw new Error('The source post has changed.');
     }
@@ -1106,6 +1162,9 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
     const settings = await readSettings();
     if (activeVideoProcessing.has(processingKey)) return { alreadyProcessing: true };
     const requestId = runtimeToken();
+    const observed = observedMedia.get(tabId);
+    const readableMedia = observed?.discoveryId === session.discoveryId
+      ? [...observed.urls].filter(([, entry]) => entry.readable).map(([url]) => url) : [];
     const processing = { requestId, cancelled: false, phase: 'processing' };
     activeVideoProcessing.set(processingKey, processing);
     await updateVideoCandidate(tabId, candidateId, value => ({
@@ -1138,6 +1197,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
               requestId,
               tabId,
               candidate,
+              readableMedia,
               pageUrl: session.pageUrl,
               preferredQuality: settings.videoDownload.preferredQuality
             });
@@ -1412,7 +1472,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
   async function handleMessage(message, context) {
     const senderTabId = context.sender.tab?.id;
     const expectedSenderPageUrl = context.sender.frameId === 0
-      ? String(message.pageUrl || context.sender.url || context.sender.tab?.url || '')
+      ? String(context.sender.url || context.sender.tab?.url || '')
       : String(context.sender.tab?.url || '');
     if (message.type === 'CG_VIDEO_TWITTER_CONTROLS_STATE') {
       const session = await readVideoSession(senderTabId);
@@ -1544,6 +1604,15 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
       await stopVideoSession(Number(message.tabId));
       return { active: false };
     }
+    if (message.type === 'UI_VIDEO_GET_THUMBNAIL') {
+      const tabId = Number(message.tabId), url = message.url;
+      const session = await readVideoSession(tabId);
+      if (!session || typeof url !== 'string' || !url || url !== session.thumbnailUrl && !session.candidates.some(candidate => candidate.thumbnailUrl === url)
+        || (await chrome.tabs.get(tabId)).url !== session.pageUrl) return '';
+      const [frame] = await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, world: 'ISOLATED',
+        func: readMediaThumbnail, args: [url, session.pageUrl] });
+      return frame?.result || '';
+    }
     if (message.type === 'UI_VIDEO_DOWNLOAD') {
       void downloadVideoCandidate(Number(message.tabId), String(message.candidateId || '')).catch(() => {});
       return { accepted: true };
@@ -1660,7 +1729,7 @@ export function createVideoDownloadProduct(platform, offscreen, observation, med
       const session = await readVideoSession(details.tabId);
       if (!session || !observesResponses(session)) return;
       const candidate = classifyVideoResource({ url: details.url, responseHeaders: details.responseHeaders, source: 'network' });
-      if (candidate) queueCandidate(session, candidate);
+      if (candidate) queueCandidate(session, candidate, rememberObservedMedia(session, candidate, details));
     },
     async handleAlarm(alarm) {
       const discovery = parseDownloadScanAlarm(alarm.name);

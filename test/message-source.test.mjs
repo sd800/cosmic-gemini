@@ -59,8 +59,7 @@ test('central accepts long-lived UI ports only from extension pages', () => {
 });
 
 test('central excludes opaque sandboxes, public assets and unknown paths from UI authority', () => {
-  const paths = ['popup/index.html', 'settings/all-settings.html?tab=satellites', 'settings/orbiters.html',
-    'workspaces/document-preview/document-preview.html?id=local'];
+  const paths = ['popup/index.html', 'settings/all-settings.html?tab=satellites', 'settings/orbiters.html'];
   for (const path of paths) {
     const sender = {url:extensionBase + path,id:'cosmic-gemini',origin:'chrome-extension://cosmic-gemini'};
     assert.equal(validateMessageSource({type:'UI_GET'},sender,extensionBase),true);
@@ -74,6 +73,7 @@ test('central excludes opaque sandboxes, public assets and unknown paths from UI
     {url:extensionBase+'popup/index.html',frameId:3},
     {url:extensionBase+'settings/all-settings.html',documentLifecycle:'pending_deletion'},
     {url:extensionBase+'workspaces/document-preview/document-preview.html',documentLifecycle:'cached'},
+    {url:extensionBase+'workspaces/document-preview/document-preview.html',frameId:0},
     {url:'chrome-extension://cosmic-gemini.evil.test/popup/index.html'},
     {url:'https://cosmic-gemini/popup/index.html'}
   ]) {

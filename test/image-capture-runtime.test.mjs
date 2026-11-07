@@ -18,8 +18,14 @@ test('stopping a selected image capture cancels its pending dispatch; a complete
       setTimeout(callback) { timers.set(1, callback); return 1; }, clearTimeout(id) { timers.delete(id); },
       chrome: { runtime: { sendMessage(message) { sent.push(message); return Promise.resolve(); } } } });
     runInContext(source, context);
-    const event = { clientX: 10, clientY: 10, pointerId: 1, preventDefault() {}, stopImmediatePropagation() {} };
+    const event = { isTrusted: true, isPrimary: true, button: 0, clientX: 10, clientY: 10, pointerId: 1, preventDefault() {}, stopImmediatePropagation() {} };
+    elements[0].listeners.get('pointerdown')({ ...event, isTrusted: false });
+    elements[0].listeners.get('pointerup')({ ...event, isTrusted: false, clientX: 100, clientY: 100 });
+    assert.equal(timers.size, 0, 'page-script gestures cannot queue a capture');
     elements[0].listeners.get('pointerdown')(event);
+    elements[0].listeners.get('pointerup')({ ...event, isTrusted: false, clientX: 100, clientY: 100 });
+    elements[0].listeners.get('pointerup')({ ...event, pointerId: 2, clientX: 100, clientY: 100 });
+    assert.equal(timers.size, 0, 'only the trusted pointer that started the selection can finish it');
     elements[0].listeners.get('pointerup')({ ...event, clientX: 100, clientY: 100 });
     const callback = timers.get(1);
     assert.ok(callback);

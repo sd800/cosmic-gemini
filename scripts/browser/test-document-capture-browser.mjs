@@ -20,19 +20,26 @@ const samples = new Map([
 const sampleRequests = new Map();
 const { chromium } = await import(process.env.CONTEXT_PLAYWRIGHT ? pathToFileURL(process.env.CONTEXT_PLAYWRIGHT).href : 'playwright');
 const profile = await mkdtemp(join(tmpdir(), 'cg-capture-qa-')), extension = resolve('extension');
-let entries = 0, served = 0;
+let entries = 0, served = 0, changedRoutes = 0, unapprovedRequests = 0;
 const used = new Set(), pdf = viewerPdf(1);
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://fixture.test');
   res.setHeader('Cache-Control', 'no-store');
   if (url.pathname === '/files/123/download') {
     if (!req.headers.cookie?.includes('qa_session=1')) { res.writeHead(401); res.end(); return; }
-    res.writeHead(302, {Location:'/ephemeral/sample.pdf?key=' + (++entries)}); res.end();
+    res.writeHead(302, {Location:`http://localhost:${server.address().port}/ephemeral/sample.pdf?key=${++entries}`}); res.end();
   } else if (url.pathname === '/ephemeral/sample.pdf') {
     const key = url.searchParams.get('key');
+    if (req.headers.cookie?.includes('cdn_session=1')) { res.writeHead(403); res.end(); return; }
     if (!key || used.has(key)) { res.writeHead(401); res.end(); return; }
     used.add(key); served++;
     res.writeHead(200, {'Content-Type':'application/pdf', 'Content-Disposition':'attachment; filename=sample.pdf'}); res.end(pdf);
+  } else if (url.pathname === '/changed/download') {
+    if (++changedRoutes === 1) {
+      res.writeHead(200, {'Content-Type':'application/pdf', 'Content-Disposition':'attachment; filename=changed.pdf'}); res.end(pdf);
+    } else { res.writeHead(302, {Location:`http://localhost:${server.address().port}/unapproved`}); res.end(); }
+  } else if (url.pathname === '/unapproved') {
+    unapprovedRequests++; res.end();
   } else if (url.pathname.startsWith('/samples/')) {
     const format = url.pathname.split('.').pop(), sample = samples.get(format);
     if (!sample) { res.writeHead(404); res.end(); return; }
@@ -43,6 +50,7 @@ const server = createServer((req, res) => {
     res.setHeader('Content-Type','text/html');
     res.setHeader('Set-Cookie','qa_session=1; Path=/; SameSite=Lax; HttpOnly');
     res.end('<!doctype html><h1>Generic authenticated download</h1><a href="/files/123/download">sample.pdf</a>'
+      + '<p><a href="/changed/download">changed.pdf</a></p>'
       + [...samples.keys()].map(format=>'<p><a href="/samples/sample.'+format+'">sample.'+format+'</a></p>').join('')
       + '<a href="http://localhost:'+server.address().port+'/samples/sample.rtf">cross-origin.rtf</a>');
   }
@@ -106,6 +114,7 @@ try {
   await page.getByRole('link',{name:'sample.pdf',exact:true}).click();
   await page.waitForFunction(()=>document.activeElement?.tagName==='DIV');
   assert.equal(entries,1); assert.equal(served,1,'the choice dialog must not refetch or cache document bytes');
+  await context.addCookies([{ name:'cdn_session', value:'1', url:`http://localhost:${server.address().port}`, httpOnly:true }]);
   const opened = context.waitForEvent('page'); await page.keyboard.press('Enter'); const preview = await opened;
   await preview.waitForURL(`http://127.0.0.1:${server.address().port}/files/123/download`);
   const workspace=await workspaceFor(preview), frame=workspace.frameLocator('iframe.pdf-viewer-frame');
@@ -123,6 +132,24 @@ try {
   const unbound=await workspaceFor(hostile);
   const denied=await unbound.evaluate(async()=>chrome.runtime.sendMessage({type:'UI_DOCUMENT_GET',featureId:'documentPreview',id:new URLSearchParams(location.hash.slice(1)).get('id')}));
   assert.equal(denied.ok,false,'an unbound website iframe cannot read document metadata or bytes');
+  const target = new URL(workspace.url());
+  const copied = new URLSearchParams(target.hash.slice(1)); copied.set('mode', 'download'); target.hash = copied.toString();
+  const downloaded = await worker.evaluate(async () => (await chrome.downloads.search({})).length);
+  const unboundTab = context.waitForEvent('page');
+  await hostile.evaluate(url => {
+    const link = document.createElement('a'); link.target = '_blank'; link.href = url; link.click();
+  }, target.href);
+  const unboundTop = await unboundTab;
+  await unboundTop.waitForURL(target.href);
+  const rejected = await unboundTop.evaluate(async () => {
+    const id = new URLSearchParams(location.hash.slice(1)).get('id');
+    return Promise.all(['UI_DOCUMENT_GET', 'UI_DOCUMENT_PREPARE', 'UI_DOCUMENT_DOWNLOAD', 'UI_GET', 'UI_RESET_ALL_SETTINGS']
+      .map(type => chrome.runtime.sendMessage({ type, id, featureId: 'documentPreview' })));
+  });
+  assert.ok(rejected.every(result => result.ok === false), 'the copied ID does not authorize an unbound top-level tab');
+  assert.equal(await worker.evaluate(async () => (await chrome.downloads.search({})).length), downloaded,
+    'opening a copied reader address in download mode cannot launch a download');
+  await unboundTop.close();
   await hostile.close();
   for (const [format, sample] of samples) {
     const opened=await choose(page,'sample.'+format);
@@ -138,6 +165,11 @@ try {
   await cross.waitForURL(/chrome-extension:.*document-preview.html/);
   await cross.frameLocator('#document').locator('body').getByText('RTF document',{exact:false}).first().waitFor();
   await cross.close();
+  // A changed redirect must be rejected before it contacts the new origin.
+  const changed = await choose(page, 'changed.pdf');
+  if (!changed.isClosed()) await changed.waitForEvent('close', { timeout:5000 });
+  assert.equal(changedRoutes, 2);
+  assert.equal(unapprovedRequests, 0);
   // Reload must use the prepared RAM copy even after the source website closes.
   await page.close(); await preview.reload();
   await preview.waitForURL(/chrome-extension:.*document-preview.html/);

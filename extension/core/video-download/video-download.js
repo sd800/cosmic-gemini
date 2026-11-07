@@ -61,7 +61,7 @@ function cleanMime(value) {
 function safeUrl(value, base) {
   try {
     const url = new URL(value, base);
-    return ['http:', 'https:'].includes(url.protocol) && url.href.length <= 32_000 ? url.href : '';
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && url.href.length <= 32_000 ? url.href : '';
   } catch { return ''; }
 }
 
@@ -122,9 +122,7 @@ export function mediaRequestReferrer(pageUrl) {
   try {
     const url = new URL(pageUrl);
     if (!['http:', 'https:'].includes(url.protocol)) return '';
-    url.search = '';
-    url.hash = '';
-    return url.href;
+    return url.origin + '/';
   } catch { return ''; }
 }
 

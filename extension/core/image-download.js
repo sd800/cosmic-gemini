@@ -44,7 +44,7 @@ function normalizedImageUrl(value) {
   if (/^blob:/i.test(raw)) return raw;
   try {
     const url = new URL(raw);
-    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return '';
     url.hash = '';
     return url.href.length <= 32_000 ? url.href : '';
   } catch { return ''; }

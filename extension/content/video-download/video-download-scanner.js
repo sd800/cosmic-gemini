@@ -14,7 +14,7 @@
   function absoluteUrl(value) {
     try {
       const url = new URL(value, document.baseURI);
-      return ['http:', 'https:'].includes(url.protocol) && url.href.length <= 32_000 ? url.href : '';
+      return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && url.href.length <= 32_000 ? url.href : '';
     } catch { return ''; }
   }
 

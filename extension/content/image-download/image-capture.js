@@ -50,15 +50,21 @@
   const captureRuntime = Object.freeze({ dispose: removeOverlay });
   globalThis[CAPTURE_KEY] = captureRuntime;
   overlay.addEventListener('pointerdown', event => {
-    if (disposed || captureTimer) return;
+    if (disposed || captureTimer || start || !event.isTrusted || !event.isPrimary || event.button !== 0) return;
+    try { overlay.setPointerCapture(event.pointerId); } catch { return; }
     stop(event);
-    start = point(event);
-    overlay.setPointerCapture(event.pointerId);
+    start = { ...point(event), pointerId: event.pointerId };
     draw(start);
   }, true);
-  overlay.addEventListener('pointermove', event => { if (!disposed && !captureTimer && start) { stop(event); draw(point(event)); } }, true);
+  const ownsPointer = event => event.isTrusted === true && start !== null && start.pointerId === event.pointerId;
+  overlay.addEventListener('pointermove', event => { if (!disposed && !captureTimer && ownsPointer(event)) { stop(event); draw(point(event)); } }, true);
+  overlay.addEventListener('pointercancel', event => {
+    if (!ownsPointer(event)) return;
+    start = null;
+    box.style.display = 'none';
+  }, true);
   overlay.addEventListener('pointerup', event => {
-    if (disposed || captureTimer || !start) return;
+    if (disposed || captureTimer || !ownsPointer(event)) return;
     stop(event);
     const end = point(event);
     const rect = {
@@ -81,7 +87,7 @@
     }, 80);
   }, true);
   function cancel(event) {
-    if (event.key !== 'Escape') return;
+    if (!event.isTrusted || event.key !== 'Escape') return;
     stop(event);
     removeOverlay();
   }

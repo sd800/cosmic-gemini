@@ -55,23 +55,23 @@ const UI_PATHS = new Set([
   '/popup/index.html',
   ...['all-settings','satellites','orbiters','native-scroll','no-autoplay','any-copy','page-display','image-download','video-download']
     .map(name => `/settings/${name}.html`),
-  '/workspaces/document-preview/document-preview.html',
   '/workspaces/image-download/image-download.html',
   '/workspaces/follow-list-instagram/follow-list-instagram.html'
 ]);
 
 const FRAMED_DOCUMENT_MESSAGES = new Set(['UI_GET_LOCALE', 'UI_DOCUMENT_GET', 'UI_DOCUMENT_PREPARE', 'UI_DOCUMENT_SET_THEME', 'UI_DOCUMENT_DOWNLOAD', 'UI_DOCUMENT_URL_READY']);
-function isUiSender(sender, extensionBase, framedDocument = false) {
+function isUiSender(sender, extensionBase, type = '') {
   try {
     const base = new URL(extensionBase), url = new URL(sender?.url);
     const origin = `chrome-extension://${base.host}`;
+    const documentWorkspace = url.pathname === '/workspaces/document-preview/document-preview.html';
+    const top = sender.frameId === undefined || sender.frameId === 0;
     return base.protocol === 'chrome-extension:' && url.protocol === base.protocol && url.host === base.host &&
       (!sender.id || sender.id === base.host) && (sender.origin === undefined || sender.origin === origin) &&
-      (sender.frameId === undefined || sender.frameId === 0 || framedDocument && Number.isInteger(sender.frameId)
-        && sender.frameId > 0 && url.pathname === '/workspaces/document-preview/document-preview.html') &&
       (sender.documentLifecycle === undefined || sender.documentLifecycle === 'active') &&
       !url.username && !url.password &&
-      UI_PATHS.has(url.pathname);
+      (documentWorkspace ? (top || Number.isInteger(sender.frameId) && sender.frameId > 0)
+        && (FRAMED_DOCUMENT_MESSAGES.has(type) || top && type === 'UI_DOCUMENT_CHOICE') : top && UI_PATHS.has(url.pathname));
   } catch { return false; }
 }
 
@@ -90,7 +90,7 @@ export function validateMessageSource(message, sender, extensionBase) {
   const type = message.type;
   const senderUrl = String(sender?.url || '');
   if (type.startsWith('UI_')) {
-    if (!isUiSender(sender, extensionBase, FRAMED_DOCUMENT_MESSAGES.has(type))) throw new Error('Extension commands are available only to trusted extension pages.');
+    if (!isUiSender(sender, extensionBase, type)) throw new Error('Extension commands are available only to trusted extension pages.');
     return true;
   }
   if (PAGE_MESSAGE_TYPES.has(type)) {

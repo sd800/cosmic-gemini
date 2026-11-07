@@ -276,7 +276,7 @@ test('DOCX preflight bounds file size, ZIP entries and inflated data and rejects
 
 function environment({ enabled = true, fetchResult, method = 'GET', incognito = false } = {}) {
   const saved = {}, files = new Map(), calls = [], alarms = new Map();
-  let captured;
+  let captured, nextTabId = 10;
   const tabs = [{ id: 1, url: 'https://a.example.com/article', incognito }, { id: 2, url: 'https://b.example.com/other', incognito }];
   let settings = normalizeSettings({ documentPreview: { enabled } });
   const store = { get: async id => files.get(id), all: async () => [...files.values()], put: async doc => { files.set(doc.id, { ...doc, blobUrl: 'blob:chrome-extension://test/' + doc.id }); calls.push('store'); }, remove: async id => files.delete(id) };
@@ -286,13 +286,19 @@ function environment({ enabled = true, fetchResult, method = 'GET', incognito = 
     runtime: { id: 'test', getURL: path => 'chrome-extension://test/' + path },
     alarms: { get: async name => alarms.get(name), create: async (name, options) => alarms.set(name, { name, scheduledTime: options.when }), clear: async name => alarms.delete(name) },
     storage: { session: { async get(key) { return { [key]: structuredClone(saved[key]) }; }, async set(value) { Object.assign(saved, structuredClone(value)); } } },
-    tabs: { query: async () => tabs, get: async id => tabs.find(tab => tab.id === id), create: async value => { calls.push(['open', value]); return { id: 10 }; } },
+    tabs: { query: async () => tabs, get: async id => tabs.find(tab => tab.id === id), create: async value => { calls.push(['open', value]); return { id: nextTabId++ }; } },
     scripting: { executeScript: async value => { if (value.func === canvasDocumentSource) return [{result:null}]; calls.push(['dialog', value.args[0]]); return [{ result: true }]; } },
     downloads: { cancel: async () => calls.push('cancel'), erase: async () => { calls.push('erase'); captured?.(); }, download: async options => { calls.push(['download', options]); return 7; } }
   };
   const platform = { isIncognitoContext: () => incognito, getLocale: async () => 'en-US', readSettings: async () => settings, mutateSettings: async f => settings = f(settings) };
   const product = createDocumentPreviewProduct(platform, { store, ingress });
   const documents = () => saved['documentPreview:' + (incognito ? 'incognito' : 'regular')]?.documents || [];
+  const workspace = (doc, tabId) => {
+    const workspaces = saved['documentPreview:' + (incognito ? 'incognito' : 'regular')].workspaces;
+    tabId ??= Number(Object.entries(workspaces).find(([, record]) => record.id === doc.id)?.[0]);
+    const params = new URLSearchParams({ id: doc.id, mode: workspaces[tabId]?.mode || 'preview' });
+    return { sender: { url: chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#' + params, frameId: 0, tab: { id: tabId, incognito } } };
+  };
   const choose = (doc = documents().at(-1), action = 'preview', remember = false) => product.handleMessage(
     { type: 'CG_DOCUMENT_CHOICE', id: doc.id, action, remember },
     { sender: { url: tabs[0].url, frameId: 0, tab: tabs[0] } }
@@ -303,7 +309,7 @@ function environment({ enabled = true, fetchResult, method = 'GET', incognito = 
     if (!handled) resolve();
   });
   const settle = async () => { await new Promise(resolve => setTimeout(resolve, 10)); };
-  return { product, capture, settle, calls, files, saved, tabs, platform, store, ingress, alarms, documents, choose };
+  return { product, capture, settle, calls, files, saved, tabs, platform, store, ingress, alarms, documents, choose, workspace };
 }
 const originalFetch = globalThis.fetch;
 test.after(() => { globalThis.fetch = originalFetch; });
@@ -331,17 +337,18 @@ test('local documents open with capture off, refresh from RAM references, and re
   const preview={id:10,incognito:false,preview:opened.url};env.tabs.push(preview);
   await env.product.handleTabCreated({url:opened.url});
   const resumed=createDocumentPreviewProduct(env.platform,env);await resumed.initialize();
-  const workspace={sender:{url:opened.url}};
+  const workspace=env.workspace({id:localId},10);
   assert.equal((await resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},workspace)).prepared,true);
   await resumed.handleMessage({type:'UI_DOCUMENT_SET_THEME',id:localId,theme:'dark'},workspace);
   env.tabs.splice(env.tabs.findIndex(tab=>tab.id===3),1);await resumed.handleTabRemoved(3);
   assert.equal((await resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},workspace)).siteTheme,'dark');
   const copy={...preview,id:11};env.tabs.push(copy);await resumed.handleTabCreated({url:opened.url});
-  env.tabs.splice(env.tabs.indexOf(preview),1);await resumed.handleTabRemoved(10);assert.equal(env.files.size,1);
+  await assert.rejects(resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},env.workspace({id:localId},11)),/preview window unavailable/);
+  env.tabs.splice(env.tabs.indexOf(preview),1);await resumed.handleTabRemoved(10);assert.equal(env.files.size,0);
   env.tabs.splice(env.tabs.indexOf(copy),1);await resumed.handleTabRemoved(11);
   assert.equal(env.files.size,0);assert.equal(env.documents().length,0);
   assert.deepEqual(env.saved['documentPreview:regular'].themes,{});
-  await assert.rejects(resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},workspace),/documentExpired/);
+  await assert.rejects(resumed.handleMessage({type:'UI_DOCUMENT_GET',id:localId},workspace),/preview window unavailable/);
 });
 
 test('local open rejects wrong sources, context, metadata and cleans references after tab creation failure', async () => {
@@ -464,6 +471,7 @@ test('a failed preparation metadata write rolls back bytes and remains retryable
 test('a document read waiting on tabs cannot outlive a completed reset', async () => {
   const env = environment(); await env.capture(); await env.settle();
   const doc = env.documents()[0];
+  await env.choose(doc);
   let release, entered;
   const waiting = new Promise(resolve => { entered = resolve; });
   const query = chrome.tabs.query;
@@ -472,9 +480,7 @@ test('a document read waiting on tabs cannot outlive a completed reset', async (
     entered();
     return new Promise(resolve => { release = () => resolve(env.tabs); });
   };
-  const result = env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, {
-    sender: { url: chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH) + '#id=' + doc.id }
-  });
+  const result = env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, env.workspace(doc));
   const rejected = assert.rejects(result, /documentExpired/);
   await waiting;
   await env.product.reset();
@@ -566,9 +572,8 @@ test('disabling capture preserves existing previews until the last source websit
   env.files.set('private-record', { id: 'private-record', context: 'incognito', epoch: 'private', blob: new Blob(['private']) });
   await env.product.handleMessage({ type: 'UI_SET_ENABLED', enabled: false }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
   assert.equal(env.files.size, 2);
-  const workspace = 'chrome-extension://test/workspaces/document-preview/document-preview.html#id=' + doc.id;
-  assert.equal((await env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, { sender: { url: workspace } })).id, doc.id);
-  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: doc.blobUrl }, { sender: { url: workspace } });
+  assert.equal((await env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, env.workspace(doc))).id, doc.id);
+  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: doc.blobUrl }, env.workspace(doc));
   const fetches = env.calls.filter(value => value === 'fetch').length;
   await env.capture(); assert.equal(env.calls.filter(value => value === 'fetch').length, fetches);
   env.tabs.splice(0); await env.product.handleTabRemoved(1);
@@ -583,10 +588,10 @@ test('document commands reject unrelated sites and invalid workspace sources', a
   const doc = [...env.files.values()][0];
   await assert.rejects(env.product.handleMessage({ type: 'CG_DOCUMENT_CHOICE', id: doc.id, action: 'download' }, { sender: { url: 'https://evil.test', frameId: 0, tab: { id: 8, url: 'https://evil.test' } } }));
   await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } }));
-  const workspace = 'chrome-extension://test/workspaces/document-preview/document-preview.html#id=' + doc.id;
-  await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'https://evil.test' }, { sender: { url: workspace } }));
-  await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'blob:chrome-extension://test/unrelated-document' }, { sender: { url: workspace } }));
-  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: doc.blobUrl }, { sender: { url: workspace } });
+  await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_GET', id: doc.id }, env.workspace(doc, 77)), /preview window unavailable/);
+  await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'https://evil.test' }, env.workspace(doc)));
+  await assert.rejects(env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: 'blob:chrome-extension://test/unrelated-document' }, env.workspace(doc)));
+  await env.product.handleMessage({ type: 'UI_DOCUMENT_DOWNLOAD', id: doc.id, blobUrl: doc.blobUrl }, env.workspace(doc));
   assert.equal(env.calls.find(value => value[0] === 'download')[1].saveAs, undefined);
   let suggested;
   assert.equal(env.product.handleDeterminingFilename({ byExtensionId: 'test', url: doc.blobUrl }, value => suggested = value), true);
@@ -744,7 +749,7 @@ test('document appearance defaults, site overrides and resets follow the source 
   const env = environment(); await env.capture(); await env.settle();
   await env.choose();
   const first = [...env.files.values()][0];
-  const workspace = doc => ({sender:{url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id}});
+  const workspace = env.workspace;
   const get = (doc, product=env.product) => product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},workspace(doc));
   const setTheme = (doc,theme) => env.product.handleMessage({type:'UI_DOCUMENT_SET_THEME',id:doc.id,theme},workspace(doc));
   const setDefault = appearance => env.product.handleMessage({type:'UI_SET_DOCUMENT_APPEARANCE',appearance},{sender:{url:'chrome-extension://test/settings/satellites.html'}});
@@ -782,7 +787,7 @@ test('document appearance defaults, site overrides and resets follow the source 
   assert.equal((await get(first)).siteTheme,'light','disabling new captures preserves open previews');
   await setTheme(second,'dark');
   env.tabs.splice(1); await env.product.handleTabRemoved(2);
-  await assert.rejects(get(first), /documentExpired/);
+  await assert.rejects(get(first), /preview window unavailable/);
   assert.deepEqual(env.saved['documentPreview:regular'].themes, {'example.org':'dark'});
   env.tabs.splice(0); await env.product.handleTabRemoved(1);
   assert.deepEqual(env.saved['documentPreview:regular'].themes,{});
@@ -794,7 +799,7 @@ test('appearance commands reject invalid callers and values, and incognito overr
   await env.capture(); await env.settle();
   await env.choose();
   const doc = [...env.files.values()][0];
-  const sender = {url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id};
+  const { sender } = env.workspace(doc);
   const command = {type:'UI_DOCUMENT_SET_THEME',id:doc.id,theme:'light'};
   await env.product.handleMessage(command,{sender});
   assert.deepEqual(env.saved['documentPreview:incognito'].themes,{'example.com':'light'});
@@ -832,7 +837,7 @@ test('document cleanup retries byte deletion and metadata failures without losin
 
 test('document website choices roll back on failed remember and reset writes', async () => {
   const env = environment(); await env.capture(); await env.settle(); await env.choose();
-  const doc = env.documents()[0], sender = { url: 'chrome-extension://test/' + DOCUMENT_PREVIEW_PATH + '#id=' + doc.id };
+  const doc = env.documents()[0], { sender } = env.workspace(doc);
   const get = () => env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender});
   const save = chrome.storage.session.set;
   chrome.storage.session.set = async () => { throw Error('storage unavailable'); };
@@ -857,6 +862,7 @@ test('closed previews expire after ten minutes, with open copies and source sess
   const metadata = () => env.saved['documentPreview:regular'].documents.find(value => value.id === doc.id);
   env.tabs.push(preview); await env.product.handleTabCreated(preview);
   assert.equal(metadata().closedAt,null); assert.equal(env.alarms.size,0);
+  await env.choose(doc);
   const copy = {...preview,id:11}; env.tabs.push(copy); await env.product.handleTabCreated(copy);
   env.tabs.splice(env.tabs.indexOf(preview),1); await env.product.handleTabRemoved(preview.id);
   t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION * 2);
@@ -875,7 +881,7 @@ test('closed previews expire after ten minutes, with open copies and source sess
   await resumed.handleAlarm({name:alarmName});
   assert.equal(env.files.size,0); assert.equal(env.alarms.size,0);
   assert.equal(env.saved['documentPreview:regular'].documents.length,0);
-  await assert.rejects(resumed.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},{sender:{url:preview.url}}),/documentExpired/);
+  await assert.rejects(resumed.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},env.workspace(doc,10)),/preview window unavailable/);
 });
 
 test('reopening cancels a document deadline, navigation restarts it, and an earlier source exit wins', async t => {
@@ -913,7 +919,7 @@ test('each document has its own deadline and expired files cannot be revived by 
   assert.equal(env.alarms.size,1); assert.equal(env.alarms.get(alarmName).scheduledTime,firstDeadline);
   t.mock.timers.tick(DOCUMENT_CLOSED_RETENTION-60000);
   const preview = {id:10,incognito:false,url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+first.id};
-  await assert.rejects(env.product.handleMessage({type:'UI_DOCUMENT_GET',id:first.id},{sender:{url:preview.url}}),/documentExpired/,'commands also reject expired files before a delayed alarm fires');
+  await assert.rejects(env.product.handleMessage({type:'UI_DOCUMENT_GET',id:first.id},env.workspace(first,10)),/documentExpired/,'commands also reject expired files before a delayed alarm fires');
   env.tabs.push(preview); await env.product.handleTabCreated(preview);
   assert.deepEqual([...env.files.keys()],[second.id]);
   assert.equal(env.alarms.get(alarmName).scheduledTime,firstDeadline+60000);
@@ -1245,7 +1251,7 @@ test('Document Preview whitelist includes subdomains and ports, preserves order 
   await command('UI_ADD_RULE','z.example.net');await command('UI_ADD_RULE','*.example.com');
   assert.deepEqual((await env.platform.readSettings()).documentPreview.whitelistDomains,['z.example.net','example.com']);
   const before=env.calls.filter(v=>v==='cancel').length;await env.capture();await env.settle();assert.equal(env.calls.filter(v=>v==='cancel').length,before);assert.equal(env.files.size,1);
-  const workspace={sender:{url:'chrome-extension://test/workspaces/document-preview/document-preview.html#id='+doc.id}};
+  const workspace=env.workspace(doc);
   assert.equal((await env.product.handleMessage({type:'UI_DOCUMENT_GET',id:doc.id},workspace)).prepared,true);
   await assert.rejects(env.product.handleMessage({type:'UI_ADD_RULE',listName:'whitelistDomains',rule:'evil.test'},workspace));
   await command('UI_ALPHABETIZE_RULES');assert.deepEqual((await env.platform.readSettings()).documentPreview.whitelistDomains,['example.com','z.example.net']);

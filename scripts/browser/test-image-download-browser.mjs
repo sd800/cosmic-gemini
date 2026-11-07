@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const artifacts = resolve('test-dist/image-download');
 await mkdir(artifacts, { recursive: true });
-const html = '<!doctype html><meta charset="utf-8"><title>Image workspace fixture</title><img src="/image.svg" width="320" height="200" alt="Fixture image">';
+const html = '<!doctype html><meta charset="utf-8"><title>Image workspace fixture</title><meta property="og:image" content="/unrequested.png"><img src="/image.svg" width="320" height="200" alt="Fixture image">';
 const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>', '<< /Length 0 >>\nstream\n\nendstream'];
 let pdf = '%PDF-1.4\n'; const offsets = [0];
 for (const [i, object] of objects.entries()) { offsets.push(Buffer.byteLength(pdf)); pdf += `${i + 1} 0 obj\n${object}\nendobj\n`; }
@@ -17,7 +17,9 @@ pdf += `xref\n0 5\n0000000000 65535 f \n${offsets.slice(1).map(n => String(n).pa
 try { await writeFile(join(artifacts, 'native.pdf'), pdf, { flag: 'wx' }); } catch (error) { if (error.code !== 'EEXIST') throw error; }
 pdf = await readFile(join(artifacts, 'native.pdf'), 'utf8');
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="#7752b8"/></svg>';
+let unrequested = 0;
 const server = createServer((request, response) => {
+  if (request.url === '/unrequested.png') unrequested++;
   const document = ['/native.pdf', '/document'].includes(request.url);
   response.setHeader('Content-Type', document ? 'application/pdf' : request.url === '/plain' ? 'text/plain' : request.url === '/xml' ? 'application/xml' : request.url === '/image.svg' ? 'image/svg+xml' : 'text/html');
   response.end(document ? pdf : request.url === '/xml' ? '<fixture>Document</fixture>' : request.url === '/plain' ? 'Plain document' : request.url === '/image.svg' ? svg : request.url === '/embedded'
@@ -108,6 +110,10 @@ try {
   }, sourceTabId);
   const pageWorkspace = await findPage();
   assert.ok(pageWorkspace > 0, 'explicit page mode opens its own workspace');
+  const gallery = context.pages().find(page => page.url().includes('/workspaces/image-download/image-download.html?'));
+  assert.ok(gallery);
+  await gallery.locator('.image-preview img[src^="data:image/"]').first().waitFor();
+  assert.equal(unrequested, 0, 'opening an image gallery does not fetch an address supplied only by webpage metadata');
   await reopen();
   assert.equal(await findPage(), pageWorkspace, 'page mode reuses an existing extension document');
   assert.equal((await worker.evaluate(() => globalThis.imageOpenProbe)).length, 2, 'page mode does not open a Side Panel');
@@ -116,6 +122,7 @@ try {
   assert.equal(await videoPopup.locator('#videoDownload-status').isVisible(), true);
   await videoPopup.locator('#videoDownload-status').click();
   await videoPopup.waitForFunction(() => document.body.dataset.view === 'video');
+  assert.equal(unrequested, 0, 'opening Video Download does not fetch a page-supplied poster');
   await videoPopup.locator('#video-stop').click();
   await videoPopup.waitForFunction(() => document.body.dataset.view === 'main');
   await videoPopup.close();

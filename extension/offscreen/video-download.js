@@ -77,6 +77,8 @@ async function runVideoRequest(message, task) {
   const requestId = String(message.requestId || '');
   if (!requestId) return task();
   const request = beginVideoRequest(requestId);
+  request.selectedUrl = message.candidate?.url;
+  request.knownMedia = new Set(message.readableMedia || []);
   try {
     throwIfVideoRequestCancelled(requestId);
     return await task();
@@ -86,15 +88,26 @@ async function runVideoRequest(message, task) {
   }
 }
 
+function videoRequestOptions(value, pageUrl, requestId) {
+  const url = new URL(value);
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw Error('Invalid video address.');
+  const request = videoRequest(requestId);
+  const source = new URL(pageUrl), selected = new URL(request?.selectedUrl || pageUrl);
+  url.hash = '';
+  if (url.origin !== source.origin && url.origin !== selected.origin && !request?.knownMedia.has(url.href)) {
+    throw Error('The video references an unapproved media source.');
+  }
+  return { credentials: url.origin === source.origin ? 'include' : 'omit', redirect: 'error' };
+}
+
 async function mediaFetch(url, pageUrl, options = {}, requestId = '') {
   throwIfVideoRequestCancelled(requestId);
   const headers = new Headers(options.headers || {});
   const signal = options.signal || videoRequest(requestId)?.controller.signal;
   const response = await fetch(url, {
     cache: 'no-store',
-    credentials: 'include',
-    redirect: 'follow',
     ...options,
+    ...(requestId ? videoRequestOptions(url, pageUrl, requestId) : {}),
     headers,
     ...(signal ? { signal } : {})
   });
@@ -235,7 +248,12 @@ function replaceFilenameExtension(filename, extension) {
 }
 
 async function fetchImageBlob(url, pageUrl) {
-  const response = await mediaFetch(url, pageUrl, { headers: { Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' } });
+  const address = new URL(url);
+  if (address.username || address.password) throw Error('Invalid image address.');
+  const response = await mediaFetch(url, pageUrl, {
+    credentials: address.origin === new URL(pageUrl).origin ? 'include' : 'omit', redirect: 'error',
+    headers: { Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' }
+  });
   const bytes = await readBoundedBytes(response, 64 * 1024 * 1024);
   const type = String(response.headers.get('content-type') || '').split(';')[0].toLowerCase();
   if (type && !type.startsWith('image/')) throw new Error('The selected address did not return an image.');
@@ -560,8 +578,8 @@ function dashManifestForCandidate(candidate, pageUrl) {
 }
 
 async function expandDash(message) {
-  const manifest = dashManifestForCandidate(message.candidate, message.pageUrl)
-    || await fetchDashManifest(message.candidate.manifestUrl || message.candidate.url, message.pageUrl, message.requestId);
+  const manifest = dashManifestForCandidate(message.candidate, message.pageUrl);
+  if (!manifest) return [];
   throwIfVideoRequestCancelled(message.requestId);
   return parseDashManifest(manifest.text, manifest.url, message.candidate.title || '').map(candidate => ({
     ...candidate,
@@ -582,6 +600,7 @@ async function discoverYoutube(message) {
     return fetch(input, {
       ...init,
       credentials: 'include',
+      redirect: 'error',
       cache: init.cache || 'no-store',
       signal: signal && init.signal ? AbortSignal.any([signal, init.signal]) : signal || init.signal
     });
@@ -616,7 +635,7 @@ function mediaInput(url, pageUrl, requestId = '') {
     source: new UrlSource(url, {
       requestInit: {
         cache: 'no-store',
-        credentials: 'include',
+        ...videoRequestOptions(url, pageUrl, requestId),
         ...(signal ? { signal } : {})
       },
       parallelism: 4,

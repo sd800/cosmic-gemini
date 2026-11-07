@@ -3,6 +3,7 @@ import { FEATURE_IDS } from '../../../core/config.js';
 import { normalizeLocale } from '../../../core/locale.js';
 import { createKeyedTaskQueue } from '../../../core/keyed-task-queue.js';
 import { imagePageDiscovery, imagePageQuickDiscovery } from '../../../core/image-page.js';
+import { readMediaThumbnail } from '../../../shared/media-thumbnail.js';
 import {
   activateDownloadScan,
   deferDownloadScan,
@@ -680,6 +681,7 @@ export function createImageDownloadProduct(platform, offscreen, observation, med
   async function downloadImageSelections(tabId, selections, options = {}) {
     const session = await readImageSession(tabId);
     if (!session) throw new Error('Image Download is not active in this tab.');
+    if ((await chrome.tabs.get(tabId)).url !== session.pageUrl) throw new Error('The source page has changed.');
     const settings = await readSettings();
     const groups = groupImageCandidates(session.candidates || []);
     const selected = [];
@@ -932,6 +934,22 @@ export function createImageDownloadProduct(platform, offscreen, observation, med
       return closeImageWorkspaceSidePanel(Number(message.tabId));
     }
     if (message.type === 'UI_IMAGE_CAPTURE_AREA') return beginImageCapture(Number(message.tabId));
+    if (message.type === 'UI_IMAGE_GET_THUMBNAIL') {
+      const tabId = Number(message.tabId);
+      const session = await readImageSession(tabId);
+      if (!session || (await chrome.tabs.get(tabId)).url !== session.pageUrl) return '';
+      for (const id of [message.candidateId, message.fallbackId]) {
+        if (!id) continue;
+        const candidate = session.candidates.find(value => value.id === id);
+        if (!candidate) continue;
+        const frameUrl = candidate.frameUrl || session.pageUrl;
+        const target = frameUrl === session.pageUrl ? { tabId, frameIds: [0] } : { tabId, allFrames: true };
+        const frames = await chrome.scripting.executeScript({ target, world: 'ISOLATED', func: readMediaThumbnail, args: [candidate.url, frameUrl] });
+        const value = frames.find(frame => frame.result)?.result;
+        if (value) return value;
+      }
+      return '';
+    }
     if (message.type === 'UI_IMAGE_UPDATE_METADATA') {
       return updateImageMetadataBatch(Number(message.tabId), [{ candidateId: message.candidateId, metadata: message.metadata || {} }]);
     }

@@ -97,7 +97,7 @@ export function createPageRuntimeHost(platform) {
       if (response?.disposed === true) {
         // A known bridge can outlive Window listeners erased by document.open.
         // Confirm cleanup only for a product that was actually present.
-        await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});
+        if (product.runtimeWorld !== 'ISOLATED') await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});
       }
       if (response?.disposed === true) {
         await removePageStyles(target, product);
@@ -116,7 +116,7 @@ export function createPageRuntimeHost(platform) {
         && previousStyles.every(file => declaredStyleFiles(product).includes(file) && !requestedStyles.includes(file));
       if (!reuseStyles && !swapStyles) await removePageStyles(target, product);
       await chrome.scripting.executeScript({ target, files: [product.bridge], world: 'ISOLATED', injectImmediately: true });
-      await chrome.scripting.executeScript({ target, files: [...(product.runtimeDependencies || []), product.runtime], world: 'MAIN', injectImmediately: true });
+      await chrome.scripting.executeScript({ target, files: [...(product.runtimeDependencies || []), product.runtime], world: product.runtimeWorld || 'MAIN', injectImmediately: true });
       const response = await platform.sendTabMessage(
         tabId,
         { type: 'CG_REFRESH_FEATURE_CONFIG', featureId: product.id },
@@ -132,7 +132,7 @@ export function createPageRuntimeHost(platform) {
       }
     } catch (error) {
       await platform.sendTabMessage(tabId, { type: 'CG_STOP_CENTRAL_FEATURE', featureId: product.id }, options).catch(() => {});
-      await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});
+      if (product.runtimeWorld !== 'ISOLATED') await disposeMainRuntime(tabId, frameId, documentId, product.id).catch(() => {});
       await removePageStyles(target, product).catch(() => {});
       throw error;
     }

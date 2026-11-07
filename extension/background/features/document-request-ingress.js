@@ -67,10 +67,11 @@ export function createDocumentRequestIngress() {
     // into a navigation. Join only an exact, observed redirect in this frame.
     const parents = requests.has(details.requestId) ? [] : [...requests.values()].filter(value =>
       value.redirectUrl === details.url && value.tabId === details.tabId && value.frameId === details.frameId);
-    const roots = new Set(parents.map(value => value.originalUrl));
+    const roots = new Set(parents.map(value => JSON.stringify([value.originalUrl, value.initiator])));
     const previous = requests.get(details.requestId) || (roots.size === 1 ? parents.at(-1) : null);
     requests.set(details.requestId, {
       url: details.url, originalUrl: previous?.originalUrl || details.url,
+      initiator: previous ? previous.initiator : details.initiator,
       origins: documentReplayOrigins([...(previous?.origins || []), details.url]),
       // A POST redirected to GET must not become replayable.
       method: roots.size > 1 || parents.some(value => value.method !== 'GET') ? 'AMBIGUOUS'
@@ -101,8 +102,9 @@ export function createDocumentRequestIngress() {
     take(item) {
       const matches = [...requests.entries()].filter(([, value]) => Date.now() - value.at < 60000 && [item.url, item.finalUrl].includes(value.url));
       for (const [id] of matches) requests.delete(id);
-      // Ambiguous source tabs or any non-GET request are deliberately left to Chrome.
-      if (!matches.length || matches.some(([, value]) => value.method !== 'GET') || new Set(matches.map(([, value]) => value.tabId)).size !== 1) return null;
+      // One identical URL is insufficient to resolve downloads from different frames or origins.
+      const sources = new Set(matches.map(([, value]) => JSON.stringify([value.tabId, value.frameId, value.initiator])));
+      if (!matches.length || sources.size !== 1 || matches.some(([, value]) => value.method !== 'GET')) return null;
       return matches.at(-1)[1];
     }
   };

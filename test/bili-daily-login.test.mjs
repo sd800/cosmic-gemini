@@ -108,7 +108,7 @@ test('a storage disable cancels Bili Daily Login while its response body is stil
     await Promise.all([run, stop]);
   }
   assert.deepEqual(f.alarms, []);
-  assert.equal(BILI_DAILY_ATTEMPT_KEY in f.local.values, false);
+  assert.equal(f.local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30');
 });
 
 test('Bili Daily Login keeps its request timeout active through response-body parsing', async t => {
@@ -140,38 +140,17 @@ test('Bili Daily Login uses Bilibili calendar days in China Standard Time', () =
   assert.equal(bilibiliDateKey(Date.parse('2026-08-29T16:00:00Z')), '2026-08-30');
 });
 
-test('Bili Daily Login plans separate daytime and evening checks', () => {
-  const beforeDaytime = Date.parse('2026-08-30T01:00:00Z');
-  assert.deepEqual(nextBilibiliPlan(beforeDaytime), {
-    id: '2026-08-30:daytime',
-    when: Date.parse('2026-08-30T02:05:00Z'),
-    due: false
-  });
-
-  const afterDaytime = Date.parse('2026-08-30T04:00:00Z');
-  assert.deepEqual(nextBilibiliPlan(afterDaytime), {
-    id: '2026-08-30:daytime',
-    when: afterDaytime,
-    due: true
-  });
-  assert.deepEqual(nextBilibiliPlan(afterDaytime, '2026-08-30:daytime'), {
-    id: '2026-08-30:evening',
-    when: Date.parse('2026-08-30T10:05:00Z'),
-    due: false
-  });
-
-  const afterEvening = Date.parse('2026-08-30T12:00:00Z');
-  assert.equal(nextBilibiliPlan(afterEvening).id, '2026-08-30:evening');
-  assert.equal(nextBilibiliPlan(afterEvening).due, true);
-  assert.deepEqual(nextBilibiliPlan(afterEvening, '2026-08-30:evening'), {
-    id: '2026-08-31:daytime',
-    when: Date.parse('2026-08-31T02:05:00Z'),
-    due: false
-  });
-  assert.equal(
-    nextBilibiliSchedule(afterEvening, '2026-08-30:evening'),
-    Date.parse('2026-08-31T02:05:00Z')
-  );
+test('Bili Daily Login plans one daily check, including days with a legacy attempt', () => {
+  const scheduled = Date.parse('2026-08-30T02:05:00Z');
+  assert.deepEqual(nextBilibiliPlan(scheduled - 1), { id: '2026-08-30', when: scheduled, due: false });
+  const late = Date.parse('2026-08-30T12:00:00Z');
+  assert.deepEqual(nextBilibiliPlan(late), { id: '2026-08-30', when: late, due: true });
+  assert.deepEqual(nextBilibiliPlan(late, '2026-08-29:evening'), { id: '2026-08-30', when: late, due: true });
+  for (const attempt of ['2026-08-30', '2026-08-30:daytime', '2026-08-30:evening']) {
+    const tomorrow = Date.parse('2026-08-31T02:05:00Z');
+    assert.deepEqual(nextBilibiliPlan(late, attempt), { id: '2026-08-31', when: tomorrow, due: false });
+    assert.equal(nextBilibiliSchedule(late, attempt), tomorrow);
+  }
 });
 
 test('Bili Daily Login skips requests when Chrome explicitly reports offline', () => {
@@ -191,7 +170,7 @@ test('Bili Daily Login ordinary state preserves the saved switch', async () => {
 });
 
 test('disabling Bili Daily Login aborts an in-flight request without rescheduling it', async () => {
-  const local = storageArea({ [BILI_DAILY_ATTEMPT_KEY]: '2026-08-30:daytime' });
+  const local = storageArea();
   const createdAlarms = [];
   let settings = {
     biliDailyLogin: { enabled: true, lastCompletedDate: '' }
@@ -228,8 +207,10 @@ test('disabling Bili Daily Login aborts an in-flight request without reschedulin
     await product.handleMessage({ type: 'UI_SET_BILI_DAILY_LOGIN', enabled: false });
     await alarmRun;
     assert.equal(settings.biliDailyLogin.enabled, false);
-    assert.equal(BILI_DAILY_ATTEMPT_KEY in local.values, false);
+    assert.equal(local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30');
     assert.deepEqual(createdAlarms, []);
+    await product.handleMessage({ type: 'UI_SET_BILI_DAILY_LOGIN', enabled: true });
+    assert.equal(createdAlarms.at(-1).options.when, Date.parse('2026-08-31T02:05:00Z'));
   } finally {
     globalThis.fetch = originalFetch;
     Date.now = originalNow;
@@ -296,7 +277,7 @@ test('Bili Daily Login waits when no regular Chrome window is open', async () =>
   }
 });
 
-test('Bili Daily Login verifies completion and still schedules the second daily check', async () => {
+test('Bili Daily Login verifies completion and does not repeat after a restart', async () => {
   const local = storageArea();
   const createdAlarms = [];
   const requests = [];
@@ -319,7 +300,9 @@ test('Bili Daily Login verifies completion and still schedules the second daily 
   const originalFetch = globalThis.fetch;
   const originalNow = Date.now;
   Date.now = () => Date.parse('2026-08-30T04:00:00Z');
-  globalThis.fetch = async url => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(options.redirect, 'error');
+    assert.equal(local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30', 'the attempt is stored before network activity');
     requests.push(url);
     const body = url.endsWith('/nav')
       ? { code: 0, data: { isLogin: true } }
@@ -340,9 +323,17 @@ test('Bili Daily Login verifies completion and still schedules the second daily 
       'https://api.bilibili.com/x/web-interface/nav',
       'https://api.bilibili.com/x/member/web/exp/reward'
     ]);
-    assert.equal(local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30:daytime');
+    assert.equal(local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30');
     assert.equal(settings.biliDailyLogin.lastCompletedDate, '2026-08-30');
-    assert.equal(createdAlarms.at(-1).options.when, Date.parse('2026-08-30T10:05:00Z'));
+    assert.equal(createdAlarms.at(-1).options.when, Date.parse('2026-08-31T02:05:00Z'));
+    chrome.alarms.get = async () => ({ scheduledTime: Date.parse('2026-08-30T10:05:00Z') });
+    await product.ensureSchedule();
+    assert.equal(createdAlarms.at(-1).options.when, Date.parse('2026-08-31T02:05:00Z'),
+      'an old evening alarm is replaced before it can run');
+    Date.now = () => Date.parse('2026-08-30T12:00:00Z');
+    const restarted = createBiliDailyLoginProduct(platform);
+    await restarted.handleAlarm({ name: 'satellites:biliDailyLogin' });
+    assert.equal(requests.length, 2, 'the same day never starts a second account check');
     assert.deepEqual(ruleUpdates[1].addRules[0].condition, {
       initiatorDomains: ['cosmic-gemini-test'],
       requestDomains: ['api.bilibili.com'],

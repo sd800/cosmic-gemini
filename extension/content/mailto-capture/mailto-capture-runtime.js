@@ -1,8 +1,4 @@
 (() => {
-  const READY = 'cosmic-gemini:mailto-capture:bridge-ready';
-  const MAIN_READY = 'cosmic-gemini:mailto-capture:main-ready';
-  const CONFIGURE = 'cosmic-gemini:mailto-capture:configure';
-  const DISPOSE = 'cosmic-gemini:mailto-capture:dispose';
   const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
   const NANP_KEY = Symbol.for('cosmic-gemini.mailto-capture.nanp');
   const PHONE_KEY = Symbol.for('cosmic-gemini.mailto-capture.phone');
@@ -57,13 +53,6 @@
     })
   });
 
-  function randomToken() {
-    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
-    const bytes = new Uint8Array(18);
-    globalThis.crypto.getRandomValues(bytes);
-    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
-  }
-
   const protocols = globalThis[Symbol.for('cosmic.external-links-capture.protocols')];
 
   function nanpLocation(value) {
@@ -76,15 +65,11 @@
     catch { return nanpLocation(value); }
   }
 
-  if (globalThis[RUNTIME_KEY]) {
-    globalThis[RUNTIME_KEY].announce();
-    return;
-  }
+  if (globalThis[RUNTIME_KEY]) return;
 
   class MailtoCaptureRuntime {
     constructor() {
       this.disposed = false;
-      this.token = randomToken();
       this.active = false;
       this.locale = 'en-US';
       this.host = null;
@@ -95,54 +80,35 @@
       this.closingAnimation = null;
       this.closeSequence = 0;
       this.viewportFrame = 0;
-      this.onConfigure = this.onConfigure.bind(this);
-      this.onDispose = this.onDispose.bind(this);
-      this.onBridgeReady = this.onBridgeReady.bind(this);
       this.onActivate = this.onActivate.bind(this);
       this.onPointerDown = this.onPointerDown.bind(this);
       this.onKeyDown = this.onKeyDown.bind(this);
       this.onViewportChange = this.onViewportChange.bind(this);
-      window.addEventListener(CONFIGURE, this.onConfigure, true);
-      window.addEventListener(DISPOSE, this.onDispose, true);
-      window.addEventListener(READY, this.onBridgeReady, true);
     }
 
-    announce() {
-      if (this.disposed) return;
-      window.addEventListener(CONFIGURE, this.onConfigure, true);
-      window.addEventListener(DISPOSE, this.onDispose, true);
-      window.addEventListener(READY, this.onBridgeReady, true);
-      window.dispatchEvent(new CustomEvent(MAIN_READY, { detail: this.token }));
-    }
-    onBridgeReady() { this.announce(); }
-
-    onConfigure(event) {
-      let message;
-      try { message = JSON.parse(event.detail); } catch { return; }
-      if (message?.token !== this.token || this.disposed) return;
-      const nextActive = message.config?.active === true;
-      const nextLocale = message.config?.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
+    configure(config) {
+      if (this.disposed) return false;
+      const nextActive = config?.active === true;
+      const nextLocale = config?.locale === 'zh-CN' ? 'zh-CN' : 'en-US';
       const localeChanged = nextLocale !== this.locale;
       this.locale = nextLocale;
-      if (nextActive && !this.active) this.enable();
-      else if (!nextActive && this.active) this.disable();
-      else if (nextActive && localeChanged && this.capture) this.render();
+      if (nextActive) {
+        this.enable(); // Also reattach if document.open() removed the old listeners.
+        if (localeChanged && this.capture) this.render();
+      } else if (this.active) this.disable();
+      return true;
     }
 
-    onDispose(event) {
-      if (event?.detail !== this.token || this.disposed) return;
+    dispose() {
+      if (this.disposed) return;
       this.disposed = true;
       this.disable();
-      window.removeEventListener(CONFIGURE, this.onConfigure, true);
-      window.removeEventListener(DISPOSE, this.onDispose, true);
-      window.removeEventListener(READY, this.onBridgeReady, true);
       try { if (globalThis[RUNTIME_KEY] === this) delete globalThis[RUNTIME_KEY]; } catch {}
       try { delete globalThis[NANP_KEY]; } catch {}
       try { delete globalThis[PHONE_KEY]; } catch {}
     }
 
     enable() {
-      if (this.active) return;
       this.active = true;
       window.addEventListener('click', this.onActivate, true);
       window.addEventListener('auxclick', this.onActivate, true);
@@ -544,7 +510,7 @@
       button.type = 'button';
       button.className = className;
       button.textContent = label;
-      button.addEventListener('click', handler);
+      button.addEventListener('click', event => { if (event.isTrusted) handler(); });
       return button;
     }
 
@@ -648,5 +614,4 @@
 
   const runtime = new MailtoCaptureRuntime();
   Object.defineProperty(globalThis, RUNTIME_KEY, { value: runtime, configurable: true });
-  runtime.announce();
 })();

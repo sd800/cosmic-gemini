@@ -29,6 +29,7 @@ export function createBiliDailyLoginProduct(platform) {
       const response = await fetch(url, {
         cache: 'no-store',
         credentials: 'include',
+        redirect: 'error',
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
@@ -87,8 +88,10 @@ export function createBiliDailyLoginProduct(platform) {
     }
   }
 
-  async function lastAttemptSlot() {
-    return String((await chrome.storage.local.get(BILI_DAILY_ATTEMPT_KEY))[BILI_DAILY_ATTEMPT_KEY] || '');
+  async function planFor(feature = {}) {
+    const attempted = String((await chrome.storage.local.get(BILI_DAILY_ATTEMPT_KEY))[BILI_DAILY_ATTEMPT_KEY] || '');
+    const now = Date.now(), today = bilibiliDateKey(now);
+    return nextBilibiliPlan(now, feature.lastCompletedDate === today ? today : attempted);
   }
 
   async function schedule(when) {
@@ -96,7 +99,7 @@ export function createBiliDailyLoginProduct(platform) {
   }
 
   async function scheduleNext(signal) {
-    const plan = nextBilibiliPlan(Date.now(), await lastAttemptSlot());
+    const plan = await planFor();
     if (signal?.aborted) return;
     await schedule(plan.due ? Date.now() + 1_000 : plan.when);
   }
@@ -113,8 +116,11 @@ export function createBiliDailyLoginProduct(platform) {
       return;
     }
     const existing = await chrome.alarms.get(BILI_DAILY_ALARM);
-    if (existing?.scheduledTime > Date.now()) return;
-    await scheduleNext();
+    const plan = await planFor(feature);
+    const now = Date.now();
+    if (existing?.scheduledTime > now && (plan.due
+      ? existing.scheduledTime <= now + BILI_DAILY_DEFER_MS : existing.scheduledTime === plan.when)) return;
+    await schedule(plan.when);
     const latest = await platform.readSettings();
     if (!latest.biliDailyLogin.enabled) await clearDisabledState();
   }
@@ -157,10 +163,7 @@ export function createBiliDailyLoginProduct(platform) {
 
   async function clearDisabledState() {
     await chrome.alarms.clear(BILI_DAILY_ALARM);
-    await Promise.allSettled([
-      chrome.storage.local.remove(BILI_DAILY_ATTEMPT_KEY),
-      removeRequestHeaderRule()
-    ]);
+    await removeRequestHeaderRule();
   }
 
   async function clearUnavailableState() {
@@ -176,7 +179,7 @@ export function createBiliDailyLoginProduct(platform) {
   }
 
   async function deferUnavailableAttempt(signal) {
-    const nextPlan = nextBilibiliPlan(Date.now(), await lastAttemptSlot());
+    const nextPlan = await planFor();
     if (signal.aborted) return;
     await schedule(nextPlan.due
       ? Date.now() + BILI_DAILY_DEFER_MS
@@ -192,7 +195,7 @@ export function createBiliDailyLoginProduct(platform) {
       return;
     }
 
-    const plan = nextBilibiliPlan(Date.now(), await lastAttemptSlot());
+    const plan = await planFor(feature);
     if (signal.aborted) return;
     if (!plan.due) {
       await schedule(plan.when);
@@ -206,23 +209,28 @@ export function createBiliDailyLoginProduct(platform) {
     }
 
     const today = bilibiliDateKey();
-    let completed = false;
+    if (today !== plan.id) { await scheduleNext(signal); return; }
+    let reserved = false, completed = false;
     try {
       await withRequestHeaders(async () => {
+        if (signal.aborted || bilibiliDateKey() !== today) return;
+        // Reserve the day just before the first request so a restart cannot replay it.
+        await chrome.storage.local.set({ [BILI_DAILY_ATTEMPT_KEY]: today });
+        reserved = true;
         const account = await requestJson('https://api.bilibili.com/x/web-interface/nav', signal);
         if (account?.code === 0 && account?.data?.isLogin === true) {
           const reward = await requestJson('https://api.bilibili.com/x/member/web/exp/reward', signal);
           completed = reward?.code === 0 && reward?.data?.login === true;
         }
       });
-    } catch {}
+    } catch (error) {
+      if (!reserved && !signal.aborted) throw error;
+    }
     const latest = await platform.readSettings();
     if (signal.aborted || !latest.biliDailyLogin.enabled) {
       await clearDisabledState();
       return;
     }
-    await chrome.storage.local.set({ [BILI_DAILY_ATTEMPT_KEY]: plan.id });
-    if (signal.aborted) return;
     if (completed && latest.biliDailyLogin.lastCompletedDate !== today) {
       const saved = await platform.mutateSettings(current => signal.aborted || !current.biliDailyLogin.enabled ? current : ({
         ...current,

@@ -468,6 +468,11 @@ for (const [name, featureId] of [['page-display', 'pageDisplay'], ['xhs-image-da
       setTimeout(callback) { timers.set(++timerId, callback); return timerId; }, clearTimeout(id) { timers.delete(id); },
       chrome: { runtime: { sendMessage() { return new Promise((resolve, reject) => requests.push({ resolve, reject })); },
         onMessage: { addListener(fn) { message = fn; }, removeListener() {} } } } });
+    const mailtoKey = Symbol.for('cosmic-gemini.mailto-capture.runtime');
+    const installMailtoRuntime = () => { context[mailtoKey] = {
+      configure(config) { configs.push(config); return true; }, dispose() { delete context[mailtoKey]; }
+    }; };
+    if (featureId === 'mailtoCapture') installMailtoRuntime();
     runInContext(await readFile(new URL(`../extension/content/${name}/${name}-bridge.js`, import.meta.url), 'utf8'), context);
     const refresh = () => new Promise(resolve => message({ type: 'CG_REFRESH_FEATURE_CONFIG', featureId }, {}, resolve));
     const settle = () => new Promise(resolve => setImmediate(resolve));
@@ -492,6 +497,7 @@ for (const [name, featureId] of [['page-display', 'pageDisplay'], ['xhs-image-da
     assert.equal(context[Symbol.for(`cosmic-gemini.${name}.bridge`)], undefined);
     requests.length = 0;
     runInContext(await readFile(new URL(`../extension/content/${name}/${name}-bridge.js`, import.meta.url), 'utf8'), context);
+    if (featureId === 'mailtoCapture') installMailtoRuntime();
     const exhausted = refresh();
     for (let attempt = 0; attempt < 4; attempt++) {
       requests[attempt].reject(Error('unavailable')); await settle();

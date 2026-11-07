@@ -11,6 +11,8 @@ import { createDocumentRequestIngress, documentReplayOrigins, replayDocumentRequ
 import { formatDocumentBytes } from '../../../core/document-preview/document-preview.js';
 import { createDocumentUrlPreview } from '../../features/document-url-preview.js';
 
+const originOf = url => documentReplayOrigins([url])[0] || '';
+
 export function createDocumentPreviewProduct(platform, dependencies = {}) {
   const store = dependencies.store || documentStore;
   const ingress = dependencies.ingress || createDocumentRequestIngress();
@@ -86,6 +88,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
   async function prune(clearAll = false) {
     const tabs = clearAll ? [] : await tabsInContext();
     const sites = new Set(tabs.map(tab => siteKey(tab.url)).filter(Boolean));
+    const origins = new Set(tabs.map(tab => originOf(tab.url)).filter(Boolean));
     const openIds = clearAll ? new Set() : await openPreviews(tabs);
     const urlIds = clearAll ? new Set() : urlPreviews.retainedIds(tabs);
     const now = Date.now();
@@ -107,7 +110,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     const liveDocs = new Set(retained.map(doc => doc.id));
     const next = { ...state, documents: retained,
       workspaces: Object.fromEntries(Object.entries(state.workspaces).filter(([, record]) => liveDocs.has(record.id))),
-      choices: Object.fromEntries(Object.entries(state.choices).filter(([site]) => sites.has(site))),
+      choices: Object.fromEntries(Object.entries(state.choices).filter(([origin]) => origins.has(origin))),
       themes: Object.fromEntries(Object.entries(state.themes).filter(([site]) => sites.has(site) || retained.some(doc => doc.local && doc.site === site))) };
     try {
       // Keep expired entries discoverable until their bytes have been removed.
@@ -125,10 +128,10 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     }
     return sites;
   }
-  async function saveChoice(site, choice) {
+  async function saveChoice(origin, choice) {
     const previous = { ...state.choices };
-    if (choice) state.choices[site] = choice;
-    else delete state.choices[site];
+    if (choice) state.choices[origin] = choice;
+    else delete state.choices[origin];
     try { await persist(); }
     catch (error) { state.choices = previous; throw error; }
   }
@@ -298,7 +301,9 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
     });
   }
   async function present(doc, sourceTabId) {
-    const choice = state.choices[doc.site];
+    const tab = await chrome.tabs.get(sourceTabId);
+    if (originOf(tab.url) !== doc.ownerOrigin) throw Error('The source website changed.');
+    const choice = state.choices[doc.ownerOrigin];
     if (choice === 'preview' || choice === 'download') return open(doc, choice, sourceTabId);
     const locale = await platform.getLocale(), t = translator(locale);
     const payload = {
@@ -308,8 +313,6 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       labels: { title: 'Document Preview', close: t('documentClose'), preview: t('documentPreviewAction'), download: t('documentDownloadAction'), remember: t('documentRemember'), failed: t('documentActionFailed'), loading: t('documentLoading') }
     };
     try {
-      const tab = await chrome.tabs.get(sourceTabId);
-      if (siteKey(tab.url) !== doc.site) throw Error();
       const result = await chrome.scripting.executeScript({ target: { tabId: sourceTabId, frameIds: [0] }, world: 'ISOLATED', func: showDocumentChoice, args: [payload] });
       if (result[0]?.result !== true) throw Error();
     } catch { await open(doc, 'choose', sourceTabId); }
@@ -334,16 +337,19 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (!request || request.method !== 'GET') return;
       const tab = await sourceTab(request, item);
       const site = siteKey(tab?.url);
-      if (!site || !!tab.incognito !== platform.isIncognitoContext() || state.choices[site] === 'download') return;
+      const ownerOrigin = originOf(tab?.url);
+      if (!site || !ownerOrigin || !!tab.incognito !== platform.isIncognitoContext() || state.choices[ownerOrigin] === 'download') return;
+      // An embedded website cannot borrow the top site's remembered action or login.
+      if (request.initiator !== ownerOrigin && (request.initiator !== undefined || request.frameId > 0)) return;
       if (documentPreviewWhitelisted(tab.url, (await platform.readSettings()).documentPreview?.whitelistDomains)) return;
       // Replay the observed GET entry point, allowing it to refresh signed CDN
       // redirects rather than reusing a stale final URL.
       let url = request.originalUrl || item.url || item.finalUrl;
       if (!documentReplayOrigins([url]).length) return;
-      const sourceOrigin = new URL(tab.url).origin;
+      const sourceOrigin = request.initiator === ownerOrigin ? ownerOrigin : '';
       const replayOrigins = documentReplayOrigins([...(request.origins || []), request.originalUrl, request.url, item.url, item.finalUrl]);
       const filename = documentFilename(item), format = documentFormat(filename);
-      if (new URL(url).origin !== sourceOrigin) try {
+      if (sourceOrigin && new URL(url).origin !== sourceOrigin) try {
         const [source] = await chrome.scripting.executeScript({
           target: { tabId: tab.id, frameIds: [0] }, world: 'ISOLATED',
           func: canvasDocumentSource, args: [tab.url, filename, [request.originalUrl, item.url].filter(Boolean)]
@@ -358,15 +364,17 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       await serial(async () => {
         const sites = await prune();
         const settings = (await platform.readSettings()).documentPreview;
-        if (!sites.has(site) || !settings?.enabled || documentPreviewWhitelisted(tab.url, settings.whitelistDomains) || released) return;
+        const live = await chrome.tabs.get(tab.id).catch(() => null);
+        if (!sites.has(site) || originOf(live?.url) !== ownerOrigin || !settings?.enabled
+          || documentPreviewWhitelisted(tab.url, settings.whitelistDomains) || released) return;
         // Pending choices have independent lifetimes: dismissing one prompt
         // must not invalidate another prompt for the same download URL.
-        const existing = state.documents.find(doc => doc.prepared === true && doc.site === site && doc.sourceTabId === tab.id
+        const existing = state.documents.find(doc => doc.prepared === true && doc.ownerOrigin === ownerOrigin && doc.sourceOrigin === sourceOrigin && doc.sourceTabId === tab.id
           && doc.url === url && doc.filename === filename && doc.format === format);
         if (existing) savedDoc = existing;
         else {
           if (state.documents.length >= 64) return;
-          savedDoc = { id: crypto.randomUUID(), site, sourceTabId: tab.id, sourceOrigin, replayOrigins,
+          savedDoc = { id: crypto.randomUUID(), site, sourceTabId: tab.id, ownerOrigin, sourceOrigin, replayOrigins,
             filename, format, size: reportedSize, url, prepared: false, closedAt: Date.now() };
           state.documents.push(savedDoc); await persist();
           await scheduleCleanup();
@@ -402,7 +410,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
       if (!enabled) return { enabled: false, active: false, supported: /^https?:\/\//i.test(url || '') };
       await initialize();
       const site = siteKey(url);
-      return { enabled, active: !!site, supported: !!site, site, choice: state.choices[site] || 'ask' };
+      return { enabled, active: !!site, supported: !!site, site, choice: state.choices[originOf(url)] || 'ask' };
     },
     sync() { return false; },
     initialize,
@@ -456,7 +464,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
         if (tab?.id !== message.tabId) throw Error('The current page changed.');
         await initialize();
-        await serial(() => saveChoice(siteKey(tab.url)));
+        await serial(() => saveChoice(originOf(tab.url)));
         return { reset: true };
       }
       const workspace = senderUrl.split('#')[0] === chrome.runtime.getURL(DOCUMENT_PREVIEW_PATH);
@@ -478,7 +486,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         }
       }
       const doc = await currentDocument(id);
-      if (page && (tabId !== doc.sourceTabId || siteKey(context.sender.tab?.url) !== doc.site)) throw Error('The source website changed.');
+      if (page && (tabId !== doc.sourceTabId || originOf(context.sender.url) !== doc.ownerOrigin
+        || originOf(context.sender.tab?.url) !== doc.ownerOrigin)) throw Error('The source website changed.');
       if (message.type === 'UI_DOCUMENT_URL_READY') {
         if (!workspace || context.sender.frameId <= 0 || typeof message.ready !== 'boolean') throw Error('Document status unavailable.');
         urlPreviews.report(context.sender.tab.id, message.ready); return { ready: message.ready };
@@ -488,7 +497,7 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         const cached = doc.prepared ? await store.get(doc.id) : null;
         const prepared = !!cached?.blobUrl && cached.context === contextName && cached.epoch === state.epoch;
         return {
-          ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.site] || 'ask',
+          ...doc, epoch: state.epoch, context: contextName, choice: state.choices[doc.ownerOrigin] || 'ask',
           appearance: normalizeDocumentAppearance(preference?.appearance),
           pdfSampling: normalizePdfSampling(preference?.pdfSampling),
           siteTheme: state.themes[doc.site] || null,
@@ -519,8 +528,8 @@ export function createDocumentPreviewProduct(platform, dependencies = {}) {
         let prepared;
         try { prepared = await prepareDocument(doc.id); }
         catch (error) { await urlPreviews.abandon(target).catch(() => {}); throw error; }
-        if (message.remember) await serial(async () => {
-          await currentDocument(prepared.id); await saveChoice(prepared.site, message.action);
+        if (message.remember && prepared.ownerOrigin) await serial(async () => {
+          await currentDocument(prepared.id); await saveChoice(prepared.ownerOrigin, message.action);
         });
         const opened = page ? await open(prepared, message.action, context.sender.tab?.id, target) : null;
         return { action: message.action, prepared: true, size: prepared.size, urlPreview: opened?.urlPreview === true };

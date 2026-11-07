@@ -36,19 +36,41 @@ try {
   assert.equal((await send({ type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: true })).ok, true);
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
+  const cdp = await context.newCDPSession(page);
+  let isolatedId;
+  cdp.on('Runtime.executionContextCreated', ({ context }) => {
+    if (context.name === 'Cosmic Gemini' && context.auxData?.type === 'isolated') isolatedId = context.id;
+  });
+  await cdp.send('Runtime.enable');
+  const evaluate = async (fn, arg) => {
+    if (!isolatedId) return undefined;
+    const reply = await cdp.send('Runtime.evaluate', {
+      expression: '(' + fn.toString() + ')(' + JSON.stringify(arg) + ')',
+      contextId: isolatedId, awaitPromise: true, returnByValue: true
+    });
+    if (reply.exceptionDetails) throw Error(reply.exceptionDetails.exception?.description || reply.exceptionDetails.text);
+    return reply.result.value;
+  };
+  const waitFor = async (fn, arg) => {
+    for (let attempt = 0; attempt < 120; attempt++) {
+      if (await evaluate(fn, arg)) return;
+      await new Promise(resolve => setTimeout(resolve, 35));
+    }
+    throw Error('The isolated Mailto Capture runtime did not reach the expected state.');
+  };
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
-  await page.waitForFunction(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.active);
+  await waitFor(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.active);
   for (const [locale, scheme] of [['en-US', 'light'], ['zh-CN', 'dark']]) {
     await page.emulateMedia({ colorScheme: scheme });
     assert.equal((await send({ type: 'UI_SET_LOCALE', locale })).ok, true);
-    await page.waitForFunction(locale => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.locale === locale, locale);
+    await waitFor(locale => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.locale === locale, locale);
     await page.locator('#mail').click();
-    await page.waitForFunction(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.shadow?.querySelector('.university-name'));
-    await page.evaluate(async () => {
+    await waitFor(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.shadow?.querySelector('.university-name'));
+    await evaluate(async () => {
       const popover = globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')].shadow.querySelector('.popover');
       await Promise.allSettled(popover.getAnimations().map(animation => animation.finished));
     });
-    const snapshot = await page.evaluate(() => {
+    const snapshot = await evaluate(() => {
       const runtime = globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')];
       const shadow = runtime.shadow;
       const fields = [...shadow.querySelectorAll('.field')].map(field => ({
@@ -64,25 +86,25 @@ try {
     assert.deepEqual(snapshot.fields[2].entries, [['fixture@ntu.edu.tw', '国立台湾大学', ...(locale === 'en-US' ? ['National Taiwan University'] : []), locale === 'zh-CN' ? '中华台北' : 'Chinese Taipei']]);
     assert.deepEqual(snapshot.actions, [locale === 'zh-CN' ? '复制邮件内容' : 'Copy message']);
     assert.equal(snapshot.schoolFont, snapshot.addressFont);
-    assert.equal(await page.evaluate(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')].shadow.querySelectorAll('.university-english-name').length), locale === 'en-US' ? 2 : 0);
+    assert.equal(await evaluate(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')].shadow.querySelectorAll('.university-english-name').length), locale === 'en-US' ? 2 : 0);
     assert.equal(snapshot.overflow, false);
     assert.doesNotMatch(snapshot.copied, /University|Illinois|北京大学|中华台北/);
     await page.screenshot({ path: join(artifacts, `${locale}-${scheme}.png`) });
     if (locale === 'en-US') {
       assert.equal((await send({ type: 'UI_SET_LOCALE', locale: 'zh-CN' })).ok, true);
-      await page.waitForFunction(() => {
+      await waitFor(() => {
         const runtime = globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')];
         return runtime.locale === 'zh-CN' && !runtime.shadow.querySelector('.university-english-name');
       });
       assert.equal((await send({ type: 'UI_SET_LOCALE', locale: 'en-US' })).ok, true);
-      await page.waitForFunction(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')].shadow.querySelectorAll('.university-english-name').length === 2);
+      await waitFor(() => globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')].shadow.querySelectorAll('.university-english-name').length === 2);
     }
     await page.locator('#outside').click();
-    await page.waitForFunction(() => !globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.host?.isConnected);
+    await waitFor(() => !globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.host?.isConnected);
     results.push({ locale, scheme, ...snapshot });
   }
   assert.equal((await send({ type: 'UI_SET_ENABLED', featureId: 'mailtoCapture', enabled: false })).ok, true);
-  await page.waitForFunction(() => !globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.active);
+  await waitFor(() => !globalThis[Symbol.for('cosmic-gemini.mailto-capture.runtime')]?.active);
   assert.deepEqual(errors, []);
   assert.deepEqual(externalRequests, []);
   await writeFile(join(artifacts, 'report.json'), JSON.stringify({ results, errors, externalRequests, disabledCleanup: true }, null, 2));

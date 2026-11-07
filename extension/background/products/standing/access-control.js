@@ -33,7 +33,7 @@ function visitRuleIdStart(incognito) {
 
 function isVisitRule(rule, incognito) {
   const start = visitRuleIdStart(incognito);
-  return Number.isInteger(rule?.id) && rule.id >= start && rule.id < start + RULE_LIMIT;
+  return Number.isInteger(rule?.id) && rule.id >= start && rule.id < start + RULE_LIMIT * 2;
 }
 
 function navigationCondition(domain, tabIds = undefined) {
@@ -42,7 +42,7 @@ function navigationCondition(domain, tabIds = undefined) {
   return {
     ...(ipAddress
       ? { regexFilter: `^https?://(?:[^/@]*@)?${escapedHost}(?::\\d+)?(?:[/?#]|$)` }
-      : { urlFilter: `||${domain}^` }),
+      : { requestDomains: [domain] }),
     ...(tabIds ? { tabIds } : {}),
     resourceTypes: ['main_frame', 'sub_frame']
   };
@@ -57,12 +57,20 @@ function blockingRule(domain, id, scope) {
   };
 }
 
-function visitRule(domain, id, tabId) {
+function visitCondition(domain, tabId, frame) {
+  return {
+    ...navigationCondition(domain, [tabId]),
+    resourceTypes: [frame ? 'sub_frame' : 'main_frame'],
+    ...(frame ? { initiatorDomains: [domain] } : {})
+  };
+}
+
+function visitRule(domain, id, tabId, frame = false) {
   return {
     id,
     priority: 200,
     action: { type: 'allow' },
-    condition: navigationCondition(domain, [tabId])
+    condition: visitCondition(domain, tabId, frame)
   };
 }
 
@@ -95,7 +103,8 @@ function sameCondition(left, right) {
 
 function isVisitRuleFor(rule, domain, tabId) {
   return rule?.priority === 200 && rule?.action?.type === 'allow'
-    && sameCondition(rule.condition, navigationCondition(domain, [tabId]));
+    && (sameCondition(rule.condition, visitCondition(domain, tabId, false))
+      || sameCondition(rule.condition, visitCondition(domain, tabId, true)));
 }
 
 function isBlockingRuleFor(rule, domain, incognito, tabId) {
@@ -142,11 +151,12 @@ export function createAccessControlProduct(platform) {
 
   function foreignBlock(rules, tabId, url) {
     let hostname;
-    try { hostname = new URL(url).hostname.toLowerCase(); } catch { return false; }
+    try { hostname = new URL(url).hostname.toLowerCase().replace(/\.$/, ''); } catch { return false; }
     return rules.some(rule => {
       if (!isOwnedRule(rule, !platform.isIncognitoContext()) || rule.action?.type !== 'block') return false;
       if (rule.condition?.excludedTabIds?.includes(tabId)) return false;
       if (rule.condition?.tabIds && !rule.condition.tabIds.includes(tabId)) return false;
+      if (rule.condition?.requestDomains?.some(domain => hostnameMatchesDomain(hostname, domain))) return true;
       const filter = rule.condition?.urlFilter;
       if (filter?.startsWith('||') && filter.endsWith('^')) return hostnameMatchesDomain(hostname, filter.slice(2, -1));
       try { return !!rule.condition?.regexFilter && new RegExp(rule.condition.regexFilter).test(url); } catch { return false; }
@@ -191,7 +201,8 @@ export function createAccessControlProduct(platform) {
       // block rule was installed instead of interpreting details.error.
       const rules = await chrome.declarativeNetRequest.getSessionRules();
       if (!rules.some(rule => domains.some(domain => isBlockingRuleFor(rule, domain, platform.isIncognitoContext(), details.tabId)))
-        || rules.some(rule => domains.some(domain => isVisitRuleFor(rule, domain, details.tabId)))) return;
+        || rules.some(rule => rule.condition?.resourceTypes?.[0] === 'main_frame'
+          && domains.some(domain => isVisitRuleFor(rule, domain, details.tabId)))) return;
       const tab = await chrome.tabs.get(details.tabId).catch(() => null);
       if (!tab || !!tab.incognito !== platform.isIncognitoContext()) return;
       if (tab.status !== 'loading' && !tab.pendingUrl && await loadedDocument(tab.id, tab.url)) return;
@@ -363,7 +374,8 @@ export function createAccessControlProduct(platform) {
   async function hasVisitRule(tabId, url, settings) {
     const domains = matchingBlockedDomains(settings, url);
     if (!Number.isInteger(tabId) || !domains.length) return false;
-    return (await visitRules()).some(rule => domains.some(domain => isVisitRuleFor(rule, domain, tabId)));
+    return (await visitRules()).some(rule => rule.condition?.resourceTypes?.includes('main_frame')
+      && domains.some(domain => isVisitRuleFor(rule, domain, tabId)));
   }
 
   async function removeVisitRules(tabId, keepUrl = '', settings = null) {
@@ -402,18 +414,19 @@ export function createAccessControlProduct(platform) {
     const occupied = new Set(rules.filter(rule => !removeRuleIds.includes(rule.id)).map(rule => rule.id));
     const start = visitRuleIdStart(incognito);
     let id = start;
-    while (id < start + RULE_LIMIT && occupied.has(id)) id += 1;
+    while (id < start + RULE_LIMIT && (occupied.has(id) || occupied.has(id + RULE_LIMIT))) id += 1;
     if (id >= start + RULE_LIMIT) throw new Error('Access Control has reached its temporary visit limit.');
+    const frameId = id + RULE_LIMIT;
     await assertVisitSource(tabId, expected);
     await chrome.declarativeNetRequest.updateSessionRules({
       ...(removeRuleIds.length ? { removeRuleIds } : {}),
-      addRules: [visitRule(domain, id, tabId)]
+      addRules: [visitRule(domain, id, tabId), visitRule(domain, frameId, tabId, true)]
     });
     try {
       await assertVisitSource(tabId, expected);
       await chrome.tabs.update(tabId, { url });
     } catch (error) {
-      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id], addRules: replacedVisits });
+      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id, frameId], addRules: replacedVisits });
       throw error;
     }
     return { allowed: true, domain };

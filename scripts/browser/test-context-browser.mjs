@@ -31,6 +31,7 @@ try {
  await regularPage.goto(host('site'));await privatePage.goto(host('site'));
  assert.equal(await regularPage.locator('meta[name=google]').count(),0);
  assert.equal(await privatePage.locator('meta[name=google]').count(),1);
+ await regularPage.waitForFunction(()=>globalThis[Symbol.for('cosmic-gemini.website-fixer.stay')]===true);
  assert.equal(await allowsLink(regularPage),false);assert.equal(await allowsLink(privatePage),true);
  await assert.rejects(regularPage.goto(host('blocked')),/ERR_BLOCKED_BY_CLIENT/);
  await privatePage.goto(host('blocked'));

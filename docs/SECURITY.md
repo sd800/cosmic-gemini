@@ -24,6 +24,8 @@ Original-address previews begin only from an explicit Preview choice for a same-
 
 Standalone readers bind document operations to tabs created for the document. A copied reader address does not convey authority. When the user selects a captured download, replay follows only origins recorded in its original browser download route. The original source origin can use its own session credentials, while signed redirects on other origins use their URL tokens.
 
+Remembered preview choices are keyed by exact origin. Download correlation requires a single browser-observed source across the matching tab, frame, and initiator. Downloads initiated by foreign frames keep Chrome's normal handling and cannot reuse the host's remembered choice or credentials.
+
 Document and PDF display run in opaque manifest sandboxes without extension APIs or same-origin access to the host. A sandbox accepts its private MessagePort only from its immediate parent with the exact owning extension origin, derived from its packaged module URL. Initialization is single-use and disabled after disposal. PDF parser startup follows this authenticated handshake.
 
 Sandbox CSP blocks remote resources, nested frames, embedded objects, form navigation, and evaluated scripts. Only packaged controllers execute. Office/mail markup is reconstructed using tag, attribute, style, image, and namespace allowlists before insertion. Source scripts, event handlers, arbitrary CSS, active objects, and remote images are excluded. Embedded raster images are inspected before browser decoding, including byte size, dimensions, animated-frame budgets, and cumulative pixel cost; repeated identical sources share the same budget entry. PDF scripting, XFA, editing, and active annotation layers are not enabled.
@@ -36,7 +38,11 @@ Processors execute packaged code and accept metadata and suggested URLs only as 
 
 External Links Capture validates bounded targets and rejects executable, local-file, and browser-internal schemes. Document links require a separate user action to open; application protocols require explicit confirmation. Mailto/tel/sms offer copying only. A link is never followed to populate document metadata.
 
+Mailto Capture keeps its controls and configuration in the extension's isolated world. A trusted click on the copy button authorizes the clipboard write. Scheduled Bili Daily Login requests stay on their configured endpoints and reject redirects before contacting another destination.
+
 Domain lists are normalized as host data. Navigation controls apply to website-initiated actions, while browser-owned user actions retain their normal behavior. Chrome provides the underlying browser isolation.
+
+Access Control matches hostnames through Chrome's native domain conditions, including equivalent DNS spellings. A temporary visit applies to the approved tab. Within that tab, a subframe can use the allowance only for requests initiated by the approved domain.
 
 Ordinary/private sessions remain separated. Document content and local file references stay in the offscreen memory store without a disk document cache; settings and bounded session metadata are stored only for their documented purpose. Never write private document contents, full browsing captures, credentials, or access tokens into logs, tests, screenshots, or repository notes.
 

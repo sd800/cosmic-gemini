@@ -280,7 +280,7 @@ function environment({ enabled = true, fetchResult, method = 'GET', incognito = 
   const tabs = [{ id: 1, url: 'https://a.example.com/article', incognito }, { id: 2, url: 'https://b.example.com/other', incognito }];
   let settings = normalizeSettings({ documentPreview: { enabled } });
   const store = { get: async id => files.get(id), all: async () => [...files.values()], put: async doc => { files.set(doc.id, { ...doc, blobUrl: 'blob:chrome-extension://test/' + doc.id }); calls.push('store'); }, remove: async id => files.delete(id) };
-  const ingress = { setEnabled(value) { calls.push(['enabled', value]); }, take: () => ({ method, tabId: 1 }) };
+  const ingress = { setEnabled(value) { calls.push(['enabled', value]); }, take: () => ({ method, tabId: 1, initiator: new URL(tabs[0].url).origin }) };
   globalThis.fetch = async (...args) => { calls.push('fetch'); return fetchResult ? fetchResult(...args) : new Response(sampleDocx()); };
   globalThis.chrome = {
     runtime: { id: 'test', getURL: path => 'chrome-extension://test/' + path },
@@ -508,17 +508,18 @@ test('preparation rechecks a disabled setting after the response finishes', asyn
   assert.equal(env.documents()[0].prepared, false);
 });
 
-test('website choice spans subdomains and ends only after the last matching tab leaves', async () => {
+test('remembered website choice is scoped to the exact source origin', async () => {
   const env = environment(); await env.capture(); await env.settle();
   const doc = env.documents()[0];
   await env.choose(doc, 'download', true);
   assert.equal(env.files.size,1); assert.ok(env.calls.includes('fetch'));
   assert.match(env.calls.find(value=>value[0]==='open')[1].url,/mode=download/);
-  assert.equal((await env.product.state({ documentPreview: { enabled: true } }, env.tabs[1].id, env.tabs[1].url)).choice, 'download');
+  assert.equal((await env.product.state({ documentPreview: { enabled: true } }, env.tabs[1].id, env.tabs[1].url)).choice, 'ask');
   const fetchCount = env.calls.filter(value => value === 'fetch').length;
   await env.capture();
   assert.equal(env.calls.filter(value => value === 'fetch').length, fetchCount, 'remembered Download releases the original task');
   env.tabs.shift(); await env.product.handleTabRemoved(1); assert.equal(env.files.size, 1);
+  assert.deepEqual(env.saved['documentPreview:regular'].choices, {});
   env.tabs[0].url = 'https://elsewhere.test'; await env.product.handleTabUpdated(2, { url: env.tabs[0].url });
   assert.equal(env.files.size, 0); assert.deepEqual(env.saved['documentPreview:regular'].choices, {});
 });
@@ -526,7 +527,10 @@ test('website choice spans subdomains and ends only after the last matching tab 
 test('a closed target-blank download tab falls back only to its unique live referrer', async () => {
   const env = environment();
   env.ingress.take = () => ({ method: 'GET', tabId: 99 });
-  globalThis.chrome.tabs.get = async () => { throw Error('No tab'); };
+  globalThis.chrome.tabs.get = async id => {
+    if (id === 99) throw Error('No tab');
+    return env.tabs.find(tab => tab.id === id);
+  };
   await env.capture({ referrer: env.tabs[0].url }); await env.settle();
   assert.ok(env.calls.includes('cancel'));
   assert.equal(env.documents()[0].site, 'example.com'); assert.equal(env.files.size, 0);

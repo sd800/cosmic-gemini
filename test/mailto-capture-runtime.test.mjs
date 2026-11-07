@@ -752,9 +752,7 @@ test('Mailto Capture recognizes and formats compact international telephone refe
   );
   assert.equal(runtime.parseTel('tel:+44-20-7946-0958').location, 'United Kingdom');
   assert.equal(runtime.parseSms('sms:+86-10-1234-5678').locations[0].location, 'Beijing, China');
-  runtime.onConfigure({
-    detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } })
-  });
+  runtime.configure({ active: true, locale: 'zh-CN' });
   assert.equal(runtime.parseTel('tel:+44-20-7946-0958').location, '英国');
   assert.equal(runtime.parseSms('sms:+86-571-1234-5678').locations[0].location, '中国 浙江 杭州');
   assert.equal(runtime.parseTel('tel:+1-312-555-0100').location, 'Chicago, Illinois, USA');
@@ -777,7 +775,7 @@ test('Telephone region names stay consistent across locales and browser name dat
     assert.equal(phone.inspect(number, 'zh-CN').location, univDomains.lookup(`person@${domain}`, 'zh-CN').region);
   }
   assert.equal(runtime.parseTel('tel:+85223456789').location, 'Hong Kong, China');
-  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } }) });
+  runtime.configure({ active: true, locale: 'zh-CN' });
   assert.equal(runtime.parseSms('sms:+85328312345').locations[0].location, '中国澳门');
 });
 
@@ -864,9 +862,7 @@ test('Mailto Capture preserves text-message recipients, body, and extension fiel
 
 test('Mailto Capture intercepts trusted mailto, tel, and sms activation and releases every listener when disabled', async () => {
   const { context, runtime } = await runtimeFixture();
-  runtime.onConfigure({
-    detail: JSON.stringify({ token: runtime.token, config: { active: true, locale: 'zh-CN' } })
-  });
+  runtime.configure({ active: true, locale: 'zh-CN' });
   const anchor = new FakeAnchor('MAILTO:person@example.com?subject=Hello');
   let shown = null;
   runtime.show = (target, href) => { shown = { target, href }; };
@@ -909,9 +905,9 @@ test('Mailto Capture intercepts trusted mailto, tel, and sms activation and rele
   assert.equal(runtime.locale, 'zh-CN');
   assert.equal(context.window.listeners.get('click').includes(runtime.onActivate), true);
 
-  runtime.onConfigure({ detail: JSON.stringify({ token: runtime.token, config: { active: false } }) });
+  runtime.configure({ active: false });
   assert.equal(context.window.listeners.get('click').includes(runtime.onActivate), false);
-  runtime.onDispose({ detail: runtime.token });
+  runtime.dispose();
   assert.equal(context[Symbol.for('cosmic-gemini.mailto-capture.runtime')], undefined);
   assert.equal(context[Symbol.for('cosmic-gemini.mailto-capture.nanp')], undefined);
   assert.equal(context[Symbol.for('cosmic-gemini.mailto-capture.phone')], undefined);

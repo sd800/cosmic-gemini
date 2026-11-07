@@ -1,11 +1,7 @@
 (() => {
   const BRIDGE_KEY = Symbol.for('cosmic-gemini.mailto-capture.bridge');
+  const RUNTIME_KEY = Symbol.for('cosmic-gemini.mailto-capture.runtime');
   if (globalThis[BRIDGE_KEY]) { globalThis[BRIDGE_KEY].reconnect?.(); return; }
-  const READY = 'cosmic-gemini:mailto-capture:bridge-ready';
-  const MAIN_READY = 'cosmic-gemini:mailto-capture:main-ready';
-  const CONFIGURE = 'cosmic-gemini:mailto-capture:configure';
-  const DISPOSE = 'cosmic-gemini:mailto-capture:dispose';
-  let token = '';
   let disposed = false;
   let retryTimer = 0;
   let retryResolve = null;
@@ -20,9 +16,6 @@
     }
   };
 
-  const dispatchConfig = config => {
-    if (token) window.dispatchEvent(new CustomEvent(CONFIGURE, { detail: JSON.stringify({ token, config }) }));
-  };
   const finishRetry = () => {
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = 0;
@@ -31,16 +24,12 @@
     resolve?.();
   };
   const dispose = (confirmed = false) => {
-    // Keep only the internal stop receipt until the host confirms MAIN cleanup.
-    // A page rebuild may have erased the MAIN dispose listener.
     if (confirmed) { try { chrome.runtime.onMessage.removeListener(onMessage); } catch {} }
     if (disposed) return;
     disposed = true;
     configRevision += 1;
     finishRetry();
-    dispatchConfig({ active: false });
-    if (token) window.dispatchEvent(new CustomEvent(DISPOSE, { detail: token }));
-    window.removeEventListener(MAIN_READY, onMainReady, true);
+    globalThis[RUNTIME_KEY]?.dispose();
     try { delete globalThis[BRIDGE_KEY]; } catch {}
   };
   const route = () => {
@@ -57,8 +46,7 @@
         const config = response?.result?.mailtoCapture;
         if (!response?.ok) throw new Error(response?.error || 'Configuration is temporarily unavailable.');
         if (!config?.active) { dispose(); return false; }
-        dispatchConfig(config);
-        return true;
+        return globalThis[RUNTIME_KEY]?.configure(config) === true;
       } catch {
         if (disposed) return false;
         if (revision !== configRevision || requestedRoute !== route()) continue;
@@ -80,12 +68,6 @@
     if (!pendingConfig) pendingConfig = readConfig().finally(() => { pendingConfig = null; });
     return pendingConfig;
   };
-  function onMainReady(event) {
-    if (typeof event.detail !== 'string' || !event.detail) return;
-    if (token && token !== event.detail) configRevision += 1;
-    token = event.detail;
-    void requestConfig();
-  }
   function onMessage(message, _sender, sendResponse) {
     if (message?.type === 'CG_STOP_CENTRAL_FEATURE' && message.featureId === 'mailtoCapture') {
       dispose(true);
@@ -100,9 +82,7 @@
   }
 
   function reconnect() {
-    if (disposed) return;
-    window.addEventListener(MAIN_READY, onMainReady, true);
-    window.dispatchEvent(new CustomEvent(READY));
+    if (!disposed && globalThis[RUNTIME_KEY]) void requestConfig();
   }
   chrome.runtime.onMessage.addListener(onMessage);
   Object.defineProperty(globalThis, BRIDGE_KEY, { value: { dispose, reconnect }, configurable: true });

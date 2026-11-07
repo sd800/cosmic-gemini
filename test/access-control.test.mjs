@@ -53,9 +53,9 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
   };
   const product = createAccessControlProduct(platform);
   await product.reconcile();
-  assert.deepEqual(installed.map(rule => [rule.id, rule.condition.urlFilter]), [
-    [920001, '||example.com^'],
-    [920002, '||media.example^']
+  assert.deepEqual(installed.map(rule => [rule.id, rule.condition.requestDomains?.[0]]), [
+    [920001, 'example.com'],
+    [920002, 'media.example']
   ]);
   assert.deepEqual(installed[0].condition.resourceTypes, ['main_frame', 'sub_frame']);
   const installedOnce = updates.length;
@@ -67,8 +67,8 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
   }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
   assert.deepEqual(saved.blockedDomains, ['example.com', 'media.example', 'docs.example.com']);
   await product.reconcile();
-  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), [
-    '||example.com^', '||media.example^', '||docs.example.com^'
+  assert.deepEqual(installed.map(rule => rule.condition.requestDomains?.[0]), [
+    'example.com', 'media.example', 'docs.example.com'
   ]);
 
   await product.handleMessage({
@@ -79,8 +79,8 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
   }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
   assert.deepEqual(reordered.blockedDomains, ['media.example', 'docs.example.com', 'example.com']);
   await product.reconcile();
-  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), [
-    '||media.example^', '||docs.example.com^', '||example.com^'
+  assert.deepEqual(installed.map(rule => rule.condition.requestDomains?.[0]), [
+    'media.example', 'docs.example.com', 'example.com'
   ]);
 
   const alphabetized = await product.handleMessage({
@@ -88,8 +88,8 @@ test('Access Control installs root-and-subdomain navigation blocks and removes t
   }, { sender: { url: 'chrome-extension://test/settings/satellites.html' } });
   assert.deepEqual(alphabetized.blockedDomains, ['docs.example.com', 'example.com', 'media.example']);
   await product.reconcile();
-  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), [
-    '||docs.example.com^', '||example.com^', '||media.example^'
+  assert.deepEqual(installed.map(rule => rule.condition.requestDomains?.[0]), [
+    'docs.example.com', 'example.com', 'media.example'
   ]);
 
   const appended = await product.handleMessage({
@@ -149,7 +149,7 @@ test('foreign-context block recovery respects newer navigation and current setti
     let settings = normalizeSettings(), listener;
     const url = 'https://blocked.example/file';
     let installed = [{ id: 922001, priority: 100, action: { type: 'block' },
-      condition: { urlFilter: '||blocked.example^', resourceTypes: ['main_frame', 'sub_frame'] } }];
+      condition: { requestDomains: ['blocked.example'], resourceTypes: ['main_frame', 'sub_frame'] } }];
     const updates = [];
     const tab = { id: 7, incognito: false, url,
       ...(scenario === 'new-navigation' ? { pendingUrl: 'https://another.example/' } : {}) };
@@ -319,8 +319,12 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
   const visit = installed.find(rule => rule.action.type === 'allow');
   assert.equal(visit.id, 924001);
   assert.equal(visit.priority, 200);
-  assert.equal(visit.condition.urlFilter, '||example.com^');
+  assert.equal(visit.condition.requestDomains?.[0], 'example.com');
   assert.deepEqual(visit.condition.tabIds, [17]);
+  assert.deepEqual(visit.condition.resourceTypes, ['main_frame']);
+  const subframe = installed.find(rule => rule.id === visit.id + 1000);
+  assert.deepEqual(subframe.condition, { requestDomains: ['example.com'], tabIds: [17],
+    resourceTypes: ['sub_frame'], initiatorDomains: ['example.com'] });
   assert.equal((await product.state(settings, tab.url, tab.id)).blocked, false);
   assert.equal((await product.state(settings, tab.url, tab.id)).temporarilyAllowed, true);
 
@@ -406,7 +410,7 @@ test('Access Control uses the toolbar button to retry a blocked navigation in th
 test('Access Control restores the previous visit if a new retry fails', async () => {
   const tab = { id: 31, windowId: 4, active: true, incognito: false, url: 'chrome-error://chromewebdata/' };
   const previousVisit = { id: 924001, priority: 200, action: { type: 'allow' },
-    condition: { urlFilter: '||example.com^', tabIds: [tab.id], resourceTypes: ['main_frame', 'sub_frame'] } };
+    condition: { requestDomains: ['example.com'], tabIds: [tab.id], resourceTypes: ['main_frame'] } };
   let installed = [previousVisit], failRetry = true;
   const session = new Map();
   const popups = new Map([[tab.id, '']]);
@@ -448,8 +452,8 @@ test('Access Control restores the previous visit if a new retry fails', async ()
 
   failRetry = false;
   assert.deepEqual(await product.handleActionClicked(tab), { allowed: true, domain: 'other.example' });
-  assert.deepEqual(installed.filter(rule => rule.action.type === 'allow').map(rule => rule.condition.urlFilter),
-    ['||other.example^']);
+  assert.deepEqual(installed.filter(rule => rule.action.type === 'allow').map(rule => rule.condition.requestDomains?.[0]),
+    ['other.example', 'other.example']);
   assert.equal(session.has('accessControlPendingVisit:31'), false);
 });
 
@@ -536,12 +540,12 @@ test('Access Control does not save a new blocked site when network rules cannot 
   await assert.rejects(access.handleMessage(message, context), /network rules unavailable/);
   failNetwork = false;
   assert.deepEqual(settings.accessControl.blockedDomains, ['example.com']);
-  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), ['||example.com^']);
+  assert.deepEqual(installed.map(rule => rule.condition.requestDomains?.[0]), ['example.com']);
 
   transientFailures = 1;
   const recovered = await access.handleMessage(message, context);
   assert.deepEqual(recovered.blockedDomains, ['example.com', 'another.test']);
-  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), ['||example.com^', '||another.test^']);
+  assert.deepEqual(installed.map(rule => rule.condition.requestDomains?.[0]), ['example.com', 'another.test']);
   await access.handleMessage({ ...message, type: 'UI_DELETE_RULE' }, context);
 
   ignoreNetworkUpdate = true;
@@ -553,6 +557,6 @@ test('Access Control does not save a new blocked site when network rules cannot 
   await assert.rejects(access.handleMessage(message, context), /settings unavailable/);
   failStorage = false;
   assert.deepEqual(settings.accessControl.blockedDomains, ['example.com']);
-  assert.deepEqual(installed.map(rule => rule.condition.urlFilter), ['||example.com^'],
+  assert.deepEqual(installed.map(rule => rule.condition.requestDomains?.[0]), ['example.com'],
     'a failed settings write restores the previous network block list');
 });

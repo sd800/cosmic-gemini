@@ -4,10 +4,7 @@ export const BILI_DAILY_DEFER_MS = 60 * 60 * 1000;
 
 const CHINA_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const WINDOWS = Object.freeze([
-  Object.freeze({ id: 'daytime', hour: 10, minute: 5 }),
-  Object.freeze({ id: 'evening', hour: 18, minute: 5 })
-]);
+const CHECK_OFFSET_MS = (10 * 60 + 5) * 60 * 1000;
 
 function chinaParts(now) {
   const shifted = new Date(Number(now) + CHINA_OFFSET_MS);
@@ -20,13 +17,6 @@ function chinaParts(now) {
   };
 }
 
-function slot(date, dayStart, window) {
-  return {
-    id: `${date}:${window.id}`,
-    when: dayStart + (window.hour * 60 + window.minute) * 60 * 1000
-  };
-}
-
 export function bilibiliDateKey(now = Date.now()) {
   return chinaParts(now).date;
 }
@@ -35,27 +25,17 @@ export function browserReportsOffline(navigatorValue = globalThis.navigator) {
   return navigatorValue?.onLine === false;
 }
 
-export function nextBilibiliPlan(now = Date.now(), lastAttemptSlot = '') {
+export function nextBilibiliPlan(now = Date.now(), lastAttempt = '') {
   const current = Number(now);
   const { date, dayStart } = chinaParts(current);
-  const daytime = slot(date, dayStart, WINDOWS[0]);
-  const evening = slot(date, dayStart, WINDOWS[1]);
-
-  if (current < daytime.when) return { ...daytime, due: false };
-  if (current < evening.when) {
-    return lastAttemptSlot === daytime.id || lastAttemptSlot === evening.id
-      ? { ...evening, due: false }
-      : { ...daytime, when: current, due: true };
+  const scheduled = dayStart + CHECK_OFFSET_MS;
+  // Either legacy time slot counts as the day's attempt after upgrading.
+  if (lastAttempt.split(':', 1)[0] === date) {
+    return { id: bilibiliDateKey(current + DAY_MS), when: scheduled + DAY_MS, due: false };
   }
-  if (lastAttemptSlot !== evening.id) return { ...evening, when: current, due: true };
-
-  const tomorrow = new Date(current + DAY_MS + CHINA_OFFSET_MS).toISOString().slice(0, 10);
-  return {
-    ...slot(tomorrow, dayStart + DAY_MS, WINDOWS[0]),
-    due: false
-  };
+  return { id: date, when: Math.max(current, scheduled), due: current >= scheduled };
 }
 
-export function nextBilibiliSchedule(now = Date.now(), lastAttemptSlot = '') {
-  return nextBilibiliPlan(now, lastAttemptSlot).when;
+export function nextBilibiliSchedule(now = Date.now(), lastAttempt = '') {
+  return nextBilibiliPlan(now, lastAttempt).when;
 }

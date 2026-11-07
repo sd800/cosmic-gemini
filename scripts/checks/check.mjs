@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.7.5');
+assert.equal(manifest.version, '26.11.7.6');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 const packageMetadata = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
 assert.equal(packageMetadata.version, manifest.version);
@@ -495,7 +495,7 @@ assert.match(standing, /createAccessControlProduct/);
 assert.match(standing, /createAdMarshalProduct/);
 assert.match(central, /FEATURE_IDS\.CLIPBOARD_PROTECT[\s\S]*FEATURE_IDS\.ACCESS_CONTROL[\s\S]*FEATURE_IDS\.WEBSITE_KNOWLEDGE_CONTROL/);
 assert.match(accessControl, /getSessionRules[\s\S]*updateSessionRules/);
-assert.match(accessControl, /urlFilter: `\|\|\$\{domain\}\^`[\s\S]*'main_frame', 'sub_frame'/);
+assert.match(accessControl, /requestDomains: \[domain\][\s\S]*'main_frame', 'sub_frame'/);
 assert.match(central, /chrome\.action\.onClicked\.addListener/);
 assert.match(accessControl, /webRequest\?\.onErrorOccurred/);
 assert.match(accessControl, /chrome\.action\.setPopup/);

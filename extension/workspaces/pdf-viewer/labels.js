@@ -9,8 +9,8 @@ export const labels = {
 Object.assign(labels['en-US'], {properties:'Document properties', propertiesLoading:'Reading document properties…', propertiesUnavailable:'Some document properties could not be read.', fileName:'File name', fileUrl:'File URL', fileSize:'File size', documentTitle:'Title', author:'Author', subject:'Subject', keywords:'Keywords', created:'Created', modified:'Modified', application:'Application', producer:'PDF producer', pdfVersion:'PDF version', pageCount:'Page count', pageSize:'Page size', fastWebView:'Fast web view', yes:'Yes', no:'No'});
 Object.assign(labels['zh-CN'], {properties:'文档信息', propertiesLoading:'正在读取文档信息…', propertiesUnavailable:'部分文档信息无法读取。', fileName:'文件名', fileUrl:'文件 URL', fileSize:'文件大小', documentTitle:'标题', author:'作者', subject:'主题', keywords:'关键词', created:'创建时间', modified:'修改时间', application:'创建应用', producer:'PDF 生成程序', pdfVersion:'PDF 版本', pageCount:'页数', pageSize:'页面尺寸', fastWebView:'快速 Web 查看', yes:'是', no:'否'});
 
-Object.assign(labels['en-US'],{themeMenu:'Appearance',themeAuto:'Auto',themeLight:'Light',themeDark:'Dark',themeGlobal:'All pages',themePage:'Current page'});
-Object.assign(labels['zh-CN'],{themeMenu:'外观',themeAuto:'自动',themeLight:'浅色',themeDark:'深色',themeGlobal:'全部页面',themePage:'当前页'});
+Object.assign(labels['en-US'],{themeMenu:'Appearance',themeAuto:'Auto',themeLight:'Light',themeDark:'Dark',themeOriginal:'Original',themeGlobal:'All pages',themePage:'Current page'});
+Object.assign(labels['zh-CN'],{themeMenu:'外观',themeAuto:'自动',themeLight:'浅色',themeDark:'深色',themeOriginal:'原色',themeGlobal:'全部页面',themePage:'当前页'});
 
 Object.assign(labels['en-US'],{themeFollowDocument:'Follow the appearance of all pages'});
 Object.assign(labels['zh-CN'],{themeFollowDocument:'跟随全部页面的外观'});

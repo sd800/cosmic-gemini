@@ -1,3 +1,4 @@
+import { isPdfAppearance } from '../../core/document-preview/document-appearance.js';
 import { createPageAppearance } from './page-appearance.js';
 import { createAppearanceMenu } from './appearance-menu.js';
 import { showReaderDialog } from './dialog.js';
@@ -18,7 +19,7 @@ let port, task, pdf, viewer, pdfWorker, parseTimer, destroyed = false, firstPage
 const lifetime = new AbortController(), signal = lifetime.signal;
 const eventBus = new EventBus(), viewport = $('viewport');
 let workerReady;
-const pageAppearance=createPageAppearance({pages:$('pages'),thumbnails:$('thumbnails'),getDark:()=>themeDark});
+const pageAppearance=createPageAppearance({root:document.documentElement,getPage:page=>viewer?.getPageView(page-1)?.div,thumbnails:$('thumbnails'),getDark:()=>themeDark && themeMode !== 'original'});
 let thumbnailObserver, thumbnailTask, thumbnailBusy = false, thumbnailGeneration = 0, outlineLoaded = false;
 const nearThumbnails = new Set(), thumbnailCache = new Map(), printUrls = new Set();
 let documentFilename, documentUrl = '', documentBytes = 0, properties;
@@ -47,7 +48,7 @@ function syncRenderProgress() {
   }
 }
 function theme(dark, mode = themeMode) {
-  if(['auto','light','dark'].includes(mode))themeMode=mode;
+  if(isPdfAppearance(mode))themeMode=mode;
   if (destroyed) return;
   themeDark = !!dark; pageAppearance.apply();
   document.documentElement.dataset.dark = String(themeDark);
@@ -117,7 +118,7 @@ window.addEventListener('message', event => {
   $('filename').setAttribute('aria-label', $('filename').title);
   theme(input.dark,input.themeMode); status('loading', true);
   setReaderIcons(document);
-  appearanceMenu=createAppearanceMenu({text,signal,getMode:scope=>scope==='page'?pageAppearance.get(viewer?.currentPageNumber||1):themeMode,getPage:()=>viewer?.currentPageNumber||1,onChoose:(mode,scope,page)=>{if(scope==='page'){pageAppearance.set(page,mode);for(const view of viewer?.getCachedPageViews()||[])updateDarkPaper(view);}else port?.postMessage({type:'theme',mode});}});
+  appearanceMenu=createAppearanceMenu({text,signal,includeOriginal:true,getMode:scope=>scope==='page'?pageAppearance.get(viewer?.currentPageNumber||1):themeMode,getPage:()=>viewer?.currentPageNumber||1,onChoose:(mode,scope,page)=>{if(scope==='page'){pageAppearance.set(page,mode);for(const view of viewer?.getCachedPageViews()||[])updateDarkPaper(view);}else port?.postMessage({type:'theme',mode});}});
   emit('shell-ready');
   // Keep form navigation forbidden by the sandbox, including method=dialog.
   // These controls only validate local input and close the local dialog.
@@ -190,7 +191,7 @@ async function open(bytes, sampling) {
     syncRenderProgress();
   }, { signal });
   eventBus.on('pagesinit', () => {
-    pageAppearance.apply(); appearanceMenu?.refresh();
+    appearanceMenu?.refresh();
     for (const control of document.querySelectorAll('header nav button, header nav input, header nav select')) control.disabled = false;
     viewer.currentScaleValue = '1';
     // Setting the initial scale aligns the first paper edge with the viewport.
@@ -335,8 +336,8 @@ async function renderLinks(number, linkService) {
 }
 function createThumbnails() {
   const fragment = document.createDocumentFragment();
-  for (let i = 1; i <= pdf.numPages; i++) { const button = document.createElement('button'); button.className = 'thumbnail'; button.dataset.page = i; button.toggleAttribute('data-original-dark', darkPaper.get(i) === 2); button.textContent = String(i); button.title = text.page + ' ' + i; button.onclick = () => { viewer.currentPageNumber = i; }; fragment.append(button); }
-  $('thumbnails').append(fragment); pageAppearance.apply();
+  for (let i = 1; i <= pdf.numPages; i++) { const button = document.createElement('button'); button.className = 'thumbnail'; button.dataset.page = i; pageAppearance.applyOverride(button, i); button.toggleAttribute('data-original-dark', darkPaper.get(i) === 2); button.textContent = String(i); button.title = text.page + ' ' + i; button.onclick = () => { viewer.currentPageNumber = i; }; fragment.append(button); }
+  $('thumbnails').append(fragment);
   thumbnailObserver = new IntersectionObserver(entries => { for (const entry of entries) { if (entry.isIntersecting) nearThumbnails.add(entry.target); else nearThumbnails.delete(entry.target); } void drawThumbnails(); }, { root: $('sidebar'), rootMargin: '160px' });
   for (const node of $('thumbnails').children) thumbnailObserver.observe(node);
 }

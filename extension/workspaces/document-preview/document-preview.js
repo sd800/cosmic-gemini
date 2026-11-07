@@ -92,13 +92,14 @@ zoomReset.onclick = () => updateZoom(100);
 for (const [button, key] of [[zoomOut, 'documentZoomOut'], [zoomIn, 'documentZoomIn'], [zoomReset, 'documentZoomReset']]) button.title = t(key);
 const themeToggle = document.querySelector('#theme-toggle'), themeAuto = document.querySelector('#theme-auto');
 const appearance = matchMedia('(prefers-color-scheme: dark)');
-let defaultTheme = normalizeDocumentAppearance(params.get('appearance')), siteTheme = null, themeSaving = false, themeRevision = 0;
+let defaultTheme = normalizeDocumentAppearance(params.get('appearance')), siteTheme = null, pdfOriginal = false, themeSaving = false, themeRevision = 0;
 function updateTheme() {
   if (suspended) return;
   const theme = siteTheme || defaultTheme;
-  const dark = theme === 'dark' || (theme === 'auto' && appearance.matches);
-  document.documentElement.dataset.appearance = theme;
-  document.documentElement.style.colorScheme = theme === 'auto' ? 'light dark' : theme;
+  const interfaceTheme = pdfOriginal ? 'auto' : theme;
+  const dark = interfaceTheme === 'dark' || (interfaceTheme === 'auto' && appearance.matches);
+  document.documentElement.dataset.appearance = dark ? 'dark' : 'light';
+  document.documentElement.style.colorScheme = interfaceTheme === 'auto' ? 'light dark' : interfaceTheme;
   document.documentElement.style.backgroundColor = dark ? '#24262a' : '#f7f8fa';
   // Keep the next reload's first paint consistent without storing site history.
   if (metadata && params.get('appearance') !== theme) {
@@ -108,7 +109,7 @@ function updateTheme() {
   // opaque content controller; document markup is not re-parsed or reloaded.
   frame.style.colorScheme = dark ? 'dark' : 'light';
   contentViewer?.setTheme(dark);
-  pdfViewer?.setTheme(dark,theme);
+  pdfViewer?.setTheme(dark, pdfOriginal ? 'original' : theme);
   appearanceMenu?.refresh();
   themeToggle.innerHTML = icon(dark ? 'pageDisplay' : 'moon');
   themeToggle.title = t(dark ? 'documentThemeLight' : 'documentThemeDark');
@@ -120,10 +121,11 @@ function updateTheme() {
 async function setSiteTheme(value) {
   const started = generation;
   if (themeSaving || !current(started) || !metadata) return;
-  const previous = siteTheme, revision = themeRevision;
-  siteTheme = value; themeSaving = true; updateTheme();
+  const previous = siteTheme, previousOriginal = pdfOriginal, revision = themeRevision;
+  pdfOriginal = false; siteTheme = value; themeSaving = true; updateTheme();
   try { await command('UI_DOCUMENT_SET_THEME', { theme: value }); }
   catch { if (current(started)) {
+    pdfOriginal = previousOriginal;
     if (revision === themeRevision) siteTheme = previous;
     notices.show(t('documentActionFailed'), true);
   } }
@@ -145,7 +147,7 @@ function reportUrlPreview(ready) { if (window !== top) void command('UI_DOCUMENT
 function expire() {
   properties?.close();appearanceMenu?.close();
   frame.hidden = true;
-  generation += 1; expired = true; contentViewer?.destroy(); contentViewer = null; blob = null; rendered = null; pdfViewer?.destroy(); pdfViewer = null; worker?.terminate(); clearTimeout(workerTimer);
+  generation += 1; expired = true; pdfOriginal = false; contentViewer?.destroy(); contentViewer = null; blob = null; rendered = null; pdfViewer?.destroy(); pdfViewer = null; worker?.terminate(); clearTimeout(workerTimer);
   worker = null; blobDownloads.clear();
   document.body.classList.remove('pdf-active');
   downloadButton.disabled = true; document.querySelector('#choice').hidden = true;
@@ -154,17 +156,27 @@ function expire() {
   frame.removeAttribute('src'); frame.removeAttribute('srcdoc'); notices.show(t('documentExpired')); updateTheme();
   updateEmailLanguage();
 }
+function setPdfTheme(mode) {
+  if (mode === 'original') {
+    pdfOriginal = true;
+    updateTheme();
+    return;
+  }
+  if (mode) void setSiteTheme(mode);
+  else if (pdfOriginal) void setSiteTheme(appearance.matches ? 'light' : 'dark');
+  else void setSiteTheme(toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches));
+}
 async function preparePdfViewer() {
   const started = generation;
   if (!current(started) || pdfViewer) return;
   const { createPdfViewer } = await import('../pdf-viewer/host.js');
   if (!current(started) || pdfViewer) return;
-  const theme = siteTheme || defaultTheme;
+  const theme = pdfOriginal ? 'original' : siteTheme || defaultTheme;
   const ownedViewer = pdfViewer = createPdfViewer({ container: document.querySelector('main'),
     filename: metadata.filename, documentUrl: metadata.url, locale, sampling: metadata.pdfSampling,
-    themeMode:theme, dark: theme === 'dark' || (theme === 'auto' && appearance.matches),
+    themeMode:theme, dark: document.documentElement.dataset.appearance === 'dark',
     onDownload: () => { if (current(started)) void download(); },
-    onTheme: mode => { if (current(started)) void setSiteTheme(mode || toggleDocumentAppearance(defaultTheme, siteTheme, appearance.matches)); },
+    onTheme: mode => { if (current(started) && !themeSaving) setPdfTheme(mode); },
     onError: () => {
       if (!current(started) || pdfViewer !== ownedViewer) return;
       ownedViewer.destroy(); pdfViewer = null;

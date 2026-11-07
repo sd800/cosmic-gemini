@@ -4,20 +4,32 @@ import {createPageAppearance} from '../extension/workspaces/pdf-viewer/page-appe
 import {formatDocumentDate} from '../extension/workspaces/document-preview/properties.js';
 import {slideAppearanceStyles} from '../extension/workspaces/document-preview/format-styles.js';
 
-test('page overrides follow only this open document and Auto resumes its current default',()=>{
+test('document defaults are inherited while overrides are explicit and local to each page',()=>{
  let globalDark=false;
- const page=n=>({classList:{contains:name=>name==='page'},dataset:{pageNumber:String(n)}}),thumb=n=>({dataset:{page:String(n)}});
- const pages={children:[page(1),page(2)]},thumbnails={children:[thumb(1),thumb(2)]};
- const appearance=createPageAppearance({pages,thumbnails,getDark:()=>globalDark});
- appearance.apply();appearance.set(1,'dark');assert.deepEqual(pages.children.map(n=>n.dataset.paperDark),['true','false']);
- assert.deepEqual(thumbnails.children.map(n=>n.dataset.paperDark),['true','false']);
- globalDark=true;appearance.set(2,'light');appearance.apply();assert.deepEqual(pages.children.map(n=>n.dataset.paperDark),['true','false']);
- appearance.set(1,'auto');assert.equal(appearance.get(1),'auto');globalDark=false;appearance.apply();assert.equal(pages.children[0].dataset.paperDark,'false');
- pages.children.push(page(3));thumbnails.children.push(thumb(3));appearance.apply();assert.equal(pages.children[2].dataset.paperDark,'false');
- appearance.set(2,'auto');assert.equal(appearance.get(2),'auto');
- for(const [page,mode]of [[0,'dark'],[NaN,'dark'],[1,'invalid'],[1.5,'light']])appearance.set(page,mode);
- assert.equal(appearance.get(1),'auto');
- const other=createPageAppearance({pages,thumbnails,getDark:()=>true});other.apply();assert.deepEqual(pages.children.map(n=>n.dataset.paperDark),['true','true','true']);
+ const node=()=>({dataset:{}});
+ const root=node(),pages=[node(),node()],thumbnails={children:[node(),node()]};
+ const appearance=createPageAppearance({root,getPage:n=>pages[n-1],thumbnails,getDark:()=>globalDark});
+ appearance.apply();
+ assert.equal(root.dataset.paperDark,'false');
+ appearance.set(1,'dark');
+ assert.equal(pages[0].dataset.paperDark,'true');
+ assert.equal(thumbnails.children[0].dataset.paperDark,'true');
+ assert.equal(pages[1].dataset.paperDark,undefined);
+ globalDark=true;appearance.apply();
+ appearance.set(2,'original');
+ assert.equal(root.dataset.paperDark,'true');
+ assert.equal(pages[1].dataset.paperDark,'false');
+ assert.equal(appearance.dark(2),false);
+ assert.equal(appearance.get(2),'original');
+ const rebuiltThumbnail=node();
+ appearance.applyOverride(rebuiltThumbnail,2);
+ assert.equal(rebuiltThumbnail.dataset.paperDark,'false');
+ appearance.set(2,'auto');
+ assert.equal(appearance.dark(2),true);
+ assert.equal(pages[1].dataset.paperDark,undefined);
+ assert.equal(thumbnails.children[1].dataset.paperDark,undefined);
+ for(const [page,mode]of [[0,'dark'],[NaN,'dark'],[2,'invalid'],[1.5,'light']])appearance.set(page,mode);
+ assert.equal(appearance.get(2),'auto');
 });
 
 test('Office property dates retain source precision and compact UTC offsets',()=>{

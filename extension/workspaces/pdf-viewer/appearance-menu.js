@@ -1,6 +1,6 @@
 const modes = ['auto', 'light', 'dark'];
 // Packaged, local popover; document data never supplies menu markup or actions.
-export function createAppearanceMenu({text,signal,getMode,getPage=()=>1,enabled=()=>true,onChoose,trigger=document.getElementById('theme'),menu=document.getElementById('appearance-menu')}) {
+export function createAppearanceMenu({text,signal,getMode,getPage=()=>1,enabled=()=>true,includeOriginal=false,onChoose,trigger=document.getElementById('theme'),menu=document.getElementById('appearance-menu')}) {
   let buttons=[], headings={}, pointerDown=false, pending=false, skipClick=false, openedPage=1,focusAnchor=trigger;
   const isOpen=()=>menu.matches(':popover-open');
   function close(focus=false){pending=false;const open=isOpen();if(open)menu.hidePopover();trigger.setAttribute('aria-expanded','false');if(open&&focus)focusAnchor.focus({preventScroll:true});}
@@ -8,14 +8,14 @@ export function createAppearanceMenu({text,signal,getMode,getPage=()=>1,enabled=
     menu.setAttribute('aria-label',text.themeMenu);
     if(isOpen()&&openedPage!==getPage()){close();return;}
     for(const scope of ['global','page'])if(headings[scope])headings[scope].textContent=scope==='global'?text.themeGlobal:`${text.themePage} ${getPage()}`;
-    for(const button of buttons){button.lastElementChild.textContent=text[{auto:'themeAuto',light:'themeLight',dark:'themeDark'}[button.dataset.mode]];button.setAttribute('aria-checked',String(button.dataset.mode===getMode(button.dataset.scope)));button.title=button.dataset.scope==='page'&&button.dataset.mode==='auto'?text.themeFollowDocument||'':'';}
+    for(const button of buttons){button.lastElementChild.textContent=text[{auto:'themeAuto',light:'themeLight',dark:'themeDark',original:'themeOriginal'}[button.dataset.mode]];button.setAttribute('aria-checked',String(button.dataset.mode===getMode(button.dataset.scope)));button.title=button.dataset.scope==='page'&&button.dataset.mode==='auto'?text.themeFollowDocument||'':'';}
   }
   function build(){
     if(buttons.length)return;
     for(const scope of ['global','page']){
       const group=document.createElement('div');group.className='appearance-group';group.role='group';
       const heading=document.createElement('div');heading.className='appearance-heading';heading.id=menu.id+'-'+scope;headings[scope]=heading;group.setAttribute('aria-labelledby',heading.id);group.append(heading);
-      for(const mode of modes){
+      for(const mode of includeOriginal ? [...modes, 'original'] : modes){
         const button=document.createElement('button');button.type='button';button.className='menu-action';button.role='menuitemradio';button.tabIndex=-1;button.dataset.mode=mode;button.dataset.scope=scope;
         const check=document.createElement('span');check.className='appearance-check';check.setAttribute('aria-hidden','true');check.textContent='✓';button.append(check,document.createElement('span'));
         button.addEventListener('click',()=>{const page=openedPage;close(true);if(scope!=='page'||page===getPage())onChoose(mode,scope,page);},{signal});group.append(button);buttons.push(button);

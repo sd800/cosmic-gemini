@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.7.1 (492) — 2026-11-07
+
+- Add Original to the PDF appearance menu for all pages or the current page. Keep the PDF's source colors while allowing the reader interface to follow the system appearance.
+- Let PDF pages and thumbnails inherit the document's appearance. Keep their colors in sync when switching system appearance, navigating to reattached pages, or creating new thumbnails, while honoring explicit per-page overrides.
+- Keep Original scoped to the open PDF and resolve the preview toolbar palette on first paint and when the system appearance changes.
+
 ## 26.11.5.3 (491) — 2026-11-05
 
 - Separate Native Scroll observation from takeover prevention. Keep ordinary wheel and touch listeners running; intervene on actual native-scroll cancellation, including legacy return-value cancellation, or queued scripted takeover movement instead of blocking a listener merely because it exists.

@@ -348,57 +348,55 @@ test('Stay on the page confines network blocking to source tabs and honors brows
   await stay.handleTabCreated(popup);
   assert.deepEqual(removed, [3], 'a page-created external tab remains blocked');
 
-  assert.equal(await stay.handleContextMenu({ kind: 'browser', urls: ['https://outside.test/article'] }, { tab: source }), true);
+  assert.equal(await stay.handleContextMenu({ kind: 'browser', search: '' }, { tab: source }), true);
   const chosen = { id: 4, openerTabId: 1, url: 'https://outside.test/article', incognito: false };
   tabs.set(chosen.id, chosen);
+  stay.handleNavigationRequest({ tabId: chosen.id, initiator: 'https://stay.test', method: 'GET', url: chosen.url });
   await stay.handleTabCreated(chosen);
-  assert.deepEqual(removed, [3], 'the exact link chosen from a browser context menu is allowed');
+  assert.deepEqual(removed, [3, 4], 'right-clicking a link does not add a navigation exception');
 
   const unrelated = { id: 5, openerTabId: 1, url: 'https://outside.test/other', incognito: false };
   tabs.set(unrelated.id, unrelated);
   stay.handleNavigationRequest({ tabId: unrelated.id, initiator: 'https://stay.test', url: unrelated.url });
   await stay.handleTabCreated(unrelated);
-  assert.deepEqual(removed, [3, 5]);
+  assert.deepEqual(removed, [3, 4, 5]);
 
-  assert.equal(await stay.handleContextMenu({ kind: 'browser', urls: [], search: true }, { tab: source }), true);
-  const search = { id: 6, openerTabId: 1, url: 'https://www.google.com/search?q=example', incognito: false };
+  assert.equal(await stay.handleContextMenu({ kind: 'browser', search: 'selected\n text' }, { tab: source }), true);
+  const searchUrl = 'https://search.test/results?query=selected+text';
+  const search = { id: 6, openerTabId: 1, url: 'https://results.test/result', incognito: false };
+  const requestSearch = (tabId, url, initiator = 'null', requestId = String(tabId)) => {
+    stay.handleNavigationRequest({ tabId, url, initiator, method: 'GET', requestId });
+  };
+  const fake = { id: 9, openerTabId: 1, url: searchUrl, incognito: false };
+  tabs.set(fake.id, fake);
+  requestSearch(fake.id, fake.url, 'https://stay.test');
+  await stay.handleTabCreated(fake);
+  assert.deepEqual(removed, [3, 4, 5, 9], 'a webpage cannot use the search exception with the exact same URL');
+  const wrongQuery = { id: 10, openerTabId: 1, url: 'https://search.test/results?query=unrelated', incognito: false };
+  tabs.set(wrongQuery.id, wrongQuery);
+  requestSearch(wrongQuery.id, wrongQuery.url);
+  await stay.handleTabCreated(wrongQuery);
+  assert.deepEqual(removed, [3, 4, 5, 9, 10], 'an opaque initiator must match the selected search text');
   tabs.set(search.id, search);
+  requestSearch(search.id, searchUrl);
+  requestSearch(search.id, search.url);
   await stay.handleTabCreated(search);
-  assert.deepEqual(removed, [3, 5], 'Search with Google is a browser action');
-  assert.equal(await stay.handleContextMenu({ kind: 'browser', urls: [
-    'https://outside.test/photo.jpg', 'https://outside.test/video.mp4'
-  ] }, { tab: source }), true);
-  const image = { id: 9, openerTabId: 1, url: 'https://outside.test/photo.jpg', incognito: false };
-  tabs.set(image.id, image);
-  stay.handleNavigationRequest({ tabId: image.id, initiator: 'https://stay.test', url: image.url });
-  await stay.handleTabCreated(image);
-  assert.deepEqual(removed, [3, 5], 'a chosen image target is allowed even with a webpage initiator');
-  const otherAfterMenu = { id: 10, openerTabId: 1, url: 'https://outside.test/unrelated', incognito: false };
-  tabs.set(otherAfterMenu.id, otherAfterMenu);
-  stay.handleNavigationRequest({ tabId: otherAfterMenu.id, initiator: 'https://stay.test', url: otherAfterMenu.url });
-  await stay.handleTabCreated(otherAfterMenu);
-  assert.deepEqual(removed, [3, 5, 10], 'right-clicking does not permit an unrelated website popup');
-  assert.equal(await stay.handleContextMenu({ kind: 'browser', urls: ['https://outside.test/photo.jpg'], image: true }, { tab: source }), true);
-  const lens = { id: 11, openerTabId: 1, url: 'https://lens.google.com/uploadbyurl?url=photo', incognito: false };
-  tabs.set(lens.id, lens);
-  stay.handleNavigationRequest({ tabId: lens.id, initiator: 'https://stay.test', url: lens.url });
-  await stay.handleTabCreated(lens);
-  assert.deepEqual(removed, [3, 5, 10], 'browser image search is allowed');
-  assert.equal(await stay.handleContextMenu({ kind: 'browser', urls: [] }, { tab: source }), true);
-  const viewSource = { id: 12, openerTabId: 1, url: 'view-source:https://stay.test/article', incognito: false };
-  tabs.set(viewSource.id, viewSource);
-  await stay.handleTabCreated(viewSource);
-  assert.deepEqual(removed, [3, 5, 10], 'the browser source viewer is not website navigation');
+  assert.deepEqual(removed, [3, 4, 5, 9, 10], 'Chrome selection search follows its first request across redirects');
+  const replay = { id: 11, openerTabId: 1, url: searchUrl, incognito: false };
+  tabs.set(replay.id, replay);
+  requestSearch(replay.id, replay.url);
+  await stay.handleTabCreated(replay);
+  assert.deepEqual(removed, [3, 4, 5, 9, 10, 11], 'the search exception is consumed after the first matching navigation');
   const extensionTab = { id: 7, openerTabId: 1, url: 'https://outside.test/extension-open', incognito: false };
   tabs.set(extensionTab.id, extensionTab);
   stay.handleNavigationRequest({ tabId: extensionTab.id, url: extensionTab.url });
   await stay.handleTabCreated(extensionTab);
-  assert.deepEqual(removed, [3, 5, 10], 'an extension-created tab is not a website popup');
+  assert.deepEqual(removed, [3, 4, 5, 9, 10, 11], 'an extension-created tab is not a website popup');
   const extensionPage = { id: 8, openerTabId: 1,
     url: 'chrome-extension://other-extension/document-preview.html', incognito: false };
   tabs.set(extensionPage.id, extensionPage);
   await stay.handleTabCreated(extensionPage);
-  assert.deepEqual(removed, [3, 5, 10], 'another extension page is not blocked');
+  assert.deepEqual(removed, [3, 4, 5, 9, 10, 11], 'another extension page is not blocked');
   await stay.reconcile(settings);
   assert.deepEqual(rules.find(rule => rule.condition.resourceTypes.includes('main_frame')).condition.tabIds, [1],
     'newly opened external tabs never inherit the source tab network restriction');

@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.9.1 (501) — 2026-11-09
+
+Keep Chrome’s selected-text search available on pages protected by Stay on the page.
+
+- Limit the context-menu exception to selected-text search. Match the selection against the original query, keep the match through server redirects, and use it only once.
+
 ## 26.11.8.1 (500) — 2026-11-08
 
 Make the exact colors in the White Softer palette easy to look up.

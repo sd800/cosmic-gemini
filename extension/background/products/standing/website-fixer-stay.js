@@ -33,28 +33,22 @@ export function createStayOnPage(platform) {
   const start = incognito ? 931_001 : 930_001;
   const owns = rule => rule.id >= start && rule.id < start + LIMIT * 2;
   const pending = new Map();
-  const contextIntents = new Map();
+  const searchIntents = new Map();
   const navigationOrigins = new Map();
   let domainSignature = null;
   let generation = 0;
   const INTENT_MS = 90_000;
-  function contextMatch(url, intent) {
-    try {
-      const target = new URL(url);
-      target.hash = '';
-      if (intent.urls.some(value => {
-        const chosen = new URL(value);
-        chosen.hash = '';
-        return target.href === chosen.href;
-      })) return true;
-      if (intent.image === true && /^https?:$/.test(target.protocol)
-        && (target.hostname === 'lens.google.com'
-          || (/^google\.[a-z.]+$/.test(target.hostname.replace(/^www\./, ''))
-            && target.pathname === '/search'))) return true;
-      return intent.search === true && /^https?:$/.test(target.protocol)
-        && /^google\.[a-z.]+$/.test(target.hostname.replace(/^www\./, ''))
-        && target.pathname === '/search' && target.searchParams.has('q');
-    } catch { return false; }
+  const searchText = value => typeof value === 'string' && value.length <= 2048
+    ? value.trim().replace(/\s+/g, ' ') : '';
+  function contextSearchMatch(navigation, intent) {
+    // Chromium's selection search supplies an opaque initiator. That alone
+    // is insufficient because sandboxed website frames also have one.
+    if ((navigation.initiator && navigation.initiator !== 'null') || navigation.initialMethod !== 'GET') return false;
+    const target = new URL(navigation.initialUrl);
+    for (const query of target.searchParams.values()) {
+      if (searchText(query) === intent.text) return true;
+    }
+    return false;
   }
   const permitted = (url, site) => {
     try { const parsed = new URL(url); return siteKey(parsed.protocol === 'blob:' ? parsed.origin : parsed.href) === site; }
@@ -88,25 +82,16 @@ export function createStayOnPage(platform) {
       navigationOrigins.delete(tabId);
       return;
     }
-    if (record.intent && contextMatch(url, record.intent)) {
-      pending.delete(tabId);
-      navigationOrigins.delete(tabId);
-      contextIntents.delete(record.openerTabId);
-      return;
-    }
-    if (record.intent && target.protocol === 'view-source:' && siteKey(target.pathname) === record.site) {
-      pending.delete(tabId);
-      navigationOrigins.delete(tabId);
-      contextIntents.delete(record.openerTabId);
-      return;
-    }
     if (/^https?:$/.test(target.protocol)) {
       const navigation = navigationOrigins.get(tabId);
       if (!navigation || Date.now() - navigation.at > 30_000) return;
       if (!sameNavigation(navigation.url, url)) return;
-      if (!navigation.initiator || navigation.initiator.startsWith('chrome-extension:')) {
+      const intent = searchIntents.get(record.openerTabId);
+      const matchedSearch = intent && intent === record.intent && intent.until >= Date.now() && contextSearchMatch(navigation, intent);
+      if (!navigation.initiator || navigation.initiator.startsWith('chrome-extension:') || matchedSearch) {
         pending.delete(tabId);
         navigationOrigins.delete(tabId);
+        if (matchedSearch) searchIntents.delete(record.openerTabId);
         return;
       }
     }
@@ -122,7 +107,7 @@ export function createStayOnPage(platform) {
       if (domainSignature !== null && signature !== domainSignature) {
         generation += 1;
         pending.clear();
-        contextIntents.clear();
+        searchIntents.clear();
         navigationOrigins.clear();
       }
       domainSignature = signature;
@@ -146,26 +131,24 @@ export function createStayOnPage(platform) {
     async handleContextMenu(message, sender) {
       const tabId = sender.tab?.id;
       if (!Number.isInteger(tabId) || !!sender.tab.incognito !== incognito) return false;
-      const site = siteKey(sender.tab.url || '');
-      if (!stayDomains(await platform.readSettings()).includes(site)) return false;
       if (message.kind !== 'browser') return false;
-      const urls = [];
-      for (const value of Array.isArray(message.urls) ? message.urls.slice(0, 8) : []) {
-        try {
-          const parsed = new URL(value);
-          if (parsed.protocol === 'javascript:' || parsed.href.length > 2048) continue;
-          urls.push(parsed.href);
-        } catch {}
-      }
-      contextIntents.set(tabId, { urls, search: message.search === true, image: message.image === true,
-        until: Date.now() + INTENT_MS });
+      const sourceUrl = sender.tab.url || '';
+      if (!stayDomains(await platform.readSettings()).includes(siteKey(sourceUrl))) return false;
+      const text = searchText(message.search);
+      if (text) searchIntents.set(tabId, { text, sourceUrl, until: Date.now() + INTENT_MS });
+      else searchIntents.delete(tabId);
       return true;
     },
     handleNavigationRequest(details) {
       if (!Number.isInteger(details?.tabId) || details.tabId < 0) return;
       const now = Date.now();
       for (const [id, record] of navigationOrigins) if (now - record.at > 30_000) navigationOrigins.delete(id);
-      navigationOrigins.set(details.tabId, { initiator: String(details.initiator || ''), url: String(details.url || ''), at: now });
+      const previous = navigationOrigins.get(details.tabId);
+      const url = String(details.url || '');
+      const redirected = details.requestId && previous?.requestId === details.requestId;
+      navigationOrigins.set(details.tabId, { initiator: String(details.initiator || ''), url,
+        initialUrl: redirected ? previous.initialUrl : url,
+        initialMethod: redirected ? previous.initialMethod : details.method, requestId: details.requestId, at: now });
       while (navigationOrigins.size > 256) navigationOrigins.delete(navigationOrigins.keys().next().value);
       if (pending.has(details.tabId)) void checkPopup(details.tabId, details.url);
     },
@@ -179,20 +162,20 @@ export function createStayOnPage(platform) {
       const site = siteKey(opener?.url || '');
       if (!domains.includes(site) || started !== generation) return;
       for (const [id, record] of pending) if (record.until < Date.now()) pending.delete(id);
-      const intent = contextIntents.get(tab.openerTabId);
-      if (intent && intent.until < Date.now()) contextIntents.delete(tab.openerTabId);
+      const intent = searchIntents.get(tab.openerTabId);
+      if (intent && (intent.until < Date.now() || !sameNavigation(intent.sourceUrl, opener.url))) searchIntents.delete(tab.openerTabId);
       pending.set(tab.id, { site, openerTabId: tab.openerTabId,
-        intent: intent?.until >= Date.now() ? intent : null, until: Date.now() + 30_000 });
+        intent: searchIntents.get(tab.openerTabId), until: Date.now() + 30_000 });
       const latest = await chrome.tabs.get(tab.id).catch(() => null);
       if (!latest) { pending.delete(tab.id); return; }
       await checkPopup(tab.id, latest.pendingUrl || latest.url || tab.pendingUrl || tab.url);
     },
     handleTabUpdated(tabId, change, tab) { return checkPopup(tabId, change.url || tab.pendingUrl || tab.url); },
-    handleTabRemoved(tabId) { pending.delete(tabId); contextIntents.delete(tabId); navigationOrigins.delete(tabId); },
+    handleTabRemoved(tabId) { pending.delete(tabId); searchIntents.delete(tabId); navigationOrigins.delete(tabId); },
     async reset() {
       generation += 1;
       pending.clear();
-      contextIntents.clear();
+      searchIntents.clear();
       navigationOrigins.clear();
       domainSignature = null;
       const rules = (await chrome.declarativeNetRequest.getSessionRules()).filter(owns);

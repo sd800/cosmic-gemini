@@ -1,7 +1,7 @@
 {
   "name": "cosmic-gemini",
-  "version": "26.11.8.1",
-  "version_name": "26.11.8.1 (500)",
+  "version": "26.11.9.1",
+  "version_name": "26.11.9.1 (501)",
   "private": true,
   "type": "module",
   "engines": {

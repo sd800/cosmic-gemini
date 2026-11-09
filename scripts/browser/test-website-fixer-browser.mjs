@@ -80,28 +80,8 @@ try {
   await page.locator('#link').evaluate((link, url) => { link.href = url; }, chosenUrl);
   await page.locator('#link').click({ button: 'right' });
   await page.waitForTimeout(80);
-  assert.ok((await worker.evaluate(() => globalThis.__contextMessages)).some(message => message.urls.includes(chosenUrl)),
-    'a native link context menu reports its exact target');
-  const chosenPage = context.waitForEvent('page');
-  await worker.evaluate(({ url, openerTabId }) => chrome.tabs.create({ url, openerTabId, active: false }),
-    { url: chosenUrl, openerTabId: sourceTabId });
-  const chosenTab = await chosenPage;
-  await chosenTab.waitForURL(chosenUrl);
-  await chosenTab.close();
-  const imageUrl = `http://outside.test:${port}/photo.svg`;
-  await page.evaluate(url => {
-    const image = document.createElement('img'); image.id = 'photo'; image.src = url; document.body.append(image);
-  }, imageUrl);
-  await page.locator('#photo').click({ button: 'right' });
-  await page.waitForTimeout(80);
-  assert.ok((await worker.evaluate(() => globalThis.__contextMessages)).some(message => message.image && message.urls.includes(imageUrl)),
-    'right-clicking an image records its browser-menu target');
-  await page.locator('#photo').evaluate(image => image.addEventListener('contextmenu', event => event.preventDefault()));
-  const beforeCustomMenu = await worker.evaluate(() => globalThis.__contextMessages.length);
-  await page.locator('#photo').click({ button: 'right' });
-  await page.waitForTimeout(80);
-  assert.equal(await worker.evaluate(() => globalThis.__contextMessages.length), beforeCustomMenu,
-    'a page-owned context menu does not authorize browser actions');
+  assert.deepEqual(await worker.evaluate(() => globalThis.__contextMessages.map(message => message.search)), [''],
+    'right-clicking a link without selected text only clears a prior search intent');
   await page.evaluate(() => {
     const selection = getSelection();
     const range = document.createRange();
@@ -109,19 +89,24 @@ try {
     selection.removeAllRanges();
     selection.addRange(range);
   });
+  await page.locator('h1').evaluate(heading => heading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })));
+  await page.locator('h1').evaluate(heading => heading.addEventListener('contextmenu', event => event.preventDefault(), { once: true }));
   await page.locator('h1').click({ button: 'right' });
   await page.waitForTimeout(80);
-  assert.ok((await worker.evaluate(() => globalThis.__contextMessages)).some(message => message.search),
-    'right-clicking selected text reports a browser search target');
-  const googleUrl = 'https://www.google.com/search?q=Website+Fixer+QA';
-  await context.route('https://www.google.com/search**', route => route.fulfill({
-    contentType: 'text/html', body: '<!doctype html><title>Search fixture</title>'
-  }));
+  assert.equal(await worker.evaluate(() => globalThis.__contextMessages.length), 1,
+    'synthetic and page-owned context menus do not authorize a search');
+  await page.locator('h1').click({ button: 'right' });
+  await page.waitForTimeout(80);
+  assert.deepEqual(await worker.evaluate(() => globalThis.__contextMessages.map(message => message.search)), ['', 'Website Fixer QA'],
+    'right-clicking selected text supplies the exact search text');
+  const searchUrl = `http://outside.test:${port}/search?q=Website+Fixer+QA`;
+  assert.equal(await page.evaluate(url => window.open(url) === null, searchUrl), true,
+    'a page script cannot open a search popup after a trusted context menu');
   const searchPage = context.waitForEvent('page');
   await worker.evaluate(({ url, openerTabId }) => chrome.tabs.create({ url, openerTabId, active: false }),
-    { url: googleUrl, openerTabId: sourceTabId });
+    { url: searchUrl, openerTabId: sourceTabId });
   const searchTab = await searchPage;
-  await searchTab.waitForURL(googleUrl);
+  await searchTab.waitForURL(searchUrl);
   await searchTab.close();
   const extensionPage = context.waitForEvent('page');
   await worker.evaluate(({ url, openerTabId }) => chrome.tabs.create({ url, openerTabId, active: false }),

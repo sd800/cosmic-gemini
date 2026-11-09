@@ -1,4 +1,6 @@
 // Loaded only after the Settings shortcut. This describes ownership; it never routes work.
+import { WHITE_TONES } from '../core/config.js';
+
 export const DEVELOPER_FEATURES = Object.freeze({
   nativeScroll: { title: 'nativeScrollName', tag: 'native-scroll', province: 'standing' },
   noAutoplay: { title: 'noAutoplayName', tag: 'no-autoplay', province: 'standing' },
@@ -60,6 +62,29 @@ export function createDeveloperMode(document) {
     for (const details of document.querySelectorAll('.developer-feature-details')) details.remove();
   }
 
+  function renderWhiteToneCodes(t) {
+    const toneRow = document.querySelector('#whiteSofterOptions > .knowledge-row');
+    if (!toneRow) return;
+    const details = document.createElement('div');
+    details.className = 'developer-feature-details developer-white-tone-codes';
+    const heading = document.createElement('span');
+    heading.id = 'developerWhiteToneCodesLabel';
+    heading.textContent = t('developerHexColorCodes');
+    const palette = document.createElement('dl');
+    palette.setAttribute('aria-labelledby', heading.id);
+    for (const { label, rgb } of WHITE_TONES.tones) {
+      const name = document.createElement('dt');
+      name.textContent = t(label);
+      const value = document.createElement('dd');
+      const code = document.createElement('code');
+      code.textContent = '#' + rgb.split(' ').map(channel => Number(channel).toString(16).padStart(2, '0')).join('').toUpperCase();
+      value.append(code);
+      palette.append(name, value);
+    }
+    details.append(heading, palette);
+    toneRow.after(details);
+  }
+
   function render(t) {
     clear();
     if (!enabled) return;
@@ -101,6 +126,7 @@ export function createDeveloperMode(document) {
         } else title.after(details);
       }
     }
+    renderWhiteToneCodes(t);
   }
 
   return {

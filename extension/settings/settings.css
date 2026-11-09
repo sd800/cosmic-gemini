@@ -470,6 +470,9 @@ footer { display: flex; width: min(940px, calc(100% - 40px)); margin: 0 auto 28p
 .developer-feature-details > span { display: block; }
 .developer-feature-details code { font-size: inherit; }
 .developer-feature-details code, .developer-affiliation-value { color: var(--text); }
+[data-developer-mode] .developer-white-tone-codes { margin: 0 0 16px; }
+.developer-white-tone-codes dl { display: grid; grid-template-columns: minmax(0, max-content) max-content; gap: 3px 16px; margin: 0; }
+.developer-white-tone-codes dd { margin: 0; }
 [data-developer-mode] .settings-destination > span { min-width: 0; }
 
 #zhihuImageAdjustmentOptions > .satellite-preferences { margin-top: 0; }

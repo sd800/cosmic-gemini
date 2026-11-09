@@ -2,6 +2,12 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.8.1 (500) — 2026-11-08
+
+Make the exact colors in the White Softer palette easy to look up.
+
+- List every tone and its hex color code below White tone in Settings developer mode.
+
 ## 26.11.7.8 (499) — 2026-11-07
 
 Prevent White Softer from triggering page resource loads while its display layer is being set up.

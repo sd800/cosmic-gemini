@@ -36,6 +36,9 @@ try {
   const external = [];
   context.on('request', request => { if (/^https?:/.test(request.url())) external.push(request.url()); });
   await settings.goto(`chrome-extension://${id}/settings/satellites.html`);
+  const disclosure = settings.locator('#satellite-document-preview > .section-heading [data-card-disclosure]');
+  await disclosure.waitFor();
+  if (await disclosure.getAttribute('aria-expanded') === 'false') await disclosure.click();
   const button = settings.locator('#documentOpenFile');
   await button.waitFor(); await settings.waitForFunction(() => document.documentElement.dataset.localePending !== 'true');
   assert.equal(await settings.locator('#documentPreviewEnabled').isChecked(), false);

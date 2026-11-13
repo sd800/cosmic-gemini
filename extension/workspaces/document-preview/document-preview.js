@@ -34,11 +34,18 @@ function updatePartControls(index) {
 function ensureContent() {
   if (!contentViewer) {
     const started = generation;
-    contentViewer = createDocumentContent(frame, locale, () => {
-      if (current(started)) { notices.show(t('documentRenderFailed')); reportUrlPreview(false); }
+    contentViewer = createDocumentContent(frame, locale, timedOut => {
+      if (!current(started)) return;
+      if (timedOut) {
+        contentViewer = null;
+        frame.hidden = zoomControls.hidden = partControls.hidden = true;
+      }
+      showRenderFailure();
     }, index => {
       if (current(started) && isSlides()) {updatePartControls(index);appearanceMenu?.refresh();}
-    }, value => { if (current(started)) updateZoom(value*100,true); }, () => { if (current(started)) reportUrlPreview(true); });
+    }, value => { if (current(started)) updateZoom(value*100,true); }, () => {
+      if (current(started)) { notices.show(''); reportUrlPreview(true); }
+    });
   }
   return contentViewer;
 }
@@ -143,6 +150,10 @@ updateTheme();
 const blobDownloads = new Set();
 const command = (type, rest = {}) => send({ type, featureId: 'documentPreview', id, ...rest });
 function reportUrlPreview(ready) { if (window !== top) void command('UI_DOCUMENT_URL_READY', { ready }).catch(() => {}); }
+function showRenderFailure() {
+  notices.show(t('documentRenderFailed'));
+  reportUrlPreview(false);
+}
 
 function expire() {
   properties?.close();appearanceMenu?.close();
@@ -177,14 +188,15 @@ async function preparePdfViewer() {
     themeMode:theme, dark: document.documentElement.dataset.appearance === 'dark',
     onDownload: () => { if (current(started)) void download(); },
     onTheme: mode => { if (current(started) && !themeSaving) setPdfTheme(mode); },
+    onShellReady: () => {
+      if (current(started) && pdfViewer === ownedViewer) document.body.classList.add('pdf-active');
+    },
     onError: () => {
       if (!current(started) || pdfViewer !== ownedViewer) return;
       ownedViewer.destroy(); pdfViewer = null;
-      document.body.classList.remove('pdf-active'); notices.show(t('documentRenderFailed'));
-      reportUrlPreview(false);
-    }, onReady: () => { if (current(started)) reportUrlPreview(true); }
+      document.body.classList.remove('pdf-active'); showRenderFailure();
+    }, onReady: () => { if (current(started)) { notices.show(''); reportUrlPreview(true); } }
   });
-  document.body.classList.add('pdf-active');
   zoomControls.hidden = true; partControls.hidden = true;
 }
 async function preview() {
@@ -197,15 +209,14 @@ async function preview() {
     await preparePdfViewer();
     assertCurrent(started);
     const bytes = await blob.arrayBuffer();
-    if (!current(started)) return;
+    if (!current(started) || !pdfViewer) return;
     if (metadata.local) inspectPdf(bytes);
     pdfViewer.open(bytes);
-    notices.show('');
     return;
   }
   const ownedWorker = worker = new Worker('render-worker.js');
   const finish = () => { clearTimeout(ownedTimer); ownedWorker.terminate(); if (worker === ownedWorker) worker = null; };
-  const failed = () => { finish(); if (current(started)) { notices.show(t('documentRenderFailed')); reportUrlPreview(false); } };
+  const failed = () => { finish(); if (current(started)) showRenderFailure(); };
   const ownedTimer = workerTimer = setTimeout(failed, 15000);
   ownedWorker.onerror = failed;
   ownedWorker.onmessage = event => {
@@ -231,8 +242,7 @@ async function preview() {
       }
       frame.hidden = false;
       zoomControls.hidden = false;
-      notices.show('');
-    } catch { notices.show(t('documentRenderFailed')); reportUrlPreview(false); }
+    } catch { showRenderFailure(); }
   };
   try {
     const bytes = await blob.arrayBuffer();
@@ -301,7 +311,7 @@ window.addEventListener('pageshow', event => {
     if (previewRequested) { await loadPreparedDocument(true); assertCurrent(started); await preview(); }
     // Never replay a download or a remembered choice during history restoration.
     else { downloadButton.disabled = !metadata.prepared; document.querySelectorAll('#choice button').forEach(button => button.disabled = false); notices.show(''); }
-  })().catch(() => { if (current(started)) expire(); });
+  })().catch(() => { if (current(started)) { expire(); reportUrlPreview(false); } });
 });
 downloadButton.addEventListener('click', () => void download());
 async function choose(action) {
@@ -350,7 +360,9 @@ async function loadPreparedDocument(previewPdf = false) {
   assertCurrent(started);
   if (!metadata.prepared) { await command('UI_DOCUMENT_PREPARE'); assertCurrent(started); const next = await command('UI_DOCUMENT_GET'); assertCurrent(started); metadata = next; }
   if (expired || !metadata.blobUrl?.startsWith('blob:' + chrome.runtime.getURL(''))) throw Error();
-  const cachedBlob = await (await fetch(metadata.blobUrl)).blob();
+  const response = await fetch(metadata.blobUrl);
+  if (!response.ok) throw Error('Document cache unavailable.');
+  const cachedBlob = await response.blob();
   assertCurrent(started);
   const latest = await command('UI_DOCUMENT_GET'); // The source may have closed during the cache read.
   assertCurrent(started); metadata = latest;
@@ -368,4 +380,4 @@ try {
     await loadPreparedDocument(mode !== 'download');
     if (mode === 'download') await download(); else await preview();
   }
-} catch { if (current(initial)) expire(); }
+} catch { if (current(initial)) { expire(); reportUrlPreview(false); } }

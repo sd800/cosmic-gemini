@@ -9,7 +9,8 @@ import { labels } from '../extension/workspaces/pdf-viewer/labels.js';
 import { createPdfViewer } from '../extension/workspaces/pdf-viewer/host.js';
 import { isSandboxHost } from '../extension/shared/sandbox-host.js';
 
-test('PDF bridge synchronizes its backdrop and closes failed readers exactly once', () => {
+test('PDF bridge synchronizes its backdrop and closes failed readers exactly once', t => {
+  t.mock.timers.enable({apis:['setTimeout']});
   const originalDocument = globalThis.document, OriginalChannel = globalThis.MessageChannel;
   const sent = [], initialized = [], events = [], frame = {style:{}, addEventListener(type, listener) { this.load = listener; },
     contentWindow:{postMessage: value => initialized.push(value)}, remove() { events.push('removed'); }};
@@ -26,7 +27,12 @@ test('PDF bridge synchronizes its backdrop and closes failed readers exactly onc
     frame.load(); assert.equal(initialized[0].dark, true, 'initialization uses the latest appearance');
     channel.port1.onmessage({data:{type:'shell-ready'}}); assert.equal(frame.style.visibility, 'visible');
     reader.setTheme(false); assert.equal(frame.style.background, '#e8eaed');
-    channel.port1.onmessage({data:{type:'error'}});
+    channel.port1.onmessage({data:{type:'password'}});
+    t.mock.timers.tick(30001);
+    assert.ok(!events.includes('error'), 'the password dialog can wait for the reader');
+    channel.port1.onmessage({data:{type:'opening'}});
+    channel.port1.onmessage({data:{type:'parsed'}});
+    t.mock.timers.tick(30001);
     for (const type of ['error','theme','download','shell-ready']) channel.port1.onmessage({data:{type}});
     reader.destroy(); reader.setTheme(true); frame.load();
     assert.deepEqual(events, ['closed','removed','error']);

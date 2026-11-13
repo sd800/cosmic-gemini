@@ -3,7 +3,7 @@ import { PDF_LIMITS } from './model.js';
 // This host is the only connection to a product. The opaque viewer has no
 // extension APIs, storage access, network capability, or arbitrary command channel.
 // The source URL crosses this boundary only as inert text for Document properties.
-export function createPdfViewer({ container, bytes, filename, documentUrl = '', locale, sampling, dark, themeMode = 'auto', onDownload, onTheme, onError, onReady = () => {} }) {
+export function createPdfViewer({ container, bytes, filename, documentUrl = '', locale, sampling, dark, themeMode = 'auto', onDownload, onTheme, onError, onReady = () => {}, onShellReady = () => {} }) {
   const validBytes = value => value instanceof ArrayBuffer && value.byteLength > 0 && value.byteLength <= PDF_LIMITS.bytes;
   if (bytes !== undefined && !validBytes(bytes)) throw Error('Invalid PDF size');
   const iframe = document.createElement('iframe');
@@ -18,7 +18,16 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
   const url = new URL('viewer.html', import.meta.url);
   url.hash = new URLSearchParams({ dark: dark ? '1' : '0', locale });
   iframe.src = url.href;
-  const channel = new MessageChannel(); let closed = false, loaded = false, frameLoaded = false, opened = bytes !== undefined, pending = bytes, timeout;
+  const channel = new MessageChannel(); let closed = false, frameLoaded = false, opened = bytes !== undefined, pending = bytes, timeout, shellTimeout;
+  let awaitingPage = opened, interactive = false;
+  function fail() { destroy(); onError(); }
+  function updatePageDeadline() {
+    clearTimeout(timeout);
+    // The viewer intentionally pauses painting in a background tab.
+    if (awaitingPage && !document.hidden) timeout = setTimeout(fail, 30000);
+  }
+  document.addEventListener('visibilitychange', updatePageDeadline);
+  updatePageDeadline();
   function sendDocument() {
     if (closed || !frameLoaded || !pending) return;
     const data = pending; pending = null;
@@ -28,21 +37,21 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
     if (!closed) channel.port1.postMessage({ type: 'fullscreen', active: document.fullscreenElement === container });
   };
   document.addEventListener('fullscreenchange', fullscreenChanged);
-  const armTimeout = () => { timeout = setTimeout(() => {
-    if (!loaded && !closed) { destroy(); onError(); }
-  }, 30000); };
-  if (opened) armTimeout();
   function destroy() {
-    if (closed) return; closed = true; pending = null; clearTimeout(timeout);
+    if (closed) return; closed = true; pending = null; clearTimeout(timeout); clearTimeout(shellTimeout);
+    document.removeEventListener('visibilitychange', updatePageDeadline);
     document.removeEventListener('fullscreenchange', fullscreenChanged);
     if (document.fullscreenElement === container) void document.exitFullscreen().catch(() => {});
     channel.port1.close(); iframe.remove();
   }
   channel.port1.onmessage = ({ data }) => {
     if (closed || !data || typeof data.type !== 'string') return;
-    if (data.type === 'shell-ready') iframe.style.visibility = 'visible';
-    else if (data.type === 'parsed') clearTimeout(timeout);
-    else if (data.type === 'ready' || data.type === 'password') { loaded = true; clearTimeout(timeout); onReady(); }
+    if (data.type === 'shell-ready') { clearTimeout(shellTimeout); iframe.style.visibility = 'visible'; onShellReady(); }
+    else if (data.type === 'opening') { awaitingPage = true; updatePageDeadline(); }
+    else if (data.type === 'ready' || data.type === 'password') {
+      awaitingPage = false; clearTimeout(timeout);
+      if (!interactive) { interactive = true; onReady(); }
+    }
     else if (data.type === 'download') onDownload();
     else if (data.type === 'theme') {if(data.mode===undefined)onTheme();else if(isPdfAppearance(data.mode))onTheme(data.mode);}
     else if (data.type === 'fullscreen') {
@@ -51,18 +60,19 @@ export function createPdfViewer({ container, bytes, filename, documentUrl = '', 
       const operation = document.fullscreenElement === container ? document.exitFullscreen() : container.requestFullscreen();
       void operation.catch(() => { if (!closed) channel.port1.postMessage({ type: 'fullscreen-error' }); });
     }
-    else if (data.type === 'error') { destroy(); onError(); }
+    else if (data.type === 'error') fail();
   };
   iframe.addEventListener('load', () => {
     if (closed) return;
     iframe.contentWindow.postMessage({ type: 'CG_PDF_INIT', filename, documentUrl, locale, sampling, dark, themeMode }, '*', [channel.port2]);
     frameLoaded = true; sendDocument();
   }, { once: true });
+  shellTimeout = setTimeout(fail, 10000);
   container.append(iframe);
   return {
     open(data) {
       if (closed || opened || !validBytes(data)) throw Error('Invalid PDF open');
-      opened = true; pending = data; armTimeout(); sendDocument();
+      opened = true; pending = data; awaitingPage = true; updatePageDeadline(); sendDocument();
     },
     setTheme(value, mode = themeMode) {
       if (closed) return;

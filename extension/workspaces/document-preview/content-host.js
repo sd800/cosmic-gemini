@@ -5,14 +5,27 @@ export function createDocumentContent(frame, locale, onError, onSlide = () => {}
   let renderId = 0, slideCount = 0, zoom = 1, emailLabels;
   const slideThemes=new Map();
   frame.style.visibility = 'hidden';
-  const timeout = setTimeout(() => { if (!closed && !ready) onError(); }, 10000);
-  const send = () => { if (!closed && ready && pending) { channel.port1.postMessage(pending); pending = null; } };
+  let renderTimeout;
+  function destroy() {
+    if (closed) return;
+    closed = true; pending = null; clearTimeout(timeout); clearTimeout(renderTimeout); channel.port1.close();
+    // Hide before releasing src so the host's themed background stays visible.
+    frame.style.visibility = 'hidden'; frame.removeAttribute('src');
+  }
+  function fail() { destroy(); onError(true); }
+  const timeout = setTimeout(fail, 10000);
+  function send() {
+    if (closed || !ready || !pending) return;
+    clearTimeout(renderTimeout);
+    renderTimeout = setTimeout(fail, 15000);
+    channel.port1.postMessage(pending); pending = null;
+  }
   channel.port1.onmessage = ({data}) => {
     if (closed) return;
     if (data?.type === 'ready') { ready = true; clearTimeout(timeout); channel.port1.postMessage({type:'theme',dark}); send(); }
     else if (data?.id === renderId) {
-      if (data.type === 'rendered') { frame.style.visibility = 'visible'; onReady(); }
-      else if (data.type === 'error') onError();
+      if (data.type === 'rendered') { clearTimeout(renderTimeout); frame.style.visibility = 'visible'; onReady(); }
+      else if (data.type === 'error') { clearTimeout(renderTimeout); onError(); }
       else if (data.type === 'slide' && Number.isInteger(data.index) && data.index >= 0 && data.index < slideCount) onSlide(data.index);
       else if (data.type === 'zoom' && Number.isFinite(data.zoom) && data.zoom >= .5 && data.zoom <= 2) { zoom = data.zoom; onZoom(zoom); }
     }
@@ -53,12 +66,6 @@ export function createDocumentContent(frame, locale, onError, onSlide = () => {}
       if(pending?.type==='render'&&pending.formatting?.kind==='eml'){pending.locale=locale;pending.emailLabels=labels;}
       else if(ready)channel.port1.postMessage({type:'email-locale',id:renderId,locale,labels});
     },
-    destroy() {
-      if (closed) return;
-      closed = true; pending = null; clearTimeout(timeout); channel.port1.close();
-      // Removing src navigates to a white about:blank, even in a dark sandbox.
-      // Hide before releasing it so the host's themed background stays visible.
-      frame.style.visibility = 'hidden'; frame.removeAttribute('src');
-    }
+    destroy
   };
 }

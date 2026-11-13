@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.12.1 (502) — 2026-11-12
+
+Keep Document Preview usable when the document renderer stalls or fails to start.
+
+- Wait for the first PDF page or password prompt before ending the rendering deadline. Restart the deadline after a password is submitted, and pause it while the tab is hidden.
+- Wait for Office and email content to display before clearing the loading indicator. Show an error and keep the original-file download available if rendering fails.
+
 ## 26.11.9.1 (501) — 2026-11-09
 
 Keep Chrome’s selected-text search available on pages protected by Stay on the page.

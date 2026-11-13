@@ -25,7 +25,8 @@ import { emailInfoTokens } from '../extension/workspaces/document-preview/email-
 import { EMAIL_HELP, buildEmailLabels } from '../extension/workspaces/document-preview/email-labels.js';
 import { translator } from '../extension/shared/localization.js';
 
-test('presentation bridge preserves pending selection and zoom and ignores stale or invalid slide feedback', () => {
+test('presentation bridge preserves pending selection and zoom and ignores stale or invalid slide feedback', t => {
+  t.mock.timers.enable({apis:['setTimeout']});
   const OriginalChannel = globalThis.MessageChannel, sent = [], selected = [], errors = [], zooms = [];
   let channel, initialize;
   globalThis.MessageChannel = class {
@@ -60,6 +61,9 @@ test('presentation bridge preserves pending selection and zoom and ignores stale
     assert.equal(frame.style.visibility, 'hidden');
     channel.port1.onmessage({data:{type:'rendered',id:sent.at(-1).id}});
     assert.equal(frame.style.visibility, 'visible');
+    reader.render('<p>Missing renderer response</p>', {});
+    t.mock.timers.tick(15001);
+    assert.deepEqual(errors, [true], 'an initialized frame must still acknowledge each render');
     reader.destroy();
     assert.equal(frame.style.visibility, 'hidden');
     frame.src = 'replacement-reader';

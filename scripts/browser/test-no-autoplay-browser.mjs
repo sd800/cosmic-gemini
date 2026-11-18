@@ -48,6 +48,23 @@ try {
     const path=new URL(route.request().url()).pathname;
     if(path==='/clip.webm')return route.fulfill({contentType:'video/webm',body:videoBytes});
     if(path==='/sound.wav')return route.fulfill({contentType:'audio/wav',body:audioBytes});
+    if(path==='/pronunciation')return route.fulfill({contentType:'text/html',body:`<!doctype html><title>Pronunciation playback fixture</title>
+      <style>button{font:16px system-ui;margin:8px}video{width:160px;height:90px}</style>
+      <section><button id="listen" aria-label="Listen to pronunciation">&#128264;</button><video id="animation" src="/clip.webm" muted></video></section>
+      <button id="hear">Hear pronunciation</button><button id="ordinary">Ordinary action</button>
+      <button id="missing" aria-controls="missing-audio">Listen</button>
+      <script>
+      window.attempt=async media=>{try{await media.play();return 'played';}catch(error){return error.name;}};
+      window.speech=new Audio('/sound.wav');window.unrelated=new Audio('/sound.wav');
+      speech.loop=true;unrelated.loop=true;
+      listen.onclick=()=>{
+        window.manualResult=attempt(speech);
+        window.otherResult=attempt(unrelated);
+      };
+      hear.onclick=()=>setTimeout(()=>{window.lateSpeech=new Audio('/sound.wav');window.manualResult=attempt(lateSpeech);},250);
+      ordinary.onclick=()=>{window.otherResult=attempt(new Audio('/sound.wav'));};
+      missing.onclick=()=>{window.otherResult=attempt(new Audio('/sound.wav'));};
+      </script>`});
     if(path==='/intent-frame')return route.fulfill({contentType:'text/html',body:'<!doctype html><title>Embedded media fixture</title><iframe src="/surface-lazy" style="width:800px;height:600px"></iframe>'});
     if(path.startsWith('/intent-'))return route.fulfill({contentType:'text/html',body:`<!doctype html><title>Scoped media controls fixture</title>
       <style>video{display:block;width:320px;height:180px}button{font:16px system-ui;margin:8px}</style>
@@ -238,6 +255,31 @@ try {
   await setMode('noAutoplay','inactive');
   await page.waitForFunction(key=>!window[Symbol.for(key)],naKey);
 
+  for(const mode of ['standard','enhanced']){
+    await setMode('noAutoplay',mode);await page.goto('https://media-controls.test/pronunciation');
+    await page.waitForFunction(key=>window[Symbol.for(key)]?.active,naKey);
+    assert.equal(await page.evaluate(()=>attempt(speech)),'NotAllowedError');
+    await page.locator('#listen').click();
+    assert.equal(await page.evaluate(()=>manualResult),'played');
+    assert.equal(await page.evaluate(()=>otherResult),'NotAllowedError');
+    await page.waitForFunction(()=>!speech.paused&&speech.currentTime>0);
+    assert.equal(await page.evaluate(()=>speech.isConnected),false);
+    await page.evaluate(()=>speech.pause());
+    await page.locator('#listen').focus();await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(()=>manualResult),'played');
+    await page.waitForFunction(()=>!speech.paused&&speech.currentTime>0);
+    await page.evaluate(()=>speech.pause());
+    await page.locator('#hear').click();
+    await page.waitForFunction(()=>window.lateSpeech&&!lateSpeech.paused&&lateSpeech.currentTime>0);
+    assert.equal(await page.evaluate(()=>manualResult),'played');
+    assert.equal(await page.evaluate(()=>attempt(unrelated)),'NotAllowedError');
+    for(const control of ['ordinary','missing']){
+      await page.locator('#'+control).click();
+      assert.equal(await page.evaluate(()=>otherResult),'NotAllowedError');
+    }
+    console.log('PASS: No Autoplay '+mode+'; detached pronunciation audio, keyboard/replay, delayed creation, and unrelated autoplay denial.');
+  }
+
   for(const [mode,path]of [['standard','/intent-aria'],['standard','/intent-lazy'],['standard','/intent-audio'],['enhanced','/intent-audio'],['standard','/intent-shadow'],['standard','/intent-audio-local']]){
     await setMode('noAutoplay',mode);await page.goto(`https://media-controls.test${path}`);
     await page.waitForFunction(key=>window[Symbol.for(key)]?.active,naKey);
@@ -291,6 +333,6 @@ try {
   const previousReadme=await readFile(readmePath,'utf8').catch(()=> '');
   const notesStart=previousReadme.indexOf('\n## ');
   const retainedNotes=notesStart<0?'':previousReadme.slice(notesStart);
-  await writeFile(readmePath,`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unlabelled covers over existing/lazy media, surface source resets, Enhanced lazy-player activation, external/late ARIA targets, hidden audio, open Shadow DOM, child frames, immediate unrelated-player denial, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Playback coverage also includes linked Web Audio clock progression through factory and constructor associations, companion audio, source/quality changes, manual Enhanced-mode exemptions, and managed-player floating/reparenting without hiding or reloading. Unit tests cover surface geometry, keyboard activation, navigation/ambiguity rejection, zero click-time subtree scans, one-context audio selection, missing-target and autoplay-option rejection, gesture expiry, document-lifetime authorization, audio permission changes, weak ownership beyond the strong map limit, Web Audio interruptions/rejections/aliases, reinjection, and wrapper ownership.\n`+retainedNotes);
+  await writeFile(readmePath,`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unlabelled covers over existing/lazy media, surface source resets, Enhanced lazy-player activation, external/late ARIA targets, hidden audio, detached pronunciation audio via mouse/keyboard and delayed creation, open Shadow DOM, child frames, immediate unrelated-player denial, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Playback coverage also includes linked Web Audio clock progression through factory and constructor associations, companion audio, source/quality changes, manual Enhanced-mode exemptions, and managed-player floating/reparenting without hiding or reloading. Unit tests cover surface geometry, keyboard activation, navigation/ambiguity rejection, zero click-time subtree scans, one-context audio selection, missing-target and autoplay-option rejection, gesture expiry, document-lifetime authorization, audio permission changes, weak ownership beyond the strong map limit, Web Audio interruptions/rejections/aliases, reinjection, and wrapper ownership.\n`+retainedNotes);
   console.log('PASS: Keyboard/fullscreen; manual video/Web Audio clocks; pause/replay and companion audio; independent autoplay denial; Enhanced manual-player exemption; cleanup and no page errors.');
 } finally {await context.close();await rm(folder,{recursive:true,force:true});}

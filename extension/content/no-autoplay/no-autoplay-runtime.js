@@ -9,6 +9,7 @@
   const CONTROL_INTENT_MS = 2000;
   const ASSOCIATED_MEDIA_INTENT_MS = 15000;
   const MAX_ASSOCIATION_PATH_DEPTH = 10;
+  const AUDIO_PLAYBACK_TEXT = /(^|[\s:_-])(listen|hear|pronounce|pronunciation|speak|read[\s:_-]+aloud)(?=$|[\s:_-])|收听|朗读|试听|发音|读音|收聽|朗讀|試聽|發音|讀音/;
 
   function randomToken() {
     if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -354,7 +355,7 @@
       const declaredTargets = targetInfo.ids.length > 0;
       const audioOnly = !declaredTargets && controls.some(node => {
         const label = this.controlText(node).toLowerCase();
-        return /(^|\W)(listen|audio)(?=$|\W)|音频|收听|朗读|试听/.test(label) && !/video|视频/.test(label);
+        return (AUDIO_PLAYBACK_TEXT.test(label) || /(^|\W)audio(?=$|\W)|音频|音頻/.test(label)) && !/video|视频/.test(label);
       });
       if (controls.length || targets.length) {
         const now = performance.now(), deadline = now + ASSOCIATED_MEDIA_INTENT_MS;
@@ -362,6 +363,7 @@
         // Explicit ARIA targets take precedence over an unrelated nearby player.
         const association = declaredTargets ? targets : scopes;
         this.controlIntent = { scopes: association.map(node => new WeakRef(node)), until: deadline, audioOnly,
+          detachedAudioUntil: audioOnly ? now + CONTROL_INTENT_MS : -1,
           targets: declaredTargets ? { ids: targetInfo.ids, root: new WeakRef(targetInfo.root) } : null };
         const media = this.associatePlaybackIntent(association, deadline, { allowHidden: true,
           documentFallback: !declaredTargets && controls.length > 0, audioOnly });
@@ -520,6 +522,13 @@
       const intent = this.controlIntent;
       if (!intent || intent.audioOnly && !(media instanceof HTMLAudioElement)) return false;
       if (intent.until <= performance.now()) { this.controlIntent = null; return false; }
+      // Pronunciation players may use new Audio() without attaching it to the
+      // DOM. An explicit audio action can select one such request briefly.
+      if (intent.audioOnly && !intent.targets && media instanceof HTMLAudioElement
+        && media.isConnected === false && intent.detachedAudioUntil > performance.now()) {
+        this.controlIntent = null; this.userIntentUntil = -1;
+        return true;
+      }
       let scopes = intent.scopes.map(reference => reference.deref());
       if (intent.targets) {
         const root = intent.targets.root.deref();
@@ -590,7 +599,8 @@
         typeof node.className === 'string' ? node.className : node.className?.baseVal || ''
       ].join(' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
       if (/auto[\s:_-]*play|playback[\s:_-]*(?:speed|rate)|自动播放|播放速度/.test(metadata)) return false;
-      const metadataSignalsPlayback = /(^|[\s:_-])(play|replay|resume|unmute|listen)(?=$|[\s:_-])|播放|重播|解除静音|取消静音/.test(metadata)
+      const metadataSignalsPlayback = AUDIO_PLAYBACK_TEXT.test(metadata)
+        || /(^|[\s:_-])(play|replay|resume|unmute)(?=$|[\s:_-])|播放|重播|解除静音|取消静音/.test(metadata)
         || (/(^|[\s:_-])start(?=$|[\s:_-])/.test(metadata) && /(media|video|audio|player)/.test(metadata));
       if (metadataSignalsPlayback) return true;
       const tagName = String(node.localName || node.tagName || '').toLowerCase();
@@ -598,7 +608,8 @@
       if (!['button', 'a', 'input'].includes(tagName) && role !== 'button') return false;
       const text = this.controlText(node).toLowerCase();
       if (/auto[\s:_-]*play|playback[\s:_-]*(?:speed|rate)|自动播放|播放速度/.test(text)) return false;
-      return /(^|\s)(play|replay|resume|unmute|listen)(?=$|\s)|播放|重播|解除静音|取消静音|^[▶►▷⏵⏯]\uFE0F?$/.test(text);
+      return AUDIO_PLAYBACK_TEXT.test(text)
+        || /(^|\s)(play|replay|resume|unmute)(?=$|\s)|播放|重播|解除静音|取消静音|^[▶►▷⏵⏯]\uFE0F?$/.test(text);
     }
 
     isTextEntry(node) {
@@ -621,10 +632,13 @@
     }
 
     hasUserIntent(media) {
+      // Consume a fresh control action even when this player was used before.
+      // Otherwise its replay could leave that action available to another audio.
+      if (this.hasControlIntent(media)) return true;
       if (this.userPlayback.has(media)) return true;
       const now = performance.now();
       if ((this.mediaIntent.get(media) || -1) > now) return true;
-      if (this.hasControlIntent(media) || this.hasSurfaceIntent(media)) return true;
+      if (this.hasSurfaceIntent(media)) return true;
       let node = media;
       for (let depth = 0; node && depth < MAX_ASSOCIATION_PATH_DEPTH; depth += 1) {
         if (this.authorizedPlayers.has(node)) return true;

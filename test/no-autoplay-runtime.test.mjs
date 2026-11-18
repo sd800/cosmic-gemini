@@ -749,6 +749,42 @@ test('explicit local audio controls permit delayed hidden audio without releasin
   await assert.rejects(other.play(), { name: 'NotAllowedError' });
 });
 
+test('pronunciation controls permit one detached audio request and retain unrelated autoplay denial', async t => {
+  const { runtime, document, context, advance } = await nativeControlsFixture(t);
+  const otherVideo = new FakeVideo(); otherVideo.rect = { width: 320, height: 180 };
+  document.querySelectorAll = () => [otherVideo];
+  for (const label of ['Listen', 'Hear pronunciation', 'Pronounce', 'Play pronunciation', 'Read aloud', '播放发音', '朗读']) {
+    const control = explicitControl(label), audio = new FakeAudio(), otherAudio = new FakeAudio();
+    audio.isConnected = otherAudio.isConnected = false;
+    runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control] });
+    await assert.rejects(otherVideo.play(), { name: 'NotAllowedError' });
+    advance(100);
+    await audio.play();
+    await assert.rejects(otherAudio.play(), { name: 'NotAllowedError' });
+    runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control] });
+    await audio.play();
+    await assert.rejects(otherAudio.play(), { name: 'NotAllowedError' });
+    await assert.rejects(new context.AudioContext().resume(), { name: 'NotAllowedError' });
+    advance(16000); await audio.play();
+  }
+});
+
+test('detached audio requires a fresh explicit audio action and respects ARIA targeting', async t => {
+  const { runtime, advance } = await nativeControlsFixture(t);
+  const audio = new FakeAudio(); audio.isConnected = false;
+  for (const label of ['Ordinary action', 'Play video', 'Autoplay audio', 'Playback speed']) {
+    runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [explicitControl(label)] });
+    await assert.rejects(audio.play(), { name: 'NotAllowedError' });
+  }
+  const control = explicitControl('Listen');
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control] });
+  advance(2001); await assert.rejects(audio.play(), { name: 'NotAllowedError' });
+  control.getAttribute = name => name === 'aria-controls' ? 'missing-audio' : '';
+  control.getRootNode = () => ({ getElementById: () => null });
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [control] });
+  await assert.rejects(audio.play(), { name: 'NotAllowedError' });
+});
+
 test('explicit controls cover late local creation and a late sole document player', async t => {
   const { runtime, document, advance } = await nativeControlsFixture(t);
   document.body = {};

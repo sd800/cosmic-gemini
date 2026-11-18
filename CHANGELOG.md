@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.18.1 (503) — 2026-11-18
+
+Keep manually requested pronunciation and read-aloud audio available with No Autoplay enabled.
+
+- Recognize pronunciation and read-aloud playback controls, including accessible labels and keyboard activation.
+- Allow a deliberate audio action to start one audio player that is held outside the page DOM. Preserve replay while keeping unrelated automatic audio and video blocked in Standard and Enhanced modes.
+
 ## 26.11.12.1 (502) — 2026-11-12
 
 Keep Document Preview usable when the document renderer stalls or fails to start.

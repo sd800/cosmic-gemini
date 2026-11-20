@@ -33,7 +33,7 @@ for (const path of files.filter(path => /\.(?:js|mjs)$/.test(path))) {
 const manifest = JSON.parse(await source('manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'Cosmic Gemini');
-assert.equal(manifest.version, '26.11.18.1');
+assert.equal(manifest.version, '26.11.20.1');
 assert.match(manifest.version, /^\d{2}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12]\d|3[01])\.[1-9]\d*$/);
 const packageMetadata = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
 assert.equal(packageMetadata.version, manifest.version);
@@ -765,7 +765,7 @@ assert.match(anyCopy, /message\.rule \|\| message\.hostname/);
 assert.match(anyCopyEnhanced, /content\/any-copy-enhanced\/any-copy-enhanced-bridge\.js[\s\S]*content\/any-copy-enhanced\/any-copy-enhanced-runtime\.js/);
 assert.match(anyCopyEnhanced, /anyCopyEnhancedTab:/);
 assert.match(anyCopyEnhanced, /createKeyedTaskQueue/);
-assert.match(biliDailyLogin, /https:\/\/api\.bilibili\.com\/x\/web-interface\/nav/);
+assert.doesNotMatch(biliDailyLogin, /web-interface\/nav/);
 assert.match(biliDailyLogin, /https:\/\/api\.bilibili\.com\/x\/member\/web\/exp\/reward/);
 assert.match(biliDailyLogin, /AbortController[\s\S]*signal[\s\S]*stopRun/);
 assert.match(biliDailyLogin, /mutateSettings\([\s\S]*\), false\)/);

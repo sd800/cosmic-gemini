@@ -75,7 +75,7 @@ export function createBiliDailyLoginProduct(platform) {
             condition: {
               initiatorDomains: [chrome.runtime.id],
               requestDomains: ['api.bilibili.com'],
-              regexFilter: '^https://api\\.bilibili\\.com/x/(web-interface/nav|member/web/exp/reward)(?:\\?.*)?$',
+              regexFilter: '^https://api\\.bilibili\\.com/x/member/web/exp/reward(?:\\?.*)?$',
               resourceTypes: ['xmlhttprequest']
             }
           }]
@@ -217,11 +217,10 @@ export function createBiliDailyLoginProduct(platform) {
         // Reserve the day just before the first request so a restart cannot replay it.
         await chrome.storage.local.set({ [BILI_DAILY_ATTEMPT_KEY]: today });
         reserved = true;
-        const account = await requestJson('https://api.bilibili.com/x/web-interface/nav', signal);
-        if (account?.code === 0 && account?.data?.isLogin === true) {
-          const reward = await requestJson('https://api.bilibili.com/x/member/web/exp/reward', signal);
-          completed = reward?.code === 0 && reward?.data?.login === true;
-        }
+        // This authenticated endpoint also reports daily login completion.
+        // Use one request for the entire day's check.
+        const reward = await requestJson('https://api.bilibili.com/x/member/web/exp/reward', signal);
+        completed = reward?.code === 0 && reward?.data?.login === true;
       });
     } catch (error) {
       if (!reserved && !signal.aborted) throw error;

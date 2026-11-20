@@ -49,6 +49,7 @@ function dailyFixture(t) {
   });
   t.after(() => { globalThis.chrome = previous.chrome; globalThis.fetch = previous.fetch; Date.now = previous.now; });
   return { product, local, alarms,
+    get settings() { return structuredClone(settings); },
     start: () => product.handleAlarm({ name: 'satellites:biliDailyLogin' }),
     disableInStorage() {
       const oldValue = structuredClone(settings);
@@ -277,7 +278,7 @@ test('Bili Daily Login waits when no regular Chrome window is open', async () =>
   }
 });
 
-test('Bili Daily Login verifies completion and does not repeat after a restart', async () => {
+test('Bili Daily Login uses one request for concurrent alarms and does not repeat after a restart', async () => {
   const local = storageArea();
   const createdAlarms = [];
   const requests = [];
@@ -318,9 +319,12 @@ test('Bili Daily Login verifies completion and does not repeat after a restart',
   };
   try {
     const product = createBiliDailyLoginProduct(platform);
-    await product.handleAlarm({ name: 'satellites:biliDailyLogin' });
+    await Promise.all([
+      product.handleAlarm({ name: 'satellites:biliDailyLogin' }),
+      product.handleAlarm({ name: 'satellites:biliDailyLogin' }),
+      product.ensureSchedule()
+    ]);
     assert.deepEqual(requests, [
-      'https://api.bilibili.com/x/web-interface/nav',
       'https://api.bilibili.com/x/member/web/exp/reward'
     ]);
     assert.equal(local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30');
@@ -333,14 +337,16 @@ test('Bili Daily Login verifies completion and does not repeat after a restart',
     Date.now = () => Date.parse('2026-08-30T12:00:00Z');
     const restarted = createBiliDailyLoginProduct(platform);
     await restarted.handleAlarm({ name: 'satellites:biliDailyLogin' });
-    assert.equal(requests.length, 2, 'the same day never starts a second account check');
-    assert.deepEqual(ruleUpdates[1].addRules[0].condition, {
+    assert.equal(requests.length, 1, 'the same day never starts a second account check');
+    const installedRules = ruleUpdates.flatMap(update => update.addRules || []);
+    assert.equal(installedRules.length, 1);
+    assert.deepEqual(installedRules[0].condition, {
       initiatorDomains: ['cosmic-gemini-test'],
       requestDomains: ['api.bilibili.com'],
-      regexFilter: '^https://api\\.bilibili\\.com/x/(web-interface/nav|member/web/exp/reward)(?:\\?.*)?$',
+      regexFilter: '^https://api\\.bilibili\\.com/x/member/web/exp/reward(?:\\?.*)?$',
       resourceTypes: ['xmlhttprequest']
     });
-    assert.deepEqual(ruleUpdates[1].addRules[0].action.requestHeaders, [
+    assert.deepEqual(installedRules[0].action.requestHeaders, [
       { operation: 'set', header: 'Origin', value: 'https://www.bilibili.com' },
       { operation: 'set', header: 'Referer', value: 'https://www.bilibili.com/' }
     ]);
@@ -350,3 +356,32 @@ test('Bili Daily Login verifies completion and does not repeat after a restart',
     Date.now = originalNow;
   }
 });
+
+for (const [name, response] of [
+  ['signed out', { code: -101 }],
+  ['incomplete login', { code: 0, data: { login: false } }],
+  ['missing status', { code: 0 }],
+  ['invalid status', { code: 0, data: { login: 'true' } }],
+  ['network failure', null]
+]) {
+  test(`Bili Daily Login makes one attempt after ${name} and waits for the next day`, async t => {
+    const f = dailyFixture(t);
+    let requests = 0;
+    globalThis.fetch = async () => {
+      requests += 1;
+      if (response === null) throw new TypeError('Network unavailable');
+      return { ok: true, async json() { return response; } };
+    };
+    await Promise.all([f.start(), f.start()]);
+    await f.start();
+    await f.product.ensureSchedule();
+    assert.equal(requests, 1);
+    assert.equal(f.local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-30');
+    assert.equal(f.settings.biliDailyLogin.lastCompletedDate, '');
+    assert.equal(f.alarms.at(-1).options.when, Date.parse('2026-08-31T02:05:00Z'));
+    Date.now = () => Date.parse('2026-08-31T04:00:00Z');
+    await f.start();
+    assert.equal(requests, 2, 'a new day can make its own single attempt');
+    assert.equal(f.local.values[BILI_DAILY_ATTEMPT_KEY], '2026-08-31');
+  });
+}

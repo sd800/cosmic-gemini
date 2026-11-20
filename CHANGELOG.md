@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.20.1 (504) — 2026-11-20
+
+Reduce duplicate account activity during Bili Daily Login.
+
+- Replace the consecutive account and reward queries with one authenticated daily-reward request that also reports login completion.
+- Keep attempts limited to one request per Bilibili calendar day, including concurrent alarms, browser restarts, setting changes, and failed responses.
+
 ## 26.11.18.1 (503) — 2026-11-18
 
 Keep manually requested pronunciation and read-aloud audio available with No Autoplay enabled.

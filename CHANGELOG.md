@@ -2,6 +2,13 @@
 
 [Simplified Chinese](CHANGELOG_zh.md)
 
+## 26.11.23.1 (505) — 2026-11-23
+
+Let users start videos from their covers and custom controls with No Autoplay enabled.
+
+- Match cover clicks and keyboard input to the video inside the same component, including nested or closed Shadow DOM and players created on demand.
+- Honor explicit player targets across Shadow DOM boundaries and keep unrelated playback requests blocked.
+
 ## 26.11.20.1 (504) — 2026-11-20
 
 Reduce duplicate account activity during Bili Daily Login.

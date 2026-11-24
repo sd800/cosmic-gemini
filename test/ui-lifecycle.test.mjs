@@ -63,6 +63,11 @@ function surface(path) {
 }
 function imageSurface() {
   const f = surface('workspaces/image-download/image-download.js');
+  f.context.IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
   const prefix = f.source.slice(0, f.source.indexOf("\nfor (const input of document.querySelectorAll('#search,"));
   const suspend = f.source.slice(f.source.indexOf('\nfunction suspendWorkspace()'));
   vm.runInContext(prefix + suspend + `
@@ -121,7 +126,9 @@ test('an initial Image Download handoff cannot retry into a restored workspace',
   assert.equal(f.api.state.active, true, 'the restored view retains its own state until fresh readback');
 });
 test('retired Image Download cards cannot publish metadata or poison restored candidates', () => {
-  const f = imageSurface(), candidate = { id: 'one', url: 'https://example.com/a.png', width: 1, height: 1 };
+  const f = imageSurface();
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"/>';
+  const candidate = { id: 'one', url: 'data:image/svg+xml,' + encodeURIComponent(svg), width: 1, height: 1 };
   const group = { id: 'one', recommended: candidate, candidates: [candidate] };
   const card = f.api.createCard(group, 0), image = card.children[0].children[0];
   image.naturalWidth = image.naturalHeight = 2;

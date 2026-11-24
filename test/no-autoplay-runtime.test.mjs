@@ -813,6 +813,20 @@ test('unplayed local intent does not authorize a newly inserted second visible m
   await video.play();
 });
 
+test('a rejected companion request cannot grant playback intent to a different player', async t => {
+  const { runtime, document } = await nativeControlsFixture(t);
+  document.body = {};
+  const media = [], { player } = surfacePlayer(document, media);
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [explicitControl(), player, document.body] });
+  const visible = new FakeVideo(), companion = new FakeAudio();
+  visible.rect = { width: 320, height: 180 };
+  visible.parentElement = companion.parentElement = player;
+  media.push(visible, companion);
+  await assert.rejects(companion.play(), { name: 'NotAllowedError' });
+  runtime.onUserIntent({ type: 'click', isTrusted: true, composedPath: () => [explicitControl('Ordinary action'), document.body] });
+  await assert.rejects(visible.play(), { name: 'NotAllowedError' });
+});
+
 test('media-free controls authorize only one Web Audio context, including Enhanced mode', async t => {
   const { runtime, context, configure, advance } = await nativeControlsFixture(t);
   for (const mode of ['standard', 'enhanced']) {

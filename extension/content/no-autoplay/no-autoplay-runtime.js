@@ -350,28 +350,40 @@
           return;
         }
       }
+      const { ids, root: targetRoot, targets } = this.controlTargets(path);
+      const declaredTargets = ids.length > 0;
+      const poster = !declaredTargets && path.find(node => node?.getAttribute?.('slot') === 'poster'
+        && node.parentElement?.hasAttribute?.('poster'));
+      if (poster) {
+        this.rememberSurfaceIntent(event, path, poster.parentElement);
+        return;
+      }
       const controls = path.filter(node => this.isPlaybackControl(node));
-      const targetInfo = this.controlTargets(path), targets = targetInfo.targets;
-      const declaredTargets = targetInfo.ids.length > 0;
       const audioOnly = !declaredTargets && controls.some(node => {
         const label = this.controlText(node).toLowerCase();
         return (AUDIO_PLAYBACK_TEXT.test(label) || /(^|\W)audio(?=$|\W)|音频|音頻/.test(label)) && !/video|视频/.test(label);
       });
       if (controls.length || targets.length) {
         const now = performance.now(), deadline = now + ASSOCIATED_MEDIA_INTENT_MS;
-        const scopes = this.localScopes(path);
+        // A control in a component must not select a sibling player from an
+        // ancestor shared by both components.
+        const shadowBoundary = path.findLast(node => node?.nodeType === 11 && node.host)?.host;
+        const scopes = this.localScopes(path, shadowBoundary);
+        const localShadow = !!shadowBoundary || scopes.some(node => node.shadowRoot);
         // Explicit ARIA targets take precedence over an unrelated nearby player.
         const association = declaredTargets ? targets : scopes;
+        const documentFallback = !declaredTargets && !localShadow && controls.length > 0;
         this.controlIntent = { scopes: association.map(node => new WeakRef(node)), until: deadline, audioOnly,
           detachedAudioUntil: audioOnly ? now + CONTROL_INTENT_MS : -1,
-          targets: declaredTargets ? { ids: targetInfo.ids, root: new WeakRef(targetInfo.root) } : null };
+          targets: declaredTargets ? { ids, root: new WeakRef(targetRoot) } : null };
         const media = this.associatePlaybackIntent(association, deadline, { allowHidden: true,
-          documentFallback: !declaredTargets && controls.length > 0, audioOnly });
+          documentFallback, audioOnly });
         if (media) this.controlIntent = null;
+        else if (localShadow && !declaredTargets && !audioOnly) this.rememberSurfaceIntent(event, path);
         // Media permissions are always scoped. A media-free audio control can
         // start one Web Audio context, rather than unlocking every context.
         if (!media && !declaredTargets && !association.some(node => this.mediaCandidates(node, audioOnly).any)) {
-          this.controlIntent.documentFallback = !this.mediaCandidates(document, audioOnly).any;
+          this.controlIntent.documentFallback = documentFallback && !this.mediaCandidates(document, audioOnly).any;
           this.userIntentUntil = now + CONTROL_INTENT_MS;
         }
         return;
@@ -393,11 +405,12 @@
       return false;
     }
 
-    localScopes(path) {
+    localScopes(path, boundary = null) {
       const scopes = [];
       for (const node of path.slice(0, MAX_ASSOCIATION_PATH_DEPTH)) {
         if (node === document || node === document.body || node === document.documentElement) break;
         if (node && (node instanceof HTMLMediaElement || typeof node.querySelectorAll === 'function')) scopes.push(node);
+        if (node === boundary) break;
       }
       return scopes;
     }
@@ -415,7 +428,7 @@
       return { ids, root, targets };
     }
 
-    rememberSurfaceIntent(event, path) {
+    rememberSurfaceIntent(event, path, posterHost = null) {
       // Unlabelled covers can be the real play control. Keep weak local scopes
       // and the input point; inspect media only if playback is actually requested.
       // Do not scan the page or grant a page-wide audio/video permission on clicks.
@@ -431,12 +444,21 @@
         x = rect.left + rect.width / 2; y = rect.top + rect.height / 2;
       }
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      const scopes = [];
-      for (const node of path.slice(0, MAX_ASSOCIATION_PATH_DEPTH)) {
-        if (node === document || node === document.body || node === document.documentElement) break;
-        if (typeof node?.contains === 'function' && typeof node.querySelectorAll === 'function') scopes.push(new WeakRef(node));
+      const scopes = (posterHost ? [posterHost] : this.localScopes(path)).map(node => new WeakRef(node));
+      if (scopes.length) this.surfaceIntent = {
+        x, y, scopes, posterHost: posterHost ? new WeakRef(posterHost) : null,
+        until: performance.now() + ASSOCIATED_MEDIA_INTENT_MS
+      };
+    }
+
+    shadowMediaScope(media, scope, includeDescendantHosts = false) {
+      const innerRoot = media.getRootNode?.();
+      let root = innerRoot;
+      for (let depth = 0; root?.host && depth < MAX_ASSOCIATION_PATH_DEPTH; depth += 1) {
+        if (scope === root || scope === root.host || (includeDescendantHosts && scope.contains?.(root.host))) return innerRoot;
+        root = root.host.getRootNode?.();
       }
-      if (scopes.length) this.surfaceIntent = { x, y, scopes, until: performance.now() + ASSOCIATED_MEDIA_INTENT_MS };
+      return null;
     }
 
     hasSurfaceIntent(media) {
@@ -444,21 +466,24 @@
       if (!intent) return false;
       if (intent.until <= performance.now()) { this.surfaceIntent = null; return false; }
       if (!(media instanceof HTMLMediaElement) || media.isConnected === false) return false;
+      const posterHost = intent.posterHost?.deref();
+      if (intent.posterHost && (!posterHost?.isConnected || !(media instanceof HTMLVideoElement))) return false;
       let rect;
-      try { rect = media.getBoundingClientRect?.(); } catch { return false; }
+      try { rect = (posterHost || media).getBoundingClientRect?.(); } catch { return false; }
       if (!rect || !(rect.width >= 16 && rect.height >= 16
         && intent.x >= rect.left && intent.x <= rect.right && intent.y >= rect.top && intent.y <= rect.bottom)) return false;
       for (const reference of intent.scopes) {
         const scope = reference.deref();
         try {
-          if (!scope?.contains(media)) continue;
-          let found = null;
-          for (const candidate of scope.querySelectorAll('video,audio')) {
-            if (candidate !== media && !this.isVisibleMedia(candidate)) continue;
-            if (found) return false;
-            found = candidate;
-          }
-          return found === media;
+          if (!scope) continue;
+          const shadow = this.shadowMediaScope(media, scope);
+          if (!shadow && !scope.contains?.(media)) continue;
+          // Use the requested media's actual tree, including nested or closed
+          // roots. A slotted poster can precede the video's visible layout.
+          const candidates = this.mediaCandidates(shadow || scope);
+          const match = !candidates.ambiguous && (posterHost ? candidates.visible || candidates.single : candidates.visible) === media;
+          if (match && (shadow || posterHost)) this.surfaceIntent = null;
+          return match;
         } catch {}
       }
       return false;
@@ -537,9 +562,20 @@
       for (const scope of scopes) {
         if (!scope || scope === document.body || scope === document.documentElement || scope === document) continue;
         try {
-          if (scope !== media && !scope?.contains?.(media)) continue;
-          const candidate = this.associatePlaybackIntent([scope], intent.until, { allowHidden: true, audioOnly: intent.audioOnly });
-          return candidate === media;
+          if (scope === media || scope.contains?.(media)) {
+            const candidates = this.mediaCandidates(scope, intent.audioOnly);
+            if (candidates.ambiguous || (candidates.visible || candidates.single) !== media) return false;
+            this.rememberPlayerIntent(scope, media, intent.until, intent.audioOnly ? null : candidates);
+            return true;
+          }
+          // Explicit targets can contain a video in a different DOM tree.
+          if (!intent.targets) continue;
+          const shadow = this.shadowMediaScope(media, scope, true);
+          if (!shadow) continue;
+          const candidates = this.mediaCandidates(shadow);
+          if (candidates.ambiguous || (candidates.visible || candidates.single) !== media) return false;
+          this.controlIntent = null;
+          return true;
         } catch {}
       }
       if (intent.documentFallback) {

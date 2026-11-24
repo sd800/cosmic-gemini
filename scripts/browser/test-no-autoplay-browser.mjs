@@ -79,6 +79,46 @@ try {
       ${path==='/intent-audio-local'?"root.querySelector('#trigger').removeAttribute('aria-controls');root.querySelector('#caption').textContent='Listen to audio';":''}
       root.querySelector('#trigger').onclick=()=>setTimeout(async()=>{try{await (window.targetMedia||create()).play();}catch(error){window.intentError=error.name;}},lazy?2100:0);
       </script>`});
+    if(path.startsWith('/shadow-cover'))return route.fulfill({contentType:'text/html',body:`<!doctype html><title>Shadow media fixture</title>
+      <style>
+        #player{position:relative;width:320px;height:180px}
+        x-video{display:block;width:320px;height:180px}
+        #cover{position:absolute;inset:0;display:grid;place-items:center;background:#3458;cursor:pointer}
+      </style>
+      <button id="toolbar" aria-controls="target">Play video</button>
+      <div id="cluster"><div id="player"><x-video id="target" poster="/preview"><button id="cover" slot="poster">▶</button></x-video></div></div>
+      <x-video id="other"></x-video>
+      <script>
+        const closed=${path==='/shadow-cover-closed'||path==='/shadow-cover-internal'};
+        const hidden=${path==='/shadow-cover-hidden'},internal=${path==='/shadow-cover-internal'};
+        const ambiguous=${path==='/shadow-cover-ambiguous'},named=${path==='/shadow-cover-named'};
+        function createPlayer(host, mode){
+          const root=host.attachShadow({mode});
+          root.innerHTML='<style>:host{position:relative}video{display:block;width:100%;height:100%}</style>'
+            +'<slot name="poster"></slot><x-media></x-media>';
+          const mediaHost=root.querySelector('x-media');
+          const mediaRoot=mediaHost.attachShadow({mode});
+          mediaRoot.innerHTML='<style>:host{display:block;width:100%;height:100%}video{width:100%;height:100%}</style>';
+          return {root,mediaRoot};
+        }
+        const target=createPlayer(document.querySelector('#target'),closed?'closed':'open');
+        const otherRoot=createPlayer(document.querySelector('#other'),'open');
+        function createVideo(root){
+          const video=document.createElement('video');video.src='/clip.webm';video.muted=true;video.loop=true;
+          root.append(video);return video;
+        }
+        window.otherVideo=createVideo(named?document.querySelector('#cluster'):otherRoot.mediaRoot);
+        window.attempt=async media=>{try{await media.play();return 'played';}catch(error){return error.name;}};
+        const cover=document.querySelector('#cover');
+        if(internal||named){cover.removeAttribute('slot');cover.style.cssText='position:absolute;inset:0;z-index:1';target.root.append(cover);}
+        if(named)cover.setAttribute('aria-label','Play video');
+        cover.onclick=document.querySelector('#toolbar').onclick=()=>setTimeout(async()=>{
+          window.video=createVideo(target.mediaRoot);video.hidden=hidden;
+          if(ambiguous)createVideo(target.mediaRoot);
+          window.result=await attempt(video);
+          if(result==='played'){cover.remove();video.hidden=false;}
+        },100);
+      </script>`});
     if(path.startsWith('/surface'))return route.fulfill({contentType:'text/html',body:`<!doctype html><title>Media surface fixture</title>
       <style>#frame{position:relative;width:640px;height:360px}video{width:100%;height:100%}#cover{position:absolute;inset:0;display:grid;place-items:center;background:#3458;cursor:pointer}#other{display:none}</style>
       <div id="frame"><div id="cover">▶</div></div><video id="other" src="/clip.webm" muted></video>
@@ -255,6 +295,31 @@ try {
   await setMode('noAutoplay','inactive');
   await page.waitForFunction(key=>!window[Symbol.for(key)],naKey);
 
+  for(const [mode,path] of [
+    ['standard','/shadow-cover-closed'],['standard','/shadow-cover-hidden'],['enhanced','/shadow-cover-hidden'],
+    ['standard','/shadow-cover-internal'],['standard','/shadow-cover-toolbar'],['standard','/shadow-cover-named']
+  ]){
+    await setMode('noAutoplay',mode);await page.goto('https://media-controls.test'+path);
+    await page.waitForFunction(({key,mode})=>window[Symbol.for(key)]?.mode===mode,{key:naKey,mode});
+    assert.equal(await page.evaluate(()=>attempt(otherVideo)),'NotAllowedError');
+    if(path.endsWith('toolbar'))await page.locator('#toolbar').click();
+    else if(path.endsWith('internal'))await page.locator('#target').click();
+    else if(path.endsWith('hidden')&&mode==='standard'){
+      await page.locator('#cover').focus();await page.keyboard.press('Enter');
+    }else await page.locator('#cover').click();
+    await page.waitForFunction(()=>window.result);
+    assert.equal(await page.evaluate(()=>result),'played',mode+' '+path);
+    await page.waitForFunction(()=>!video.paused&&video.currentTime>0);
+    assert.equal(await page.evaluate(()=>attempt(otherVideo)),'NotAllowedError');
+    await page.evaluate(async()=>{video.pause();await video.play();});
+    console.log('PASS: No Autoplay '+mode+'; '+path.slice(1)+' starts only its own video and supports replay.');
+  }
+  await page.goto('https://media-controls.test/shadow-cover-ambiguous');
+  await page.waitForFunction(key=>window[Symbol.for(key)]?.mode==='standard',naKey);
+  await page.locator('#cover').click();
+  await page.waitForFunction(()=>window.result);
+  assert.equal(await page.evaluate(()=>result),'NotAllowedError','an ambiguous shadow tree grants no playback permission');
+
   for(const mode of ['standard','enhanced']){
     await setMode('noAutoplay',mode);await page.goto('https://media-controls.test/pronunciation');
     await page.waitForFunction(key=>window[Symbol.for(key)]?.active,naKey);
@@ -333,6 +398,6 @@ try {
   const previousReadme=await readFile(readmePath,'utf8').catch(()=> '');
   const notesStart=previousReadme.indexOf('\n## ');
   const retainedNotes=notesStart<0?'':previousReadme.slice(notesStart);
-  await writeFile(readmePath,`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unlabelled covers over existing/lazy media, surface source resets, Enhanced lazy-player activation, external/late ARIA targets, hidden audio, detached pronunciation audio via mouse/keyboard and delayed creation, open Shadow DOM, child frames, immediate unrelated-player denial, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Playback coverage also includes linked Web Audio clock progression through factory and constructor associations, companion audio, source/quality changes, manual Enhanced-mode exemptions, and managed-player floating/reparenting without hiding or reloading. Unit tests cover surface geometry, keyboard activation, navigation/ambiguity rejection, zero click-time subtree scans, one-context audio selection, missing-target and autoplay-option rejection, gesture expiry, document-lifetime authorization, audio permission changes, weak ownership beyond the strong map limit, Web Audio interruptions/rejections/aliases, reinjection, and wrapper ownership.\n`+retainedNotes);
+  await writeFile(readmePath,`# No Autoplay fixtures\n\nRun scripts/browser/test-no-autoplay-browser.mjs with PDF_VIEWER_PLAYWRIGHT and PDF_VIEWER_CHROME pointing to the local test runtime. It uses a disposable profile and serves all media in memory. native.webm is a reusable tiny synthetic VP8 clip, generated only if missing; the silent WAV is generated in RAM. No browsing/account content or logs are saved.\n\nCoverage: Native Scroll off/Standard/Enhanced with No Autoplay off/Standard, native video/audio controls, pause/replay, explicit and delayed custom controls, unlabelled covers over existing/lazy media, surface source resets, Enhanced lazy-player activation, external/late ARIA targets, hidden audio, detached pronunciation audio via mouse/keyboard and delayed creation, open and closed Shadow DOM, slotted and internal covers, nested and ambiguous players, child frames, immediate unrelated-player denial, unrelated click rejection, per-player permissions, keyboard, full screen, native attribute autoplay, Enhanced removal, and lifecycle cleanup. Playback coverage also includes linked Web Audio clock progression through factory and constructor associations, companion audio, source/quality changes, manual Enhanced-mode exemptions, and managed-player floating/reparenting without hiding or reloading. Unit tests cover surface geometry, keyboard activation, navigation/ambiguity rejection, zero click-time subtree scans, one-context audio selection, missing-target and autoplay-option rejection, gesture expiry, document-lifetime authorization, audio permission changes, weak ownership beyond the strong map limit, Web Audio interruptions/rejections/aliases, reinjection, and wrapper ownership.\n`+retainedNotes);
   console.log('PASS: Keyboard/fullscreen; manual video/Web Audio clocks; pause/replay and companion audio; independent autoplay denial; Enhanced manual-player exemption; cleanup and no page errors.');
 } finally {await context.close();await rm(folder,{recursive:true,force:true});}
